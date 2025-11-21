@@ -1,8 +1,17 @@
-import { registerRootComponent } from 'expo';
+// Import required polyfills first
+import 'react-native-get-random-values';
+import 'fast-text-encoding';
 
-import App from './App';
+// Set up Buffer and process globals
+import { Buffer } from 'buffer';
+global.Buffer = Buffer;
+(global as any).process = require('process');
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
-registerRootComponent(App);
+// Initialize crypto after Buffer is available
+// import 'react-native-crypto'; // Removed to avoid native module crash
+
+// Then Ethersproject shims
+import '@ethersproject/shims';
+
+// Then import the expo router
+import 'expo-router/entry';
