@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { PrivyProvider } from '@privy-io/expo';
 import Constants from 'expo-constants';
-import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
+import { useFonts, RethinkSans_400Regular, RethinkSans_600SemiBold, RethinkSans_700Bold } from '@expo-google-fonts/rethink-sans';
 import { View, ActivityIndicator } from 'react-native';
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
@@ -9,10 +9,9 @@ const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.en
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
-        Outfit_400Regular,
-        Outfit_500Medium,
-        Outfit_600SemiBold,
-        Outfit_700Bold,
+        RethinkSans_400Regular,
+        RethinkSans_600SemiBold,
+        RethinkSans_700Bold,
     });
 
     if (!fontsLoaded) {

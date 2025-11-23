@@ -11,26 +11,37 @@ const router = Router();
  */
 router.post('/register', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { email, walletAddresses } = req.body;
+        const { email, firstName, lastName, walletAddresses } = req.body;
         const privyId = req.user!.privyId;
 
-        // Check if user already exists
-        const { data: existingUser, error: findError } = await supabase
+        console.log('Registration request:', { email, firstName, lastName, walletAddresses });
+
+        // Check if user already exists by privy_id or email
+        const { data: existingUsers, error: findError } = await supabase
             .from('users')
             .select('*')
-            .eq('privy_id', privyId)
-            .single();
+            .or(`privy_id.eq.${privyId},id.eq.${email}`);
 
-        if (findError && findError.code !== 'PGRST116') { // PGRST116 is "The result contains 0 rows"
+        if (findError) {
             throw new AppError(`Database error: ${findError.message}`, 500);
         }
 
-        let user = existingUser;
+        let user = existingUsers && existingUsers.length > 0 ? existingUsers[0] : null;
 
         if (!user) {
             // Create new user
             // Use email as the ID as requested
             const userId = email;
+
+            console.log('Creating new user with data:', {
+                id: userId,
+                privy_id: privyId,
+                email,
+                first_name: firstName,
+                last_name: lastName,
+                ethereum_wallet_address: walletAddresses?.ethereum,
+                solana_wallet_address: walletAddresses?.solana,
+            });
 
             const { data: newUser, error: createError } = await supabase
                 .from('users')
@@ -38,8 +49,9 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                     id: userId, // Explicitly set ID to email
                     privy_id: privyId,
                     email,
-                    base_wallet_address: walletAddresses?.base,
-                    celo_wallet_address: walletAddresses?.celo,
+                    first_name: firstName,
+                    last_name: lastName,
+                    ethereum_wallet_address: walletAddresses?.ethereum,
                     solana_wallet_address: walletAddresses?.solana,
                     last_login: new Date().toISOString(),
                 })
@@ -56,8 +68,7 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                 .from('users')
                 .update({
                     last_login: new Date().toISOString(),
-                    base_wallet_address: walletAddresses?.base || user.base_wallet_address,
-                    celo_wallet_address: walletAddresses?.celo || user.celo_wallet_address,
+                    ethereum_wallet_address: walletAddresses?.ethereum || user.ethereum_wallet_address,
                     solana_wallet_address: walletAddresses?.solana || user.solana_wallet_address,
                 })
                 .eq('id', user.id)
@@ -77,8 +88,7 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                     id: user.id,
                     email: user.email,
                     wallets: {
-                        base: user.base_wallet_address,
-                        celo: user.celo_wallet_address,
+                        ethereum: user.ethereum_wallet_address,
                         solana: user.solana_wallet_address,
                     },
                     createdAt: user.created_at,

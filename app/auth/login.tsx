@@ -10,10 +10,14 @@ import { Typography } from '../../styles/typography';
 export default function LoginScreen() {
     const router = useRouter();
     const [email, setEmail] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const { sendCode } = useLoginWithEmail();
 
     const handleLogin = async () => {
+        if (isLoading) return; // Prevent multiple submissions
+
         try {
+            setIsLoading(true);
             // First, check if user exists in Supabase
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
             const response = await fetch(`${apiUrl}/api/auth/check-user?email=${encodeURIComponent(email)}`);
@@ -44,8 +48,12 @@ export default function LoginScreen() {
         } catch (error: any) {
             console.error('Login failed:', error);
             Alert.alert('Error', error.message || 'Failed to send login code. Please try again.');
+        } finally {
+            setIsLoading(false);
         }
     };
+
+    const isValid = email && !isLoading;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -74,11 +82,11 @@ export default function LoginScreen() {
 
                         <View style={styles.footer}>
                             <TouchableOpacity
-                                style={[styles.button, !email && styles.buttonDisabled]}
+                                style={[styles.button, !isValid && styles.buttonDisabled]}
                                 onPress={handleLogin}
-                                disabled={!email}
+                                disabled={!isValid}
                             >
-                                <Text style={styles.buttonText}>Continue</Text>
+                                <Text style={styles.buttonText}>{isLoading ? 'Logging in...' : 'Continue'}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

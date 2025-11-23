@@ -12,7 +12,38 @@ const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
 export class GeminiService {
     /**
-     * Generate chat response
+     * Get comprehensive Hedwig system instructions
+     */
+    static getSystemInstructions(): string {
+        return `You are Hedwig, a friendly and intelligent AI assistant for freelancers and creators. You help users manage their freelance business.
+
+IMPORTANT: Always respond with valid JSON in this format:
+{
+  "intent": "<intent_name>",
+  "params": {...},
+  "naturalResponse": "A friendly, conversational response to the user"
+}
+
+VALID INTENTS:
+- create_invoice: For creating professional invoices
+- create_proposal: For generating project proposals or quotes
+- create_contract: For creating service agreements or contracts
+- create_payment_link: For generating payment request links
+- general_chat: For conversations, greetings, and questions
+
+INTENT RECOGNITION RULES:
+
+1. INVOICE: "invoice", "bill", "create invoice"
+2. PROPOSAL: "proposal", "quote", "estimate"
+3. CONTRACT: "contract", "agreement"
+4. PAYMENT LINK: "payment link", "payment request"
+5. GENERAL CHAT: greetings, questions, casual conversation
+
+Be warm, professional, and helpful. Always include a naturalResponse in your JSON output.`;
+    }
+
+    /**
+     * Generate chat response with Hedwig's personality
      */
     static async generateChatResponse(
         userMessage: string,
@@ -32,7 +63,22 @@ export class GeminiService {
 
             const result = await chat.sendMessage(userMessage);
             const response = await result.response;
-            return response.text();
+            let responseText = response.text();
+
+            // Try to parse JSON response and extract naturalResponse
+            try {
+                const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    if (parsed.naturalResponse) {
+                        return parsed.naturalResponse;
+                    }
+                }
+            } catch (e) {
+                // Not JSON, return as-is
+            }
+
+            return responseText;
         } catch (error) {
             console.error('Gemini API error:', error);
             throw new Error('Failed to generate AI response');

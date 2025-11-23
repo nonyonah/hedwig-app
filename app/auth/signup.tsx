@@ -12,19 +12,32 @@ export default function SignupScreen() {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const { sendCode } = useLoginWithEmail();
 
     const handleSignup = async () => {
+        if (isLoading) return; // Prevent multiple submissions
+
         try {
+            setIsLoading(true);
             await sendCode({ email });
-            router.push({ pathname: '/auth/verify', params: { email } });
+            router.push({
+                pathname: '/auth/verify',
+                params: {
+                    email,
+                    firstName,
+                    lastName
+                }
+            });
         } catch (error: any) {
             console.error('Signup failed:', error);
             Alert.alert('Error', error.message || 'Failed to create account. Please try again.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const isValid = firstName && lastName && email;
+    const isValid = firstName && lastName && email && !isLoading;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -71,7 +84,7 @@ export default function SignupScreen() {
                                 onPress={handleSignup}
                                 disabled={!isValid}
                             >
-                                <Text style={styles.buttonText}>Continue</Text>
+                                <Text style={styles.buttonText}>{isLoading ? 'Creating account...' : 'Continue'}</Text>
                             </TouchableOpacity>
                         </View>
                     </ScrollView>

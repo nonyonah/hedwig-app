@@ -9,11 +9,16 @@ import { Typography } from '../../styles/typography';
 
 export default function VerifyScreen() {
     const router = useRouter();
-    const { email } = useLocalSearchParams<{ email: string }>();
+    const { email, firstName, lastName } = useLocalSearchParams<{
+        email: string;
+        firstName?: string;
+        lastName?: string;
+    }>();
     const { loginWithCode } = useLoginWithEmail();
-    const { getAccessToken } = usePrivy();
+    const { getAccessToken, user: currentUser } = usePrivy();
 
     const [otp, setOtp] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const inputRef = useRef<TextInput>(null);
 
     useEffect(() => {
@@ -24,15 +29,28 @@ export default function VerifyScreen() {
     }, []);
 
     const handleVerify = async () => {
-        if (otp.length !== 6) return;
+        if (otp.length !== 6 || isLoading) return;
 
         try {
-            const user = await loginWithCode({ code: otp, email });
+            setIsLoading(true);
+            let user: any = currentUser || null;
 
-            // Sync user with backend
+            console.log('Attempting verification with:', { email, otpLength: otp.length, isAlreadyAuthenticated: !!currentUser });
+
+            // Only call loginWithCode if not already authenticated
+            if (!currentUser) {
+                console.log('Calling loginWithCode...');
+                user = await loginWithCode({ code: otp, email });
+                console.log('Login successful!');
+            }
+
+            // Sync user with backend (without wallet addresses - they'll be added later in biometrics screen)
             if (user) {
                 const accessToken = await getAccessToken();
                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+                console.log('Syncing user to backend...', { email: user.email?.address || email });
+
                 const response = await fetch(`${apiUrl}/api/auth/register`, {
                     method: 'POST',
                     headers: {
@@ -40,11 +58,10 @@ export default function VerifyScreen() {
                         'Authorization': `Bearer ${accessToken}`,
                     },
                     body: JSON.stringify({
-                        email: (user as any).email?.address,
-                        walletAddresses: {
-                            base: (user as any).wallet?.address, // Assuming wallet is linked
-                            // Add other wallets if available from Privy user object
-                        }
+                        email: user.email?.address || email,
+                        firstName: firstName || '',
+                        lastName: lastName || '',
+                        walletAddresses: {} // Wallets will be added later in biometrics screen
                     }),
                 });
 
@@ -57,7 +74,18 @@ export default function VerifyScreen() {
             router.push('/auth/biometrics');
         } catch (error: any) {
             console.error('Verification failed:', error);
-            Alert.alert('Error', error.message || 'Verification failed. Please check the code and try again.');
+
+            // Provide more specific error messages
+            let errorMessage = 'Verification failed. Please check the code and try again.';
+            if (error.message?.includes('Invalid')) {
+                errorMessage = 'Invalid code. Please check your email and enter the correct 6-digit code.';
+            } else if (error.message?.includes('expired')) {
+                errorMessage = 'Code has expired. Please request a new code.';
+            }
+
+            Alert.alert('Error', errorMessage);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -116,11 +144,11 @@ export default function VerifyScreen() {
 
                         <View style={styles.footer}>
                             <TouchableOpacity
-                                style={[styles.button, otp.length !== 6 && styles.buttonDisabled]}
+                                style={[styles.button, (otp.length !== 6 || isLoading) && styles.buttonDisabled]}
                                 onPress={handleVerify}
-                                disabled={otp.length !== 6}
+                                disabled={otp.length !== 6 || isLoading}
                             >
-                                <Text style={styles.buttonText}>Continue</Text>
+                                <Text style={styles.buttonText}>{isLoading ? 'Verifying...' : 'Continue'}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

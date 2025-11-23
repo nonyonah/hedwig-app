@@ -12,7 +12,7 @@ const router = Router();
 router.post('/message', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { message, conversationId } = req.body;
-        const userId = req.user!.id;
+        const privyUserId = req.user!.id;
 
         if (!message) {
             res.status(400).json({
@@ -21,6 +21,23 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
             });
             return;
         }
+
+        // Look up user in database by privy_id to get their email (which is the user PK)
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('privy_id', privyUserId)
+            .single();
+
+        if (userError || !userData) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found in database' },
+            });
+            return;
+        }
+
+        const userId = userData.email; // email is the primary key
 
         // Find or create conversation
         let conversation;

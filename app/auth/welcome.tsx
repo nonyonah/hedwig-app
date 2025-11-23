@@ -72,7 +72,6 @@ const styles = StyleSheet.create({
     },
     loginButtonText: {
         ...Typography.button,
-        fontFamily: 'Outfit_600SemiBold', // Override if needed, but Typography.button has it
     },
     createAccountButton: {
         backgroundColor: Colors.primary,

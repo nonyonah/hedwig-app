@@ -21,7 +21,7 @@ export const privyConfig = {
     },
     loginMethods: ['google', 'apple'],
     embeddedWallets: {
-        createOnLogin: 'users-without-wallets',
+        createOnLogin: 'all-users', // Automatically create wallets for all users on login
         requireUserPasswordOnCreate: false,
     },
     supportedChains: [CHAINS.BASE, CHAINS.CELO],
