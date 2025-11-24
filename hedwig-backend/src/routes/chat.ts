@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
-import GeminiService from '../services/gemini';
+import { GeminiService } from '../services/gemini';
+import { handleAction } from '../services/actions';
 
 const router = Router();
 
@@ -93,9 +94,6 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
             content: message,
         });
 
-        // Detect intent
-        const intentResult = await GeminiService.detectIntent(message);
-
         // Prepare conversation history for context
         const history = messages.map((msg) => ({
             role: msg.role.toLowerCase(),
@@ -103,13 +101,26 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
         }));
 
         // Generate AI response
-        const aiResponse = await GeminiService.generateChatResponse(message, history);
+        const aiResponseObj = await GeminiService.generateChatResponse(message, history);
+
+        let finalResponseText = '';
+        let actionResult = null;
+
+        // Execute action if intent is present
+        if (aiResponseObj.intent && aiResponseObj.intent !== 'general_chat' && aiResponseObj.intent !== 'error') {
+            console.log(`[Chat] Executing action for intent: ${aiResponseObj.intent}`);
+            const result = await handleAction(aiResponseObj.intent, aiResponseObj.parameters, req.user);
+            actionResult = result;
+            finalResponseText = result.text || aiResponseObj.naturalResponse;
+        } else {
+            finalResponseText = aiResponseObj.naturalResponse || "I'm not sure how to help with that.";
+        }
 
         // Save AI response
         await supabase.from('messages').insert({
             conversation_id: conversation.id,
             role: 'ASSISTANT',
-            content: aiResponse,
+            content: finalResponseText,
         });
 
         // Update conversation updated_at
@@ -122,8 +133,9 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
             success: true,
             data: {
                 conversationId: conversation.id,
-                message: aiResponse,
-                intent: intentResult,
+                message: finalResponseText,
+                intent: aiResponseObj.intent,
+                actionResult: actionResult
             },
         });
     } catch (error) {

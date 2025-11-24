@@ -38,4 +38,19 @@ export const Typography = StyleSheet.create({
         fontSize: 16,
         color: '#6B7280',
     },
+    caption: {
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 12,
+        color: '#6B7280',
+    },
+    h3: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 20,
+        color: '#000000',
+    },
+    h4: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 18,
+        color: '#000000',
+    },
 });

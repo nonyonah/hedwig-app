@@ -1,4 +1,5 @@
 import express, { Application, Request, Response } from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
@@ -16,6 +17,7 @@ import transactionRoutes from './routes/transaction';
 import offrampRoutes from './routes/offramp';
 import clientRoutes from './routes/client';
 import projectRoutes from './routes/project';
+import conversationsRoutes from './routes/conversations';
 import webhookRoutes from './routes/webhook';
 
 // Import middleware
@@ -63,10 +65,23 @@ app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/conversations', conversationsRoutes);
 app.use('/api/offramp', offrampRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/webhooks', webhookRoutes);
+
+// Serve static files
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Web Viewer Routes
+app.get('/invoice/:id', (_req: Request, res: Response) => {
+    res.sendFile(path.join(__dirname, '../public/invoice.html'));
+});
+
+app.get('/payment-link/:id', (_req: Request, res: Response) => {
+    res.sendFile(path.join(__dirname, '../public/payment-link.html'));
+});
 
 // 404 handler
 app.use(notFound);

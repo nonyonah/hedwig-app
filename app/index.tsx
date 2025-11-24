@@ -1,9 +1,14 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback, LayoutAnimation } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import { usePrivy } from '@privy-io/expo';
-import { List, Bell, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat } from 'phosphor-react-native';
+
+import { usePrivy, useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
+import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork } from 'phosphor-react-native';
+import {
+    NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
+    TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
+} from '../components/CryptoIcons';
 import { Colors } from '../theme/colors';
 import { Metrics } from '../theme/metrics';
 import { Typography } from '../styles/typography';
@@ -17,14 +22,110 @@ interface Message {
     createdAt: string;
 }
 
+interface ChainInfo {
+    name: string;
+    icon: React.FC<any>;
+    color: string;
+    addressType: 'evm' | 'solana';
+    tokens: { symbol: string; icon: React.FC<any> }[];
+}
+
+const SUPPORTED_CHAINS: ChainInfo[] = [
+    {
+        name: 'Base',
+        icon: NetworkBase,
+        color: '#0052FF',
+        addressType: 'evm',
+        tokens: [
+            { symbol: 'ETH', icon: TokenETH },
+            { symbol: 'USDC', icon: TokenUSDC }
+        ]
+    },
+    {
+        name: 'Solana',
+        icon: NetworkSolana,
+        color: '#9945FF',
+        addressType: 'solana',
+        tokens: [
+            { symbol: 'SOL', icon: TokenSOL },
+            { symbol: 'USDC', icon: TokenUSDC },
+            { symbol: 'USDT', icon: TokenUSDT }
+        ]
+    },
+    {
+        name: 'Celo',
+        icon: NetworkCelo,
+        color: '#35D07F',
+        addressType: 'evm',
+        tokens: [
+            { symbol: 'CELO', icon: TokenCELO },
+            { symbol: 'cUSD', icon: TokenCUSD },
+            { symbol: 'cNGN', icon: TokenCNGN }
+        ]
+    },
+    {
+        name: 'Lisk',
+        icon: NetworkLisk,
+        color: '#0D1D2D',
+        addressType: 'evm',
+        tokens: [
+            { symbol: 'ETH', icon: TokenETH },
+            { symbol: 'USDT', icon: TokenUSDT }
+        ]
+    },
+    {
+        name: 'Optimism',
+        icon: NetworkOptimism,
+        color: '#FF0420',
+        addressType: 'evm',
+        tokens: [
+            { symbol: 'ETH', icon: TokenETH },
+            { symbol: 'USDC', icon: TokenUSDC }
+        ]
+    },
+    {
+        name: 'Polygon',
+        icon: NetworkPolygon,
+        color: '#8247E5',
+        addressType: 'evm',
+        tokens: [
+            { symbol: 'MATIC', icon: TokenMATIC },
+            { symbol: 'USDC', icon: TokenUSDC }
+        ]
+    },
+    {
+        name: 'Arbitrum',
+        icon: NetworkArbitrumOne,
+        color: '#2D374B',
+        addressType: 'evm',
+        tokens: [
+            { symbol: 'ETH', icon: TokenETH },
+            { symbol: 'USDC', icon: TokenUSDC }
+        ]
+    },
+];
+
 export default function HomeScreen() {
     const router = useRouter();
     const { isReady, user, logout, getAccessToken } = usePrivy();
+    const ethereumWallet = useEmbeddedEthereumWallet();
+    const solanaWallet = useEmbeddedSolanaWallet();
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
+    const [isQuickActionsRendered, setIsQuickActionsRendered] = useState(false);
+    const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+    const [isProfileModalRendered, setIsProfileModalRendered] = useState(false);
+    const [selectedChain, setSelectedChain] = useState<ChainInfo>(SUPPORTED_CHAINS[0]);
+    const [viewMode, setViewMode] = useState<'main' | 'assets' | 'chains'>('main');
+
+    // Animate view mode changes
+    useEffect(() => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }, [viewMode]);
+
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [displayedGreeting, setDisplayedGreeting] = useState('');
@@ -33,6 +134,20 @@ export default function HomeScreen() {
     const flatListRef = useRef<FlatList>(null);
     const sidebarAnim = useRef(new Animated.Value(-width * 0.8)).current;
     const messageAnimations = useRef<{ [key: string]: Animated.Value }>({}).current;
+    const walletModalAnim = useRef(new Animated.Value(height)).current;
+    const walletModalOpacity = useRef(new Animated.Value(0)).current;
+    const quickActionsAnim = useRef(new Animated.Value(height)).current;
+    const quickActionsOpacity = useRef(new Animated.Value(0)).current;
+
+    // Helper to render chain icon
+    const renderChainIcon = (Icon: React.FC<any>) => {
+        return <Icon width={24} height={24} />;
+    };
+
+    // Helper to render token icon
+    const renderTokenIcon = (Icon: React.FC<any>) => {
+        return <Icon width={32} height={32} />;
+    };
 
     // Sidebar animation
     useEffect(() => {
@@ -43,30 +158,113 @@ export default function HomeScreen() {
         }).start();
     }, [isSidebarOpen]);
 
+    // Wallet modal animation
+    useEffect(() => {
+        if (isProfileModalVisible) {
+            setIsProfileModalRendered(true);
+            Animated.parallel([
+                Animated.timing(walletModalOpacity, {
+                    toValue: 1,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(walletModalAnim, {
+                    toValue: 0,
+                    damping: 20,
+                    stiffness: 90,
+                    useNativeDriver: true,
+                })
+            ]).start();
+        } else {
+            Animated.parallel([
+                Animated.timing(walletModalOpacity, {
+                    toValue: 0,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(walletModalAnim, {
+                    toValue: height,
+                    damping: 20,
+                    stiffness: 90,
+                    useNativeDriver: true,
+                })
+            ]).start(() => {
+                setIsProfileModalRendered(false);
+            });
+        }
+    }, [isProfileModalVisible]);
+
+    // Quick actions modal animation
+    useEffect(() => {
+        if (isQuickActionsOpen) {
+            setIsQuickActionsRendered(true);
+            quickActionsOpacity.setValue(1); // Overlay appears instantly
+            Animated.spring(quickActionsAnim, {
+                toValue: 0,
+                damping: 20,
+                stiffness: 90,
+                useNativeDriver: true,
+            }).start();
+        } else {
+            Animated.parallel([
+                Animated.timing(quickActionsOpacity, {
+                    toValue: 0,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(quickActionsAnim, {
+                    toValue: height,
+                    damping: 20,
+                    stiffness: 90,
+                    useNativeDriver: true,
+                })
+            ]).start(() => {
+                setIsQuickActionsRendered(false);
+            });
+        }
+    }, [isQuickActionsOpen]);
+
     // Fetch user name and conversation history from backend
     useEffect(() => {
         const fetchUserData = async () => {
+            if (!user) {
+                console.log('User object is null, skipping fetch');
+                return;
+            }
+            console.log('Fetching user data for user:', user.id);
             try {
                 const token = await getAccessToken();
+                console.log('Got access token:', token ? 'Yes' : 'No');
                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
                 // Fetch user profile
-                const profileResponse = await fetch(`${apiUrl}/api/user/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                console.log('Fetching profile from:', `${apiUrl} /api/users / profile`);
+                const profileResponse = await fetch(`${apiUrl} /api/users / profile`, {
+                    headers: { 'Authorization': `Bearer ${token} ` },
                 });
+                console.log('Profile response status:', profileResponse.status);
+
                 const profileData = await profileResponse.json();
-                if (profileData.success && profileData.data.user) {
+                console.log('Profile data:', JSON.stringify(profileData, null, 2));
+
+                if (profileData.success && profileData.data) {
+                    // Check if user data is nested in 'user' property or directly in data
+                    const userData = profileData.data.user || profileData.data;
+                    console.log('Setting user name:', userData.firstName, userData.lastName);
                     setUserName({
-                        firstName: profileData.data.user.firstName || '',
-                        lastName: profileData.data.user.lastName || ''
+                        firstName: userData.firstName || '',
+                        lastName: userData.lastName || ''
                     });
+                } else {
+                    console.log('Profile fetch failed or no data:', profileData);
                 }
 
-                // Fetch conversation history (most recent 5)
-                const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations?limit=5`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                // Fetch conversation history
+                const conversationsResponse = await fetch(`${apiUrl} /api/conversations`, {
+                    headers: { 'Authorization': `Bearer ${token} ` },
                 });
                 const conversationsData = await conversationsResponse.json();
+                console.log('[Chat] Conversations fetched:', conversationsData);
                 if (conversationsData.success) {
                     setConversations(conversationsData.data.conversations || []);
                 }
@@ -74,7 +272,7 @@ export default function HomeScreen() {
                 console.error('Failed to fetch user data:', error);
             }
         };
-        if (user) fetchUserData();
+        fetchUserData();
     }, [user]);
 
     const getGreeting = () => {
@@ -85,7 +283,7 @@ export default function HomeScreen() {
         else timeGreeting = 'Good evening';
 
         const firstName = userName.firstName || (user as any)?.email?.address?.split('@')[0] || 'there';
-        return `${timeGreeting}, ${firstName}!`;
+        return `${timeGreeting}, ${firstName} !`;
     };
 
     // Typing animation for greeting
@@ -116,6 +314,38 @@ export default function HomeScreen() {
             router.replace('/auth/welcome');
         } catch (error) {
             console.error('Logout failed:', error);
+        }
+    };
+
+    const loadConversation = async (convId: string) => {
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+            console.log('[Chat] Loading conversation:', convId);
+            const response = await fetch(`${apiUrl} /api/conversations / ${convId}/messages`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+
+            const data = await response.json();
+            console.log('[Chat] Conversation messages:', data);
+
+            if (data.success && data.data.messages) {
+                // Transform messages to match our Message interface
+                const loadedMessages: Message[] = data.data.messages.map((msg: any) => ({
+                    id: msg.id,
+                    content: msg.content,
+                    role: msg.role.toLowerCase() as 'user' | 'assistant',
+                    createdAt: msg.created_at
+                }));
+
+                setMessages(loadedMessages);
+                setConversationId(convId);
+                setIsSidebarOpen(false);
+            }
+        } catch (error) {
+            console.error('[Chat] Error loading conversation:', error);
+            Alert.alert('Error', 'Failed to load conversation');
         }
     };
 
@@ -178,6 +408,90 @@ export default function HomeScreen() {
         }
     };
 
+    // Function to render message content with preview cards for links
+    const renderMessageContent = (content: string) => {
+        const linkRegex = /\/(invoice|payment-link)\/([a-zA-Z0-9_-]+)/g;
+        const parts: Array<{ type: 'text' | 'link'; value: string; path?: string; docType?: string; docId?: string }> = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = linkRegex.exec(content)) !== null) {
+            // Add text before the link
+            if (match.index > lastIndex) {
+                parts.push({ type: 'text', value: content.slice(lastIndex, match.index) });
+            }
+            // Add the link
+            parts.push({
+                type: 'link',
+                value: match[0],
+                path: match[0],
+                docType: match[1],
+                docId: match[2]
+            });
+            lastIndex = match.index + match[0].length;
+        }
+
+        // Add remaining text
+        if (lastIndex < content.length) {
+            parts.push({ type: 'text', value: content.slice(lastIndex) });
+        }
+
+        if (parts.length === 0) {
+            return <Text style={styles.aiMessageText} selectable>{content}</Text>;
+        }
+
+        return (
+            <>
+                <Text style={styles.aiMessageText} selectable>
+                    {parts.filter(p => p.type === 'text').map(p => p.value).join('')}
+                </Text>
+                {parts.filter(p => p.type === 'link').map((part, index) => (
+                    <View key={index} style={styles.linkPreviewCard}>
+                        <TouchableOpacity
+                            style={styles.linkPreviewContent}
+                            onPress={() => router.push(part.path!)}
+                        >
+                            <View style={styles.linkPreviewIconContainer}>
+                                <Text style={styles.linkPreviewIcon}>
+                                    {part.docType === 'invoice' ? '📄' : '💳'}
+                                </Text>
+                            </View>
+                            <View style={styles.linkPreviewInfo}>
+                                <Text style={styles.linkPreviewTitle}>
+                                    {part.docType === 'invoice' ? 'Invoice' : 'Payment Link'}
+                                </Text>
+                                <Text style={styles.linkPreviewSubtitle}>
+                                    Tap to view • ID: {part.docId?.substring(0, 8)}...
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                        <View style={styles.linkPreviewActions}>
+                            <TouchableOpacity
+                                style={styles.linkActionButton}
+                                onPress={async () => {
+                                    await Clipboard.setStringAsync(`${process.env.EXPO_PUBLIC_API_URL || ''}${part.path}`);
+                                    Alert.alert('Copied!', 'Link copied to clipboard');
+                                }}
+                            >
+                                <Copy size={16} color={Colors.primary} />
+                                <Text style={styles.linkActionText}>Copy</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.linkActionButton}
+                                onPress={() => {
+                                    Alert.alert('Share', 'Share functionality coming soon!');
+                                }}
+                            >
+                                <ShareNetwork size={16} color={Colors.primary} />
+                                <Text style={styles.linkActionText}>Share</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ))}
+            </>
+        );
+    };
+
     const renderMessage = ({ item, index }: { item: Message; index: number }) => {
         const isUser = item.role === 'user';
 
@@ -210,11 +524,11 @@ export default function HomeScreen() {
             <Animated.View style={[styles.messageContainer, isUser ? styles.userMessageContainer : styles.aiMessageContainer, animatedStyle]}>
                 {isUser ? (
                     <View style={styles.userBubble}>
-                        <Text style={styles.userMessageText}>{item.content}</Text>
+                        <Text style={styles.userMessageText} selectable>{item.content}</Text>
                     </View>
                 ) : (
                     <View style={styles.aiContainer}>
-                        <Text style={styles.aiMessageText}>{item.content}</Text>
+                        {renderMessageContent(item.content)}
                         <View style={styles.aiActions}>
                             <TouchableOpacity
                                 style={styles.actionIcon}
@@ -311,15 +625,15 @@ export default function HomeScreen() {
     }
 
     return (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <SafeAreaView style={styles.container}>
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)} style={styles.iconButton}>
                         <List size={24} color={Colors.textPrimary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconButton}>
-                        <Bell size={24} color={Colors.textPrimary} />
+                    <TouchableOpacity style={styles.iconButton} onPress={() => setIsProfileModalVisible(true)}>
+                        <UserCircle size={28} color={Colors.textPrimary} weight="fill" />
                     </TouchableOpacity>
                 </View>
 
@@ -341,7 +655,11 @@ export default function HomeScreen() {
                             keyExtractor={item => item.id}
                             contentContainerStyle={styles.messageList}
                             showsVerticalScrollIndicator={true}
+                            scrollEnabled={true}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
                             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                            removeClippedSubviews={false}
                         />
                     )}
                     {isLoading && (
@@ -376,19 +694,20 @@ export default function HomeScreen() {
                             <ArrowUp size={20} color={Colors.white} weight="bold" />
                         </TouchableOpacity>
                     </View>
-                </KeyboardAvoidingView>
+                </KeyboardAvoidingView >
 
                 {/* Sidebar Overlay */}
-                <Animated.View
-                    style={[
-                        styles.sidebarOverlay,
-                        {
-                            opacity: sidebarAnim.interpolate({
-                                inputRange: [-width * 0.8, 0],
-                                outputRange: [0, 1],
-                            }),
-                        }
-                    ]}
+                < Animated.View
+                    style={
+                        [
+                            styles.sidebarOverlay,
+                            {
+                                opacity: sidebarAnim.interpolate({
+                                    inputRange: [-width * 0.8, 0],
+                                    outputRange: [0, 1],
+                                }),
+                            }
+                        ]}
                     pointerEvents={isSidebarOpen ? 'auto' : 'none'}
                 >
                     <TouchableOpacity
@@ -419,12 +738,7 @@ export default function HomeScreen() {
                                                     styles.historyItem,
                                                     conv.id === conversationId && styles.historyItemActive
                                                 ]}
-                                                onPress={() => {
-                                                    // Load this conversation
-                                                    setConversationId(conv.id);
-                                                    // You would fetch messages for this conversation here
-                                                    setIsSidebarOpen(false);
-                                                }}
+                                                onPress={() => loadConversation(conv.id)}
                                             >
                                                 <Chat size={20} color={conv.id === conversationId ? Colors.primary : Colors.textSecondary} />
                                                 <View style={styles.historyItemText}>
@@ -471,21 +785,36 @@ export default function HomeScreen() {
                             </View>
                         </Animated.View>
                     </TouchableOpacity>
-                </Animated.View>
+                </Animated.View >
 
                 {/* Quick Actions Modal */}
-                <Modal
-                    visible={isQuickActionsOpen}
+                < Modal
+                    visible={isQuickActionsRendered}
                     transparent
-                    animationType="slide"
-                    onRequestClose={() => setIsQuickActionsOpen(false)}
+                    onRequestClose={() => setIsQuickActionsOpen(false)
+                    }
                 >
-                    <TouchableOpacity
-                        style={styles.modalOverlay}
-                        activeOpacity={1}
-                        onPress={() => setIsQuickActionsOpen(false)}
-                    >
-                        <View style={styles.quickActionsSheet}>
+                    <View style={[styles.modalOverlay, { backgroundColor: 'transparent' }]}>
+                        <Animated.View
+                            style={[
+                                StyleSheet.absoluteFill,
+                                {
+                                    backgroundColor: 'rgba(0,0,0,0.5)',
+                                    opacity: quickActionsOpacity
+                                }
+                            ]}
+                        />
+                        <TouchableOpacity
+                            style={StyleSheet.absoluteFill}
+                            activeOpacity={1}
+                            onPress={() => setIsQuickActionsOpen(false)}
+                        />
+                        <Animated.View
+                            style={[
+                                styles.quickActionsSheet,
+                                { transform: [{ translateY: quickActionsAnim }] }
+                            ]}
+                        >
                             <View style={styles.sheetHeader}>
                                 <Text style={styles.sheetTitle}>Menu</Text>
                                 <TouchableOpacity onPress={() => setIsQuickActionsOpen(false)} style={styles.closeButton}>
@@ -509,11 +838,201 @@ export default function HomeScreen() {
                                 <Scroll size={24} color={Colors.textPrimary} />
                                 <Text style={styles.actionText}>Contract</Text>
                             </TouchableOpacity>
-                        </View>
-                    </TouchableOpacity>
-                </Modal>
-            </SafeAreaView>
-        </TouchableWithoutFeedback>
+                        </Animated.View>
+                    </View>
+                </Modal >
+
+                {/* Profile Wallet Modal */}
+                < Modal
+                    visible={isProfileModalRendered}
+                    transparent={true}
+                    onRequestClose={() => setIsProfileModalVisible(false)}
+                >
+                    <View style={[styles.modalOverlay, { backgroundColor: 'transparent' }]}>
+                        <Animated.View
+                            style={[
+                                StyleSheet.absoluteFill,
+                                {
+                                    backgroundColor: 'rgba(0,0,0,0.5)',
+                                    opacity: walletModalOpacity
+                                }
+                            ]}
+                        />
+                        <TouchableOpacity
+                            style={StyleSheet.absoluteFill}
+                            activeOpacity={1}
+                            onPress={() => setIsProfileModalVisible(false)}
+                        />
+                        <Animated.View
+                            style={[
+                                styles.profileModalContent,
+                                { transform: [{ translateY: walletModalAnim }] }
+                            ]}
+                        >
+                            {/* Header */}
+                            <View style={styles.modalHeader}>
+                                <View style={styles.userInfo}>
+                                    <View style={styles.avatarContainer}>
+                                        <Text style={styles.avatarText}>
+                                            {userName.firstName ? userName.firstName[0].toUpperCase() : 'U'}
+                                        </Text>
+                                    </View>
+                                    <View>
+                                        <Text style={styles.profileName}>
+                                            {userName.firstName ? `${userName.firstName} ${userName.lastName}` : 'User'}
+                                        </Text>
+                                        <TouchableOpacity
+                                            style={styles.addressCopy}
+                                            onPress={() => {
+                                                const address = selectedChain.addressType === 'evm'
+                                                    ? (ethereumWallet.wallets?.[0]?.address || '0x...')
+                                                    : (solanaWallet.wallets?.[0]?.address || 'Not connected');
+
+                                                if (Platform.OS === 'web') {
+                                                    navigator.clipboard.writeText(address);
+                                                } else {
+                                                    Alert.alert('Copied', 'Address copied to clipboard');
+                                                }
+                                            }}
+                                        >
+                                            <Text style={styles.profileEmail}>
+                                                {selectedChain.addressType === 'evm'
+                                                    ? (ethereumWallet.wallets?.[0]?.address ? ethereumWallet.wallets[0].address.slice(0, 6) + '...' + ethereumWallet.wallets[0].address.slice(-4) : '0x...')
+                                                    : (solanaWallet.wallets?.[0]?.address ? solanaWallet.wallets[0].address.slice(0, 6) + '...' + solanaWallet.wallets[0].address.slice(-4) : 'Not connected')}
+                                            </Text>
+                                            <Copy size={14} color={Colors.textSecondary} weight="bold" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                                <TouchableOpacity onPress={() => setIsProfileModalVisible(false)}>
+                                    <X size={20} color={Colors.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Content based on viewMode */}
+                            {viewMode === 'main' && (
+                                <View style={styles.menuList}>
+                                    {/* Chain Selector */}
+                                    <TouchableOpacity
+                                        style={styles.menuItem}
+                                        onPress={() => setViewMode('chains')}
+                                    >
+                                        <View style={styles.menuItemLeft}>
+                                            <selectedChain.icon width={24} height={24} />
+                                            <View>
+                                                <Text style={styles.menuItemTitle}>{selectedChain.name}</Text>
+                                                <Text style={styles.menuItemSubtitle}>
+                                                    {selectedChain.addressType === 'evm' ? '0 ETH' : '0 SOL'}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <CaretRight size={20} color={Colors.textSecondary} />
+                                    </TouchableOpacity>
+
+                                    {/* View Assets */}
+                                    <TouchableOpacity
+                                        style={styles.menuItem}
+                                        onPress={() => setViewMode('assets')}
+                                    >
+                                        <View style={styles.menuItemLeft}>
+                                            <Wallet size={24} color={Colors.textPrimary} />
+                                            <Text style={styles.menuItemTitle}>View Assets</Text>
+                                        </View>
+                                        <CaretRight size={20} color={Colors.textSecondary} />
+                                    </TouchableOpacity>
+
+                                    {/* Manage Wallet */}
+                                    <TouchableOpacity style={styles.menuItem}>
+                                        <View style={styles.menuItemLeft}>
+                                            <CreditCard size={24} color={Colors.textPrimary} />
+                                            <Text style={styles.menuItemTitle}>Manage Wallet</Text>
+                                        </View>
+                                    </TouchableOpacity>
+
+                                    {/* Disconnect */}
+                                    <TouchableOpacity
+                                        style={[styles.menuItem, styles.disconnectButton]}
+                                        onPress={handleLogout}
+                                    >
+                                        <View style={styles.menuItemLeft}>
+                                            <SignOut size={24} color={Colors.textSecondary} />
+                                            <Text style={styles.disconnectText}>Log Out</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            {viewMode === 'assets' && (
+                                <View style={styles.assetsView}>
+                                    <TouchableOpacity
+                                        style={styles.backButton}
+                                        onPress={() => setViewMode('main')}
+                                    >
+                                        <CaretLeft size={20} color={Colors.textSecondary} />
+                                        <Text style={styles.backButtonText}>Back</Text>
+                                    </TouchableOpacity>
+
+                                    <Text style={styles.viewTitle}>Assets ({selectedChain.name})</Text>
+
+                                    <View style={styles.assetList}>
+                                        {selectedChain.tokens.map((token, idx) => (
+                                            <View key={idx} style={styles.assetItem}>
+                                                <View style={styles.assetIcon}>
+                                                    <token.icon width={24} height={24} />
+                                                </View>
+                                                <View style={styles.assetInfo}>
+                                                    <Text style={styles.assetName}>{token.symbol}</Text>
+                                                    <Text style={styles.assetBalance}>0.00</Text>
+                                                </View>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+
+                            {viewMode === 'chains' && (
+                                <View style={styles.chainsView}>
+                                    <TouchableOpacity
+                                        style={styles.backButton}
+                                        onPress={() => setViewMode('main')}
+                                    >
+                                        <CaretLeft size={20} color={Colors.textSecondary} />
+                                        <Text style={styles.backButtonText}>Back</Text>
+                                    </TouchableOpacity>
+
+                                    <Text style={styles.viewTitle}>Select Chain</Text>
+
+                                    <FlatList
+                                        data={SUPPORTED_CHAINS}
+                                        keyExtractor={(item) => item.name}
+                                        renderItem={({ item }) => (
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.chainOption,
+                                                    selectedChain.name === item.name && styles.selectedChainOption
+                                                ]}
+                                                onPress={() => {
+                                                    setSelectedChain(item);
+                                                    setViewMode('main');
+                                                }}
+                                            >
+                                                <View style={styles.chainOptionLeft}>
+                                                    <item.icon width={24} height={24} />
+                                                    <Text style={styles.chainOptionName}>{item.name}</Text>
+                                                </View>
+                                                {selectedChain.name === item.name && (
+                                                    <View style={styles.selectedDot} />
+                                                )}
+                                            </TouchableOpacity>
+                                        )}
+                                    />
+                                </View>
+                            )}
+                        </Animated.View>
+                    </View>
+                </Modal >
+            </SafeAreaView >
+        </TouchableWithoutFeedback >
     );
 }
 
@@ -561,9 +1080,199 @@ const styles = StyleSheet.create({
     },
     emptySubtext: {
         ...Typography.body,
-        fontSize: 18,
-        textAlign: 'center',
+        fontSize: 16,
         color: Colors.textSecondary,
+        textAlign: 'center',
+    },
+    modalTitle: {
+        ...Typography.title,
+        fontSize: 24,
+        color: Colors.textPrimary,
+    },
+    profileModalContent: {
+        backgroundColor: Colors.surface,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: Metrics.spacing.lg,
+        height: 'auto',
+        maxHeight: '90%',
+        width: '100%',
+        marginTop: 'auto',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: Metrics.spacing.xl,
+    },
+    userInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    avatarContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: Colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: Metrics.spacing.md,
+    },
+    avatarText: {
+        ...Typography.h4,
+        color: '#FFFFFF',
+    },
+    profileName: {
+        ...Typography.h4,
+        color: Colors.textPrimary,
+        marginBottom: 4,
+    },
+    profileEmail: {
+        ...Typography.caption,
+        color: Colors.textSecondary,
+        marginRight: 6,
+    },
+    addressCopy: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.background,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    menuList: {
+        gap: Metrics.spacing.sm,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: Metrics.spacing.md,
+        backgroundColor: Colors.background,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    menuItemLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Metrics.spacing.md,
+    },
+    menuItemTitle: {
+        ...Typography.body,
+        color: Colors.textPrimary,
+        fontWeight: '600',
+    },
+    menuItemSubtitle: {
+        ...Typography.caption,
+        color: '#35D07F', // Green for balance
+    },
+    disconnectButton: {
+        marginTop: Metrics.spacing.lg,
+        backgroundColor: Colors.background,
+        borderColor: Colors.border,
+    },
+    disconnectText: {
+        ...Typography.body,
+        color: '#FF6B6B',
+        fontWeight: '600',
+    },
+    assetsView: {
+        gap: Metrics.spacing.md,
+    },
+    chainsView: {
+        gap: Metrics.spacing.md,
+        height: 400,
+    },
+    backButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: Metrics.spacing.sm,
+    },
+    backButtonText: {
+        ...Typography.body,
+        color: Colors.textSecondary,
+        marginLeft: 4,
+    },
+    viewTitle: {
+        ...Typography.h4,
+        color: Colors.textPrimary,
+        marginBottom: Metrics.spacing.sm,
+    },
+    assetList: {
+        gap: Metrics.spacing.sm,
+    },
+    assetItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: Metrics.spacing.md,
+        backgroundColor: Colors.background,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    assetIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: Colors.surface,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: Metrics.spacing.md,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    assetInfo: {
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    assetName: {
+        ...Typography.body,
+        color: Colors.textPrimary,
+        fontWeight: '600',
+    },
+    assetBalance: {
+        ...Typography.body,
+        color: Colors.textSecondary,
+    },
+    chainOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: Metrics.spacing.md,
+        backgroundColor: Colors.background,
+        borderRadius: 12,
+        marginBottom: Metrics.spacing.sm,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    selectedChainOption: {
+        borderColor: Colors.primary,
+        backgroundColor: Colors.surface,
+    },
+    chainOptionLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Metrics.spacing.md,
+    },
+    chainOptionName: {
+        ...Typography.body,
+        color: Colors.textPrimary,
+        fontWeight: '500',
+    },
+    selectedDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: Colors.primary,
     },
     cursor: {
         opacity: 0.8,
@@ -601,6 +1310,66 @@ const styles = StyleSheet.create({
         ...Typography.body,
         fontSize: 16,
         lineHeight: 24,
+    },
+    messageLink: {
+        color: Colors.primary,
+        textDecorationLine: 'underline',
+    },
+    linkPreviewCard: {
+        marginTop: 12,
+        backgroundColor: Colors.surface,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        overflow: 'hidden',
+    },
+    linkPreviewContent: {
+        flexDirection: 'row',
+        padding: 12,
+        alignItems: 'center',
+    },
+    linkPreviewIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 8,
+        backgroundColor: `${Colors.primary}15`,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    linkPreviewIcon: {
+        fontSize: 24,
+    },
+    linkPreviewInfo: {
+        flex: 1,
+    },
+    linkPreviewTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: Colors.textPrimary,
+        marginBottom: 2,
+    },
+    linkPreviewSubtitle: {
+        fontSize: 12,
+        color: Colors.textSecondary,
+    },
+    linkPreviewActions: {
+        flexDirection: 'row',
+        borderTopWidth: 1,
+        borderTopColor: Colors.border,
+    },
+    linkActionButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        gap: 6,
+    },
+    linkActionText: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: Colors.primary,
     },
     aiActions: {
         flexDirection: 'row',

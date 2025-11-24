@@ -39,6 +39,10 @@ export default function RootLayout() {
                 <Stack.Screen name="auth/signup" />
                 <Stack.Screen name="auth/verify" />
                 <Stack.Screen name="auth/biometrics" />
+                <Stack.Screen name="invoice/create" />
+                <Stack.Screen name="invoice/[id]" />
+                <Stack.Screen name="payment-link/create" />
+                <Stack.Screen name="payment-link/[id]" />
             </Stack>
         </PrivyProvider>
     );
