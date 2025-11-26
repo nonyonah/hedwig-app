@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
-import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle } from 'phosphor-react-native';
+import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash } from 'phosphor-react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
@@ -51,7 +53,7 @@ export default function PaymentLinksScreen() {
                         lastName: userData.lastName || ''
                     });
                     setWalletAddresses({
-                        evm: userData.baseWalletAddress || userData.celoWalletAddress,
+                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
                         solana: userData.solanaWalletAddress
                     });
                 }
@@ -87,6 +89,46 @@ export default function PaymentLinksScreen() {
         }
     };
 
+    const handleDelete = async (linkId: string) => {
+        Alert.alert(
+            'Delete Payment Link',
+            'Are you sure you want to delete this payment link? This action cannot be undone.',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const token = await getAccessToken();
+                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+                            const response = await fetch(`${apiUrl}/api/documents/${linkId}`, {
+                                method: 'DELETE',
+                                headers: { 'Authorization': `Bearer ${token}` },
+                            });
+
+                            const data = await response.json();
+
+                            if (data.success) {
+                                setLinks(prev => prev.filter(link => link.id !== linkId));
+                                Alert.alert('Success', 'Payment link deleted successfully');
+                            } else {
+                                Alert.alert('Error', data.error?.message || 'Failed to delete payment link');
+                            }
+                        } catch (error) {
+                            console.error('Failed to delete payment link:', error);
+                            Alert.alert('Error', 'Failed to delete payment link');
+                        }
+                    }
+                },
+            ]
+        );
+    };
+
     const handleLinkPress = (link: any) => {
         setSelectedLink(link);
         setShowModal(true);
@@ -97,168 +139,194 @@ export default function PaymentLinksScreen() {
         Alert.alert('Copied', 'Transaction ID copied to clipboard');
     };
 
+    const renderRightActions = (progress: any, dragX: any, item: any) => {
+        const trans = dragX.interpolate({
+            inputRange: [-100, 0],
+            outputRange: [0, 100],
+            extrapolate: 'clamp',
+        });
+
+        return (
+            <Animated.View style={{ transform: [{ translateX: trans }] }}>
+                <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDelete(item.id)}
+                >
+                    <Trash size={24} color="#FFFFFF" weight="fill" />
+                </TouchableOpacity>
+            </Animated.View>
+        );
+    };
+
     const renderItem = ({ item }: { item: any }) => (
-        <TouchableOpacity style={styles.card} onPress={() => handleLinkPress(item)}>
-            <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <View style={styles.amountBadge}>
-                    <Image source={ICONS.usdc} style={styles.badgeIcon} />
-                    <View style={styles.badgeIconOverlay}>
-                        <View style={styles.badgeIconMinus} />
+        <Swipeable
+            renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
+            overshootRight={false}
+        >
+            <TouchableOpacity style={styles.card} onPress={() => handleLinkPress(item)}>
+                <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle}>{item.title}</Text>
+                    <View style={styles.amountBadge}>
+                        <Image source={ICONS.usdc} style={styles.badgeIcon} />
+                        <View style={styles.chainBadgeSmall}>
+                            <Image source={ICONS.base} style={styles.chainBadgeIconSmall} />
+                        </View>
                     </View>
                 </View>
-            </View>
 
-            <Text style={styles.amount}>${item.amount}</Text>
+                <Text style={styles.amount}>${item.amount}</Text>
 
-            <View style={styles.cardFooter}>
-                <Text style={styles.dateText}>Created on {new Date(item.created_at).toLocaleDateString()}</Text>
-                <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
-                    <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
-                        {item.status === 'PAID' ? 'Paid' : 'Pending'}
-                    </Text>
+                <View style={styles.cardFooter}>
+                    <Text style={styles.dateText}>Created on {new Date(item.created_at).toLocaleDateString()}</Text>
+                    <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
+                        <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
+                            {item.status === 'PAID' ? 'Paid' : 'Pending'}
+                        </Text>
+                    </View>
                 </View>
-            </View>
-        </TouchableOpacity>
+            </TouchableOpacity>
+        </Swipeable>
     );
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => setIsSidebarOpen(true)} style={styles.iconButton}>
-                    <List size={24} color={Colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Payment Links</Text>
-                <TouchableOpacity style={styles.iconButton} onPress={() => setShowProfileModal(true)}>
-                    <UserCircle size={28} color={Colors.textPrimary} weight="fill" />
-                </TouchableOpacity>
-            </View>
-
-            {/* Content */}
-            {isLoading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={Colors.primary} />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaView style={styles.container}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)} style={styles.iconButton}>
+                        <List size={24} color={Colors.textPrimary} />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Payment Links</Text>
+                    <TouchableOpacity style={styles.iconButton} onPress={() => setShowProfileModal(true)}>
+                        <UserCircle size={28} color={Colors.textPrimary} weight="fill" />
+                    </TouchableOpacity>
                 </View>
-            ) : (
-                <FlatList
-                    data={links}
-                    renderItem={renderItem}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyState}>
-                            <Text style={styles.emptyStateText}>No payment links found</Text>
-                        </View>
-                    }
+
+                {/* Content */}
+                {isLoading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color={Colors.primary} />
+                    </View>
+                ) : (
+                    <FlatList
+                        data={links}
+                        renderItem={renderItem}
+                        keyExtractor={item => item.id}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyStateText}>No payment links found</Text>
+                            </View>
+                        }
+                    />
+                )}
+
+                {/* Sidebar */}
+                <Sidebar
+                    isOpen={isSidebarOpen}
+                    onClose={() => setIsSidebarOpen(false)}
+                    onHomeClick={() => router.push('/')}
                 />
-            )}
 
-            {/* Sidebar */}
-            <Sidebar
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-                onHomeClick={() => router.push('/')}
-            />
+                {/* Profile Modal */}
+                <ProfileModal
+                    visible={showProfileModal}
+                    onClose={() => setShowProfileModal(false)}
+                    userName={userName}
+                    walletAddresses={walletAddresses}
+                />
 
-            {/* Profile Modal */}
-            <ProfileModal
-                visible={showProfileModal}
-                onClose={() => setShowProfileModal(false)}
-                userName={userName}
-                walletAddresses={walletAddresses}
-            />
-
-            {/* Details Modal */}
-            <Modal
-                visible={showModal}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setShowModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <View style={styles.modalHeaderLeft}>
-                                {selectedLink?.status === 'PAID' ? (
-                                    <CheckCircle size={24} color={Colors.success} weight="fill" />
-                                ) : (
-                                    <View style={styles.pendingIcon}>
-                                        <Text style={styles.pendingIconText}>!</Text>
+                {/* Details Modal */}
+                <Modal
+                    visible={showModal}
+                    transparent={true}
+                    animationType="slide"
+                    onRequestClose={() => setShowModal(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <View style={styles.modalHeaderLeft}>
+                                    {selectedLink?.status === 'PAID' ? (
+                                        <CheckCircle size={24} color={Colors.success} weight="fill" />
+                                    ) : (
+                                        <View style={styles.pendingIcon}>
+                                            <Text style={styles.pendingIconText}>!</Text>
+                                        </View>
+                                    )}
+                                    <View>
+                                        <Text style={styles.modalTitle}>
+                                            {selectedLink?.status === 'PAID' ? `Paid by ${selectedLink.payer_name || 'Client'}` : 'Pending'}
+                                        </Text>
+                                        <Text style={styles.modalSubtitle}>
+                                            {selectedLink?.created_at ? new Date(selectedLink.created_at).toLocaleString() : ''}
+                                        </Text>
                                     </View>
-                                )}
-                                <View>
-                                    <Text style={styles.modalTitle}>
-                                        {selectedLink?.status === 'PAID' ? `Paid by ${selectedLink.payer_name || 'Client'}` : 'Pending'}
-                                    </Text>
-                                    <Text style={styles.modalSubtitle}>
-                                        {selectedLink?.created_at ? new Date(selectedLink.created_at).toLocaleString() : ''}
-                                    </Text>
+                                </View>
+                                <View style={styles.modalHeaderRight}>
+                                    <TouchableOpacity style={styles.modalIconButton}>
+                                        <Text>•••</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.modalIconButton} onPress={() => setShowModal(false)}>
+                                        <X size={20} color={Colors.textPrimary} />
+                                    </TouchableOpacity>
                                 </View>
                             </View>
-                            <View style={styles.modalHeaderRight}>
-                                <TouchableOpacity style={styles.modalIconButton}>
-                                    <Text>•••</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.modalIconButton} onPress={() => setShowModal(false)}>
-                                    <X size={20} color={Colors.textPrimary} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
 
-                        <View style={styles.amountCard}>
-                            <Text style={styles.amountCardValue}>
-                                ₦{selectedLink ? (selectedLink.amount * 1500).toFixed(2) : '0.00'}
-                            </Text>
-                            <View style={styles.amountCardSub}>
-                                <Image source={ICONS.usdc} style={styles.smallIcon} />
-                                <Text style={styles.amountCardSubText}>{selectedLink?.amount} USDC</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.detailsList}>
-                            <View style={styles.detailRow}>
-                                <View style={styles.detailLabelRow}>
-                                    <Wallet size={20} color={Colors.textSecondary} />
-                                    <Text style={styles.detailLabel}>Transaction ID</Text>
+                            <View style={styles.amountCard}>
+                                <Text style={styles.amountCardValue}>
+                                    ₦{selectedLink ? (selectedLink.amount * 1500).toFixed(2) : '0.00'}
+                                </Text>
+                                <View style={styles.amountCardSub}>
+                                    <Image source={ICONS.usdc} style={styles.smallIcon} />
+                                    <Text style={styles.amountCardSubText}>{selectedLink?.amount} USDC</Text>
                                 </View>
-                                <TouchableOpacity onPress={() => copyToClipboard('0x811b48bd7b...')}>
-                                    <Text style={styles.detailValue}>0x811b48bd7b...</Text>
-                                </TouchableOpacity>
                             </View>
 
-                            <View style={styles.detailRow}>
-                                <View style={styles.detailLabelRow}>
-                                    <List size={20} color={Colors.textSecondary} />
-                                    <Text style={styles.detailLabel}>Description</Text>
+                            <View style={styles.detailsList}>
+                                <View style={styles.detailRow}>
+                                    <View style={styles.detailLabelRow}>
+                                        <Wallet size={20} color={Colors.textSecondary} />
+                                        <Text style={styles.detailLabel}>Transaction ID</Text>
+                                    </View>
+                                    <TouchableOpacity onPress={() => copyToClipboard('0x811b48bd7b...')}>
+                                        <Text style={styles.detailValue}>0x811b48bd7b...</Text>
+                                    </TouchableOpacity>
                                 </View>
-                                <Text style={styles.detailValue}>{selectedLink?.title}</Text>
-                            </View>
 
-                            <View style={styles.detailRow}>
-                                <View style={styles.detailLabelRow}>
-                                    <ShareNetwork size={20} color={Colors.textSecondary} />
-                                    <Text style={styles.detailLabel}>Platform Fee</Text>
+                                <View style={styles.detailRow}>
+                                    <View style={styles.detailLabelRow}>
+                                        <List size={20} color={Colors.textSecondary} />
+                                        <Text style={styles.detailLabel}>Description</Text>
+                                    </View>
+                                    <Text style={styles.detailValue}>{selectedLink?.title}</Text>
                                 </View>
-                                <Text style={styles.detailValue}>1%</Text>
-                            </View>
 
-                            <View style={styles.detailRow}>
-                                <View style={styles.detailLabelRow}>
-                                    <ShareNetwork size={20} color={Colors.textSecondary} />
-                                    <Text style={styles.detailLabel}>Chain</Text>
+                                <View style={styles.detailRow}>
+                                    <View style={styles.detailLabelRow}>
+                                        <ShareNetwork size={20} color={Colors.textSecondary} />
+                                        <Text style={styles.detailLabel}>Platform Fee</Text>
+                                    </View>
+                                    <Text style={styles.detailValue}>1%</Text>
                                 </View>
-                                <View style={styles.chainValue}>
-                                    <Image source={ICONS.base} style={styles.smallIcon} />
-                                    <Text style={styles.detailValue}>Base</Text>
+
+                                <View style={styles.detailRow}>
+                                    <View style={styles.detailLabelRow}>
+                                        <ShareNetwork size={20} color={Colors.textSecondary} />
+                                        <Text style={styles.detailLabel}>Chain</Text>
+                                    </View>
+                                    <View style={styles.chainValue}>
+                                        <Image source={ICONS.base} style={styles.smallIcon} />
+                                        <Text style={styles.detailValue}>Base</Text>
+                                    </View>
                                 </View>
                             </View>
                         </View>
                     </View>
-                </View>
-            </Modal>
-        </SafeAreaView>
+                </Modal>
+            </SafeAreaView>
+        </GestureHandlerRootView>
     );
 }
 
@@ -332,27 +400,27 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     badgeIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
     },
-    badgeIconOverlay: {
+    chainBadgeSmall: {
         position: 'absolute',
         bottom: -2,
         right: -2,
-        backgroundColor: Colors.primary,
-        borderRadius: 8,
-        width: 16,
-        height: 16,
+        width: 12,
+        height: 12,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 2,
-        borderColor: '#FFFFFF',
     },
-    badgeIconMinus: {
-        width: 8,
-        height: 2,
-        backgroundColor: '#FFFFFF',
+    chainBadgeIconSmall: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
     },
     amount: {
         ...Typography.h3,
@@ -515,5 +583,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
+    },
+    deleteButton: {
+        backgroundColor: '#FF3B30',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 80,
+        height: '100%',
+        borderRadius: 24,
+        marginRight: 8,
     },
 });
