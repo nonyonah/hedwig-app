@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy, useEmbeddedEthereumWallet } from '@privy-io/expo';
@@ -32,6 +32,7 @@ export default function PaymentLinkViewerScreen() {
     const [selectedChain, setSelectedChain] = useState(CHAINS[0]);
     const [selectedToken, setSelectedToken] = useState(TOKENS[0]);
     const [isPaying, setIsPaying] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
 
     useEffect(() => {
         fetchDocument();
@@ -71,12 +72,23 @@ export default function PaymentLinkViewerScreen() {
             return;
         }
 
+        setShowPaymentModal(true);
+    };
+
+    const processPayment = async () => {
         setIsPaying(true);
-        // Simulate payment process
-        setTimeout(() => {
+        setShowPaymentModal(false);
+
+        try {
+            // Simulate blockchain transaction
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            Alert.alert('Success', `Payment processed successfully via ${selectedChain.name} using ${selectedToken.symbol}!`);
+        } catch (error) {
+            Alert.alert('Error', 'Payment failed. Please try again.');
+        } finally {
             setIsPaying(false);
-            Alert.alert('Success', 'Payment processed successfully!');
-        }, 2000);
+        }
     };
 
     if (isLoading) {
@@ -147,6 +159,72 @@ export default function PaymentLinkViewerScreen() {
                     <Text style={styles.footerText}>Secured by Hedwig</Text>
                 </View>
             </ScrollView>
+
+            {/* Payment Modal */}
+            <Modal
+                visible={showPaymentModal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowPaymentModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Select Payment Method</Text>
+
+                        {/* Chain Selection */}
+                        <Text style={styles.modalLabel}>Network</Text>
+                        <View style={styles.optionsGrid}>
+                            {CHAINS.map((chain) => (
+                                <TouchableOpacity
+                                    key={chain.id}
+                                    style={[
+                                        styles.optionCard,
+                                        selectedChain.id === chain.id && styles.optionCardSelected
+                                    ]}
+                                    onPress={() => setSelectedChain(chain)}
+                                >
+                                    <Image source={chain.icon} style={styles.optionIcon} />
+                                    <Text style={styles.optionText}>{chain.name}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        {/* Token Selection */}
+                        <Text style={styles.modalLabel}>Token</Text>
+                        <View style={styles.optionsGrid}>
+                            {TOKENS.map((token) => (
+                                <TouchableOpacity
+                                    key={token.symbol}
+                                    style={[
+                                        styles.optionCard,
+                                        selectedToken.symbol === token.symbol && styles.optionCardSelected
+                                    ]}
+                                    onPress={() => setSelectedToken(token)}
+                                >
+                                    <Image source={token.icon} style={styles.optionIcon} />
+                                    <Text style={styles.optionText}>{token.symbol}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        {/* Buttons */}
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.modalButtonSecondary]}
+                                onPress={() => setShowPaymentModal(false)}
+                            >
+                                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.modalButtonPrimary]}
+                                onPress={processPayment}
+                            >
+                                <Text style={styles.modalButtonText}>Pay Now</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -249,5 +327,99 @@ const styles = StyleSheet.create({
         ...Typography.caption,
         color: Colors.textSecondary,
         fontWeight: '500',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        paddingBottom: 17,
+        paddingHorizontal: 11,
+    },
+    modalContent: {
+        width: '100%',
+        maxWidth: 418,
+        height: 477,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 50,
+        borderWidth: 1,
+        borderColor: '#fafafa',
+        padding: 24,
+        paddingBottom: 40,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: Colors.textPrimary,
+        marginBottom: 24,
+        textAlign: 'center',
+    },
+    modalLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.textPrimary,
+        marginBottom: 12,
+        marginTop: 16,
+    },
+    optionsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    optionCard: {
+        flex: 1,
+        minWidth: '45%',
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderColor: Colors.border,
+        backgroundColor: Colors.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    optionCardSelected: {
+        borderColor: Colors.primary,
+        backgroundColor: `${Colors.primary}10`,
+    },
+    optionIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        marginBottom: 8,
+    },
+    optionText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: Colors.textPrimary,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 24,
+    },
+    modalButton: {
+        flex: 1,
+        height: 48,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalButtonPrimary: {
+        backgroundColor: Colors.primary,
+    },
+    modalButtonSecondary: {
+        backgroundColor: Colors.surface,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    modalButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#FFF',
+    },
+    modalButtonTextSecondary: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: Colors.textPrimary,
     },
 });

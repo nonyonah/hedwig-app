@@ -104,6 +104,50 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
 });
 
 /**
+ * GET /api/documents
+ * List documents for the authenticated user
+ */
+router.get('/', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const privyId = req.user!.privyId;
+        const { type } = req.query;
+
+        // Get internal user ID
+        const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        let query = supabase
+            .from('documents')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        if (type) {
+            query = query.eq('type', type);
+        }
+
+        const { data: documents, error } = await query;
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            data: { documents }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * GET /api/documents/:id
  * Get document details by ID (Public access for viewing invoices/payment links)
  */

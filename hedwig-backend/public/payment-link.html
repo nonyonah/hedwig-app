@@ -5,7 +5,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Link - Hedwig</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
+        :root {
+            --primary: #2563EB;
+            --background: #F3F4F6;
+            --surface: #FFFFFF;
+            --text-primary: #000000;
+            --text-secondary: #666666;
+            --border: #E5E7EB;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,181 +26,280 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
-            background: #F5F7FA;
-            color: #1F2937;
-            line-height: 1.6;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
 
         .container {
-            max-width: 600px;
+            width: 100%;
+            max-width: 480px;
             margin: 0 auto;
-            min-height: 100vh;
-            background: white;
         }
 
-        .header {
-            padding: 20px;
-            background: white;
-            border-bottom: 1px solid #E5E7EB;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .back-button {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            background: #F3F4F6;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
+        .card {
+            background: var(--surface);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            text-align: center;
         }
 
         .header-title {
-            font-size: 18px;
-            font-weight: 600;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 32px;
+            color: var(--text-primary);
         }
 
-        .content {
-            padding: 24px;
-        }
-
-        .brand {
+        .details-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
             margin-bottom: 32px;
         }
 
-        .brand h1 {
-            font-size: 32px;
-            font-weight: 700;
-            color: #2563EB;
-            margin-bottom: 4px;
-        }
-
-        .brand p {
-            font-size: 14px;
-            color: #6B7280;
-        }
-
-        .payment-info {
-            background: #F9FAFB;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 24px;
-        }
-
-        .info-row {
+        .detail-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 12px;
+            align-items: center;
         }
 
-        .info-row:last-child {
-            margin-bottom: 0;
+        .detail-label {
+            font-size: 15px;
+            color: var(--text-secondary);
         }
 
-        .info-label {
-            font-size: 14px;
-            color: #6B7280;
-        }
-
-        .info-value {
-            font-size: 14px;
+        .detail-value {
+            font-size: 15px;
             font-weight: 500;
-            color: #1F2937;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .amount-card {
-            background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
-            border-radius: 16px;
-            padding: 32px;
-            text-align: center;
-            margin-bottom: 24px;
-            color: white;
-        }
-
-        .amount-label {
-            font-size: 14px;
-            opacity: 0.9;
-            margin-bottom: 8px;
-        }
-
-        .amount-value {
-            font-size: 48px;
-            font-weight: 700;
-        }
-
-        .description {
-            font-size: 16px;
-            color: #1F2937;
-            margin-bottom: 24px;
-            line-height: 1.6;
+        .icon-small {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            object-fit: cover;
         }
 
         .pay-button {
             width: 100%;
             padding: 16px;
-            background: #2563EB;
+            background: var(--primary);
             color: white;
             border: none;
             border-radius: 12px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
         }
 
         .pay-button:hover {
             background: #1D4ED8;
         }
 
+        .pay-button:disabled {
+            background: #93C5FD;
+            cursor: not-allowed;
+        }
+
         .footer {
-            padding: 20px;
             text-align: center;
-            color: #9CA3AF;
+            margin-top: 32px;
+            color: var(--text-secondary);
             font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            width: 100%;
+            max-width: 480px;
+            border-radius: 24px 24px 0 0;
+            padding: 24px;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @media (min-width: 480px) {
+            .modal-overlay {
+                align-items: center;
+            }
+
+            .modal-content {
+                border-radius: 24px;
+                margin: 20px;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .modal-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .option-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .option-card:hover {
+            background: #F9FAFB;
+        }
+
+        .option-card.selected {
+            border-color: var(--primary);
+            background: #EFF6FF;
+        }
+
+        .option-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+        }
+
+        .option-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: #F3F4F6;
+            color: var(--text-primary);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Clickable network/token in details */
+        .clickable {
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+            margin-right: -8px;
+        }
+
+        .clickable:hover {
+            background: #F3F4F6;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <div class="header">
-            <button class="back-button" onclick="history.back()">←</button>
+        <div class="card">
             <div class="header-title">Payment Link</div>
-        </div>
 
-        <div class="content">
-            <div class="brand">
-                <h1>Hedwig</h1>
-                <p>Secure payment link</p>
-            </div>
-
-            <div class="amount-card">
-                <div class="amount-label">Amount Due</div>
-                <div class="amount-value" id="amount">$0.00</div>
-            </div>
-
-            <div class="payment-info">
-                <div class="info-row">
-                    <span class="info-label">Sold by</span>
-                    <span class="info-value" id="seller-name">Loading...</span>
+            <div class="details-container">
+                <div class="detail-row">
+                    <span class="detail-label">Sold by</span>
+                    <span class="detail-value" id="sold-by">Loading...</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Description</span>
-                    <span class="info-value" id="description">Loading...</span>
+                <div class="detail-row">
+                    <span class="detail-label">For</span>
+                    <span class="detail-value" id="for-what">Loading...</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Date</span>
-                    <span class="info-value" id="date">Loading...</span>
+                <div class="detail-row">
+                    <span class="detail-label">Price</span>
+                    <span class="detail-value clickable" id="token-trigger">
+                        <span id="price">0.00</span>
+                        <img src="/assets/icons/tokens/usdc.png" class="icon-small" id="token-icon">
+                    </span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Network</span>
+                    <span class="detail-value clickable" id="network-trigger">
+                        <span id="network">Base</span>
+                        <img src="/assets/icons/networks/base.png" class="icon-small" id="network-icon">
+                    </span>
                 </div>
             </div>
 
-            <button class="pay-button" id="pay-button">Pay Now</button>
+            <button class="pay-button" id="pay-button">
+                <i class="ph ph-wallet" style="font-size: 20px;"></i>
+                <span id="pay-button-text">Connect Wallet</span>
+            </button>
         </div>
 
         <div class="footer">
@@ -195,12 +307,122 @@
         </div>
     </div>
 
+    <!-- Payment Modal -->
+    <div class="modal-overlay" id="payment-modal">
+        <div class="modal-content">
+            <div class="modal-title">Select Payment Method</div>
+
+            <div class="modal-label">Network</div>
+            <div class="options-grid" id="chain-options">
+                <!-- Chains injected here -->
+            </div>
+
+            <div class="modal-label">Token</div>
+            <div class="options-grid" id="token-options">
+                <!-- Tokens injected here -->
+            </div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn btn-secondary" id="modal-cancel">Cancel</button>
+                <button class="modal-btn btn-primary" id="modal-pay">Pay Now</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <script>
-        // Get payment link ID from URL
+        // Data & Configuration
+        const CHAINS = [
+            {
+                id: 'base',
+                name: 'Base',
+                icon: '/assets/icons/networks/base.png',
+                chainId: 8453,
+                rpcUrl: 'https://mainnet.base.org',
+                explorer: 'https://basescan.org'
+            },
+            {
+                id: 'celo',
+                name: 'Celo',
+                icon: '/assets/icons/networks/celo.png',
+                chainId: 42220,
+                rpcUrl: 'https://forno.celo.org',
+                explorer: 'https://celoscan.io'
+            },
+            {
+                id: 'arbitrum',
+                name: 'Arbitrum',
+                icon: '/assets/icons/networks/arbitrum.png',
+                chainId: 42161,
+                rpcUrl: 'https://arb1.arbitrum.io/rpc',
+                explorer: 'https://arbiscan.io'
+            },
+            {
+                id: 'optimism',
+                name: 'Optimism',
+                icon: '/assets/icons/networks/optimism.png',
+                chainId: 10,
+                rpcUrl: 'https://mainnet.optimism.io',
+                explorer: 'https://optimistic.etherscan.io'
+            },
+        ];
+
+        const TOKENS = [
+            {
+                symbol: 'USDC',
+                name: 'USD Coin',
+                icon: '/assets/icons/tokens/usdc.png',
+                addresses: {
+                    base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+                    celo: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
+                    arbitrum: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+                    optimism: '0x0b2C639c533813f4Aa9D7837CAf992c92bdE5162'
+                }
+            },
+            {
+                symbol: 'USDT',
+                name: 'Tether',
+                icon: '/assets/icons/tokens/usdt.png',
+                addresses: {
+                    base: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
+                    celo: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e',
+                    arbitrum: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+                    optimism: '0x94b008aA00579c1307B0EF2c499aD98a8ce98e48'
+                }
+            },
+            {
+                symbol: 'ETH',
+                name: 'Ethereum',
+                icon: '/assets/icons/tokens/eth.png',
+                isNative: true
+            },
+        ];
+
+        // ERC20 Minimal ABI
+        const ERC20_ABI = [
+            "function transfer(address to, uint256 amount) returns (bool)",
+            "function decimals() view returns (uint8)"
+        ];
+
+        let selectedChain = CHAINS[0];
+        let selectedToken = TOKENS[0];
+        let linkData = null;
+        let provider = null;
+        let signer = null;
+        let userAddress = null;
+
+        // Init
         const urlParts = window.location.pathname.split('/');
         const linkId = urlParts[urlParts.length - 1].replace('.html', '');
 
-        // Fetch payment link data
+        // Elements
+        const modal = document.getElementById('payment-modal');
+        const payBtn = document.getElementById('pay-button');
+        const payBtnText = document.getElementById('pay-button-text');
+        const modalPayBtn = document.getElementById('modal-pay');
+        const modalCancelBtn = document.getElementById('modal-cancel');
+
+        // Fetch Data
         async function fetchPaymentLink() {
             try {
                 const apiUrl = window.location.hostname === 'localhost'
@@ -211,8 +433,8 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    const paymentLink = data.data.document;
-                    displayPaymentLink(paymentLink);
+                    linkData = data.data.document;
+                    renderPaymentLink(linkData);
                 } else {
                     alert('Payment link not found');
                 }
@@ -222,27 +444,242 @@
             }
         }
 
-        function displayPaymentLink(link) {
-            // Calculate amount after fees
-            const subtotal = link.amount;
-            const platformFee = subtotal * 0.029;
-            const total = subtotal - platformFee;
+        function renderPaymentLink(doc) {
+            const user = doc.user || {};
 
-            // Display info
-            document.getElementById('amount').textContent = `$${total.toFixed(2)}`;
-            document.getElementById('seller-name').textContent =
-                `${link.user.first_name || ''} ${link.user.last_name || ''}`.trim() || 'Hedwig User';
-            document.getElementById('description').textContent = link.description || 'Payment';
-            document.getElementById('date').textContent =
-                new Date(link.created_at).toLocaleDateString();
+            document.getElementById('sold-by').textContent =
+                `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Hedwig User';
 
-            // Update pay button
-            document.getElementById('pay-button').onclick = () => {
-                alert('Payment processing... (Connect wallet functionality to be implemented)');
-            };
+            document.getElementById('for-what').textContent = doc.title || 'Services';
+            document.getElementById('price').textContent = `${doc.amount}`;
+
+            // Try to match token from doc currency
+            const currency = doc.currency || 'USDC';
+            const foundToken = TOKENS.find(t => t.symbol === currency);
+            if (foundToken) {
+                selectedToken = foundToken;
+            }
+
+            document.getElementById('token-icon').src = selectedToken.icon;
+            document.getElementById('network').textContent = selectedChain.name;
+            document.getElementById('network-icon').src = selectedChain.icon;
+
+            payBtnText.textContent = `Connect Wallet`;
+            modalPayBtn.textContent = `Pay ${doc.amount} ${selectedToken.symbol}`;
         }
 
-        // Load payment link on page load
+        // Wallet Logic
+        async function connectWallet() {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    provider = new ethers.BrowserProvider(window.ethereum);
+                    signer = await provider.getSigner();
+                    userAddress = await signer.getAddress();
+
+                    // Update UI
+                    payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                    payBtn.onclick = () => {
+                        modal.classList.add('active');
+                        renderOptions();
+                    };
+
+                    return true;
+                } catch (error) {
+                    console.error("User rejected request", error);
+                    alert("Failed to connect wallet");
+                    return false;
+                }
+            } else {
+                alert("Please install MetaMask or another Web3 wallet!");
+                return false;
+            }
+        }
+
+        async function switchChain(chain) {
+            if (!provider) return;
+
+            const chainIdHex = `0x${chain.chainId.toString(16)}`;
+
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: chainIdHex }],
+                });
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [
+                                {
+                                    chainId: chainIdHex,
+                                    chainName: chain.name,
+                                    rpcUrls: [chain.rpcUrl],
+                                    blockExplorerUrls: [chain.explorer],
+                                    nativeCurrency: {
+                                        name: 'Ether',
+                                        symbol: 'ETH',
+                                        decimals: 18
+                                    }
+                                },
+                            ],
+                        });
+                    } catch (addError) {
+                        console.error('Failed to add chain', addError);
+                        throw addError;
+                    }
+                } else {
+                    console.error('Failed to switch chain', switchError);
+                    throw switchError;
+                }
+            }
+        }
+
+        async function processPayment() {
+            if (!signer || !linkData) return;
+
+            modalPayBtn.disabled = true;
+            modalPayBtn.textContent = "Processing...";
+
+            try {
+                // 1. Switch Chain
+                await switchChain(selectedChain);
+
+                // Re-get signer
+                provider = new ethers.BrowserProvider(window.ethereum);
+                signer = await provider.getSigner();
+
+                const amount = linkData.amount.toString();
+                const recipientAddress = "0x0000000000000000000000000000000000000000"; // BURN ADDRESS FOR DEMO
+
+                let tx;
+                if (selectedToken.isNative) {
+                    tx = await signer.sendTransaction({
+                        to: recipientAddress,
+                        value: ethers.parseEther(amount)
+                    });
+                } else {
+                    const tokenAddress = selectedToken.addresses[selectedChain.id];
+                    if (!tokenAddress) throw new Error(`Token ${selectedToken.symbol} not supported on ${selectedChain.name}`);
+
+                    const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+                    const decimals = await contract.decimals();
+                    const amountWei = ethers.parseUnits(amount, decimals);
+
+                    tx = await contract.transfer(recipientAddress, amountWei);
+                }
+
+                console.log("Transaction sent:", tx.hash);
+                modalPayBtn.textContent = "Confirming...";
+
+                await tx.wait();
+
+                alert(`Payment Successful! TX: ${tx.hash}`);
+                modal.classList.remove('active');
+
+            } catch (error) {
+                console.error("Payment failed:", error);
+                alert(`Payment failed: ${error.message}`);
+            } finally {
+                modalPayBtn.disabled = false;
+                modalPayBtn.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+            }
+        }
+
+        // Modal Logic
+        function renderOptions() {
+            const chainContainer = document.getElementById('chain-options');
+            chainContainer.innerHTML = CHAINS.map(chain => `
+                <div class="option-card ${selectedChain.id === chain.id ? 'selected' : ''}" 
+                     onclick="selectChain('${chain.id}')">
+                    <img src="${chain.icon}" class="option-icon">
+                    <span class="option-text">${chain.name}</span>
+                </div>
+            `).join('');
+
+            const tokenContainer = document.getElementById('token-options');
+            tokenContainer.innerHTML = TOKENS.map(token => `
+                <div class="option-card ${selectedToken.symbol === token.symbol ? 'selected' : ''}" 
+                     onclick="selectToken('${token.symbol}')">
+                    <img src="${token.icon}" class="option-icon">
+                    <span class="option-text">${token.symbol}</span>
+                </div>
+            `).join('');
+        }
+
+        window.selectChain = (id) => {
+            selectedChain = CHAINS.find(c => c.id === id);
+            document.getElementById('network').textContent = selectedChain.name;
+            document.getElementById('network-icon').src = selectedChain.icon;
+            renderOptions();
+        };
+
+        window.selectToken = (symbol) => {
+            selectedToken = TOKENS.find(t => t.symbol === symbol);
+            document.getElementById('token-icon').src = selectedToken.icon;
+            // Update price display if needed, but for now just icon
+            renderOptions();
+
+            // Update button text
+            if (linkData) {
+                modalPayBtn.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                if (userAddress) {
+                    payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                }
+            }
+        };
+
+        // Event Listeners
+        payBtn.onclick = async () => {
+            if (!userAddress) {
+                await connectWallet();
+            } else {
+                modal.classList.add('active');
+                renderOptions();
+            }
+        };
+
+        modalCancelBtn.onclick = () => {
+            modal.classList.remove('active');
+        };
+
+        modalPayBtn.onclick = processPayment;
+
+        modal.onclick = (e) => {
+            if (e.target === modal) modal.classList.remove('active');
+        };
+
+        // Triggers
+        document.getElementById('network-trigger').onclick = (e) => {
+            e.stopPropagation();
+            if (!userAddress) {
+                connectWallet().then(connected => {
+                    if (connected) {
+                        modal.classList.add('active');
+                        renderOptions();
+                    }
+                });
+            } else {
+                modal.classList.add('active');
+                renderOptions();
+            }
+        };
+
+        document.getElementById('token-trigger').onclick = (e) => {
+            e.stopPropagation();
+            if (!userAddress) {
+                connectWallet().then(connected => {
+                    if (connected) {
+                        modal.classList.add('active');
+                        renderOptions();
+                    }
+                });
+            } else {
+                modal.classList.add('active');
+                renderOptions();
+            }
+        };
+
         fetchPaymentLink();
     </script>
 </body>

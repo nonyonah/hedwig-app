@@ -10,4 +10,5 @@ export const Colors = {
     white: '#FFFFFF',
     black: '#000000',
     buttonDisabled: '#93C5FD', // Light blue
+    success: '#10B981',      // Green
 };

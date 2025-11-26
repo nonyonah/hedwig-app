@@ -12,6 +12,8 @@ import {
 import { Colors } from '../theme/colors';
 import { Metrics } from '../theme/metrics';
 import { Typography } from '../styles/typography';
+import { Sidebar } from '../components/Sidebar';
+import { ProfileModal } from '../components/ProfileModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -120,6 +122,7 @@ export default function HomeScreen() {
     const [isProfileModalRendered, setIsProfileModalRendered] = useState(false);
     const [selectedChain, setSelectedChain] = useState<ChainInfo>(SUPPORTED_CHAINS[0]);
     const [viewMode, setViewMode] = useState<'main' | 'assets' | 'chains'>('main');
+    const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
 
     // Animate view mode changes
     useEffect(() => {
@@ -238,9 +241,9 @@ export default function HomeScreen() {
                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
                 // Fetch user profile
-                console.log('Fetching profile from:', `${apiUrl} /api/users / profile`);
-                const profileResponse = await fetch(`${apiUrl} /api/users / profile`, {
-                    headers: { 'Authorization': `Bearer ${token} ` },
+                console.log('Fetching profile from:', `${apiUrl}/api/users/profile`);
+                const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
                 });
                 console.log('Profile response status:', profileResponse.status);
 
@@ -255,13 +258,17 @@ export default function HomeScreen() {
                         firstName: userData.firstName || '',
                         lastName: userData.lastName || ''
                     });
+                    setWalletAddresses({
+                        evm: userData.baseWalletAddress || userData.celoWalletAddress,
+                        solana: userData.solanaWalletAddress
+                    });
                 } else {
                     console.log('Profile fetch failed or no data:', profileData);
                 }
 
                 // Fetch conversation history
-                const conversationsResponse = await fetch(`${apiUrl} /api/conversations`, {
-                    headers: { 'Authorization': `Bearer ${token} ` },
+                const conversationsResponse = await fetch(`${apiUrl}/api/conversations`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
                 });
                 const conversationsData = await conversationsResponse.json();
                 console.log('[Chat] Conversations fetched:', conversationsData);
@@ -323,7 +330,7 @@ export default function HomeScreen() {
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
             console.log('[Chat] Loading conversation:', convId);
-            const response = await fetch(`${apiUrl} /api/conversations / ${convId}/messages`, {
+            const response = await fetch(`${apiUrl}/api/conversations/${convId}/messages`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
 
@@ -675,9 +682,6 @@ export default function HomeScreen() {
                     keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
                 >
                     <View style={styles.inputContainer}>
-                        <TouchableOpacity onPress={() => setIsQuickActionsOpen(true)} style={styles.gridButton}>
-                            <SquaresFour size={24} color={Colors.textPrimary} />
-                        </TouchableOpacity>
                         <TextInput
                             style={styles.input}
                             placeholder="Ask anything"
@@ -697,95 +701,15 @@ export default function HomeScreen() {
                 </KeyboardAvoidingView >
 
                 {/* Sidebar Overlay */}
-                < Animated.View
-                    style={
-                        [
-                            styles.sidebarOverlay,
-                            {
-                                opacity: sidebarAnim.interpolate({
-                                    inputRange: [-width * 0.8, 0],
-                                    outputRange: [0, 1],
-                                }),
-                            }
-                        ]}
-                    pointerEvents={isSidebarOpen ? 'auto' : 'none'}
-                >
-                    <TouchableOpacity
-                        style={styles.sidebarOverlayTouchable}
-                        activeOpacity={1}
-                        onPress={() => setIsSidebarOpen(false)}
-                    >
-                        <Animated.View
-                            style={[
-                                styles.sidebar,
-                                { transform: [{ translateX: sidebarAnim }] }
-                            ]}
-                        >
-                            <View style={styles.sidebarContent}>
-                                <TouchableOpacity style={styles.sidebarItem} onPress={handleHomeClick}>
-                                    <House size={24} color={Colors.textPrimary} />
-                                    <Text style={styles.sidebarItemText}>Home</Text>
-                                </TouchableOpacity>
-
-                                {/* Recent Conversations Section */}
-                                {conversations.length > 0 && (
-                                    <View style={styles.historySection}>
-                                        <Text style={styles.historySectionTitle}>Recent Chats</Text>
-                                        {conversations.map((conv: any) => (
-                                            <TouchableOpacity
-                                                key={conv.id}
-                                                style={[
-                                                    styles.historyItem,
-                                                    conv.id === conversationId && styles.historyItemActive
-                                                ]}
-                                                onPress={() => loadConversation(conv.id)}
-                                            >
-                                                <Chat size={20} color={conv.id === conversationId ? Colors.primary : Colors.textSecondary} />
-                                                <View style={styles.historyItemText}>
-                                                    <Text style={styles.historyItemTitle} numberOfLines={1}>
-                                                        {conv.title || 'New conversation'}
-                                                    </Text>
-                                                    <Text style={styles.historyItemSubtitle}>
-                                                        {new Date(conv.updated_at).toLocaleDateString()}
-                                                    </Text>
-                                                </View>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                )}
-
-                                <View style={styles.sidebarDivider} />
-
-                                <TouchableOpacity style={styles.sidebarItem}>
-                                    <ClockCounterClockwise size={24} color={Colors.textPrimary} />
-                                    <Text style={styles.sidebarItemText}>Transactions</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.sidebarItem}>
-                                    <Swap size={24} color={Colors.textPrimary} />
-                                    <Text style={styles.sidebarItemText}>Swap</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.sidebarItem}>
-                                    <Gear size={24} color={Colors.textPrimary} />
-                                    <Text style={styles.sidebarItemText}>Settings</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={styles.sidebarFooter}>
-                                <View style={styles.userProfile}>
-                                    <View style={styles.avatarPlaceholder} />
-                                    <Text style={styles.userName}>
-                                        {userName.firstName && userName.lastName
-                                            ? `${userName.firstName} ${userName.lastName}`
-                                            : (user as any)?.email?.address?.split('@')[0] || 'User'}
-                                    </Text>
-                                </View>
-                                <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-                                    <SignOut size={24} color={Colors.error} />
-                                </TouchableOpacity>
-                            </View>
-                        </Animated.View>
-                    </TouchableOpacity>
-                </Animated.View >
+                <Sidebar
+                    isOpen={isSidebarOpen}
+                    onClose={() => setIsSidebarOpen(false)}
+                    userName={userName}
+                    conversations={conversations}
+                    currentConversationId={conversationId}
+                    onLoadConversation={loadConversation}
+                    onHomeClick={handleHomeClick}
+                />
 
                 {/* Quick Actions Modal */}
                 < Modal
@@ -843,194 +767,12 @@ export default function HomeScreen() {
                 </Modal >
 
                 {/* Profile Wallet Modal */}
-                < Modal
-                    visible={isProfileModalRendered}
-                    transparent={true}
-                    onRequestClose={() => setIsProfileModalVisible(false)}
-                >
-                    <View style={[styles.modalOverlay, { backgroundColor: 'transparent' }]}>
-                        <Animated.View
-                            style={[
-                                StyleSheet.absoluteFill,
-                                {
-                                    backgroundColor: 'rgba(0,0,0,0.5)',
-                                    opacity: walletModalOpacity
-                                }
-                            ]}
-                        />
-                        <TouchableOpacity
-                            style={StyleSheet.absoluteFill}
-                            activeOpacity={1}
-                            onPress={() => setIsProfileModalVisible(false)}
-                        />
-                        <Animated.View
-                            style={[
-                                styles.profileModalContent,
-                                { transform: [{ translateY: walletModalAnim }] }
-                            ]}
-                        >
-                            {/* Header */}
-                            <View style={styles.modalHeader}>
-                                <View style={styles.userInfo}>
-                                    <View style={styles.avatarContainer}>
-                                        <Text style={styles.avatarText}>
-                                            {userName.firstName ? userName.firstName[0].toUpperCase() : 'U'}
-                                        </Text>
-                                    </View>
-                                    <View>
-                                        <Text style={styles.profileName}>
-                                            {userName.firstName ? `${userName.firstName} ${userName.lastName}` : 'User'}
-                                        </Text>
-                                        <TouchableOpacity
-                                            style={styles.addressCopy}
-                                            onPress={() => {
-                                                const address = selectedChain.addressType === 'evm'
-                                                    ? (ethereumWallet.wallets?.[0]?.address || '0x...')
-                                                    : (solanaWallet.wallets?.[0]?.address || 'Not connected');
-
-                                                if (Platform.OS === 'web') {
-                                                    navigator.clipboard.writeText(address);
-                                                } else {
-                                                    Alert.alert('Copied', 'Address copied to clipboard');
-                                                }
-                                            }}
-                                        >
-                                            <Text style={styles.profileEmail}>
-                                                {selectedChain.addressType === 'evm'
-                                                    ? (ethereumWallet.wallets?.[0]?.address ? ethereumWallet.wallets[0].address.slice(0, 6) + '...' + ethereumWallet.wallets[0].address.slice(-4) : '0x...')
-                                                    : (solanaWallet.wallets?.[0]?.address ? solanaWallet.wallets[0].address.slice(0, 6) + '...' + solanaWallet.wallets[0].address.slice(-4) : 'Not connected')}
-                                            </Text>
-                                            <Copy size={14} color={Colors.textSecondary} weight="bold" />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                                <TouchableOpacity onPress={() => setIsProfileModalVisible(false)}>
-                                    <X size={20} color={Colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Content based on viewMode */}
-                            {viewMode === 'main' && (
-                                <View style={styles.menuList}>
-                                    {/* Chain Selector */}
-                                    <TouchableOpacity
-                                        style={styles.menuItem}
-                                        onPress={() => setViewMode('chains')}
-                                    >
-                                        <View style={styles.menuItemLeft}>
-                                            <selectedChain.icon width={24} height={24} />
-                                            <View>
-                                                <Text style={styles.menuItemTitle}>{selectedChain.name}</Text>
-                                                <Text style={styles.menuItemSubtitle}>
-                                                    {selectedChain.addressType === 'evm' ? '0 ETH' : '0 SOL'}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        <CaretRight size={20} color={Colors.textSecondary} />
-                                    </TouchableOpacity>
-
-                                    {/* View Assets */}
-                                    <TouchableOpacity
-                                        style={styles.menuItem}
-                                        onPress={() => setViewMode('assets')}
-                                    >
-                                        <View style={styles.menuItemLeft}>
-                                            <Wallet size={24} color={Colors.textPrimary} />
-                                            <Text style={styles.menuItemTitle}>View Assets</Text>
-                                        </View>
-                                        <CaretRight size={20} color={Colors.textSecondary} />
-                                    </TouchableOpacity>
-
-                                    {/* Manage Wallet */}
-                                    <TouchableOpacity style={styles.menuItem}>
-                                        <View style={styles.menuItemLeft}>
-                                            <CreditCard size={24} color={Colors.textPrimary} />
-                                            <Text style={styles.menuItemTitle}>Manage Wallet</Text>
-                                        </View>
-                                    </TouchableOpacity>
-
-                                    {/* Disconnect */}
-                                    <TouchableOpacity
-                                        style={[styles.menuItem, styles.disconnectButton]}
-                                        onPress={handleLogout}
-                                    >
-                                        <View style={styles.menuItemLeft}>
-                                            <SignOut size={24} color={Colors.textSecondary} />
-                                            <Text style={styles.disconnectText}>Log Out</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-
-                            {viewMode === 'assets' && (
-                                <View style={styles.assetsView}>
-                                    <TouchableOpacity
-                                        style={styles.backButton}
-                                        onPress={() => setViewMode('main')}
-                                    >
-                                        <CaretLeft size={20} color={Colors.textSecondary} />
-                                        <Text style={styles.backButtonText}>Back</Text>
-                                    </TouchableOpacity>
-
-                                    <Text style={styles.viewTitle}>Assets ({selectedChain.name})</Text>
-
-                                    <View style={styles.assetList}>
-                                        {selectedChain.tokens.map((token, idx) => (
-                                            <View key={idx} style={styles.assetItem}>
-                                                <View style={styles.assetIcon}>
-                                                    <token.icon width={24} height={24} />
-                                                </View>
-                                                <View style={styles.assetInfo}>
-                                                    <Text style={styles.assetName}>{token.symbol}</Text>
-                                                    <Text style={styles.assetBalance}>0.00</Text>
-                                                </View>
-                                            </View>
-                                        ))}
-                                    </View>
-                                </View>
-                            )}
-
-                            {viewMode === 'chains' && (
-                                <View style={styles.chainsView}>
-                                    <TouchableOpacity
-                                        style={styles.backButton}
-                                        onPress={() => setViewMode('main')}
-                                    >
-                                        <CaretLeft size={20} color={Colors.textSecondary} />
-                                        <Text style={styles.backButtonText}>Back</Text>
-                                    </TouchableOpacity>
-
-                                    <Text style={styles.viewTitle}>Select Chain</Text>
-
-                                    <FlatList
-                                        data={SUPPORTED_CHAINS}
-                                        keyExtractor={(item) => item.name}
-                                        renderItem={({ item }) => (
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.chainOption,
-                                                    selectedChain.name === item.name && styles.selectedChainOption
-                                                ]}
-                                                onPress={() => {
-                                                    setSelectedChain(item);
-                                                    setViewMode('main');
-                                                }}
-                                            >
-                                                <View style={styles.chainOptionLeft}>
-                                                    <item.icon width={24} height={24} />
-                                                    <Text style={styles.chainOptionName}>{item.name}</Text>
-                                                </View>
-                                                {selectedChain.name === item.name && (
-                                                    <View style={styles.selectedDot} />
-                                                )}
-                                            </TouchableOpacity>
-                                        )}
-                                    />
-                                </View>
-                            )}
-                        </Animated.View>
-                    </View>
-                </Modal >
+                <ProfileModal
+                    visible={isProfileModalVisible}
+                    onClose={() => setIsProfileModalVisible(false)}
+                    userName={userName}
+                    walletAddresses={walletAddresses}
+                />
             </SafeAreaView >
         </TouchableWithoutFeedback >
     );
