@@ -24,7 +24,7 @@ const TOKENS = [
 export default function InvoiceViewerScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
-    const { user, getAccessToken } = usePrivy();
+    const { user } = usePrivy();
     const { wallets } = useEmbeddedEthereumWallet();
     const wallet = wallets?.[0];
 
@@ -40,14 +40,17 @@ export default function InvoiceViewerScreen() {
 
     const fetchInvoice = async () => {
         try {
-            const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            // On web, default to localhost if no env var is set
+            let apiUrl = process.env.EXPO_PUBLIC_API_URL;
+            if (!apiUrl && typeof window !== 'undefined') {
+                apiUrl = 'http://localhost:3000';
+            }
+            apiUrl = apiUrl || 'http://localhost:3000';
+
             console.log('[Invoice] Fetching invoice from:', `${apiUrl}/api/documents/${id}`);
-            const response = await fetch(`${apiUrl}/api/documents/${id}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+
+            // No authentication needed - this is public for clients to pay
+            const response = await fetch(`${apiUrl}/api/documents/${id}`);
             const data = await response.json();
             console.log('[Invoice] Response:', data);
 
@@ -64,7 +67,9 @@ export default function InvoiceViewerScreen() {
                 }
             } else {
                 Alert.alert('Error', 'Invoice not found');
-                router.back();
+                if (typeof window === 'undefined') {
+                    router.back();
+                }
             }
         } catch (error) {
             console.error('[Invoice] Error fetching:', error);

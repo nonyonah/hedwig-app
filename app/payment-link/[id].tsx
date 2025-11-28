@@ -24,7 +24,7 @@ const TOKENS = [
 export default function PaymentLinkViewerScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
-    const { user, getAccessToken } = usePrivy();
+    const { user } = usePrivy();
     const { wallets } = useEmbeddedEthereumWallet();
     const wallet = wallets?.[0];
 
@@ -40,20 +40,26 @@ export default function PaymentLinkViewerScreen() {
 
     const fetchDocument = async () => {
         try {
-            const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            // On web, default to localhost if no env var is set, to avoid IP issues
+            let apiUrl = process.env.EXPO_PUBLIC_API_URL;
+            if (!apiUrl && typeof window !== 'undefined') {
+                apiUrl = 'http://localhost:3000';
+            }
+            apiUrl = apiUrl || 'http://localhost:3000';
+
             const url = `${apiUrl}/api/documents/${id}`;
             console.log('[PaymentLink] Fetching document from:', url);
 
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            // No authentication needed - this is a public link for clients
+            const response = await fetch(url);
+
+            console.log('[PaymentLink] Response status:', response.status);
             const data = await response.json();
+            console.log('[PaymentLink] Response data:', JSON.stringify(data, null, 2));
 
             if (data.success) {
                 const doc = data.data.document;
+                console.log('[PaymentLink] Document loaded:', doc);
                 setDocument(doc);
 
                 // Set selected chain if available
@@ -64,12 +70,20 @@ export default function PaymentLinkViewerScreen() {
                     }
                 }
             } else {
+                console.error('[PaymentLink] Error response:', data.error);
                 Alert.alert('Error', data.error?.message || 'Payment link not found');
-                router.back();
+                // On web, router.back() might not work if opened directly
+                if (typeof window === 'undefined') {
+                    router.back();
+                }
             }
         } catch (error) {
             console.error('Error fetching payment link:', error);
-            Alert.alert('Error', 'Failed to load payment link');
+            // Don't just alert, log it visible
+            if (typeof window !== 'undefined') {
+                console.error('Fetch error details:', error);
+            }
+            Alert.alert('Error', 'Failed to load payment link. Please check your connection.');
         } finally {
             setIsLoading(false);
         }

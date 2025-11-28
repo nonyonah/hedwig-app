@@ -27,8 +27,34 @@ import { notFound } from './middleware/notFound';
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
-app.use(helmet());
+// Security middleware with CSP configuration for web pages
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: [
+                    "'self'",
+                    "'unsafe-inline'", // Needed for inline scripts in HTML
+                    "https://unpkg.com", // Phosphor icons
+                    "https://cdnjs.cloudflare.com", // ethers.js
+                ],
+                styleSrc: [
+                    "'self'",
+                    "'unsafe-inline'", // Needed for inline styles
+                    "https://fonts.googleapis.com", // Google Fonts
+                ],
+                fontSrc: [
+                    "'self'",
+                    "https://fonts.googleapis.com",
+                    "https://fonts.gstatic.com",
+                ],
+                imgSrc: ["'self'", "data:"],
+                connectSrc: ["'self'"],
+            },
+        },
+    })
+);
 
 // CORS configuration
 app.use(

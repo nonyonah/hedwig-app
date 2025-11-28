@@ -309,7 +309,7 @@ export default function BiometricsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
+        backgroundColor: '#FFFFFF',
     },
     content: {
         flex: 1,

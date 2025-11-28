@@ -161,7 +161,7 @@ export default function VerifyScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
+        backgroundColor: '#FFFFFF',
     },
     keyboardView: {
         flex: 1,
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     box: {
         width: 48,
         height: 56,
-        backgroundColor: '#E5E7EB', // Keep specific or add to theme
+        backgroundColor: '#f5f5f5',
         borderRadius: Metrics.borderRadius.sm,
         justifyContent: 'center',
         alignItems: 'center',
@@ -216,10 +216,10 @@ const styles = StyleSheet.create({
     },
     boxActive: {
         borderColor: Colors.primary,
-        backgroundColor: Colors.background,
+        backgroundColor: '#FFFFFF',
     },
     boxFilled: {
-        backgroundColor: Colors.background,
+        backgroundColor: '#FFFFFF',
         borderColor: '#E5E7EB',
     },
     boxText: {

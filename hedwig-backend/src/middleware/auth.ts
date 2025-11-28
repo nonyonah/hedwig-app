@@ -76,7 +76,8 @@ export const authenticate = async (
         }
 
         const token = authHeader.split(' ')[1];
-        console.log('[Auth] Attempting to verify token...');
+        console.log('[Auth] Token received (first 20 chars):', token?.substring(0, 20) + '...');
+        console.log('[Auth] Token length:', token?.length);
 
         // Verify token with Privy (with retry logic)
         const claims = await verifyTokenWithRetry(token);

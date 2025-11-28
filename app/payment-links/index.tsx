@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
+import { Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
 import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThree } from 'phosphor-react-native';
@@ -319,9 +320,23 @@ export default function PaymentLinksScreen() {
 
                         <TouchableOpacity
                             style={styles.viewButton}
-                            onPress={() => {
-                                setShowModal(false);
-                                router.push(`/payment-link/${selectedLink.id}`);
+                            onPress={async () => {
+                                try {
+                                    setShowModal(false);
+                                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                    const url = `${apiUrl}/payment-link/${selectedLink.id}`;
+                                    console.log('Opening payment link in system browser:', url);
+
+                                    const canOpen = await Linking.canOpenURL(url);
+                                    if (canOpen) {
+                                        await Linking.openURL(url);
+                                    } else {
+                                        Alert.alert('Error', 'Cannot open this URL');
+                                    }
+                                } catch (error: any) {
+                                    console.error('Failed to open browser:', error);
+                                    Alert.alert('Error', `Failed to open payment link: ${error?.message || 'Unknown error'}`);
+                                }
                             }}
                         >
                             <Text style={styles.viewButtonText}>View Payment Link</Text>

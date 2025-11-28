@@ -11,6 +11,7 @@ import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import * as Clipboard from 'expo-clipboard';
+import { Linking } from 'react-native';
 
 // Icons for tokens and chains
 const ICONS = {
@@ -276,9 +277,23 @@ export default function InvoicesScreen() {
 
                         <TouchableOpacity
                             style={styles.viewButton}
-                            onPress={() => {
-                                setShowModal(false);
-                                router.push(`/invoice/${selectedInvoice.id}`);
+                            onPress={async () => {
+                                try {
+                                    setShowModal(false);
+                                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                    const url = `${apiUrl}/invoice/${selectedInvoice.id}`;
+                                    console.log('Opening invoice in system browser:', url);
+
+                                    const canOpen = await Linking.canOpenURL(url);
+                                    if (canOpen) {
+                                        await Linking.openURL(url);
+                                    } else {
+                                        Alert.alert('Error', 'Cannot open this URL');
+                                    }
+                                } catch (error: any) {
+                                    console.error('Failed to open browser:', error);
+                                    Alert.alert('Error', `Failed to open invoice: ${error?.message || 'Unknown error'}`);
+                                }
                             }}
                         >
                             <Text style={styles.viewButtonText}>View Invoice</Text>

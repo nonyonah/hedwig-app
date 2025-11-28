@@ -27,7 +27,8 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundleIdentifier": "com.hedwig.app"
     },
     "plugins": [
       "expo-router"

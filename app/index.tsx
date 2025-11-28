@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Keyboard
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 
-import { usePrivy, useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
+import { useAuth } from '../hooks/useAuth';
+import { useWallet } from '../hooks/useWallet';
 import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square } from 'phosphor-react-native';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
@@ -109,9 +110,10 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
 
 export default function HomeScreen() {
     const router = useRouter();
-    const { isReady, user, logout, getAccessToken } = usePrivy();
-    const ethereumWallet = useEmbeddedEthereumWallet();
-    const solanaWallet = useEmbeddedSolanaWallet();
+    const { isReady, user, logout, getAccessToken } = useAuth();
+    const { wallets: evmWallets } = useWallet();
+    const ethereumWallet = evmWallets?.[0]; // Use first wallet from our hook
+    const solanaWallet = null; // TODO: Add Solana support in useWallet if needed
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
@@ -235,10 +237,23 @@ export default function HomeScreen() {
                 console.log('User object is null, skipping fetch');
                 return;
             }
+
+            // Check if user is authenticated
+            if (!user.id) {
+                console.log('User not authenticated yet, skipping fetch');
+                return;
+            }
+
             console.log('Fetching user data for user:', user.id);
             try {
                 const token = await getAccessToken();
                 console.log('Got access token:', token ? 'Yes' : 'No');
+
+                if (!token) {
+                    console.log('No access token available, skipping fetch');
+                    return;
+                }
+
                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
                 // Fetch user profile
@@ -1097,9 +1112,9 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     userBubble: {
-        backgroundColor: Colors.surface,
+        backgroundColor: '#f5f5f5',
         padding: Metrics.spacing.md,
-        borderRadius: Metrics.borderRadius.lg,
+        borderRadius: 20,
         borderBottomRightRadius: 4,
         maxWidth: '80%',
     },
