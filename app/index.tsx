@@ -4,7 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 
 import { usePrivy, useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
-import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork } from 'phosphor-react-native';
+import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square } from 'phosphor-react-native';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
@@ -114,7 +114,8 @@ export default function HomeScreen() {
     const solanaWallet = useEmbeddedSolanaWallet();
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
     const [isQuickActionsRendered, setIsQuickActionsRendered] = useState(false);
@@ -253,13 +254,25 @@ export default function HomeScreen() {
                 if (profileData.success && profileData.data) {
                     // Check if user data is nested in 'user' property or directly in data
                     const userData = profileData.data.user || profileData.data;
-                    console.log('Setting user name:', userData.firstName, userData.lastName);
+                    console.log('[HomeScreen] Full userData:', userData);
+                    console.log('[HomeScreen] Wallet addresses:', {
+                        ethereum: userData.ethereumWalletAddress,
+                        base: userData.baseWalletAddress,
+                        celo: userData.celoWalletAddress,
+                        solana: userData.solanaWalletAddress
+                    });
+
                     setUserName({
                         firstName: userData.firstName || '',
                         lastName: userData.lastName || ''
                     });
                     setWalletAddresses({
-                        evm: userData.baseWalletAddress || userData.celoWalletAddress,
+                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
+                        solana: userData.solanaWalletAddress
+                    });
+
+                    console.log('[HomeScreen] Set walletAddresses to:', {
+                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
                         solana: userData.solanaWalletAddress
                     });
                 } else {
@@ -364,7 +377,7 @@ export default function HomeScreen() {
     };
 
     const sendMessage = async () => {
-        if (!inputText.trim() || isLoading) return;
+        if (!inputText.trim() || isGenerating) return;
 
         const userMessage: Message = {
             id: Date.now().toString(),
@@ -375,7 +388,11 @@ export default function HomeScreen() {
 
         setMessages(prev => [...prev, userMessage]);
         setInputText('');
-        setIsLoading(true);
+        setIsGenerating(true);
+
+        // Create new abort controller for this request
+        const abortController = new AbortController();
+        abortControllerRef.current = abortController;
 
         try {
             const token = await getAccessToken();
@@ -391,7 +408,13 @@ export default function HomeScreen() {
                     message: userMessage.content,
                     conversationId: conversationId,
                 }),
+                signal: abortController.signal,
             });
+
+            // Check if request was aborted
+            if (abortController.signal.aborted) {
+                return;
+            }
 
             const data = await response.json();
 
@@ -407,11 +430,31 @@ export default function HomeScreen() {
             } else {
                 Alert.alert('Error', data.error?.message || 'Failed to get response');
             }
-        } catch (error) {
-            console.error('Chat error:', error);
-            Alert.alert('Error', 'Failed to connect to server');
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                console.log('Request was cancelled');
+                // Add a cancelled message
+                const cancelMessage: Message = {
+                    id: Date.now().toString() + '_cancelled',
+                    role: 'assistant',
+                    content: 'Response cancelled.',
+                    createdAt: new Date().toISOString(),
+                };
+                setMessages(prev => [...prev, cancelMessage]);
+            } else {
+                console.error('Chat error:', error);
+                Alert.alert('Error', 'Failed to connect to server');
+            }
         } finally {
-            setIsLoading(false);
+            setIsGenerating(false);
+            abortControllerRef.current = null;
+        }
+    };
+
+    const stopGeneration = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
         }
     };
 
@@ -576,7 +619,7 @@ export default function HomeScreen() {
                                         const userMsg = messages[messageIndex - 1];
                                         if (userMsg.role === 'user') {
                                             // Resend the user message to get a new response
-                                            setIsLoading(true);
+                                            setIsGenerating(true);
                                             try {
                                                 const token = await getAccessToken();
                                                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -608,7 +651,7 @@ export default function HomeScreen() {
                                                 console.error('Refresh error:', error);
                                                 Alert.alert('Error', 'Failed to refresh response');
                                             } finally {
-                                                setIsLoading(false);
+                                                setIsGenerating(false);
                                             }
                                         }
                                     }
@@ -636,10 +679,11 @@ export default function HomeScreen() {
             <SafeAreaView style={styles.container}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)} style={styles.iconButton}>
+                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)} style={styles.menuButton}>
                         <List size={24} color={Colors.textPrimary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconButton} onPress={() => setIsProfileModalVisible(true)}>
+                    <View style={{ flex: 1 }} />
+                    <TouchableOpacity style={styles.profileIconButton} onPress={() => setIsProfileModalVisible(true)}>
                         <UserCircle size={28} color={Colors.textPrimary} weight="fill" />
                     </TouchableOpacity>
                 </View>
@@ -669,7 +713,7 @@ export default function HomeScreen() {
                             removeClippedSubviews={false}
                         />
                     )}
-                    {isLoading && (
+                    {isGenerating && (
                         <View style={styles.thinkingContainer}>
                             <Text style={styles.thinkingText}>Thinking...</Text>
                         </View>
@@ -683,7 +727,7 @@ export default function HomeScreen() {
                 >
                     <View style={styles.inputContainer}>
                         <TextInput
-                            style={styles.input}
+                            style={styles.inputBox}
                             placeholder="Ask anything"
                             placeholderTextColor={Colors.textPlaceholder}
                             value={inputText}
@@ -691,11 +735,18 @@ export default function HomeScreen() {
                             multiline
                         />
                         <TouchableOpacity
-                            onPress={sendMessage}
-                            style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
-                            disabled={!inputText.trim() || isLoading}
+                            onPress={isGenerating ? stopGeneration : sendMessage}
+                            style={[
+                                styles.sendButton,
+                                !inputText.trim() && !isGenerating && styles.sendButtonDisabled
+                            ]}
+                            disabled={!inputText.trim() && !isGenerating}
                         >
-                            <ArrowUp size={20} color={Colors.white} weight="bold" />
+                            {isGenerating ? (
+                                <Square size={20} color={Colors.white} weight="fill" />
+                            ) : (
+                                <ArrowUp size={20} color={Colors.white} weight="bold" />
+                            )}
                         </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView >
@@ -754,6 +805,14 @@ export default function HomeScreen() {
                                 <Receipt size={24} color={Colors.textPrimary} />
                                 <Text style={styles.actionText}>Invoice</Text>
                             </TouchableOpacity>
+                            <TouchableOpacity style={styles.sidebarItem} onPress={() => router.push('/invoices')}>
+                                <Receipt size={24} color={Colors.textSecondary} />
+                                <Text style={styles.sidebarText}>Invoices</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.sidebarItem}>
+                                <Gear size={24} color={Colors.textSecondary} />
+                                <Text style={styles.sidebarText}>Settings</Text>
+                            </TouchableOpacity>
                             <TouchableOpacity style={styles.actionItem}>
                                 <Pen size={24} color={Colors.textPrimary} />
                                 <Text style={styles.actionText}>Proposal</Text>
@@ -781,7 +840,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
+        backgroundColor: '#FFFFFF',
     },
     loadingContainer: {
         flex: 1,
@@ -795,12 +854,15 @@ const styles = StyleSheet.create({
         paddingHorizontal: Metrics.spacing.lg,
         paddingVertical: Metrics.spacing.md,
     },
-    iconButton: {
-        padding: Metrics.spacing.xs,
-        backgroundColor: Colors.surface,
-        borderRadius: 20,
+    headerTitle: {
+        ...Typography.h4,
+        color: Colors.textPrimary,
+    },
+    profileIconButton: {
         width: 40,
         height: 40,
+        borderRadius: 20,
+        backgroundColor: '#f5f5f5',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -1135,7 +1197,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: Metrics.spacing.md,
         paddingBottom: Platform.OS === 'ios' ? Metrics.spacing.md : Metrics.spacing.lg,
-        backgroundColor: Colors.surface,
+        backgroundColor: '#f5f5f5',
         margin: Metrics.spacing.md,
         borderRadius: Metrics.borderRadius.xl,
     },
@@ -1143,11 +1205,16 @@ const styles = StyleSheet.create({
         padding: Metrics.spacing.xs,
         marginRight: Metrics.spacing.sm,
     },
-    input: {
+    inputBox: {
         flex: 1,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 24,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        marginRight: 8,
+        minHeight: 48,
+        maxHeight: 120,
         ...Typography.input,
-        maxHeight: 100,
-        paddingVertical: 8,
     },
     sendButton: {
         backgroundColor: Colors.primary,
@@ -1191,7 +1258,13 @@ const styles = StyleSheet.create({
     sidebarItem: {
         flexDirection: 'row',
         alignItems: 'center',
+        paddingVertical: 16,
         gap: Metrics.spacing.md,
+    },
+    sidebarText: {
+        ...Typography.body,
+        fontWeight: '500',
+        color: Colors.textPrimary,
     },
     sidebarItemText: {
         ...Typography.body,
@@ -1285,6 +1358,14 @@ const styles = StyleSheet.create({
     sheetTitle: {
         ...Typography.title,
         fontSize: 20,
+    },
+    menuButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#f5f5f5',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     closeButton: {
         padding: 4,

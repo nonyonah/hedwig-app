@@ -173,10 +173,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
 
         // Check walletAddresses prop from backend
         if (walletAddresses) {
+            console.log('[ProfileModal] walletAddresses prop received:', walletAddresses);
             if (walletAddresses.evm && !ethAddress) {
+                console.log('[ProfileModal] Setting ethAddress from prop:', walletAddresses.evm);
                 setEthAddress(walletAddresses.evm);
             }
             if (walletAddresses.solana && !solAddress) {
+                console.log('[ProfileModal] Setting solAddress from prop:', walletAddresses.solana);
                 setSolAddress(walletAddresses.solana);
             }
         }
@@ -184,28 +187,71 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
         // Fallback to user object if hooks are empty
         if (user) {
             const userAny = user as any;
+            console.log('[ProfileModal] user object:', {
+                wallet: userAny.wallet,
+                linkedAccounts: userAny.linkedAccounts
+            });
+
             // Check primary wallet
             if (userAny.wallet?.address) {
                 const address = userAny.wallet.address;
+                console.log('[ProfileModal] Primary wallet address:', address);
                 if (address.startsWith('0x') && !ethAddress) {
+                    console.log('[ProfileModal] Setting ethAddress from user.wallet');
                     setEthAddress(address);
                 } else if (!address.startsWith('0x') && !solAddress) {
+                    console.log('[ProfileModal] Setting solAddress from user.wallet');
                     setSolAddress(address);
                 }
             }
 
-            // Check linked accounts
+            // Check linked accounts - Prioritize embedded wallets
             if (userAny.linkedAccounts) {
-                const wallets = userAny.linkedAccounts.filter((account: any) => account.type === 'wallet');
-                wallets.forEach((wallet: any) => {
-                    if (wallet.address.startsWith('0x') && !ethAddress) {
-                        setEthAddress(wallet.address);
-                    } else if (!wallet.address.startsWith('0x') && !solAddress) {
-                        setSolAddress(wallet.address);
+                console.log('[ProfileModal] Checking linkedAccounts for wallets...');
+                // Find embedded EVM wallet
+                const embeddedEvm = userAny.linkedAccounts.find(
+                    (account: any) => account.type === 'wallet' &&
+                        account.connectorType === 'embedded' &&
+                        account.address.startsWith('0x')
+                );
+
+                // Find embedded Solana wallet
+                const embeddedSol = userAny.linkedAccounts.find(
+                    (account: any) => account.type === 'wallet' &&
+                        account.connectorType === 'embedded' &&
+                        !account.address.startsWith('0x')
+                );
+
+                console.log('[ProfileModal] Found embedded EVM wallet:', embeddedEvm?.address);
+                console.log('[ProfileModal] Found embedded Solana wallet:', embeddedSol?.address);
+
+                if (embeddedEvm && !ethAddress) {
+                    console.log('[ProfileModal] Setting ethAddress from embedded wallet');
+                    setEthAddress(embeddedEvm.address);
+                } else if (!ethAddress) {
+                    // Fallback to any EVM wallet
+                    const anyEvm = userAny.linkedAccounts.find(
+                        (account: any) => account.type === 'wallet' && account.address.startsWith('0x')
+                    );
+                    if (anyEvm) {
+                        console.log('[ProfileModal] Setting ethAddress from any EVM wallet:', anyEvm.address);
+                        setEthAddress(anyEvm.address);
                     }
-                });
+                }
+
+                if (embeddedSol && !solAddress) {
+                    setEthAddress(embeddedSol.address);
+                } else if (!solAddress) {
+                    // Fallback to any Solana wallet
+                    const anySol = userAny.linkedAccounts.find(
+                        (account: any) => account.type === 'wallet' && !account.address.startsWith('0x')
+                    );
+                    if (anySol) setSolAddress(anySol.address);
+                }
             }
         }
+
+        console.log('[ProfileModal] Final state - ethAddress:', ethAddress, 'solAddress:', solAddress);
     }, [ethereumWallet, solanaWallet, user, ethAddress, solAddress, walletAddresses]);
 
     useEffect(() => {
@@ -363,17 +409,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                             <Text style={styles.menuItemTitle}>View Assets</Text>
                                         </View>
                                         <CaretRight size={20} color={Colors.textSecondary} />
-                                    </TouchableOpacity>
-
-                                    {/* Disconnect */}
-                                    <TouchableOpacity
-                                        style={[styles.menuItem, styles.disconnectButton]}
-                                        onPress={handleLogout}
-                                    >
-                                        <View style={styles.menuItemLeft}>
-                                            <SignOut size={24} color={Colors.textSecondary} />
-                                            <Text style={styles.disconnectText}>Log Out</Text>
-                                        </View>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -542,6 +577,7 @@ const styles = StyleSheet.create({
     },
     menuList: {
         gap: 8,
+        marginBottom: 0,
     },
     menuItem: {
         flexDirection: 'row',

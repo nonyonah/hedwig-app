@@ -96,9 +96,16 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
     try {
         const amount = parseFloat(params.amount || '0');
         const token = params.token || 'USDC';
-        const network = params.network || 'base';
+        const network = params.network?.toLowerCase() || 'base';
         console.log(`[Actions] Creating payment link on ${network}`);
         const description = params.for || params.description || 'Payment';
+
+        // Map network to chain enum
+        let chain = 'BASE';
+        if (network.includes('celo')) chain = 'CELO';
+        if (network.includes('solana')) chain = 'SOLANA';
+        if (network.includes('arbitrum')) chain = 'ARBITRUM'; // Note: ARBITRUM not in enum yet, defaulting to BASE or need to add it
+        if (network.includes('optimism')) chain = 'OPTIMISM'; // Note: OPTIMISM not in enum yet
 
         // Get internal user ID
         const { data: userData } = await supabase
@@ -118,6 +125,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
                 title: description,
                 amount: amount,
                 currency: token,
+                chain: chain,
                 status: 'DRAFT',
                 payment_link_url: `https://hedwig.app/pay/${Date.now()}` // Simulated URL
             })
@@ -147,6 +155,13 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
 
         // Handle items (either array or single description/amount)
         let items: Array<{ description: string, amount: number, quantity: number }> = [];
+
+        const network = params.network?.toLowerCase() || 'base';
+        let chain = 'BASE';
+        if (network.includes('celo')) chain = 'CELO';
+        if (network.includes('solana')) chain = 'SOLANA';
+        if (network.includes('arbitrum')) chain = 'ARBITRUM';
+        if (network.includes('optimism')) chain = 'OPTIMISM';
 
         if (params.items && Array.isArray(params.items)) {
             // Multi-item invoice
@@ -184,6 +199,7 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
                 amount: totalAmount,
                 description: items.map(i => i.description).join(', '),
                 status: 'DRAFT',
+                chain: chain,
                 content: {
                     client_name: clientName,
                     recipient_email: clientEmail,

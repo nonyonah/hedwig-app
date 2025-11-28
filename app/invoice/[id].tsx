@@ -24,15 +24,15 @@ const TOKENS = [
 export default function InvoiceViewerScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
-    const { user } = usePrivy();
-    const wallet = useEmbeddedEthereumWallet();
+    const { user, getAccessToken } = usePrivy();
+    const { wallets } = useEmbeddedEthereumWallet();
+    const wallet = wallets?.[0];
 
     const [invoice, setInvoice] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedChain, setSelectedChain] = useState(CHAINS[0]);
     const [selectedToken, setSelectedToken] = useState(TOKENS[0]);
     const [isPaying, setIsPaying] = useState(false);
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
 
     useEffect(() => {
         fetchInvoice();
@@ -40,14 +40,28 @@ export default function InvoiceViewerScreen() {
 
     const fetchInvoice = async () => {
         try {
+            const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
             console.log('[Invoice] Fetching invoice from:', `${apiUrl}/api/documents/${id}`);
-            const response = await fetch(`${apiUrl}/api/documents/${id}`);
+            const response = await fetch(`${apiUrl}/api/documents/${id}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             const data = await response.json();
             console.log('[Invoice] Response:', data);
 
             if (data.success) {
-                setInvoice(data.data.document);
+                const doc = data.data.document;
+                setInvoice(doc);
+
+                // Set selected chain if available
+                if (doc.chain) {
+                    const chain = CHAINS.find(c => c.id === doc.chain.toLowerCase());
+                    if (chain) {
+                        setSelectedChain(chain);
+                    }
+                }
             } else {
                 Alert.alert('Error', 'Invoice not found');
                 router.back();
@@ -66,25 +80,60 @@ export default function InvoiceViewerScreen() {
             return;
         }
 
-        // Show payment modal instead of directly processing
-        setShowPaymentModal(true);
-    };
+        if (!wallet) {
+            Alert.alert('Error', 'No wallet connected');
+            return;
+        }
 
-    const processPayment = async () => {
         setIsPaying(true);
-        setShowPaymentModal(false);
 
         try {
-            // Simulate blockchain transaction
-            // In production, you would:
-            // 1. Get wallet address from wallet.wallets?.[0]?.address
-            // 2. Connect to the selected blockchain
-            // 3. Send transaction with selected token
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            const provider = await wallet.getProvider();
 
-            Alert.alert('Success', `Payment processed successfully via ${selectedChain.name} using ${selectedToken.symbol}!`);
-        } catch (error) {
-            Alert.alert('Error', 'Payment failed. Please try again.');
+            const CHAIN_IDS: Record<string, string> = {
+                'base': '0x2105',
+                'celo': '0xa4ec',
+                'arbitrum': '0xa4b1',
+                'optimism': '0xa'
+            };
+
+            const targetChainId = CHAIN_IDS[selectedChain.id];
+
+            if (targetChainId) {
+                try {
+                    await provider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: targetChainId }],
+                    });
+                } catch (error: any) {
+                    if (error.code === 4902) {
+                        Alert.alert('Error', 'Please add this network to your wallet');
+                    } else {
+                        console.error('Switch chain error:', error);
+                    }
+                }
+            }
+
+            const recipient = invoice?.recipient_address || wallet?.address;
+
+            if (!recipient) {
+                throw new Error('No recipient address found');
+            }
+
+            const txHash = await provider.request({
+                method: 'eth_sendTransaction',
+                params: [{
+                    from: wallet.address,
+                    to: recipient,
+                    value: '0x0',
+                }],
+            });
+
+            console.log('Transaction sent:', txHash);
+            Alert.alert('Success', `Payment sent! Tx: ${txHash}`);
+        } catch (error: any) {
+            console.error('Payment failed:', error);
+            Alert.alert('Error', error.message || 'Payment failed');
         } finally {
             setIsPaying(false);
         }
@@ -192,16 +241,16 @@ export default function InvoiceViewerScreen() {
 
                 {/* Payment Section */}
                 <View style={styles.paymentSection}>
-                    {/* Chain & Token Selectors */}
+                    {/* Chain & Token Display (Read-only) */}
                     <View style={styles.selectorsRow}>
-                        <TouchableOpacity style={styles.selectorButton}>
+                        <View style={styles.selectorBadge}>
                             <Image source={selectedChain.icon} style={styles.selectorIcon} />
                             <Text style={styles.selectorText}>{selectedChain.name}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.selectorButton}>
+                        </View>
+                        <View style={styles.selectorBadge}>
                             <Image source={selectedToken.icon} style={styles.selectorIcon} />
                             <Text style={styles.selectorText}>{selectedToken.symbol}</Text>
-                        </TouchableOpacity>
+                        </View>
                     </View>
 
                     {/* Pay Button */}
@@ -228,71 +277,7 @@ export default function InvoiceViewerScreen() {
                 </View>
             </ScrollView>
 
-            {/* Payment Modal */}
-            <Modal
-                visible={showPaymentModal}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={() => setShowPaymentModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Select Payment Method</Text>
 
-                        {/* Chain Selection */}
-                        <Text style={styles.modalLabel}>Network</Text>
-                        <View style={styles.optionsGrid}>
-                            {CHAINS.map((chain) => (
-                                <TouchableOpacity
-                                    key={chain.id}
-                                    style={[
-                                        styles.optionCard,
-                                        selectedChain.id === chain.id && styles.optionCardSelected
-                                    ]}
-                                    onPress={() => setSelectedChain(chain)}
-                                >
-                                    <Image source={chain.icon} style={styles.optionIcon} />
-                                    <Text style={styles.optionText}>{chain.name}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* Token Selection */}
-                        <Text style={styles.modalLabel}>Token</Text>
-                        <View style={styles.optionsGrid}>
-                            {TOKENS.map((token) => (
-                                <TouchableOpacity
-                                    key={token.symbol}
-                                    style={[
-                                        styles.optionCard,
-                                        selectedToken.symbol === token.symbol && styles.optionCardSelected
-                                    ]}
-                                    onPress={() => setSelectedToken(token)}
-                                >
-                                    <Image source={token.icon} style={styles.optionIcon} />
-                                    <Text style={styles.optionText}>{token.symbol}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* Buttons */}
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.modalButtonSecondary]}
-                                onPress={() => setShowPaymentModal(false)}
-                            >
-                                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.modalButtonPrimary]}
-                                onPress={processPayment}
-                            >
-                                <Text style={styles.modalButtonText}>Pay ${total.toFixed(2)}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
         </SafeAreaView>
     );
 }
@@ -447,19 +432,17 @@ const styles = StyleSheet.create({
     selectorsRow: {
         flexDirection: 'row',
         gap: 12,
-        justifyContent: 'center',
+        marginBottom: 24,
     },
-    selectorButton: {
+    selectorBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 12,
+        backgroundColor: '#F3F4F6',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
         borderWidth: 1,
         borderColor: '#E5E7EB',
-        minWidth: 120,
-        justifyContent: 'center',
     },
     selectorIcon: {
         width: 20,
@@ -470,6 +453,7 @@ const styles = StyleSheet.create({
     selectorText: {
         ...Typography.body,
         fontWeight: '500',
+        color: Colors.textPrimary,
     },
     payButton: {
         backgroundColor: Colors.primary,

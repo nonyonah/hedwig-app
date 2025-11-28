@@ -64,6 +64,14 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
             user = newUser;
         } else {
             // Update last login and wallet addresses if changed
+            console.log('[Auth] Updating existing user:', {
+                userId: user.id,
+                currentEthWallet: user.ethereum_wallet_address,
+                newEthWallet: walletAddresses?.ethereum,
+                currentSolWallet: user.solana_wallet_address,
+                newSolWallet: walletAddresses?.solana
+            });
+
             const { data: updatedUser, error: updateError } = await supabase
                 .from('users')
                 .update({
@@ -78,6 +86,11 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
             if (updateError) {
                 throw new AppError(`Failed to update user: ${updateError.message}`, 500);
             }
+
+            console.log('[Auth] User updated:', {
+                ethereumWallet: updatedUser.ethereum_wallet_address,
+                solanaWallet: updatedUser.solana_wallet_address
+            });
             user = updatedUser;
         }
 

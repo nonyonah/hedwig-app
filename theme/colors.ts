@@ -1,14 +1,15 @@
 export const Colors = {
-    primary: '#2563EB',      // Blue (buttons, icons, logo)
-    background: '#FFFFFF',   // White
-    surface: '#F5F5F5',      // Light gray (input fields)
-    textPrimary: '#000000',  // Black
-    textSecondary: '#666666', // Gray
-    textPlaceholder: '#9CA3AF', // Placeholder gray
-    border: '#E5E7EB',       // Border gray
-    error: '#EF4444',        // Red
+    primary: '#3067ff',
+    background: '#F9FAFB',
+    surface: '#FFFFFF',
+    textPrimary: '#111827',
+    textSecondary: '#6B7280',
+    textPlaceholder: '#9CA3AF',
+    border: '#E5E7EB',
+    error: '#EF4444',
+    warning: '#F59E0B',
     white: '#FFFFFF',
     black: '#000000',
-    buttonDisabled: '#93C5FD', // Light blue
-    success: '#10B981',      // Green
+    buttonDisabled: '#D1D5DB',
+    success: '#10B981',
 };

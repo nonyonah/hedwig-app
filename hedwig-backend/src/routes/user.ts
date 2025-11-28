@@ -27,6 +27,11 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
+        // Debug logging
+        console.log('Raw user data from DB:', user);
+        console.log('ethereum_wallet_address:', user.ethereum_wallet_address);
+        console.log('solana_wallet_address:', user.solana_wallet_address);
+
         // Fetch counts (optional, but good to have if the frontend expects it)
         // We can do this in parallel
         const [
@@ -47,8 +52,9 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             firstName: user.first_name,
             lastName: user.last_name,
             avatar: user.avatar,
-            baseWalletAddress: user.base_wallet_address,
-            celoWalletAddress: user.celo_wallet_address,
+            ethereumWalletAddress: user.ethereum_wallet_address,
+            baseWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
+            celoWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
             solanaWalletAddress: user.solana_wallet_address,
             createdAt: user.created_at,
             updatedAt: user.updated_at,
@@ -101,8 +107,9 @@ router.patch('/profile', authenticate, async (req: Request, res: Response, next)
             firstName: user.first_name,
             lastName: user.last_name,
             avatar: user.avatar,
-            baseWalletAddress: user.base_wallet_address,
-            celoWalletAddress: user.celo_wallet_address,
+            ethereumWalletAddress: user.ethereum_wallet_address,
+            baseWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
+            celoWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
             solanaWalletAddress: user.solana_wallet_address,
             createdAt: user.created_at,
             updatedAt: user.updated_at,

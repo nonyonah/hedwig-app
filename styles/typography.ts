@@ -27,6 +27,16 @@ export const Typography = StyleSheet.create({
         fontSize: 16,
         color: '#000000',
     },
+    h1: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 32,
+        color: '#000000',
+    },
+    h2: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 28,
+        color: '#000000',
+    },
     logoText: {
         fontFamily: 'RethinkSans_700Bold',
         fontSize: 160,

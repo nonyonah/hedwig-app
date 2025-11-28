@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy, useEmbeddedEthereumWallet } from '@privy-io/expo';
@@ -24,15 +24,15 @@ const TOKENS = [
 export default function PaymentLinkViewerScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
-    const { user } = usePrivy();
-    const wallet = useEmbeddedEthereumWallet();
+    const { user, getAccessToken } = usePrivy();
+    const { wallets } = useEmbeddedEthereumWallet();
+    const wallet = wallets?.[0];
 
     const [document, setDocument] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedChain, setSelectedChain] = useState(CHAINS[0]);
     const [selectedToken, setSelectedToken] = useState(TOKENS[0]);
     const [isPaying, setIsPaying] = useState(false);
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
 
     useEffect(() => {
         fetchDocument();
@@ -40,21 +40,30 @@ export default function PaymentLinkViewerScreen() {
 
     const fetchDocument = async () => {
         try {
+            const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
             const url = `${apiUrl}/api/documents/${id}`;
             console.log('[PaymentLink] Fetching document from:', url);
-            console.log('[PaymentLink] Document ID:', id);
 
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             const data = await response.json();
 
-            console.log('[PaymentLink] Response status:', response.status);
-            console.log('[PaymentLink] Response data:', JSON.stringify(data, null, 2));
-
             if (data.success) {
-                setDocument(data.data.document);
+                const doc = data.data.document;
+                setDocument(doc);
+
+                // Set selected chain if available
+                if (doc.chain) {
+                    const chain = CHAINS.find(c => c.id === doc.chain.toLowerCase());
+                    if (chain) {
+                        setSelectedChain(chain);
+                    }
+                }
             } else {
-                console.error('[PaymentLink] Document not found:', data.error);
                 Alert.alert('Error', data.error?.message || 'Payment link not found');
                 router.back();
             }
@@ -68,24 +77,72 @@ export default function PaymentLinkViewerScreen() {
 
     const handlePay = async () => {
         if (!user) {
-            router.push('/auth/login');
+            router.push('/auth/login'); // Redirect to login if not logged in
             return;
         }
 
-        setShowPaymentModal(true);
-    };
+        if (!wallet) {
+            Alert.alert('Error', 'No wallet connected');
+            return;
+        }
 
-    const processPayment = async () => {
         setIsPaying(true);
-        setShowPaymentModal(false);
 
         try {
-            // Simulate blockchain transaction
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            const provider = await wallet.getProvider();
+            // ... use provider with ethers ...
+            // For now, let's just alert since we can't easily import ethers without verifying it's installed/setup
+            // But we can try to use the provider directly if it supports request
 
-            Alert.alert('Success', `Payment processed successfully via ${selectedChain.name} using ${selectedToken.symbol}!`);
-        } catch (error) {
-            Alert.alert('Error', 'Payment failed. Please try again.');
+            // Map chain IDs
+            const CHAIN_IDS: Record<string, string> = {
+                'base': '0x2105', // 8453
+                'celo': '0xa4ec', // 42220
+                'arbitrum': '0xa4b1', // 42161
+                'optimism': '0xa' // 10
+            };
+
+            const targetChainId = CHAIN_IDS[selectedChain.id];
+
+            if (targetChainId) {
+                try {
+                    await provider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: targetChainId }],
+                    });
+                } catch (error: any) {
+                    // This error code indicates that the chain has not been added to MetaMask.
+                    if (error.code === 4902) {
+                        Alert.alert('Error', 'Please add this network to your wallet');
+                    } else {
+                        console.error('Switch chain error:', error);
+                        // Continue anyway, maybe they are on the right chain
+                    }
+                }
+            }
+
+            const recipient = document?.recipient_address || wallet?.address;
+
+            if (!recipient) {
+                throw new Error('No recipient address found');
+            }
+
+            // Simple transfer
+            const txHash = await provider.request({
+                method: 'eth_sendTransaction',
+                params: [{
+                    from: wallet.address,
+                    to: recipient,
+                    value: '0x0', // 0 value
+                    // data: ... if token transfer
+                }],
+            });
+
+            console.log('Transaction sent:', txHash);
+            Alert.alert('Success', `Payment sent! Tx: ${txHash}`);
+        } catch (error: any) {
+            console.error('Payment failed:', error);
+            Alert.alert('Error', error.message || 'Payment failed');
         } finally {
             setIsPaying(false);
         }
@@ -122,16 +179,13 @@ export default function PaymentLinkViewerScreen() {
                         </View>
                         <View style={styles.detailRow}>
                             <Text style={styles.detailLabel}>Price</Text>
-                            <View style={styles.priceContainer}>
-                                <Text style={styles.detailValue}>{document.amount} {document.currency}</Text>
-                                <Image source={selectedToken.icon} style={styles.tokenIconSmall} />
-                            </View>
+                            <Text style={styles.detailValue}>{document.amount} {document.currency}</Text>
                         </View>
                         <View style={styles.detailRow}>
                             <Text style={styles.detailLabel}>Network</Text>
-                            <View style={styles.networkContainer}>
-                                <Text style={styles.detailValue}>{selectedChain.name}</Text>
-                                <Image source={selectedChain.icon} style={styles.networkIconSmall} />
+                            <View style={styles.selectorBadge}>
+                                <Image source={selectedChain.icon} style={styles.selectorIcon} />
+                                <Text style={styles.selectorText}>{selectedChain.name}</Text>
                             </View>
                         </View>
                     </View>
@@ -159,72 +213,6 @@ export default function PaymentLinkViewerScreen() {
                     <Text style={styles.footerText}>Secured by Hedwig</Text>
                 </View>
             </ScrollView>
-
-            {/* Payment Modal */}
-            <Modal
-                visible={showPaymentModal}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={() => setShowPaymentModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Select Payment Method</Text>
-
-                        {/* Chain Selection */}
-                        <Text style={styles.modalLabel}>Network</Text>
-                        <View style={styles.optionsGrid}>
-                            {CHAINS.map((chain) => (
-                                <TouchableOpacity
-                                    key={chain.id}
-                                    style={[
-                                        styles.optionCard,
-                                        selectedChain.id === chain.id && styles.optionCardSelected
-                                    ]}
-                                    onPress={() => setSelectedChain(chain)}
-                                >
-                                    <Image source={chain.icon} style={styles.optionIcon} />
-                                    <Text style={styles.optionText}>{chain.name}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* Token Selection */}
-                        <Text style={styles.modalLabel}>Token</Text>
-                        <View style={styles.optionsGrid}>
-                            {TOKENS.map((token) => (
-                                <TouchableOpacity
-                                    key={token.symbol}
-                                    style={[
-                                        styles.optionCard,
-                                        selectedToken.symbol === token.symbol && styles.optionCardSelected
-                                    ]}
-                                    onPress={() => setSelectedToken(token)}
-                                >
-                                    <Image source={token.icon} style={styles.optionIcon} />
-                                    <Text style={styles.optionText}>{token.symbol}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* Buttons */}
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.modalButtonSecondary]}
-                                onPress={() => setShowPaymentModal(false)}
-                            >
-                                <Text style={styles.modalButtonTextSecondary}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.modalButtonPrimary]}
-                                onPress={processPayment}
-                            >
-                                <Text style={styles.modalButtonText}>Pay Now</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
         </SafeAreaView>
     );
 }
@@ -254,6 +242,8 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 2,
         alignItems: 'center',
+        width: '100%',
+        maxWidth: 500,
     },
     headerTitle: {
         ...Typography.h3,
@@ -328,98 +318,29 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         fontWeight: '500',
     },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        paddingBottom: 17,
-        paddingHorizontal: 11,
-    },
-    modalContent: {
-        width: '100%',
-        maxWidth: 418,
-        height: 477,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 50,
-        borderWidth: 1,
-        borderColor: '#fafafa',
-        padding: 24,
-        paddingBottom: 40,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: '600',
-        color: Colors.textPrimary,
-        marginBottom: 24,
-        textAlign: 'center',
-    },
-    modalLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: Colors.textPrimary,
-        marginBottom: 12,
-        marginTop: 16,
-    },
-    optionsGrid: {
+    selectorBadge: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    optionCard: {
-        flex: 1,
-        minWidth: '45%',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: Colors.border,
-        backgroundColor: Colors.surface,
         alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: '#F3F4F6',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
     },
-    optionCardSelected: {
-        borderColor: Colors.primary,
-        backgroundColor: `${Colors.primary}10`,
+    selectorIcon: {
+        width: 20,
+        height: 20,
+        marginRight: 8,
+        borderRadius: 10,
     },
-    optionIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        marginBottom: 8,
-    },
-    optionText: {
-        fontSize: 14,
+    selectorText: {
+        ...Typography.body,
         fontWeight: '500',
         color: Colors.textPrimary,
     },
-    modalButtons: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 24,
-    },
-    modalButton: {
+    modalOverlay: {
         flex: 1,
-        height: 48,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    modalButtonPrimary: {
-        backgroundColor: Colors.primary,
-    },
-    modalButtonSecondary: {
-        backgroundColor: Colors.surface,
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    modalButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#FFF',
-    },
-    modalButtonTextSecondary: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.textPrimary,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
 });

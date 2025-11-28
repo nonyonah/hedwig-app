@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, RefreshControl, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
-import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThree } from 'phosphor-react-native';
+import { List, Receipt, Clock, CheckCircle, WarningCircle, X, UserCircle, ShareNetwork, Wallet } from 'phosphor-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
+import * as Clipboard from 'expo-clipboard';
 
-// Icons for tokens, networks, and status
+// Icons for tokens and chains
 const ICONS = {
     usdc: require('../../assets/icons/tokens/usdc.png'),
     base: require('../../assets/icons/networks/base.png'),
@@ -24,12 +24,20 @@ const ICONS = {
     statusFailed: require('../../assets/icons/status/failed.png'),
 };
 
-export default function PaymentLinksScreen() {
+const CHAINS: Record<string, any> = {
+    'base': { name: 'Base', icon: ICONS.base },
+    'celo': { name: 'Celo', icon: ICONS.celo },
+    'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum },
+    'optimism': { name: 'Optimism', icon: ICONS.optimism },
+};
+
+export default function InvoicesScreen() {
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
-    const [links, setLinks] = useState<any[]>([]);
+    const [invoices, setInvoices] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedLink, setSelectedLink] = useState<any>(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
     const [showModal, setShowModal] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
@@ -37,7 +45,7 @@ export default function PaymentLinksScreen() {
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
 
     useEffect(() => {
-        fetchLinks();
+        fetchInvoices();
     }, [user]);
 
     useEffect(() => {
@@ -70,115 +78,59 @@ export default function PaymentLinksScreen() {
         fetchUserData();
     }, [user]);
 
-    const fetchLinks = async () => {
+    const fetchInvoices = async () => {
         try {
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-            console.log('Fetching payment links...');
-            const response = await fetch(`${apiUrl}/api/documents?type=PAYMENT_LINK`, {
+            console.log('Fetching invoices...');
+            const response = await fetch(`${apiUrl}/api/documents?type=INVOICE`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
-            console.log('Payment links response:', data);
+            console.log('Invoices response:', data);
 
             if (data.success) {
-                setLinks(data.data.documents);
+                setInvoices(data.data.documents);
             } else {
-                console.error('Failed to fetch links:', data.error);
+                console.error('Failed to fetch invoices:', data.error);
             }
         } catch (error) {
-            console.error('Error fetching links:', error);
-            Alert.alert('Error', 'Failed to load payment links');
+            console.error('Error fetching invoices:', error);
+            Alert.alert('Error', 'Failed to load invoices');
         } finally {
             setIsLoading(false);
+            setRefreshing(false);
         }
     };
 
-    const handleDelete = async (linkId: string) => {
-        console.log('handleDelete called for:', linkId);
-        Alert.alert(
-            'Delete Payment Link',
-            'Are you sure you want to delete this payment link? This action cannot be undone.',
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                    onPress: () => console.log('Delete cancelled')
-                },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        console.log('Delete confirmed for:', linkId);
-                        try {
-                            const token = await getAccessToken();
-                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-                            const response = await fetch(`${apiUrl}/api/documents/${linkId}`, {
-                                method: 'DELETE',
-                                headers: { 'Authorization': `Bearer ${token}` },
-                            });
-
-                            const data = await response.json();
-
-                            if (data.success) {
-                                setLinks(prev => prev.filter(link => link.id !== linkId));
-                                Alert.alert('Success', 'Payment link deleted successfully');
-                            } else {
-                                Alert.alert('Error', data.error?.message || 'Failed to delete payment link');
-                            }
-                        } catch (error) {
-                            console.error('Failed to delete payment link:', error);
-                            Alert.alert('Error', 'Failed to delete payment link');
-                        }
-                    }
-                },
-            ]
-        );
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchInvoices();
     };
 
-    const handleLinkPress = (link: any) => {
-        setSelectedLink(link);
+    const handleInvoicePress = (invoice: any) => {
+        setSelectedInvoice(invoice);
         setShowModal(true);
     };
 
     const copyToClipboard = async (text: string) => {
         await Clipboard.setStringAsync(text);
-        Alert.alert('Copied', 'Transaction ID copied to clipboard');
+        Alert.alert('Copied', 'Copied to clipboard');
     };
 
-    const renderRightActions = (progress: any, dragX: any, item: any) => {
-        const trans = dragX.interpolate({
-            inputRange: [-100, 0],
-            outputRange: [0, 100],
-            extrapolate: 'clamp',
-        });
+    const renderItem = ({ item }: { item: any }) => {
+        const chainId = item.chain?.toLowerCase() || 'base';
+        const chain = CHAINS[chainId] || CHAINS['base'];
 
         return (
-            <Animated.View style={{ transform: [{ translateX: trans }] }}>
-                <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDelete(item.id)}
-                >
-                    <Trash size={24} color="#FFFFFF" weight="fill" />
-                </TouchableOpacity>
-            </Animated.View>
-        );
-    };
-
-    const renderItem = ({ item }: { item: any }) => (
-        <Swipeable
-            renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
-            overshootRight={false}
-        >
-            <TouchableOpacity style={styles.card} onPress={() => handleLinkPress(item)}>
+            <TouchableOpacity style={styles.card} onPress={() => handleInvoicePress(item)}>
                 <View style={styles.cardHeader}>
-                    <Text style={styles.cardTitle}>{item.title}</Text>
+                    <Text style={styles.cardTitle}>{item.title || 'Invoice'}</Text>
                     <View style={styles.amountBadge}>
                         <Image source={ICONS.usdc} style={styles.badgeIcon} />
                         <View style={styles.chainBadgeSmall}>
-                            <Image source={ICONS.base} style={styles.chainBadgeIconSmall} />
+                            <Image source={chain.icon} style={styles.chainBadgeIconSmall} />
                         </View>
                     </View>
                 </View>
@@ -189,54 +141,54 @@ export default function PaymentLinksScreen() {
                     <Text style={styles.dateText}>Created on {new Date(item.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')}</Text>
                     <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
                         <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
-                            {item.status === 'PAID' ? 'Paid' : 'Pending'}
+                            {item.status || 'Pending'}
                         </Text>
                     </View>
                 </View>
             </TouchableOpacity>
-        </Swipeable>
-    );
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => setIsSidebarOpen(true)} style={styles.iconButton}>
+                <TouchableOpacity onPress={() => setIsSidebarOpen(true)} style={styles.menuButton}>
                     <List size={24} color={Colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Payment Links</Text>
+                <Text style={styles.headerTitle}>Invoices</Text>
                 <TouchableOpacity style={styles.iconButton} onPress={() => setShowProfileModal(true)}>
                     <UserCircle size={28} color={Colors.textPrimary} weight="fill" />
                 </TouchableOpacity>
             </View>
 
-            {/* Content */}
-            {
-                isLoading ? (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={Colors.primary} />
-                    </View>
-                ) : (
-                    <FlatList
-                        data={links}
-                        renderItem={renderItem}
-                        keyExtractor={item => item.id}
-                        contentContainerStyle={styles.listContent}
-                        showsVerticalScrollIndicator={false}
-                        ListEmptyComponent={
-                            <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No payment links found</Text>
-                            </View>
-                        }
-                    />
-                )
-            }
+            {isLoading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                </View>
+            ) : (
+                <FlatList
+                    data={invoices}
+                    renderItem={renderItem}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+                    }
+                    ListEmptyComponent={
+                        <View style={styles.emptyState}>
+                            <Receipt size={48} color={Colors.textSecondary} />
+                            <Text style={styles.emptyStateText}>No invoices found</Text>
+                        </View>
+                    }
+                />
+            )}
 
             {/* Sidebar */}
             <Sidebar
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
-                onHomeClick={() => router.push('/')}
+                userName={userName}
             />
 
             {/* Profile Modal */}
@@ -259,15 +211,15 @@ export default function PaymentLinksScreen() {
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderLeft}>
                                 <Image
-                                    source={selectedLink?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
+                                    source={selectedInvoice?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
                                     style={styles.statusIcon}
                                 />
                                 <View>
                                     <Text style={styles.modalTitle}>
-                                        {selectedLink?.status === 'PAID' ? 'Paid' : 'Pending'}
+                                        {selectedInvoice?.status === 'PAID' ? `Paid` : 'Pending'}
                                     </Text>
                                     <Text style={styles.modalSubtitle}>
-                                        {selectedLink?.created_at ? `${new Date(selectedLink.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')} ${new Date(selectedLink.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                        {selectedInvoice?.created_at ? `${new Date(selectedInvoice.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')} ${new Date(selectedInvoice.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
                                     </Text>
                                 </View>
                             </View>
@@ -280,11 +232,11 @@ export default function PaymentLinksScreen() {
 
                         <View style={styles.amountCard}>
                             <Text style={styles.amountCardValue}>
-                                ₦{selectedLink ? (selectedLink.amount * 1500).toFixed(2) : '0.00'}
+                                ₦{selectedInvoice ? (selectedInvoice.amount * 1500).toFixed(2) : '0.00'}
                             </Text>
                             <View style={styles.amountCardSub}>
                                 <Image source={ICONS.usdc} style={styles.smallIcon} />
-                                <Text style={styles.amountCardSubText}>{selectedLink?.amount} USDC</Text>
+                                <Text style={styles.amountCardSubText}>{selectedInvoice?.amount} USDC</Text>
                             </View>
                         </View>
 
@@ -292,9 +244,9 @@ export default function PaymentLinksScreen() {
                             <View style={styles.detailRow}>
                                 <View style={styles.detailLabelRow}>
                                     <Wallet size={20} color={Colors.textSecondary} />
-                                    <Text style={styles.detailLabel}>Transaction ID</Text>
+                                    <Text style={styles.detailLabel}>Invoice ID</Text>
                                 </View>
-                                <Text style={styles.detailValue}>0x811b48bd7b...</Text>
+                                <Text style={styles.detailValue}>INV-{selectedInvoice?.id.slice(0, 8).toUpperCase()}</Text>
                             </View>
 
                             <View style={styles.detailRow}>
@@ -302,7 +254,7 @@ export default function PaymentLinksScreen() {
                                     <List size={20} color={Colors.textSecondary} />
                                     <Text style={styles.detailLabel}>Description</Text>
                                 </View>
-                                <Text style={styles.detailValue}>{selectedLink?.title}</Text>
+                                <Text style={styles.detailValue}>{selectedInvoice?.title}</Text>
                             </View>
 
                             <View style={styles.detailRow}>
@@ -311,8 +263,13 @@ export default function PaymentLinksScreen() {
                                     <Text style={styles.detailLabel}>Chain</Text>
                                 </View>
                                 <View style={styles.chainValue}>
-                                    <Image source={ICONS.base} style={styles.smallIcon} />
-                                    <Text style={styles.detailValue}>Base</Text>
+                                    <Image
+                                        source={CHAINS[selectedInvoice?.chain?.toLowerCase() || 'base'].icon}
+                                        style={styles.smallIcon}
+                                    />
+                                    <Text style={styles.detailValue}>
+                                        {CHAINS[selectedInvoice?.chain?.toLowerCase() || 'base'].name}
+                                    </Text>
                                 </View>
                             </View>
                         </View>
@@ -321,15 +278,15 @@ export default function PaymentLinksScreen() {
                             style={styles.viewButton}
                             onPress={() => {
                                 setShowModal(false);
-                                router.push(`/payment-link/${selectedLink.id}`);
+                                router.push(`/invoice/${selectedInvoice.id}`);
                             }}
                         >
-                            <Text style={styles.viewButtonText}>View Payment Link</Text>
+                            <Text style={styles.viewButtonText}>View Invoice</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
-        </SafeAreaView >
+        </SafeAreaView>
     );
 }
 
@@ -344,6 +301,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 20,
         paddingVertical: 16,
+    },
+    menuButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#f5f5f5',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerTitle: {
         ...Typography.h4,
@@ -375,6 +340,7 @@ const styles = StyleSheet.create({
     emptyStateText: {
         ...Typography.body,
         color: Colors.textSecondary,
+        marginTop: 16,
     },
     card: {
         backgroundColor: '#f5f5f5',
@@ -427,8 +393,8 @@ const styles = StyleSheet.create({
     },
     amount: {
         ...Typography.h3,
-        fontSize: 40,
-        color: Colors.textPrimary,
+        fontSize: 32,
+        fontWeight: '700',
         marginBottom: 16,
     },
     cardFooter: {
@@ -443,23 +409,23 @@ const styles = StyleSheet.create({
     statusBadge: {
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 16,
-    },
-    statusPending: {
-        backgroundColor: '#FEF3C7',
+        borderRadius: 12,
     },
     statusPaid: {
-        backgroundColor: '#D1FAE5',
+        backgroundColor: `${Colors.success}15`,
+    },
+    statusPending: {
+        backgroundColor: `${Colors.warning}15`,
     },
     statusText: {
         ...Typography.caption,
         fontWeight: '600',
     },
-    statusTextPending: {
-        color: '#D97706',
-    },
     statusTextPaid: {
-        color: '#059669',
+        color: Colors.success,
+    },
+    statusTextPending: {
+        color: Colors.warning,
     },
     // Modal Styles
     modalOverlay: {
@@ -569,38 +535,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 6,
     },
-    shareButton: {
-        flex: 1,
-        backgroundColor: Colors.primary,
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    shareButtonText: {
-        ...Typography.body,
-        color: '#FFFFFF',
-        fontWeight: '600',
-    },
     viewButton: {
         backgroundColor: Colors.primary,
         paddingVertical: 16,
         borderRadius: 16,
         alignItems: 'center',
-        marginTop: 24,
     },
     viewButtonText: {
         ...Typography.body,
         color: '#FFFFFF',
         fontWeight: '600',
-    },
-    deleteButton: {
-        backgroundColor: '#FF3B30',
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: 80,
-        height: '100%',
-        borderRadius: 24,
-        marginRight: 8,
     },
 });

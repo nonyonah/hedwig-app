@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
+import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 
@@ -187,6 +188,72 @@ router.get('/:id', async (req: Request, res: Response, next) => {
         });
     } catch (error) {
         console.error('[Documents] Unexpected error:', error);
+        next(error);
+    }
+});
+
+/**
+ * DELETE /api/documents/:id
+ * Delete a document by ID
+ */
+router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const privyId = req.user!.privyId;
+
+        // Get user ID first
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userData) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found' },
+            });
+            return;
+        }
+
+        // Verify the document belongs to the user before deleting
+        const { data: document, error: fetchError } = await supabase
+            .from('documents')
+            .select('id, user_id')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !document) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Document not found' },
+            });
+            return;
+        }
+
+        if (document.user_id !== userData.id) {
+            res.status(403).json({
+                success: false,
+                error: { message: 'Not authorized to delete this document' },
+            });
+            return;
+        }
+
+        // Delete the document
+        const { error: deleteError } = await supabase
+            .from('documents')
+            .delete()
+            .eq('id', id);
+
+        if (deleteError) {
+            throw new AppError(`Failed to delete document: ${deleteError.message}`, 500);
+        }
+
+        res.json({
+            success: true,
+            data: { message: 'Document deleted successfully' },
+        });
+    } catch (error) {
         next(error);
     }
 });

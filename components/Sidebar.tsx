@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Image } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, ClockCounterClockwise, Link, Swap, Gear, SignOut, Chat, UserCircle } from 'phosphor-react-native';
+import { House, ClockCounterClockwise, Link, Swap, Gear, SignOut, Chat, UserCircle, Receipt } from 'phosphor-react-native';
 import { Colors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 
@@ -131,6 +131,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         >
                             <Link size={24} color={Colors.textPrimary} />
                             <Text style={styles.sidebarItemText}>Payment Links</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.sidebarItem}
+                            onPress={() => handleNavigation('/invoices')}
+                        >
+                            <Receipt size={24} color={Colors.textPrimary} />
+                            <Text style={styles.sidebarItemText}>Invoices</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.sidebarItem}>
                             <Swap size={24} color={Colors.textPrimary} />
