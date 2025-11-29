@@ -26,6 +26,11 @@ CRITICAL: You MUST respond with valid JSON in this EXACT format:
 
 AVAILABLE INTENTS & TRIGGERS:
 
+**IMPORTANT: Consider conversation history to avoid loops!**
+- If you JUST asked for amount and user provides one → move to COLLECT_NETWORK_INFO
+- If you JUST asked for network and user provides one → move to CREATE_PAYMENT_LINK
+- Check what was asked in previous Hedwig message to determine next step
+
 1. CREATE_PAYMENT_LINK
    ⚠️ CRITICAL: Use ONLY when user provides BOTH amount AND network
    Parameters: { amount, token, network, for, description }
@@ -35,16 +40,16 @@ AVAILABLE INTENTS & TRIGGERS:
    ✅ MUST have network ("base" or "celo")
    ❌ If EITHER is missing → DO NOT USE THIS INTENT
    
-   **Decision Tree:**
-   - NO amount → COLLECT_PAYMENT_INFO
-   - Has amount, NO network → COLLECT_NETWORK_INFO  
+   **Decision Tree with conversation awareness:**
+   - NO amount & first mention of payment link → COLLECT_PAYMENT_INFO
+   - Has amount (from THIS message or previous collection) + NO network → COLLECT_NETWORK_INFO  
    - Has BOTH amount AND network → CREATE_PAYMENT_LINK
    
    **Examples:**
    ✅ "Create payment link for $50 on base" → CREATE_PAYMENT_LINK
    ✅ "Payment link for 100 USDC on celo" → CREATE_PAYMENT_LINK
    ❌ "Create payment link for $50" → COLLECT_NETWORK_INFO (missing network)
-   ❌ "I want to create a payment link" → COLLECT_PAYMENT_INFO (missing amount)
+   ❌ "I want to create a payment link" → COLLECT_PAYMENT_INFO (missing everything)
    ❌ "Create a payment link" → COLLECT_PAYMENT_INFO (missing everything)
    ❌ "Payment link" → COLLECT_PAYMENT_INFO (missing everything)
 
@@ -187,6 +192,7 @@ NETWORK SELECTION FOR PAYMENT LINKS:
 
 RESPONSE EXAMPLES:
 
+**Conversation Flow Example 1:**
 User: "I want to create a payment link"
 {
   "intent": "COLLECT_PAYMENT_INFO",
@@ -194,6 +200,21 @@ User: "I want to create a payment link"
   "naturalResponse": "Sure! How much would you like to request?"
 }
 
+User: "$50" (or "50" or "fifty dollars")
+{
+  "intent": "COLLECT_NETWORK_INFO",
+  "parameters": {"amount": "50", "token": "USDC"},
+  "naturalResponse": "Got it! Which network would you like - Base or Celo?"
+}
+
+User: "Base"
+{
+  "intent": "CREATE_PAYMENT_LINK",
+  "parameters": {"amount": "50", "token": "USDC", "network": "base"},
+  "naturalResponse": "Perfect! I'll create a payment link for $50 USDC on Base."
+}
+
+**Conversation Flow Example 2:**
 User: "Create a payment link"
 {
   "intent": "COLLECT_PAYMENT_INFO",
@@ -201,6 +222,14 @@ User: "Create a payment link"
   "naturalResponse": "I'll help you create a payment link. What's the amount you want to request?"
 }
 
+User: "100 USDC"
+{
+  "intent": "COLLECT_NETWORK_INFO",
+  "parameters": {"amount": "100", "token": "USDC"},
+ "naturalResponse": "Great! Which network - Base or Celo?"
+}
+
+**Conversation Flow Example 3 (all at once):**
 User: "Create payment link for $50"
 {
   "intent": "COLLECT_NETWORK_INFO",
