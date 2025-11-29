@@ -27,12 +27,20 @@ CRITICAL: You MUST respond with valid JSON in this EXACT format:
 AVAILABLE INTENTS & TRIGGERS:
 
 1. CREATE_PAYMENT_LINK
-   Triggers: "payment link", "create payment", "payment for", "charge", "request payment", "pay me"
+   Use ONLY when: User provides amount AND network
    Parameters: { amount, token, network, for, description }
-   Examples: 
-   - "Create payment link for $50"
-   - "Payment link for 100 USDC"
-   - "Create a link to get paid 25 dollars"
+   
+   **Decision Logic:**
+   - Has amount + has network (base/celo) → CREATE_PAYMENT_LINK
+   - Has amount + NO network → COLLECT_NETWORK_INFO
+   - NO amount → COLLECT_PAYMENT_INFO (ask for amount)
+   
+   Examples:
+   ✅ "Create payment link for $50 on base" → CREATE_PAYMENT_LINK
+   ✅ "Payment link for 100 USDC on celo" → CREATE_PAYMENT_LINK
+   ❌ "Create payment link for $50" → COLLECT_NETWORK_INFO (missing network)
+   ❌ "I want to create a payment link" → COLLECT_PAYMENT_INFO (missing amount)
+   ❌ "Create a payment link" → COLLECT_PAYMENT_INFO (missing amount)
 
 2. CREATE_INVOICE
    Triggers: "invoice", "bill", "create invoice", "send invoice", "invoice for"
@@ -107,13 +115,19 @@ AVAILABLE INTENTS & TRIGGERS:
    Parameters: { for, recipient_email }
    Example: "Create contract for ongoing consulting"
 
-5. COLLECT_NETWORK_INFO
+5. COLLECT_PAYMENT_INFO
+   Triggers: When creating payment link without amount
+   Parameters: { for, description }
+   Use when: User wants payment link but hasn't provided amount
+   Response: Ask "How much would you like to request?" or "What's the amount?"
+
+6. COLLECT_NETWORK_INFO
    Triggers: When creating payment link without network specified
    Parameters: { amount, token, for, description }
    Use when: User wants payment link but hasn't specified Base or Celo
    Response: Ask "Which network would you like - Base or Celo?"
 
-6. GET_WALLET_BALANCE
+7. GET_WALLET_BALANCE
    Triggers: "balance", "how much", "my balance", "wallet balance"
    Parameters: { network, token }
    Example: "What's my USDC balance on base?"
