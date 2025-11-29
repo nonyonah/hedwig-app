@@ -32,17 +32,6 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         ]
     },
     {
-        name: 'Solana',
-        icon: NetworkSolana,
-        color: '#9945FF',
-        addressType: 'solana',
-        tokens: [
-            { symbol: 'SOL', icon: TokenSOL },
-            { symbol: 'USDC', icon: TokenUSDC },
-            { symbol: 'USDT', icon: TokenUSDT }
-        ]
-    },
-    {
         name: 'Celo',
         icon: NetworkCelo,
         color: '#35D07F',
@@ -51,46 +40,6 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
             { symbol: 'CELO', icon: TokenCELO },
             { symbol: 'cUSD', icon: TokenCUSD },
             { symbol: 'cNGN', icon: TokenCNGN }
-        ]
-    },
-    {
-        name: 'Lisk',
-        icon: NetworkLisk,
-        color: '#0D1D2D',
-        addressType: 'evm',
-        tokens: [
-            { symbol: 'ETH', icon: TokenETH },
-            { symbol: 'USDT', icon: TokenUSDT }
-        ]
-    },
-    {
-        name: 'Optimism',
-        icon: NetworkOptimism,
-        color: '#FF0420',
-        addressType: 'evm',
-        tokens: [
-            { symbol: 'ETH', icon: TokenETH },
-            { symbol: 'USDC', icon: TokenUSDC }
-        ]
-    },
-    {
-        name: 'Polygon',
-        icon: NetworkPolygon,
-        color: '#8247E5',
-        addressType: 'evm',
-        tokens: [
-            { symbol: 'MATIC', icon: TokenMATIC },
-            { symbol: 'USDC', icon: TokenUSDC }
-        ]
-    },
-    {
-        name: 'Arbitrum',
-        icon: NetworkArbitrumOne,
-        color: '#2D374B',
-        addressType: 'evm',
-        tokens: [
-            { symbol: 'ETH', icon: TokenETH },
-            { symbol: 'USDC', icon: TokenUSDC }
         ]
     },
 ];

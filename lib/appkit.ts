@@ -44,7 +44,7 @@ const ethersAdapter = new EthersAdapter();
 export const paymentAppKit = createAppKit({
     projectId,
     storage,
-    networks: [base, celo, arbitrum, optimism],
+    networks: [base, celo],
     defaultNetwork: base,
     adapters: [ethersAdapter],
     metadata: {

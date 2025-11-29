@@ -14,8 +14,6 @@ import { Typography } from '../../styles/typography';
 const CHAINS = [
     { id: 'base', name: 'Base', icon: require('../../assets/icons/networks/base.png') },
     { id: 'celo', name: 'Celo', icon: require('../../assets/icons/networks/celo.png') },
-    { id: 'arbitrum', name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
-    { id: 'optimism', name: 'Optimism', icon: require('../../assets/icons/networks/optimism.png') },
 ];
 
 const TOKENS = [
@@ -202,6 +200,9 @@ function PaymentLinkContent() {
                                 <Text style={styles.selectorText}>{selectedChain.name}</Text>
                             </View>
                         </View>
+                        <Text style={{ textAlign: 'center', color: Colors.textSecondary, fontSize: 12, marginBottom: 16 }}>
+                            Supports Base & Celo (More networks coming soon)
+                        </Text>
                     </View>
 
                     {/* Pay Button */}
