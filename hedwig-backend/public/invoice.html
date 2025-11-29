@@ -696,8 +696,27 @@
             document.getElementById('freelancer-receives').textContent = `$${(subtotal - platformFee).toFixed(2)}`;
             document.getElementById('total').textContent = `$${total.toFixed(2)}`;
 
+            // Try to match chain from doc
+            const chainId = (invoice.chain || 'BASE').toLowerCase();
+            const foundChain = CHAINS.find(c => c.id === chainId);
+            if (foundChain) {
+                selectedChain = foundChain;
+            }
+
+            // Try to match token from doc currency
+            const currency = invoice.currency || 'USDC';
+            const foundToken = TOKENS.find(t => t.symbol === currency);
+            if (foundToken) {
+                selectedToken = foundToken;
+            }
+
+            document.getElementById('token-icon').src = selectedToken.icon;
+            document.getElementById('network').textContent = selectedChain.name;
+            document.getElementById('network-icon').src = selectedChain.icon;
+
             // Update Buttons
             payBtnText.textContent = `Connect Wallet`;
+            modalPayBtn.textContent = `Pay ${total.toFixed(2)} ${selectedToken.symbol}`;
             modalPayBtn.textContent = `Pay $${total.toFixed(2)}`;
         }
 

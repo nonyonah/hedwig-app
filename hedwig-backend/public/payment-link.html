@@ -440,6 +440,13 @@
             document.getElementById('for-what').textContent = doc.title || 'Services';
             document.getElementById('price').textContent = `${doc.amount}`;
 
+            // Try to match chain from doc
+            const chainId = (doc.chain || 'BASE').toLowerCase();
+            const foundChain = CHAINS.find(c => c.id === chainId);
+            if (foundChain) {
+                selectedChain = foundChain;
+            }
+
             // Try to match token from doc currency
             const currency = doc.currency || 'USDC';
             const foundToken = TOKENS.find(t => t.symbol === currency);

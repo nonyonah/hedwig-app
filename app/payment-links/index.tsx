@@ -317,8 +317,11 @@ export default function PaymentLinksScreen() {
                                     <Text style={styles.detailLabel}>Chain</Text>
                                 </View>
                                 <View style={styles.chainValue}>
-                                    <Image source={ICONS.base} style={styles.smallIcon} />
-                                    <Text style={styles.detailValue}>Base</Text>
+                                    <Image
+                                        source={selectedLink?.chain?.toLowerCase() === 'celo' ? ICONS.celo : ICONS.base}
+                                        style={styles.smallIcon}
+                                    />
+                                    <Text style={styles.detailValue}>{selectedLink?.chain || 'Base'}</Text>
                                 </View>
                             </View>
                         </View>
