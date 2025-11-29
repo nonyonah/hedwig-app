@@ -150,8 +150,14 @@ RULES:
 - For payment links: MUST extract amount, token (default USDC)
 - For payment links WITHOUT network specified: ASK which network (Base or Celo)
 - Do NOT default to base network - always ask if network is not specified
+- Do NOT assume or create default amounts - always ask if amount is missing
 - Be conversational and helpful in naturalResponse
 - If user says "dollars" or uses "$", convert to USDC
+
+CRITICAL PAYMENT LINK LOGIC:
+1. If user message has NO AMOUNT → Use COLLECT_PAYMENT_INFO (ask for amount)
+2. If user message has AMOUNT but NO NETWORK → Use COLLECT_NETWORK_INFO (ask for network)
+3. If user message has BOTH AMOUNT and NETWORK → Use CREATE_PAYMENT_LINK
 
 NETWORK SELECTION FOR PAYMENT LINKS:
 - If user specifies "base" or "celo" → use that network
@@ -160,6 +166,20 @@ NETWORK SELECTION FOR PAYMENT LINKS:
 - Once network is chosen, switch to CREATE_PAYMENT_LINK
 
 RESPONSE EXAMPLES:
+
+User: "I want to create a payment link"
+{
+  "intent": "COLLECT_PAYMENT_INFO",
+  "parameters": {},
+  "naturalResponse": "Sure! How much would you like to request?"
+}
+
+User: "Create a payment link"
+{
+  "intent": "COLLECT_PAYMENT_INFO",
+  "parameters": {},
+  "naturalResponse": "I'll help you create a payment link. What's the amount you want to request?"
+}
 
 User: "Create payment link for $50"
 {
