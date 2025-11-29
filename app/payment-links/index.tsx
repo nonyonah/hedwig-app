@@ -168,35 +168,40 @@ export default function PaymentLinksScreen() {
         );
     };
 
-    const renderItem = ({ item }: { item: any }) => (
-        <Swipeable
-            renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
-            overshootRight={false}
-        >
-            <TouchableOpacity style={styles.card} onPress={() => handleLinkPress(item)}>
-                <View style={styles.cardHeader}>
-                    <Text style={styles.cardTitle}>{item.title}</Text>
-                    <View style={styles.amountBadge}>
-                        <Image source={ICONS.usdc} style={styles.badgeIcon} />
-                        <View style={styles.chainBadgeSmall}>
-                            <Image source={ICONS.base} style={styles.chainBadgeIconSmall} />
+    const renderItem = ({ item }: { item: any }) => {
+        const chainId = item.chain?.toLowerCase() || 'base';
+        const chainIcon = chainId === 'celo' ? ICONS.celo : ICONS.base;
+
+        return (
+            <Swipeable
+                renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
+                overshootRight={false}
+            >
+                <TouchableOpacity style={styles.card} onPress={() => handleLinkPress(item)}>
+                    <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle}>{item.title}</Text>
+                        <View style={styles.amountBadge}>
+                            <Image source={ICONS.usdc} style={styles.badgeIcon} />
+                            <View style={styles.chainBadgeSmall}>
+                                <Image source={chainIcon} style={styles.chainBadgeIconSmall} />
+                            </View>
                         </View>
                     </View>
-                </View>
 
-                <Text style={styles.amount}>${item.amount}</Text>
+                    <Text style={styles.amount}>${item.amount}</Text>
 
-                <View style={styles.cardFooter}>
-                    <Text style={styles.dateText}>Created on {new Date(item.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')}</Text>
-                    <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
-                        <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
-                            {item.status === 'PAID' ? 'Paid' : 'Pending'}
-                        </Text>
+                    <View style={styles.cardFooter}>
+                        <Text style={styles.dateText}>Created on {new Date(item.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')}</Text>
+                        <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
+                            <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
+                                {item.status === 'PAID' ? 'Paid' : 'Pending'}
+                            </Text>
+                        </View>
                     </View>
-                </View>
-            </TouchableOpacity>
-        </Swipeable>
-    );
+                </TouchableOpacity>
+            </Swipeable>
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>

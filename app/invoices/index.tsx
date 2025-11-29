@@ -181,7 +181,7 @@ export default function InvoicesScreen() {
 
     const renderItem = ({ item }: { item: any }) => {
         const chainId = item.chain?.toLowerCase() || 'base';
-        const chain = CHAINS[chainId] || CHAINS['base'];
+        const chainIcon = chainId === 'celo' ? ICONS.celo : ICONS.base;
 
         return (
             <Swipeable
@@ -194,7 +194,7 @@ export default function InvoicesScreen() {
                         <View style={styles.amountBadge}>
                             <Image source={ICONS.usdc} style={styles.badgeIcon} />
                             <View style={styles.chainBadgeSmall}>
-                                <Image source={chain.icon} style={styles.chainBadgeIconSmall} />
+                                <Image source={chainIcon} style={styles.chainBadgeIconSmall} />
                             </View>
                         </View>
                     </View>
