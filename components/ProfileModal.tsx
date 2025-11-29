@@ -39,7 +39,7 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         tokens: [
             { symbol: 'CELO', icon: TokenCELO },
             { symbol: 'cUSD', icon: TokenCUSD },
-            { symbol: 'cNGN', icon: TokenCNGN }
+            { symbol: 'USDC', icon: TokenUSDC }
         ]
     },
 ];

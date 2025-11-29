@@ -33,6 +33,10 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                 // Don't create invoice yet, Gemini will handle the conversation
                 return { text: '' };
 
+            case 'COLLECT_NETWORK_INFO':
+                // Don't create payment link yet, Gemini will ask for network
+                return { text: '' };
+
             case 'CREATE_PROPOSAL':
                 return await handleCreateProposal(params, user);
 
