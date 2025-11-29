@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
-import { List, Receipt, Clock, CheckCircle, WarningCircle, X, UserCircle, ShareNetwork, Wallet } from 'phosphor-react-native';
+import { List, Receipt, Clock, CheckCircle, WarningCircle, X, UserCircle, ShareNetwork, Wallet, Trash } from 'phosphor-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Colors } from '../../theme/colors';
@@ -110,6 +110,46 @@ export default function InvoicesScreen() {
         fetchInvoices();
     };
 
+    const handleDelete = async (invoiceId: string) => {
+        Alert.alert(
+            'Delete Invoice',
+            'Are you sure you want to delete this invoice? This action cannot be undone.',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const token = await getAccessToken();
+                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+                            const response = await fetch(`${apiUrl}/api/documents/${invoiceId}`, {
+                                method: 'DELETE',
+                                headers: { 'Authorization': `Bearer ${token}` },
+                            });
+
+                            const data = await response.json();
+
+                            if (data.success) {
+                                setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+                                Alert.alert('Success', 'Invoice deleted successfully');
+                            } else {
+                                Alert.alert('Error', data.error?.message || 'Failed to delete invoice');
+                            }
+                        } catch (error) {
+                            console.error('Failed to delete invoice:', error);
+                            Alert.alert('Error', 'Failed to delete invoice');
+                        }
+                    }
+                },
+            ]
+        );
+    };
+
     const handleInvoicePress = (invoice: any) => {
         setSelectedInvoice(invoice);
         setShowModal(true);
@@ -120,33 +160,57 @@ export default function InvoicesScreen() {
         Alert.alert('Copied', 'Copied to clipboard');
     };
 
+    const renderRightActions = (progress: any, dragX: any, item: any) => {
+        const trans = dragX.interpolate({
+            inputRange: [-100, 0],
+            outputRange: [0, 100],
+            extrapolate: 'clamp',
+        });
+
+        return (
+            <Animated.View style={{ transform: [{ translateX: trans }] }}>
+                <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDelete(item.id)}
+                >
+                    <Trash size={24} color="#FFFFFF" weight="fill" />
+                </TouchableOpacity>
+            </Animated.View>
+        );
+    };
+
     const renderItem = ({ item }: { item: any }) => {
         const chainId = item.chain?.toLowerCase() || 'base';
         const chain = CHAINS[chainId] || CHAINS['base'];
 
         return (
-            <TouchableOpacity style={styles.card} onPress={() => handleInvoicePress(item)}>
-                <View style={styles.cardHeader}>
-                    <Text style={styles.cardTitle}>{item.title || 'Invoice'}</Text>
-                    <View style={styles.amountBadge}>
-                        <Image source={ICONS.usdc} style={styles.badgeIcon} />
-                        <View style={styles.chainBadgeSmall}>
-                            <Image source={chain.icon} style={styles.chainBadgeIconSmall} />
+            <Swipeable
+                renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
+                overshootRight={false}
+            >
+                <TouchableOpacity style={styles.card} onPress={() => handleInvoicePress(item)}>
+                    <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle}>{item.title || 'Invoice'}</Text>
+                        <View style={styles.amountBadge}>
+                            <Image source={ICONS.usdc} style={styles.badgeIcon} />
+                            <View style={styles.chainBadgeSmall}>
+                                <Image source={chain.icon} style={styles.chainBadgeIconSmall} />
+                            </View>
                         </View>
                     </View>
-                </View>
 
-                <Text style={styles.amount}>${item.amount}</Text>
+                    <Text style={styles.amount}>${item.amount}</Text>
 
-                <View style={styles.cardFooter}>
-                    <Text style={styles.dateText}>Created on {new Date(item.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')}</Text>
-                    <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
-                        <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
-                            {item.status || 'Pending'}
-                        </Text>
+                    <View style={styles.cardFooter}>
+                        <Text style={styles.dateText}>Created on {new Date(item.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')}</Text>
+                        <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
+                            <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
+                                {item.status || 'Pending'}
+                            </Text>
+                        </View>
                     </View>
-                </View>
-            </TouchableOpacity>
+                </TouchableOpacity>
+            </Swipeable>
         );
     };
 
@@ -560,5 +624,14 @@ const styles = StyleSheet.create({
         ...Typography.body,
         color: '#FFFFFF',
         fontWeight: '600',
+    },
+    deleteButton: {
+        backgroundColor: '#FF3B30',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 80,
+        height: '100%',
+        borderRadius: 24,
+        marginRight: 8,
     },
 });
