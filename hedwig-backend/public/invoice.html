@@ -725,10 +725,7 @@
                     // Update UI
                     const shortAddr = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
                     payBtnText.textContent = `Pay $${invoiceData.amount.toFixed(2)}`;
-                    payBtn.onclick = () => {
-                        modal.classList.add('active');
-                        renderOptions();
-                    };
+                    payBtn.onclick = processPayment; // Changed: directly process payment instead of showing modal
 
                     return true;
                 } catch (error) {
@@ -786,14 +783,14 @@
         async function processPayment() {
             if (!signer || !invoiceData) return;
 
-            modalPayBtn.disabled = true;
-            modalPayBtn.textContent = "Processing...";
+            payBtn.disabled = true;
+            payBtnText.textContent = "Processing...";
 
             try {
                 // 1. Switch Chain
                 await switchChain(selectedChain);
 
-                // Re-get signer after chain switch to be safe
+                // Re-get signer
                 provider = new ethers.BrowserProvider(window.ethereum);
                 signer = await provider.getSigner();
 
@@ -823,19 +820,18 @@
                 }
 
                 console.log("Transaction sent:", tx.hash);
-                modalPayBtn.textContent = "Confirming...";
+                payBtnText.textContent = "Confirming...";
 
                 await tx.wait();
 
                 alert(`Payment Successful! TX: ${tx.hash}`);
-                modal.classList.remove('active');
 
             } catch (error) {
                 console.error("Payment failed:", error);
                 alert(`Payment failed: ${error.message}`);
             } finally {
-                modalPayBtn.disabled = false;
-                modalPayBtn.textContent = `Pay $${invoiceData.amount.toFixed(2)}`;
+                payBtn.disabled = false;
+                payBtnText.textContent = `Pay $${invoiceData.amount.toFixed(2)}`;
             }
         }
 
@@ -879,8 +875,7 @@
             if (!userAddress) {
                 await connectWallet();
             } else {
-                modal.classList.add('active');
-                renderOptions();
+                processPayment();
             }
         };
 
@@ -896,33 +891,15 @@
         };
 
         // Selectors on main page
+        // Selectors on main page - Disabled to prevent modal
         document.getElementById('chain-selector').onclick = (e) => {
             e.stopPropagation();
-            if (!userAddress) {
-                connectWallet().then(connected => {
-                    if (connected) {
-                        modal.classList.add('active');
-                        renderOptions();
-                    }
-                });
-            } else {
-                modal.classList.add('active');
-                renderOptions();
-            }
+            // Modal disabled
         };
+
         document.getElementById('token-selector').onclick = (e) => {
             e.stopPropagation();
-            if (!userAddress) {
-                connectWallet().then(connected => {
-                    if (connected) {
-                        modal.classList.add('active');
-                        renderOptions();
-                    }
-                });
-            } else {
-                modal.classList.add('active');
-                renderOptions();
-            }
+            // Modal disabled
         };
 
         fetchInvoice();

@@ -478,10 +478,7 @@
 
                     // Update UI
                     payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
-                    payBtn.onclick = () => {
-                        modal.classList.add('active');
-                        renderOptions();
-                    };
+                    payBtn.onclick = processPayment; // Changed: directly process payment instead of showing modal
 
                     return true;
                 } catch (error) {
@@ -538,8 +535,8 @@
         async function processPayment() {
             if (!signer || !linkData) return;
 
-            modalPayBtn.disabled = true;
-            modalPayBtn.textContent = "Processing...";
+            payBtn.disabled = true;
+            payBtnText.textContent = "Processing...";
 
             try {
                 // 1. Switch Chain
@@ -570,19 +567,18 @@
                 }
 
                 console.log("Transaction sent:", tx.hash);
-                modalPayBtn.textContent = "Confirming...";
+                payBtnText.textContent = "Confirming...";
 
                 await tx.wait();
 
                 alert(`Payment Successful! TX: ${tx.hash}`);
-                modal.classList.remove('active');
 
             } catch (error) {
                 console.error("Payment failed:", error);
                 alert(`Payment failed: ${error.message}`);
             } finally {
-                modalPayBtn.disabled = false;
-                modalPayBtn.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                payBtn.disabled = false;
+                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
             }
         }
 
@@ -634,8 +630,7 @@
             if (!userAddress) {
                 await connectWallet();
             } else {
-                modal.classList.add('active');
-                renderOptions();
+                processPayment();
             }
         };
 
@@ -650,34 +645,15 @@
         };
 
         // Triggers
+        // Triggers - Disabled to prevent modal
         document.getElementById('network-trigger').onclick = (e) => {
             e.stopPropagation();
-            if (!userAddress) {
-                connectWallet().then(connected => {
-                    if (connected) {
-                        modal.classList.add('active');
-                        renderOptions();
-                    }
-                });
-            } else {
-                modal.classList.add('active');
-                renderOptions();
-            }
+            // Modal disabled
         };
 
         document.getElementById('token-trigger').onclick = (e) => {
             e.stopPropagation();
-            if (!userAddress) {
-                connectWallet().then(connected => {
-                    if (connected) {
-                        modal.classList.add('active');
-                        renderOptions();
-                    }
-                });
-            } else {
-                modal.classList.add('active');
-                renderOptions();
-            }
+            // Modal disabled
         };
 
         fetchPaymentLink();

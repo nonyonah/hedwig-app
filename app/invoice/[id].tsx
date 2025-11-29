@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usePrivy, useEmbeddedEthereumWallet } from '@privy-io/expo';
+import '@walletconnect/react-native-compat';
+import { AppKitProvider, useAppKit, useAccount, useProvider } from '@reown/appkit-react-native';
+import { paymentAppKit } from '../../lib/appkit';
+import { ethers } from 'ethers';
 import { ArrowLeft, CheckCircle, Copy, DownloadSimple, Wallet } from 'phosphor-react-native';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -21,12 +24,22 @@ const TOKENS = [
     { symbol: 'ETH', name: 'Ethereum', icon: require('../../assets/icons/tokens/eth.png') },
 ];
 
+// Main component wrapped with AppKitProvider
 export default function InvoiceViewerScreen() {
+    return (
+        <AppKitProvider instance={paymentAppKit}>
+            <InvoiceContent />
+        </AppKitProvider>
+    );
+}
+
+// Inner component with AppKit hooks
+function InvoiceContent() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
-    const { user } = usePrivy();
-    const { wallets } = useEmbeddedEthereumWallet();
-    const wallet = wallets?.[0];
+    const { open } = useAppKit();
+    const { address, isConnected, chainId } = useAccount();
+    const provider = useProvider();
 
     const [invoice, setInvoice] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -80,12 +93,13 @@ export default function InvoiceViewerScreen() {
     };
 
     const handlePay = async () => {
-        if (!user) {
-            router.push('/auth/login');
+        if (!isConnected) {
+            // Open AppKit modal to connect wallet
+            open();
             return;
         }
 
-        if (!wallet) {
+        if (!address) {
             Alert.alert('Error', 'No wallet connected');
             return;
         }
@@ -93,49 +107,42 @@ export default function InvoiceViewerScreen() {
         setIsPaying(true);
 
         try {
-            const provider = await wallet.getProvider();
+            // Get ethers provider from AppKit
+            const ethersProvider = new ethers.BrowserProvider(provider as any);
+            const signer = await ethersProvider.getSigner();
 
-            const CHAIN_IDS: Record<string, string> = {
-                'base': '0x2105',
-                'celo': '0xa4ec',
-                'arbitrum': '0xa4b1',
-                'optimism': '0xa'
+            const CHAIN_IDS: Record<string, number> = {
+                'base': 8453,
+                'celo': 42220,
+                'arbitrum': 42161,
+                'optimism': 10
             };
 
             const targetChainId = CHAIN_IDS[selectedChain.id];
 
-            if (targetChainId) {
-                try {
-                    await provider.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: targetChainId }],
-                    });
-                } catch (error: any) {
-                    if (error.code === 4902) {
-                        Alert.alert('Error', 'Please add this network to your wallet');
-                    } else {
-                        console.error('Switch chain error:', error);
-                    }
-                }
+            // Check if we're on the right chain
+            if (targetChainId && chainId !== targetChainId) {
+                Alert.alert('Wrong Network', `Please switch to ${selectedChain.name} in your wallet`);
+                setIsPaying(false);
+                return;
             }
 
-            const recipient = invoice?.recipient_address || wallet?.address;
+            const recipient = invoice?.recipient_address || address;
 
             if (!recipient) {
                 throw new Error('No recipient address found');
             }
 
-            const txHash = await provider.request({
-                method: 'eth_sendTransaction',
-                params: [{
-                    from: wallet.address,
-                    to: recipient,
-                    value: '0x0',
-                }],
+            // Simple ETH transfer (extend this for ERC20 tokens)
+            const tx = await signer.sendTransaction({
+                to: recipient,
+                value: ethers.parseEther('0'), // Send 0 ETH for now
             });
 
-            console.log('Transaction sent:', txHash);
-            Alert.alert('Success', `Payment sent! Tx: ${txHash}`);
+            console.log('Transaction sent:', tx.hash);
+            await tx.wait();
+
+            Alert.alert('Success', `Payment sent! Transaction: ${tx.hash.slice(0, 10)}...`);
         } catch (error: any) {
             console.error('Payment failed:', error);
             Alert.alert('Error', error.message || 'Payment failed');
@@ -266,7 +273,7 @@ export default function InvoiceViewerScreen() {
                     >
                         {isPaying ? (
                             <ActivityIndicator color="#FFF" />
-                        ) : !user ? (
+                        ) : !isConnected ? (
                             <>
                                 <Wallet size={20} color="#FFF" weight="fill" style={{ marginRight: 8 }} />
                                 <Text style={styles.payButtonText}>Connect Wallet</Text>
