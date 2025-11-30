@@ -1,5 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import path from 'path';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import fs from 'fs';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
@@ -19,6 +21,7 @@ import clientRoutes from './routes/client';
 import projectRoutes from './routes/project';
 import conversationsRoutes from './routes/conversations';
 import webhookRoutes from './routes/webhook';
+import pdfRoutes from './routes/pdf';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -37,8 +40,12 @@ app.use(
                     "'self'",
                     "'unsafe-inline'", // Needed for inline scripts in HTML
                     "https://unpkg.com", // Phosphor icons
-                    "https://cdnjs.cloudflare.com", // ethers.js
+                    "https://cdnjs.cloudflare.com", // ethers.js and html2pdf.js
+                    "https://cdn.tailwindcss.com", // Tailwind CSS
+                    "https://cdn.jsdelivr.net", // Marked.js
+                    "https://esm.sh", // Reown AppKit ES modules
                 ],
+                scriptSrcAttr: ["'unsafe-inline'"], // Allow inline event handlers (onclick, etc.)
                 styleSrc: [
                     "'self'",
                     "'unsafe-inline'", // Needed for inline styles
@@ -50,7 +57,7 @@ app.use(
                     "https://fonts.gstatic.com",
                 ],
                 imgSrc: ["'self'", "data:"],
-                connectSrc: ["'self'"],
+                connectSrc: ["'self'", "https://cdn.jsdelivr.net", "https://esm.sh"],
             },
         },
     })
@@ -96,6 +103,7 @@ app.use('/api/offramp', offrampRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/documents', pdfRoutes); // PDF generation and signing
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../public')));
@@ -107,6 +115,18 @@ app.get('/invoice/:id', (_req: Request, res: Response) => {
 
 app.get('/payment-link/:id', (_req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../public/payment-link.html'));
+});
+
+app.get('/contract/:id', (_req: Request, res: Response) => {
+    const html = fs.readFileSync(path.join(__dirname, '../public/contract.html'), 'utf8');
+    // Inject Reown project ID
+    const projectId = process.env.EXPO_PUBLIC_REOWN_PROJECT_ID || process.env.REOWN_PROJECT_ID || '';
+    const injectedHtml = html.replace('YOUR_PROJECT_ID', projectId);
+    res.send(injectedHtml);
+});
+
+app.get('/proposal/:id', (_req: Request, res: Response) => {
+    res.sendFile(path.join(__dirname, '../public/proposal.html'));
 });
 
 // 404 handler

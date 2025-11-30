@@ -556,14 +556,18 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <!-- Reown AppKit via CDN -->
+    <script src="https://unpkg.com/@reown/appkit@latest"></script>
+    <script src="https://unpkg.com/@reown/appkit-adapter-wagmi@latest"></script>
     <script>
+        // Project ID from Reown Cloud: e2fead0a05813697717820eaed0f18ea
+        const projectId = 'e2fead0a05813697717820eaed0f18ea';
+
         // Data & Configuration
-        const CHAINS = [
+        const networks = [
             {
                 id: 'base',
                 name: 'Base',
-                icon: '/assets/icons/networks/base.png',
                 chainId: 8453,
                 rpcUrl: 'https://mainnet.base.org',
                 explorer: 'https://basescan.org'
@@ -571,55 +575,15 @@
             {
                 id: 'celo',
                 name: 'Celo',
-                icon: '/assets/icons/networks/celo.png',
                 chainId: 42220,
                 rpcUrl: 'https://forno.celo.org',
                 explorer: 'https://celoscan.io'
             }
         ];
 
-        const TOKENS = [
-            {
-                symbol: 'USDC',
-                name: 'USD Coin',
-                icon: '/assets/icons/tokens/usdc.png',
-                addresses: {
-                    base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-                    celo: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
-                    arbitrum: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-                    optimism: '0x0b2C639c533813f4Aa9D7837CAf992c92bdE5162'
-                }
-            },
-            {
-                symbol: 'USDT',
-                name: 'Tether',
-                icon: '/assets/icons/tokens/usdt.png',
-                addresses: {
-                    base: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2', // Bridged/Unofficial on some
-                    celo: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e',
-                    arbitrum: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
-                    optimism: '0x94b008aA00579c1307B0EF2c499aD98a8ce98e48'
-                }
-            },
-            {
-                symbol: 'ETH',
-                name: 'Ethereum',
-                icon: '/assets/icons/tokens/eth.png',
-                isNative: true
-            },
-        ];
-
-        // ERC20 Minimal ABI
-        const ERC20_ABI = [
-            "function transfer(address to, uint256 amount) returns (bool)",
-            "function decimals() view returns (uint8)"
-        ];
-
-        let selectedChain = CHAINS[0];
-        let selectedToken = TOKENS[0];
+        let modal = null;
+        let selectedChain = networks[0];
         let invoiceData = null;
-        let provider = null;
-        let signer = null;
         let userAddress = null;
 
         // Init
@@ -632,6 +596,27 @@
         const modalPayBtn = document.getElementById('modal-pay');
         const modalCancelBtn = document.getElementById('modal-cancel');
         const payBtnText = document.getElementById('pay-button-text');
+
+        // Initialize Reown AppKit
+        if (window.Reown && window.Reown.createAppKit) {
+            modal = window.Reown.createAppKit({
+                projectId,
+                networks: networks,
+                metadata: {
+                    name: 'Hedwig Invoice',
+                    description: 'Pay invoices with crypto',
+                    url: window.location.origin,
+                    icons: ['https://hedwig.app/icon.png']
+                },
+                features: {
+                    analytics: false,
+                    email: false,
+                    socials: []
+                }
+            });
+        } else {
+            console.error('Reown AppKit not loaded. Please check CDN scripts.');
+        }
 
         // Fetch Data
         async function fetchInvoice() {
@@ -720,8 +705,7 @@
             modalPayBtn.textContent = `Pay $${total.toFixed(2)}`;
         }
 
-        // Wallet Logic
-        async function connectWallet() {
+        // Wallet and Payment Logic using Reown
             if (typeof window.ethereum !== 'undefined') {
                 try {
                     provider = new ethers.BrowserProvider(window.ethereum);

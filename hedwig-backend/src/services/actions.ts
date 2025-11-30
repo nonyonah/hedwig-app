@@ -41,6 +41,14 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                 // Don't create payment link yet, Gemini will ask for network
                 return { text: '' };
 
+            case 'COLLECT_CONTRACT_INFO':
+                // Don't create contract yet, Gemini will collect all fields
+                return { text: '' };
+
+            case 'COLLECT_PROPOSAL_INFO':
+                // Don't create proposal yet, Gemini will collect all fields
+                return { text: '' };
+
             case 'CREATE_PROPOSAL':
                 return await handleCreateProposal(params, user);
 
@@ -238,17 +246,49 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
 
 async function handleCreateProposal(params: ActionParams, user: any): Promise<ActionResult> {
     try {
-        const description = params.for || 'Project Proposal';
-        const recipientEmail = params.recipient_email;
+        const title = params.title || params.for || 'Project Proposal';
+        const clientName = params.client_name;
+        const clientEmail = params.client_email;
+        const problemStatement = params.problem_statement || params.problem;
+        const proposedSolution = params.proposed_solution || params.solution;
+        const deliverables = params.deliverables || [];
+        const timeline = params.timeline;
+        const milestones = params.milestones || [];
+        const pricingBreakdown = params.pricing_breakdown || params.pricing || [];
+        const totalCost = params.total_cost || params.total;
+        const paymentTerms = params.payment_terms;
 
-        // Get internal user ID
+        // Get user data for freelancer info
         const { data: userData } = await supabase
             .from('users')
-            .select('id')
-            .eq('privy_id', user.privy_id)
+            .select('id, email, first_name, last_name')
+            .eq('privy_id', user.privyId)
             .single();
 
         if (!userData) throw new Error('User not found');
+
+        const freelancerName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Freelancer';
+
+        // Import template
+        const { generateProposalTemplate } = await import('../templates/proposal');
+
+        // Generate proposal content
+        const proposalContent = generateProposalTemplate({
+            client_name: clientName,
+            client_email: clientEmail,
+            title,
+            problem_statement: problemStatement,
+            proposed_solution: proposedSolution,
+            deliverables: Array.isArray(deliverables) ? deliverables : [deliverables].filter(Boolean),
+            timeline,
+            milestones: Array.isArray(milestones) ? milestones : [],
+            pricing_breakdown: Array.isArray(pricingBreakdown) ? pricingBreakdown : [],
+            total_cost: totalCost,
+            payment_terms: paymentTerms,
+            about_freelancer: `Professional freelancer with expertise in ${title}.`,
+            freelancer_name: freelancerName,
+            freelancer_email: userData.email
+        });
 
         // Create proposal record
         const { data: doc, error } = await supabase
@@ -256,21 +296,37 @@ async function handleCreateProposal(params: ActionParams, user: any): Promise<Ac
             .insert({
                 user_id: userData.id,
                 type: 'PROPOSAL',
-                title: description,
-                status: 'DRAFT',
-                content: { recipient_email: recipientEmail }
+                title,
+                status: 'PENDING',
+                content: {
+                    client_name: clientName,
+                    client_email: clientEmail,
+                    problem_statement: problemStatement,
+                    proposed_solution: proposedSolution,
+                    deliverables,
+                    timeline,
+                    milestones,
+                    pricing_breakdown: pricingBreakdown,
+                    total_cost: totalCost,
+                    payment_terms: paymentTerms,
+                    generated_content: proposalContent
+                }
             })
             .select()
             .single();
 
         if (error) throw error;
-        console.log('[Actions] Created document:', doc);
+        console.log('[Actions] Created proposal:', doc);
+
+        const proposalUrl = `${process.env.API_URL || 'http://localhost:3000'}/proposal/${doc.id}`;
 
         return {
-            text: `📝 **Proposal Draft Created**\n\n` +
-                `Title: ${description}\n` +
-                (recipientEmail ? `Recipient: ${recipientEmail}\n` : '') +
-                `\nI've started a draft proposal for you.`
+            text: `📋 **Proposal Created Successfully**\n\n` +
+                `Title: ${title}\n` +
+                `Client: ${clientName}\n` +
+                `Total: ${totalCost}\n\n` +
+                `I've generated a complete proposal for you!\n\n` +
+                `[View & Download Proposal](${proposalUrl})`
         };
     } catch (error) {
         console.error('[Actions] Error creating proposal:', error);
@@ -280,17 +336,65 @@ async function handleCreateProposal(params: ActionParams, user: any): Promise<Ac
 
 async function handleCreateContract(params: ActionParams, user: any): Promise<ActionResult> {
     try {
-        const description = params.for || 'Service Agreement';
-        const recipientEmail = params.recipient_email;
+        const title = params.title || params.for || 'Service Agreement';
+        const clientName = params.client_name;
+        const clientEmail = params.client_email;
+        const clientAddress = params.client_address;
+        const scopeOfWork = params.scope_of_work || params.scope;
+        const deliverables = params.deliverables || [];
+        const milestones = params.milestones || [];
+        const paymentAmount = params.payment_amount || params.amount;
+        const paymentTerms = params.payment_terms;
 
-        // Get internal user ID
+        console.log('[Contract] Payment fields:', {
+            payment_amount: params.payment_amount,
+            amount: params.amount,
+            payment_terms: params.payment_terms,
+            finalAmount: paymentAmount,
+            finalTerms: paymentTerms
+        });
+
+        const startDate = params.start_date;
+        const endDate = params.end_date;
+        const revisions = params.revisions;
+        const terminationClause = params.termination_clause;
+        const confidentiality = params.confidentiality;
+        const governingLaw = params.governing_law;
+
+        // Get user data for freelancer info
         const { data: userData } = await supabase
             .from('users')
-            .select('id')
-            .eq('privy_id', user.privy_id)
+            .select('id, email, first_name, last_name')
+            .eq('privy_id', user.privyId)
             .single();
 
         if (!userData) throw new Error('User not found');
+
+        const freelancerName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Freelancer';
+
+        // Import template
+        const { generateContractTemplate } = await import('../templates/contract');
+
+        // Generate contract content
+        const contractContent = generateContractTemplate({
+            client_name: clientName,
+            client_email: clientEmail,
+            client_address: clientAddress,
+            title,
+            scope_of_work: scopeOfWork,
+            deliverables: Array.isArray(deliverables) ? deliverables : [deliverables].filter(Boolean),
+            milestones: Array.isArray(milestones) ? milestones : [],
+            payment_amount: paymentAmount,
+            payment_terms: paymentTerms,
+            start_date: startDate,
+            end_date: endDate,
+            revisions,
+            termination_clause: terminationClause,
+            confidentiality,
+            governing_law: governingLaw,
+            freelancer_name: freelancerName,
+            freelancer_email: userData.email
+        });
 
         // Create contract record
         const { data: doc, error } = await supabase
@@ -298,21 +402,42 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             .insert({
                 user_id: userData.id,
                 type: 'CONTRACT',
-                title: description,
+                title,
                 status: 'DRAFT',
-                content: { recipient_email: recipientEmail }
+                content: {
+                    client_name: clientName,
+                    client_email: clientEmail,
+                    client_address: clientAddress,
+                    scope_of_work: scopeOfWork,
+                    deliverables,
+                    milestones,
+                    payment_amount: paymentAmount,
+                    payment_terms: paymentTerms,
+                    start_date: startDate,
+                    end_date: endDate,
+                    revisions,
+                    termination_clause: terminationClause,
+                    confidentiality,
+                    governing_law: governingLaw,
+                    generated_content: contractContent
+                }
             })
             .select()
             .single();
 
         if (error) throw error;
-        console.log('[Actions] Created document:', doc);
+        console.log('[Actions] Created contract:', doc);
+
+        const contractUrl = `${process.env.API_URL || 'http://localhost:3000'}/contract/${doc.id}`;
 
         return {
-            text: `🤝 **Contract Draft Created**\n\n` +
-                `Title: ${description}\n` +
-                (recipientEmail ? `Recipient: ${recipientEmail}\n` : '') +
-                `\nI've created a draft contract for you.`
+            text: `🤝 **Contract Created Successfully**\n\n` +
+                `Title: ${title}\n` +
+                `Client: ${clientName}\n` +
+                `Payment: ${paymentAmount}\n` +
+                `Milestones: ${milestones.length}\n\n` +
+                `I've generated a complete contract for you!\n\n` +
+                `[View & Download Contract](${contractUrl})`
         };
     } catch (error) {
         console.error('[Actions] Error creating contract:', error);

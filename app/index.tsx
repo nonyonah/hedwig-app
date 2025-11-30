@@ -434,10 +434,26 @@ export default function HomeScreen() {
             const data = await response.json();
 
             if (data.success) {
+                let aiContent = data.data.message;
+
+                // Try to parse JSON response if it looks like JSON
+                try {
+                    if (typeof aiContent === 'string' && (aiContent.trim().startsWith('{') || aiContent.trim().startsWith('['))) {
+                        const parsed = JSON.parse(aiContent);
+                        if (parsed.naturalResponse) {
+                            aiContent = parsed.naturalResponse;
+                        }
+                    } else if (typeof aiContent === 'object' && aiContent.naturalResponse) {
+                        aiContent = aiContent.naturalResponse;
+                    }
+                } catch (e) {
+                    console.log('Failed to parse AI response as JSON, using raw text');
+                }
+
                 const aiMessage: Message = {
                     id: Date.now().toString() + '_ai',
                     role: 'assistant',
-                    content: data.data.message,
+                    content: aiContent,
                     createdAt: new Date().toISOString(),
                 };
                 setMessages(prev => [...prev, aiMessage]);
@@ -475,7 +491,7 @@ export default function HomeScreen() {
 
     // Function to render message content with preview cards for links
     const renderMessageContent = (content: string) => {
-        const linkRegex = /\/(invoice|payment-link)\/([a-zA-Z0-9_-]+)/g;
+        const linkRegex = /\/(invoice|payment-link|contract|proposal)\/([a-zA-Z0-9_-]+)/g;
         const parts: Array<{ type: 'text' | 'link'; value: string; path?: string; docType?: string; docId?: string }> = [];
         let lastIndex = 0;
         let match;
@@ -483,34 +499,48 @@ export default function HomeScreen() {
         while ((match = linkRegex.exec(content)) !== null) {
             // Add text before the link
             if (match.index > lastIndex) {
-                parts.push({ type: 'text', value: content.slice(lastIndex, match.index) });
+                parts.push({
+                    type: 'text',
+                    value: content.substring(lastIndex, match.index),
+                });
             }
-            // Add the link
+
+            // Add the link as a special part
             parts.push({
                 type: 'link',
                 value: match[0],
                 path: match[0],
                 docType: match[1],
-                docId: match[2]
+                docId: match[2],
             });
+
             lastIndex = match.index + match[0].length;
         }
 
-        // Add remaining text
+        // Add any remaining text
         if (lastIndex < content.length) {
-            parts.push({ type: 'text', value: content.slice(lastIndex) });
+            parts.push({
+                type: 'text',
+                value: content.substring(lastIndex),
+            });
         }
 
+        // If no links found, just return plain text
         if (parts.length === 0) {
-            return <Text style={styles.aiMessageText} selectable>{content}</Text>;
+            return (
+                <View style={styles.aiBubble}>
+                    <Text style={styles.aiMessageText} selectable>{content}</Text>
+                </View>
+            );
         }
 
         return (
             <>
-                <Text style={styles.aiMessageText} selectable>
-                    {parts.filter(p => p.type === 'text').map(p => p.value).join('')}
-                </Text>
-                {parts.filter(p => p.type === 'link').map((part, index) => (
+                {parts.map((part, index) => part.type === 'text' ? (
+                    <View key={index} style={styles.aiBubble}>
+                        <Text style={styles.aiMessageText} selectable>{part.value}</Text>
+                    </View>
+                ) : (
                     <View key={index} style={styles.linkPreviewCard}>
                         <TouchableOpacity
                             style={styles.linkPreviewContent}
@@ -518,12 +548,16 @@ export default function HomeScreen() {
                         >
                             <View style={styles.linkPreviewIconContainer}>
                                 <Text style={styles.linkPreviewIcon}>
-                                    {part.docType === 'invoice' ? '📄' : '💳'}
+                                    {part.docType === 'invoice' ? '📄' :
+                                        part.docType === 'payment-link' ? '💳' :
+                                            part.docType === 'contract' ? '📝' : '📋'}
                                 </Text>
                             </View>
                             <View style={styles.linkPreviewInfo}>
                                 <Text style={styles.linkPreviewTitle}>
-                                    {part.docType === 'invoice' ? 'Invoice' : 'Payment Link'}
+                                    {part.docType === 'invoice' ? 'Invoice' :
+                                        part.docType === 'payment-link' ? 'Payment Link' :
+                                            part.docType === 'contract' ? 'Contract' : 'Proposal'}
                                 </Text>
                                 <Text style={styles.linkPreviewSubtitle}>
                                     Tap to view • ID: {part.docId?.substring(0, 8)}...

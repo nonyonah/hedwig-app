@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contract | Hedwig</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700;900&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F3F4F6;
+        }
+
+        .document-paper {
+            font-family: 'Merriweather', serif;
+            color: #111827;
+            line-height: 1.8;
+        }
+
+        .markdown-body h1 {
+            font-family: 'Merriweather', serif;
+            font-size: 24pt;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 1.5em;
+            color: #000;
+        }
+
+        .markdown-body h2 {
+            font-family: 'Merriweather', serif;
+            font-size: 14pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-top: 2em;
+            margin-bottom: 1em;
+            color: #000;
+            letter-spacing: 0.05em;
+        }
+
+        .markdown-body p {
+            margin-bottom: 1.2em;
+            text-align: justify;
+        }
+
+        .markdown-body ul,
+        .markdown-body ol {
+            padding-left: 2em;
+            margin-bottom: 1.2em;
+        }
+
+        .markdown-body li {
+            margin-bottom: 0.5em;
+            padding-left: 0.5em;
+        }
+
+        .markdown-body strong {
+            font-weight: 700;
+            color: #000;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .document-paper {
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="min-h-screen pb-32">
+
+    <div id="loading" class="fixed inset-0 flex items-center justify-center bg-gray-50 z-50">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+    </div>
+
+    <div id="error"
+        class="hidden fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-50 text-red-600 px-6 py-3 rounded-full shadow-lg z-50 border border-red-100">
+    </div>
+
+    <div class="max-w-[850px] mx-auto my-8 sm:my-12 bg-white shadow-xl min-h-[1100px] p-12 sm:p-20 relative document-paper"
+        id="document-container">
+        <div id="contract-content" class="markdown-body hidden"></div>
+
+        <!-- Signature Section -->
+        <div id="signature-section" class="hidden mt-12 pt-8 border-t-2 border-gray-200 no-print">
+            <div class="flex flex-col items-center gap-6">
+                <div id="signature-status" class="text-center">
+                    <p class="text-gray-600 mb-4">Sign this contract using your crypto wallet.</p>
+                    <button id="sign-btn"
+                        class="bg-green-600 text-white px-8 py-3 rounded-full font-medium hover:bg-green-700 transition-all shadow-lg flex items-center gap-2 mx-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Connect Wallet & Sign
+                    </button>
+                    <p class="text-xs text-gray-400 mt-2">Powered by WalletConnect</p>
+                </div>
+
+                <div id="signed-status" class="hidden text-center">
+                    <div
+                        class="inline-flex items-center gap-2 bg-green-50 text-green-700 px-6 py-3 rounded-full border border-green-200">
+                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clip-rule="evenodd" />
+                        </svg>
+                        <span class="font-medium">Contract Signed</span>
+                    </div>
+                    <p id="signed-info" class="text-sm text-gray-500 mt-2"></p>
+                    <p id="signature-hash" class="text-xs text-gray-400 mt-1 font-mono"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Footer Action Bar -->
+    <div
+        class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 flex justify-center items-center shadow-[0_-4px_20px_rgba(0,0,0,0.05)] no-print z-40">
+        <div class="flex flex-col sm:flex-row items-center gap-4">
+            <button id="download-btn"
+                class="bg-gray-900 text-white px-6 py-3 rounded-full font-medium hover:bg-gray-800 transition-all transform hover:scale-105 shadow-lg flex items-center gap-2 text-sm sm:text-base">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Simple Web3 Wallet Integration -->
+    <script type="module">
+        let documentId;
+        let documentData;
+
+        // Simple wallet connection
+        async function connectWallet() {
+            if (typeof window.ethereum === 'undefined') {
+                throw new Error('No crypto wallet found. Please install MetaMask or another Web3 wallet.');
+            }
+
+            try {
+                // Request account access
+                const accounts = await window.ethereum.request({
+                    method: 'eth_requestAccounts'
+                });
+                return accounts[0];
+            } catch (error) {
+                if (error.code === 4001) {
+                    throw new Error('Please connect your wallet to continue');
+                }
+                throw error;
+            }
+        }
+
+        // Sign message with wallet
+        async function signWithWallet(message, account) {
+            try {
+                const signature = await window.ethereum.request({
+                    method: 'personal_sign',
+                    params: [message, account]
+                });
+                return signature;
+            } catch (error) {
+                if (error.code === 4001) {
+                    throw new Error('Signature rejected');
+                }
+                throw error;
+            }
+        }
+
+        // Sign button click handler
+        document.getElementById('sign-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('sign-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div> Connecting...';
+
+            try {
+                // Connect wallet
+                const account = await connectWallet();
+
+                btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div> Please sign...';
+
+                // Create message to sign
+                const message = `I agree to the terms of contract ${documentId}\nSigned at: ${new Date().toISOString()}\nWallet: ${account}`;
+
+                // Request signature
+                const signature = await signWithWallet(message, account);
+
+                // Show signed status
+                window.showSignedStatus({
+                    signer_address: account,
+                    signature: signature,
+                    signed_at: new Date().toISOString(),
+                    message: message
+                });
+
+            } catch (error) {
+                console.error('Wallet error:', error);
+                alert(error.message || 'Failed to sign contract');
+                btn.disabled = false;
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Connect Wallet & Sign';
+            }
+        });
+
+        // Export showSignedStatus to global scope
+        window.showSignedStatus = function (signature) {
+            document.getElementById('signature-status').classList.add('hidden');
+            document.getElementById('signed-status').classList.remove('hidden');
+
+            const signerDisplay = signature.signer_address || signature.signer_name || 'Unknown';
+            const signedDate = new Date(signature.signed_at).toLocaleString();
+
+            document.getElementById('signed-info').textContent =
+                `Signed by ${signerDisplay} on ${signedDate}`;
+
+            if (signature.signature) {
+                document.getElementById('signature-hash').textContent =
+                    `Signature: ${signature.signature.substring(0, 20)}...${signature.signature.substring(signature.signature.length - 10)}`;
+            }
+        };
+    </script>
+
+    <script>
+        async function loadContract() {
+            documentId = window.location.pathname.split('/').pop();
+            window.documentId = documentId;
+
+            if (!documentId) {
+                showError('No contract ID provided');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/documents/${documentId}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error?.message || 'Failed to load contract');
+                }
+
+                documentData = data.data.document;
+                window.documentData = documentData;
+                const content = documentData.content?.generated_content || '# No content available';
+
+                document.getElementById('loading').classList.add('hidden');
+                const contentDiv = document.getElementById('contract-content');
+                contentDiv.innerHTML = marked.parse(content);
+                contentDiv.classList.remove('hidden');
+
+                document.title = `${documentData.title} | Contract`;
+
+                // Show signature section
+                const signatureSection = document.getElementById('signature-section');
+                signatureSection.classList.remove('hidden');
+
+                // Check if already signed
+                if (documentData.content?.signature || documentData.status === 'SIGNED') {
+                    window.showSignedStatus(documentData.content?.signature);
+                }
+
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // Download PDF handler
+        document.getElementById('download-btn').addEventListener('click', async function () {
+            const btn = this;
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> Generating...';
+
+            try {
+                const response = await fetch(`/api/documents/${documentId}/download-pdf`);
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error?.message || 'Failed to generate PDF');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = (documentData?.title || 'Contract') + '.pdf';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch (error) {
+                console.error('PDF error:', error);
+                alert('Failed to download PDF: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        });
+
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        loadContract();
+    </script>
+</body>
+
+</html>

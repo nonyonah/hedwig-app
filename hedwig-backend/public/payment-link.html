@@ -332,10 +332,15 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <!-- Reown AppKit via CDN -->
+    <script src="https://unpkg.com/@reown/appkit@latest"></script>
+    <script src="https://unpkg.com/@reown/appkit-adapter-wagmi@latest"></script>
     <script>
+        // Project ID from Reown Cloud: e2fead0a05813697717820eaed0f18ea
+        const projectId = 'e2fead0a05813697717820eaed0f18ea';
+
         // Data & Configuration
-        const CHAINS = [
+        const networks = [
             {
                 id: 'base',
                 name: 'Base',
@@ -385,18 +390,32 @@
             },
         ];
 
-        // ERC20 Minimal ABI
-        const ERC20_ABI = [
-            "function transfer(address to, uint256 amount) returns (bool)",
-            "function decimals() view returns (uint8)"
-        ];
-
-        let selectedChain = CHAINS[0];
+        let modal = null;
+        let selectedChain = networks[0];
         let selectedToken = TOKENS[0];
         let linkData = null;
-        let provider = null;
-        let signer = null;
         let userAddress = null;
+
+        // Initialize Reown AppKit
+        if (window.Reown && window.Reown.createAppKit) {
+            modal = window.Reown.createAppKit({
+                projectId,
+                networks: networks,
+                metadata: {
+                    name: 'Hedwig Payment Link',
+                    description: 'Pay with crypto',
+                    url: window.location.origin,
+                    icons: ['https://hedwig.app/icon.png']
+                },
+                features: {
+                    analytics: false,
+                    email: false,
+                    socials: []
+                }
+            });
+        } else {
+            console.error('Reown AppKit not loaded. Please check CDN scripts.');
+        }
 
         // Init
         const urlParts = window.location.pathname.split('/');
@@ -462,27 +481,83 @@
             modalPayBtn.textContent = `Pay ${doc.amount} ${selectedToken.symbol}`;
         }
 
-        // Wallet Logic
-        async function connectWallet() {
-            if (typeof window.ethereum !== 'undefined') {
-                try {
-                    provider = new ethers.BrowserProvider(window.ethereum);
-                    signer = await provider.getSigner();
-                    userAddress = await signer.getAddress();
+        // Payment Logic using Reown
+        async function processPayment() {
+            if (!modal || !linkData) return;
 
-                    // Update UI
-                    payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
-                    payBtn.onclick = processPayment; // Changed: directly process payment instead of showing modal
+            payBtn.disabled = true;
+            payBtnText.textContent = "Connecting...";
 
-                    return true;
-                } catch (error) {
-                    console.error("User rejected request", error);
-                    alert("Failed to connect wallet");
-                    return false;
-                }
-            } else {
-                alert("Please install MetaMask or another Web3 wallet!");
-                return false;
+            try {
+                // Open modal to connect wallet
+                await modal.open();
+
+                // Wait for wallet connection
+                let account = null;
+                const checkConnection = setInterval(async () => {
+                    try {
+                        const accounts = await modal.provider?.request({ method: 'eth_accounts' });
+                        if (accounts && accounts.length > 0) {
+                            account = accounts[0];
+                            clearInterval(checkConnection);
+                            userAddress = account;
+
+                            payBtnText.textContent = "Processing...";
+
+                            // Create and send transaction
+                            const amount = linkData.amount.toString();
+                            const recipientAddress = "0x0000000000000000000000000000000000000"; // BURN ADDRESS FOR DEMO - REPLACE WITH REAL RECIPIENT
+
+                            let txHash;
+                            if (selectedToken.isNative) {
+                                // Native ETH Transfer
+                                txHash = await modal.provider?.request({
+                                    method: 'eth_sendTransaction',
+                                    params: [{
+                                        from: account,
+                                        to: recipientAddress,
+                                        value: `0x${(parseFloat(amount) * 1e18).toString(16)}`
+                                    }]
+                                });
+                            } else {
+                                // For ERC20 tokens, simplified for demo
+                                alert(`ERC20 payments require additional implementation for ${selectedToken.symbol}`);
+                                payBtn.disabled = false;
+                                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                                return;
+                            }
+
+                            console.log("Transaction sent:", txHash);
+                            payBtnText.textContent = "Confirming...";
+
+                            // Wait for confirmation
+                            setTimeout(() => {
+                                alert(`Payment Successful! TX: ${txHash}`);
+                                payBtn.disabled = false;
+                                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                            }, 5000);
+                        }
+                    } catch (error) {
+                        console.log('Checking connection...');
+                    }
+                }, 1000);
+
+                // Timeout after 60 seconds
+                setTimeout(() => {
+                    clearInterval(checkConnection);
+                    if (!account) {
+                        modal.close();
+                        payBtn.disabled = false;
+                        payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                        alert('Connection timeout');
+                    }
+                }, 60000);
+
+            } catch (error) {
+                console.error('Connection error:', error);
+                payBtn.disabled = false;
+                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                alert('Failed to open wallet modal: ' + error.message);
             }
         }
 

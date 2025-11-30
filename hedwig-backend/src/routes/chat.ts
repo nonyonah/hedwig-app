@@ -129,6 +129,10 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
             .update({ updated_at: new Date().toISOString() })
             .eq('id', conversation.id);
 
+        console.log('[Chat] Final response text:', finalResponseText);
+        console.log('[Chat] AI response object:', JSON.stringify(aiResponseObj, null, 2));
+        console.log('[Chat] Action result:', JSON.stringify(actionResult, null, 2));
+
         res.json({
             success: true,
             data: {
