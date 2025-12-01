@@ -230,9 +230,68 @@ export default function HomeScreen() {
         }
     }, [isQuickActionsOpen]);
 
-    // Fetch user name and conversation history from backend
+    // Fetch conversations on mount and when sidebar opens
+    const fetchConversations = async () => {
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+            const response = await fetch(`${apiUrl}/api/chat/conversations`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                setConversations(data.data.conversations);
+            }
+        } catch (error) {
+            console.error('Failed to fetch conversations:', error);
+        }
+    };
+
     useEffect(() => {
-        const fetchUserData = async () => {
+        if (isSidebarOpen) {
+            fetchConversations();
+        }
+    }, [isSidebarOpen]);
+
+    const loadConversation = async (id: string) => {
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+            const response = await fetch(`${apiUrl}/api/chat/conversations/${id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                const loadedMessages = data.data.conversation.messages.map((msg: any) => ({
+                    id: msg.id,
+                    role: msg.role.toLowerCase(),
+                    content: msg.content,
+                    createdAt: msg.createdAt
+                }));
+                setMessages(loadedMessages);
+                setConversationId(id);
+                setIsSidebarOpen(false);
+            }
+        } catch (error) {
+            console.error('Failed to load conversation:', error);
+            Alert.alert('Error', 'Failed to load conversation history');
+        }
+    };
+
+    // Initial fetch of conversations
+    useEffect(() => {
+        if (isReady && user) {
+            fetchConversations();
+        }
+    }, [isReady, user]);
+
+    // Fetch user profile data
+    useEffect(() => {
+        const fetchUserProfile = async () => {
             if (!user) {
                 console.log('User object is null, skipping fetch');
                 return;
@@ -293,21 +352,11 @@ export default function HomeScreen() {
                 } else {
                     console.log('Profile fetch failed or no data:', profileData);
                 }
-
-                // Fetch conversation history
-                const conversationsResponse = await fetch(`${apiUrl}/api/conversations`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-                const conversationsData = await conversationsResponse.json();
-                console.log('[Chat] Conversations fetched:', conversationsData);
-                if (conversationsData.success) {
-                    setConversations(conversationsData.data.conversations || []);
-                }
             } catch (error) {
                 console.error('Failed to fetch user data:', error);
             }
         };
-        fetchUserData();
+        fetchUserProfile();
     }, [user]);
 
     const getGreeting = () => {
@@ -349,38 +398,6 @@ export default function HomeScreen() {
             router.replace('/auth/welcome');
         } catch (error) {
             console.error('Logout failed:', error);
-        }
-    };
-
-    const loadConversation = async (convId: string) => {
-        try {
-            const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-            console.log('[Chat] Loading conversation:', convId);
-            const response = await fetch(`${apiUrl}/api/conversations/${convId}/messages`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
-
-            const data = await response.json();
-            console.log('[Chat] Conversation messages:', data);
-
-            if (data.success && data.data.messages) {
-                // Transform messages to match our Message interface
-                const loadedMessages: Message[] = data.data.messages.map((msg: any) => ({
-                    id: msg.id,
-                    content: msg.content,
-                    role: msg.role.toLowerCase() as 'user' | 'assistant',
-                    createdAt: msg.created_at
-                }));
-
-                setMessages(loadedMessages);
-                setConversationId(convId);
-                setIsSidebarOpen(false);
-            }
-        } catch (error) {
-            console.error('[Chat] Error loading conversation:', error);
-            Alert.alert('Error', 'Failed to load conversation');
         }
     };
 
@@ -808,9 +825,12 @@ export default function HomeScreen() {
                     conversations={conversations}
                     currentConversationId={conversationId}
                     onLoadConversation={loadConversation}
-                    onHomeClick={handleHomeClick}
+                    onHomeClick={() => {
+                        setConversationId(null);
+                        setMessages([]);
+                        setIsSidebarOpen(false);
+                    }}
                 />
-
                 {/* Quick Actions Modal */}
                 < Modal
                     visible={isQuickActionsRendered}
@@ -866,7 +886,7 @@ export default function HomeScreen() {
                                 <Pen size={24} color={Colors.textPrimary} />
                                 <Text style={styles.actionText}>Proposal</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionItem}>
+                            <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/contracts')}>
                                 <Scroll size={24} color={Colors.textPrimary} />
                                 <Text style={styles.actionText}>Contract</Text>
                             </TouchableOpacity>
@@ -1163,6 +1183,14 @@ const styles = StyleSheet.create({
         ...Typography.body,
         fontSize: 16,
         lineHeight: 24,
+    },
+    aiBubble: {
+        backgroundColor: '#f5f5f5',
+        padding: Metrics.spacing.md,
+        borderRadius: 20,
+        borderBottomLeftRadius: 4,
+        maxWidth: '80%',
+        marginBottom: 8,
     },
     messageLink: {
         color: Colors.primary,

@@ -128,6 +128,12 @@ AVAILABLE INTENTS & TRIGGERS:
 3. COLLECT_PROPOSAL_INFO
    Use when creating proposal but missing required info.
    
+   **⚠️ CRITICAL ANTI-LOOP RULES:**
+   1. BEFORE asking ANY question, check the conversation history
+   2. If you JUST asked for a field and user answered → ACCEPT their answer and move to the NEXT field
+   3. DO NOT re-ask for information you already have in parameters
+   4. If stuck asking same question → SKIP to next field or use a reasonable default
+   
    **Required fields to collect** (ask one at a time):
    1. title - Project title
    2. client_name - Client's full name OR Company name (e.g., "Acme Corp", "John Doe")
@@ -143,16 +149,67 @@ AVAILABLE INTENTS & TRIGGERS:
    
    **Collection strategy:**
    - Ask for missing fields ONE at a time
-   - Keep ALL collected data in parameters
+   - **CRITICAL:** You MUST look at the ENTIRE conversation history to find values for fields.
+   - If the user answered "Website redesign" 3 messages ago, you MUST remember that \`title\` is "Website redesign".
+   - Keep ALL collected data in parameters (ALWAYS include previously collected fields)
+   - Look at user's response to your LAST question - that's the answer to what you just asked
+   - **Problem Statement Rule:** If you asked "What problem does this solve?" and the user replies with ANY text (e.g., "They need more sales", "Old site is slow"), ACCEPT it as the \`problem_statement\`. Do not critique it or ask again.
    - Once you have ALL required fields → switches to CREATE_PROPOSAL
+   
+   **Array Collection (Deliverables, Milestones, Pricing):**
+   - If user provides a list (e.g., "Item 1 - $50, Item 2 - $100"), parse ALL of them at once.
+   - If user says "That's all", "Done", or "No more items", stop collecting that array.
+   - If you have at least one item in an array (like pricing_breakdown), you can move to the next field unless the user explicitly wants to add more.
+   - DO NOT loop endlessly asking "Any more items?". If they gave you items, assume that's it unless they say "and..."
+   
+   **Milestone Parsing (CRITICAL):**
+   When user provides milestones, parse ALL of them from their message:
+   - "design, development, testing" → 3 milestones: [{phase: "Design"}, {phase: "Development"}, {phase: "Testing"}]
+   - "planning and design, development, launch" → 3 milestones
+   - "phase 1: planning, phase 2: execution" → 2 milestones
+   - ACCEPT the list and move to next field. DO NOT ask "any more milestones?"
+   
+   **Deliverables Parsing (CRITICAL):**
+   When user provides deliverables, parse ALL of them:
+   - "homepage, product page, checkout" → 3 deliverables
+   - "logo design, brand guide, social media kit" → 3 deliverables
+   - ACCEPT the list and move to next field. DO NOT ask "any more deliverables?"
+   
+   **Parameter Persistence & Inference (CRITICAL):**
+   1. **NEVER DROP PARAMETERS:** Once you have a \`title\`, \`client_name\`, etc., YOU MUST INCLUDE IT in every subsequent JSON response. Dropping the title causes the flow to restart.
+   2. **Total Cost Inference:** If you have \`pricing_breakdown\`, SUM the costs to get \`total_cost\`. DO NOT ask for total cost if you can calculate it.
+   3. **Milestone Inference:** If user says "50% start, 50% end", create 2 milestones with calculated amounts based on total cost.
+   4. **Implicit "Done":** If user answers a question with "Done" or "Skip", move to the next field.
+   
+   **🚨 CRITICAL ANTI-RESTART RULES 🚨:**
+   1. **NEVER ASK FOR TITLE TWICE:** If parameters already contains \`title\`, you are IN THE MIDDLE of collecting. DO NOT restart.
+   2. **IMMEDIATE CREATION:** If you have ALL 11 required fields (especially if you just got \`payment_terms\`), switch to CREATE_PROPOSAL IMMEDIATELY. Do NOT ask another question.
+   3. **ACCEPT MINIMAL ARRAYS:** For deliverables/milestones, if user gives you even ONE item, accept it and move on. DO NOT loop asking "any more?"
+   4. **PAYMENT_TERMS TRIGGERS CREATION:** If user provides payment_terms AND you have all other fields, use CREATE_PROPOSAL intent in that SAME response.
+   
+   **Field Completion Detection:**
+   After receiving user's answer, COUNT how many of the 11 fields you have:
+   - If you have 11/11 fields → USE CREATE_PROPOSAL
+   - If you have 10/11 fields and just received the missing one → USE CREATE_PROPOSAL
+   - Otherwise → USE COLLECT_PROPOSAL_INFO with ALL accumulated parameters
+   
+   **Parameter accumulation (CRITICAL):**
+   When using COLLECT_PROPOSAL_INFO, you MUST include ALL previously collected data in the parameters object.
+   Example:
+   - First message (asking for title): parameters: {}
+   - Second message (got title "Website", asking for client): parameters: { title: "Website" }
+   - Third message (got client "John", asking for email): parameters: { title: "Website", client_name: "John" }
+   - And so on... ALWAYS carry forward all collected data!
    
    **Example conversation:**
    User: "Create a proposal"
-   → "I'll help you create a professional proposal! What's the project title?"
+   → { intent: "COLLECT_PROPOSAL_INFO", parameters: {}, naturalResponse: "I'll help you create a professional proposal! What's the project title?" }
+   
    User: "E-commerce website redesign"
-   → "Great! Who is this proposal for?"
+   → { intent: "COLLECT_PROPOSAL_INFO", parameters: { title: "E-commerce website redesign" }, naturalResponse: "Great! Who is this proposal for?" }
+   
    User: "ABC Company, contact is Sarah at sarah@abc.com"
-   → "Perfect! What problem or challenge does this project solve for ABC Company?"
+   → { intent: "COLLECT_PROPOSAL_INFO", parameters: { title: "E-commerce website redesign", client_name: "ABC Company", client_email: "sarah@abc.com" }, naturalResponse: "Perfect! What problem or challenge does this project solve for ABC Company?" }
    
 4. CREATE_PROPOSAL
    ⚠️ Use ONLY when ALL required fields are collected
@@ -161,6 +218,12 @@ AVAILABLE INTENTS & TRIGGERS:
    
 5. COLLECT_CONTRACT_INFO
    Use when creating contract but missing required info.
+   
+   **⚠️ CRITICAL ANTI-LOOP RULES:**
+   1. BEFORE asking ANY question, check the conversation history
+   2. If you JUST asked for a field and user answered → ACCEPT their answer and move to the NEXT field
+   3. DO NOT re-ask for information you already have in parameters
+   4. If stuck asking same question → SKIP to next field or use a reasonable default
    
    **Required fields to collect** (ask one at a time):
    1. title - Contract title/project name
@@ -176,9 +239,20 @@ AVAILABLE INTENTS & TRIGGERS:
    
    **Collection strategy:**
    - Ask for missing fields ONE at a time
-   - Keep ALL collected data in parameters
+   - **CRITICAL:** You MUST look at the ENTIRE conversation history to find values for fields.
+   - Keep ALL collected data in parameters (ALWAYS include previously collected fields)
+   - Look at user's response to your LAST question - that's the answer to what you just asked
    - ALWAYS ask for milestones: "Let's set up payment milestones. What are the key milestones and how much should be paid at each?"
    - Once you have ALL required fields → switches to CREATE_CONTRACT
+   
+   **Parameter Persistence & Inference (CRITICAL):**
+   1. **NEVER DROP PARAMETERS:** Once you have a \`title\`, \`client_name\`, etc., YOU MUST INCLUDE IT in every subsequent JSON response.
+   2. **Milestone Parsing:** If user says "50% start, 50% end", create 2 milestones with calculated amounts based on payment_amount.
+   3. **Implicit "Done":** If user answers a question with "Done" or "Skip", move to the next field.
+   
+   **Parameter accumulation (CRITICAL):**
+   When using COLLECT_CONTRACT_INFO, you MUST include ALL previously collected data in the parameters object.
+   Always carry forward all collected data from previous exchanges!
    
    **Milestone Parsing Strategy:**
    - If user lists milestones (e.g., "50% upfront, 50% on completion"), parse them into the milestones array.
@@ -189,15 +263,20 @@ AVAILABLE INTENTS & TRIGGERS:
    
    **Example conversation:**
    User: "Draft a contract"
-   → "I'll help you draft a professional contract! What's the project title?"
+   → { intent: "COLLECT_CONTRACT_INFO", parameters: {}, naturalResponse: "I'll help you draft a professional contract! What's the project title?" }
+   
    User: "Web design for online store"
-   → "Great! Who is the client?"
+   → { intent: "COLLECT_CONTRACT_INFO", parameters: { title: "Web design for online store" }, naturalResponse: "Great! Who is the client?" }
+   
    User: "John Doe, john@example.com"
-   → "Perfect! Can you describe the scope of work? What exactly will you be delivering?"
+   → { intent: "COLLECT_CONTRACT_INFO", parameters: { title: "Web design for online store", client_name: "John Doe", client_email: "john@example.com" }, naturalResponse: "Perfect! Can you describe the scope of work? What exactly will you be delivering?" }
+   
    User: "A full e-commerce website with product pages, shopping cart, and payment integration"
-   → "Excellent! What are the specific deliverables? (e.g., homepage, 5 product pages, checkout flow)"
+   → { intent: "COLLECT_CONTRACT_INFO", parameters: { title: "Web design for online store", client_name: "John Doe", client_email: "john@example.com", scope_of_work: "A full e-commerce website with product pages, shopping cart, and payment integration" }, naturalResponse: "Excellent! What are the specific deliverables? (e.g., homepage, 5 product pages, checkout flow)" }
+   
    User: "Homepage, 10 product pages, cart, checkout, admin panel"
-   → "Got it! Let's set up payment milestones. What are the key milestones and how much should be paid at each?"
+   → { intent: "COLLECT_CONTRACT_INFO", parameters: { title: "Web design for online store", client_name: "John Doe", client_email: "john@example.com", scope_of_work: "A full e-commerce website...", deliverables: ["Homepage", "10 product pages", "cart", "checkout", "admin panel"] }, naturalResponse: "Got it! Let's set up payment milestones. What are the key milestones and how much should be paid at each?" }
+   
    User: "50% deposit ($1000) and 50% upon completion ($1000)"
    → {
        intent: "CREATE_CONTRACT",

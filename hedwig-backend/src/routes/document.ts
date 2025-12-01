@@ -193,6 +193,125 @@ router.get('/:id', async (req: Request, res: Response, next) => {
 });
 
 /**
+ * POST /api/documents/:id/complete
+ * Mark a contract as completed and generate an invoice
+ */
+router.post('/:id/complete', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const privyId = req.user!.privyId;
+
+        // Get user ID first
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userData) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found' },
+            });
+            return;
+        }
+
+        // Fetch the contract
+        const { data: contract, error: fetchError } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !contract) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Contract not found' },
+            });
+            return;
+        }
+
+        // Verify ownership
+        if (contract.user_id !== userData.id) {
+            res.status(403).json({
+                success: false,
+                error: { message: 'Not authorized to complete this contract' },
+            });
+            return;
+        }
+
+        // Verify contract is in ACTIVE or VIEWED state
+        if (contract.status !== 'ACTIVE' && contract.status !== 'VIEWED') {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Only active contracts can be marked as completed' },
+            });
+            return;
+        }
+
+        // Mark contract as completed
+        const { data: updatedContract, error: updateError } = await supabase
+            .from('documents')
+            .update({
+                status: 'PAID',
+                content: {
+                    ...contract.content,
+                    completed_at: new Date().toISOString()
+                }
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw new AppError(`Failed to update contract: ${updateError.message}`, 500);
+        }
+
+        // Generate invoice for the completed contract
+        const clientName = contract.client_name || contract.content?.client_name || 'Client';
+        const { data: invoice, error: invoiceError } = await supabase
+            .from('documents')
+            .insert({
+                user_id: userData.id,
+                type: 'INVOICE',
+                title: `Invoice for ${contract.title}`,
+                amount: contract.amount,
+                description: contract.description || contract.title,
+                status: 'SENT',
+                content: {
+                    recipient_email: contract.content?.recipient_email || contract.content?.client_email,
+                    client_name: clientName,
+                    project_description: contract.description || contract.title,
+                    contract_id: contract.id,
+                    items: [
+                        {
+                            description: contract.title,
+                            amount: contract.amount
+                        }
+                    ]
+                }
+            })
+            .select()
+            .single();
+
+        if (invoiceError) {
+            console.error('[Contract Complete] Failed to create invoice:', invoiceError);
+            // Don't fail the request if invoice creation fails
+        }
+
+        res.json({
+            success: true,
+            data: {
+                contract: updatedContract,
+                invoice: invoice || null
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * DELETE /api/documents/:id
  * Delete a document by ID
  */

@@ -31,13 +31,16 @@ export function generateProposalTemplate(data: ProposalData): string {
         `${i + 1}. ${d}`
     ).join('\n');
 
-    const milestonesList = data.milestones.map((m, i) =>
-        `**Phase ${i + 1}: ${m.phase}**\n${m.description}\nDuration: ${m.duration}`
-    ).join('\n\n');
+    const milestonesList = data.milestones.map((m, i) => {
+        const phaseName = m.phase || `Milestone ${i + 1}`;
+        return `**Phase ${i + 1}: ${phaseName}**\n${m.description || 'Work on deliverables'}\nDuration: ${m.duration || 'TBD'}`;
+    }).join('\n\n');
 
     const pricingList = data.pricing_breakdown.map(p =>
         `- ${p.item}: ${p.cost}`
     ).join('\n');
+
+    const paymentTerms = data.payment_terms || 'An invoice will be generated automatically and sent to you via email after the project is completed.';
 
     return `
 # PROJECT PROPOSAL
@@ -57,19 +60,25 @@ Thank you for considering my services for your project. This proposal outlines m
 
 ## PROBLEM STATEMENT
 
-${data.problem_statement}
+This project addresses a critical business need for ${data.client_name}. ${data.problem_statement}
+
+By addressing these challenges, we can unlock new opportunities for growth and improved efficiency in your operations.
 
 ---
 
 ## PROPOSED SOLUTION
 
+To solve the challenges outlined above, I propose the following comprehensive approach:
+
 ${data.proposed_solution}
+
+This solution is designed to deliver measurable results while ensuring seamless integration with your existing workflows. My approach combines industry best practices with tailored strategies specific to your needs.
 
 ---
 
 ## DELIVERABLES
 
-You will receive the following deliverables upon project completion:
+You will receive the following high-quality deliverables upon project completion:
 
 ${deliverablesList}
 
@@ -93,7 +102,7 @@ ${pricingList}
 
 ## PAYMENT TERMS
 
-${data.payment_terms}
+${paymentTerms}
 
 All payments will be processed securely through the Hedwig platform using cryptocurrency.
 

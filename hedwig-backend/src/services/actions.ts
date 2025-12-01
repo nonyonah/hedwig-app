@@ -297,7 +297,7 @@ async function handleCreateProposal(params: ActionParams, user: any): Promise<Ac
                 user_id: userData.id,
                 type: 'PROPOSAL',
                 title,
-                status: 'PENDING',
+                status: 'DRAFT',
                 content: {
                     client_name: clientName,
                     client_email: clientEmail,

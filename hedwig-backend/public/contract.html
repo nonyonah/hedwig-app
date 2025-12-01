@@ -190,6 +190,13 @@
         // Sign button click handler
         document.getElementById('sign-btn').addEventListener('click', async () => {
             const btn = document.getElementById('sign-btn');
+            const documentId = window.documentId; // Get from window since it's set in loadContract()
+
+            if (!documentId) {
+                alert('Contract not loaded yet. Please wait and try again.');
+                return;
+            }
+
             btn.disabled = true;
             btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div> Connecting...';
 
@@ -205,13 +212,42 @@
                 // Request signature
                 const signature = await signWithWallet(message, account);
 
-                // Show signed status
-                window.showSignedStatus({
+                btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div> Saving...';
+
+                // Save signature to database
+                const signatureData = {
                     signer_address: account,
                     signature: signature,
                     signed_at: new Date().toISOString(),
                     message: message
-                });
+                };
+
+                try {
+                    const response = await fetch(`/api/documents/${documentId}/sign-wallet`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(signatureData)
+                    });
+
+                    const result = await response.json();
+                    console.log('[Signature] API Response:', result);
+
+                    if (!response.ok) {
+                        console.error('[Signature] Save failed:', result);
+                        throw new Error(result.error?.message || 'Failed to save signature');
+                    }
+
+                    console.log('[Signature] Successfully saved to database');
+                } catch (saveError) {
+                    console.error('[Signature] Error saving signature:', saveError);
+                    alert('Warning: Signature not saved to server. It will be lost on refresh.');
+                    // Continue to show signed status even if save fails
+                }
+
+                // Show signed status
+                window.showSignedStatus(signatureData);
 
             } catch (error) {
                 console.error('Wallet error:', error);
@@ -261,9 +297,21 @@
                 window.documentData = documentData;
                 const content = documentData.content?.generated_content || '# No content available';
 
+                console.log('[Contract] Document loaded:', documentData);
+                console.log('[Contract] Signature data:', documentData.content?.signature);
+
                 document.getElementById('loading').classList.add('hidden');
                 const contentDiv = document.getElementById('contract-content');
                 contentDiv.innerHTML = marked.parse(content);
+
+                // Check if contract is already signed and display signature
+                if (documentData.content?.signature) {
+                    console.log('[Contract] Found existing signature, displaying...');
+                    window.showSignedStatus(documentData.content.signature);
+                } else {
+                    console.log('[Contract] No signature found');
+                }
+
                 contentDiv.classList.remove('hidden');
 
                 document.title = `${documentData.title} | Contract`;

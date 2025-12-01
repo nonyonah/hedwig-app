@@ -84,7 +84,7 @@ ${milestonesList}
 **Total Project Value:** ${data.payment_amount}
 
 **Payment Schedule:**
-${data.payment_terms}
+${data.payment_terms || 'An invoice will be generated automatically and sent to you via email after the project is completed.'}
 
 **Payment Method:** Cryptocurrency payments via Hedwig platform
 

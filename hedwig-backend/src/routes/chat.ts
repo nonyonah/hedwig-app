@@ -66,10 +66,11 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
                 .from('messages')
                 .select('*')
                 .eq('conversation_id', conversationId)
-                .order('created_at', { ascending: true })
+                .order('created_at', { ascending: false }) // Get NEWEST first
                 .limit(20);
 
-            messages = existingMessages || [];
+            // Reverse to get chronological order for AI
+            messages = existingMessages ? existingMessages.reverse() : [];
         } else {
             // Create new conversation
             const { data: newConversation, error: createError } = await supabase
