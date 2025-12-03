@@ -95,6 +95,18 @@ app.get('/health', (_req: Request, res: Response) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+
+// Add logging middleware for chat routes
+app.use('/api/chat', (req, res, next) => {
+    console.log('[API] Chat route hit:', {
+        method: req.method,
+        path: req.path,
+        fullUrl: req.originalUrl,
+        headers: req.headers.authorization ? 'Has auth header' : 'No auth header'
+    });
+    next();
+});
+
 app.use('/api/chat', chatRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/transactions', transactionRoutes);

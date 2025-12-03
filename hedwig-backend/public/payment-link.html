@@ -390,11 +390,18 @@
             },
         ];
 
+        const ERC20_ABI = [
+            "function transfer(address to, uint256 amount) returns (bool)",
+            "function decimals() view returns (uint8)"
+        ];
+
         let modal = null;
         let selectedChain = networks[0];
         let selectedToken = TOKENS[0];
         let linkData = null;
         let userAddress = null;
+        let provider = null;
+        let signer = null;
 
         // Initialize Reown AppKit
         if (window.Reown && window.Reown.createAppKit) {
@@ -422,7 +429,7 @@
         const linkId = urlParts[urlParts.length - 1].replace('.html', '');
 
         // Elements
-        const modal = document.getElementById('payment-modal');
+        // Removed duplicate modal declaration
         const payBtn = document.getElementById('pay-button');
         const payBtnText = document.getElementById('pay-button-text');
         const modalPayBtn = document.getElementById('modal-pay');
@@ -481,83 +488,76 @@
             modalPayBtn.textContent = `Pay ${doc.amount} ${selectedToken.symbol}`;
         }
 
+        async function connectWallet() {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    provider = new ethers.BrowserProvider(window.ethereum);
+                    signer = await provider.getSigner();
+                    userAddress = await signer.getAddress();
+
+                    payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                    payBtn.onclick = processPayment;
+
+                    return true;
+                } catch (error) {
+                    console.error("User rejected request", error);
+                    alert("Failed to connect wallet");
+                    return false;
+                }
+            } else {
+                alert("Please install MetaMask or another Web3 wallet!");
+                return false;
+            }
+        }
+
         // Payment Logic using Reown
         async function processPayment() {
-            if (!modal || !linkData) return;
+            if (!signer || !linkData) return;
 
             payBtn.disabled = true;
-            payBtnText.textContent = "Connecting...";
+            payBtnText.textContent = "Processing...";
 
             try {
-                // Open modal to connect wallet
-                await modal.open();
+                // 1. Switch Chain
+                await switchChain(selectedChain);
 
-                // Wait for wallet connection
-                let account = null;
-                const checkConnection = setInterval(async () => {
-                    try {
-                        const accounts = await modal.provider?.request({ method: 'eth_accounts' });
-                        if (accounts && accounts.length > 0) {
-                            account = accounts[0];
-                            clearInterval(checkConnection);
-                            userAddress = account;
+                // Re-get signer
+                provider = new ethers.BrowserProvider(window.ethereum);
+                signer = await provider.getSigner();
 
-                            payBtnText.textContent = "Processing...";
+                const amount = linkData.amount.toString();
+                const recipientAddress = "0x0000000000000000000000000000000000000000"; // BURN ADDRESS FOR DEMO
 
-                            // Create and send transaction
-                            const amount = linkData.amount.toString();
-                            const recipientAddress = "0x0000000000000000000000000000000000000"; // BURN ADDRESS FOR DEMO - REPLACE WITH REAL RECIPIENT
+                let tx;
+                if (selectedToken.isNative) {
+                    tx = await signer.sendTransaction({
+                        to: recipientAddress,
+                        value: ethers.parseEther(amount)
+                    });
+                } else {
+                    const tokenAddress = selectedToken.addresses[selectedChain.id];
+                    if (!tokenAddress) throw new Error(`Token ${selectedToken.symbol} not supported on ${selectedChain.name}`);
 
-                            let txHash;
-                            if (selectedToken.isNative) {
-                                // Native ETH Transfer
-                                txHash = await modal.provider?.request({
-                                    method: 'eth_sendTransaction',
-                                    params: [{
-                                        from: account,
-                                        to: recipientAddress,
-                                        value: `0x${(parseFloat(amount) * 1e18).toString(16)}`
-                                    }]
-                                });
-                            } else {
-                                // For ERC20 tokens, simplified for demo
-                                alert(`ERC20 payments require additional implementation for ${selectedToken.symbol}`);
-                                payBtn.disabled = false;
-                                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
-                                return;
-                            }
+                    const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+                    const decimals = await contract.decimals();
+                    const amountWei = ethers.parseUnits(amount, decimals);
 
-                            console.log("Transaction sent:", txHash);
-                            payBtnText.textContent = "Confirming...";
+                    tx = await contract.transfer(recipientAddress, amountWei);
+                }
 
-                            // Wait for confirmation
-                            setTimeout(() => {
-                                alert(`Payment Successful! TX: ${txHash}`);
-                                payBtn.disabled = false;
-                                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
-                            }, 5000);
-                        }
-                    } catch (error) {
-                        console.log('Checking connection...');
-                    }
-                }, 1000);
+                console.log("Transaction sent:", tx.hash);
+                payBtnText.textContent = "Confirming...";
 
-                // Timeout after 60 seconds
-                setTimeout(() => {
-                    clearInterval(checkConnection);
-                    if (!account) {
-                        modal.close();
-                        payBtn.disabled = false;
-                        payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
-                        alert('Connection timeout');
-                    }
-                }, 60000);
+                await tx.wait();
+
+                alert(`Payment Successful! TX: ${tx.hash}`);
 
             } catch (error) {
-                console.error('Connection error:', error);
+                console.error("Payment failed:", error);
+                alert(`Payment failed: ${error.message}`);
+            } finally {
                 payBtn.disabled = false;
                 payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
-                alert('Failed to open wallet modal: ' + error.message);
             }
         }
 

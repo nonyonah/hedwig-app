@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { PrivyProvider } from '@privy-io/expo';
 import Constants from 'expo-constants';
 import { useFonts, RethinkSans_400Regular, RethinkSans_600SemiBold, RethinkSans_700Bold } from '@expo-google-fonts/rethink-sans';
+import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
 import { View, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -13,6 +14,10 @@ export default function RootLayout() {
         RethinkSans_400Regular,
         RethinkSans_600SemiBold,
         RethinkSans_700Bold,
+        Merriweather_300Light,
+        Merriweather_400Regular,
+        Merriweather_700Bold,
+        Merriweather_900Black,
     });
 
     if (!fontsLoaded) {

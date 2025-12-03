@@ -4,6 +4,7 @@ export const Colors = {
     surface: '#FFFFFF',
     textPrimary: '#111827',
     textSecondary: '#6B7280',
+    textTertiary: '#9CA3AF',
     textPlaceholder: '#9CA3AF',
     border: '#E5E7EB',
     error: '#EF4444',
@@ -12,4 +13,6 @@ export const Colors = {
     black: '#000000',
     buttonDisabled: '#D1D5DB',
     success: '#10B981',
+    sidebarBackground: '#F3F3EE',
+    sidebarActive: '#E8E8E3',
 };

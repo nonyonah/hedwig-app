@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Dimensions, ScrollView, Platform, Alert } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { usePrivy, useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
 import * as Clipboard from 'expo-clipboard';
 import { SignOut, Copy, Wallet, CaretRight, CaretLeft, X, UserCircle } from 'phosphor-react-native';
@@ -9,6 +10,7 @@ import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
 } from './CryptoIcons';
+import { getUserGradient } from '../utils/gradientUtils';
 
 const { height } = Dimensions.get('window');
 
@@ -209,13 +211,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 1,
-                    duration: 80,
+                    duration: 150,
                     useNativeDriver: true,
                 }),
                 Animated.spring(modalAnim, {
                     toValue: 0,
-                    damping: 30,
-                    stiffness: 200,
+                    damping: 25,
+                    stiffness: 300,
                     useNativeDriver: true,
                 })
             ]).start();
@@ -223,13 +225,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 0,
-                    duration: 50,
+                    duration: 100,
                     useNativeDriver: true,
                 }),
                 Animated.spring(modalAnim, {
                     toValue: height,
-                    damping: 30,
-                    stiffness: 200,
+                    damping: 25,
+                    stiffness: 300,
                     useNativeDriver: true,
                 })
             ]).start(() => {
@@ -279,13 +281,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                     {/* Header */}
                     <View style={styles.modalHeader}>
                         <View style={styles.userInfo}>
-                            <View style={styles.avatarContainer}>
-                                {userName?.firstName ? (
+                            <LinearGradient
+                                colors={getUserGradient(user?.id || userName?.firstName)}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.avatarContainer}
+                            >
+                                {userName?.firstName && (
                                     <Text style={styles.avatarText}>{userName.firstName[0].toUpperCase()}</Text>
-                                ) : (
-                                    <UserCircle size={24} color="#FFFFFF" weight="fill" />
                                 )}
-                            </View>
+                            </LinearGradient>
                             <View>
                                 <Text style={styles.profileName}>
                                     {userName?.firstName ? `${userName.firstName} ${userName.lastName}` : 'User'}
@@ -477,7 +482,6 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: Colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
     },

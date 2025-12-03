@@ -556,35 +556,16 @@
         </div>
     </div>
 
-    <!-- Reown AppKit via CDN -->
-    <script src="https://unpkg.com/@reown/appkit@latest"></script>
-    <script src="https://unpkg.com/@reown/appkit-adapter-wagmi@latest"></script>
+    <!-- Ethers.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
     <script>
-        // Project ID from Reown Cloud: e2fead0a05813697717820eaed0f18ea
-        const projectId = 'e2fead0a05813697717820eaed0f18ea';
-
         // Data & Configuration
-        const networks = [
-            {
-                id: 'base',
-                name: 'Base',
-                chainId: 8453,
-                rpcUrl: 'https://mainnet.base.org',
-                explorer: 'https://basescan.org'
-            },
-            {
-                id: 'celo',
-                name: 'Celo',
-                chainId: 42220,
-                rpcUrl: 'https://forno.celo.org',
-                explorer: 'https://celoscan.io'
-            }
-        ];
-
-        let modal = null;
-        let selectedChain = networks[0];
         let invoiceData = null;
         let userAddress = null;
+        let provider = null;
+        let signer = null;
+        let selectedChain = null;
+        let selectedToken = null;
 
         // Init
         const urlParts = window.location.pathname.split('/');
@@ -596,34 +577,77 @@
         const modalPayBtn = document.getElementById('modal-pay');
         const modalCancelBtn = document.getElementById('modal-cancel');
         const payBtnText = document.getElementById('pay-button-text');
+        const chainSelector = document.getElementById('chain-selector');
+        const tokenSelector = document.getElementById('token-selector');
 
-        // Initialize Reown AppKit
-        if (window.Reown && window.Reown.createAppKit) {
-            modal = window.Reown.createAppKit({
-                projectId,
-                networks: networks,
-                metadata: {
-                    name: 'Hedwig Invoice',
-                    description: 'Pay invoices with crypto',
-                    url: window.location.origin,
-                    icons: ['https://hedwig.app/icon.png']
-                },
-                features: {
-                    analytics: false,
-                    email: false,
-                    socials: []
+        // Constants
+        const CHAINS = [
+            {
+                id: 'base',
+                name: 'Base',
+                icon: '/assets/icons/networks/base.png',
+                chainId: 8453,
+                rpcUrl: 'https://mainnet.base.org',
+                explorer: 'https://basescan.org'
+            },
+            {
+                id: 'celo',
+                name: 'Celo',
+                icon: '/assets/icons/networks/celo.png',
+                chainId: 42220,
+                rpcUrl: 'https://forno.celo.org',
+                explorer: 'https://celoscan.io'
+            }
+        ];
+
+        const TOKENS = [
+            {
+                symbol: 'USDC',
+                name: 'USD Coin',
+                icon: '/assets/icons/tokens/usdc.png',
+                addresses: {
+                    base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+                    celo: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'
                 }
-            });
-        } else {
-            console.error('Reown AppKit not loaded. Please check CDN scripts.');
-        }
+            },
+            {
+                symbol: 'USDT',
+                name: 'Tether',
+                icon: '/assets/icons/tokens/usdt.png',
+                addresses: {
+                    base: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
+                    celo: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e'
+                }
+            },
+            {
+                symbol: 'ETH',
+                name: 'Ethereum',
+                icon: '/assets/icons/tokens/eth.png',
+                isNative: true
+            },
+            {
+                symbol: 'CELO',
+                name: 'Celo',
+                icon: '/assets/icons/tokens/celo.png',
+                isNative: true
+            }
+        ];
+
+        const ERC20_ABI = [
+            "function transfer(address to, uint256 amount) returns (bool)",
+            "function decimals() view returns (uint8)"
+        ];
+
+        // Defaults
+        selectedChain = CHAINS[0];
+        selectedToken = TOKENS[0];
 
         // Fetch Data
         async function fetchInvoice() {
             try {
                 const apiUrl = window.location.hostname === 'localhost'
                     ? 'http://localhost:3000'
-                    : 'YOUR_PRODUCTION_API_URL'; // Replace with actual prod URL
+                    : window.location.origin;
 
                 const response = await fetch(`${apiUrl}/api/documents/${invoiceId}`);
                 const data = await response.json();
@@ -674,7 +698,7 @@
             // Summary
             const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
             const platformFee = 2.00; // Fixed fee
-            const total = subtotal; // Assuming fee is separate or included
+            const total = subtotal;
 
             document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
             document.getElementById('platform-fee').textContent = `-$${platformFee.toFixed(2)}`;
@@ -695,17 +719,19 @@
                 selectedToken = foundToken;
             }
 
-            document.getElementById('token-icon').src = selectedToken.icon;
-            document.getElementById('network').textContent = selectedChain.name;
-            document.getElementById('network-icon').src = selectedChain.icon;
-
-            // Update Buttons
-            payBtnText.textContent = `Connect Wallet`;
-            modalPayBtn.textContent = `Pay ${total.toFixed(2)} ${selectedToken.symbol}`;
-            modalPayBtn.textContent = `Pay $${total.toFixed(2)}`;
+            updateSelectors();
         }
 
-        // Wallet and Payment Logic using Reown
+        function updateSelectors() {
+            document.getElementById('chain-icon').src = selectedChain.icon;
+            document.getElementById('chain-name').textContent = selectedChain.name;
+
+            document.getElementById('token-icon').src = selectedToken.icon;
+            document.getElementById('token-name').textContent = selectedToken.symbol;
+        }
+
+        // Wallet and Payment Logic
+        async function connectWallet() {
             if (typeof window.ethereum !== 'undefined') {
                 try {
                     provider = new ethers.BrowserProvider(window.ethereum);
@@ -715,7 +741,7 @@
                     // Update UI
                     const shortAddr = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
                     payBtnText.textContent = `Pay $${invoiceData.amount.toFixed(2)}`;
-                    payBtn.onclick = processPayment; // Changed: directly process payment instead of showing modal
+                    payBtn.onclick = openPaymentModal; // Change to open modal first
 
                     return true;
                 } catch (error) {
@@ -752,8 +778,8 @@
                                     rpcUrls: [chain.rpcUrl],
                                     blockExplorerUrls: [chain.explorer],
                                     nativeCurrency: {
-                                        name: 'Ether',
-                                        symbol: 'ETH',
+                                        name: chain.id === 'celo' ? 'Celo' : 'Ether',
+                                        symbol: chain.id === 'celo' ? 'CELO' : 'ETH', // or CELO
                                         decimals: 18
                                     }
                                 },
@@ -761,17 +787,56 @@
                         });
                     } catch (addError) {
                         console.error('Failed to add chain', addError);
-                        throw addError;
                     }
-                } else {
-                    console.error('Failed to switch chain', switchError);
-                    throw switchError;
                 }
+                console.error('Failed to switch chain', switchError);
             }
         }
 
+        function openPaymentModal() {
+            modal.classList.add('active');
+            renderModalOptions();
+        }
+
+        function closePaymentModal() {
+            modal.classList.remove('active');
+        }
+
+        function renderModalOptions() {
+            // Chains
+            const chainOptions = document.getElementById('chain-options');
+            chainOptions.innerHTML = CHAINS.map(chain => `
+                <div class="option-card ${selectedChain.id === chain.id ? 'selected' : ''}" onclick="selectChain('${chain.id}')">
+                    <img src="${chain.icon}" class="option-icon">
+                    <span class="option-text">${chain.name}</span>
+                </div>
+            `).join('');
+
+            // Tokens
+            const tokenOptions = document.getElementById('token-options');
+            tokenOptions.innerHTML = TOKENS.map(token => `
+                <div class="option-card ${selectedToken.symbol === token.symbol ? 'selected' : ''}" onclick="selectToken('${token.symbol}')">
+                    <img src="${token.icon}" class="option-icon">
+                    <span class="option-text">${token.symbol}</span>
+                </div>
+            `).join('');
+
+            modalPayBtn.textContent = `Pay $${invoiceData.amount.toFixed(2)}`;
+        }
+
+        window.selectChain = (chainId) => {
+            selectedChain = CHAINS.find(c => c.id === chainId);
+            renderModalOptions();
+            updateSelectors();
+        };
+
+        window.selectToken = (tokenSymbol) => {
+            selectedToken = TOKENS.find(t => t.symbol === tokenSymbol);
+            renderModalOptions();
+            updateSelectors();
+        };
+
         async function processPayment() {
-            if (!signer || !invoiceData) return;
 
             payBtn.disabled = true;
             payBtnText.textContent = "Processing...";

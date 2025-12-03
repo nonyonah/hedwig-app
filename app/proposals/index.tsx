@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
@@ -10,6 +11,7 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
+import { getUserGradient } from '../../utils/gradientUtils';
 
 // Icons
 const ICONS = {
@@ -202,7 +204,7 @@ export default function ProposalsScreen() {
                         </View>
                     </View>
 
-                    <Text style={styles.amount}>${item.content?.total_cost || '0'}</Text>
+                    <Text style={styles.amount}>${(item.content?.total_cost || '0').toString().replace(/[^0-9.]/g, '')}</Text>
 
                     <View style={styles.cardFooter}>
                         <Text style={styles.clientText}>For {clientName}</Text>
@@ -237,114 +239,126 @@ export default function ProposalsScreen() {
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Proposals</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                        <View style={styles.profileIcon} />
+                        <LinearGradient
+                            colors={getUserGradient(user?.id || userName.firstName)}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.profileIcon}
+                        />
                     </TouchableOpacity>
                 </View>
 
-                {proposals.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <Pen size={64} color={Colors.textSecondary} weight="duotone" />
-                        <Text style={styles.emptyStateTitle}>No Proposals Yet</Text>
-                        <Text style={styles.emptyStateText}>
-                            Create your first proposal by asking Hedwig to help you draft one
-                        </Text>
+                {isLoading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color={Colors.primary} />
                     </View>
                 ) : (
-                    <FlatList
-                        data={proposals}
-                        renderItem={renderItem}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.listContent}
-                    />
+                    proposals.length === 0 ? (
+                        <View style={styles.emptyState}>
+                            <Pen size={64} color={Colors.textSecondary} weight="duotone" />
+                            <Text style={styles.emptyStateTitle}>No Proposals Yet</Text>
+                            <Text style={styles.emptyStateText}>
+                                Create your first proposal by asking Hedwig to help you draft one
+                            </Text>
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={proposals}
+                            renderItem={renderItem}
+                            keyExtractor={(item) => item.id}
+                            contentContainerStyle={styles.listContent}
+                        />
+                    )
                 )}
+            </SafeAreaView>
 
-                <Sidebar
-                    isOpen={isSidebarOpen}
-                    onClose={() => setIsSidebarOpen(false)}
-                    userName={userName}
-                />
+            <ProfileModal
+                visible={showProfileModal}
+                onClose={() => setShowProfileModal(false)}
+                userName={userName}
+                walletAddresses={walletAddresses}
+            />
 
-                <ProfileModal
-                    visible={showProfileModal}
-                    onClose={() => setShowProfileModal(false)}
-                    userName={userName}
-                    walletAddresses={walletAddresses}
-                />
+            <Sidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+                userName={userName}
+                conversations={[]}
+                onHomeClick={() => router.push('/')}
+            />
 
-                {/* Proposal Detail Modal */}
-                <Modal
-                    visible={showModal}
-                    animationType="slide"
-                    transparent={true}
-                    onRequestClose={() => setShowModal(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <View style={styles.modalHeaderLeft}>
-                                    <Image
-                                        source={
-                                            selectedProposal?.status === 'APPROVED' || selectedProposal?.status === 'ACCEPTED' ? ICONS.statusSuccess :
-                                                selectedProposal?.status === 'REJECTED' || selectedProposal?.status === 'CANCELLED' ? ICONS.statusFailed :
-                                                    ICONS.statusPending
-                                        }
-                                        style={styles.statusIcon}
-                                    />
-                                    <View>
-                                        <Text style={styles.modalTitle}>
-                                            {getStatusStyle(selectedProposal?.status).label}
-                                        </Text>
-                                        <Text style={styles.modalSubtitle}>
-                                            {selectedProposal?.created_at ? `${new Date(selectedProposal.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })} • ${new Date(selectedProposal.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}` : ''}
-                                        </Text>
-                                    </View>
-                                </View>
-                                <TouchableOpacity onPress={() => setShowModal(false)}>
-                                    <X size={24} color={Colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={styles.amountCard}>
-                                <Text style={styles.amountCardValue}>
-                                    ${selectedProposal?.content?.total_cost || '0.00'}
-                                </Text>
-                                <View style={styles.amountCardSub}>
-                                    <Image source={ICONS.usdc} style={styles.smallIcon} />
-                                    <Text style={styles.amountCardSubText}>{selectedProposal?.content?.total_cost || '0'} USDC</Text>
-                                </View>
-                            </View>
-
-                            <View style={styles.detailsCard}>
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.detailLabel}>Proposal ID</Text>
-                                    <Text style={styles.detailValue}>
-                                        PROP-{selectedProposal ? new Date(selectedProposal.created_at).getFullYear() : '2024'}-{selectedProposal?.id.substring(4, 7).toUpperCase()}
+            <Modal
+                visible={showModal}
+                transparent={true}
+                animationType="none"
+                onRequestClose={() => setShowModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <View style={styles.modalHeaderLeft}>
+                                <Image
+                                    source={
+                                        selectedProposal?.status === 'APPROVED' || selectedProposal?.status === 'ACCEPTED' ? ICONS.statusSuccess :
+                                            selectedProposal?.status === 'REJECTED' || selectedProposal?.status === 'CANCELLED' ? ICONS.statusFailed :
+                                                ICONS.statusPending
+                                    }
+                                    style={styles.statusIcon}
+                                />
+                                <View>
+                                    <Text style={styles.modalTitle}>
+                                        {getStatusStyle(selectedProposal?.status).label}
                                     </Text>
-                                </View>
-                                <View style={styles.detailDivider} />
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.detailLabel}>Client</Text>
-                                    <Text style={styles.detailValue}>
-                                        {selectedProposal?.content?.client_name || selectedProposal?.client_name || 'Client'}
+                                    <Text style={styles.modalSubtitle}>
+                                        {selectedProposal?.created_at ? `${new Date(selectedProposal.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })} • ${new Date(selectedProposal.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}` : ''}
                                     </Text>
                                 </View>
                             </View>
-
-                            <TouchableOpacity
-                                style={styles.viewButton}
-                                onPress={() => {
-                                    setShowModal(false);
-                                    const proposalUrl = `${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'}/proposal/${selectedProposal?.id}`;
-                                    console.log('Opening proposal:', proposalUrl);
-                                    // TODO: Open in-app browser
-                                }}
-                            >
-                                <Text style={styles.viewButtonText}>View Proposal</Text>
+                            <TouchableOpacity onPress={() => setShowModal(false)}>
+                                <X size={24} color={Colors.textSecondary} />
                             </TouchableOpacity>
                         </View>
+
+                        <View style={styles.amountCard}>
+                            <Text style={styles.amountCardValue}>
+                                ${(selectedProposal?.content?.total_cost || '0.00').toString().replace(/[^0-9.]/g, '')}
+                            </Text>
+                            <View style={styles.amountCardSub}>
+                                <Image source={ICONS.usdc} style={styles.smallIcon} />
+                                <Text style={styles.amountCardSubText}>{selectedProposal?.content?.total_cost || '0'} USDC</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.detailsCard}>
+                            <View style={styles.detailRow}>
+                                <Text style={styles.detailLabel}>Proposal ID</Text>
+                                <Text style={styles.detailValue}>
+                                    PROP-{selectedProposal ? new Date(selectedProposal.created_at).getFullYear() : '2024'}-{selectedProposal?.id.substring(4, 7).toUpperCase()}
+                                </Text>
+                            </View>
+                            <View style={styles.detailDivider} />
+                            <View style={styles.detailRow}>
+                                <Text style={styles.detailLabel}>Client</Text>
+                                <Text style={styles.detailValue}>
+                                    {selectedProposal?.content?.client_name || selectedProposal?.client_name || 'Client'}
+                                </Text>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.viewButton}
+                            onPress={() => {
+                                setShowModal(false);
+                                const proposalUrl = `${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'}/proposal/${selectedProposal?.id}`;
+                                console.log('Opening proposal:', proposalUrl);
+                                // TODO: Open in-app browser
+                            }}
+                        >
+                            <Text style={styles.viewButtonText}>View Proposal</Text>
+                        </TouchableOpacity>
                     </View>
-                </Modal>
-            </SafeAreaView>
+                </View>
+            </Modal>
         </GestureHandlerRootView>
     );
 }
@@ -502,10 +516,11 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     statusIcon: {
-        width: 40,
-        height: 40,
-    },
-    modalTitle: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        marginRight: 12,
+    }, modalTitle: {
         ...Typography.body,
         fontSize: 18,
         fontWeight: '600',

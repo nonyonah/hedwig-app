@@ -7,10 +7,7 @@
     <title>Proposal | Hedwig</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Reown AppKit via CDN -->
-    <script src="https://unpkg.com/@reown/appkit@latest"></script>
-    <script src="https://unpkg.com/@reown/appkit-adapter-wagmi@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
     <link
         href="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700;900&family=Inter:wght@400;500;600&display=swap"
         rel="stylesheet">
@@ -100,34 +97,43 @@
         id="document-container">
         <div id="proposal-content" class="markdown-body hidden"></div>
 
-        <!-- Acceptance Section -->
-        <div id="acceptance-section" class="hidden mt-12 pt-8 border-t-2 border-gray-200 no-print">
-            <div class="flex flex-col items-center gap-6">
-                <div id="acceptance-status" class="text-center">
-                    <p class="text-gray-600 mb-4">By clicking below, you accept this proposal and its terms.</p>
-                    <button onclick="acceptProposal()" id="accept-btn"
-                        class="bg-green-600 text-white px-8 py-3 rounded-full font-medium hover:bg-green-700 transition-all shadow-lg flex items-center gap-2 mx-auto">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Accept Proposal
-                    </button>
-                    <p class="text-xs text-gray-400 mt-2">This acceptance is binding</p>
+        <!-- Accept Section -->
+        <div id="accept-section" class="hidden mt-12 pt-8 border-t-2 border-gray-200 no-print">
+            <div class="text-center space-y-6">
+                <h3 class="text-xl font-bold text-gray-900">Accept Proposal</h3>
+                <p class="text-gray-600">Review the proposal above and accept to proceed</p>
+
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 space-y-4">
+                    <div class="text-center">
+                        <div class="text-sm text-gray-600 mb-2">Total Amount</div>
+                        <div class="text-4xl font-bold text-gray-900" id="proposal-amount"></div>
+                    </div>
                 </div>
 
-                <div id="accepted-status" class="hidden text-center">
-                    <div
-                        class="inline-flex items-center gap-2 bg-green-50 text-green-700 px-6 py-3 rounded-full border border-green-200">
-                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                clip-rule="evenodd" />
-                        </svg>
-                        <span class="font-medium">Proposal Accepted</span>
-                    </div>
-                    <p id="accepted-info" class="text-sm text-gray-500 mt-2"></p>
+                <button id="accept-btn"
+                    class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-4 px-8 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg">
+                    Accept Proposal & Connect Wallet
+                </button>
+
+                <p class="text-xs text-gray-500">
+                    You'll be prompted to connect your wallet
+                </p>
+            </div>
+        </div>
+
+        <!-- Accepted Status -->
+        <div id="accepted-section" class="hidden mt-12 pt-8 border-t-2 border-gray-200">
+            <div class="bg-green-50 border-2 border-green-200 rounded-xl p-8 text-center space-y-4">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                    <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-bold text-green-900">Proposal Accepted!</h3>
+                <p class="text-green-700">You have successfully accepted this proposal.</p>
+                <div class="text-sm text-gray-600 mt-4">
+                    <div>Accepted on: <span id="accepted-date" class="font-semibold"></span></div>
+                    <div>Wallet: <span id="accepted-wallet" class="font-mono text-xs"></span></div>
                 </div>
             </div>
         </div>
@@ -149,52 +155,14 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
     <script>
-        // Project ID from Reown Cloud: e2fead0a05813697717820eaed0f18ea
-        const projectId = 'e2fead0a05813697717820eaed0f18ea';
-
-        // Networks configuration
-        const networks = [
-            {
-                id: 'base',
-                name: 'Base',
-                chainId: 8453,
-                rpcUrl: 'https://mainnet.base.org',
-                explorer: 'https://basescan.org'
-            },
-            {
-                id: 'celo',
-                name: 'Celo',
-                chainId: 42220,
-                rpcUrl: 'https://forno.celo.org',
-                explorer: 'https://celoscan.io'
-            }
-        ];
-
-        let modal = null;
         let documentId;
         let documentData;
-
-        // Initialize Reown AppKit
-        if (window.Reown && window.Reown.createAppKit) {
-            modal = window.Reown.createAppKit({
-                projectId,
-                networks: networks,
-                metadata: {
-                    name: 'Hedwig Proposal',
-                    description: 'Accept proposals with your wallet',
-                    url: window.location.origin,
-                    icons: ['https://hedwig.app/icon.png']
-                },
-                features: {
-                    analytics: false,
-                    email: false,
-                    socials: []
-                }
-            });
-        } else {
-            console.error('Reown AppKit not loaded. Please check CDN scripts.');
-        }
+        let provider = null;
+        let signer = null;
 
         async function loadProposal() {
             documentId = window.location.pathname.split('/').pop();
@@ -205,7 +173,7 @@
             }
 
             try {
-                const response = await fetch(`/api/documents/${documentId}`);
+                const response = await fetch(`/api/documents/${documentId}/public`);
                 const data = await response.json();
 
                 if (!data.success) {
@@ -222,13 +190,14 @@
 
                 document.title = `${documentData.title} | Proposal`;
 
-                // Show acceptance section
-                const acceptanceSection = document.getElementById('acceptance-section');
-                acceptanceSection.classList.remove('hidden');
-
                 // Check if already accepted
-                if (documentData.content?.signature || documentData.status === 'SIGNED') {
-                    showAcceptedStatus(documentData.content?.signature);
+                if (documentData.status === 'PAID' || documentData.status === 'ACCEPTED') {
+                    showAcceptedStatus();
+                } else {
+                    // Show accept section
+                    document.getElementById('accept-section').classList.remove('hidden');
+                    const amount = parseFloat(documentData.amount || 0);
+                    document.getElementById('proposal-amount').textContent = `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 }
 
             } catch (error) {
@@ -236,96 +205,79 @@
             }
         }
 
-        async function acceptProposal() {
-            if (!modal) {
-                alert('Wallet integration not available');
+        function showAcceptedStatus() {
+            document.getElementById('accept-section').classList.add('hidden');
+            document.getElementById('accepted-section').classList.remove('hidden');
+
+            const acceptedDate = new Date(documentData.content?.accepted_at || documentData.updated_at).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            document.getElementById('accepted-date').textContent = acceptedDate;
+
+            if (documentData.content?.accepted_wallet) {
+                const wallet = documentData.content.accepted_wallet;
+                document.getElementById('accepted-wallet').textContent = `${wallet.substring(0, 6)}...${wallet.substring(wallet.length - 4)}`;
+            }
+        }
+
+        // Accept button click handler
+        document.getElementById('accept-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('accept-btn');
+
+            if (!documentId) {
+                alert('Proposal not loaded yet. Please wait and try again.');
                 return;
             }
 
-            const btn = document.getElementById('accept-btn');
             btn.disabled = true;
             btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div> Connecting...';
 
             try {
-                // Open modal to connect wallet
-                await modal.open();
+                // Check if MetaMask is installed
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('Please install MetaMask or another Web3 wallet to continue');
+                }
 
-                // Wait for wallet connection
-                let account = null;
-                const checkConnection = setInterval(async () => {
-                    try {
-                        const accounts = await modal.provider?.request({ method: 'eth_accounts' });
-                        if (accounts && accounts.length > 0) {
-                            account = accounts[0];
-                            clearInterval(checkConnection);
+                // Request account access
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                const walletAddress = await signer.getAddress();
 
-                            btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div> Signing...';
+                btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div> Accepting...';
 
-                            // Create message to sign
-                            const message = `I accept this proposal ${documentId}\\nAccepted at: ${new Date().toISOString()}\\nWallet: ${account}`;
+                // Call backend to accept proposal
+                const response = await fetch(`/api/documents/${documentId}/accept`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ walletAddress })
+                });
 
-                            try {
-                                // Request signature
-                                const signature = await modal.provider?.request({
-                                    method: 'personal_sign',
-                                    params: [message, account]
-                                });
+                const data = await response.json();
 
-                                if (signature) {
-                                    const acceptanceData = {
-                                        accepted_at: new Date().toISOString(),
-                                        wallet_address: account,
-                                        signature: signature,
-                                        message: message,
-                                        ip_address: 'Browser',
-                                        user_agent: navigator.userAgent.substring(0, 100)
-                                    };
+                if (!data.success) {
+                    throw new Error(data.error?.message || 'Failed to accept proposal');
+                }
 
-                                    // Store acceptance locally
-                                    localStorage.setItem(`proposal_${documentId}_accepted`, JSON.stringify(acceptanceData));
-
-                                    showAcceptedStatus(acceptanceData);
-                                }
-                            } catch (signError) {
-                                console.error('Signing error:', signError);
-                                alert('Signature rejected or failed');
-                                btn.disabled = false;
-                                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Accept Proposal';
-                            }
-                        }
-                    } catch (error) {
-                        console.log('Checking connection...');
-                    }
-                }, 1000);
-
-                // Timeout after 60 seconds
-                setTimeout(() => {
-                    clearInterval(checkConnection);
-                    if (!account) {
-                        modal.close();
-                        btn.disabled = false;
-                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Accept Proposal';
-                        alert('Connection timeout');
-                    }
-                }, 60000);
+                // Refresh page to show accepted status
+                window.location.reload();
 
             } catch (error) {
-                console.error('Connection error:', error);
+                console.error('Error:', error);
                 btn.disabled = false;
-                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Accept Proposal';
-                alert('Failed to open wallet modal: ' + error.message);
+                btn.innerHTML = 'Accept Proposal & Connect Wallet';
+
+                if (error.code === 4001) {
+                    alert('Wallet connection rejected');
+                } else {
+                    alert(error.message || 'Failed to accept proposal');
+                }
             }
-        }
-
-        function showAcceptedStatus(acceptance) {
-            document.getElementById('acceptance-status').classList.add('hidden');
-            document.getElementById('accepted-status').classList.remove('hidden');
-
-            const acceptedDate = new Date(acceptance?.accepted_at || acceptance?.signed_at || new Date()).toLocaleString();
-
-            document.getElementById('accepted-info').textContent =
-                `Accepted on ${acceptedDate}`;
-        }
+        });
 
         async function downloadPDF() {
             const btn = document.getElementById('download-btn');

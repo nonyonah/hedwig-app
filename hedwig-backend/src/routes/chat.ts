@@ -154,7 +154,29 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
  */
 router.get('/conversations', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const privyUserId = req.user!.id;
+        console.log('[Conversations] Request from Privy user:', privyUserId);
+
+        // Look up user in database by privy_id to get their email (which is the user PK)
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('privy_id', privyUserId)
+            .single();
+
+        console.log('[Conversations] User lookup result:', { userData, userError });
+
+        if (userError || !userData) {
+            console.log('[Conversations] User not found for privy_id:', privyUserId);
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found in database' },
+            });
+            return;
+        }
+
+        const userId = userData.email; // email is the primary key
+        console.log('[Conversations] Found user email:', userId);
 
         const { data: conversations, error } = await supabase
             .from('conversations')
@@ -162,14 +184,21 @@ router.get('/conversations', authenticate, async (req: Request, res: Response, n
             .eq('user_id', userId)
             .order('updated_at', { ascending: false });
 
+        console.log('[Conversations] Query result:', {
+            conversationsCount: conversations?.length || 0,
+            error,
+            userId
+        });
+
         if (error) {
+            console.error('[Conversations] Supabase error:', error);
             throw new Error(`Failed to fetch conversations: ${error.message}`);
         }
 
         // For each conversation, get the last message (preview)
         // This is N+1 query problem, but okay for small scale. 
         // Better approach would be a lateral join or a view in Supabase.
-        const conversationsWithPreview = await Promise.all(conversations.map(async (conv) => {
+        const conversationsWithPreview = await Promise.all((conversations || []).map(async (conv) => {
             const { data: lastMessage } = await supabase
                 .from('messages')
                 .select('*')
@@ -180,25 +209,28 @@ router.get('/conversations', authenticate, async (req: Request, res: Response, n
 
             return {
                 id: conv.id,
-                userId: conv.user_id,
+                user_id: conv.user_id,
                 title: conv.title,
-                createdAt: conv.created_at,
-                updatedAt: conv.updated_at,
+                created_at: conv.created_at,
+                updated_at: conv.updated_at,
                 messages: lastMessage ? [{
                     id: lastMessage.id,
-                    conversationId: lastMessage.conversation_id,
-                    role: lastMessage.role,
+                    conversation_id: lastMessage.conversation_id,
+                    role: lastMessage.role.toLowerCase(),
                     content: lastMessage.content,
-                    createdAt: lastMessage.created_at
+                    created_at: lastMessage.created_at
                 }] : []
             };
         }));
 
+        console.log('[Conversations] Sending response with', conversationsWithPreview.length, 'conversations');
+
         res.json({
             success: true,
-            data: { conversations: conversationsWithPreview },
+            data: conversationsWithPreview,
         });
     } catch (error) {
+        console.error('[Conversations] Error:', error);
         next(error);
     }
 });

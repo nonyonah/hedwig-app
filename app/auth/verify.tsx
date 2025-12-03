@@ -71,7 +71,9 @@ export default function VerifyScreen() {
             }
 
             // On success, navigate to biometrics or home
-            router.push('/auth/biometrics');
+            setTimeout(() => {
+                router.push('/auth/biometrics');
+            }, 0);
         } catch (error: any) {
             console.error('Verification failed:', error);
 

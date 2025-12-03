@@ -63,4 +63,14 @@ export const Typography = StyleSheet.create({
         fontSize: 18,
         color: '#000000',
     },
+    serifTitle: {
+        fontFamily: 'Merriweather_700Bold',
+        fontSize: 24,
+        color: '#000000',
+    },
+    serifText: {
+        fontFamily: 'Merriweather_400Regular',
+        fontSize: 16,
+        color: '#000000',
+    },
 });

@@ -1,12 +1,13 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, ClockCounterClockwise, Link, Swap, Gear, SignOut, Chat, UserCircle, Receipt, Scroll, Pen } from 'phosphor-react-native';
+import { House, Link, Receipt, Chat, CaretRight, SignOut, UserCircle } from 'phosphor-react-native';
 import { Colors } from '../theme/colors';
-import { Typography } from '../styles/typography';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const SIDEBAR_WIDTH = width * 0.85;
 
 interface SidebarProps {
     isOpen: boolean;
@@ -25,25 +26,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
     conversations = [],
     currentConversationId,
     onLoadConversation,
-    onHomeClick
+    onHomeClick,
 }) => {
     const router = useRouter();
     const pathname = usePathname();
     const { user, logout } = usePrivy();
-    const sidebarAnim = useRef(new Animated.Value(-width * 0.8)).current;
+    const insets = useSafeAreaInsets();
+
+    // Animation value: 0 (closed) to 1 (open)
+    const animValue = useRef(new Animated.Value(0)).current;
+
+    const [isVisible, setIsVisible] = React.useState(isOpen);
 
     useEffect(() => {
-        Animated.timing(sidebarAnim, {
-            toValue: isOpen ? 0 : -width * 0.8,
-            duration: 300,
-            useNativeDriver: true,
-        }).start();
+        if (isOpen) {
+            setIsVisible(true);
+            Animated.timing(animValue, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+        } else {
+            Animated.timing(animValue, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true,
+            }).start(() => {
+                setIsVisible(false);
+            });
+        }
     }, [isOpen]);
 
     const handleLogout = async () => {
         try {
             await logout();
-            router.replace('/auth/welcome');
+            router.replace('/auth/welcome' as any);
         } catch (error) {
             console.error('Logout failed:', error);
         }
@@ -56,241 +73,261 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }
     };
 
-    return (
-        <Animated.View
-            style={[
-                styles.sidebarOverlay,
-                {
-                    opacity: sidebarAnim.interpolate({
-                        inputRange: [-width * 0.8, 0],
-                        outputRange: [0, 1],
-                    }),
-                }
-            ]}
-            pointerEvents={isOpen ? 'auto' : 'none'}
+    const backdropOpacity = animValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 0.5],
+    });
+
+    const sidebarTranslateX = animValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: [-SIDEBAR_WIDTH, 0],
+    });
+
+    const renderMenuItem = (icon: React.ReactNode, label: string, isActive: boolean, onPress: () => void) => (
+        <TouchableOpacity
+            style={styles.menuItem}
+            onPress={onPress}
         >
-            <TouchableOpacity
-                style={styles.sidebarOverlayTouchable}
-                activeOpacity={1}
-                onPress={onClose}
+            <View style={styles.menuItemLeft}>
+                <View style={styles.menuIcon}>{icon}</View>
+                <Text style={[styles.menuText, isActive && styles.menuTextActive]}>{label}</Text>
+            </View>
+            <CaretRight size={16} color="#9CA3AF" weight="bold" />
+        </TouchableOpacity>
+    );
+
+    if (!isVisible) return null;
+
+    return (
+        <View style={styles.overlay}>
+            {/* Backdrop */}
+            <Animated.View
+                style={[
+                    styles.backdrop,
+                    { opacity: backdropOpacity }
+                ]}
             >
-                <Animated.View
-                    style={[
-                        styles.sidebar,
-                        { transform: [{ translateX: sidebarAnim }] }
-                    ]}
-                >
-                    <View style={styles.sidebarContent}>
-                        <TouchableOpacity
-                            style={styles.sidebarItem}
-                            onPress={() => {
+                <TouchableOpacity
+                    style={StyleSheet.absoluteFill}
+                    activeOpacity={1}
+                    onPress={onClose}
+                />
+            </Animated.View>
+
+            {/* Sidebar Content */}
+            <Animated.View
+                style={[
+                    styles.sidebarContainer,
+                    {
+                        transform: [{ translateX: sidebarTranslateX }],
+                        paddingTop: insets.top + 20,
+                        paddingBottom: insets.bottom + 20,
+                    }
+                ]}
+            >
+                <View style={styles.header}>
+                    <Text style={styles.greeting}>
+                        Hi <Text style={styles.nameHighlight}>{userName?.firstName || 'User'}!</Text>
+                    </Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                    <View style={styles.menuSection}>
+                        {renderMenuItem(
+                            <House size={22} color={Colors.textPrimary} />,
+                            'Home',
+                            pathname === '/',
+                            () => {
                                 if (onHomeClick) onHomeClick();
                                 else handleNavigation('/');
-                            }}
-                        >
-                            <House size={24} color={Colors.textPrimary} />
-                            <Text style={styles.sidebarItemText}>Home</Text>
-                        </TouchableOpacity>
-
-                        {/* Recent Conversations Section - Only show if provided */}
-                        {conversations.length > 0 && onLoadConversation && (
-                            <View style={styles.historySection}>
-                                <Text style={styles.historySectionTitle}>Recent Chats</Text>
-                                {conversations.map((conv: any) => (
-                                    <TouchableOpacity
-                                        key={conv.id}
-                                        style={[
-                                            styles.historyItem,
-                                            conv.id === currentConversationId && styles.historyItemActive
-                                        ]}
-                                        onPress={() => onLoadConversation(conv.id)}
-                                    >
-                                        <Chat size={20} color={conv.id === currentConversationId ? Colors.primary : Colors.textSecondary} />
-                                        <View style={styles.historyItemText}>
-                                            <Text style={styles.historyItemTitle} numberOfLines={1}>
-                                                {conv.title || 'New conversation'}
-                                            </Text>
-                                            <Text style={styles.historyItemSubtitle}>
-                                                {new Date(conv.updated_at).toLocaleDateString()}
-                                            </Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                            }
                         )}
-
-                        <View style={styles.sidebarDivider} />
-
-                        <TouchableOpacity style={styles.sidebarItem}>
-                            <ClockCounterClockwise size={24} color={Colors.textPrimary} />
-                            <Text style={styles.sidebarItemText}>Transactions</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.sidebarItem}
-                            onPress={() => handleNavigation('/payment-links')}
-                        >
-                            <Link size={24} color={Colors.textPrimary} />
-                            <Text style={styles.sidebarItemText}>Payment Links</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.sidebarItem}
-                            onPress={() => handleNavigation('/invoices')}
-                        >
-                            <Receipt size={24} color={Colors.textPrimary} />
-                            <Text style={styles.sidebarItemText}>Invoices</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.sidebarItem}
-                            onPress={() => handleNavigation('/contracts')}
-                        >
-                            <Scroll size={24} color={Colors.textPrimary} />
-                            <Text style={styles.sidebarItemText}>Contracts</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.sidebarItem}
-                            onPress={() => handleNavigation('/proposals')}
-                        >
-                            <Pen size={24} color={Colors.textPrimary} />
-                            <Text style={styles.sidebarItemText}>Proposals</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.sidebarItem}>
-                            <Swap size={24} color={Colors.textPrimary} />
-                            <Text style={styles.sidebarItemText}>Swap</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.sidebarItem}>
-                            <Gear size={24} color={Colors.textPrimary} />
-                            <Text style={styles.sidebarItemText}>Settings</Text>
-                        </TouchableOpacity>
+                        {renderMenuItem(
+                            <Link size={22} color={Colors.textPrimary} />,
+                            'Payment Links',
+                            pathname === '/payment-links',
+                            () => handleNavigation('/payment-links')
+                        )}
+                        {renderMenuItem(
+                            <Receipt size={22} color={Colors.textPrimary} />,
+                            'Invoices',
+                            pathname === '/invoices',
+                            () => handleNavigation('/invoices')
+                        )}
+                        {renderMenuItem(
+                            <Chat size={22} color={Colors.textPrimary} />,
+                            'Chats',
+                            pathname === '/chats',
+                            () => handleNavigation('/chats')
+                        )}
                     </View>
 
-                    <View style={styles.sidebarFooter}>
-                        <View style={styles.userProfile}>
-                            <View style={styles.avatarPlaceholder} />
-                            <Text style={styles.userName}>
-                                {userName?.firstName && userName?.lastName
-                                    ? `${userName.firstName} ${userName.lastName}`
-                                    : (user as any)?.email?.address?.split('@')[0] || 'User'}
-                            </Text>
+                    {conversations && conversations.length > 0 && (
+                        <View style={styles.recentsSection}>
+                            <Text style={styles.sectionTitle}>Recent Chats</Text>
+                            {conversations.slice(0, 3).map((conv) => (
+                                <TouchableOpacity
+                                    key={conv.id}
+                                    style={styles.recentItem}
+                                    onPress={() => {
+                                        if (onLoadConversation) {
+                                            onLoadConversation(conv.id);
+                                            onClose();
+                                        }
+                                    }}
+                                >
+                                    <Chat size={18} color={Colors.textSecondary} weight="duotone" />
+                                    <Text style={styles.recentText} numberOfLines={1}>
+                                        {conv.title || 'Untitled'}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
                         </View>
-                        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-                            <SignOut size={24} color={Colors.error} />
-                        </TouchableOpacity>
-                    </View>
-                </Animated.View>
-            </TouchableOpacity>
-        </Animated.View>
+                    )}
+
+                    <TouchableOpacity style={styles.logoutItem} onPress={handleLogout}>
+                        <View style={styles.menuItemLeft}>
+                            <View style={styles.menuIcon}>
+                                <SignOut size={22} color={Colors.textPrimary} />
+                            </View>
+                            <Text style={styles.menuText}>Log out</Text>
+                        </View>
+                    </TouchableOpacity>
+                </ScrollView>
+
+                <View style={styles.footer}>
+                    <TouchableOpacity style={styles.footerLink}>
+                        <Text style={styles.footerText}>Frequently asked questions</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.footerLink}>
+                        <Text style={styles.footerText}>Terms & conditions</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.footerLink}>
+                        <Text style={styles.footerText}>Privacy notice</Text>
+                    </TouchableOpacity>
+                </View>
+            </Animated.View>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    sidebarOverlay: {
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 1000,
+    },
+    backdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: '#000000',
+    },
+    sidebarContainer: {
         position: 'absolute',
         top: 0,
-        left: 0,
-        right: 0,
         bottom: 0,
-        zIndex: 1000,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-    },
-    sidebarOverlayTouchable: {
-        flex: 1,
-    },
-    sidebar: {
-        width: width * 0.8,
-        height: '100%',
+        left: 0,
+        width: SIDEBAR_WIDTH,
         backgroundColor: '#FFFFFF',
-        paddingTop: 60,
-        paddingBottom: 40,
-        shadowColor: '#000',
-        shadowOffset: { width: 2, height: 0 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
+        paddingHorizontal: 24,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
         elevation: 5,
     },
-    sidebarContent: {
-        flex: 1,
-        paddingHorizontal: 24,
+    header: {
+        marginBottom: 24,
     },
-    sidebarItem: {
+    greeting: {
+        fontFamily: 'Merriweather_700Bold',
+        fontSize: 32,
+        color: Colors.textPrimary,
+    },
+    nameHighlight: {
+        color: '#D1D5DB', // Light gray for the name background effect if needed, or just text color
+        // Based on image, it looks like "Hi [Name]!" where Name might have a background or just bold.
+        // Let's keep it simple text for now as per "simple overlay".
+        color: Colors.textPrimary,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#F3F4F6',
+        marginBottom: 24,
+    },
+    scrollContent: {
+        flex: 1,
+    },
+    menuSection: {
+        marginBottom: 32,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 16,
+    },
+    menuItemLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    menuIcon: {
+        marginRight: 16,
+        width: 24,
+        alignItems: 'center',
+    },
+    menuText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 16,
+        color: Colors.textPrimary,
+    },
+    menuTextActive: {
+        color: Colors.primary,
+        fontFamily: 'RethinkSans_600SemiBold',
+    },
+    logoutItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 16,
-        gap: 16,
+        marginTop: 12,
     },
-    sidebarItemText: {
-        ...Typography.body,
-        fontWeight: '500',
+    recentsSection: {
+        marginBottom: 32,
+    },
+    sectionTitle: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 18,
         color: Colors.textPrimary,
-    },
-    sidebarDivider: {
-        height: 1,
-        backgroundColor: '#E5E7EB',
-        marginVertical: 16,
-    },
-    historySection: {
-        marginTop: 8,
         marginBottom: 16,
     },
-    historySectionTitle: {
-        ...Typography.caption,
-        fontWeight: '600',
-        color: Colors.textSecondary,
-        marginBottom: 12,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    historyItem: {
+    recentItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 12,
-        paddingHorizontal: 12,
-        gap: 12,
-        borderRadius: 12,
+        paddingHorizontal: 8,
         marginBottom: 4,
+        backgroundColor: '#F9FAFB',
+        borderRadius: 8,
     },
-    historyItemActive: {
-        backgroundColor: '#EFF6FF',
-    },
-    historyItemText: {
+    recentText: {
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 14,
+        color: Colors.textPrimary,
+        marginLeft: 12,
         flex: 1,
     },
-    historyItemTitle: {
-        ...Typography.body,
-        fontSize: 14,
-        fontWeight: '500',
+    footer: {
+        marginTop: 24,
+    },
+    footerLink: {
+        paddingVertical: 8,
+    },
+    footerText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 13,
         color: Colors.textPrimary,
-    },
-    historyItemSubtitle: {
-        ...Typography.caption,
-        fontSize: 11,
-        color: Colors.textSecondary,
-    },
-    sidebarFooter: {
-        paddingHorizontal: 24,
-        paddingTop: 24,
-        borderTopWidth: 1,
-        borderTopColor: '#E5E7EB',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    userProfile: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    avatarPlaceholder: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: Colors.primary,
-    },
-    userName: {
-        ...Typography.body,
-        fontWeight: '600',
-        color: Colors.textPrimary,
-    },
-    logoutButton: {
-        padding: 8,
     },
 });

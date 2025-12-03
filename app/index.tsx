@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback, LayoutAnimation } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 
@@ -15,6 +16,7 @@ import { Metrics } from '../theme/metrics';
 import { Typography } from '../styles/typography';
 import { Sidebar } from '../components/Sidebar';
 import { ProfileModal } from '../components/ProfileModal';
+import { getUserGradient } from '../utils/gradientUtils';
 
 const { width, height } = Dimensions.get('window');
 
@@ -137,6 +139,7 @@ export default function HomeScreen() {
     const [displayedGreeting, setDisplayedGreeting] = useState('');
     const [isTypingGreeting, setIsTypingGreeting] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
     const flatListRef = useRef<FlatList>(null);
     const sidebarAnim = useRef(new Animated.Value(-width * 0.8)).current;
     const messageAnimations = useRef<{ [key: string]: Animated.Value }>({}).current;
@@ -358,6 +361,38 @@ export default function HomeScreen() {
         };
         fetchUserProfile();
     }, [user]);
+
+    // Keyboard listeners for instant adjustment
+    useEffect(() => {
+        const showSubscription = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            (e) => {
+                LayoutAnimation.configureNext(LayoutAnimation.create(
+                    e.duration || 250,
+                    LayoutAnimation.Types.keyboard,
+                    LayoutAnimation.Properties.opacity
+                ));
+                setKeyboardHeight(e.endCoordinates.height);
+            }
+        );
+
+        const hideSubscription = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            (e) => {
+                LayoutAnimation.configureNext(LayoutAnimation.create(
+                    e.duration || 250,
+                    LayoutAnimation.Types.keyboard,
+                    LayoutAnimation.Properties.opacity
+                ));
+                setKeyboardHeight(0);
+            }
+        );
+
+        return () => {
+            showSubscription.remove();
+            hideSubscription.remove();
+        };
+    }, []);
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -637,7 +672,7 @@ export default function HomeScreen() {
         };
 
         return (
-            <Animated.View style={[styles.messageContainer, isUser ? styles.userMessageContainer : styles.aiMessageContainer, animatedStyle]}>
+            <Animated.View style={[isUser ? styles.userMessageContainer : styles.aiMessageContainer, animatedStyle]}>
                 {isUser ? (
                     <View style={styles.userBubble}>
                         <Text style={styles.userMessageText} selectable>{item.content}</Text>
@@ -741,168 +776,106 @@ export default function HomeScreen() {
     }
 
     return (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <SafeAreaView style={styles.container}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)} style={styles.menuButton}>
-                        <List size={24} color={Colors.textPrimary} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }} />
-                    <TouchableOpacity style={styles.profileIconButton} onPress={() => setIsProfileModalVisible(true)}>
-                        <UserCircle size={28} color={Colors.textPrimary} weight="fill" />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Chat Area */}
-                <View style={styles.chatArea}>
-                    {messages.length === 0 ? (
-                        <View style={styles.emptyState}>
-                            <Text style={styles.emptyStateText}>
-                                {displayedGreeting || getGreeting()}
-                                {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
-                            </Text>
-                            <Text style={styles.emptySubtext}>How can I help you today?</Text>
-                        </View>
-                    ) : (
-                        <FlatList
-                            ref={flatListRef}
-                            data={messages}
-                            renderItem={({ item, index }) => renderMessage({ item, index })}
-                            keyExtractor={item => item.id}
-                            contentContainerStyle={styles.messageList}
-                            showsVerticalScrollIndicator={true}
-                            scrollEnabled={true}
-                            keyboardShouldPersistTaps="handled"
-                            keyboardDismissMode="on-drag"
-                            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                            removeClippedSubviews={false}
-                        />
-                    )}
-                    {isGenerating && (
-                        <View style={styles.thinkingContainer}>
-                            <Text style={styles.thinkingText}>Thinking...</Text>
-                        </View>
-                    )}
-                </View>
-
-                {/* Input Area */}
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
-                >
-                    <View style={styles.inputContainer}>
-                        <TextInput
-                            style={styles.inputBox}
-                            placeholder="Ask anything"
-                            placeholderTextColor={Colors.textPlaceholder}
-                            value={inputText}
-                            onChangeText={setInputText}
-                            multiline
-                        />
-                        <TouchableOpacity
-                            onPress={isGenerating ? stopGeneration : sendMessage}
-                            style={[
-                                styles.sendButton,
-                                !inputText.trim() && !isGenerating && styles.sendButtonDisabled
-                            ]}
-                            disabled={!inputText.trim() && !isGenerating}
-                        >
-                            {isGenerating ? (
-                                <Square size={20} color={Colors.white} weight="fill" />
-                            ) : (
-                                <ArrowUp size={20} color={Colors.white} weight="bold" />
-                            )}
+        <View style={{ flex: 1 }}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <SafeAreaView style={styles.container}>
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
+                            <List size={24} color={Colors.textPrimary} />
+                        </TouchableOpacity>
+                        <View style={{ flex: 1 }} />
+                        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
+                            <LinearGradient
+                                colors={getUserGradient(user?.id || userName.firstName)}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.profileIcon}
+                            />
                         </TouchableOpacity>
                     </View>
-                </KeyboardAvoidingView >
 
-                {/* Sidebar Overlay */}
-                <Sidebar
-                    isOpen={isSidebarOpen}
-                    onClose={() => setIsSidebarOpen(false)}
-                    userName={userName}
-                    conversations={conversations}
-                    currentConversationId={conversationId}
-                    onLoadConversation={loadConversation}
-                    onHomeClick={() => {
-                        setConversationId(null);
-                        setMessages([]);
-                        setIsSidebarOpen(false);
-                    }}
-                />
-                {/* Quick Actions Modal */}
-                < Modal
-                    visible={isQuickActionsRendered}
-                    transparent
-                    onRequestClose={() => setIsQuickActionsOpen(false)
-                    }
-                >
-                    <View style={[styles.modalOverlay, { backgroundColor: 'transparent' }]}>
-                        <Animated.View
-                            style={[
-                                StyleSheet.absoluteFill,
-                                {
-                                    backgroundColor: 'rgba(0,0,0,0.5)',
-                                    opacity: quickActionsOpacity
-                                }
-                            ]}
-                        />
-                        <TouchableOpacity
-                            style={StyleSheet.absoluteFill}
-                            activeOpacity={1}
-                            onPress={() => setIsQuickActionsOpen(false)}
-                        />
-                        <Animated.View
-                            style={[
-                                styles.quickActionsSheet,
-                                { transform: [{ translateY: quickActionsAnim }] }
-                            ]}
-                        >
-                            <View style={styles.sheetHeader}>
-                                <Text style={styles.sheetTitle}>Menu</Text>
-                                <TouchableOpacity onPress={() => setIsQuickActionsOpen(false)} style={styles.closeButton}>
-                                    <X size={20} color={Colors.textPrimary} />
-                                </TouchableOpacity>
+                    {/* Chat Area */}
+                    <View style={styles.chatArea}>
+                        {messages.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyStateText}>
+                                    {displayedGreeting || getGreeting()}
+                                    {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
+                                </Text>
+                                <Text style={styles.emptySubtext}>How can I help you today?</Text>
                             </View>
-
-                            <TouchableOpacity style={styles.actionItem}>
-                                <Link size={24} color={Colors.textPrimary} />
-                                <Text style={styles.actionText}>Payment link</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionItem}>
-                                <Receipt size={24} color={Colors.textPrimary} />
-                                <Text style={styles.actionText}>Invoice</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.sidebarItem} onPress={() => router.push('/invoices')}>
-                                <Receipt size={24} color={Colors.textSecondary} />
-                                <Text style={styles.sidebarText}>Invoices</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.sidebarItem}>
-                                <Gear size={24} color={Colors.textSecondary} />
-                                <Text style={styles.sidebarText}>Settings</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionItem}>
-                                <Pen size={24} color={Colors.textPrimary} />
-                                <Text style={styles.actionText}>Proposal</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/contracts')}>
-                                <Scroll size={24} color={Colors.textPrimary} />
-                                <Text style={styles.actionText}>Contract</Text>
-                            </TouchableOpacity>
-                        </Animated.View>
+                        ) : (
+                            <FlatList
+                                ref={flatListRef}
+                                data={messages}
+                                renderItem={({ item, index }) => renderMessage({ item, index })}
+                                keyExtractor={item => item.id}
+                                contentContainerStyle={styles.messageList}
+                                showsVerticalScrollIndicator={false}
+                                scrollEnabled={true}
+                                keyboardShouldPersistTaps="handled"
+                                keyboardDismissMode="on-drag"
+                                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                                removeClippedSubviews={false}
+                            />
+                        )}
+                        {isGenerating && (
+                            <View style={styles.thinkingContainer}>
+                                <Text style={styles.thinkingText}>Thinking...</Text>
+                            </View>
+                        )}
                     </View>
-                </Modal >
 
-                {/* Profile Wallet Modal */}
-                <ProfileModal
-                    visible={isProfileModalVisible}
-                    onClose={() => setIsProfileModalVisible(false)}
-                    userName={userName}
-                    walletAddresses={walletAddresses}
-                />
-            </SafeAreaView >
-        </TouchableWithoutFeedback >
+                    {/* Input Area */}
+                    <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]}>
+                        <View style={styles.inputWrapper}>
+                            <TextInput
+                                style={styles.input}
+                                value={inputText}
+                                onChangeText={setInputText}
+                                placeholder="Ask Hedwig to create an invoice..."
+                                placeholderTextColor={Colors.textPlaceholder}
+                                multiline
+                                maxLength={1000}
+                            />
+                            <TouchableOpacity
+                                style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+                                onPress={sendMessage}
+                                disabled={!inputText.trim() || isGenerating}
+                            >
+                                {isGenerating ? (
+                                    <ActivityIndicator color="#FFFFFF" size="small" />
+                                ) : (
+                                    <ArrowUp size={20} color="#FFFFFF" weight="bold" />
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    <ProfileModal
+                        visible={isProfileModalVisible}
+                        onClose={() => setIsProfileModalVisible(false)}
+                        userName={userName}
+                        walletAddresses={walletAddresses}
+                    />
+                </SafeAreaView>
+            </TouchableWithoutFeedback>
+
+            <Sidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+                userName={userName}
+                conversations={conversations}
+                currentConversationId={conversationId}
+                onLoadConversation={loadConversation}
+                onHomeClick={() => {
+                    setConversationId(null);
+                    setMessages([]);
+                    setIsSidebarOpen(false);
+                }}
+            />
+        </View>
     );
 }
 
@@ -920,29 +893,190 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: Metrics.spacing.lg,
-        paddingVertical: Metrics.spacing.md,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        backgroundColor: '#FFFFFF',
     },
-    headerTitle: {
-        ...Typography.h4,
-        color: Colors.textPrimary,
-    },
-    profileIconButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#f5f5f5',
-        justifyContent: 'center',
+    headerRight: {
+        flexDirection: 'row',
         alignItems: 'center',
+        gap: 16,
     },
-    chatArea: {
+    keyboardAvoidingView: {
         flex: 1,
-        minHeight: 100,
+    },
+    content: {
+        flex: 1,
     },
     emptyState: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        paddingHorizontal: 20,
+        marginTop: -60, // Visual balance
+    },
+    logoText: {
+        fontFamily: 'Merriweather_700Bold',
+        fontSize: 42,
+        color: Colors.textPrimary,
+        marginBottom: 12,
+    },
+    subtitle: {
+        ...Typography.body,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+        marginBottom: 48,
+    },
+    suggestionsContainer: {
+        width: '100%',
+        gap: 12,
+    },
+    suggestionCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.background,
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    suggestionText: {
+        ...Typography.body,
+        marginLeft: 12,
+        fontWeight: '500',
+    },
+    messagesList: {
+        padding: 20,
+        paddingBottom: 20,
+    },
+    messageContainer: {
+        maxWidth: '85%',
+        padding: 16,
+        borderRadius: 20,
+        marginBottom: 16,
+    },
+    userMessage: {
+        alignSelf: 'flex-end',
+        backgroundColor: Colors.background,
+        borderBottomRightRadius: 4,
+    },
+    assistantMessage: {
+        alignSelf: 'flex-start',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: Colors.border,
+        borderBottomLeftRadius: 4,
+    },
+    messageText: {
+        ...Typography.body,
+        lineHeight: 24,
+    },
+    inputContainer: {
+        padding: 16,
+        backgroundColor: '#FFFFFF',
+    },
+    quickActionsBar: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 12,
+    },
+    quickActionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.background,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 100,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    quickActionText: {
+        ...Typography.caption,
+        marginLeft: 6,
+        fontWeight: '600',
+        color: Colors.textSecondary,
+    },
+    inputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        backgroundColor: Colors.background,
+        borderRadius: 24,
+        padding: 8,
+        // borderWidth: 1,
+        // borderColor: Colors.border,
+    },
+    input: {
+        flex: 1,
+        ...Typography.body,
+        maxHeight: 100,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        paddingTop: 12, // Align with button
+    },
+    // Tool UI Styles
+    toolContainer: {
+        marginTop: 12,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: '#FAFAFA',
+    },
+    toolHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 12,
+        backgroundColor: '#F3F4F6',
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+    },
+    toolTitle: {
+        ...Typography.caption,
+        fontWeight: '600',
+        color: Colors.textSecondary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    toolContent: {
+        padding: 12,
+    },
+    toolField: {
+        marginBottom: 8,
+    },
+    toolLabel: {
+        ...Typography.caption,
+        color: Colors.textSecondary,
+        marginBottom: 4,
+    },
+    toolValue: {
+        ...Typography.body,
+        fontWeight: '500',
+    },
+    actionButton: {
+        backgroundColor: Colors.primary,
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    actionButtonText: {
+        ...Typography.button,
+        color: '#FFFFFF',
+    },
+    // Old styles that might still be referenced or need cleanup
+    profileIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+    },
+    chatArea: {
+        flex: 1,
+        minHeight: 100,
+    },
+    contentWrapper: {
+        flex: 1,
+        paddingHorizontal: 0, // Will be handled by individual components
     },
     emptyStateText: {
         ...Typography.title,
@@ -1152,45 +1286,60 @@ const styles = StyleSheet.create({
         fontWeight: '300',
     },
     messageList: {
-        paddingHorizontal: Metrics.spacing.lg,
+        paddingHorizontal: 0, // Remove padding here - let individual message containers handle it
         paddingVertical: Metrics.spacing.md,
         flexGrow: 1,
     },
-    messageContainer: {
-        marginBottom: Metrics.spacing.lg,
+    thinkingText: {
+        ...Typography.body,
+        color: Colors.textSecondary,
+        fontStyle: 'italic',
     },
+    // Restored Chat Styles
     userMessageContainer: {
         alignItems: 'flex-end',
+        marginBottom: 16,
+        paddingRight: 20,
+        paddingLeft: 20,
+        width: '100%', // Ensure full width container
     },
     aiMessageContainer: {
         alignItems: 'flex-start',
+        marginBottom: 16,
+        paddingLeft: 20,
+        paddingRight: 20,
+        width: '100%', // Ensure full width container
     },
     userBubble: {
         backgroundColor: '#f5f5f5',
         padding: Metrics.spacing.md,
-        borderRadius: 20,
-        borderBottomRightRadius: 4,
-        maxWidth: '80%',
+        borderRadius: 30,
+        // borderWidth: 1,
+        // borderColor: '#fafafa',
+        maxWidth: '85%', // Increased width for better right alignment
+        alignSelf: 'flex-end', // Ensure bubble aligns to right edge
+        marginRight: 0, // Remove any right margin to hug the edge
     },
     userMessageText: {
         ...Typography.body,
         fontSize: 16,
+        color: Colors.textPrimary,
     },
     aiContainer: {
         maxWidth: '100%',
+    },
+    aiBubble: {
+        // Removed bubble styling - AI responses are now plain text
+        padding: 0,
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+        alignSelf: 'flex-start', // Still align to left
+        maxWidth: '100%', // Allow full width since no bubble constraint
     },
     aiMessageText: {
         ...Typography.body,
         fontSize: 16,
         lineHeight: 24,
-    },
-    aiBubble: {
-        backgroundColor: '#f5f5f5',
-        padding: Metrics.spacing.md,
-        borderRadius: 20,
-        borderBottomLeftRadius: 4,
-        maxWidth: '80%',
-        marginBottom: 8,
     },
     messageLink: {
         color: Colors.primary,
@@ -1203,6 +1352,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Colors.border,
         overflow: 'hidden',
+        alignSelf: 'flex-start', // Still align to left with AI responses
     },
     linkPreviewContent: {
         flexDirection: 'row',
@@ -1261,23 +1411,10 @@ const styles = StyleSheet.create({
         padding: 4,
     },
     thinkingContainer: {
-        paddingHorizontal: Metrics.spacing.lg,
+        paddingHorizontal: 20,
         paddingBottom: Metrics.spacing.md,
     },
-    thinkingText: {
-        ...Typography.body,
-        color: Colors.textSecondary,
-        fontStyle: 'italic',
-    },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: Metrics.spacing.md,
-        paddingBottom: Platform.OS === 'ios' ? Metrics.spacing.md : Metrics.spacing.lg,
-        backgroundColor: '#f5f5f5',
-        margin: Metrics.spacing.md,
-        borderRadius: Metrics.borderRadius.xl,
-    },
+    // End Restored Chat Styles
     gridButton: {
         padding: Metrics.spacing.xs,
         marginRight: Metrics.spacing.sm,
@@ -1287,10 +1424,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#f5f5f5',
         borderRadius: 24,
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingVertical: 10,
         marginRight: 8,
-        minHeight: 48,
-        maxHeight: 120,
+        minHeight: 40,
+        maxHeight: 100,
         ...Typography.input,
     },
     sendButton: {
