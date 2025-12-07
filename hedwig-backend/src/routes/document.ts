@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { AppError } from '../middleware/errorHandler';
+import { getOrCreateUser } from '../utils/userHelper';
 
 const router = Router();
 
@@ -15,13 +16,9 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
         const privyId = req.user!.privyId;
 
         // Get internal user ID
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('privy_id', privyId)
-            .single();
+        const user = await getOrCreateUser(privyId);
 
-        if (userError || !user) {
+        if (!user) {
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }
@@ -67,13 +64,9 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
         const privyId = req.user!.privyId;
 
         // Get internal user ID
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('privy_id', privyId)
-            .single();
+        const user = await getOrCreateUser(privyId);
 
-        if (userError || !user) {
+        if (!user) {
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }
@@ -114,13 +107,9 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
         const { type } = req.query;
 
         // Get internal user ID
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('privy_id', privyId)
-            .single();
+        const user = await getOrCreateUser(privyId);
 
-        if (userError || !user) {
+        if (!user) {
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }

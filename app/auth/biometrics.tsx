@@ -1,16 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fingerprint } from 'phosphor-react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet, usePrivy } from '@privy-io/expo';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../theme/colors';
-import { Metrics } from '../../theme/metrics';
-import { Typography } from '../../styles/typography';
 
 export default function BiometricsScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const ethWalletHook = useEmbeddedEthereumWallet();
     const solWalletHook = useEmbeddedSolanaWallet();
     const { user, getAccessToken } = usePrivy();
@@ -271,18 +271,25 @@ export default function BiometricsScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.content}>
                 <View style={styles.iconContainer}>
-                    <Fingerprint size={64} color="#FFFFFF" weight="fill" />
+                    <LinearGradient
+                        colors={['#60A5FA', '#3B82F6', '#2563EB']}
+                        style={styles.iconGradient}
+                    >
+                        <Fingerprint size={48} color="#FFFFFF" weight="fill" />
+                    </LinearGradient>
                 </View>
 
                 <View style={styles.textContainer}>
                     <Text style={styles.title}>Secure your account</Text>
                     <Text style={styles.subtitle}>
-                        Log in faster, sign transactions securely with Hedwig using your biometrics.
+                        Log in faster and sign transactions securely with Hedwig using your biometrics.
                     </Text>
                 </View>
+
+                <View style={{ flex: 1 }} />
 
                 <View style={styles.footer}>
                     <TouchableOpacity
@@ -290,7 +297,11 @@ export default function BiometricsScreen() {
                         onPress={handleEnable}
                         disabled={isEnableLoading || isLaterLoading}
                     >
-                        <Text style={styles.primaryButtonText}>{isEnableLoading ? 'Setting up...' : 'Enable now'}</Text>
+                        {isEnableLoading ? (
+                            <ActivityIndicator color="#FFFFFF" />
+                        ) : (
+                            <Text style={styles.primaryButtonText}>Enable Face ID</Text>
+                        )}
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -298,11 +309,16 @@ export default function BiometricsScreen() {
                         onPress={handleLater}
                         disabled={isEnableLoading || isLaterLoading}
                     >
-                        <Text style={styles.secondaryButtonText}>{isLaterLoading ? 'Continuing...' : 'Maybe later'}</Text>
+                        {isLaterLoading ? (
+                            <ActivityIndicator color="#111827" />
+                        ) : (
+                            <Text style={styles.secondaryButtonText}>Maybe later</Text>
+                        )}
                     </TouchableOpacity>
                 </View>
+                <View style={{ height: insets.bottom + 20 }} />
             </View>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -313,56 +329,75 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        paddingHorizontal: Metrics.spacing.lg,
-        paddingVertical: Metrics.spacing.xxl,
-        justifyContent: 'space-between',
+        paddingHorizontal: 24,
         alignItems: 'center',
     },
     iconContainer: {
         marginTop: 60,
-        marginBottom: Metrics.spacing.xl,
-        width: 104,
-        height: 104,
-        borderRadius: 52, // Half of 104
-        backgroundColor: '#000000',
+        marginBottom: 32,
+    },
+    iconGradient: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
+        shadowColor: '#3B82F6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
     },
     textContainer: {
         alignItems: 'center',
-        gap: Metrics.spacing.sm,
+        gap: 12,
     },
     title: {
-        ...Typography.title,
+        fontFamily: 'Merriweather_700Bold',
+        fontSize: 28,
+        color: Colors.textPrimary,
         textAlign: 'center',
     },
     subtitle: {
-        ...Typography.subtitle,
-        paddingHorizontal: Metrics.spacing.xl,
+        fontFamily: 'Merriweather_400Regular',
+        fontSize: 16,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+        paddingHorizontal: 20,
+        lineHeight: 24,
     },
     footer: {
         width: '100%',
-        gap: Metrics.spacing.md,
+        gap: 16,
     },
     primaryButton: {
         backgroundColor: Colors.primary,
-        paddingVertical: Metrics.spacing.md,
-        borderRadius: Metrics.borderRadius.md,
+        paddingVertical: 18,
+        borderRadius: 30,
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
     },
     primaryButtonText: {
-        ...Typography.button,
+        fontFamily: 'Merriweather_700Bold',
+        fontSize: 16,
+        color: '#FFFFFF',
     },
     secondaryButton: {
-        paddingVertical: Metrics.spacing.md,
-        borderRadius: Metrics.borderRadius.md,
+        paddingVertical: 16,
+        borderRadius: 30,
         alignItems: 'center',
+        backgroundColor: '#F3F4F6',
     },
     secondaryButtonText: {
-        ...Typography.button,
-        color: Colors.textPrimary,
+        fontFamily: 'Merriweather_700Bold',
+        fontSize: 16,
+        color: '#111827',
     },
     buttonDisabled: {
-        opacity: 0.5,
+        opacity: 0.7,
     },
 });

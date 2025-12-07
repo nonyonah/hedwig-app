@@ -39,6 +39,9 @@ export default function PaymentLinksScreen() {
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
 
+    // Animation value for modal
+    const slideAnim = React.useRef(new Animated.Value(0)).current;
+
     useEffect(() => {
         fetchLinks();
     }, [user]);
@@ -141,14 +144,33 @@ export default function PaymentLinksScreen() {
         );
     };
 
-    const handleLinkPress = (link: any) => {
+    const openModal = (link: any) => {
         setSelectedLink(link);
         setShowModal(true);
+        Animated.spring(slideAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+            damping: 25,
+            stiffness: 300,
+        }).start();
+    };
+
+    const closeModal = () => {
+        Animated.spring(slideAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 25,
+            stiffness: 300,
+        }).start(() => setShowModal(false));
+    };
+
+    const handleLinkPress = (link: any) => {
+        openModal(link);
     };
 
     const copyToClipboard = async (text: string) => {
         await Clipboard.setStringAsync(text);
-        Alert.alert('Copied', 'Transaction ID copied to clipboard');
+        Alert.alert('Copied', 'Link ID copied to clipboard');
     };
 
     const renderRightActions = (progress: any, dragX: any, item: any) => {
@@ -266,10 +288,23 @@ export default function PaymentLinksScreen() {
                 visible={showModal}
                 transparent={true}
                 animationType="none"
-                onRequestClose={() => setShowModal(false)}
+                onRequestClose={closeModal}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
+                    <Animated.View
+                        style={[
+                            styles.modalContent,
+                            {
+                                transform: [{
+                                    translateY: slideAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [600, 0]
+                                    })
+                                }]
+                            }
+                        ]}
+                    >
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderLeft}>
                                 <Image
@@ -285,7 +320,7 @@ export default function PaymentLinksScreen() {
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={() => setShowModal(false)}>
+                            <TouchableOpacity onPress={closeModal}>
                                 <X size={24} color={Colors.textSecondary} />
                             </TouchableOpacity>
                         </View>
@@ -302,8 +337,8 @@ export default function PaymentLinksScreen() {
 
                         <View style={styles.detailsCard}>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Transaction ID</Text>
-                                <Text style={styles.detailValue}>0x811b48bd7b...</Text>
+                                <Text style={styles.detailLabel}>Link ID</Text>
+                                <Text style={styles.detailValue}>LINK-{selectedLink?.id?.substring(0, 8).toUpperCase()}</Text>
                             </View>
                             <View style={styles.detailDivider} />
                             <View style={styles.detailRow}>
@@ -346,7 +381,7 @@ export default function PaymentLinksScreen() {
                         >
                             <Text style={styles.viewButtonText}>View Payment Link</Text>
                         </TouchableOpacity>
-                    </View>
+                    </Animated.View>
                 </View>
             </Modal>
         </View>

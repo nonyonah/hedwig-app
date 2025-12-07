@@ -152,9 +152,30 @@ export default function InvoicesScreen() {
         );
     };
 
-    const handleInvoicePress = (invoice: any) => {
+    const slideAnim = React.useRef(new Animated.Value(0)).current;
+
+    const openModal = (invoice: any) => {
         setSelectedInvoice(invoice);
         setShowModal(true);
+        Animated.spring(slideAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+            damping: 25,
+            stiffness: 300,
+        }).start();
+    };
+
+    const closeModal = () => {
+        Animated.spring(slideAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 25,
+            stiffness: 300,
+        }).start(() => setShowModal(false));
+    };
+
+    const handleInvoicePress = (invoice: any) => {
+        openModal(invoice);
     };
 
     const copyToClipboard = async (text: string) => {
@@ -280,10 +301,23 @@ export default function InvoicesScreen() {
                 visible={showModal}
                 transparent={true}
                 animationType="none"
-                onRequestClose={() => setShowModal(false)}
+                onRequestClose={closeModal}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
+                    <Animated.View
+                        style={[
+                            styles.modalContent,
+                            {
+                                transform: [{
+                                    translateY: slideAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [600, 0]
+                                    })
+                                }]
+                            }
+                        ]}
+                    >
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderLeft}>
                                 <Image
@@ -299,7 +333,7 @@ export default function InvoicesScreen() {
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={() => setShowModal(false)}>
+                            <TouchableOpacity onPress={closeModal}>
                                 <X size={24} color={Colors.textSecondary} />
                             </TouchableOpacity>
                         </View>
@@ -362,10 +396,10 @@ export default function InvoicesScreen() {
                         >
                             <Text style={styles.viewButtonText}>View Invoice</Text>
                         </TouchableOpacity>
-                    </View>
+                    </Animated.View>
                 </View>
             </Modal>
-        </View>
+        </View >
     );
 }
 

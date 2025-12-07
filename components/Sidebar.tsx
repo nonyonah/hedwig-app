@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     nameHighlight: {
-        color: '#D1D5DB', // Light gray for the name background effect if needed, or just text color
+        // color: '#D1D5DB', // Light gray for the name background effect if needed, or just text color
         // Based on image, it looks like "Hi [Name]!" where Name might have a background or just bold.
         // Let's keep it simple text for now as per "simple overlay".
         color: Colors.textPrimary,

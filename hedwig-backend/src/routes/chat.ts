@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { GeminiService } from '../services/gemini';
 import { handleAction } from '../services/actions';
+import { getOrCreateUser } from '../utils/userHelper';
 
 const router = Router();
 
@@ -23,22 +24,19 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
             return;
         }
 
-        // Look up user in database by privy_id to get their email (which is the user PK)
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('email')
-            .eq('privy_id', privyUserId)
-            .single();
+        // Get or Create user
+        // This ensures the user exists even if it's their first time without hitting profile endpoint
+        const userData = await getOrCreateUser(privyUserId);
 
-        if (userError || !userData) {
+        if (!userData) {
             res.status(404).json({
                 success: false,
-                error: { message: 'User not found in database' },
+                error: { message: 'User could not be found or created' },
             });
             return;
         }
 
-        const userId = userData.email; // email is the primary key
+        const userId = userData.email; // email is the primary key or unique identifier used for conversations
 
         // Find or create conversation
         let conversation;
@@ -102,7 +100,17 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
         }));
 
         // Generate AI response
-        const aiResponseObj = await GeminiService.generateChatResponse(message, history);
+        let aiResponseObj;
+        try {
+            aiResponseObj = await GeminiService.generateChatResponse(message, history);
+        } catch (geminiError: any) {
+            console.error('[Chat] Gemini generation failed:', geminiError);
+            // Fallback response for fetch failures (likely network or API key issues)
+            aiResponseObj = {
+                intent: 'error',
+                naturalResponse: "I'm having trouble connecting to my brain right now. Please try again in a moment."
+            };
+        }
 
         let finalResponseText = '';
         let actionResult = null;
@@ -110,9 +118,14 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
         // Execute action if intent is present
         if (aiResponseObj.intent && aiResponseObj.intent !== 'general_chat' && aiResponseObj.intent !== 'error') {
             console.log(`[Chat] Executing action for intent: ${aiResponseObj.intent}`);
-            const result = await handleAction(aiResponseObj.intent, aiResponseObj.parameters, req.user);
-            actionResult = result;
-            finalResponseText = result.text || aiResponseObj.naturalResponse;
+            try {
+                const result = await handleAction(aiResponseObj.intent, aiResponseObj.parameters, req.user);
+                actionResult = result;
+                finalResponseText = result.text || aiResponseObj.naturalResponse;
+            } catch (actionError: any) {
+                console.error('[Chat] Action execution failed:', actionError);
+                finalResponseText = "I understood what you wanted, but I encountered an error executing it.";
+            }
         } else {
             finalResponseText = aiResponseObj.naturalResponse || "I'm not sure how to help with that.";
         }
@@ -131,8 +144,6 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
             .eq('id', conversation.id);
 
         console.log('[Chat] Final response text:', finalResponseText);
-        console.log('[Chat] AI response object:', JSON.stringify(aiResponseObj, null, 2));
-        console.log('[Chat] Action result:', JSON.stringify(actionResult, null, 2));
 
         res.json({
             success: true,

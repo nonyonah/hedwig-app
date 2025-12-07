@@ -42,8 +42,7 @@ export default function RootLayout() {
                     <Stack.Screen name="index" />
                     <Stack.Screen name="auth/welcome" />
                     <Stack.Screen name="auth/login" />
-                    <Stack.Screen name="auth/signup" />
-                    <Stack.Screen name="auth/verify" />
+                    <Stack.Screen name="auth/profile" />
                     <Stack.Screen name="auth/biometrics" />
                     <Stack.Screen name="invoice/create" />
                     <Stack.Screen name="invoice/[id]" />
@@ -65,8 +64,7 @@ export default function RootLayout() {
                         <Stack.Screen name="index" />
                         <Stack.Screen name="auth/welcome" />
                         <Stack.Screen name="auth/login" />
-                        <Stack.Screen name="auth/signup" />
-                        <Stack.Screen name="auth/verify" />
+                        <Stack.Screen name="auth/profile" />
                         <Stack.Screen name="auth/biometrics" />
                         <Stack.Screen name="invoice/create" />
                         <Stack.Screen name="invoice/[id]" />

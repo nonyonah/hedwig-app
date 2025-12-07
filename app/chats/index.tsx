@@ -158,9 +158,7 @@ export default function ChatsScreen() {
                         <List size={24} color={Colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Chats</Text>
-                    <TouchableOpacity onPress={() => router.push('/')}>
-                        <Plus size={24} color={Colors.textPrimary} />
-                    </TouchableOpacity>
+                    <View style={{ width: 24 }} />
                 </View>
 
                 <View style={styles.searchContainer}>
