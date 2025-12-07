@@ -155,7 +155,10 @@ router.get('/:id', async (req: Request, res: Response, next) => {
                     privy_id,
                     email,
                     first_name,
-                    last_name
+                    first_name,
+                    last_name,
+                    ethereum_wallet_address,
+                    solana_wallet_address
                 )
             `)
             .eq('id', id)

@@ -392,8 +392,20 @@
 
         const ERC20_ABI = [
             "function transfer(address to, uint256 amount) returns (bool)",
-            "function decimals() view returns (uint8)"
+            "function decimals() view returns (uint8)",
+            "function allowance(address owner, address spender) view returns (uint256)",
+            "function approve(address spender, uint256 amount) returns (bool)"
         ];
+
+        const HEDWIG_PAYMENT_ABI = [
+            "function pay(address token, uint256 amount, address freelancer, string calldata invoiceId) external",
+            "function payDirect(address token, uint256 amount, address freelancer, string calldata invoiceId, address payer) external"
+        ];
+
+        const HEDWIG_CONTRACTS = {
+            base: "0xB5d572B160145a6fc353d3b8c7ff3917fC3599d2", // TODO: Deploy HedwigPayment to Base and paste address here
+            celo: "0xF1c485Ba184262F1EAC91584f6B26fdcaa3F794a"  // TODO: Deploy HedwigPayment to Celo and paste address here
+        };
 
         let modal = null;
         let selectedChain = networks[0];
@@ -511,55 +523,7 @@
         }
 
         // Payment Logic using Reown
-        async function processPayment() {
-            if (!signer || !linkData) return;
-
-            payBtn.disabled = true;
-            payBtnText.textContent = "Processing...";
-
-            try {
-                // 1. Switch Chain
-                await switchChain(selectedChain);
-
-                // Re-get signer
-                provider = new ethers.BrowserProvider(window.ethereum);
-                signer = await provider.getSigner();
-
-                const amount = linkData.amount.toString();
-                const recipientAddress = "0x0000000000000000000000000000000000000000"; // BURN ADDRESS FOR DEMO
-
-                let tx;
-                if (selectedToken.isNative) {
-                    tx = await signer.sendTransaction({
-                        to: recipientAddress,
-                        value: ethers.parseEther(amount)
-                    });
-                } else {
-                    const tokenAddress = selectedToken.addresses[selectedChain.id];
-                    if (!tokenAddress) throw new Error(`Token ${selectedToken.symbol} not supported on ${selectedChain.name}`);
-
-                    const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-                    const decimals = await contract.decimals();
-                    const amountWei = ethers.parseUnits(amount, decimals);
-
-                    tx = await contract.transfer(recipientAddress, amountWei);
-                }
-
-                console.log("Transaction sent:", tx.hash);
-                payBtnText.textContent = "Confirming...";
-
-                await tx.wait();
-
-                alert(`Payment Successful! TX: ${tx.hash}`);
-
-            } catch (error) {
-                console.error("Payment failed:", error);
-                alert(`Payment failed: ${error.message}`);
-            } finally {
-                payBtn.disabled = false;
-                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
-            }
-        }
+        // Legacy duplicate processPayment removed
 
         async function switchChain(chain) {
             if (!provider) return;
@@ -614,25 +578,63 @@
                 // Re-get signer
                 provider = new ethers.BrowserProvider(window.ethereum);
                 signer = await provider.getSigner();
+                const userAddress = await signer.getAddress();
 
                 const amount = linkData.amount.toString();
-                const recipientAddress = "0x0000000000000000000000000000000000000000"; // BURN ADDRESS FOR DEMO
+
+                // Get recipient wallet from link data
+                // linkData.user is populated by the API now with wallet addresses
+                const freelancerAddress = linkData.user ? (linkData.user.ethereum_wallet_address || linkData.user.base_wallet_address || linkData.user.celo_wallet_address) : null;
+
+                if (!freelancerAddress) {
+                    throw new Error("Recipient wallet address not found. Cannot process payment.");
+                }
 
                 let tx;
                 if (selectedToken.isNative) {
+                    // Native ETH payment - direct transfer for now as contract focuses on ERC20
+                    console.log("Processing native payment to:", freelancerAddress);
                     tx = await signer.sendTransaction({
-                        to: recipientAddress,
+                        to: freelancerAddress,
                         value: ethers.parseEther(amount)
                     });
                 } else {
+                    // ERC20 Payment via HedwigPayment Contract
                     const tokenAddress = selectedToken.addresses[selectedChain.id];
-                    if (!tokenAddress) throw new Error(`Token ${selectedToken.symbol} not supported on ${selectedChain.name}`);
+                    const paymentContractAddress = HEDWIG_CONTRACTS[selectedChain.id];
 
-                    const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-                    const decimals = await contract.decimals();
+                    if (!tokenAddress) throw new Error(`Token ${selectedToken.symbol} not supported on ${selectedChain.name}`);
+                    if (!paymentContractAddress || paymentContractAddress.includes("PLACEHOLDER")) {
+                        throw new Error("Payment contract not deployed/configured for this chain.");
+                    }
+
+                    const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+                    const decimals = await tokenContract.decimals();
                     const amountWei = ethers.parseUnits(amount, decimals);
 
-                    tx = await contract.transfer(recipientAddress, amountWei);
+                    // 1. Check Allowance
+                    payBtnText.textContent = "Checking Allowance...";
+                    const allowance = await tokenContract.allowance(userAddress, paymentContractAddress);
+
+                    if (allowance < amountWei) {
+                        payBtnText.textContent = "Approving...";
+                        console.log("Requesting approval...");
+                        const approveTx = await tokenContract.approve(paymentContractAddress, amountWei);
+                        await approveTx.wait();
+                        console.log("Approval confirmed");
+                    }
+
+                    // 2. Pay via Contract
+                    payBtnText.textContent = "Paying...";
+                    const paymentContract = new ethers.Contract(paymentContractAddress, HEDWIG_PAYMENT_ABI, signer);
+
+                    console.log("Calling pay() on contract:", paymentContractAddress);
+                    tx = await paymentContract.pay(
+                        tokenAddress,
+                        amountWei,
+                        freelancerAddress,
+                        linkData.id || "payment-link" // invoiceId
+                    );
                 }
 
                 console.log("Transaction sent:", tx.hash);
