@@ -198,7 +198,12 @@ export default function PaymentLinksScreen() {
                 renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
                 overshootRight={false}
             >
-                <TouchableOpacity style={styles.card} onPress={() => handleLinkPress(item)}>
+                <TouchableOpacity
+                    style={styles.card}
+                    onPress={() => handleLinkPress(item)}
+                    onLongPress={() => handleDelete(item.id)}
+                    delayLongPress={500}
+                >
                     <View style={styles.cardHeader}>
                         <View>
                             <Text style={styles.linkId}>LINK-{item.id.substring(0, 8).toUpperCase()}</Text>

@@ -80,6 +80,30 @@
             color: var(--primary);
         }
 
+        /* Status Badge */
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.paid {
+            background-color: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        .status-badge.pending {
+            background-color: rgba(234, 179, 8, 0.2);
+            color: #eab308;
+        }
+
+        .status-badge.draft {
+            background-color: rgba(107, 114, 128, 0.2);
+            color: #6b7280;
+        }
+
         /* Parties (From/To) */
         .parties {
             display: flex;
@@ -447,6 +471,7 @@
             <!-- Header -->
             <div class="header">
                 <div class="invoice-number" id="invoice-id">INV-...</div>
+                <div id="status-badge" class="status-badge" style="display: none;"></div>
                 <button class="icon-button">
                     <i class="ph ph-download-simple" style="font-size: 20px;"></i>
                 </button>
@@ -534,31 +559,10 @@
         </div>
     </div>
 
-    <!-- Payment Modal -->
-    <div class="modal-overlay" id="payment-modal">
-        <div class="modal-content">
-            <div class="modal-title">Select Payment Method</div>
-
-            <div class="modal-label">Network</div>
-            <div class="options-grid" id="chain-options">
-                <!-- Chains injected here -->
-            </div>
-
-            <div class="modal-label">Token</div>
-            <div class="options-grid" id="token-options">
-                <!-- Tokens injected here -->
-            </div>
-
-            <div class="modal-buttons">
-                <button class="modal-btn btn-secondary" id="modal-cancel">Cancel</button>
-                <button class="modal-btn btn-primary" id="modal-pay">Pay Now</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Ethers.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
     <script>
+
         // Data & Configuration
         let invoiceData = null;
         let userAddress = null;
@@ -572,10 +576,7 @@
         const invoiceId = urlParts[urlParts.length - 1].replace('.html', '');
 
         // Elements
-        const modal = document.getElementById('payment-modal');
         const payBtn = document.getElementById('pay-button');
-        const modalPayBtn = document.getElementById('modal-pay');
-        const modalCancelBtn = document.getElementById('modal-cancel');
         const payBtnText = document.getElementById('pay-button-text');
         const chainSelector = document.getElementById('chain-selector');
         const tokenSelector = document.getElementById('token-selector');
@@ -584,19 +585,19 @@
         const CHAINS = [
             {
                 id: 'base',
-                name: 'Base',
+                name: 'Base Sepolia',
                 icon: '/assets/icons/networks/base.png',
-                chainId: 8453,
-                rpcUrl: 'https://mainnet.base.org',
-                explorer: 'https://basescan.org'
+                chainId: 84532,
+                rpcUrl: 'https://sepolia.base.org',
+                explorer: 'https://sepolia.basescan.org'
             },
             {
                 id: 'celo',
-                name: 'Celo',
+                name: 'Celo Alfajores',
                 icon: '/assets/icons/networks/celo.png',
-                chainId: 42220,
-                rpcUrl: 'https://forno.celo.org',
-                explorer: 'https://celoscan.io'
+                chainId: 44787,
+                rpcUrl: 'https://alfajores-forno.celo-testnet.org',
+                explorer: 'https://alfajores.celoscan.io'
             }
         ];
 
@@ -606,8 +607,8 @@
                 name: 'USD Coin',
                 icon: '/assets/icons/tokens/usdc.png',
                 addresses: {
-                    base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-                    celo: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'
+                    base: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+                    celo: '' // Celo Alfajores USDC not supported yet
                 }
             },
             {
@@ -646,8 +647,8 @@
         ];
 
         const HEDWIG_CONTRACTS = {
-            base: "0xB5d572B160145a6fc353d3b8c7ff3917fC3599d2", // TODO: Deploy HedwigPayment to Base and paste address here
-            celo: "0xF1c485Ba184262F1EAC91584f6B26fdcaa3F794a"  // TODO: Deploy HedwigPayment to Celo and paste address here
+            base: "0x1c0A0eFBb438cc7705b947644F6AB88698b2704F", // HedwigPayment on Base Sepolia
+            celo: "0xF1c485Ba184262F1EAC91584f6B26fdcaa3F794a"  // TODO: Deploy HedwigPayment to Celo Alfajores
         };
 
         // Defaults
@@ -680,6 +681,23 @@
             // Header
             document.getElementById('invoice-id').textContent = `INV-${invoice.id.slice(0, 8).toUpperCase()}`;
 
+            // Status Badge
+            const statusBadge = document.getElementById('status-badge');
+            const status = invoice.status || 'DRAFT';
+            statusBadge.textContent = status;
+            statusBadge.classList.remove('paid', 'pending', 'draft');
+            if (status === 'PAID') {
+                statusBadge.classList.add('paid');
+                // Hide pay button if already paid
+                payBtn.style.display = 'none';
+            } else if (status === 'SENT' || status === 'VIEWED') {
+                statusBadge.classList.add('pending');
+                statusBadge.textContent = 'PENDING';
+            } else {
+                statusBadge.classList.add('draft');
+            }
+            statusBadge.style.display = 'block';
+
             // Parties
             const user = invoice.user || {};
             const content = invoice.content || {};
@@ -707,13 +725,13 @@
                 </div>
             `).join('');
 
-            // Summary
+            // Summary - Platform fee is 1% of subtotal
             const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-            const platformFee = 2.00; // Fixed fee
+            const platformFee = subtotal * 0.01; // 1% fee
             const total = subtotal;
 
             document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
-            document.getElementById('platform-fee').textContent = `-$${platformFee.toFixed(2)}`;
+            document.getElementById('platform-fee').textContent = `-$${platformFee.toFixed(2)} (1%)`;
             document.getElementById('freelancer-receives').textContent = `$${(subtotal - platformFee).toFixed(2)}`;
             document.getElementById('total').textContent = `$${total.toFixed(2)}`;
 
@@ -742,10 +760,13 @@
             document.getElementById('token-name').textContent = selectedToken.symbol;
         }
 
-        // Wallet and Payment Logic
+        // Wallet Connection
         async function connectWallet() {
             if (typeof window.ethereum !== 'undefined') {
                 try {
+                    // Request account access
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+
                     provider = new ethers.BrowserProvider(window.ethereum);
                     signer = await provider.getSigner();
                     userAddress = await signer.getAddress();
@@ -753,7 +774,7 @@
                     // Update UI
                     const shortAddr = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
                     payBtnText.textContent = `Pay $${invoiceData.amount.toFixed(2)}`;
-                    payBtn.onclick = openPaymentModal; // Change to open modal first
+                    payBtn.onclick = processPayment;
 
                     return true;
                 } catch (error) {
@@ -805,46 +826,13 @@
             }
         }
 
-        function openPaymentModal() {
-            modal.classList.add('active');
-            renderModalOptions();
-        }
-
-        function closePaymentModal() {
-            modal.classList.remove('active');
-        }
-
-        function renderModalOptions() {
-            // Chains
-            const chainOptions = document.getElementById('chain-options');
-            chainOptions.innerHTML = CHAINS.map(chain => `
-                <div class="option-card ${selectedChain.id === chain.id ? 'selected' : ''}" onclick="selectChain('${chain.id}')">
-                    <img src="${chain.icon}" class="option-icon">
-                    <span class="option-text">${chain.name}</span>
-                </div>
-            `).join('');
-
-            // Tokens
-            const tokenOptions = document.getElementById('token-options');
-            tokenOptions.innerHTML = TOKENS.map(token => `
-                <div class="option-card ${selectedToken.symbol === token.symbol ? 'selected' : ''}" onclick="selectToken('${token.symbol}')">
-                    <img src="${token.icon}" class="option-icon">
-                    <span class="option-text">${token.symbol}</span>
-                </div>
-            `).join('');
-
-            modalPayBtn.textContent = `Pay $${invoiceData.amount.toFixed(2)}`;
-        }
-
         window.selectChain = (chainId) => {
             selectedChain = CHAINS.find(c => c.id === chainId);
-            renderModalOptions();
             updateSelectors();
         };
 
         window.selectToken = (tokenSymbol) => {
             selectedToken = TOKENS.find(t => t.symbol === tokenSymbol);
-            renderModalOptions();
             updateSelectors();
         };
 
@@ -878,39 +866,18 @@
                         value: ethers.parseEther(amount)
                     });
                 } else {
-                    // ERC20 Payment via HedwigPayment Contract
+                    // ERC20 Direct Transfer (HedwigPayment contract not configured for this token yet)
                     const tokenAddress = selectedToken.addresses[selectedChain.id];
-                    const paymentContractAddress = HEDWIG_CONTRACTS[selectedChain.id];
 
                     if (!tokenAddress) throw new Error(`Token ${selectedToken.symbol} not supported on ${selectedChain.name}`);
-                    if (!paymentContractAddress || paymentContractAddress.includes("PLACEHOLDER")) {
-                        throw new Error("Payment contract not deployed/configured for this chain.");
-                    }
 
                     const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
                     const decimals = await tokenContract.decimals();
                     const amountWei = ethers.parseUnits(amount, decimals);
 
-                    // 1. Check Allowance
-                    payBtnText.textContent = "Checking Allowance...";
-                    const allowance = await tokenContract.allowance(userAddress, paymentContractAddress);
-
-                    if (allowance < amountWei) {
-                        payBtnText.textContent = "Approving...";
-                        const approveTx = await tokenContract.approve(paymentContractAddress, amountWei);
-                        await approveTx.wait();
-                    }
-
-                    // 2. Pay via Contract
-                    payBtnText.textContent = "Paying...";
-                    const paymentContract = new ethers.Contract(paymentContractAddress, HEDWIG_PAYMENT_ABI, signer);
-
-                    tx = await paymentContract.pay(
-                        tokenAddress,
-                        amountWei,
-                        freelancerAddress,
-                        invoiceData.id // invoiceId
-                    );
+                    // Direct transfer to freelancer
+                    payBtnText.textContent = "Transferring...";
+                    tx = await tokenContract.transfer(freelancerAddress, amountWei);
                 }
 
                 console.log("Transaction sent:", tx.hash);
@@ -918,7 +885,31 @@
 
                 await tx.wait();
 
+                // Mark invoice as paid in backend
+                try {
+                    const apiUrl = window.location.hostname === 'localhost'
+                        ? 'http://localhost:3000'
+                        : window.location.origin;
+
+                    await fetch(`${apiUrl}/api/documents/${invoiceData.id}/pay`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            txHash: tx.hash,
+                            chain: selectedChain.id,
+                            token: selectedToken.symbol,
+                            amount: invoiceData.amount,
+                            payer: userAddress
+                        })
+                    });
+                } catch (apiError) {
+                    console.error('Failed to mark as paid in backend:', apiError);
+                }
+
                 alert(`Payment Successful! TX: ${tx.hash}`);
+
+                // Refresh page to show paid status
+                window.location.reload();
 
             } catch (error) {
                 console.error("Payment failed:", error);
@@ -973,29 +964,7 @@
             }
         };
 
-        modalCancelBtn.onclick = () => {
-            modal.classList.remove('active');
-        };
-
-        modalPayBtn.onclick = processPayment;
-
-        // Close modal on outside click
-        modal.onclick = (e) => {
-            if (e.target === modal) modal.classList.remove('active');
-        };
-
-        // Selectors on main page
-        // Selectors on main page - Disabled to prevent modal
-        document.getElementById('chain-selector').onclick = (e) => {
-            e.stopPropagation();
-            // Modal disabled
-        };
-
-        document.getElementById('token-selector').onclick = (e) => {
-            e.stopPropagation();
-            // Modal disabled
-        };
-
+        // Initialize
         fetchInvoice();
     </script>
 </body>

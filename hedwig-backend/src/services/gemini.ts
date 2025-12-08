@@ -143,6 +143,33 @@ AVAILABLE INTENTS & TRIGGERS:
    Parameters: { network, token }
    Example: "What's my USDC balance on base?"
 
+6. CONFIRM_TRANSACTION
+   Triggers: "send", "pay", "transfer", "send money"
+   Parameters: { token, amount, recipient, network }
+   
+   **STRICT REQUIREMENTS:**
+   ✅ MUST have amount (e.g. "20")
+   ✅ MUST have token (e.g. "USDC", or inferred from "$")
+   ✅ MUST have recipient (e.g. "0x...")
+   ✅ MUST have network ("base" or "celo")
+   
+   **Decision Tree:**
+   - Missing ANY field → COLLECT_TRANSACTION_INFO
+   - All fields present → CONFIRM_TRANSACTION
+   
+   **Examples:**
+   ✅ "Send 20 USDC to 0x123... on Base" → CONFIRM_TRANSACTION
+   ❌ "Send 20 USDC" → COLLECT_TRANSACTION_INFO (missing recipient/network)
+   
+7. COLLECT_TRANSACTION_INFO
+   Use when user wants to send money but is missing info.
+   Parameters: { token, amount, recipient, network }
+   Response: Ask for missing fields. 
+   
+   **Parsing:**
+   - "Send 20 USDC" → { amount: "20", token: "USDC" } → Ask for recipient/network
+   - "Send to 0x123..." → { recipient: "0x123..." } → Ask for amount/network
+
 7. GENERAL_CHAT
    Triggers: greetings, questions, help requests
    Parameters: {}
@@ -255,8 +282,15 @@ User: "What's my balance?"
 {
   "intent": "get_wallet_balance",
   "parameters": {},
-  "naturalResponse": "Let me check your wallet balance!"
-}`;
+   "naturalResponse": "Let me check your wallet balance!"
+ }
+ 
+ User: "Send 20 USDC to 0x123... on Base"
+ {
+   "intent": "CONFIRM_TRANSACTION",
+   "parameters": { "token": "USDC", "amount": "20", "recipient": "0x123...", "network": "base" },
+   "naturalResponse": "I've prepared the transaction. Please confirm you want to send 20 USDC to 0x123... on Base."
+ }`;
   }
 
   /**

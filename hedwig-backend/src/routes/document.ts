@@ -185,6 +185,65 @@ router.get('/:id', async (req: Request, res: Response, next) => {
 });
 
 /**
+ * POST /api/documents/:id/pay
+ * Mark a document (invoice or payment link) as paid
+ * This is called from the payment pages after successful blockchain transaction
+ */
+router.post('/:id/pay', async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const { txHash, chain, token, amount, payer } = req.body;
+
+        console.log('[Documents] Pay request for ID:', id, { txHash, chain, token, amount, payer });
+
+        // Fetch the document
+        const { data: doc, error: fetchError } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !doc) {
+            res.status(404).json({ success: false, error: { message: 'Document not found' } });
+            return;
+        }
+
+        // Update document status to PAID
+        const { data: updatedDoc, error: updateError } = await supabase
+            .from('documents')
+            .update({
+                status: 'PAID',
+                content: {
+                    ...doc.content,
+                    paid_at: new Date().toISOString(),
+                    tx_hash: txHash,
+                    payment_chain: chain,
+                    payment_token: token,
+                    paid_amount: amount,
+                    payer_address: payer
+                }
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw new AppError(`Failed to update document: ${updateError.message}`, 500);
+        }
+
+        console.log('[Documents] Document marked as paid:', id);
+
+        res.json({
+            success: true,
+            data: { document: updatedDoc }
+        });
+    } catch (error) {
+        console.error('[Documents] Pay error:', error);
+        next(error);
+    }
+});
+
+/**
  * POST /api/documents/:id/complete
  * Mark a contract as completed and generate an invoice
  */

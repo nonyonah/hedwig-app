@@ -49,6 +49,25 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                 // Don't create proposal yet, Gemini will collect all fields
                 return { text: '' };
 
+            case 'COLLECT_TRANSACTION_INFO':
+                // Don't execute transaction yet, Gemini will collect all fields
+                return { text: '' };
+
+            case 'CONFIRM_TRANSACTION':
+                // Return transaction data for frontend to show confirmation modal
+                return {
+                    text: '',
+                    data: {
+                        requiresConfirmation: true,
+                        transaction: {
+                            amount: params.amount,
+                            token: params.token || 'USDC',
+                            recipient: params.recipient,
+                            network: params.network || 'base'
+                        }
+                    }
+                };
+
             case 'CREATE_PROPOSAL':
                 return await handleCreateProposal(params, user);
 

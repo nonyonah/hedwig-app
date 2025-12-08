@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     greeting: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 32,
         color: Colors.textPrimary,
     },

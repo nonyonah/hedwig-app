@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback, LayoutAnimation } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { useAuth } from '../hooks/useAuth';
 import { useWallet } from '../hooks/useWallet';
@@ -16,6 +16,7 @@ import { Metrics } from '../theme/metrics';
 import { Typography } from '../styles/typography';
 import { Sidebar } from '../components/Sidebar';
 import { ProfileModal } from '../components/ProfileModal';
+import { TransactionConfirmationModal } from '../components/TransactionConfirmationModal';
 import { getUserGradient } from '../utils/gradientUtils';
 
 const { width, height } = Dimensions.get('window');
@@ -37,7 +38,7 @@ interface ChainInfo {
 
 const SUPPORTED_CHAINS: ChainInfo[] = [
     {
-        name: 'Base',
+        name: 'Base', // Base Sepolia
         icon: NetworkBase,
         color: '#0052FF',
         addressType: 'evm',
@@ -58,14 +59,13 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         ]
     },
     {
-        name: 'Celo',
+        name: 'Celo', // Celo Alfajores
         icon: NetworkCelo,
         color: '#35D07F',
         addressType: 'evm',
         tokens: [
             { symbol: 'CELO', icon: TokenCELO },
-            { symbol: 'cUSD', icon: TokenCUSD },
-            { symbol: 'USDC', icon: TokenUSDC }
+            { symbol: 'cUSD', icon: TokenCUSD }
         ]
     },
     {
@@ -112,6 +112,7 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
 
 export default function HomeScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams<{ conversationId?: string }>();
     const { isReady, user, logout, getAccessToken } = useAuth();
     const { wallets: evmWallets } = useWallet();
     const ethereumWallet = evmWallets?.[0]; // Use first wallet from our hook
@@ -128,6 +129,8 @@ export default function HomeScreen() {
     const [selectedChain, setSelectedChain] = useState<ChainInfo>(SUPPORTED_CHAINS[0]);
     const [viewMode, setViewMode] = useState<'main' | 'assets' | 'chains'>('main');
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
+    const [isTransactionReviewVisible, setIsTransactionReviewVisible] = useState(false);
+    const [transactionData, setTransactionData] = useState<any>(null);
 
     // Animate view mode changes
     useEffect(() => {
@@ -291,6 +294,14 @@ export default function HomeScreen() {
             fetchConversations();
         }
     }, [isReady, user]);
+
+    // Load conversation from URL params (when navigating from Chats screen)
+    useEffect(() => {
+        if (params.conversationId && isReady && user) {
+            console.log('[Home] Loading conversation from params:', params.conversationId);
+            loadConversation(params.conversationId);
+        }
+    }, [params.conversationId, isReady, user]);
 
     // Fetch user profile data
     useEffect(() => {
@@ -510,6 +521,12 @@ export default function HomeScreen() {
                 };
                 setMessages(prev => [...prev, aiMessage]);
                 setConversationId(data.data.conversationId);
+
+                // Handle Agentic Action Intents
+                if (data.data.intent === 'CONFIRM_TRANSACTION' && data.data.parameters) {
+                    setTransactionData(data.data.parameters);
+                    setIsTransactionReviewVisible(true);
+                }
             } else {
                 Alert.alert('Error', data.error?.message || 'Failed to get response');
             }
@@ -873,6 +890,22 @@ export default function HomeScreen() {
                     setConversationId(null);
                     setMessages([]);
                     setIsSidebarOpen(false);
+                }}
+            />
+            {/* Transaction Confirmation Modal */}
+            <TransactionConfirmationModal
+                visible={isTransactionReviewVisible}
+                onClose={() => setIsTransactionReviewVisible(false)}
+                data={transactionData}
+                onSuccess={(hash) => {
+                    // Add success message to chat
+                    const successMsg: Message = {
+                        id: Date.now().toString() + '_tx_success',
+                        role: 'assistant',
+                        content: `Transaction sent successfully! Hash: ${hash}`,
+                        createdAt: new Date().toISOString()
+                    };
+                    setMessages(prev => [...prev, successMsg]);
                 }}
             />
         </View>

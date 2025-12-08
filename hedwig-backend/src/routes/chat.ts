@@ -145,14 +145,27 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
 
         console.log('[Chat] Final response text:', finalResponseText);
 
+        // Build response object
+        const responseData: any = {
+            conversationId: conversation.id,
+            message: finalResponseText,
+            intent: aiResponseObj.intent,
+            actionResult: actionResult
+        };
+
+        // For CONFIRM_TRANSACTION, include transaction parameters for frontend modal
+        if (aiResponseObj.intent === 'CONFIRM_TRANSACTION' && aiResponseObj.parameters) {
+            responseData.parameters = {
+                amount: aiResponseObj.parameters.amount,
+                token: aiResponseObj.parameters.token || 'USDC',
+                recipient: aiResponseObj.parameters.recipient,
+                network: aiResponseObj.parameters.network || 'base'
+            };
+        }
+
         res.json({
             success: true,
-            data: {
-                conversationId: conversation.id,
-                message: finalResponseText,
-                intent: aiResponseObj.intent,
-                actionResult: actionResult
-            },
+            data: responseData,
         });
     } catch (error) {
         next(error);
@@ -253,7 +266,24 @@ router.get('/conversations', authenticate, async (req: Request, res: Response, n
 router.get('/conversations/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const userId = req.user!.id;
+        const privyUserId = req.user!.id;
+
+        // Look up user in database by privy_id to get their email (which is the user PK)
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('privy_id', privyUserId)
+            .single();
+
+        if (userError || !userData) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found in database' },
+            });
+            return;
+        }
+
+        const userId = userData.email; // email is the primary key
 
         const { data: conversation, error: convError } = await supabase
             .from('conversations')
@@ -312,7 +342,24 @@ router.get('/conversations/:id', authenticate, async (req: Request, res: Respons
 router.delete('/conversations/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const userId = req.user!.id;
+        const privyUserId = req.user!.id;
+
+        // Look up user in database by privy_id to get their email
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('privy_id', privyUserId)
+            .single();
+
+        if (userError || !userData) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found in database' },
+            });
+            return;
+        }
+
+        const userId = userData.email;
 
         // Verify ownership
         const { data: conversation, error: findError } = await supabase

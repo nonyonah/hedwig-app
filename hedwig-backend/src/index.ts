@@ -22,6 +22,7 @@ import projectRoutes from './routes/project';
 import conversationsRoutes from './routes/conversations';
 import webhookRoutes from './routes/webhook';
 import pdfRoutes from './routes/pdf';
+import walletRoutes from './routes/wallet';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -97,7 +98,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 
 // Add logging middleware for chat routes
-app.use('/api/chat', (req, res, next) => {
+app.use('/api/chat', (req, _res, next) => {
     console.log('[API] Chat route hit:', {
         method: req.method,
         path: req.path,
@@ -116,6 +117,7 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing
+app.use('/api/wallet', walletRoutes);
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../public')));

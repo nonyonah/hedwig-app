@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +20,7 @@ export default function ChatsScreen() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
-    const [walletAddresses, setWalletAddresses] = useState<any[]>([]);
+    const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
 
     useEffect(() => {
         fetchConversations();
@@ -32,7 +32,7 @@ export default function ChatsScreen() {
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-            const response = await fetch(`${apiUrl}/api/user/profile`, {
+            const response = await fetch(`${apiUrl}/api/users/profile`, {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
@@ -41,13 +41,15 @@ export default function ChatsScreen() {
 
             const data = await response.json();
             if (data.success && data.data) {
+                const userData = data.data.user || data.data;
                 setUserName({
-                    firstName: data.data.firstName || '',
-                    lastName: data.data.lastName || ''
+                    firstName: userData.firstName || '',
+                    lastName: userData.lastName || ''
                 });
-                if (data.data.wallets) {
-                    setWalletAddresses(data.data.wallets);
-                }
+                setWalletAddresses({
+                    evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
+                    solana: userData.solanaWalletAddress
+                });
             }
         } catch (error) {
             console.error('Error fetching user profile:', error);
@@ -94,6 +96,46 @@ export default function ChatsScreen() {
         fetchConversations();
     };
 
+    const deleteConversation = async (conversationId: string) => {
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+            const response = await fetch(`${apiUrl}/api/chat/conversations/${conversationId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                // Remove from local state
+                setConversations(prev => prev.filter(c => c.id !== conversationId));
+            } else {
+                Alert.alert('Error', 'Failed to delete conversation');
+            }
+        } catch (error) {
+            console.error('Error deleting conversation:', error);
+            Alert.alert('Error', 'Failed to delete conversation');
+        }
+    };
+
+    const confirmDelete = (conversationId: string, title: string) => {
+        Alert.alert(
+            'Delete Chat',
+            `Are you sure you want to delete "${title || 'this conversation'}"?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => deleteConversation(conversationId)
+                }
+            ]
+        );
+    };
+
     const handleChatPress = (conversationId: string) => {
         // Navigate to homepage with conversation ID
         router.push({ pathname: '/', params: { conversationId } });
@@ -107,7 +149,9 @@ export default function ChatsScreen() {
             <TouchableOpacity
                 style={styles.chatItem}
                 onPress={() => handleChatPress(item.id)}
+                onLongPress={() => confirmDelete(item.id, item.title)}
                 activeOpacity={0.6}
+                delayLongPress={500}
             >
                 <View style={styles.chatContent}>
                     <Text style={styles.chatTitle} numberOfLines={1}>
@@ -335,9 +379,9 @@ const styles = StyleSheet.create({
         padding: 16,
         backgroundColor: '#FFFFFF',
         borderRadius: 12,
-        marginBottom: 8,
         borderWidth: 1,
         borderColor: Colors.border,
+        marginBottom: 8,
     },
     chatContent: {
         flex: 1,

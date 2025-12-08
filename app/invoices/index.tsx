@@ -208,7 +208,12 @@ export default function InvoicesScreen() {
                 renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
                 overshootRight={false}
             >
-                <TouchableOpacity style={styles.card} onPress={() => handleInvoicePress(item)}>
+                <TouchableOpacity
+                    style={styles.card}
+                    onPress={() => handleInvoicePress(item)}
+                    onLongPress={() => handleDelete(item.id)}
+                    delayLongPress={500}
+                >
                     <View style={styles.cardHeader}>
                         <View>
                             <Text style={styles.invoiceId}>INV-{item.id.substring(0, 8).toUpperCase()}</Text>

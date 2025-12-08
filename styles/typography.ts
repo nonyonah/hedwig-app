@@ -2,74 +2,74 @@ import { StyleSheet } from 'react-native';
 
 export const Typography = StyleSheet.create({
     title: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 24,
         color: '#000000',
     },
     subtitle: {
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         fontSize: 16,
         color: '#000000',
         textAlign: 'center',
     },
     body: {
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         fontSize: 16,
         color: '#000000',
     },
     button: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 16,
         color: '#FFFFFF',
     },
     input: {
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         fontSize: 16,
         color: '#000000',
     },
     h1: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 32,
         color: '#000000',
     },
     h2: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 28,
         color: '#000000',
     },
     logoText: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 160,
         fontStyle: 'italic',
         color: '#FFFFFF',
     },
     email: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_500Medium',
         fontSize: 16,
         color: '#6B7280',
     },
     caption: {
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         fontSize: 12,
         color: '#6B7280',
     },
     h3: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 20,
         color: '#000000',
     },
     h4: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 18,
         color: '#000000',
     },
     serifTitle: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 24,
         color: '#000000',
     },
     serifText: {
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         fontSize: 16,
         color: '#000000',
     },

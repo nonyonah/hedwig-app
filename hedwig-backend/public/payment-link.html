@@ -263,13 +263,42 @@
         .clickable:hover {
             background: #F3F4F6;
         }
+
+        /* Status Badge */
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        .status-badge.paid {
+            background-color: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        .status-badge.pending {
+            background-color: rgba(234, 179, 8, 0.2);
+            color: #eab308;
+        }
+
+        .status-badge.draft {
+            background-color: rgba(107, 114, 128, 0.2);
+            color: #6b7280;
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
         <div class="card">
-            <div class="header-title">Payment Link</div>
+            <div class="header-title">
+                Payment Link
+                <span id="status-badge" class="status-badge" style="display: none;"></span>
+            </div>
 
             <div class="details-container">
                 <div class="detail-row">
@@ -310,52 +339,26 @@
         </div>
     </div>
 
-    <!-- Payment Modal -->
-    <div class="modal-overlay" id="payment-modal">
-        <div class="modal-content">
-            <div class="modal-title">Select Payment Method</div>
-
-            <div class="modal-label">Network</div>
-            <div class="options-grid" id="chain-options">
-                <!-- Chains injected here -->
-            </div>
-
-            <div class="modal-label">Token</div>
-            <div class="options-grid" id="token-options">
-                <!-- Tokens injected here -->
-            </div>
-
-            <div class="modal-buttons">
-                <button class="modal-btn btn-secondary" id="modal-cancel">Cancel</button>
-                <button class="modal-btn btn-primary" id="modal-pay">Pay Now</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reown AppKit via CDN -->
-    <script src="https://unpkg.com/@reown/appkit@latest"></script>
-    <script src="https://unpkg.com/@reown/appkit-adapter-wagmi@latest"></script>
+    <!-- Ethers.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
     <script>
-        // Project ID from Reown Cloud: e2fead0a05813697717820eaed0f18ea
-        const projectId = 'e2fead0a05813697717820eaed0f18ea';
-
         // Data & Configuration
         const networks = [
             {
                 id: 'base',
-                name: 'Base',
+                name: 'Base Sepolia',
                 icon: '/assets/icons/networks/base.png',
-                chainId: 8453,
-                rpcUrl: 'https://mainnet.base.org',
-                explorer: 'https://basescan.org'
+                chainId: 84532,
+                rpcUrl: 'https://sepolia.base.org',
+                explorer: 'https://sepolia.basescan.org'
             },
             {
                 id: 'celo',
-                name: 'Celo',
+                name: 'Celo Alfajores',
                 icon: '/assets/icons/networks/celo.png',
-                chainId: 42220,
-                rpcUrl: 'https://forno.celo.org',
-                explorer: 'https://celoscan.io'
+                chainId: 44787,
+                rpcUrl: 'https://alfajores-forno.celo-testnet.org',
+                explorer: 'https://alfajores.celoscan.io'
             }
         ];
 
@@ -364,11 +367,19 @@
                 symbol: 'USDC',
                 name: 'USD Coin',
                 icon: '/assets/icons/tokens/usdc.png',
+                decimals: 6,
                 addresses: {
-                    base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-                    celo: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
-                    arbitrum: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-                    optimism: '0x0b2C639c533813f4Aa9D7837CAf992c92bdE5162'
+                    base: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+                    celo: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B'
+                }
+            },
+            {
+                symbol: 'cUSD',
+                name: 'Celo USD',
+                icon: '/assets/icons/tokens/cusd.png',
+                decimals: 18,
+                addresses: {
+                    celo: '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1'
                 }
             },
             {
@@ -378,8 +389,6 @@
                 addresses: {
                     base: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
                     celo: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e',
-                    arbitrum: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
-                    optimism: '0x94b008aA00579c1307B0EF2c499aD98a8ce98e48'
                 }
             },
             {
@@ -388,6 +397,12 @@
                 icon: '/assets/icons/tokens/eth.png',
                 isNative: true
             },
+            {
+                symbol: 'CELO',
+                name: 'Celo',
+                icon: '/assets/icons/tokens/celo.png',
+                isNative: true
+            }
         ];
 
         const ERC20_ABI = [
@@ -403,11 +418,10 @@
         ];
 
         const HEDWIG_CONTRACTS = {
-            base: "0xB5d572B160145a6fc353d3b8c7ff3917fC3599d2", // TODO: Deploy HedwigPayment to Base and paste address here
-            celo: "0xF1c485Ba184262F1EAC91584f6B26fdcaa3F794a"  // TODO: Deploy HedwigPayment to Celo and paste address here
+            base: "0x1c0A0eFBb438cc7705b947644F6AB88698b2704F", // HedwigPayment on Base Sepolia
+            celo: "0xF1c485Ba184262F1EAC91584f6B26fdcaa3F794a"  // TODO: Deploy HedwigPayment to Celo Alfajores
         };
 
-        let modal = null;
         let selectedChain = networks[0];
         let selectedToken = TOKENS[0];
         let linkData = null;
@@ -415,44 +429,20 @@
         let provider = null;
         let signer = null;
 
-        // Initialize Reown AppKit
-        if (window.Reown && window.Reown.createAppKit) {
-            modal = window.Reown.createAppKit({
-                projectId,
-                networks: networks,
-                metadata: {
-                    name: 'Hedwig Payment Link',
-                    description: 'Pay with crypto',
-                    url: window.location.origin,
-                    icons: ['https://hedwig.app/icon.png']
-                },
-                features: {
-                    analytics: false,
-                    email: false,
-                    socials: []
-                }
-            });
-        } else {
-            console.error('Reown AppKit not loaded. Please check CDN scripts.');
-        }
-
         // Init
         const urlParts = window.location.pathname.split('/');
         const linkId = urlParts[urlParts.length - 1].replace('.html', '');
 
         // Elements
-        // Removed duplicate modal declaration
         const payBtn = document.getElementById('pay-button');
         const payBtnText = document.getElementById('pay-button-text');
-        const modalPayBtn = document.getElementById('modal-pay');
-        const modalCancelBtn = document.getElementById('modal-cancel');
 
         // Fetch Data
         async function fetchPaymentLink() {
             try {
                 const apiUrl = window.location.hostname === 'localhost'
                     ? 'http://localhost:3000'
-                    : 'YOUR_PRODUCTION_API_URL';
+                    : window.location.origin;
 
                 const response = await fetch(`${apiUrl}/api/documents/${linkId}`);
                 const data = await response.json();
@@ -471,6 +461,23 @@
 
         function renderPaymentLink(doc) {
             const user = doc.user || {};
+
+            // Status Badge
+            const statusBadge = document.getElementById('status-badge');
+            const status = doc.status || 'DRAFT';
+            statusBadge.textContent = status;
+            statusBadge.classList.remove('paid', 'pending', 'draft');
+            if (status === 'PAID') {
+                statusBadge.classList.add('paid');
+                // Hide pay button if already paid
+                payBtn.style.display = 'none';
+            } else if (status === 'SENT' || status === 'VIEWED' || status === 'ACTIVE') {
+                statusBadge.classList.add('pending');
+                statusBadge.textContent = 'PENDING';
+            } else {
+                statusBadge.classList.add('draft');
+            }
+            statusBadge.style.display = 'inline-block';
 
             document.getElementById('sold-by').textContent =
                 `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Hedwig User';
@@ -497,12 +504,14 @@
             document.getElementById('network-icon').src = selectedChain.icon;
 
             payBtnText.textContent = `Connect Wallet`;
-            modalPayBtn.textContent = `Pay ${doc.amount} ${selectedToken.symbol}`;
         }
 
         async function connectWallet() {
             if (typeof window.ethereum !== 'undefined') {
                 try {
+                    // Request account access
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+
                     provider = new ethers.BrowserProvider(window.ethereum);
                     signer = await provider.getSigner();
                     userAddress = await signer.getAddress();
@@ -547,8 +556,8 @@
                                     rpcUrls: [chain.rpcUrl],
                                     blockExplorerUrls: [chain.explorer],
                                     nativeCurrency: {
-                                        name: 'Ether',
-                                        symbol: 'ETH',
+                                        name: chain.id === 'celo' ? 'Celo' : 'Ether',
+                                        symbol: chain.id === 'celo' ? 'CELO' : 'ETH',
                                         decimals: 18
                                     }
                                 },
@@ -599,42 +608,19 @@
                         value: ethers.parseEther(amount)
                     });
                 } else {
-                    // ERC20 Payment via HedwigPayment Contract
+                    // ERC20 Direct Transfer (HedwigPayment contract not configured for this token yet)
                     const tokenAddress = selectedToken.addresses[selectedChain.id];
-                    const paymentContractAddress = HEDWIG_CONTRACTS[selectedChain.id];
 
                     if (!tokenAddress) throw new Error(`Token ${selectedToken.symbol} not supported on ${selectedChain.name}`);
-                    if (!paymentContractAddress || paymentContractAddress.includes("PLACEHOLDER")) {
-                        throw new Error("Payment contract not deployed/configured for this chain.");
-                    }
 
                     const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
                     const decimals = await tokenContract.decimals();
                     const amountWei = ethers.parseUnits(amount, decimals);
 
-                    // 1. Check Allowance
-                    payBtnText.textContent = "Checking Allowance...";
-                    const allowance = await tokenContract.allowance(userAddress, paymentContractAddress);
-
-                    if (allowance < amountWei) {
-                        payBtnText.textContent = "Approving...";
-                        console.log("Requesting approval...");
-                        const approveTx = await tokenContract.approve(paymentContractAddress, amountWei);
-                        await approveTx.wait();
-                        console.log("Approval confirmed");
-                    }
-
-                    // 2. Pay via Contract
-                    payBtnText.textContent = "Paying...";
-                    const paymentContract = new ethers.Contract(paymentContractAddress, HEDWIG_PAYMENT_ABI, signer);
-
-                    console.log("Calling pay() on contract:", paymentContractAddress);
-                    tx = await paymentContract.pay(
-                        tokenAddress,
-                        amountWei,
-                        freelancerAddress,
-                        linkData.id || "payment-link" // invoiceId
-                    );
+                    // Direct transfer to freelancer
+                    payBtnText.textContent = "Transferring...";
+                    console.log("Transferring to:", freelancerAddress);
+                    tx = await tokenContract.transfer(freelancerAddress, amountWei);
                 }
 
                 console.log("Transaction sent:", tx.hash);
@@ -642,7 +628,31 @@
 
                 await tx.wait();
 
+                // Mark payment link as paid in backend
+                try {
+                    const apiUrl = window.location.hostname === 'localhost'
+                        ? 'http://localhost:3000'
+                        : window.location.origin;
+
+                    await fetch(`${apiUrl}/api/documents/${linkData.id}/pay`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            txHash: tx.hash,
+                            chain: selectedChain.id,
+                            token: selectedToken.symbol,
+                            amount: linkData.amount,
+                            payer: userAddress
+                        })
+                    });
+                } catch (apiError) {
+                    console.error('Failed to mark as paid in backend:', apiError);
+                }
+
                 alert(`Payment Successful! TX: ${tx.hash}`);
+
+                // Refresh page to show paid status
+                window.location.reload();
 
             } catch (error) {
                 console.error("Payment failed:", error);
@@ -653,46 +663,18 @@
             }
         }
 
-        // Modal Logic
-        function renderOptions() {
-            const chainContainer = document.getElementById('chain-options');
-            chainContainer.innerHTML = CHAINS.map(chain => `
-                <div class="option-card ${selectedChain.id === chain.id ? 'selected' : ''}" 
-                     onclick="selectChain('${chain.id}')">
-                    <img src="${chain.icon}" class="option-icon">
-                    <span class="option-text">${chain.name}</span>
-                </div>
-            `).join('');
-
-            const tokenContainer = document.getElementById('token-options');
-            tokenContainer.innerHTML = TOKENS.map(token => `
-                <div class="option-card ${selectedToken.symbol === token.symbol ? 'selected' : ''}" 
-                     onclick="selectToken('${token.symbol}')">
-                    <img src="${token.icon}" class="option-icon">
-                    <span class="option-text">${token.symbol}</span>
-                </div>
-            `).join('');
-        }
-
         window.selectChain = (id) => {
             selectedChain = CHAINS.find(c => c.id === id);
             document.getElementById('network').textContent = selectedChain.name;
             document.getElementById('network-icon').src = selectedChain.icon;
-            renderOptions();
         };
 
         window.selectToken = (symbol) => {
             selectedToken = TOKENS.find(t => t.symbol === symbol);
             document.getElementById('token-icon').src = selectedToken.icon;
-            // Update price display if needed, but for now just icon
-            renderOptions();
-
             // Update button text
-            if (linkData) {
-                modalPayBtn.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
-                if (userAddress) {
-                    payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
-                }
+            if (linkData && userAddress) {
+                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
             }
         };
 
@@ -703,28 +685,6 @@
             } else {
                 processPayment();
             }
-        };
-
-        modalCancelBtn.onclick = () => {
-            modal.classList.remove('active');
-        };
-
-        modalPayBtn.onclick = processPayment;
-
-        modal.onclick = (e) => {
-            if (e.target === modal) modal.classList.remove('active');
-        };
-
-        // Triggers
-        // Triggers - Disabled to prevent modal
-        document.getElementById('network-trigger').onclick = (e) => {
-            e.stopPropagation();
-            // Modal disabled
-        };
-
-        document.getElementById('token-trigger').onclick = (e) => {
-            e.stopPropagation();
-            // Modal disabled
         };
 
         fetchPaymentLink();
