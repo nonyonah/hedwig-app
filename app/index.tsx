@@ -139,6 +139,7 @@ export default function HomeScreen() {
 
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
+    const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number }>({});
     const [displayedGreeting, setDisplayedGreeting] = useState('');
     const [isTypingGreeting, setIsTypingGreeting] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
@@ -354,6 +355,12 @@ export default function HomeScreen() {
                         firstName: userData.firstName || '',
                         lastName: userData.lastName || ''
                     });
+                    // Set profile icon if available
+                    if (userData.profileEmoji) {
+                        setProfileIcon({ emoji: userData.profileEmoji });
+                    } else if (userData.profileColorIndex !== undefined) {
+                        setProfileIcon({ colorIndex: userData.profileColorIndex });
+                    }
                     setWalletAddresses({
                         evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
                         solana: userData.solanaWalletAddress
@@ -875,6 +882,7 @@ export default function HomeScreen() {
                         onClose={() => setIsProfileModalVisible(false)}
                         userName={userName}
                         walletAddresses={walletAddresses}
+                        profileIcon={profileIcon}
                     />
                 </SafeAreaView>
             </TouchableWithoutFeedback>

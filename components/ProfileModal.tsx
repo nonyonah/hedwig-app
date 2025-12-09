@@ -128,14 +128,27 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
     },
 ];
 
+// Profile color gradient options (same as in profile.tsx)
+const PROFILE_COLOR_OPTIONS = [
+    ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
+    ['#34D399', '#10B981', '#059669'], // Green
+    ['#F472B6', '#EC4899', '#DB2777'], // Pink
+    ['#FBBF24', '#F59E0B', '#D97706'], // Amber
+    ['#A78BFA', '#8B5CF6', '#7C3AED'], // Purple
+    ['#F87171', '#EF4444', '#DC2626'], // Red
+    ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
+    ['#FB923C', '#F97316', '#EA580C'], // Orange
+];
+
 interface ProfileModalProps {
     visible: boolean;
     onClose: () => void;
     userName?: { firstName: string; lastName: string };
     walletAddresses?: { evm?: string; solana?: string };
+    profileIcon?: { emoji?: string; colorIndex?: number };
 }
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, userName, walletAddresses }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, userName, walletAddresses, profileIcon }) => {
     const { user, logout, getAccessToken } = usePrivy();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const solanaWallet = useEmbeddedSolanaWallet();
@@ -443,13 +456,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                         <View style={styles.modalHeader}>
                             <View style={styles.userInfo}>
                                 <LinearGradient
-                                    colors={getUserGradient(user?.id || userName?.firstName)}
+                                    colors={profileIcon?.colorIndex !== undefined
+                                        ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
+                                        : (profileIcon?.emoji ? ['#F3F4F6', '#E5E7EB', '#D1D5DB'] : getUserGradient(user?.id || userName?.firstName))}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.avatarContainer}
                                 >
-                                    {userName?.firstName && (
-                                        <Text style={styles.avatarText}>{userName.firstName[0].toUpperCase()}</Text>
+                                    {profileIcon?.emoji ? (
+                                        <Text style={styles.emojiAvatar}>{profileIcon.emoji}</Text>
+                                    ) : (
+                                        userName?.firstName && (
+                                            <Text style={styles.avatarText}>{userName.firstName[0].toUpperCase()}</Text>
+                                        )
                                     )}
                                 </LinearGradient>
                                 <View>
@@ -663,6 +682,9 @@ const styles = StyleSheet.create({
         ...Typography.h4,
         color: '#FFFFFF',
         fontSize: 16,
+    },
+    emojiAvatar: {
+        fontSize: 22,
     },
     profileName: {
         ...Typography.body,

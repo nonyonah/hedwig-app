@@ -262,25 +262,33 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = new PublicKey(fromAddress);
 
-            // Sign and send using Privy's Solana wallet
-            // Get provider and use sendTransaction
+            // Get the Privy provider
             const provider = await wallet.getProvider();
 
-            // Serialize the transaction for signing
-            const serializedTransaction = transaction.serialize({ requireAllSignatures: false });
+            // Privy's Solana wallet provider uses sendTransaction which handles signing internally
+            // We need to serialize the transaction for the provider
+            const serializedTransaction = transaction.serialize({
+                requireAllSignatures: false,
+                verifySignatures: false
+            });
 
-            // Sign using Privy wallet
-            const signedTx = await provider.signTransaction(serializedTransaction);
+            // Convert to base64 for the provider
+            const base64Transaction = Buffer.from(serializedTransaction).toString('base64');
 
-            // Send the signed transaction
-            const signature = await connection.sendRawTransaction(signedTx);
+            // Use provider.request to sign and send via Privy
+            const signature = await provider.request({
+                method: 'signAndSendTransaction',
+                params: {
+                    message: base64Transaction,
+                },
+            });
 
             console.log('Solana Transaction Signature:', signature);
 
             // Wait for confirmation
-            await connection.confirmTransaction(signature, 'confirmed');
+            await connection.confirmTransaction(signature as string, 'confirmed');
 
-            return signature;
+            return signature as string;
         } else {
             // SPL Token transfer (USDC, etc.) - For now, throw not implemented
             throw new Error(`SPL Token transfers (${tokenSymbol}) coming soon. Please use SOL for now.`);
