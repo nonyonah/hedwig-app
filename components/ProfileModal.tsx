@@ -129,7 +129,7 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
 ];
 
 // Profile color gradient options (same as in profile.tsx)
-const PROFILE_COLOR_OPTIONS = [
+const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
     ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
     ['#34D399', '#10B981', '#059669'], // Green
     ['#F472B6', '#EC4899', '#DB2777'], // Pink
@@ -138,7 +138,7 @@ const PROFILE_COLOR_OPTIONS = [
     ['#F87171', '#EF4444', '#DC2626'], // Red
     ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
     ['#FB923C', '#F97316', '#EA580C'], // Orange
-];
+] as const;
 
 interface ProfileModalProps {
     visible: boolean;
