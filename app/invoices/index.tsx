@@ -20,6 +20,7 @@ const ICONS = {
     usdc: require('../../assets/icons/tokens/usdc.png'),
     base: require('../../assets/icons/networks/base.png'),
     celo: require('../../assets/icons/networks/celo.png'),
+    solana: require('../../assets/icons/networks/solana.png'),
     arbitrum: require('../../assets/icons/networks/arbitrum.png'),
     optimism: require('../../assets/icons/networks/optimism.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
@@ -30,6 +31,7 @@ const ICONS = {
 const CHAINS: Record<string, any> = {
     'base': { name: 'Base', icon: ICONS.base },
     'celo': { name: 'Celo', icon: ICONS.celo },
+    'solana': { name: 'Solana', icon: ICONS.solana },
     'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum },
     'optimism': { name: 'Optimism', icon: ICONS.optimism },
 };
@@ -611,6 +613,7 @@ const styles = StyleSheet.create({
     smallIcon: {
         width: 16,
         height: 16,
+        borderRadius: 8,
     },
     amountCardSubText: {
         fontFamily: 'RethinkSans_400Regular',

@@ -20,12 +20,15 @@ const ICONS = {
     usdc: require('../../assets/icons/tokens/usdc.png'),
     base: require('../../assets/icons/networks/base.png'),
     celo: require('../../assets/icons/networks/celo.png'),
+    solana: require('../../assets/icons/networks/solana.png'),
     arbitrum: require('../../assets/icons/networks/arbitrum.png'),
     optimism: require('../../assets/icons/networks/optimism.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
     statusSuccess: require('../../assets/icons/status/success.png'),
     statusFailed: require('../../assets/icons/status/failed.png'),
 };
+
+
 
 export default function PaymentLinksScreen() {
     const router = useRouter();
@@ -38,6 +41,16 @@ export default function PaymentLinksScreen() {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
+
+    // Helper to get chain icon
+    const getChainIcon = (chain?: string) => {
+        const c = chain?.toLowerCase() || 'base';
+        if (c === 'solana') return ICONS.solana;
+        if (c === 'celo') return ICONS.celo;
+        if (c === 'arbitrum') return ICONS.arbitrum;
+        if (c === 'optimism') return ICONS.optimism;
+        return ICONS.base;
+    };
 
     // Animation value for modal
     const slideAnim = React.useRef(new Animated.Value(0)).current;
@@ -355,7 +368,7 @@ export default function PaymentLinksScreen() {
                                 <Text style={styles.detailLabel}>Chain</Text>
                                 <View style={styles.chainValue}>
                                     <Image
-                                        source={selectedLink?.chain?.toLowerCase() === 'celo' ? ICONS.celo : ICONS.base}
+                                        source={getChainIcon(selectedLink?.chain)}
                                         style={styles.smallIcon}
                                     />
                                     <Text style={styles.detailValue}>{selectedLink?.chain || 'Base'}</Text>
@@ -599,6 +612,7 @@ const styles = StyleSheet.create({
     smallIcon: {
         width: 16,
         height: 16,
+        borderRadius: 8,
     },
     amountCardSubText: {
         fontFamily: 'RethinkSans_400Regular',

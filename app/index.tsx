@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback, LayoutAnimation, UIManager } from 'react-native';
-import Reanimated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient'
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback, LayoutAnimation } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -19,13 +18,6 @@ import { Sidebar } from '../components/Sidebar';
 import { ProfileModal } from '../components/ProfileModal';
 import { TransactionConfirmationModal } from '../components/TransactionConfirmationModal';
 import { getUserGradient } from '../utils/gradientUtils';
-
-// Enable LayoutAnimation for Android fallback
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const ReanimatedView = Reanimated.View;
 
 const { width, height } = Dimensions.get('window');
 
@@ -151,14 +143,7 @@ export default function HomeScreen() {
     const [displayedGreeting, setDisplayedGreeting] = useState('');
     const [isTypingGreeting, setIsTypingGreeting] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
-
-    // Use react-native-reanimated for smooth keyboard sync (requires dev build)
-    const keyboard = useAnimatedKeyboard();
-    const inputContainerAnimatedStyle = useAnimatedStyle(() => {
-        return {
-            marginBottom: keyboard.height.value > 0 ? keyboard.height.value : 16,
-        };
-    });
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
     const flatListRef = useRef<FlatList>(null);
     const sidebarAnim = useRef(new Animated.Value(-width * 0.8)).current;
     const messageAnimations = useRef<{ [key: string]: Animated.Value }>({}).current;
@@ -395,7 +380,37 @@ export default function HomeScreen() {
         fetchUserProfile();
     }, [user]);
 
-    // Keyboard is handled by useAnimatedKeyboard for smooth native sync
+    // Keyboard listeners for instant adjustment
+    useEffect(() => {
+        const showSubscription = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            (e) => {
+                LayoutAnimation.configureNext(LayoutAnimation.create(
+                    e.duration || 250,
+                    LayoutAnimation.Types.keyboard,
+                    LayoutAnimation.Properties.opacity
+                ));
+                setKeyboardHeight(e.endCoordinates.height);
+            }
+        );
+
+        const hideSubscription = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            (e) => {
+                LayoutAnimation.configureNext(LayoutAnimation.create(
+                    e.duration || 250,
+                    LayoutAnimation.Types.keyboard,
+                    LayoutAnimation.Properties.opacity
+                ));
+                setKeyboardHeight(0);
+            }
+        );
+
+        return () => {
+            showSubscription.remove();
+            hideSubscription.remove();
+        };
+    }, []);
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -837,7 +852,7 @@ export default function HomeScreen() {
                     </View>
 
                     {/* Input Area */}
-                    <ReanimatedView style={[styles.inputContainer, inputContainerAnimatedStyle]}>
+                    <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]}>
                         <View style={styles.inputWrapper}>
                             <TextInput
                                 style={styles.input}
@@ -860,7 +875,7 @@ export default function HomeScreen() {
                                 )}
                             </TouchableOpacity>
                         </View>
-                    </ReanimatedView>
+                    </View>
 
                     <ProfileModal
                         visible={isProfileModalVisible}
