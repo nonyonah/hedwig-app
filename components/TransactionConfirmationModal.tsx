@@ -258,37 +258,73 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
             );
 
             // Get recent blockhash
-            const { blockhash } = await connection.getLatestBlockhash();
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = new PublicKey(fromAddress);
 
             // Get the Privy provider
             const provider = await wallet.getProvider();
 
-            // Privy's Solana wallet provider uses sendTransaction which handles signing internally
-            // We need to serialize the transaction for the provider
-            const serializedTransaction = transaction.serialize({
-                requireAllSignatures: false,
-                verifySignatures: false
-            });
+            // Privy's Solana provider expects the transaction object directly
+            // Use signAndSendTransaction with the transaction object
+            let signature: string;
 
-            // Convert to base64 for the provider
-            const base64Transaction = Buffer.from(serializedTransaction).toString('base64');
+            try {
+                // Try using the provider's signAndSendTransaction method
+                // Privy expects: { transaction: Transaction } or just the transaction
+                const result = await provider.signAndSendTransaction(transaction);
+                signature = typeof result === 'string' ? result : result.signature;
+            } catch (providerError: any) {
+                console.log('Provider signAndSendTransaction failed, trying request method:', providerError.message);
 
-            // Use provider.request to sign and send via Privy
-            const signature = await provider.request({
-                method: 'signAndSendTransaction',
-                params: {
-                    message: base64Transaction,
-                },
-            });
+                // Fallback: try using provider.request with serialized transaction
+                const serializedTransaction = transaction.serialize({
+                    requireAllSignatures: false,
+                    verifySignatures: false
+                });
+
+                const base64Transaction = Buffer.from(serializedTransaction).toString('base64');
+
+                const result = await provider.request({
+                    method: 'signAndSendTransaction',
+                    params: {
+                        transaction: base64Transaction,
+                    },
+                });
+
+                signature = typeof result === 'string' ? result : (result as any).signature;
+            }
 
             console.log('Solana Transaction Signature:', signature);
 
-            // Wait for confirmation
-            await connection.confirmTransaction(signature as string, 'confirmed');
+            // Wait for confirmation using polling (avoids WebSocket issues)
+            let confirmed = false;
+            let attempts = 0;
+            const maxAttempts = 30;
 
-            return signature as string;
+            while (!confirmed && attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                attempts++;
+
+                try {
+                    const status = await connection.getSignatureStatuses([signature]);
+                    if (status.value[0]) {
+                        const confirmationStatus = status.value[0].confirmationStatus;
+                        if (confirmationStatus === 'confirmed' || confirmationStatus === 'finalized') {
+                            confirmed = true;
+                            console.log('[Solana] Transaction confirmed!', confirmationStatus);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Solana] Confirmation check error:', e);
+                }
+            }
+
+            if (!confirmed) {
+                console.warn('Transaction confirmation timed out, but transaction was sent:', signature);
+            }
+
+            return signature;
         } else {
             // SPL Token transfer (USDC, etc.) - For now, throw not implemented
             throw new Error(`SPL Token transfers (${tokenSymbol}) coming soon. Please use SOL for now.`);

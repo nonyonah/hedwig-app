@@ -7,7 +7,8 @@
     <title>Invoice - Hedwig</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rethink+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
         :root {
@@ -27,7 +28,7 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Rethink Sans', sans-serif;
             background-color: var(--background);
             color: var(--text-primary);
             min-height: 100vh;
@@ -1163,12 +1164,34 @@
                 console.log("[Solana] Transaction sent:", signature);
                 payBtnText.textContent = "Confirming...";
 
-                // Wait for confirmation
-                await solanaConnection.confirmTransaction({
-                    signature,
-                    blockhash,
-                    lastValidBlockHeight
-                });
+                // Wait for confirmation using polling (avoids WebSocket CSP issues)
+                let confirmed = false;
+                let attempts = 0;
+                const maxAttempts = 30; // 30 seconds timeout
+
+                while (!confirmed && attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                    attempts++;
+
+                    try {
+                        const status = await solanaConnection.getSignatureStatuses([signature]);
+                        if (status.value[0]) {
+                            const confirmationStatus = status.value[0].confirmationStatus;
+                            if (confirmationStatus === 'confirmed' || confirmationStatus === 'finalized') {
+                                confirmed = true;
+                                console.log("[Solana] Transaction confirmed!", confirmationStatus);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("[Solana] Confirmation check error:", e);
+                    }
+
+                    payBtnText.textContent = `Confirming... (${attempts}s)`;
+                }
+
+                if (!confirmed) {
+                    throw new Error("Transaction confirmation timed out. Please check Solana Explorer for status.");
+                }
 
                 console.log("[Solana] Transaction confirmed!");
 
