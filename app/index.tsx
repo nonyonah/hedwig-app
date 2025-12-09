@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback } from 'react-native';
-import ReanimatedModule, { useAnimatedKeyboard, useAnimatedStyle, useDerivedValue, KeyboardState as ReanimatedKeyboardState } from 'react-native-reanimated';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback, LayoutAnimation, UIManager } from 'react-native';
+import Reanimated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient'
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -20,7 +20,12 @@ import { ProfileModal } from '../components/ProfileModal';
 import { TransactionConfirmationModal } from '../components/TransactionConfirmationModal';
 import { getUserGradient } from '../utils/gradientUtils';
 
-const ReanimatedView = ReanimatedModule.View;
+// Enable LayoutAnimation for Android fallback
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const ReanimatedView = Reanimated.View;
 
 const { width, height } = Dimensions.get('window');
 
@@ -146,9 +151,10 @@ export default function HomeScreen() {
     const [displayedGreeting, setDisplayedGreeting] = useState('');
     const [isTypingGreeting, setIsTypingGreeting] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
-    // Animated keyboard for smooth input sync
+
+    // Use react-native-reanimated for smooth keyboard sync (requires dev build)
     const keyboard = useAnimatedKeyboard();
-    const inputContainerStyle = useAnimatedStyle(() => {
+    const inputContainerAnimatedStyle = useAnimatedStyle(() => {
         return {
             marginBottom: keyboard.height.value > 0 ? keyboard.height.value : 16,
         };
@@ -389,7 +395,7 @@ export default function HomeScreen() {
         fetchUserProfile();
     }, [user]);
 
-    // Keyboard is now handled by useAnimatedKeyboard hook for smooth sync
+    // Keyboard is handled by useAnimatedKeyboard for smooth native sync
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -831,7 +837,7 @@ export default function HomeScreen() {
                     </View>
 
                     {/* Input Area */}
-                    <ReanimatedView style={[styles.inputContainer, inputContainerStyle]}>
+                    <ReanimatedView style={[styles.inputContainer, inputContainerAnimatedStyle]}>
                         <View style={styles.inputWrapper}>
                             <TextInput
                                 style={styles.input}
