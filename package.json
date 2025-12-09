@@ -24,6 +24,7 @@
     "@reown/appkit-ethers-react-native": "^2.0.1",
     "@reown/appkit-react-native": "^2.0.1",
     "@reown/appkit-solana-react-native": "^2.0.1",
+    "@solana-program/system": "^0.10.0",
     "@walletconnect/react-native-compat": "^2.23.0",
     "@walletconnect/safe-json": "^1.0.2",
     "@web3icons/react": "^4.0.38",

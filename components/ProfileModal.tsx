@@ -60,7 +60,7 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         ]
     },
     {
-        name: 'Solana',
+        name: 'Solana Devnet',
         id: 900, // Solana doesn't really use numeric chain ID like EVM, using placeholder
         icon: NetworkSolana,
         color: '#9945FF',
@@ -72,14 +72,14 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         ]
     },
     {
-        name: 'Celo', // Celo Alfajores
-        id: 44787,
+        name: 'Celo', // Celo Sepolia
+        id: 11142220,
         icon: NetworkCelo,
         color: '#35D07F',
         addressType: 'evm',
         tokens: [
             { symbol: 'CELO', icon: TokenCELO },
-            { symbol: 'cUSD', icon: TokenCUSD }
+            { symbol: 'USDC', icon: TokenUSDC }
         ]
     },
     {
@@ -236,12 +236,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             newBalances['Base_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
-                    } else if (bal.chain === 'celo_alfajores') {
+                    } else if (bal.chain === 'celo_sepolia') {
                         if (bal.asset === 'celo') {
                             newBalances['Celo_CELO'] = parseFloat(bal.display_values?.celo || '0').toFixed(6);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
-                        } else if (bal.asset === 'cusd') {
-                            newBalances['Celo_cUSD'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
+                        } else if (bal.asset === 'usdc') {
+                            newBalances['Celo_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
+                            totalUsd += parseFloat(bal.display_values?.usd || '0');
+                        }
+                    } else if (bal.chain === 'solana_devnet') {
+                        if (bal.asset === 'sol') {
+                            newBalances['Solana Devnet_SOL'] = parseFloat(bal.display_values?.sol || '0').toFixed(6);
+                            totalUsd += parseFloat(bal.display_values?.usd || '0');
+                        } else if (bal.asset === 'usdc') {
+                            newBalances['Solana Devnet_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
                     }
@@ -500,8 +508,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                                     <Text style={styles.menuItemTitle}>{selectedChain.name}</Text>
                                                     <Text style={styles.menuItemSubtitle}>
                                                         {selectedChain.addressType === 'evm'
-                                                            ? (selectedChain.name === 'Base' ? `${parseFloat(balances['Base_ETH'] || '0').toFixed(4)} ETH` : `${parseFloat(balances['Celo_CELO'] || '0').toFixed(4)} CELO`)
-                                                            : '0 SOL'
+                                                            ? (selectedChain.name === 'Base'
+                                                                ? `${parseFloat(balances['Base_ETH'] || '0').toFixed(4)} ETH`
+                                                                : `${parseFloat(balances['Celo_CELO'] || '0').toFixed(4)} CELO`)
+                                                            : `${parseFloat(balances['Solana Devnet_SOL'] || '0').toFixed(4)} SOL`
                                                         }
                                                     </Text>
                                                 </View>
