@@ -40,11 +40,12 @@ app.use(
                 scriptSrc: [
                     "'self'",
                     "'unsafe-inline'", // Needed for inline scripts in HTML
-                    "https://unpkg.com", // Phosphor icons
+                    "https://unpkg.com", // Phosphor icons + Solana web3.js
                     "https://cdnjs.cloudflare.com", // ethers.js and html2pdf.js
                     "https://cdn.tailwindcss.com", // Tailwind CSS
                     "https://cdn.jsdelivr.net", // Marked.js
                     "https://esm.sh", // Reown AppKit ES modules
+                    "https://bundle.run", // Buffer polyfill for Solana
                 ],
                 scriptSrcAttr: ["'unsafe-inline'"], // Allow inline event handlers (onclick, etc.)
                 styleSrc: [
@@ -58,7 +59,18 @@ app.use(
                     "https://fonts.gstatic.com",
                 ],
                 imgSrc: ["'self'", "data:"],
-                connectSrc: ["'self'", "https://cdn.jsdelivr.net", "https://esm.sh"],
+                connectSrc: [
+                    "'self'",
+                    "https://cdn.jsdelivr.net",
+                    "https://esm.sh",
+                    "https://unpkg.com", // Solana web3.js source maps
+                    "https://api.devnet.solana.com", // Solana Devnet RPC
+                    "https://api.mainnet-beta.solana.com", // Solana Mainnet RPC
+                    "https://api.testnet.solana.com", // Solana Testnet RPC
+                    "wss://api.devnet.solana.com", // Solana Devnet WebSocket
+                    "wss://api.mainnet-beta.solana.com", // Solana Mainnet WebSocket
+                    "wss://api.testnet.solana.com", // Solana Testnet WebSocket
+                ],
             },
         },
     })

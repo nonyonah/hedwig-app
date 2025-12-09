@@ -341,6 +341,9 @@
 
     <!-- Ethers.js for EVM chains -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+    <!-- Buffer polyfill for Solana web3.js (required for browser) -->
+    <script src="https://bundle.run/buffer@6.0.3"></script>
+    <script>window.Buffer = window.buffer.Buffer;</script>
     <!-- Solana web3.js for Solana chain -->
     <script src="https://unpkg.com/@solana/web3.js@1.95.4/lib/index.iife.min.js"></script>
     <script>
@@ -413,6 +416,13 @@
                 name: 'Celo',
                 icon: '/assets/icons/tokens/celo.png',
                 isNative: true
+            },
+            {
+                symbol: 'SOL',
+                name: 'Solana',
+                icon: '/assets/icons/networks/solana.png',
+                isNative: true,
+                isSolana: true
             }
         ];
 
@@ -437,13 +447,109 @@
         // SOLANA CONFIGURATION
         // ========================================
         // Platform wallet receives 1% fee on every payment (trustless split)
-        const SOLANA_PLATFORM_WALLET = '8YLKoCu7NwqHNS8GzuvA2ibsvLrsg22YMfMDafxh1B15'; // TODO: Replace with actual platform wallet
+        const SOLANA_PLATFORM_WALLET = '367XwKWueJw99K5b1jpwKhdYMAGgavoiV7oZvCFkv3Xt'; // Platform fee wallet (receives 1%)
         const SOLANA_USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'; // USDC on Solana Devnet
         const LAMPORTS_PER_SOL = 1_000_000_000;
+        const USDC_DECIMALS = 6; // USDC has 6 decimals
+
+        // SPL Token Program IDs
+        const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+        const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
         // Solana connection (Devnet)
         let solanaConnection = null;
         let solanaWallet = null; // Phantom or other Solana wallet
+
+        /**
+         * Derive the Associated Token Account (ATA) address for a wallet and token mint.
+         * This is a deterministic address where SPL tokens are stored.
+         */
+        async function getAssociatedTokenAddress(walletAddress, mintAddress) {
+            const [ata] = await solanaWeb3.PublicKey.findProgramAddress(
+                [
+                    walletAddress.toBuffer(),
+                    TOKEN_PROGRAM_ID.toBuffer(),
+                    mintAddress.toBuffer(),
+                ],
+                ASSOCIATED_TOKEN_PROGRAM_ID
+            );
+            return ata;
+        }
+
+        /**
+         * Create instruction to create an Associated Token Account if it doesn't exist.
+         */
+        function createAssociatedTokenAccountInstruction(
+            payer,
+            associatedToken,
+            owner,
+            mint
+        ) {
+            const keys = [
+                { pubkey: payer, isSigner: true, isWritable: true },
+                { pubkey: associatedToken, isSigner: false, isWritable: true },
+                { pubkey: owner, isSigner: false, isWritable: false },
+                { pubkey: mint, isSigner: false, isWritable: false },
+                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
+                { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+            ];
+
+            return new solanaWeb3.TransactionInstruction({
+                keys,
+                programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+                data: Buffer.alloc(0), // No data needed for create ATA
+            });
+        }
+
+        /**
+         * Create SPL Token transfer instruction.
+         * This transfers tokens from one ATA to another.
+         */
+        function createTokenTransferInstruction(
+            source,      // Source ATA
+            destination, // Destination ATA
+            owner,       // Owner of source ATA (signer)
+            amount       // Amount in smallest units (for USDC: 1 USDC = 1,000,000)
+        ) {
+            // SPL Token transfer instruction layout:
+            // Byte 0: Instruction index (3 = Transfer)
+            // Bytes 1-8: Amount (u64 little-endian)
+            const data = new Uint8Array(9);
+            data[0] = 3; // Transfer instruction
+
+            // Write u64 little-endian using DataView
+            const amountBigInt = BigInt(amount);
+            const view = new DataView(data.buffer);
+            // Split BigInt into two 32-bit parts for compatibility
+            const low = Number(amountBigInt & BigInt(0xFFFFFFFF));
+            const high = Number((amountBigInt >> BigInt(32)) & BigInt(0xFFFFFFFF));
+            view.setUint32(1, low, true);  // little-endian
+            view.setUint32(5, high, true); // little-endian
+
+            const keys = [
+                { pubkey: source, isSigner: false, isWritable: true },
+                { pubkey: destination, isSigner: false, isWritable: true },
+                { pubkey: owner, isSigner: true, isWritable: false },
+            ];
+
+            return new solanaWeb3.TransactionInstruction({
+                keys,
+                programId: TOKEN_PROGRAM_ID,
+                data: data,
+            });
+        }
+
+        /**
+         * Check if an account exists on-chain.
+         */
+        async function accountExists(connection, address) {
+            try {
+                const info = await connection.getAccountInfo(address);
+                return info !== null;
+            } catch {
+                return false;
+            }
+        }
 
         let selectedChain = networks[0];
         let selectedToken = TOKENS[0];
@@ -572,10 +678,10 @@
                 solanaWallet = phantomProvider;
                 userAddress = response.publicKey.toString();
 
-                // Initialize Solana connection to Devnet
+                // Initialize Solana connection to Devnet with CORS-friendly endpoint
                 solanaConnection = new solanaWeb3.Connection(
-                    'https://api.devnet.solana.com',
-                    'confirmed'
+                    solanaWeb3.clusterApiUrl('devnet'),
+                    { commitment: 'confirmed' }
                 );
 
                 payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
@@ -667,6 +773,11 @@
             payBtnText.textContent = "Processing...";
 
             try {
+                // Determine token type
+                const currency = linkData.currency || selectedToken?.symbol || 'USDC';
+                const isNativeSOL = currency === 'SOL';
+                const isUSDC = currency === 'USDC';
+
                 // Get merchant wallet address from link data
                 const merchantAddress = linkData.user?.solana_wallet_address;
                 if (!merchantAddress) {
@@ -677,29 +788,125 @@
                 const merchantPubkey = new solanaWeb3.PublicKey(merchantAddress);
                 const platformPubkey = new solanaWeb3.PublicKey(SOLANA_PLATFORM_WALLET);
 
-                // Get amount (assuming SOL for now - can extend to SPL tokens)
-                const amountInSol = parseFloat(linkData.amount);
+                const amount = parseFloat(linkData.amount);
+                const transaction = new solanaWeb3.Transaction();
 
-                // Verify user has enough balance
-                const balance = await solanaConnection.getBalance(senderPubkey);
-                const requiredLamports = Math.floor(amountInSol * LAMPORTS_PER_SOL);
+                if (isNativeSOL) {
+                    // ========================================
+                    // NATIVE SOL TRANSFER (Split Payment)
+                    // ========================================
+                    console.log("[Solana] Processing native SOL split payment...");
 
-                if (balance < requiredLamports + 10000) { // +10000 for fees
-                    throw new Error(`Insufficient balance. You have ${balance / LAMPORTS_PER_SOL} SOL but need ${amountInSol} SOL plus fees.`);
+                    const totalLamports = BigInt(Math.floor(amount * LAMPORTS_PER_SOL));
+                    const platformFee = totalLamports / BigInt(100); // 1%
+                    const merchantAmount = totalLamports - platformFee; // 99%
+
+                    // Verify user has enough SOL balance
+                    const balance = await solanaConnection.getBalance(senderPubkey);
+                    if (BigInt(balance) < totalLamports + BigInt(10000)) {
+                        throw new Error(`Insufficient SOL balance. You have ${(balance / LAMPORTS_PER_SOL).toFixed(4)} SOL but need ${amount} SOL plus fees.`);
+                    }
+
+                    // Add transfer to merchant (99%)
+                    transaction.add(
+                        solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: senderPubkey,
+                            toPubkey: merchantPubkey,
+                            lamports: merchantAmount
+                        })
+                    );
+
+                    // Add transfer to platform (1%)
+                    transaction.add(
+                        solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: senderPubkey,
+                            toPubkey: platformPubkey,
+                            lamports: platformFee
+                        })
+                    );
+
+                    console.log(`[Solana Split] Merchant: ${merchantAmount} lamports, Platform: ${platformFee} lamports`);
+
+                } else if (isUSDC) {
+                    // ========================================
+                    // SPL TOKEN (USDC) TRANSFER (Split Payment)
+                    // ========================================
+                    console.log("[Solana] Processing USDC SPL Token split payment...");
+                    payBtnText.textContent = "Preparing USDC transfer...";
+
+                    const mintPubkey = new solanaWeb3.PublicKey(SOLANA_USDC_MINT);
+
+                    // Convert amount to smallest units (USDC has 6 decimals)
+                    const totalTokenAmount = BigInt(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
+                    const platformFee = totalTokenAmount / BigInt(100); // 1%
+                    const merchantAmount = totalTokenAmount - platformFee; // 99%
+
+                    console.log(`[Solana USDC Split] Total: ${totalTokenAmount}, Merchant: ${merchantAmount}, Platform: ${platformFee}`);
+
+                    // Get Associated Token Accounts for all parties
+                    const senderATA = await getAssociatedTokenAddress(senderPubkey, mintPubkey);
+                    const merchantATA = await getAssociatedTokenAddress(merchantPubkey, mintPubkey);
+                    const platformATA = await getAssociatedTokenAddress(platformPubkey, mintPubkey);
+
+                    console.log("[Solana] ATAs:", {
+                        sender: senderATA.toString(),
+                        merchant: merchantATA.toString(),
+                        platform: platformATA.toString()
+                    });
+
+                    // Check if merchant ATA exists, create if not
+                    if (!(await accountExists(solanaConnection, merchantATA))) {
+                        console.log("[Solana] Creating merchant ATA...");
+                        transaction.add(
+                            createAssociatedTokenAccountInstruction(
+                                senderPubkey, // Payer
+                                merchantATA,
+                                merchantPubkey,
+                                mintPubkey
+                            )
+                        );
+                    }
+
+                    // Check if platform ATA exists, create if not
+                    if (!(await accountExists(solanaConnection, platformATA))) {
+                        console.log("[Solana] Creating platform ATA...");
+                        transaction.add(
+                            createAssociatedTokenAccountInstruction(
+                                senderPubkey, // Payer
+                                platformATA,
+                                platformPubkey,
+                                mintPubkey
+                            )
+                        );
+                    }
+
+                    // Add USDC transfer to merchant (99%)
+                    transaction.add(
+                        createTokenTransferInstruction(
+                            senderATA,
+                            merchantATA,
+                            senderPubkey,
+                            merchantAmount
+                        )
+                    );
+
+                    // Add USDC transfer to platform (1%)
+                    transaction.add(
+                        createTokenTransferInstruction(
+                            senderATA,
+                            platformATA,
+                            senderPubkey,
+                            platformFee
+                        )
+                    );
+
+                } else {
+                    throw new Error(`${currency} is not supported on Solana. Please use SOL or USDC.`);
                 }
 
-                console.log("[Solana] Creating split payment transaction...");
-                payBtnText.textContent = "Creating transaction...";
-
-                // Create the atomic split payment transaction
-                const transaction = createSolanaSplitPaymentTransaction(
-                    senderPubkey,
-                    merchantPubkey,
-                    platformPubkey,
-                    amountInSol
-                );
-
                 // Get recent blockhash for transaction
+                console.log("[Solana] Getting blockhash...");
+                payBtnText.textContent = "Creating transaction...";
                 const { blockhash, lastValidBlockHeight } = await solanaConnection.getLatestBlockhash();
                 transaction.recentBlockhash = blockhash;
                 transaction.feePayer = senderPubkey;
@@ -755,7 +962,7 @@
 
             } catch (error) {
                 console.error("[Solana] Payment error:", error);
-                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken?.symbol || 'USDC'}`;
                 alert(`Payment failed: ${error.message}`);
             } finally {
                 payBtn.disabled = false;
