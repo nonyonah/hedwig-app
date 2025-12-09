@@ -249,7 +249,9 @@ export default function HomeScreen() {
 
             const data = await response.json();
             if (data.success) {
-                setConversations(data.data.conversations);
+                // Handle both { data: [...] } and { data: { conversations: [...] } }
+                const conversationsList = data.data.conversations || data.data;
+                setConversations(Array.isArray(conversationsList) ? conversationsList : []);
             }
         } catch (error) {
             console.error('Failed to fetch conversations:', error);

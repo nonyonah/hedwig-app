@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
 import { List, Chat, MagnifyingGlass, Plus } from 'phosphor-react-native';
@@ -22,10 +22,12 @@ export default function ChatsScreen() {
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
 
-    useEffect(() => {
-        fetchConversations();
-        fetchUserProfile();
-    }, [user]);
+    useFocusEffect(
+        useCallback(() => {
+            fetchConversations();
+            fetchUserProfile();
+        }, [user])
+    );
 
     const fetchUserProfile = async () => {
         try {
