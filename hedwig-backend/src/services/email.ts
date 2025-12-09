@@ -1,21 +1,7 @@
 
-import nodemailer from 'nodemailer';
-import * as aws from '@aws-sdk/client-ses';
+import { Resend } from 'resend';
 
-// Initialize SES Client
-const ses = new aws.SES({
-    apiVersion: '2010-12-01',
-    region: process.env.AWS_REGION || 'us-east-1',
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-    }
-});
-
-// Create Nodemailer transporter
-const transporter = nodemailer.createTransport({
-    SES: { ses, aws },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const SHARED_STYLES = `
     body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; }
@@ -46,13 +32,12 @@ interface EmailData {
 
 export const EmailService = {
     async sendInvoiceEmail(data: EmailData) {
-        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-            console.warn('AWS credentials are not set. Skipping email sending.');
+        if (!process.env.RESEND_API_KEY) {
+            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
             return;
         }
 
         const invoiceUrl = `https://hedwig.app/invoice/${data.linkId}`;
-        const fromEmail = process.env.AWS_SES_FROM_EMAIL || 'noreply@hedwig.app';
 
         const html = `
         <!DOCTYPE html>
@@ -90,9 +75,9 @@ export const EmailService = {
         `;
 
         try {
-            await transporter.sendMail({
-                from: `Hedwig <${fromEmail}>`,
-                to: data.to,
+            await resend.emails.send({
+                from: 'Hedwig <noreply@resend.dev>', // Update this with a verified domain if user has one
+                to: [data.to],
                 subject: `New Invoice from ${data.senderName}`,
                 html: html,
             });
@@ -103,13 +88,12 @@ export const EmailService = {
     },
 
     async sendPaymentLinkEmail(data: EmailData) {
-        if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-            console.warn('AWS credentials are not set. Skipping email sending.');
+        if (!process.env.RESEND_API_KEY) {
+            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
             return;
         }
 
         const paymentUrl = `https://hedwig.app/pay/${data.linkId}`;
-        const fromEmail = process.env.AWS_SES_FROM_EMAIL || 'noreply@hedwig.app';
 
         const html = `
         <!DOCTYPE html>
@@ -148,9 +132,9 @@ export const EmailService = {
         `;
 
         try {
-            await transporter.sendMail({
-                from: `Hedwig <${fromEmail}>`,
-                to: data.to,
+            await resend.emails.send({
+                from: 'Hedwig <noreply@resend.dev>',
+                to: [data.to],
                 subject: `Payment Request from ${data.senderName}`,
                 html: html,
             });
