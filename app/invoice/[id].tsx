@@ -6,9 +6,9 @@ import '@walletconnect/react-native-compat';
 import { AppKitProvider, useAppKit, useAccount, useProvider } from '@reown/appkit-react-native';
 import { paymentAppKit } from '../../lib/appkit';
 import { ethers } from 'ethers';
-import { ArrowLeft, CheckCircle, Copy, DownloadSimple, Wallet } from 'phosphor-react-native';
+import { CheckCircle, DownloadSimple, Wallet } from 'phosphor-react-native';
 import { Colors } from '../../theme/colors';
-import { Typography } from '../../styles/typography';
+import { Button } from '../../components/Button';
 
 // Mock data for chains and tokens (replace with actual data/icons later)
 const CHAINS = [
@@ -172,8 +172,8 @@ function InvoiceContent() {
                     {/* Header */}
                     <View style={styles.cardHeader}>
                         <Text style={styles.invoiceNumber}>INV-{invoice.id.slice(0, 8).toUpperCase()}</Text>
-                        <TouchableOpacity>
-                            <DownloadSimple size={20} color={Colors.textSecondary} />
+                        <TouchableOpacity style={styles.downloadButton}>
+                            <DownloadSimple size={18} color={Colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
 
@@ -198,7 +198,7 @@ function InvoiceContent() {
 
                     {/* Amount */}
                     <View style={styles.amountContainer}>
-                        <Text style={styles.amountLabel}>Amount</Text>
+                        <Text style={styles.amountLabel}>Amount Due</Text>
                         <Text style={styles.amountValue}>${invoice.amount.toFixed(2)}</Text>
                         {content.due_date && (
                             <Text style={styles.dueDate}>Due {content.due_date}</Text>
@@ -251,7 +251,7 @@ function InvoiceContent() {
 
                 {/* Payment Section */}
                 <View style={styles.paymentSection}>
-                    {/* Chain & Token Display (Read-only) */}
+                    {/* Network & Token Display */}
                     <View style={styles.selectorsRow}>
                         <View style={styles.selectorBadge}>
                             <Image source={selectedChain.icon} style={styles.selectorIcon} />
@@ -262,35 +262,27 @@ function InvoiceContent() {
                             <Text style={styles.selectorText}>{selectedToken.symbol}</Text>
                         </View>
                     </View>
-                    <Text style={{ textAlign: 'center', color: Colors.textSecondary, fontSize: 12, marginBottom: 16 }}>
+                    <Text style={styles.networkNotice}>
                         Supports Base & Celo (More networks coming soon)
                     </Text>
 
                     {/* Pay Button */}
-                    <TouchableOpacity
-                        style={styles.payButton}
+                    <Button
+                        title={isPaying ? '' : (!isConnected ? 'Connect Wallet' : `Pay $${total.toFixed(2)}`)}
                         onPress={handlePay}
+                        variant="primary"
+                        size="large"
+                        loading={isPaying}
                         disabled={isPaying}
-                    >
-                        {isPaying ? (
-                            <ActivityIndicator color="#FFF" />
-                        ) : !isConnected ? (
-                            <>
-                                <Wallet size={20} color="#FFF" weight="fill" style={{ marginRight: 8 }} />
-                                <Text style={styles.payButtonText}>Connect Wallet</Text>
-                            </>
-                        ) : (
-                            <Text style={styles.payButtonText}>Pay ${total.toFixed(2)}</Text>
-                        )}
-                    </TouchableOpacity>
+                        icon={!isConnected && !isPaying ? <Wallet size={20} color="#FFF" weight="fill" /> : undefined}
+                    />
                 </View>
 
                 <View style={styles.footer}>
+                    <CheckCircle size={16} color={Colors.textSecondary} weight="fill" />
                     <Text style={styles.footerText}>Secured by Hedwig</Text>
                 </View>
             </ScrollView>
-
-
         </SafeAreaView>
     );
 }
@@ -298,7 +290,7 @@ function InvoiceContent() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F3F4F6', // Light gray background like the image
+        backgroundColor: '#F8FAFC',
     },
     loadingContainer: {
         flex: 1,
@@ -311,13 +303,13 @@ const styles = StyleSheet.create({
     },
     card: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 16,
+        borderRadius: 32,
         padding: 24,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 4,
         marginBottom: 24,
     },
     cardHeader: {
@@ -330,17 +322,21 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F3F4F6',
     },
     invoiceNumber: {
-        ...Typography.h4,
-        color: Colors.textSecondary,
+        fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 14,
-        fontWeight: '600',
+        color: Colors.textSecondary,
+    },
+    downloadButton: {
+        padding: 8,
+        backgroundColor: '#F3F4F6',
+        borderRadius: 20,
     },
     partiesContainer: {
         flexDirection: 'row',
-        marginBottom: 32,
+        marginBottom: 24,
+        paddingBottom: 24,
         borderBottomWidth: 1,
         borderBottomColor: '#F3F4F6',
-        paddingBottom: 24,
     },
     partyColumn: {
         flex: 1,
@@ -351,33 +347,45 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
     },
     partyLabel: {
-        ...Typography.caption,
-        marginBottom: 4,
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 12,
+        color: Colors.textSecondary,
+        marginBottom: 6,
     },
     partyName: {
-        ...Typography.body,
-        fontWeight: '600',
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 15,
+        color: Colors.textPrimary,
         marginBottom: 2,
     },
     partyEmail: {
-        ...Typography.caption,
+        fontFamily: 'RethinkSans_400Regular',
         fontSize: 12,
+        color: Colors.textSecondary,
     },
     amountContainer: {
-        marginBottom: 32,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 20,
+        padding: 20,
+        alignItems: 'center',
+        marginBottom: 24,
     },
     amountLabel: {
-        ...Typography.caption,
-        marginBottom: 4,
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 13,
+        color: Colors.textSecondary,
+        marginBottom: 6,
     },
     amountValue: {
-        ...Typography.h3,
-        fontSize: 32,
-        fontWeight: '700',
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 36,
+        color: Colors.textPrimary,
         marginBottom: 4,
     },
     dueDate: {
-        ...Typography.caption,
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 13,
+        color: Colors.textSecondary,
     },
     itemsContainer: {
         marginBottom: 24,
@@ -388,27 +396,30 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     itemsHeaderLabel: {
-        ...Typography.caption,
-        fontWeight: '600',
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 11,
+        color: Colors.textSecondary,
         letterSpacing: 0.5,
     },
     itemRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 8,
+        paddingVertical: 10,
     },
     itemName: {
-        ...Typography.body,
-        fontWeight: '500',
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 14,
+        color: Colors.textPrimary,
     },
     itemPrice: {
-        ...Typography.body,
-        fontWeight: '600',
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 14,
+        color: Colors.textPrimary,
     },
     divider: {
         height: 1,
-        backgroundColor: '#F3F4F6',
-        marginBottom: 24,
+        backgroundColor: '#E5E7EB',
+        marginBottom: 20,
     },
     summaryContainer: {
         gap: 12,
@@ -418,174 +429,84 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     summaryLabel: {
-        ...Typography.body,
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 14,
         color: Colors.textSecondary,
     },
     summaryValue: {
-        ...Typography.body,
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 14,
         color: Colors.textSecondary,
     },
     totalRow: {
         marginTop: 12,
         paddingTop: 12,
         borderTopWidth: 1,
-        borderTopColor: '#F3F4F6',
+        borderTopColor: '#E5E7EB',
     },
     totalLabel: {
-        ...Typography.body,
-        fontWeight: '600',
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 15,
+        color: Colors.textPrimary,
     },
     totalValue: {
-        ...Typography.body,
-        fontWeight: '600',
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 15,
+        color: Colors.textPrimary,
     },
     paymentSection: {
-        gap: 16,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
     },
     selectorsRow: {
         flexDirection: 'row',
         gap: 12,
-        marginBottom: 24,
+        marginBottom: 12,
     },
     selectorBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F3F4F6',
+        backgroundColor: '#F8FAFC',
         paddingVertical: 8,
-        paddingHorizontal: 12,
+        paddingHorizontal: 14,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: '#E5E7EB',
     },
     selectorIcon: {
-        width: 20,
-        height: 20,
+        width: 18,
+        height: 18,
         marginRight: 8,
-        borderRadius: 10,
+        borderRadius: 9,
     },
     selectorText: {
-        ...Typography.body,
-        fontWeight: '500',
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 13,
         color: Colors.textPrimary,
     },
-    payButton: {
-        backgroundColor: Colors.primary,
-        borderRadius: 12,
-        height: 56,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    payButtonText: {
-        ...Typography.button,
-        fontWeight: '600',
-        fontSize: 18,
+    networkNotice: {
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 12,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+        marginBottom: 16,
     },
     footer: {
-        marginTop: 32,
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 24,
+        gap: 6,
     },
     footerText: {
-        ...Typography.caption,
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 13,
         color: Colors.textSecondary,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        paddingBottom: 17,
-        paddingHorizontal: 11,
-    },
-    modalContent: {
-        width: '100%',
-        maxWidth: 418,
-        height: 477,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 50,
-        borderWidth: 1,
-        borderColor: '#fafafa',
-        padding: 24,
-        paddingBottom: 40,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: '600',
-        color: Colors.textPrimary,
-        marginBottom: 24,
-        textAlign: 'center',
-    },
-    modalLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: Colors.textPrimary,
-        marginBottom: 12,
-        marginTop: 16,
-    },
-    optionsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    optionCard: {
-        flex: 1,
-        minWidth: '45%',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: Colors.border,
-        backgroundColor: Colors.surface,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    optionCardSelected: {
-        borderColor: Colors.primary,
-        backgroundColor: `${Colors.primary}10`,
-    },
-    optionIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        marginBottom: 8,
-    },
-    optionText: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: Colors.textPrimary,
-    },
-    modalButtons: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 24,
-    },
-    modalButton: {
-        flex: 1,
-        height: 48,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    modalButtonPrimary: {
-        backgroundColor: Colors.primary,
-    },
-    modalButtonSecondary: {
-        backgroundColor: Colors.surface,
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    modalButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#FFF',
-    },
-    modalButtonTextSecondary: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: Colors.textPrimary,
     },
 });

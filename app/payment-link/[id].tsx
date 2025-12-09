@@ -6,9 +6,9 @@ import '@walletconnect/react-native-compat';
 import { AppKitProvider, useAppKit, useAccount, useProvider } from '@reown/appkit-react-native';
 import { paymentAppKit } from '../../lib/appkit';
 import { ethers } from 'ethers';
-import { Wallet } from 'phosphor-react-native';
+import { Wallet, CheckCircle } from 'phosphor-react-native';
 import { Colors } from '../../theme/colors';
-import { Typography } from '../../styles/typography';
+import { Button } from '../../components/Button';
 
 // Mock data for chains and tokens (replace with actual data/icons later)
 const CHAINS = [
@@ -174,57 +174,64 @@ function PaymentLinkContent() {
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.card}>
-                    <Text style={styles.headerTitle}>Payment Link</Text>
+                    {/* Header */}
+                    <View style={styles.headerSection}>
+                        <Text style={styles.headerTitle}>Payment Request</Text>
+                        <Text style={styles.headerSubtitle}>Complete your payment securely</Text>
+                    </View>
 
+                    {/* Amount Display */}
+                    <View style={styles.amountContainer}>
+                        <Text style={styles.amountLabel}>Amount Due</Text>
+                        <Text style={styles.amountValue}>{document.amount} {document.currency}</Text>
+                    </View>
+
+                    {/* Details Section */}
                     <View style={styles.detailsContainer}>
                         <View style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>Sold by</Text>
+                            <Text style={styles.detailLabel}>From</Text>
                             <Text style={styles.detailValue}>
                                 {document.user?.first_name && document.user?.last_name
                                     ? `${document.user.first_name} ${document.user.last_name}`
                                     : document.user?.email || 'Hedwig User'}
                             </Text>
                         </View>
+                        <View style={styles.divider} />
                         <View style={styles.detailRow}>
                             <Text style={styles.detailLabel}>For</Text>
                             <Text style={styles.detailValue}>{document.title || 'Services'}</Text>
                         </View>
-                        <View style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>Price</Text>
-                            <Text style={styles.detailValue}>{document.amount} {document.currency}</Text>
-                        </View>
+                        <View style={styles.divider} />
                         <View style={styles.detailRow}>
                             <Text style={styles.detailLabel}>Network</Text>
-                            <View style={styles.selectorBadge}>
-                                <Image source={selectedChain.icon} style={styles.selectorIcon} />
-                                <Text style={styles.selectorText}>{selectedChain.name}</Text>
+                            <View style={styles.networkBadge}>
+                                <Image source={selectedChain.icon} style={styles.networkIcon} />
+                                <Text style={styles.networkText}>{selectedChain.name}</Text>
                             </View>
                         </View>
-                        <Text style={{ textAlign: 'center', color: Colors.textSecondary, fontSize: 12, marginBottom: 16 }}>
-                            Supports Base & Celo (More networks coming soon)
-                        </Text>
                     </View>
 
                     {/* Pay Button */}
-                    <TouchableOpacity
-                        style={styles.payButton}
-                        onPress={handlePay}
-                        disabled={isPaying}
-                    >
-                        {isPaying ? (
-                            <ActivityIndicator color="#FFF" />
-                        ) : !isConnected ? (
-                            <>
-                                <Wallet size={20} color="#FFF" weight="fill" style={{ marginRight: 8 }} />
-                                <Text style={styles.payButtonText}>Connect Wallet</Text>
-                            </>
-                        ) : (
-                            <Text style={styles.payButtonText}>Pay {document.amount} {document.currency}</Text>
-                        )}
-                    </TouchableOpacity>
+                    <View style={styles.buttonContainer}>
+                        <Button
+                            title={isPaying ? '' : (!isConnected ? 'Connect Wallet' : `Pay ${document.amount} ${document.currency}`)}
+                            onPress={handlePay}
+                            variant="primary"
+                            size="large"
+                            loading={isPaying}
+                            disabled={isPaying}
+                            icon={!isConnected && !isPaying ? <Wallet size={20} color="#FFF" weight="fill" /> : undefined}
+                        />
+                    </View>
+
+                    {/* Network Notice */}
+                    <Text style={styles.networkNotice}>
+                        Supports Base & Celo (More networks coming soon)
+                    </Text>
                 </View>
 
                 <View style={styles.footer}>
+                    <CheckCircle size={16} color={Colors.textSecondary} weight="fill" />
                     <Text style={styles.footerText}>Secured by Hedwig</Text>
                 </View>
             </ScrollView>
@@ -235,7 +242,7 @@ function PaymentLinkContent() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F3F4F6', // Light gray background
+        backgroundColor: '#F8FAFC',
     },
     loadingContainer: {
         flex: 1,
@@ -249,113 +256,119 @@ const styles = StyleSheet.create({
     },
     card: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 32,
+        borderRadius: 32,
+        padding: 28,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-        alignItems: 'center',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 4,
         width: '100%',
         maxWidth: 500,
+        alignSelf: 'center',
+    },
+    headerSection: {
+        alignItems: 'center',
+        marginBottom: 24,
     },
     headerTitle: {
-        ...Typography.h3,
-        fontWeight: '700',
-        marginBottom: 32,
-        textAlign: 'center',
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 22,
+        color: Colors.textPrimary,
+        marginBottom: 6,
+    },
+    headerSubtitle: {
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 14,
+        color: Colors.textSecondary,
+    },
+    amountContainer: {
+        alignItems: 'center',
+        backgroundColor: '#F8FAFC',
+        paddingVertical: 20,
+        paddingHorizontal: 24,
+        borderRadius: 20,
+        marginBottom: 24,
+    },
+    amountLabel: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 13,
+        color: Colors.textSecondary,
+        marginBottom: 6,
+    },
+    amountValue: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 32,
+        color: Colors.textPrimary,
     },
     detailsContainer: {
-        width: '100%',
-        gap: 16,
-        marginBottom: 32,
+        backgroundColor: '#FAFAFA',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 24,
     },
     detailRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingVertical: 12,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#E5E7EB',
     },
     detailLabel: {
-        ...Typography.body,
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 14,
         color: Colors.textSecondary,
     },
     detailValue: {
-        ...Typography.body,
-        fontWeight: '500',
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 14,
         color: Colors.textPrimary,
+        maxWidth: '60%',
+        textAlign: 'right',
     },
-    priceContainer: {
+    networkBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-    },
-    tokenIconSmall: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-    },
-    networkContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    networkIconSmall: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-    },
-    payButton: {
-        backgroundColor: Colors.primary,
-        borderRadius: 12,
-        height: 56,
-        width: '100%',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    payButtonText: {
-        ...Typography.button,
-        fontWeight: '600',
-        fontSize: 16,
-    },
-    footer: {
-        marginTop: 32,
-        alignItems: 'center',
-    },
-    footerText: {
-        ...Typography.caption,
-        color: Colors.textSecondary,
-        fontWeight: '500',
-    },
-    selectorBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#F3F4F6',
-        paddingVertical: 8,
+        backgroundColor: '#FFFFFF',
+        paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: '#E5E7EB',
     },
-    selectorIcon: {
-        width: 20,
-        height: 20,
-        marginRight: 8,
-        borderRadius: 10,
+    networkIcon: {
+        width: 18,
+        height: 18,
+        marginRight: 6,
+        borderRadius: 9,
     },
-    selectorText: {
-        ...Typography.body,
-        fontWeight: '500',
+    networkText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 13,
         color: Colors.textPrimary,
     },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    buttonContainer: {
+        marginBottom: 16,
+    },
+    networkNotice: {
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 12,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+    },
+    footer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 24,
+        gap: 6,
+    },
+    footerText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 13,
+        color: Colors.textSecondary,
     },
 });
