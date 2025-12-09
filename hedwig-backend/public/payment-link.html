@@ -339,8 +339,10 @@
         </div>
     </div>
 
-    <!-- Ethers.js -->
+    <!-- Ethers.js for EVM chains -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+    <!-- Solana web3.js for Solana chain -->
+    <script src="https://unpkg.com/@solana/web3.js@1.95.4/lib/index.iife.min.js"></script>
     <script>
         // Data & Configuration
         const networks = [
@@ -428,8 +430,20 @@
 
         const HEDWIG_CONTRACTS = {
             base: "0x1c0A0eFBb438cc7705b947644F6AB88698b2704F", // HedwigPayment on Base Sepolia
-            celo: "0xF1c485Ba184262F1EAC91584f6B26fdcaa3F794a"  // TODO: Deploy HedwigPayment to Celo Alfajores
+            celo: "0xF1c485Ba184262F1EAC91584f6B26fdcaa3F794a"  // HedwigPayment on Celo Alfajores
         };
+
+        // ========================================
+        // SOLANA CONFIGURATION
+        // ========================================
+        // Platform wallet receives 1% fee on every payment (trustless split)
+        const SOLANA_PLATFORM_WALLET = '8YLKoCu7NwqHNS8GzuvA2ibsvLrsg22YMfMDafxh1B15'; // TODO: Replace with actual platform wallet
+        const SOLANA_USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'; // USDC on Solana Devnet
+        const LAMPORTS_PER_SOL = 1_000_000_000;
+
+        // Solana connection (Devnet)
+        let solanaConnection = null;
+        let solanaWallet = null; // Phantom or other Solana wallet
 
         let selectedChain = networks[0];
         let selectedToken = TOKENS[0];
@@ -537,6 +551,214 @@
             } else {
                 alert("Please install MetaMask or another Web3 wallet!");
                 return false;
+            }
+        }
+
+        // ========================================
+        // SOLANA WALLET CONNECTION
+        // ========================================
+        async function connectSolanaWallet() {
+            // Check for Phantom or other Solana wallets
+            const phantomProvider = window.solana || window.phantom?.solana;
+
+            if (!phantomProvider) {
+                alert("Please install Phantom wallet or another Solana wallet!");
+                return false;
+            }
+
+            try {
+                // Request connection
+                const response = await phantomProvider.connect();
+                solanaWallet = phantomProvider;
+                userAddress = response.publicKey.toString();
+
+                // Initialize Solana connection to Devnet
+                solanaConnection = new solanaWeb3.Connection(
+                    'https://api.devnet.solana.com',
+                    'confirmed'
+                );
+
+                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                payBtn.onclick = processSolanaPayment;
+
+                console.log("[Solana] Connected wallet:", userAddress);
+                return true;
+            } catch (error) {
+                console.error("Failed to connect Solana wallet:", error);
+                alert("Failed to connect Solana wallet");
+                return false;
+            }
+        }
+
+        // ========================================
+        // SOLANA SPLIT PAYMENT TRANSACTION
+        // ========================================
+        /**
+         * Creates an ATOMIC split payment transaction on Solana.
+         * 
+         * WHY THIS IS TRUSTLESS FOR THE MERCHANT:
+         * - Both transfers are bundled in a SINGLE transaction
+         * - If either transfer fails, the ENTIRE transaction fails (atomic)
+         * - The merchant can verify on-chain that funds move in the same tx
+         * - No intermediary holds funds - money goes directly to merchant + platform
+         * - Uses native SystemProgram - no custom smart contract needed
+         * 
+         * @param senderPublicKey - The payer's public key
+         * @param merchantPublicKey - The merchant's wallet (receives 99%)
+         * @param platformPublicKey - The platform fee wallet (receives 1%)
+         * @param totalAmountInSol - Total amount in SOL to split
+         * @returns Transaction ready to be signed
+         */
+        function createSolanaSplitPaymentTransaction(
+            senderPublicKey,
+            merchantPublicKey,
+            platformPublicKey,
+            totalAmountInSol
+        ) {
+            // Convert SOL to lamports (1 SOL = 1,000,000,000 lamports)
+            // Using BigInt for precision to avoid floating point errors
+            const totalLamports = BigInt(Math.floor(totalAmountInSol * LAMPORTS_PER_SOL));
+
+            // Calculate split amounts using integer math to prevent dust loss
+            // Platform gets exactly 1%, merchant gets the remainder (99%)
+            // Using BigInt division ensures no floating point precision issues
+            const platformFee = totalLamports / BigInt(100); // 1%
+            const merchantAmount = totalLamports - platformFee; // 99% (remainder)
+
+            console.log(`[Solana Split] Total: ${totalLamports} lamports`);
+            console.log(`[Solana Split] Merchant (99%): ${merchantAmount} lamports`);
+            console.log(`[Solana Split] Platform (1%): ${platformFee} lamports`);
+
+            // Create the transaction with two transfer instructions
+            // BOTH must succeed or BOTH fail - this is the atomic guarantee
+            const transaction = new solanaWeb3.Transaction();
+
+            // Instruction 1: Transfer 99% to Merchant
+            transaction.add(
+                solanaWeb3.SystemProgram.transfer({
+                    fromPubkey: senderPublicKey,
+                    toPubkey: merchantPublicKey,
+                    lamports: merchantAmount
+                })
+            );
+
+            // Instruction 2: Transfer 1% to Platform
+            transaction.add(
+                solanaWeb3.SystemProgram.transfer({
+                    fromPubkey: senderPublicKey,
+                    toPubkey: platformPublicKey,
+                    lamports: platformFee
+                })
+            );
+
+            return transaction;
+        }
+
+        // ========================================
+        // SOLANA PAYMENT PROCESSING
+        // ========================================
+        async function processSolanaPayment() {
+            if (!solanaWallet || !linkData || !solanaConnection) {
+                console.error("[Solana] Missing wallet, link data, or connection");
+                return;
+            }
+
+            payBtn.disabled = true;
+            payBtnText.textContent = "Processing...";
+
+            try {
+                // Get merchant wallet address from link data
+                const merchantAddress = linkData.user?.solana_wallet_address;
+                if (!merchantAddress) {
+                    throw new Error("Merchant Solana wallet address not found");
+                }
+
+                const senderPubkey = new solanaWeb3.PublicKey(userAddress);
+                const merchantPubkey = new solanaWeb3.PublicKey(merchantAddress);
+                const platformPubkey = new solanaWeb3.PublicKey(SOLANA_PLATFORM_WALLET);
+
+                // Get amount (assuming SOL for now - can extend to SPL tokens)
+                const amountInSol = parseFloat(linkData.amount);
+
+                // Verify user has enough balance
+                const balance = await solanaConnection.getBalance(senderPubkey);
+                const requiredLamports = Math.floor(amountInSol * LAMPORTS_PER_SOL);
+
+                if (balance < requiredLamports + 10000) { // +10000 for fees
+                    throw new Error(`Insufficient balance. You have ${balance / LAMPORTS_PER_SOL} SOL but need ${amountInSol} SOL plus fees.`);
+                }
+
+                console.log("[Solana] Creating split payment transaction...");
+                payBtnText.textContent = "Creating transaction...";
+
+                // Create the atomic split payment transaction
+                const transaction = createSolanaSplitPaymentTransaction(
+                    senderPubkey,
+                    merchantPubkey,
+                    platformPubkey,
+                    amountInSol
+                );
+
+                // Get recent blockhash for transaction
+                const { blockhash, lastValidBlockHeight } = await solanaConnection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = senderPubkey;
+
+                console.log("[Solana] Requesting signature from wallet...");
+                payBtnText.textContent = "Confirm in wallet...";
+
+                // Sign and send transaction via wallet
+                const { signature } = await solanaWallet.signAndSendTransaction(transaction);
+
+                console.log("[Solana] Transaction sent:", signature);
+                payBtnText.textContent = "Confirming...";
+
+                // Wait for confirmation
+                await solanaConnection.confirmTransaction({
+                    signature,
+                    blockhash,
+                    lastValidBlockHeight
+                });
+
+                console.log("[Solana] Transaction confirmed!");
+
+                // Update backend
+                try {
+                    const apiUrl = window.location.hostname === 'localhost'
+                        ? 'http://localhost:3000'
+                        : window.location.origin;
+
+                    await fetch(`${apiUrl}/api/documents/${linkData.id}/pay`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            txHash: signature,
+                            chain: 'solana',
+                            payer: userAddress
+                        })
+                    });
+                } catch (apiError) {
+                    console.warn("Failed to update backend:", apiError);
+                }
+
+                // Show success
+                payBtnText.textContent = "✓ Payment Complete!";
+                payBtn.style.backgroundColor = '#10B981';
+
+                // Show explorer link
+                setTimeout(() => {
+                    const explorerUrl = `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
+                    if (confirm(`Payment successful! View transaction on Solana Explorer?`)) {
+                        window.open(explorerUrl, '_blank');
+                    }
+                }, 500);
+
+            } catch (error) {
+                console.error("[Solana] Payment error:", error);
+                payBtnText.textContent = `Pay ${linkData.amount} ${selectedToken.symbol}`;
+                alert(`Payment failed: ${error.message}`);
+            } finally {
+                payBtn.disabled = false;
             }
         }
 
@@ -687,12 +909,25 @@
             }
         };
 
-        // Event Listeners
+        // Event Listeners - detect chain type and use appropriate wallet/payment
         payBtn.onclick = async () => {
+            // Check if selected chain is Solana
+            const isSolana = selectedChain.isSolana || selectedChain.id === 'solana';
+
             if (!userAddress) {
-                await connectWallet();
+                // Connect wallet based on chain type
+                if (isSolana) {
+                    await connectSolanaWallet();
+                } else {
+                    await connectWallet();
+                }
             } else {
-                processPayment();
+                // Process payment based on chain type
+                if (isSolana) {
+                    processSolanaPayment();
+                } else {
+                    processPayment();
+                }
             }
         };
 
