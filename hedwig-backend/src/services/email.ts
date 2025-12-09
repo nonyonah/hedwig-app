@@ -31,10 +31,10 @@ interface EmailData {
 }
 
 export const EmailService = {
-    async sendInvoiceEmail(data: EmailData) {
+    async sendInvoiceEmail(data: EmailData): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
             console.warn('RESEND_API_KEY is not set. Skipping email sending.');
-            return;
+            return false;
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
@@ -83,15 +83,17 @@ export const EmailService = {
                 html: html,
             });
             console.log(`[EmailService] Invoice email sent to ${data.to}`);
+            return true;
         } catch (error) {
             console.error('[EmailService] Simple invoice email failed:', error);
+            return false;
         }
     },
 
-    async sendPaymentLinkEmail(data: EmailData) {
+    async sendPaymentLinkEmail(data: EmailData): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
             console.warn('RESEND_API_KEY is not set. Skipping email sending.');
-            return;
+            return false;
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
@@ -141,8 +143,10 @@ export const EmailService = {
                 html: html,
             });
             console.log(`[EmailService] Payment link email sent to ${data.to}`);
+            return true;
         } catch (error) {
             console.error('[EmailService] Payment link email failed:', error);
+            return false;
         }
     }
 };

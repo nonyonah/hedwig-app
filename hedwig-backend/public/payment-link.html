@@ -359,6 +359,15 @@
                 chainId: 44787,
                 rpcUrl: 'https://alfajores-forno.celo-testnet.org',
                 explorer: 'https://alfajores.celoscan.io'
+            },
+            {
+                id: 'solana',
+                name: 'Solana Devnet',
+                icon: '/assets/icons/networks/solana.png',
+                chainId: null, // Solana is not an EVM chain
+                rpcUrl: 'https://api.devnet.solana.com',
+                explorer: 'https://explorer.solana.com?cluster=devnet',
+                isSolana: true
             }
         ];
 
@@ -487,7 +496,7 @@
 
             // Try to match chain from doc
             const chainId = (doc.chain || 'BASE').toLowerCase();
-            const foundChain = CHAINS.find(c => c.id === chainId);
+            const foundChain = networks.find(c => c.id === chainId);
             if (foundChain) {
                 selectedChain = foundChain;
             }
@@ -664,7 +673,7 @@
         }
 
         window.selectChain = (id) => {
-            selectedChain = CHAINS.find(c => c.id === id);
+            selectedChain = networks.find(c => c.id === id);
             document.getElementById('network').textContent = selectedChain.name;
             document.getElementById('network-icon').src = selectedChain.icon;
         };

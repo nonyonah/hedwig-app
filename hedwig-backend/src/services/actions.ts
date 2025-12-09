@@ -176,7 +176,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         const recipientEmail = params.recipient_email || params.client_email;
         if (recipientEmail) {
             const senderName = userData.first_name ? `${userData.first_name} ${userData.last_name || ''}`.trim() : 'A Hedwig User';
-            await EmailService.sendPaymentLinkEmail({
+            emailSent = await EmailService.sendPaymentLinkEmail({
                 to: recipientEmail,
                 senderName,
                 amount: amount.toString(),
@@ -185,7 +185,6 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
                 linkId: doc.id,
                 network: chain
             });
-            emailSent = true;
         }
 
         return {
@@ -269,7 +268,7 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
         let emailSent = false;
         if (clientEmail) {
             const senderName = userData.first_name ? `${userData.first_name} ${userData.last_name || ''}`.trim() : 'A Hedwig User';
-            await EmailService.sendInvoiceEmail({
+            emailSent = await EmailService.sendInvoiceEmail({
                 to: clientEmail,
                 senderName,
                 amount: totalAmount.toString(),
@@ -277,7 +276,6 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
                 description: items.length === 1 ? items[0].description : `${items.length} items`,
                 linkId: doc.id
             });
-            emailSent = true;
         }
 
         // Generate response with item breakdown
