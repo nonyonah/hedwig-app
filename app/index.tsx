@@ -166,7 +166,7 @@ export default function HomeScreen() {
     useEffect(() => {
         Animated.timing(sidebarAnim, {
             toValue: isSidebarOpen ? 0 : -width * 0.8,
-            duration: 300,
+            duration: 250,
             useNativeDriver: true,
         }).start();
     }, [isSidebarOpen]);
@@ -178,13 +178,13 @@ export default function HomeScreen() {
             Animated.parallel([
                 Animated.timing(walletModalOpacity, {
                     toValue: 1,
-                    duration: 200,
+                    duration: 150,
                     useNativeDriver: true,
                 }),
                 Animated.spring(walletModalAnim, {
                     toValue: 0,
-                    damping: 20,
-                    stiffness: 90,
+                    damping: 28,
+                    stiffness: 280,
                     useNativeDriver: true,
                 })
             ]).start();
@@ -192,13 +192,13 @@ export default function HomeScreen() {
             Animated.parallel([
                 Animated.timing(walletModalOpacity, {
                     toValue: 0,
-                    duration: 150,
+                    duration: 100,
                     useNativeDriver: true,
                 }),
                 Animated.spring(walletModalAnim, {
                     toValue: height,
-                    damping: 20,
-                    stiffness: 90,
+                    damping: 28,
+                    stiffness: 280,
                     useNativeDriver: true,
                 })
             ]).start(() => {
@@ -214,21 +214,21 @@ export default function HomeScreen() {
             quickActionsOpacity.setValue(1); // Overlay appears instantly
             Animated.spring(quickActionsAnim, {
                 toValue: 0,
-                damping: 20,
-                stiffness: 90,
+                damping: 28,
+                stiffness: 280,
                 useNativeDriver: true,
             }).start();
         } else {
             Animated.parallel([
                 Animated.timing(quickActionsOpacity, {
                     toValue: 0,
-                    duration: 150,
+                    duration: 100,
                     useNativeDriver: true,
                 }),
                 Animated.spring(quickActionsAnim, {
                     toValue: height,
-                    damping: 20,
-                    stiffness: 90,
+                    damping: 28,
+                    stiffness: 280,
                     useNativeDriver: true,
                 })
             ]).start(() => {
@@ -677,8 +677,8 @@ export default function HomeScreen() {
             // Start animation
             Animated.timing(messageAnimations[item.id], {
                 toValue: 1,
-                duration: 400,
-                delay: index * 50, // Stagger animation
+                duration: 200,
+                delay: index * 30, // Stagger animation
                 useNativeDriver: true,
             }).start();
         }

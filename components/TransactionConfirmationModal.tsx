@@ -8,7 +8,20 @@ import { Colors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL, clusterApiUrl } from '@solana/web3.js';
+import {
+    Connection,
+    PublicKey,
+    Transaction,
+    TransactionInstruction,
+    SystemProgram,
+    LAMPORTS_PER_SOL,
+    clusterApiUrl
+} from '@solana/web3.js';
+
+// SPL Token Program IDs
+const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+const USDC_DECIMALS = 6;
 
 const { height } = Dimensions.get('window');
 
@@ -190,13 +203,13 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 1,
-                    duration: 150,
+                    duration: 120,
                     useNativeDriver: true,
                 }),
                 Animated.spring(modalAnim, {
                     toValue: 0,
-                    damping: 25,
-                    stiffness: 300,
+                    damping: 28,
+                    stiffness: 350,
                     useNativeDriver: true,
                 })
             ]).start();
@@ -204,13 +217,13 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 0,
-                    duration: 100,
+                    duration: 80,
                     useNativeDriver: true,
                 }),
                 Animated.spring(modalAnim, {
                     toValue: height,
-                    damping: 25,
-                    stiffness: 300,
+                    damping: 28,
+                    stiffness: 350,
                     useNativeDriver: true,
                 })
             ]).start(() => {
@@ -265,36 +278,19 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
             // Get the Privy provider
             const provider = await wallet.getProvider();
 
-            // Privy's Solana provider expects the transaction object directly
-            // Use signAndSendTransaction with the transaction object
-            let signature: string;
+            console.log('[Solana] Sending transaction via Privy provider...');
 
-            try {
-                // Try using the provider's signAndSendTransaction method
-                // Privy expects: { transaction: Transaction } or just the transaction
-                const result = await provider.signAndSendTransaction(transaction);
-                signature = typeof result === 'string' ? result : result.signature;
-            } catch (providerError: any) {
-                console.log('Provider signAndSendTransaction failed, trying request method:', providerError.message);
+            // Privy's EmbeddedSolanaWalletProvider expects:
+            // request({ method: 'signAndSendTransaction', params: { transaction, connection } })
+            const result = await provider.request({
+                method: 'signAndSendTransaction',
+                params: {
+                    transaction: transaction,
+                    connection: connection,
+                },
+            });
 
-                // Fallback: try using provider.request with serialized transaction
-                const serializedTransaction = transaction.serialize({
-                    requireAllSignatures: false,
-                    verifySignatures: false
-                });
-
-                const base64Transaction = Buffer.from(serializedTransaction).toString('base64');
-
-                const result = await provider.request({
-                    method: 'signAndSendTransaction',
-                    params: {
-                        transaction: base64Transaction,
-                    },
-                });
-
-                signature = typeof result === 'string' ? result : (result as any).signature;
-            }
-
+            const signature = result.signature;
             console.log('Solana Transaction Signature:', signature);
 
             // Wait for confirmation using polling (avoids WebSocket issues)
@@ -326,8 +322,131 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
 
             return signature;
         } else {
-            // SPL Token transfer (USDC, etc.) - For now, throw not implemented
-            throw new Error(`SPL Token transfers (${tokenSymbol}) coming soon. Please use SOL for now.`);
+            // ========================================
+            // SPL TOKEN (USDC) TRANSFER
+            // ========================================
+            console.log('[Solana] Processing SPL Token transfer...');
+
+            const mintAddress = TOKEN_ADDRESSES.solana.USDC;
+            if (!mintAddress) {
+                throw new Error(`${tokenSymbol} is not supported on Solana`);
+            }
+
+            const mintPubkey = new PublicKey(mintAddress);
+            const senderPubkey = new PublicKey(fromAddress);
+            const recipientPubkey = new PublicKey(data.recipient);
+
+            // Convert amount to smallest units (USDC has 6 decimals)
+            const amount = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, USDC_DECIMALS)));
+
+            console.log(`[Solana] Transferring ${amount} ${tokenSymbol} units`);
+
+            // Derive Associated Token Accounts
+            const [senderATA] = await PublicKey.findProgramAddress(
+                [senderPubkey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintPubkey.toBuffer()],
+                ASSOCIATED_TOKEN_PROGRAM_ID
+            );
+            const [recipientATA] = await PublicKey.findProgramAddress(
+                [recipientPubkey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintPubkey.toBuffer()],
+                ASSOCIATED_TOKEN_PROGRAM_ID
+            );
+
+            console.log('[Solana] ATAs:', { sender: senderATA.toString(), recipient: recipientATA.toString() });
+
+            const transaction = new Transaction();
+
+            // Check if recipient ATA exists, create if not
+            const recipientATAInfo = await connection.getAccountInfo(recipientATA);
+            if (!recipientATAInfo) {
+                console.log('[Solana] Creating recipient ATA...');
+                // Create Associated Token Account instruction
+                transaction.add(
+                    new TransactionInstruction({
+                        keys: [
+                            { pubkey: senderPubkey, isSigner: true, isWritable: true },
+                            { pubkey: recipientATA, isSigner: false, isWritable: true },
+                            { pubkey: recipientPubkey, isSigner: false, isWritable: false },
+                            { pubkey: mintPubkey, isSigner: false, isWritable: false },
+                            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+                            { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+                        ],
+                        programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+                        data: Buffer.alloc(0),
+                    })
+                );
+            }
+
+            // Create SPL Token transfer instruction
+            // Instruction layout: byte 0 = 3 (Transfer), bytes 1-8 = amount (u64 LE)
+            const transferData = Buffer.alloc(9);
+            transferData.writeUInt8(3, 0); // Transfer instruction
+            // Write u64 little-endian
+            const low = Number(amount & BigInt(0xFFFFFFFF));
+            const high = Number((amount >> BigInt(32)) & BigInt(0xFFFFFFFF));
+            transferData.writeUInt32LE(low, 1);
+            transferData.writeUInt32LE(high, 5);
+
+            transaction.add(
+                new TransactionInstruction({
+                    keys: [
+                        { pubkey: senderATA, isSigner: false, isWritable: true },
+                        { pubkey: recipientATA, isSigner: false, isWritable: true },
+                        { pubkey: senderPubkey, isSigner: true, isWritable: false },
+                    ],
+                    programId: TOKEN_PROGRAM_ID,
+                    data: transferData,
+                })
+            );
+
+            // Get recent blockhash
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = senderPubkey;
+
+            // Get the Privy provider and send transaction
+            const provider = await wallet.getProvider();
+
+            console.log('[Solana] Sending SPL Token transaction via Privy provider...');
+
+            const result = await provider.request({
+                method: 'signAndSendTransaction',
+                params: {
+                    transaction: transaction,
+                    connection: connection,
+                },
+            });
+
+            const signature = result.signature;
+            console.log('Solana SPL Token Transaction Signature:', signature);
+
+            // Wait for confirmation using polling
+            let confirmed = false;
+            let attempts = 0;
+            const maxAttempts = 30;
+
+            while (!confirmed && attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                attempts++;
+
+                try {
+                    const status = await connection.getSignatureStatuses([signature]);
+                    if (status.value[0]) {
+                        const confirmationStatus = status.value[0].confirmationStatus;
+                        if (confirmationStatus === 'confirmed' || confirmationStatus === 'finalized') {
+                            confirmed = true;
+                            console.log('[Solana] SPL Token Transaction confirmed!', confirmationStatus);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Solana] Confirmation check error:', e);
+                }
+            }
+
+            if (!confirmed) {
+                console.warn('Transaction confirmation timed out, but transaction was sent:', signature);
+            }
+
+            return signature;
         }
     };
 

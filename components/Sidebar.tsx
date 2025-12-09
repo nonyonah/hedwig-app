@@ -43,13 +43,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             setIsVisible(true);
             Animated.timing(animValue, {
                 toValue: 1,
-                duration: 300,
+                duration: 250,
                 useNativeDriver: true,
             }).start();
         } else {
             Animated.timing(animValue, {
                 toValue: 0,
-                duration: 300,
+                duration: 250,
                 useNativeDriver: true,
             }).start(() => {
                 setIsVisible(false);
