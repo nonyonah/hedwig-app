@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, User } from 'phosphor-react-native';
 import { Colors } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Button } from '../../components/Button';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -99,17 +100,14 @@ export default function ProfileScreen() {
 
                 <View style={{ flex: 1 }} />
 
-                <TouchableOpacity
-                    style={[styles.button, (!name.trim() || loading) && styles.buttonDisabled]}
+                <Button
+                    title="Save Profile"
                     onPress={handleSave}
+                    variant="primary"
+                    size="large"
+                    loading={loading}
                     disabled={!name.trim() || loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                        <Text style={styles.buttonText}>Save Profile</Text>
-                    )}
-                </TouchableOpacity>
+                />
                 <View style={{ height: insets.bottom + 20 }} />
             </KeyboardAvoidingView>
         </View>
@@ -126,14 +124,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     title: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 28,
         color: Colors.textPrimary,
         marginBottom: 8,
         marginTop: 40,
     },
     subtitle: {
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         fontSize: 16,
         color: Colors.textSecondary,
         marginBottom: 32,
@@ -142,7 +140,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     label: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 8,
@@ -153,26 +151,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 16,
         fontSize: 16,
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         color: Colors.textPrimary,
     },
     textArea: {
         height: 100,
         paddingTop: 16,
-    },
-    button: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 16,
-        borderRadius: 30,
-        alignItems: 'center',
-    },
-    buttonDisabled: {
-        backgroundColor: '#9CA3AF',
-        opacity: 0.7,
-    },
-    buttonText: {
-        fontFamily: 'Merriweather_700Bold',
-        fontSize: 16,
-        color: '#FFFFFF',
     },
 });

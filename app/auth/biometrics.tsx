@@ -7,6 +7,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet, usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../theme/colors';
+import { Button } from '../../components/Button';
 
 export default function BiometricsScreen() {
     const router = useRouter();
@@ -292,29 +293,23 @@ export default function BiometricsScreen() {
                 <View style={{ flex: 1 }} />
 
                 <View style={styles.footer}>
-                    <TouchableOpacity
-                        style={[styles.primaryButton, (isEnableLoading || isLaterLoading) && styles.buttonDisabled]}
+                    <Button
+                        title="Enable Face ID"
                         onPress={handleEnable}
+                        variant="primary"
+                        size="large"
+                        loading={isEnableLoading}
                         disabled={isEnableLoading || isLaterLoading}
-                    >
-                        {isEnableLoading ? (
-                            <ActivityIndicator color="#FFFFFF" />
-                        ) : (
-                            <Text style={styles.primaryButtonText}>Enable Face ID</Text>
-                        )}
-                    </TouchableOpacity>
+                    />
 
-                    <TouchableOpacity
-                        style={[styles.secondaryButton, (isEnableLoading || isLaterLoading) && styles.buttonDisabled]}
+                    <Button
+                        title="Maybe later"
                         onPress={handleLater}
+                        variant="secondary"
+                        size="large"
+                        loading={isLaterLoading}
                         disabled={isEnableLoading || isLaterLoading}
-                    >
-                        {isLaterLoading ? (
-                            <ActivityIndicator color="#111827" />
-                        ) : (
-                            <Text style={styles.secondaryButtonText}>Maybe later</Text>
-                        )}
-                    </TouchableOpacity>
+                    />
                 </View>
                 <View style={{ height: insets.bottom + 20 }} />
             </View>
@@ -353,13 +348,13 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     title: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 28,
         color: Colors.textPrimary,
         textAlign: 'center',
     },
     subtitle: {
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         fontSize: 16,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -368,36 +363,6 @@ const styles = StyleSheet.create({
     },
     footer: {
         width: '100%',
-        gap: 16,
-    },
-    primaryButton: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 18,
-        borderRadius: 30,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    primaryButtonText: {
-        fontFamily: 'Merriweather_700Bold',
-        fontSize: 16,
-        color: '#FFFFFF',
-    },
-    secondaryButton: {
-        paddingVertical: 16,
-        borderRadius: 30,
-        alignItems: 'center',
-        backgroundColor: '#F3F4F6',
-    },
-    secondaryButtonText: {
-        fontFamily: 'Merriweather_700Bold',
-        fontSize: 16,
-        color: '#111827',
-    },
-    buttonDisabled: {
-        opacity: 0.7,
+        gap: 12,
     },
 });

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'phosphor-react-native';
 import { Colors } from '../../theme/colors';
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
+import { Button } from '../../components/Button';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -123,17 +124,14 @@ export default function LoginScreen() {
 
                         <View style={{ flex: 1 }} />
 
-                        <TouchableOpacity
-                            style={[styles.button, (!email || loading) && styles.buttonDisabled]}
+                        <Button
+                            title="Next"
                             onPress={handleSendCode}
+                            variant="primary"
+                            size="large"
+                            loading={loading}
                             disabled={!email || loading}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color="#FFFFFF" />
-                            ) : (
-                                <Text style={styles.buttonText}>Next</Text>
-                            )}
-                        </TouchableOpacity>
+                        />
                     </>
                 ) : (
                     <>
@@ -171,17 +169,14 @@ export default function LoginScreen() {
 
                         <View style={{ flex: 1 }} />
 
-                        <TouchableOpacity
-                            style={[styles.button, (code.length !== 6 || loading) && styles.buttonDisabled]}
+                        <Button
+                            title="Next"
                             onPress={handleVerify}
+                            variant="primary"
+                            size="large"
+                            loading={loading}
                             disabled={code.length !== 6 || loading}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color="#FFFFFF" />
-                            ) : (
-                                <Text style={styles.buttonText}>Next</Text>
-                            )}
-                        </TouchableOpacity>
+                        />
                     </>
                 )}
                 <View style={{ height: insets.bottom + 20 }} />
@@ -208,13 +203,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     title: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 28,
         color: Colors.textPrimary,
         marginBottom: 8,
     },
     subtitle: {
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         fontSize: 16,
         color: Colors.textSecondary,
         marginBottom: 32,
@@ -226,7 +221,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 16,
         fontSize: 16,
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         color: Colors.textPrimary,
     },
     codeContainer: {
@@ -249,7 +244,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
     },
     codeText: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 24,
         color: Colors.textPrimary,
     },
@@ -265,25 +260,5 @@ const styles = StyleSheet.create({
         left: 24,
         right: 24,
         height: 60,
-    },
-    button: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 16,
-        borderRadius: 30,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    buttonDisabled: {
-        backgroundColor: '#9CA3AF',
-        shadowOpacity: 0,
-    },
-    buttonText: {
-        fontFamily: 'Merriweather_700Bold',
-        fontSize: 16,
-        color: '#FFFFFF',
     },
 });

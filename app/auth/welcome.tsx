@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sparkle } from 'phosphor-react-native';
+import { Button } from '../../components/Button';
 
 const { width } = Dimensions.get('window');
 
@@ -66,13 +67,12 @@ export default function WelcomeScreen() {
                 </View>
 
                 {/* Bottom Button */}
-                <TouchableOpacity
-                    style={styles.button}
+                <Button
+                    title="Get Started"
                     onPress={() => router.push('/auth/login')}
-                    activeOpacity={0.8}
-                >
-                    <Text style={styles.buttonText}>Get Started</Text>
-                </TouchableOpacity>
+                    variant="primary"
+                    size="large"
+                />
             </View>
         </View>
     );
@@ -136,12 +136,12 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     logoText: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 20,
         color: Colors.textSecondary,
     },
     title: {
-        fontFamily: 'Merriweather_700Bold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 36,
         color: Colors.textPrimary,
         textAlign: 'center',
@@ -149,25 +149,8 @@ const styles = StyleSheet.create({
         lineHeight: 44,
     },
     subtitle: {
-        fontFamily: 'Merriweather_400Regular',
+        fontFamily: 'RethinkSans_400Regular',
         fontSize: 32,
         textAlign: 'center',
-    },
-    button: {
-        width: '100%',
-        backgroundColor: Colors.primary,
-        paddingVertical: 18,
-        borderRadius: 30,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 5,
-    },
-    buttonText: {
-        fontFamily: 'Merriweather_700Bold',
-        fontSize: 18,
-        color: '#FFFFFF',
     },
 });

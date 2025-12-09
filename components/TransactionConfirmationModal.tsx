@@ -80,7 +80,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
     const solanaWallet = useEmbeddedSolanaWallet();
 
     const evmWallets = (ethereumWallet as any)?.wallets || [];
-    const solWallet = (solanaWallet as any)?.wallet;
+    const solanaWallets = (solanaWallet as any)?.wallets || [];
 
     const [modalState, setModalState] = useState<ModalState>('confirm');
     const [txHash, setTxHash] = useState<string | null>(null);
@@ -225,13 +225,12 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
     const handleSolanaTransaction = async () => {
         if (!data) throw new Error('No transaction data');
 
-        const solWalletAny = solanaWallet as any;
-        if (!solWalletAny?.wallet) {
-            throw new Error('Solana wallet not available');
+        if (!solanaWallets || solanaWallets.length === 0) {
+            throw new Error('Solana wallet not available. Please create a Solana wallet first.');
         }
 
-        const wallet = solWalletAny.wallet;
-        const fromAddress = wallet.address;
+        const wallet = solanaWallets[0];
+        const fromAddress = (wallet as any).address;
         if (!fromAddress) {
             throw new Error('No Solana wallet address');
         }
@@ -547,9 +546,11 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                         <XCircle size={120} color={Colors.error || '#EF4444'} weight="fill" style={{ marginBottom: 24 }} />
                         <Text style={styles.statusTitle}>Transaction failed. Don't worry your funds are safe.</Text>
                         <Text style={styles.errorMessage}>{statusMessage}</Text>
-                        <TouchableOpacity style={styles.closeButtonMain} onPress={onClose}>
-                            <Text style={styles.closeButtonText}>Close</Text>
-                        </TouchableOpacity>
+                        <View style={styles.actionButtonsContainer}>
+                            <TouchableOpacity style={styles.closeButtonMain} onPress={onClose}>
+                                <Text style={styles.closeButtonText}>Close</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 );
             default: // 'confirm'
