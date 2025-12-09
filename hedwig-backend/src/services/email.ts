@@ -1,7 +1,7 @@
 
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend lazily inside functions to ensure env vars are loaded
 
 const SHARED_STYLES = `
     body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; }
@@ -37,6 +37,7 @@ export const EmailService = {
             return;
         }
 
+        const resend = new Resend(process.env.RESEND_API_KEY);
         const invoiceUrl = `https://hedwig.app/invoice/${data.linkId}`;
 
         const html = `
@@ -93,6 +94,7 @@ export const EmailService = {
             return;
         }
 
+        const resend = new Resend(process.env.RESEND_API_KEY);
         const paymentUrl = `https://hedwig.app/pay/${data.linkId}`;
 
         const html = `
