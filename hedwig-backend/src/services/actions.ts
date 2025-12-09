@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { EmailService } from './email';
 
 export interface ActionParams {
     [key: string]: any;
@@ -142,10 +143,10 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         if (network.includes('arbitrum')) chain = 'ARBITRUM'; // Note: ARBITRUM not in enum yet, defaulting to BASE or need to add it
         if (network.includes('optimism')) chain = 'OPTIMISM'; // Note: OPTIMISM not in enum yet
 
-        // Get internal user ID
+        // Get internal user ID and details
         const { data: userData } = await supabase
             .from('users')
-            .select('id')
+            .select('id, first_name, last_name')
             .eq('privy_id', user.privyId)
             .single();
 
@@ -170,8 +171,25 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         if (error) throw error;
         console.log('[Actions] Created document:', doc);
 
+        // Send email if recipient provided
+        let emailSent = false;
+        const recipientEmail = params.recipient_email || params.client_email;
+        if (recipientEmail) {
+            const senderName = userData.first_name ? `${userData.first_name} ${userData.last_name || ''}`.trim() : 'A Hedwig User';
+            await EmailService.sendPaymentLinkEmail({
+                to: recipientEmail,
+                senderName,
+                amount: amount.toString(),
+                currency: token,
+                description,
+                linkId: doc.id,
+                network: chain
+            });
+            emailSent = true;
+        }
+
         return {
-            text: `Done! I've created a payment link for ${amount} ${token}${description && description !== 'Payment' ? ` for ${description}` : ''}. Here's the link: /payment-link/${doc.id}\n\nYou can share this with your client to collect payment.`,
+            text: `Done! I've created a payment link for ${amount} ${token}${description && description !== 'Payment' ? ` for ${description}` : ''}. Here's the link: /payment-link/${doc.id}\n\nYou can share this with your client to collect payment.${emailSent ? `\n\n✅ I also sent the link to ${recipientEmail}.` : ''}`,
             data: { documentId: doc.id, type: 'PAYMENT_LINK' }
         };
     } catch (error) {
@@ -218,7 +236,7 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
         // Get internal user ID
         const { data: userData } = await supabase
             .from('users')
-            .select('id')
+            .select('id, first_name, last_name')
             .eq('privy_id', user.privyId)
             .single();
 
@@ -247,6 +265,21 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
         if (error) throw error;
         console.log('[Actions] Created invoice:', doc);
 
+        // Send email if recipient provided
+        let emailSent = false;
+        if (clientEmail) {
+            const senderName = userData.first_name ? `${userData.first_name} ${userData.last_name || ''}`.trim() : 'A Hedwig User';
+            await EmailService.sendInvoiceEmail({
+                to: clientEmail,
+                senderName,
+                amount: totalAmount.toString(),
+                currency: 'USD', // Invoices currently default to USD in main flow logic, though chain is stored
+                description: items.length === 1 ? items[0].description : `${items.length} items`,
+                linkId: doc.id
+            });
+            emailSent = true;
+        }
+
         // Generate response with item breakdown
         const itemsList = items.map(item => `  • ${item.description}${item.quantity > 1 ? ` (x${item.quantity})` : ''}: $${item.amount * item.quantity}`).join('\n');
         const itemsText = items.length > 1
@@ -254,7 +287,7 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
             : `\n\n📄 ${items[0].description}: $${totalAmount}`;
 
         return {
-            text: `Perfect! I've created an invoice for ${clientName}.${itemsText}\n\nView invoice: /invoice/${doc.id}\n\nYou can send this to ${clientEmail || clientName} to request payment.`,
+            text: `Perfect! I've created an invoice for ${clientName}.${itemsText}\n\nView invoice: /invoice/${doc.id}\n\nYou can send this to ${clientEmail || clientName} to request payment.${emailSent ? `\n\n✅ I also sent the invoice to ${clientEmail}.` : ''}`,
             data: { documentId: doc.id, type: 'INVOICE' }
         };
     } catch (error) {

@@ -48,7 +48,11 @@ AVAILABLE INTENTS & TRIGGERS:
 
 1. CREATE_PAYMENT_LINK
    ⚠️ CRITICAL: Use ONLY when user provides BOTH amount AND network
-   Parameters: { amount, token, network, for, description }
+   Parameters: { amount, token, network, for, description, recipient_email }
+   
+   **INSTRUCTIONS:**
+   - Extract 'recipient_email' if provided (e.g., "send to bob@email.com")
+   - 'recipient_email' is OPTIONAL but recommended for auto-sending.
    
    **STRICT REQUIREMENTS TO USE THIS INTENT:**
    ✅ MUST have amount (e.g., "50", "100")
