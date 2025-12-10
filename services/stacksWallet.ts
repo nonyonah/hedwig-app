@@ -7,16 +7,14 @@
 
 import * as SecureStore from 'expo-secure-store';
 import { generateSecretKey, generateWallet, getStxAddress } from '@stacks/wallet-sdk';
-import { StacksTestnet } from '@stacks/network';
-import { TransactionVersion } from '@stacks/transactions';
+import { STACKS_TESTNET } from '@stacks/network';
 
 // Secure storage keys
 const STACKS_SEED_KEY = 'hedwig_stacks_seed';
 const STACKS_ADDRESS_KEY = 'hedwig_stacks_address';
 
 // Network configuration - using testnet
-const STACKS_NETWORK = new StacksTestnet();
-const TRANSACTION_VERSION = TransactionVersion.Testnet;
+const STACKS_NETWORK = STACKS_TESTNET;
 
 export interface StacksWalletInfo {
     address: string;
@@ -55,10 +53,8 @@ export async function generateStacksWallet(): Promise<StacksWalletInfo | null> {
 
         // Get the first account's address
         const account = wallet.accounts[0];
-        const address = getStxAddress({
-            account,
-            transactionVersion: TRANSACTION_VERSION,
-        });
+        // Use the new API - pass account and network
+        const address = getStxAddress(account, 'testnet');
 
         // Store seed phrase securely (never exposed to user)
         await SecureStore.setItemAsync(STACKS_SEED_KEY, secretKey, {
@@ -72,7 +68,7 @@ export async function generateStacksWallet(): Promise<StacksWalletInfo | null> {
 
         return {
             address,
-            publicKey: account.stxPublicKey,
+            publicKey: (account as any).stxPublicKey,
         };
     } catch (error) {
         console.error('[StacksWallet] Error generating wallet:', error);
