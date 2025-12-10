@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, View } from 'react-native';
+import { Image, View, Text } from 'react-native';
 import { CurrencyNgn, CurrencyDollar } from 'phosphor-react-native';
 
 // Network icon images
@@ -131,5 +131,26 @@ export const TokenCUSD = (props: any) => (
 export const TokenCNGN = (props: any) => (
     <View style={{ width: props.width || 32, height: props.height || 32, borderRadius: (props.width || 32) / 2, backgroundColor: '#008751', justifyContent: 'center', alignItems: 'center' }}>
         <CurrencyNgn size={(props.width || 32) * 0.6} color="white" weight="bold" />
+    </View>
+);
+
+// --- Bitcoin Network ---
+export const NetworkBitcoin = (props: any) => (
+    <View style={{ width: props.width || 24, height: props.height || 24, borderRadius: (props.width || 24) / 2, backgroundColor: '#F7931A', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: (props.width || 24) * 0.5 }}>₿</Text>
+    </View>
+);
+
+// --- Bitcoin Token ---
+export const TokenBTC = (props: any) => (
+    <View style={{ width: props.width || 32, height: props.height || 32, borderRadius: (props.width || 32) / 2, backgroundColor: '#F7931A', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: (props.width || 32) * 0.5 }}>₿</Text>
+    </View>
+);
+
+// --- Stacks Token ---
+export const TokenSTX = (props: any) => (
+    <View style={{ width: props.width || 32, height: props.height || 32, borderRadius: (props.width || 32) / 2, backgroundColor: '#5546FF', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: (props.width || 32) * 0.4 }}>STX</Text>
     </View>
 );

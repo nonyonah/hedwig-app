@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { PrivyClient } from '@privy-io/node';
 import { AppError } from '../middleware/errorHandler';
+import { supabase } from '../lib/supabase';
 import { createPublicClient, http, formatEther, formatUnits, defineChain } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { Connection, PublicKey, LAMPORTS_PER_SOL, clusterApiUrl } from '@solana/web3.js';
@@ -319,6 +320,67 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                 asset: 'usdc',
                 raw_value: '0',
                 display_values: { token: '0', usd: '0' }
+            });
+        }
+
+        // ========== STACKS TESTNET (Bitcoin L2) ==========
+        // Stacks wallet is generated client-side using Stacks.js
+        // Look up the address from our database (stored by client after generation)
+
+        // Get user from database to check for stacks address
+        const { data: userData } = await supabase
+            .from('users')
+            .select('stacks_wallet_address')
+            .eq('privy_id', userId)
+            .single();
+
+        const stacksAddress = userData?.stacks_wallet_address as string | undefined;
+        console.log('[Wallet] Found Stacks address:', stacksAddress);
+
+        if (stacksAddress) {
+            // Fetch STX balance from Stacks Testnet API
+            try {
+                const stacksResponse = await fetch(
+                    `https://stacks-node-api.testnet.stacks.co/extended/v1/address/${stacksAddress}/balances`
+                );
+
+                if (stacksResponse.ok) {
+                    const stacksData = await stacksResponse.json() as { stx?: { balance?: string } };
+                    // Balance is in microSTX, convert to STX
+                    const balanceInMicroSTX = BigInt(stacksData.stx?.balance || '0');
+                    const balanceInSTX = Number(balanceInMicroSTX) / 1_000_000;
+
+                    balances.push({
+                        chain: 'bitcoin_testnet',
+                        asset: 'stx',
+                        raw_value: stacksData.stx?.balance || '0',
+                        display_values: { stx: balanceInSTX.toFixed(6), usd: '0.00' }
+                    });
+                    console.log('[Wallet] Stacks STX balance:', balanceInSTX);
+                } else {
+                    balances.push({
+                        chain: 'bitcoin_testnet',
+                        asset: 'stx',
+                        raw_value: '0',
+                        display_values: { stx: '0', usd: '0.00' }
+                    });
+                }
+            } catch (e: any) {
+                console.log('[Wallet] Stacks STX balance error:', e.message);
+                balances.push({
+                    chain: 'bitcoin_testnet',
+                    asset: 'stx',
+                    raw_value: '0',
+                    display_values: { stx: '0', usd: '0.00' }
+                });
+            }
+        } else {
+            console.log('[Wallet] No Stacks wallet found, returning zero balance');
+            balances.push({
+                chain: 'bitcoin_testnet',
+                asset: 'stx',
+                raw_value: '0',
+                display_values: { stx: '0', usd: '0.00' }
             });
         }
 

@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Camera, User, Smiley } from 'phosphor-react-native';
+import { Camera, Check, CaretLeft } from 'phosphor-react-native';
 import { Colors } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Button } from '../../components/Button';
+import * as ImagePicker from 'expo-image-picker';
+import { getUserGradient } from '../../utils/gradientUtils';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-// Profile icon options - emojis
-const EMOJI_OPTIONS = ['😊', '🚀', '💼', '⭐', '🎯', '💡', '🔥', '✨', '🎨', '💪', '🌟', '👋'];
-
-// Profile color gradient options
-const COLOR_OPTIONS: readonly [string, string, string][] = [
+// Profile color gradient options (Luma Style)
+const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
     ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
     ['#34D399', '#10B981', '#059669'], // Green
     ['#F472B6', '#EC4899', '#DB2777'], // Pink
@@ -25,18 +23,20 @@ const COLOR_OPTIONS: readonly [string, string, string][] = [
     ['#FB923C', '#F97316', '#EA580C'], // Orange
 ] as const;
 
-type IconType = 'emoji' | 'color';
-
 export default function ProfileScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { email } = useLocalSearchParams<{ email: string }>();
+    const { getAccessToken, user } = usePrivy();
+
+    // State
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
-    const [iconType, setIconType] = useState<IconType>('emoji');
-    const [selectedEmoji, setSelectedEmoji] = useState('😊');
-    const [selectedColorIndex, setSelectedColorIndex] = useState(0);
-    const { getAccessToken, user } = usePrivy();
+    const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
+
+    // View Mode for Emoji Picker
+    const [viewMode, setViewMode] = useState<'main' | 'emoji'>('main');
+    const [showImageOptions, setShowImageOptions] = useState(false);
 
     // Check if user already exists and pre-fill data
     useEffect(() => {
@@ -47,34 +47,60 @@ export default function ProfileScreen() {
         try {
             const token = await getAccessToken();
             const response = await fetch(`${API_URL}/api/auth/me`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.data?.user) {
                     const existingUser = data.data.user;
-                    // Pre-fill name if exists
-                    if (existingUser.first_name) {
-                        const fullName = existingUser.last_name
-                            ? `${existingUser.first_name} ${existingUser.last_name}`
-                            : existingUser.first_name;
+                    // Pre-fill name
+                    if (existingUser.firstName) {
+                        const fullName = existingUser.lastName
+                            ? `${existingUser.firstName} ${existingUser.lastName}`
+                            : existingUser.firstName;
                         setName(fullName);
                     }
-                    // Pre-fill profile icon if exists
-                    if (existingUser.profile_emoji) {
-                        setSelectedEmoji(existingUser.profile_emoji);
-                        setIconType('emoji');
-                    } else if (existingUser.profile_color_index !== undefined) {
-                        setSelectedColorIndex(existingUser.profile_color_index);
-                        setIconType('color');
+                    // Pre-fill profile icon
+                    if (existingUser.avatar) {
+                        try {
+                            if (existingUser.avatar.startsWith('{')) {
+                                setProfileIcon(JSON.parse(existingUser.avatar));
+                            } else {
+                                setProfileIcon({ imageUri: existingUser.avatar });
+                            }
+                        } catch (e) {
+                            setProfileIcon({ imageUri: existingUser.avatar });
+                        }
+                    } else if (existingUser.profileEmoji) {
+                        setProfileIcon({ emoji: existingUser.profileEmoji });
+                    } else if (existingUser.profileColorIndex !== undefined) {
+                        setProfileIcon({ colorIndex: existingUser.profileColorIndex });
                     }
                 }
             }
         } catch (error) {
             console.log('Could not check existing user:', error);
+        }
+    };
+
+    const pickImage = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.5,
+                base64: true,
+            });
+
+            if (!result.canceled && result.assets[0].base64) {
+                const base64 = `data:image/jpeg;base64,${result.assets[0].base64}`;
+                setProfileIcon({ imageUri: base64 });
+                setShowImageOptions(false);
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Failed to pick image');
         }
     };
 
@@ -85,25 +111,21 @@ export default function ProfileScreen() {
         try {
             const token = await getAccessToken();
 
-            // Split name into first and last
             const nameParts = name.trim().split(' ');
             const firstName = nameParts[0];
             const lastName = nameParts.slice(1).join(' ') || '';
 
-            const profileData: any = {
+            let avatarPayload = undefined;
+            if (profileIcon.imageUri) avatarPayload = profileIcon.imageUri;
+            else if (profileIcon.emoji) avatarPayload = JSON.stringify(profileIcon);
+            else if (profileIcon.colorIndex !== undefined) avatarPayload = JSON.stringify(profileIcon);
+
+            const profileData = {
                 email,
                 firstName,
                 lastName,
+                avatar: avatarPayload
             };
-
-            // Add profile icon data
-            if (iconType === 'emoji') {
-                profileData.profileEmoji = selectedEmoji;
-                profileData.profileColorIndex = null;
-            } else {
-                profileData.profileEmoji = null;
-                profileData.profileColorIndex = selectedColorIndex;
-            }
 
             const response = await fetch(`${API_URL}/api/auth/register`, {
                 method: 'POST',
@@ -130,8 +152,6 @@ export default function ProfileScreen() {
         }
     };
 
-    const selectedGradient = COLOR_OPTIONS[selectedColorIndex];
-
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <KeyboardAvoidingView
@@ -139,111 +159,131 @@ export default function ProfileScreen() {
                 style={styles.content}
             >
                 <ScrollView showsVerticalScrollIndicator={false}>
-                    <Text style={styles.title}>Your Profile</Text>
-                    <Text style={styles.subtitle}>Set up your profile to personalize your experience.</Text>
-
-                    {/* Profile Icon Picker */}
-                    <View style={styles.iconSection}>
-                        <Text style={styles.label}>Profile Icon</Text>
-
-                        {/* Current Icon Preview */}
-                        <View style={styles.previewContainer}>
-                            <LinearGradient
-                                colors={iconType === 'color' ? selectedGradient : ['#F3F4F6', '#E5E7EB', '#D1D5DB']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.iconPreview}
-                            >
-                                {iconType === 'emoji' ? (
-                                    <Text style={styles.emojiPreview}>{selectedEmoji}</Text>
-                                ) : (
-                                    <Text style={styles.initialPreview}>{name ? name[0].toUpperCase() : '?'}</Text>
-                                )}
-                            </LinearGradient>
-                        </View>
-
-                        {/* Icon Type Tabs */}
-                        <View style={styles.tabContainer}>
-                            <TouchableOpacity
-                                style={[styles.tab, iconType === 'emoji' && styles.tabActive]}
-                                onPress={() => setIconType('emoji')}
-                            >
-                                <Smiley size={18} color={iconType === 'emoji' ? Colors.primary : Colors.textSecondary} />
-                                <Text style={[styles.tabText, iconType === 'emoji' && styles.tabTextActive]}>Emoji</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.tab, iconType === 'color' && styles.tabActive]}
-                                onPress={() => setIconType('color')}
-                            >
-                                <View style={styles.colorDot} />
-                                <Text style={[styles.tabText, iconType === 'color' && styles.tabTextActive]}>Color</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Options Grid */}
-                        {iconType === 'emoji' ? (
-                            <View style={styles.optionsGrid}>
-                                {EMOJI_OPTIONS.map((emoji, index) => (
-                                    <TouchableOpacity
-                                        key={index}
-                                        style={[
-                                            styles.emojiOption,
-                                            selectedEmoji === emoji && styles.optionSelected
-                                        ]}
-                                        onPress={() => setSelectedEmoji(emoji)}
-                                    >
-                                        <Text style={styles.emojiText}>{emoji}</Text>
-                                    </TouchableOpacity>
-                                ))}
+                    {viewMode === 'main' && (
+                        <>
+                            <View style={styles.titleSection}>
+                                <Text style={styles.title}>Your Profile</Text>
+                                <Text style={styles.subtitle}>Introduce yourself to others.</Text>
                             </View>
-                        ) : (
-                            <View style={styles.optionsGrid}>
-                                {COLOR_OPTIONS.map((colors, index) => (
-                                    <TouchableOpacity
-                                        key={index}
-                                        style={[
-                                            styles.colorOption,
-                                            selectedColorIndex === index && styles.optionSelected
-                                        ]}
-                                        onPress={() => setSelectedColorIndex(index)}
-                                    >
+
+                            {/* PFP Section */}
+                            <View style={styles.pfpSection}>
+                                <TouchableOpacity
+                                    style={styles.pfpContainer}
+                                    onPress={() => setShowImageOptions(!showImageOptions)}
+                                >
+                                    {profileIcon.imageUri ? (
+                                        <Image source={{ uri: profileIcon.imageUri }} style={styles.largeAvatar} />
+                                    ) : (
                                         <LinearGradient
-                                            colors={colors}
+                                            colors={profileIcon.colorIndex !== undefined
+                                                ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
+                                                : (profileIcon.emoji ? ['#F3F4F6', '#E5E7EB', '#D1D5DB'] : getUserGradient(user?.id || name))}
                                             start={{ x: 0, y: 0 }}
                                             end={{ x: 1, y: 1 }}
-                                            style={styles.colorGradient}
-                                        />
+                                            style={styles.largeAvatar}
+                                        >
+                                            {profileIcon.emoji ? (
+                                                <Text style={{ fontSize: 40 }}>{profileIcon.emoji}</Text>
+                                            ) : (
+                                                <Text style={styles.largeAvatarText}>{name ? name[0].toUpperCase() : 'U'}</Text>
+                                            )}
+                                        </LinearGradient>
+                                    )}
+                                    <View style={styles.cameraIcon}>
+                                        <Camera size={20} color="#374151" weight="fill" />
+                                    </View>
+                                </TouchableOpacity>
+
+                                {showImageOptions && (
+                                    <View style={styles.imageOptions}>
+                                        <TouchableOpacity style={styles.imageOptionItem} onPress={pickImage}>
+                                            <Text style={styles.imageOptionText}>Choose from Library</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.imageOptionItem} onPress={() => {
+                                            setProfileIcon({ emoji: '😀', colorIndex: 0 });
+                                            setViewMode('emoji');
+                                            setShowImageOptions(false);
+                                        }}>
+                                            <Text style={styles.imageOptionText}>Use Emoji</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Name Input */}
+                            <View style={styles.formGroup}>
+                                <Text style={styles.label}>Name</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Your Name"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={name}
+                                    onChangeText={setName}
+                                    autoCapitalize="words"
+                                />
+                            </View>
+
+                            <TouchableOpacity
+                                style={[styles.saveButton, (!name.trim() || loading) && styles.saveButtonDisabled]}
+                                onPress={handleSave}
+                                disabled={!name.trim() || loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text style={styles.saveButtonText}>Save Profile</Text>
+                                )}
+                            </TouchableOpacity>
+                        </>
+                    )}
+
+                    {viewMode === 'emoji' && (
+                        <View style={styles.emojiContent}>
+                            <TouchableOpacity style={styles.backButton} onPress={() => setViewMode('main')}>
+                                <CaretLeft size={20} color={Colors.textSecondary} />
+                                <Text style={styles.backButtonText}>Back</Text>
+                            </TouchableOpacity>
+
+                            <Text style={styles.viewTitle}>Choose Emoji</Text>
+
+                            <View style={styles.emojiInputContainer}>
+                                <LinearGradient
+                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                    style={styles.emojiPreviewBg}
+                                >
+                                    <TextInput
+                                        style={styles.emojiInput}
+                                        value={profileIcon.emoji || ''}
+                                        onChangeText={(text) => {
+                                            if (text.length > 0) setProfileIcon(prev => ({ ...prev, emoji: text.slice(-2) })); // Handle compound emojis potentially
+                                            else setProfileIcon(prev => ({ ...prev, emoji: '' }));
+                                        }}
+                                        placeholder="😀"
+                                        maxLength={2}
+                                    />
+                                </LinearGradient>
+                            </View>
+
+                            <Text style={[styles.label, { marginTop: 24 }]}>Background Color</Text>
+                            <View style={styles.colorGrid}>
+                                {PROFILE_COLOR_OPTIONS.map((colors, idx) => (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={[styles.colorOption, { backgroundColor: colors[1] }]}
+                                        onPress={() => setProfileIcon(prev => ({ ...prev, colorIndex: idx }))}
+                                    >
+                                        {profileIcon.colorIndex === idx && <Check size={16} color="white" weight="bold" />}
                                     </TouchableOpacity>
                                 ))}
                             </View>
-                        )}
-                    </View>
 
-                    {/* Name Input */}
-                    <View style={styles.formGroup}>
-                        <Text style={styles.label}>Name</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Your Name"
-                            placeholderTextColor="#9CA3AF"
-                            value={name}
-                            onChangeText={setName}
-                            autoCapitalize="words"
-                        />
-                    </View>
+                            <TouchableOpacity style={styles.doneButton} onPress={() => setViewMode('main')}>
+                                <Text style={styles.doneButtonText}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </ScrollView>
-
-                <View style={styles.bottomSection}>
-                    <Button
-                        title="Save Profile"
-                        onPress={handleSave}
-                        variant="primary"
-                        size="large"
-                        loading={loading}
-                        disabled={!name.trim() || loading}
-                    />
-                    <View style={{ height: insets.bottom + 20 }} />
-                </View>
             </KeyboardAvoidingView>
         </View>
     );
@@ -258,133 +298,190 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingHorizontal: 24,
     },
+    titleSection: {
+        alignItems: 'center',
+        marginTop: 40,
+        marginBottom: 32,
+    },
     title: {
         fontFamily: 'RethinkSans_700Bold',
         fontSize: 28,
         color: Colors.textPrimary,
         marginBottom: 8,
-        marginTop: 40,
     },
     subtitle: {
         fontFamily: 'RethinkSans_400Regular',
         fontSize: 16,
         color: Colors.textSecondary,
-        marginBottom: 32,
     },
-    iconSection: {
-        marginBottom: 24,
+    pfpSection: {
+        marginBottom: 32,
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    pfpContainer: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        position: 'relative',
+    },
+    largeAvatar: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    largeAvatarText: {
+        fontFamily: 'RethinkSans_700Bold',
+        color: '#FFFFFF',
+        fontSize: 48,
+    },
+    cameraIcon: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        elevation: 4,
+    },
+    imageOptions: {
+        position: 'absolute',
+        top: 130,
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 10,
+        width: 200,
+        zIndex: 50,
+    },
+    imageOptionItem: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    imageOptionText: {
+        fontFamily: 'RethinkSans_500Medium',
+        color: Colors.textPrimary,
+    },
+    formGroup: {
+        width: '100%',
+        marginBottom: 32,
     },
     label: {
         fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
-        marginBottom: 12,
+        marginBottom: 8,
     },
-    previewContainer: {
+    input: {
+        backgroundColor: '#F9FAFB',
+        borderRadius: 12,
+        padding: 16,
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 16,
+        color: Colors.textPrimary,
+    },
+    saveButton: {
+        width: '100%',
+        backgroundColor: Colors.textPrimary,
+        paddingVertical: 16,
+        borderRadius: 30,
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 32,
     },
-    iconPreview: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+    saveButtonDisabled: {
+        opacity: 0.6,
+    },
+    saveButtonText: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 16,
+        color: 'white',
+    },
+
+    // Emoji View
+    emojiContent: {
+        alignItems: 'center',
+        paddingTop: 20,
+    },
+    backButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        marginBottom: 24,
+        gap: 4,
+    },
+    backButtonText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 16,
+        color: Colors.textSecondary,
+    },
+    viewTitle: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 24,
+        color: Colors.textPrimary,
+        marginBottom: 32,
+    },
+    emojiInputContainer: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        overflow: 'hidden',
+        marginBottom: 32,
+    },
+    emojiPreviewBg: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    emojiInput: {
+        fontSize: 60,
+        textAlign: 'center',
+        width: '100%',
+        height: '100%',
+    },
+    colorGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 16,
+        justifyContent: 'center',
+        marginTop: 16,
+    },
+    colorOption: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
-    emojiPreview: {
-        fontSize: 48,
-    },
-    initialPreview: {
-        fontFamily: 'RethinkSans_700Bold',
-        fontSize: 40,
-        color: '#FFFFFF',
-    },
-    tabContainer: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 16,
-    },
-    tab: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
+    doneButton: {
+        marginTop: 40,
         paddingVertical: 12,
-        borderRadius: 12,
-        backgroundColor: '#F3F4F6',
-        gap: 8,
+        paddingHorizontal: 32,
+        backgroundColor: Colors.primary,
+        borderRadius: 24,
     },
-    tabActive: {
-        backgroundColor: '#EEF2FF',
-        borderWidth: 1,
-        borderColor: Colors.primary,
-    },
-    tabText: {
-        fontFamily: 'RethinkSans_500Medium',
-        fontSize: 14,
-        color: Colors.textSecondary,
-    },
-    tabTextActive: {
-        color: Colors.primary,
-    },
-    colorDot: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        backgroundColor: '#8B5CF6',
-    },
-    optionsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    emojiOption: {
-        width: 52,
-        height: 52,
-        borderRadius: 16,
-        backgroundColor: '#F3F4F6',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'transparent',
-    },
-    colorOption: {
-        width: 52,
-        height: 52,
-        borderRadius: 16,
-        padding: 4,
-        borderWidth: 2,
-        borderColor: 'transparent',
-    },
-    optionSelected: {
-        borderColor: Colors.primary,
-        backgroundColor: '#EEF2FF',
-    },
-    colorGradient: {
-        flex: 1,
-        borderRadius: 12,
-    },
-    emojiText: {
-        fontSize: 24,
-    },
-    formGroup: {
-        marginBottom: 24,
-    },
-    input: {
-        backgroundColor: '#F3F4F6',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 16,
+    doneButtonText: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        color: 'white',
         fontSize: 16,
-        fontFamily: 'RethinkSans_400Regular',
-        color: Colors.textPrimary,
-    },
-    bottomSection: {
-        paddingTop: 16,
-    },
+    }
 });

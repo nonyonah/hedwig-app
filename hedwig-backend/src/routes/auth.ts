@@ -11,7 +11,7 @@ const router = Router();
  */
 router.post('/register', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { email, firstName, lastName, walletAddresses } = req.body;
+        const { email, firstName, lastName, walletAddresses, avatar } = req.body;
         const privyId = req.user!.privyId;
 
         console.log('Registration request:', { email, firstName, lastName, walletAddresses });
@@ -41,6 +41,7 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                 last_name: lastName,
                 ethereum_wallet_address: walletAddresses?.ethereum,
                 solana_wallet_address: walletAddresses?.solana,
+                avatar,
             });
 
             const { data: newUser, error: createError } = await supabase
@@ -53,7 +54,9 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                     last_name: lastName,
                     ethereum_wallet_address: walletAddresses?.ethereum,
                     solana_wallet_address: walletAddresses?.solana,
+                    stacks_wallet_address: walletAddresses?.stacks,
                     last_login: new Date().toISOString(),
+                    avatar,
                 })
                 .select()
                 .single();
@@ -69,7 +72,8 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                 currentEthWallet: user.ethereum_wallet_address,
                 newEthWallet: walletAddresses?.ethereum,
                 currentSolWallet: user.solana_wallet_address,
-                newSolWallet: walletAddresses?.solana
+                newSolWallet: walletAddresses?.solana,
+                newAvatar: avatar
             });
 
             const { data: updatedUser, error: updateError } = await supabase
@@ -78,6 +82,8 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                     last_login: new Date().toISOString(),
                     ethereum_wallet_address: walletAddresses?.ethereum || user.ethereum_wallet_address,
                     solana_wallet_address: walletAddresses?.solana || user.solana_wallet_address,
+                    stacks_wallet_address: walletAddresses?.stacks || user.stacks_wallet_address,
+                    avatar: avatar || user.avatar,
                 })
                 .eq('id', user.id)
                 .select()

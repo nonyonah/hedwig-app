@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback, LayoutAnimation } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback, LayoutAnimation, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { useAuth } from '../hooks/useAuth';
 import { useWallet } from '../hooks/useWallet';
+import { usePrivy } from '@privy-io/expo';
 import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square } from 'phosphor-react-native';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
@@ -99,7 +100,7 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         ]
     },
     {
-        name: 'Arbitrum',
+        name: 'Arbitrum One', // Arbitrum One
         icon: NetworkArbitrumOne,
         color: '#2D374B',
         addressType: 'evm',
@@ -107,8 +108,20 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
             { symbol: 'ETH', icon: TokenETH },
             { symbol: 'USDC', icon: TokenUSDC }
         ]
-    },
+    }
 ];
+
+// Profile color gradient options (same as in ProfileModal)
+const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
+    ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
+    ['#34D399', '#10B981', '#059669'], // Green
+    ['#F472B6', '#EC4899', '#DB2777'], // Pink
+    ['#FBBF24', '#F59E0B', '#D97706'], // Amber
+    ['#A78BFA', '#8B5CF6', '#7C3AED'], // Purple
+    ['#F87171', '#EF4444', '#DC2626'], // Red
+    ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
+    ['#FB923C', '#F97316', '#EA580C'], // Orange
+] as const;
 
 export default function HomeScreen() {
     const router = useRouter();
@@ -139,7 +152,7 @@ export default function HomeScreen() {
 
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
-    const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number }>({});
+    const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
     const [displayedGreeting, setDisplayedGreeting] = useState('');
     const [isTypingGreeting, setIsTypingGreeting] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
@@ -307,80 +320,83 @@ export default function HomeScreen() {
     }, [params.conversationId, isReady, user]);
 
     // Fetch user profile data
-    useEffect(() => {
-        const fetchUserProfile = async () => {
-            if (!user) {
-                console.log('User object is null, skipping fetch');
+    const fetchUserProfile = async () => {
+        if (!user) {
+            console.log('User object is null, skipping fetch');
+            return;
+        }
+
+        // Check if user is authenticated
+        if (!user.id) {
+            console.log('User not authenticated yet, skipping fetch');
+            return;
+        }
+
+        console.log('Fetching user data for user:', user.id);
+        try {
+            const token = await getAccessToken();
+            // console.log('Got access token:', token ? 'Yes' : 'No');
+
+            if (!token) {
+                console.log('No access token available, skipping fetch');
                 return;
             }
 
-            // Check if user is authenticated
-            if (!user.id) {
-                console.log('User not authenticated yet, skipping fetch');
-                return;
-            }
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            console.log('🔗 API URL being used:', apiUrl);
 
-            console.log('Fetching user data for user:', user.id);
-            try {
-                const token = await getAccessToken();
-                console.log('Got access token:', token ? 'Yes' : 'No');
+            // Fetch user profile
+            // console.log('Fetching profile from:', `${apiUrl}/api/users/profile`);
+            const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            // console.log('Profile response status:', profileResponse.status);
 
-                if (!token) {
-                    console.log('No access token available, skipping fetch');
-                    return;
-                }
+            const profileData = await profileResponse.json();
+            // console.log('Profile data:', JSON.stringify(profileData, null, 2));
 
-                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            if (profileData.success && profileData.data) {
+                // Check if user data is nested in 'user' property or directly in data
+                const userData = profileData.data.user || profileData.data;
+                // console.log('[HomeScreen] Full userData:', userData);
 
-                // Fetch user profile
-                console.log('Fetching profile from:', `${apiUrl}/api/users/profile`);
-                const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                setUserName({
+                    firstName: userData.firstName || '',
+                    lastName: userData.lastName || ''
                 });
-                console.log('Profile response status:', profileResponse.status);
-
-                const profileData = await profileResponse.json();
-                console.log('Profile data:', JSON.stringify(profileData, null, 2));
-
-                if (profileData.success && profileData.data) {
-                    // Check if user data is nested in 'user' property or directly in data
-                    const userData = profileData.data.user || profileData.data;
-                    console.log('[HomeScreen] Full userData:', userData);
-                    console.log('[HomeScreen] Wallet addresses:', {
-                        ethereum: userData.ethereumWalletAddress,
-                        base: userData.baseWalletAddress,
-                        celo: userData.celoWalletAddress,
-                        solana: userData.solanaWalletAddress
-                    });
-
-                    setUserName({
-                        firstName: userData.firstName || '',
-                        lastName: userData.lastName || ''
-                    });
-                    // Set profile icon if available
-                    if (userData.profileEmoji) {
-                        setProfileIcon({ emoji: userData.profileEmoji });
-                    } else if (userData.profileColorIndex !== undefined) {
-                        setProfileIcon({ colorIndex: userData.profileColorIndex });
+                // Set profile icon if available from avatar field
+                if (userData.avatar) {
+                    try {
+                        if (userData.avatar.trim().startsWith('{')) {
+                            const parsed = JSON.parse(userData.avatar);
+                            setProfileIcon(parsed);
+                        } else {
+                            setProfileIcon({ imageUri: userData.avatar });
+                        }
+                    } catch (e) {
+                        setProfileIcon({ imageUri: userData.avatar });
                     }
-                    setWalletAddresses({
-                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
-                        solana: userData.solanaWalletAddress
-                    });
-
-                    console.log('[HomeScreen] Set walletAddresses to:', {
-                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
-                        solana: userData.solanaWalletAddress
-                    });
-                } else {
-                    console.log('Profile fetch failed or no data:', profileData);
+                } else if (userData.profileEmoji) {
+                    // Legacy support?
+                    setProfileIcon({ emoji: userData.profileEmoji });
+                } else if (userData.profileColorIndex !== undefined) {
+                    setProfileIcon({ colorIndex: userData.profileColorIndex });
                 }
-            } catch (error) {
-                console.error('Failed to fetch user data:', error);
+                setWalletAddresses({
+                    evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
+                    solana: userData.solanaWalletAddress
+                });
+            } else {
+                console.log('Profile fetch failed or no data:', profileData);
             }
-        };
+        } catch (error) {
+            console.error('Failed to fetch user data:', error);
+        }
+    };
+
+    useEffect(() => {
         fetchUserProfile();
-    }, [user]);
+    }, [user, isReady]);
 
     // Keyboard listeners for instant adjustment
     useEffect(() => {
@@ -811,14 +827,33 @@ export default function HomeScreen() {
                             <List size={24} color={Colors.textPrimary} />
                         </TouchableOpacity>
                         <View style={{ flex: 1 }} />
-                        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                            <LinearGradient
-                                colors={getUserGradient(user?.id || userName.firstName)}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.profileIcon}
-                            />
-                        </TouchableOpacity>
+                        <View style={styles.headerRight}>
+                            <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
+                                {profileIcon?.imageUri ? (
+                                    <Image
+                                        source={{ uri: profileIcon.imageUri }}
+                                        style={styles.profileIcon}
+                                    />
+                                ) : (
+                                    <LinearGradient
+                                        colors={profileIcon?.colorIndex !== undefined
+                                            ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
+                                            : (profileIcon?.emoji ? ['#F3F4F6', '#E5E7EB', '#D1D5DB'] : getUserGradient(user?.id || userName.firstName))}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={[styles.profileIcon, { justifyContent: 'center', alignItems: 'center' }]}
+                                    >
+                                        {profileIcon?.emoji ? (
+                                            <Text style={{ fontSize: 18 }}>{profileIcon.emoji}</Text>
+                                        ) : (
+                                            <Text style={{ fontSize: 16, color: '#FFFFFF', fontFamily: 'RethinkSans_700Bold' }}>
+                                                {userName.firstName ? userName.firstName[0].toUpperCase() : 'U'}
+                                            </Text>
+                                        )}
+                                    </LinearGradient>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     {/* Chat Area */}
@@ -885,6 +920,9 @@ export default function HomeScreen() {
                         userName={userName}
                         walletAddresses={walletAddresses}
                         profileIcon={profileIcon}
+                        onProfileUpdate={() => {
+                            fetchUserProfile();
+                        }}
                     />
                 </SafeAreaView>
             </TouchableWithoutFeedback>

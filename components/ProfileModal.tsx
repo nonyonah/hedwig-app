@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Dimensions, ScrollView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Dimensions, ScrollView, Platform, Alert, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePrivy, useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
 import * as Clipboard from 'expo-clipboard';
@@ -10,9 +10,11 @@ import { ethers } from 'ethers';
 
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
-    TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
+    NetworkBitcoin, TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN,
+    TokenBTC, TokenSTX
 } from './CryptoIcons';
 import { getUserGradient } from '../utils/gradientUtils';
+import { getOrCreateStacksWallet, getSTXBalance } from '../services/stacksWallet';
 
 // RPC URLs
 const RPC_URLS = {
@@ -43,7 +45,7 @@ interface ChainInfo {
     icon: React.FC<any>;
     color: string;
     id: number;
-    addressType: 'evm' | 'solana';
+    addressType: 'evm' | 'solana' | 'bitcoin';
     tokens: { symbol: string; icon: React.FC<any> }[];
 }
 
@@ -126,6 +128,17 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
             { symbol: 'USDC', icon: TokenUSDC }
         ]
     },
+    {
+        name: 'Bitcoin Testnet',
+        id: 0, // Bitcoin doesn't use numeric chain ID
+        icon: NetworkBitcoin,
+        color: '#F7931A',
+        addressType: 'bitcoin',
+        tokens: [
+            { symbol: 'BTC', icon: TokenBTC },
+            { symbol: 'STX', icon: TokenSTX }
+        ]
+    },
 ];
 
 // Profile color gradient options (same as in profile.tsx)
@@ -145,19 +158,22 @@ interface ProfileModalProps {
     onClose: () => void;
     userName?: { firstName: string; lastName: string };
     walletAddresses?: { evm?: string; solana?: string };
-    profileIcon?: { emoji?: string; colorIndex?: number };
+    profileIcon?: { emoji?: string; colorIndex?: number; imageUri?: string };
+    onProfileUpdate?: () => void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, userName, walletAddresses, profileIcon }) => {
     const { user, logout, getAccessToken } = usePrivy();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const solanaWallet = useEmbeddedSolanaWallet();
+    // Stacks wallet is managed by stacksWallet service, not Privy
 
     const [isRendered, setIsRendered] = useState(false);
     const [viewMode, setViewMode] = useState<'main' | 'assets' | 'chains'>('main');
     const [selectedChain, setSelectedChain] = useState<ChainInfo>(SUPPORTED_CHAINS[0]);
     const [ethAddress, setEthAddress] = useState<string>('');
     const [solAddress, setSolAddress] = useState<string>('');
+    const [btcAddress, setBtcAddress] = useState<string>('');
     const [balances, setBalances] = useState<any>({});
     const [totalBalance, setTotalBalance] = useState('0.00');
 
@@ -189,8 +205,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                 }
             }
 
-            // Similar check for Solana - simplified for now as Privy usually creates both or one based on config
-            // But we'll wrap in try/catch to be safe
+            // Similar check for Solana
             if (user && solWalletAny && !solWalletAny.account && !hasEmbeddedWallet) {
                 try {
                     await solWalletAny.create();
@@ -199,6 +214,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                         console.log('Solana wallet creation error:', error);
                     }
                 }
+            }
+
+            // Create Stacks wallet using Stacks.js (auto-generated, seed hidden)
+            try {
+                const stacksWallet = await getOrCreateStacksWallet();
+                if (stacksWallet) {
+                    setBtcAddress(stacksWallet.address);
+                    console.log('Stacks wallet ready:', stacksWallet.address);
+                }
+            } catch (error: any) {
+                console.log('Stacks wallet error:', error);
             }
         };
         setupWallets();
@@ -265,6 +291,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             newBalances['Solana Devnet_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
+                    } else if (bal.chain === 'bitcoin_testnet') {
+                        if (bal.asset === 'btc') {
+                            newBalances['Bitcoin Testnet_BTC'] = parseFloat(bal.display_values?.btc || '0').toFixed(8);
+                            totalUsd += parseFloat(bal.display_values?.usd || '0');
+                        } else if (bal.asset === 'stx') {
+                            newBalances['Bitcoin Testnet_STX'] = parseFloat(bal.display_values?.stx || '0').toFixed(6);
+                            totalUsd += parseFloat(bal.display_values?.usd || '0');
+                        }
                     }
                 });
 
@@ -286,6 +320,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     useEffect(() => {
         const ethWalletAny = ethereumWallet as any;
         const solWalletAny = solanaWallet as any;
+        // Note: Stacks address is set in setupWallets useEffect via getOrCreateStacksWallet()
 
         // Try to get address from embedded wallet hooks first
         if (ethWalletAny?.account?.address) {
@@ -375,8 +410,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
             }
         }
 
-        console.log('[ProfileModal] Final state - ethAddress:', ethAddress, 'solAddress:', solAddress);
-    }, [ethereumWallet, solanaWallet, user, ethAddress, solAddress, walletAddresses]);
+        console.log('[ProfileModal] Final state - ethAddress:', ethAddress, 'solAddress:', solAddress, 'btcAddress:', btcAddress);
+    }, [ethereumWallet, solanaWallet, user, ethAddress, solAddress, btcAddress, walletAddresses]);
 
     useEffect(() => {
         if (visible) {
@@ -455,22 +490,29 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                         {/* Header */}
                         <View style={styles.modalHeader}>
                             <View style={styles.userInfo}>
-                                <LinearGradient
-                                    colors={profileIcon?.colorIndex !== undefined
-                                        ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
-                                        : (profileIcon?.emoji ? ['#F3F4F6', '#E5E7EB', '#D1D5DB'] : getUserGradient(user?.id || userName?.firstName))}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.avatarContainer}
-                                >
-                                    {profileIcon?.emoji ? (
-                                        <Text style={styles.emojiAvatar}>{profileIcon.emoji}</Text>
-                                    ) : (
-                                        userName?.firstName && (
-                                            <Text style={styles.avatarText}>{userName.firstName[0].toUpperCase()}</Text>
-                                        )
-                                    )}
-                                </LinearGradient>
+                                {profileIcon?.imageUri ? (
+                                    <Image
+                                        source={{ uri: profileIcon.imageUri }}
+                                        style={styles.avatarContainer}
+                                    />
+                                ) : (
+                                    <LinearGradient
+                                        colors={profileIcon?.colorIndex !== undefined
+                                            ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
+                                            : (profileIcon?.emoji ? ['#F3F4F6', '#E5E7EB', '#D1D5DB'] : getUserGradient(user?.id || userName?.firstName))}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.avatarContainer}
+                                    >
+                                        {profileIcon?.emoji ? (
+                                            <Text style={styles.emojiAvatar}>{profileIcon.emoji}</Text>
+                                        ) : (
+                                            userName?.firstName && (
+                                                <Text style={styles.avatarText}>{userName.firstName[0].toUpperCase()}</Text>
+                                            )
+                                        )}
+                                    </LinearGradient>
+                                )}
                                 <View>
                                     <Text style={styles.profileName}>
                                         {userName?.firstName ? `${userName.firstName} ${userName.lastName}` : 'User'}
@@ -478,7 +520,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                     <TouchableOpacity
                                         style={styles.addressCopy}
                                         onPress={async () => {
-                                            const address = selectedChain.addressType === 'evm' ? ethAddress : solAddress;
+                                            const address = selectedChain.addressType === 'evm'
+                                                ? ethAddress
+                                                : selectedChain.addressType === 'solana'
+                                                    ? solAddress
+                                                    : btcAddress;
 
                                             if (address) {
                                                 await Clipboard.setStringAsync(address);
@@ -489,7 +535,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                         <Text style={styles.profileAddress}>
                                             {selectedChain.addressType === 'evm'
                                                 ? (ethAddress ? `${ethAddress.slice(0, 6)}...${ethAddress.slice(-4)}` : '0x...')
-                                                : (solAddress ? `${solAddress.slice(0, 6)}...${solAddress.slice(-4)}` : 'Not connected')
+                                                : selectedChain.addressType === 'solana'
+                                                    ? (solAddress ? `${solAddress.slice(0, 6)}...${solAddress.slice(-4)}` : 'Not connected')
+                                                    : (btcAddress ? `${btcAddress.slice(0, 6)}...${btcAddress.slice(-4)}` : 'Not connected')
                                             }
                                         </Text>
                                         <Copy size={14} color={Colors.textSecondary} />
@@ -530,7 +578,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                                             ? (selectedChain.name === 'Base'
                                                                 ? `${parseFloat(balances['Base_ETH'] || '0').toFixed(4)} ETH`
                                                                 : `${parseFloat(balances['Celo_CELO'] || '0').toFixed(4)} CELO`)
-                                                            : `${parseFloat(balances['Solana Devnet_SOL'] || '0').toFixed(4)} SOL`
+                                                            : selectedChain.addressType === 'solana'
+                                                                ? `${parseFloat(balances['Solana Devnet_SOL'] || '0').toFixed(4)} SOL`
+                                                                : `${parseFloat(balances['Bitcoin Testnet_BTC'] || '0').toFixed(6)} BTC`
                                                         }
                                                     </Text>
                                                 </View>

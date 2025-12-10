@@ -191,10 +191,11 @@ router.get('/conversations', authenticate, async (req: Request, res: Response, n
         console.log('[Conversations] User lookup result:', { userData, userError });
 
         if (userError || !userData) {
-            console.log('[Conversations] User not found for privy_id:', privyUserId);
-            res.status(404).json({
-                success: false,
-                error: { message: 'User not found in database' },
+            console.log('[Conversations] User not found for privy_id:', privyUserId, '- returning empty conversations');
+            // Return empty array instead of error for users not yet registered
+            res.json({
+                success: true,
+                data: { conversations: [] },
             });
             return;
         }

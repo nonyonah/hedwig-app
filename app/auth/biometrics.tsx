@@ -8,6 +8,7 @@ import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet, usePrivy } from '@p
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../theme/colors';
 import { Button } from '../../components/Button';
+import { getOrCreateStacksWallet } from '../../services/stacksWallet';
 
 export default function BiometricsScreen() {
     const router = useRouter();
@@ -65,6 +66,17 @@ export default function BiometricsScreen() {
                 } else if (solWalletHook.wallets && solWalletHook.wallets.length > 0) {
                     walletAddresses.solana = (solWalletHook.wallets[0] as any).address;
                 }
+            }
+
+            // 3. Create Stacks wallet if it doesn't exist (auto-generated, seed hidden)
+            try {
+                const stacksWallet = await getOrCreateStacksWallet();
+                if (stacksWallet) {
+                    walletAddresses.stacks = stacksWallet.address;
+                    console.log('Stacks wallet ready for sync:', stacksWallet.address);
+                }
+            } catch (error) {
+                console.log('Stacks wallet generation error:', error);
             }
 
             console.log('Final wallet addresses to sync:', walletAddresses);

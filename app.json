@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.hedwig.app"
+      "bundleIdentifier": "com.hedwig.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -38,10 +41,11 @@
         "origin": false
       },
       "eas": {
-        "projectId": "hedwig-app"
+        "projectId": "ade423ca-7649-400c-9817-21e000b2cde4"
       },
       "privyAppId": "",
       "privyClientId": ""
-    }
+    },
+    "owner": "nonsooo"
   }
 }

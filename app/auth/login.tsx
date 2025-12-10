@@ -8,6 +8,7 @@ import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { Button } from '../../components/Button';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+console.log('🔗 [Login] API_URL configured as:', API_URL);
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -21,7 +22,7 @@ export default function LoginScreen() {
 
     // Hooks
     const { sendCode, loginWithCode } = useLoginWithEmail();
-    const { getAccessToken } = usePrivy();
+    const { getAccessToken, user, isReady } = usePrivy();
     const inputRef = useRef<TextInput>(null);
 
     // Handle sending email code
@@ -46,8 +47,10 @@ export default function LoginScreen() {
 
         setLoading(true);
         try {
-            // Try calling with object signature as per lint error
-            await loginWithCode({ code, email });
+            // Only call loginWithCode if not already logged in
+            if (!user) {
+                await loginWithCode({ code, email });
+            }
 
             // Get Access Token
             const token = await getAccessToken();

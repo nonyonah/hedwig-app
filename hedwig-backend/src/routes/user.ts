@@ -56,6 +56,7 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             baseWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
             celoWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
             solanaWalletAddress: user.solana_wallet_address,
+            stacksWalletAddress: user.stacks_wallet_address,
             createdAt: user.created_at,
             updatedAt: user.updated_at,
             lastLogin: user.last_login,
@@ -81,16 +82,18 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
  */
 router.patch('/profile', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { firstName, lastName, email } = req.body;
+        const { firstName, lastName, email, avatar } = req.body;
         const privyId = req.user!.privyId;
+
+        const updateData: any = {};
+        if (firstName !== undefined) updateData.first_name = firstName;
+        if (lastName !== undefined) updateData.last_name = lastName;
+        if (email !== undefined) updateData.email = email;
+        if (avatar !== undefined) updateData.avatar = avatar;
 
         const { data: user, error } = await supabase
             .from('users')
-            .update({
-                first_name: firstName,
-                last_name: lastName,
-                email,
-            })
+            .update(updateData)
             .eq('privy_id', privyId)
             .select()
             .single();
