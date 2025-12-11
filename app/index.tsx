@@ -479,6 +479,33 @@ export default function HomeScreen() {
         setConversationId(null);
     };
 
+    const handleDeleteConversation = async (id: string) => {
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+            const response = await fetch(`${apiUrl}/api/chat/conversations/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setConversations(prev => prev.filter(c => c.id !== id));
+                // If deleting current conversation, go home
+                if (conversationId === id) {
+                    handleHomeClick();
+                }
+            } else {
+                Alert.alert('Error', data.error?.message || 'Failed to delete conversation');
+            }
+        } catch (error) {
+            console.error('Failed to delete conversation:', error);
+            Alert.alert('Error', 'Failed to delete conversation');
+        }
+    };
+
     const sendMessage = async () => {
         if (!inputText.trim() || isGenerating) return;
 
@@ -939,6 +966,7 @@ export default function HomeScreen() {
                     setMessages([]);
                     setIsSidebarOpen(false);
                 }}
+                onDeleteConversation={handleDeleteConversation}
             />
             {/* Transaction Confirmation Modal */}
             <TransactionConfirmationModal

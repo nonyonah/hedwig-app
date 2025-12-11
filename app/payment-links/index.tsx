@@ -9,6 +9,7 @@ import { usePrivy } from '@privy-io/expo';
 import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThree } from 'phosphor-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
@@ -116,6 +117,9 @@ export default function PaymentLinksScreen() {
 
     const handleDelete = async (linkId: string) => {
         console.log('handleDelete called for:', linkId);
+        // Haptic feedback
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
         Alert.alert(
             'Delete Payment Link',
             'Are you sure you want to delete this payment link? This action cannot be undone.',
@@ -207,41 +211,36 @@ export default function PaymentLinksScreen() {
 
     const renderItem = ({ item }: { item: any }) => {
         return (
-            <Swipeable
-                renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
-                overshootRight={false}
+            <TouchableOpacity
+                style={styles.card}
+                onPress={() => handleLinkPress(item)}
+                onLongPress={() => handleDelete(item.id)}
+                delayLongPress={500}
             >
-                <TouchableOpacity
-                    style={styles.card}
-                    onPress={() => handleLinkPress(item)}
-                    onLongPress={() => handleDelete(item.id)}
-                    delayLongPress={500}
-                >
-                    <View style={styles.cardHeader}>
-                        <View>
-                            <Text style={styles.linkId}>LINK-{item.id.substring(0, 8).toUpperCase()}</Text>
-                            <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-                        </View>
-                        <View style={styles.iconContainer}>
-                            <ShareNetwork size={24} color={Colors.primary} weight="duotone" />
-                            <View style={[styles.statusDot, item.status === 'PAID' ? { backgroundColor: Colors.success } : { backgroundColor: Colors.warning }]} />
-                        </View>
+                <View style={styles.cardHeader}>
+                    <View>
+                        <Text style={styles.linkId}>LINK-{item.id.substring(0, 8).toUpperCase()}</Text>
+                        <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
                     </View>
+                    <View style={styles.iconContainer}>
+                        <ShareNetwork size={24} color={Colors.primary} weight="duotone" />
+                        <View style={[styles.statusDot, item.status === 'PAID' ? { backgroundColor: Colors.success } : { backgroundColor: Colors.warning }]} />
+                    </View>
+                </View>
 
-                    <Text style={styles.amount}>${(item.amount || 0).toString().replace(/[^0-9.]/g, '')}</Text>
+                <Text style={styles.amount}>${(item.amount || 0).toString().replace(/[^0-9.]/g, '')}</Text>
 
-                    <View style={styles.cardFooter}>
-                        <Text style={styles.dateText}>
-                            {new Date(item.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })}
+                <View style={styles.cardFooter}>
+                    <Text style={styles.dateText}>
+                        {new Date(item.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </Text>
+                    <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
+                        <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
+                            {item.status === 'PAID' ? 'Paid' : 'Pending'}
                         </Text>
-                        <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
-                            <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
-                                {item.status === 'PAID' ? 'Paid' : 'Pending'}
-                            </Text>
-                        </View>
                     </View>
-                </TouchableOpacity>
-            </Swipeable>
+                </View>
+            </TouchableOpacity>
         );
     };
 

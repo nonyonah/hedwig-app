@@ -1,0 +1,21 @@
+[project]
+name = "hedwig-stacks"
+description = "Hedwig Payment Processor - STX payments with 1% platform fee"
+authors = ["Hedwig Team"]
+telemetry = false
+cache_dir = "./.cache"
+requirements = []
+
+[contracts.hedwig-payment]
+path = "contracts/hedwig-payment.clar"
+clarity_version = 2
+epoch = 2.5
+
+[repl.analysis]
+passes = ["check_checker"]
+
+[repl.analysis.check_checker]
+strict = false
+trusted_sender = false
+trusted_caller = false
+callee_filter = false

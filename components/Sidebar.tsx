@@ -5,6 +5,8 @@ import { usePrivy } from '@privy-io/expo';
 import { House, Link, Receipt, Chat, CaretRight, SignOut, UserCircle } from 'phosphor-react-native';
 import { Colors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { Alert } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.85;
@@ -17,6 +19,7 @@ interface SidebarProps {
     currentConversationId?: string | null;
     onLoadConversation?: (id: string) => void;
     onHomeClick?: () => void;
+    onDeleteConversation?: (id: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -27,6 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     currentConversationId,
     onLoadConversation,
     onHomeClick,
+    onDeleteConversation,
 }) => {
     const router = useRouter();
     const pathname = usePathname();
@@ -177,6 +181,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             onClose();
                                         }
                                     }}
+                                    onLongPress={async () => {
+                                        if (onDeleteConversation) {
+                                            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                            Alert.alert(
+                                                'Delete Conversation',
+                                                'Are you sure you want to delete this conversation?',
+                                                [
+                                                    { text: 'Cancel', style: 'cancel' },
+                                                    {
+                                                        text: 'Delete',
+                                                        style: 'destructive',
+                                                        onPress: () => onDeleteConversation(conv.id)
+                                                    }
+                                                ]
+                                            );
+                                        }
+                                    }}
+                                    delayLongPress={500}
                                 >
                                     <Chat size={18} color={Colors.textSecondary} weight="duotone" />
                                     <Text style={styles.recentText} numberOfLines={1}>

@@ -24,7 +24,7 @@
 ;; ============================================
 
 ;; Platform wallet address (receives 1% fee)
-(define-data-var platform-address principal 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM)
+(define-data-var platform-address principal 'ST11ATDDMT63A2GZAHWCEKRWFSGNS6B26BYPJRTM0)
 
 ;; Contract owner (can update platform address)
 (define-data-var contract-owner principal tx-sender)

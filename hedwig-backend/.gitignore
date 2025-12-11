@@ -45,3 +45,8 @@ temp/
 # PDFs and generated files
 uploads/
 public/documents/
+
+# Clarinet/Stacks - SECURITY: Contains private mnemonics
+settings/
+.cache/
+deployments/
