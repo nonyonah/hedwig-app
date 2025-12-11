@@ -47,16 +47,20 @@ export async function generateStacksWallet(): Promise<StacksWalletInfo | null> {
         console.log('[StacksWallet] Generating new wallet...');
 
         // Generate a new 24-word seed phrase (this is fast)
+        console.log('[StacksWallet] 1. Calling generateSecretKey...');
         const secretKey = generateSecretKey(256);
+        console.log('[StacksWallet] 2. generateSecretKey done. Secret key length:', secretKey.length);
 
-        // OPTIMIZATION: Use minimal password derivation
-        // The generateWallet function uses PBKDF2 with 100,000 iterations by default
-        // which is slow on mobile. By using an empty password, we rely on the 
-        // mnemonic's entropy alone (which is cryptographically secure for 24 words)
+        // OPTIMIZATION: Do NOT provide a password.
+        // Providing any password (even empty string) triggers encryption which uses Scrypt.
+        // Scrypt is extremely slow on React Native (Hermes).
+        // We store the secretKey securely in Expo SecureStore anyway, so we don't need
+        // the Wallet object itself to be encrypted in memory.
+        console.log('[StacksWallet] 3. Calling generateWallet...');
         const wallet = await generateWallet({
             secretKey,
-            password: '', // Empty password = no PBKDF2, faster derivation
         });
+        console.log('[StacksWallet] 4. generateWallet done.');
 
         // Get the first account's address
         const account = wallet.accounts[0];
@@ -152,7 +156,6 @@ export async function getStacksAccount() {
 
         const wallet = await generateWallet({
             secretKey,
-            password: '',
         });
 
         return wallet.accounts[0];

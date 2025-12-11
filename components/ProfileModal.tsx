@@ -216,16 +216,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                 }
             }
 
-            // Create Stacks wallet using Stacks.js (auto-generated, seed hidden)
-            try {
-                const stacksWallet = await getOrCreateStacksWallet();
-                if (stacksWallet) {
-                    setBtcAddress(stacksWallet.address);
-                    console.log('Stacks wallet ready:', stacksWallet.address);
-                }
-            } catch (error: any) {
-                console.log('Stacks wallet error:', error);
-            }
+            // Stacks wallet generation is TEMPORARILY DISABLED
+            // The Stacks SDK's generateWallet uses PBKDF2 which hangs on React Native.
+            // TODO: Move Stacks wallet generation to backend or use a lighter library.
+            // try {
+            //     const stacksWallet = await getOrCreateStacksWallet();
+            //     if (stacksWallet) {
+            //         setBtcAddress(stacksWallet.address);
+            //         console.log('Stacks wallet ready:', stacksWallet.address);
+            //     }
+            // } catch (error: any) {
+            //     console.log('Stacks wallet error:', error);
+            // }
+            console.log('[ProfileModal] Stacks wallet generation skipped (performance issue)');
         };
         setupWallets();
     }, [user]);

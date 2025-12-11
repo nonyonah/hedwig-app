@@ -68,16 +68,19 @@ export default function BiometricsScreen() {
                 }
             }
 
-            // 3. Create Stacks wallet if it doesn't exist (auto-generated, seed hidden)
-            try {
-                const stacksWallet = await getOrCreateStacksWallet();
-                if (stacksWallet) {
-                    walletAddresses.stacks = stacksWallet.address;
-                    console.log('Stacks wallet ready for sync:', stacksWallet.address);
-                }
-            } catch (error) {
-                console.log('Stacks wallet generation error:', error);
-            }
+            // 3. Stacks wallet generation is TEMPORARILY DISABLED
+            // The Stacks SDK's generateWallet uses PBKDF2 which hangs on React Native.
+            // TODO: Move Stacks wallet generation to backend or use a lighter library.
+            // try {
+            //     const stacksWallet = await getOrCreateStacksWallet();
+            //     if (stacksWallet) {
+            //         walletAddresses.stacks = stacksWallet.address;
+            //         console.log('Stacks wallet ready for sync:', stacksWallet.address);
+            //     }
+            // } catch (error) {
+            //     console.log('Stacks wallet generation error:', error);
+            // }
+            console.log('[Biometrics] Stacks wallet generation skipped (performance issue)');
 
             console.log('Final wallet addresses to sync:', walletAddresses);
 

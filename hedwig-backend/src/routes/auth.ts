@@ -79,6 +79,7 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
             const { data: updatedUser, error: updateError } = await supabase
                 .from('users')
                 .update({
+                    privy_id: privyId, // Ensure privy_id is synced if we matched by email
                     last_login: new Date().toISOString(),
                     ethereum_wallet_address: walletAddresses?.ethereum || user.ethereum_wallet_address,
                     solana_wallet_address: walletAddresses?.solana || user.solana_wallet_address,
@@ -94,6 +95,8 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
             }
 
             console.log('[Auth] User updated:', {
+                id: updatedUser.id,
+                privyId: updatedUser.privy_id,
                 ethereumWallet: updatedUser.ethereum_wallet_address,
                 solanaWallet: updatedUser.solana_wallet_address
             });
@@ -133,16 +136,15 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                 first_name,
                 last_name,
                 avatar,
-                base_wallet_address,
-                celo_wallet_address,
+                ethereum_wallet_address,
                 solana_wallet_address,
+                stacks_wallet_address,
                 created_at,
                 updated_at
             `)
-            .eq('privy_id', req.user!.privyId)
-            .single();
-
         if (error || !user) {
+            console.error('[Auth] /me error:', error || 'User not found in DB');
+            console.log('[Auth] Checked privy_id:', req.user!.privyId);
             throw new AppError('User not found', 404);
         }
 
@@ -153,9 +155,9 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
             firstName: user.first_name,
             lastName: user.last_name,
             avatar: user.avatar,
-            baseWalletAddress: user.base_wallet_address,
-            celoWalletAddress: user.celo_wallet_address,
+            ethereumWalletAddress: user.ethereum_wallet_address,
             solanaWalletAddress: user.solana_wallet_address,
+            stacksWalletAddress: user.stacks_wallet_address,
             createdAt: user.created_at,
             updatedAt: user.updated_at,
         };
