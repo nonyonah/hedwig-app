@@ -1,12 +1,13 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform } from 'react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Modal, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link, Receipt, Chat, CaretRight, SignOut, UserCircle } from 'phosphor-react-native';
+import { House, Link, Receipt, Chat, CaretRight, SignOut, Trash, CheckCircle, Circle } from 'phosphor-react-native';
 import { Colors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Alert } from 'react-native';
+import { BlurView } from 'expo-blur';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.85;
@@ -40,7 +41,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // Animation value: 0 (closed) to 1 (open)
     const animValue = useRef(new Animated.Value(0)).current;
 
-    const [isVisible, setIsVisible] = React.useState(isOpen);
+    const [isVisible, setIsVisible] = useState(isOpen);
+
+    // Selection Mode State
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
+
+    // Context Menu State
+    const [contextMenuVisible, setContextMenuVisible] = useState(false);
+    const [contextMenuTarget, setContextMenuTarget] = useState<{ id: string, title: string } | null>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -57,6 +66,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 useNativeDriver: true,
             }).start(() => {
                 setIsVisible(false);
+                // Exit selection mode on close
+                setIsSelectionMode(false);
+                setSelectedChats(new Set());
             });
         }
     }, [isOpen]);
@@ -87,16 +99,93 @@ export const Sidebar: React.FC<SidebarProps> = ({
         outputRange: [-SIDEBAR_WIDTH, 0],
     });
 
+    // --- Multi-Select Logic ---
+
+    const toggleSelection = (id: string) => {
+        const newSelected = new Set(selectedChats);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedChats(newSelected);
+
+        // Auto-exit if empty? Optional. Keeping it active feels better.
+        if (newSelected.size === 0 && isSelectionMode) {
+            // setIsSelectionMode(false); 
+        }
+    };
+
+    const enterSelectionMode = (initialId: string) => {
+        setIsSelectionMode(true);
+        setSelectedChats(new Set([initialId]));
+        setContextMenuVisible(false);
+    };
+
+    const deleteSelected = () => {
+        Alert.alert(
+            'Delete Chats',
+            `Are you sure you want to delete ${selectedChats.size} conversation${selectedChats.size > 1 ? 's' : ''}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        if (onDeleteConversation) {
+                            // Batch delete (simulated by loop if backend doesn't support batch yet)
+                            for (const id of selectedChats) {
+                                onDeleteConversation(id);
+                            }
+                        }
+                        setIsSelectionMode(false);
+                        setSelectedChats(new Set());
+                    }
+                }
+            ]
+        );
+    };
+
+    const deleteSingle = (id: string) => {
+        setContextMenuVisible(false);
+        setTimeout(() => {
+            Alert.alert(
+                'Delete Conversation',
+                'Are you sure you want to delete this conversation?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: () => onDeleteConversation && onDeleteConversation(id)
+                    }
+                ]
+            );
+        }, 200);
+    };
+
+    // --- Context Menu ---
+
+    const handleLongPress = async (chat: { id: string, title: string }) => {
+        // Only show context menu if NOT in selection mode already
+        if (isSelectionMode) return;
+
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setContextMenuTarget(chat);
+        setContextMenuVisible(true);
+    };
+
     const renderMenuItem = (icon: React.ReactNode, label: string, isActive: boolean, onPress: () => void) => (
         <TouchableOpacity
             style={styles.menuItem}
             onPress={onPress}
+            disabled={isSelectionMode} // Disable nav during selection
         >
-            <View style={styles.menuItemLeft}>
+            <View style={[styles.menuItemLeft, isSelectionMode && { opacity: 0.3 }]}>
                 <View style={styles.menuIcon}>{icon}</View>
                 <Text style={[styles.menuText, isActive && styles.menuTextActive]}>{label}</Text>
             </View>
-            <CaretRight size={16} color="#9CA3AF" weight="bold" />
+            {!isSelectionMode && <CaretRight size={16} color="#9CA3AF" weight="bold" />}
         </TouchableOpacity>
     );
 
@@ -129,16 +218,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }
                 ]}
             >
-                <View style={styles.header}>
-                    <Text style={styles.greeting}>
-                        Hi <Text style={styles.nameHighlight}>{userName?.firstName || 'User'}!</Text>
-                    </Text>
+                {/* Header or Selection Header */}
+                <View style={styles.headerContainer}>
+                    {isSelectionMode ? (
+                        <View style={styles.selectionHeader}>
+                            <TouchableOpacity onPress={() => {
+                                setIsSelectionMode(false);
+                                setSelectedChats(new Set());
+                            }}>
+                                <Text style={styles.cancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.selectionTitle}>{selectedChats.size} Selected</Text>
+                            <TouchableOpacity
+                                onPress={deleteSelected}
+                                disabled={selectedChats.size === 0}
+                            >
+                                <Text style={[styles.deleteText, selectedChats.size === 0 && { opacity: 0.5 }]}>
+                                    Delete
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={styles.header}>
+                            <Text style={styles.greeting}>
+                                Hi <Text style={styles.nameHighlight}>{userName?.firstName || 'User'}!</Text>
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
-                <View style={styles.divider} />
+                {!isSelectionMode && <View style={styles.divider} />}
 
                 <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    <View style={styles.menuSection}>
+                    {/* Navigation Menu (Dimmed in selection mode) */}
+                    <View style={[styles.menuSection, isSelectionMode && { opacity: 0.3 }]}>
                         {renderMenuItem(
                             <House size={22} color={Colors.textPrimary} />,
                             'Home',
@@ -168,69 +281,128 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                     </View>
 
+                    {/* Recent Chats */}
                     {conversations && conversations.length > 0 && (
                         <View style={styles.recentsSection}>
-                            <Text style={styles.sectionTitle}>Recent Chats</Text>
-                            {conversations.slice(0, 3).map((conv) => (
-                                <TouchableOpacity
-                                    key={conv.id}
-                                    style={styles.recentItem}
-                                    onPress={() => {
-                                        if (onLoadConversation) {
-                                            onLoadConversation(conv.id);
-                                            onClose();
-                                        }
-                                    }}
-                                    onLongPress={async () => {
-                                        if (onDeleteConversation) {
-                                            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                            Alert.alert(
-                                                'Delete Conversation',
-                                                'Are you sure you want to delete this conversation?',
-                                                [
-                                                    { text: 'Cancel', style: 'cancel' },
-                                                    {
-                                                        text: 'Delete',
-                                                        style: 'destructive',
-                                                        onPress: () => onDeleteConversation(conv.id)
-                                                    }
-                                                ]
-                                            );
-                                        }
-                                    }}
-                                    delayLongPress={500}
-                                >
-                                    <Chat size={18} color={Colors.textSecondary} weight="duotone" />
-                                    <Text style={styles.recentText} numberOfLines={1}>
-                                        {conv.title || 'Untitled'}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
+                            <Text style={[styles.sectionTitle, isSelectionMode && { opacity: 0.5 }]}>
+                                Recent Chats
+                            </Text>
+                            {conversations.slice(0, 5).map((conv) => {
+                                const isSelected = selectedChats.has(conv.id);
+                                return (
+                                    <TouchableOpacity
+                                        key={conv.id}
+                                        style={[
+                                            styles.recentItem,
+                                            isSelectionMode && isSelected && styles.recentItemSelected
+                                        ]}
+                                        onPress={() => {
+                                            if (isSelectionMode) {
+                                                toggleSelection(conv.id);
+                                                Haptics.selectionAsync();
+                                            } else {
+                                                if (onLoadConversation) {
+                                                    onLoadConversation(conv.id);
+                                                    onClose();
+                                                }
+                                            }
+                                        }}
+                                        onLongPress={() => handleLongPress(conv)}
+                                        delayLongPress={400} // Slightly quicker
+                                        activeOpacity={0.7}
+                                    >
+                                        {isSelectionMode ? (
+                                            <View style={styles.selectionIcon}>
+                                                {isSelected ? (
+                                                    <CheckCircle size={22} color={Colors.primary} weight="fill" />
+                                                ) : (
+                                                    <Circle size={22} color={Colors.textSecondary} />
+                                                )}
+                                            </View>
+                                        ) : (
+                                            <Chat size={18} color={Colors.textSecondary} weight="duotone" />
+                                        )}
+
+                                        <Text style={[
+                                            styles.recentText,
+                                            isSelectionMode && { marginLeft: 12 }
+                                        ]} numberOfLines={1}>
+                                            {conv.title || 'Untitled'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
                     )}
 
-                    <TouchableOpacity style={styles.logoutItem} onPress={handleLogout}>
-                        <View style={styles.menuItemLeft}>
-                            <View style={styles.menuIcon}>
-                                <SignOut size={22} color={Colors.textPrimary} />
+                    {!isSelectionMode && (
+                        <TouchableOpacity style={styles.logoutItem} onPress={handleLogout}>
+                            <View style={styles.menuItemLeft}>
+                                <View style={styles.menuIcon}>
+                                    <SignOut size={22} color={Colors.textPrimary} />
+                                </View>
+                                <Text style={styles.menuText}>Log out</Text>
                             </View>
-                            <Text style={styles.menuText}>Log out</Text>
-                        </View>
-                    </TouchableOpacity>
+                        </TouchableOpacity>
+                    )}
                 </ScrollView>
 
-                <View style={styles.footer}>
-                    <TouchableOpacity style={styles.footerLink}>
-                        <Text style={styles.footerText}>Frequently asked questions</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.footerLink}>
-                        <Text style={styles.footerText}>Terms & conditions</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.footerLink}>
-                        <Text style={styles.footerText}>Privacy notice</Text>
-                    </TouchableOpacity>
-                </View>
+                {!isSelectionMode && (
+                    <View style={styles.footer}>
+                        <TouchableOpacity style={styles.footerLink}>
+                            <Text style={styles.footerText}>Frequently asked questions</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.footerLink}>
+                            <Text style={styles.footerText}>Terms & conditions</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.footerLink}>
+                            <Text style={styles.footerText}>Privacy notice</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </Animated.View>
+
+            {/* Haptic Touch Context Menu Overlay */}
+            <Modal
+                visible={contextMenuVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setContextMenuVisible(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setContextMenuVisible(false)}>
+                    <View style={styles.modalOverlay}>
+                        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+
+                        <View style={styles.contextMenuContainer}>
+                            <View style={styles.contextMenuHeader}>
+                                <Text style={styles.contextMenuTitle} numberOfLines={1}>
+                                    {contextMenuTarget?.title || 'Chat Options'}
+                                </Text>
+                            </View>
+
+                            <View style={styles.contextMenuItems}>
+                                <TouchableOpacity
+                                    style={styles.contextMenuItem}
+                                    onPress={() => contextMenuTarget && enterSelectionMode(contextMenuTarget.id)}
+                                >
+                                    <Text style={styles.contextMenuText}>Select Chats</Text>
+                                    <CheckCircle size={20} color={Colors.textPrimary} />
+                                </TouchableOpacity>
+
+                                <View style={styles.contextMenuDivider} />
+
+                                <TouchableOpacity
+                                    style={styles.contextMenuItem}
+                                    onPress={() => contextMenuTarget && deleteSingle(contextMenuTarget.id)}
+                                >
+                                    <Text style={[styles.contextMenuText, { color: '#EF4444' }]}>Delete Chat</Text>
+                                    <Trash size={20} color="#EF4444" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </View>
     );
 };
@@ -261,8 +433,33 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
         elevation: 5,
     },
-    header: {
+    headerContainer: {
         marginBottom: 24,
+        minHeight: 40,
+        justifyContent: 'center',
+    },
+    header: {
+        // marginBottom: 24, 
+    },
+    selectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    cancelText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 16,
+        color: Colors.primary,
+    },
+    selectionTitle: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 16,
+        color: Colors.textPrimary,
+    },
+    deleteText: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 16,
+        color: '#EF4444',
     },
     greeting: {
         fontFamily: 'RethinkSans_700Bold',
@@ -270,9 +467,6 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     nameHighlight: {
-        // color: '#D1D5DB', // Light gray for the name background effect if needed, or just text color
-        // Based on image, it looks like "Hi [Name]!" where Name might have a background or just bold.
-        // Let's keep it simple text for now as per "simple overlay".
         color: Colors.textPrimary,
     },
     divider: {
@@ -334,6 +528,14 @@ const styles = StyleSheet.create({
         backgroundColor: '#F9FAFB',
         borderRadius: 8,
     },
+    recentItemSelected: {
+        backgroundColor: '#EFF6FF',
+    },
+    selectionIcon: {
+        width: 24,
+        alignItems: 'center',
+        marginRight: 0,
+    },
     recentText: {
         fontFamily: 'RethinkSans_400Regular',
         fontSize: 14,
@@ -351,5 +553,57 @@ const styles = StyleSheet.create({
         fontFamily: 'RethinkSans_500Medium',
         fontSize: 13,
         color: Colors.textPrimary,
+    },
+    // Context Menu Styles
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.2)', // Fallback if blur fails or extra scrim
+    },
+    contextMenuContainer: {
+        width: 250,
+        backgroundColor: 'rgba(255,255,255,0.95)',
+        borderRadius: 14,
+        overflow: 'hidden',
+        // iOS Backdrop Shadow
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 10,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    contextMenuHeader: {
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0,0,0,0.1)',
+        alignItems: 'center',
+    },
+    contextMenuTitle: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 14,
+        color: Colors.textSecondary,
+    },
+    contextMenuItems: {
+        padding: 0,
+    },
+    contextMenuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+        // height: 50,
+    },
+    contextMenuText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 16,
+        color: Colors.textPrimary,
+    },
+    contextMenuDivider: {
+        height: 1,
+        backgroundColor: 'rgba(0,0,0,0.1)',
     },
 });
