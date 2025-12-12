@@ -275,7 +275,11 @@ export async function payInvoice(
         // @ts-ignore - The types for makeContractCall might mismatch slightly on RN
         const transaction = await makeContractCall(txOptions);
 
-        const broadcastResponse = await broadcastTransaction(transaction, STACKS_NETWORK);
+        // Pass as options object
+        const broadcastResponse = await broadcastTransaction({
+            transaction,
+            network: STACKS_NETWORK
+        } as any);
 
         if ('error' in broadcastResponse) {
             console.error('[StacksWallet] Broadcast error:', broadcastResponse);
