@@ -567,6 +567,10 @@
     <script>window.Buffer = window.buffer.Buffer;</script>
     <!-- Solana web3.js for Solana chain -->
     <script src="https://unpkg.com/@solana/web3.js@1.95.4/lib/index.iife.min.js"></script>
+    <!-- Stacks Connect & Transactions -->
+    <script src="https://unpkg.com/@stacks/connect@7.2.0/dist/index.umd.js"></script>
+    <script src="https://unpkg.com/@stacks/transactions@6.0.0/dist/index.umd.js"></script>
+    <script src="https://unpkg.com/@stacks/network@6.0.0/dist/index.umd.js"></script>
     <script>
 
         // Data & Configuration
@@ -609,12 +613,183 @@
                 id: 'solana',
                 name: 'Solana Devnet',
                 icon: '/assets/icons/networks/solana.png',
-                chainId: null, // Solana is not an EVM chain
+                chainId: null,
                 rpcUrl: 'https://api.devnet.solana.com',
                 explorer: 'https://explorer.solana.com?cluster=devnet',
                 isSolana: true
+            },
+            {
+                id: 'stacks',
+                name: 'Stacks Testnet',
+                icon: '/assets/icons/networks/stacks.png',
+                chainId: null,
+                explorer: 'https://explorer.hiro.so/txid?chain=testnet',
+                isStacks: true
             }
         ];
+
+        const TOKENS = [
+            {
+                symbol: 'USDC',
+                name: 'USD Coin',
+                icon: '/assets/icons/tokens/usdc.png',
+                addresses: {
+                    base: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+                    celo: ''
+                }
+            },
+            {
+                symbol: 'USDT',
+                name: 'Tether',
+                icon: '/assets/icons/tokens/usdt.png',
+                addresses: {
+                    base: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
+                    celo: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e'
+                }
+            },
+            {
+                symbol: 'ETH',
+                name: 'Ethereum',
+                icon: '/assets/icons/tokens/eth.png',
+                isNative: true
+            },
+            {
+                symbol: 'CELO',
+                name: 'Celo',
+                icon: '/assets/icons/tokens/celo.png',
+                isNative: true
+            },
+            {
+                symbol: 'SOL',
+                name: 'Solana',
+                icon: '/assets/icons/networks/solana.png',
+                isNative: true,
+                isSolana: true
+            },
+            {
+                symbol: 'STX',
+                name: 'Stacks',
+                icon: '/assets/icons/networks/stacks.png',
+                isNative: true,
+                isStacks: true
+            }
+        ];
+
+        // Stacks Constants
+        const STACKS_CONTRACT_ADDRESS = 'STW9P38PTJX94QM0HD328MWW0J99WNC7SNTNBMVG';
+        const STACKS_CONTRACT_NAME = 'hedwig-payment';
+
+        // Connect Wallet Logic
+        async function connectWallet() {
+            if (selectedChain.isSolana) {
+                return connectSolanaWallet();
+            } else if (selectedChain.isStacks) {
+                return connectStacksWallet();
+            }
+
+            // EVM Logic
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    provider = new ethers.BrowserProvider(window.ethereum);
+                    signer = await provider.getSigner();
+                    userAddress = await signer.getAddress();
+
+                    updateButtonState();
+                    return true;
+                } catch (error) {
+                    console.error("User rejected request", error);
+                    alert("Failed to connect wallet");
+                    return false;
+                }
+            } else {
+                alert("Please install MetaMask!");
+                return false;
+            }
+        }
+
+        // Stacks Wallet Connection
+        async function connectStacksWallet() {
+            return new Promise((resolve) => {
+                const { showConnect, AppConfig, UserSession } = window.StacksConnect;
+
+                const appConfig = new AppConfig(['store_write', 'publish_data']);
+                const userSession = new UserSession({ appConfig });
+
+                showConnect({
+                    appDetails: {
+                        name: 'Hedwig',
+                        icon: window.location.origin + '/assets/logo.png',
+                    },
+                    redirectTo: '/',
+                    onFinish: () => {
+                        const userData = userSession.loadUserData();
+                        userAddress = userData.profile.stxAddress.testnet; // Use testnet address
+                        console.log("Stacks connected:", userAddress);
+
+                        updateButtonState();
+                        payBtn.onclick = processStacksPayment;
+                        resolve(true);
+                    },
+                    userSession,
+                });
+            });
+        }
+
+        // Stacks Payment Processing
+        async function processStacksPayment() {
+            if (!invoiceData) return;
+
+            const recipient = invoiceData.user?.stacks_wallet_address;
+            if (!recipient) {
+                alert("Merchant does not have a Stacks wallet linked.");
+                return;
+            }
+
+            const amountSTX = invoiceData.amount;
+            const amountMicroSTX = Math.floor(parseFloat(amountSTX) * 1_000_000);
+
+            const { openContractCall } = window.StacksConnect;
+            const {
+                standardPrincipalCV,
+                uintCV,
+                someCV,
+                stringAsciiCV,
+                noneCV,
+                PostConditionMode
+            } = window.StacksTransactions;
+            const { StacksTestnet } = window.StacksNetwork;
+
+            const functionArgs = [
+                standardPrincipalCV(recipient), // recipient
+                uintCV(amountMicroSTX),         // amount
+                someCV(stringAsciiCV(invoiceData.id)) // invoice-id
+            ];
+
+            const options = {
+                contractAddress: STACKS_CONTRACT_ADDRESS,
+                contractName: STACKS_CONTRACT_NAME,
+                functionName: 'pay-invoice',
+                functionArgs,
+                network: new StacksTestnet(),
+                postConditionMode: PostConditionMode.Allow, // Simplification
+                onFinish: (data) => {
+                    console.log('Stacks Transaction:', data.txId);
+                    alert(`Transaction submitted! TX ID: ${data.txId}`);
+                    window.open(`https://explorer.hiro.so/txid/${data.txId}?chain=testnet`, '_blank');
+
+                    // Mark as paid on backend (optimistic)
+                    markAsPaid(data.txId);
+                },
+            };
+
+            await openContractCall(options);
+        }
+
+        // ... Existing Solana & EVM logic ...
+        // (Existing connectSolanaWallet, processSolanaPayment, etc. remain unchanged)
+
+
 
         const TOKENS = [
             {

@@ -39,6 +39,7 @@ const CHAINS: Record<string, any> = {
     'celo': { name: 'Celo Sepolia', icon: ICONS.celo, explorer: 'https://celo-sepolia.celoscan.io/tx/', type: 'evm' },
     'solana': { name: 'Solana Devnet', icon: ICONS.solana, explorer: 'https://explorer.solana.com/tx/', type: 'solana', cluster: 'devnet' },
     'solana_devnet': { name: 'Solana Devnet', icon: ICONS.solana, explorer: 'https://explorer.solana.com/tx/', type: 'solana', cluster: 'devnet' },
+    'stacks': { name: 'Stacks Testnet', icon: require('../assets/icons/networks/stacks.png'), explorer: 'https://explorer.hiro.so/txid/', type: 'stacks', cluster: 'testnet' },
 };
 
 // ERC20 ABI for transfers
@@ -632,6 +633,21 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
 
             if (isSolanaNetwork(network)) {
                 transactionHash = await handleSolanaTransaction();
+            } else if (network === 'stacks' || network === 'stacks_testnet' || network === 'stacks testnet') {
+                const { payInvoice } = require('../services/stacksWallet');
+                // Use token as optional invoice ID if specialized, otherwise default
+                const txId = await payInvoice(
+                    data.recipient,
+                    data.amount,
+                    // Use a simple reference if available, otherwise undefined
+                    undefined
+                );
+
+                if (!txId) throw new Error('Stacks transaction failed');
+                transactionHash = txId;
+
+                // Add link for Stacks explorer
+                setTxHash(txId);
             } else {
                 transactionHash = await handleEvmTransaction();
             }

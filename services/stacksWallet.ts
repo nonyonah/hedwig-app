@@ -8,6 +8,17 @@
 import * as SecureStore from 'expo-secure-store';
 import { generateSecretKey, generateWallet, getStxAddress } from '@stacks/wallet-sdk';
 import { STACKS_TESTNET } from '@stacks/network';
+import {
+    makeContractCall,
+    broadcastTransaction,
+    AnchorMode,
+    PostConditionMode,
+    uintCV,
+    standardPrincipalCV,
+    someCV,
+    stringAsciiCV,
+    noneCV
+} from '@stacks/transactions';
 
 // Secure storage keys
 const STACKS_SEED_KEY = 'hedwig_stacks_seed';
@@ -209,5 +220,74 @@ export async function getSTXBalance(address: string): Promise<string> {
     } catch (error) {
         console.error('[StacksWallet] Error fetching balance:', error);
         return '0';
+    }
+}
+
+// Contract configuration
+const CONTRACT_ADDRESS = 'STW9P38PTJX94QM0HD328MWW0J99WNC7SNTNBMVG';
+const CONTRACT_NAME = 'hedwig-payment';
+
+/**
+ * Pay an invoice using the Hedwig Stacks contract
+ * Splits payment: 99% to freelancer, 1% to platform
+ * 
+ * @param recipientAddress - The freelancer's Stacks address
+ * @param amountSTX - Amount to pay in STX (will be converted to microSTX)
+ * @param invoiceId - Optional invoice ID string
+ */
+export async function payInvoice(
+    recipientAddress: string,
+    amountSTX: string,
+    invoiceId?: string
+): Promise<string | null> {
+    try {
+        console.log(`[StacksWallet] Paying invoice: ${amountSTX} STX to ${recipientAddress}`);
+
+        const secretKey = await getSecretKey();
+        if (!secretKey) {
+            throw new Error('Stacks wallet not found or locked');
+        }
+
+        // Convert STX to microSTX (1 STX = 1,000,000 microSTX)
+        const amountMicroSTX = Math.floor(parseFloat(amountSTX) * 1_000_000);
+
+        // Prepare arguments
+        const functionArgs = [
+            standardPrincipalCV(recipientAddress),
+            uintCV(amountMicroSTX),
+            invoiceId ? someCV(stringAsciiCV(invoiceId)) : noneCV()
+        ];
+
+        // Create transaction
+        const txOptions = {
+            contractAddress: CONTRACT_ADDRESS,
+            contractName: CONTRACT_NAME,
+            functionName: 'pay-invoice',
+            functionArgs,
+            senderKey: secretKey,
+            validateWithAbi: true,
+            network: STACKS_NETWORK,
+            anchorMode: AnchorMode.Any,
+            postConditionMode: PostConditionMode.Allow, // Allow transfers (could be stricter)
+        };
+
+        // Sign and broadcast
+        // @ts-ignore - The types for makeContractCall might mismatch slightly on RN
+        const transaction = await makeContractCall(txOptions);
+
+        const broadcastResponse = await broadcastTransaction(transaction, STACKS_NETWORK);
+
+        if ('error' in broadcastResponse) {
+            console.error('[StacksWallet] Broadcast error:', broadcastResponse);
+            throw new Error(`Transaction failed: ${broadcastResponse.reason}`);
+        }
+
+        const txId = broadcastResponse.txid;
+        console.log('[StacksWallet] Transaction broadcasted:', txId);
+
+        return txId;
+    } catch (error) {
+        console.error('[StacksWallet] Error paying invoice:', error);
+        throw error;
     }
 }
