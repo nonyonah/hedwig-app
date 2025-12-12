@@ -44,7 +44,7 @@ Hedwig is an AI-powered growth partner for African freelancers. It helps them cr
 - **Crypto Payments**: Accept payments across Base, Solana, Celo, and Stacks (Bitcoin L2).
 - **Payment Links & Invoices**: Shareable public pages for clients to pay seamlessly.
 - **Wallet Integration**: Seamless wallet creation and management via Privy (EVM/Solana) and Stacks.
-- **Secure Authentication**: Google & Apple sign-in with biometric security.
+- **Secure Authentication**: Secure sign-in with biometric security.
 - **Transaction Management**: integrated transaction confirmation with gas estimation and platform fees.
 - **Client & Project Management**: Organize your freelance work efficiently.
 
