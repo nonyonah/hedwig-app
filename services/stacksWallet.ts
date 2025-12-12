@@ -59,7 +59,7 @@ export async function generateStacksWallet(): Promise<StacksWalletInfo | null> {
         console.log('[StacksWallet] 3. Calling generateWallet...');
         const wallet = await generateWallet({
             secretKey,
-        });
+        } as any);
         console.log('[StacksWallet] 4. generateWallet done.');
 
         // Get the first account's address
@@ -156,7 +156,7 @@ export async function getStacksAccount() {
 
         const wallet = await generateWallet({
             secretKey,
-        });
+        } as any);
 
         return wallet.accounts[0];
     } catch (error) {

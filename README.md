@@ -1,6 +1,6 @@
 # Hedwig Mobile App
 
-AI-powered freelancer platform for African markets - Mobile app built with Expo and React Native.
+Hedwig is an AI-powered growth partner for African freelancers. It helps them create professional invoices, proposals, and contracts, and facilitates crypto payments across multiple chains including Base, Solana, Celo, and Stacks (Bitcoin L2).
 
 ## 🚀 Quick Start
 
@@ -8,6 +8,7 @@ AI-powered freelancer platform for African markets - Mobile app built with Expo 
 - Node.js 18+
 - Expo Go app on your phone ([iOS](https://apps.apple.com/app/expo-go/id982107779) | [Android](https://play.google.com/store/apps/details?id=host.exp.exponent))
 - Privy App ID (get from https://dashboard.privy.io)
+- Stacks API (testnet/mainnet)
 
 ### Setup
 
@@ -109,10 +110,10 @@ EXPO_PUBLIC_API_URL=http://localhost:3000
 
 Current setup:
 - **Login Methods**: Google, Apple
-- **Chains**: Base (8453), Celo (42220), Solana
+- **Chains**: Base (8453), Celo (42220), Solana, Stacks (Bitcoin L2)
 - **Theme**: Light mode with blue accent (#3B82F6)
 
-Configured in `lib/privy.ts`
+Configured in `lib/privy.ts` and `services/stacksWallet.ts`
 
 ## 🐛 Troubleshooting
 
