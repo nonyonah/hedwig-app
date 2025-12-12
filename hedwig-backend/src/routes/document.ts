@@ -12,7 +12,7 @@ const router = Router();
  */
 router.post('/invoice', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, description, recipientEmail, items, dueDate, clientName } = req.body;
+        const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled } = req.body;
         const privyId = req.user!.privyId;
 
         // Get internal user ID
@@ -37,7 +37,8 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                     recipient_email: recipientEmail,
                     client_name: clientName,
                     due_date: dueDate,
-                    items: items || []
+                    items: items || [],
+                    reminders_enabled: remindersEnabled !== false // Default to true
                 }
             })
             .select()
@@ -60,7 +61,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
  */
 router.post('/payment-link', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, currency, description } = req.body;
+        const { amount, currency, description, remindersEnabled, recipientEmail, clientName } = req.body;
         const privyId = req.user!.privyId;
 
         // Get internal user ID
@@ -81,7 +82,12 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 amount: parseFloat(amount),
                 currency: currency || 'USDC',
                 status: 'DRAFT',
-                payment_link_url: `https://hedwig.app/pay/${Date.now()}` // Simulated URL
+                payment_link_url: `https://hedwig.app/pay/${Date.now()}`,
+                content: {
+                    recipient_email: recipientEmail,
+                    client_name: clientName,
+                    reminders_enabled: remindersEnabled !== false // Default to true
+                }
             })
             .select()
             .single();
@@ -422,6 +428,137 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next) =>
         res.json({
             success: true,
             data: { message: 'Document deleted successfully' },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/documents/:id/remind
+ * Manually trigger a smart reminder for a document
+ */
+router.post('/:id/remind', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const privyId = req.user!.privyId;
+
+        // Get user ID first
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userData) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        // Fetch document with user info
+        const { data: doc, error: fetchError } = await supabase
+            .from('documents')
+            .select(`
+                *,
+                user:users(
+                    first_name,
+                    last_name,
+                    email
+                )
+            `)
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !doc) {
+            res.status(404).json({ success: false, error: { message: 'Document not found' } });
+            return;
+        }
+
+        // Verify ownership
+        if (doc.user_id !== userData.id) {
+            res.status(403).json({ success: false, error: { message: 'Not authorized' } });
+            return;
+        }
+
+        // Import dynamically to avoid circular dependencies if any, though importing at top is better
+        const { SchedulerService } = require('../services/scheduler');
+
+        // Trigger the reminder process for this single document
+        await SchedulerService.processDocumentReminder(doc);
+
+        res.json({
+            success: true,
+            data: { message: 'Reminder process initiated' }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/documents/:id/toggle-reminders
+ * Enable or disable reminders for a document
+ */
+router.post('/:id/toggle-reminders', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const { enabled } = req.body;
+        const privyId = req.user!.privyId;
+
+        // Get user ID first
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userData) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        // Fetch document
+        const { data: doc, error: fetchError } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !doc) {
+            res.status(404).json({ success: false, error: { message: 'Document not found' } });
+            return;
+        }
+
+        // Verify ownership
+        if (doc.user_id !== userData.id) {
+            res.status(403).json({ success: false, error: { message: 'Not authorized' } });
+            return;
+        }
+
+        // Update reminders_enabled in content
+        const content = doc.content || {};
+        const { data: updatedDoc, error: updateError } = await supabase
+            .from('documents')
+            .update({
+                content: {
+                    ...content,
+                    reminders_enabled: enabled
+                }
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw new AppError(`Failed to update document: ${updateError.message}`, 500);
+        }
+
+        res.json({
+            success: true,
+            data: {
+                document: updatedDoc,
+                remindersEnabled: enabled
+            }
         });
     } catch (error) {
         next(error);

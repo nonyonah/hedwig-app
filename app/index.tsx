@@ -18,6 +18,7 @@ import { Typography } from '../styles/typography';
 import { Sidebar } from '../components/Sidebar';
 import { ProfileModal } from '../components/ProfileModal';
 import { TransactionConfirmationModal } from '../components/TransactionConfirmationModal';
+import { LinkPreviewCard } from '../components/LinkPreviewCard';
 import { getUserGradient } from '../utils/gradientUtils';
 
 const { width, height } = Dimensions.get('window');
@@ -662,51 +663,12 @@ export default function HomeScreen() {
                         <Text style={styles.aiMessageText} selectable>{part.value}</Text>
                     </View>
                 ) : (
-                    <View key={index} style={styles.linkPreviewCard}>
-                        <TouchableOpacity
-                            style={styles.linkPreviewContent}
-                            onPress={() => router.push(part.path!)}
-                        >
-                            <View style={styles.linkPreviewIconContainer}>
-                                <Text style={styles.linkPreviewIcon}>
-                                    {part.docType === 'invoice' ? '📄' :
-                                        part.docType === 'payment-link' ? '💳' :
-                                            part.docType === 'contract' ? '📝' : '📋'}
-                                </Text>
-                            </View>
-                            <View style={styles.linkPreviewInfo}>
-                                <Text style={styles.linkPreviewTitle}>
-                                    {part.docType === 'invoice' ? 'Invoice' :
-                                        part.docType === 'payment-link' ? 'Payment Link' :
-                                            part.docType === 'contract' ? 'Contract' : 'Proposal'}
-                                </Text>
-                                <Text style={styles.linkPreviewSubtitle}>
-                                    Tap to view • ID: {part.docId?.substring(0, 8)}...
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
-                        <View style={styles.linkPreviewActions}>
-                            <TouchableOpacity
-                                style={styles.linkActionButton}
-                                onPress={async () => {
-                                    await Clipboard.setStringAsync(`${process.env.EXPO_PUBLIC_API_URL || ''}${part.path}`);
-                                    Alert.alert('Copied!', 'Link copied to clipboard');
-                                }}
-                            >
-                                <Copy size={16} color={Colors.primary} />
-                                <Text style={styles.linkActionText}>Copy</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.linkActionButton}
-                                onPress={() => {
-                                    Alert.alert('Share', 'Share functionality coming soon!');
-                                }}
-                            >
-                                <ShareNetwork size={16} color={Colors.primary} />
-                                <Text style={styles.linkActionText}>Share</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+                    <LinkPreviewCard
+                        key={index}
+                        docType={part.docType as 'invoice' | 'payment-link' | 'contract' | 'proposal'}
+                        docId={part.docId!}
+                        path={part.path!}
+                    />
                 ))}
             </>
         );
@@ -846,108 +808,106 @@ export default function HomeScreen() {
 
     return (
         <View style={{ flex: 1 }}>
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <SafeAreaView style={styles.container}>
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                            <List size={24} color={Colors.textPrimary} weight="bold" />
-                        </TouchableOpacity>
-                        <View style={styles.headerRight}>
+            <SafeAreaView style={styles.container}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
+                        <List size={24} color={Colors.textPrimary} weight="bold" />
+                    </TouchableOpacity>
+                    <View style={styles.headerRight}>
 
-                            <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                                {profileIcon.imageUri ? (
-                                    <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                                ) : profileIcon.emoji ? (
-                                    <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                        <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                                    </View>
-                                ) : (
-                                    <LinearGradient
-                                        colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.profileIcon}
-                                    />
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    {/* Chat Area */}
-                    < View style={styles.chatArea} >
-                        {
-                            messages.length === 0 ? (
-                                <View style={styles.emptyState}>
-                                    <Text style={styles.emptyStateText}>
-                                        {displayedGreeting || getGreeting()}
-                                        {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
-                                    </Text>
-                                    <Text style={styles.emptySubtext}>How can I help you today?</Text>
+                        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
+                            {profileIcon.imageUri ? (
+                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                            ) : profileIcon.emoji ? (
+                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
                                 </View>
                             ) : (
-                                <FlatList
-                                    ref={flatListRef}
-                                    data={messages}
-                                    renderItem={({ item, index }) => renderMessage({ item, index })}
-                                    keyExtractor={item => item.id}
-                                    contentContainerStyle={styles.messageList}
-                                    showsVerticalScrollIndicator={false}
-                                    scrollEnabled={true}
-                                    keyboardShouldPersistTaps="handled"
-                                    keyboardDismissMode="on-drag"
-                                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                                    removeClippedSubviews={false}
+                                <LinearGradient
+                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.profileIcon}
                                 />
-                            )
-                        }
-                        {
-                            isGenerating && (
-                                <View style={styles.thinkingContainer}>
-                                    <Text style={styles.thinkingText}>Thinking...</Text>
-                                </View>
-                            )
-                        }
-                    </View >
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
 
-                    {/* Input Area */}
-                    < View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]} >
-                        <View style={styles.inputWrapper}>
-                            <TextInput
-                                style={styles.input}
-                                value={inputText}
-                                onChangeText={setInputText}
-                                placeholder="Ask Hedwig to create an invoice..."
-                                placeholderTextColor={Colors.textPlaceholder}
-                                multiline
-                                maxLength={1000}
+                {/* Chat Area */}
+                < View style={styles.chatArea} >
+                    {
+                        messages.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyStateText}>
+                                    {displayedGreeting || getGreeting()}
+                                    {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
+                                </Text>
+                                <Text style={styles.emptySubtext}>How can I help you today?</Text>
+                            </View>
+                        ) : (
+                            <FlatList
+                                ref={flatListRef}
+                                data={messages}
+                                renderItem={({ item, index }) => renderMessage({ item, index })}
+                                keyExtractor={item => item.id}
+                                contentContainerStyle={styles.messageList}
+                                showsVerticalScrollIndicator={false}
+                                scrollEnabled={true}
+                                keyboardShouldPersistTaps="handled"
+                                keyboardDismissMode="on-drag"
+                                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                                removeClippedSubviews={false}
                             />
-                            <TouchableOpacity
-                                style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-                                onPress={sendMessage}
-                                disabled={!inputText.trim() || isGenerating}
-                            >
-                                {isGenerating ? (
-                                    <ActivityIndicator color="#FFFFFF" size="small" />
-                                ) : (
-                                    <ArrowUp size={20} color="#FFFFFF" weight="bold" />
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View >
+                        )
+                    }
+                    {
+                        isGenerating && (
+                            <View style={styles.thinkingContainer}>
+                                <Text style={styles.thinkingText}>Thinking...</Text>
+                            </View>
+                        )
+                    }
+                </View >
 
-                    <ProfileModal
-                        visible={isProfileModalVisible}
-                        onClose={() => setIsProfileModalVisible(false)}
-                        userName={userName}
-                        walletAddresses={walletAddresses}
-                        profileIcon={profileIcon}
-                        onProfileUpdate={() => {
-                            fetchUserProfile();
-                        }}
-                    />
-                </SafeAreaView >
-            </TouchableWithoutFeedback >
+                {/* Input Area */}
+                < View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]} >
+                    <View style={styles.inputWrapper}>
+                        <TextInput
+                            style={styles.input}
+                            value={inputText}
+                            onChangeText={setInputText}
+                            placeholder="Ask Hedwig to create an invoice..."
+                            placeholderTextColor={Colors.textPlaceholder}
+                            multiline
+                            maxLength={1000}
+                        />
+                        <TouchableOpacity
+                            style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+                            onPress={sendMessage}
+                            disabled={!inputText.trim() || isGenerating}
+                        >
+                            {isGenerating ? (
+                                <ActivityIndicator color="#FFFFFF" size="small" />
+                            ) : (
+                                <ArrowUp size={20} color="#FFFFFF" weight="bold" />
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View >
+
+                <ProfileModal
+                    visible={isProfileModalVisible}
+                    onClose={() => setIsProfileModalVisible(false)}
+                    userName={userName}
+                    walletAddresses={walletAddresses}
+                    profileIcon={profileIcon}
+                    onProfileUpdate={() => {
+                        fetchUserProfile();
+                    }}
+                />
+            </SafeAreaView >
 
             <Sidebar
                 isOpen={isSidebarOpen}

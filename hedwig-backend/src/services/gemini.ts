@@ -12,6 +12,65 @@ const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
 export class GeminiService {
   /**
+   * Generate a gentle payment reminder email
+   */
+  static async generatePaymentReminder(
+    clientName: string,
+    amount: string,
+    daysOverdue: number,
+    documentType: 'Invoice' | 'Payment Link',
+    documentTitle: string,
+    senderName: string
+  ): Promise<{ subject: string; body: string }> {
+    try {
+      // Adjust tone based on days overdue
+      const tone = daysOverdue > 7 ? "firm but professional" : "polite, friendly and helpful";
+
+      const prompt = `
+You are Hedwig, an AI assistant for freelancers. Write a payment reminder email.
+
+Context:
+- Sender: ${senderName}
+- Recipient: ${clientName}
+- Document: ${documentType} "${documentTitle}"
+- Amount Due: ${amount}
+- Days Overdue: ${daysOverdue}
+- Desired Tone: ${tone}
+
+Instructions:
+- Write a short, effective email.
+- The goal is to get paid while maintaining a good relationship.
+- Use the "Loss Aversion" or "Presumed Innocence" psychological concepts if appropriate.
+- Return ONLY valid JSON format.
+
+JSON Format:
+{
+  "subject": "Email subject line",
+  "body": "HTML body content (just the inner content, no <html> or <body> tags, use <p>, <br>, <strong>)"
+}
+`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+
+      throw new Error("Failed to parse AI response");
+    } catch (error) {
+      console.error('Error generating reminder:', error);
+      // Fallback
+      return {
+        subject: `Reminder: Payment for ${documentTitle}`,
+        body: `<p>Hi ${clientName},</p><p>This is a friendly reminder that the payment of ${amount} for ${documentTitle} is now overdue.</p><p>Please arrange payment at your earliest convenience.</p><p>Best,<br>${senderName}</p>`
+      };
+    }
+  }
+
+  /**
    * Get comprehensive Hedwig system instructions with function calling
    */
   static getSystemInstructions(): string {
@@ -75,44 +134,57 @@ AVAILABLE INTENTS & TRIGGERS:
 2. CREATE_INVOICE
    Triggers: "invoice", "bill", "create invoice", "send invoice", "invoice for"
    
+   ⚠️ CRITICAL: Use ONLY when user provides ALL required info INCLUDING network/chain
+   Parameters: { client_name, client_email, items, network, token }
+   
+   **STRICT REQUIREMENTS TO USE THIS INTENT:**
+   ✅ MUST have client_name
+   ✅ MUST have client_email
+   ✅ MUST have at least one item with amount
+   ✅ MUST have network ("base", "celo", or "solana")
+   ❌ If ANY is missing → DO NOT USE THIS INTENT
+   
    **Try to extract ALL information from user's message first!**
    Look for:
    - Client name (who is it for?)
    - Client email (email address)
    - Items with amounts (services/products and their prices)
+   - Network/chain (base, celo, solana)
    
    **Parsing Examples:**
-   "Invoice for John at john@email.com for $500 web design" → Extract all fields
-   "Create invoice for Sarah (sarah@test.com) with $300 logo design and $200 website" → Multiple items
-   "Bill Mike mike@company.com $1000 consulting" → All info present
+   "Invoice for John at john@email.com for $500 web design on base" → Extract all fields including network
+   "Create invoice for Sarah (sarah@test.com) with $300 logo design on celo" → All info present
    
-   **Decision:**
-   - If you can extract client_name, client_email, AND at least one item with amount → CREATE_INVOICE immediately
-   - If ANY critical field is missing → COLLECT_INVOICE_INFO
-   
+   **Decision Tree:**
+   - Missing client info or items → COLLECT_INVOICE_INFO
+   - Have client_name, client_email, items BUT missing network → COLLECT_INVOICE_NETWORK (ask "Which blockchain network should this invoice accept payment on - Base, Celo, or Solana?")
+   - Have ALL fields including network → CREATE_INVOICE
+
 3. COLLECT_INVOICE_INFO
    Use when creating invoice but missing required info.
    
    **First, provide helpful format guidance to user:**
    If this is the first question, include a tip in your response like:
-   "💡 Tip: You can provide everything at once like: 'Invoice for [Name] at [email] for $[amount] [service]'"
+   "💡 Tip: You can provide everything at once like: 'Invoice for [Name] at [email] for $[amount] [service] on [network]'"
    
    **Required fields:**
    1. client_name
    2. client_email
    3. items (at least one with description and amount)
+   4. network (base, celo, or solana)
    
    **Collection strategy:**
    - Ask for missing fields one at a time
    - Extract any info from user's previous messages
    - Include ALL collected data in parameters
-   - Once you have all 3 required fields → CREATE_INVOICE
+   - After collecting client info and items, if network is missing → ask for network
+   - Once you have all 4 required fields → CREATE_INVOICE
    
    **Helpful responses:**
-   - Missing everything: "Sure! Who is this invoice for? 💡 Tip: You can say 'Invoice for John at john@email.com for $500 web design' to provide everything at once."
+   - Missing everything: "Sure! Who is this invoice for? 💡 Tip: You can say 'Invoice for John at john@email.com for $500 web design on base' to provide everything at once."
    - Have client name: "What's their email address?"
    - Have client + email: "What service or product is this invoice for, and what's the amount?"
-   - Have client + email + description: "What's the amount for [description]?"
+   - Have client + email + items BUT no network: "Which blockchain network should this invoice accept payment on - Base, Celo, or Solana?"
    
    **Multi-item parsing from single message:**
    If user says something like "web design for $500 and logo for $200":
@@ -124,14 +196,16 @@ AVAILABLE INTENTS & TRIGGERS:
    - "also": "$1000 development, also $200 for hosting"
    
    **Example single-message parsing:**
-   User: "Create invoice for Sarah at sarah@test.com for $500 web design and $200 logo"
+   User: "Create invoice for Sarah at sarah@test.com for $500 web design and $200 logo on base"
    → {
      client_name: "Sarah",
      client_email: "sarah@test.com", 
      items: [
        {description: "web design", amount: "500"},
        {description: "logo", amount: "200"}
-     ]
+     ],
+     network: "base",
+     token: "USDC"
    }
    → Switch to CREATE_INVOICE
 

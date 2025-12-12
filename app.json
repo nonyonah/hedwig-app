@@ -34,7 +34,8 @@
       "bundleIdentifier": "com.hedwig.app"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-web-browser"
     ],
     "extra": {
       "router": {

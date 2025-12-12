@@ -27,9 +27,13 @@ import walletRoutes from './routes/wallet';
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
+import { SchedulerService } from './services/scheduler';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialize background tasks
+SchedulerService.initScheduler();
 
 // Security middleware with CSP configuration for web pages
 app.use(

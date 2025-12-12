@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link, Receipt, Chat, CaretRight, SignOut } from 'phosphor-react-native';
+import { House, Link, Receipt, Chat, CaretRight, SignOut, ArrowsLeftRight } from 'phosphor-react-native';
 import { Colors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -165,6 +165,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             'Chats',
                             pathname === '/chats',
                             () => handleNavigation('/chats')
+                        )}
+                        {renderMenuItem(
+                            <ArrowsLeftRight size={22} color={Colors.textPrimary} weight="bold" />,
+                            'Transactions',
+                            pathname === '/transactions',
+                            () => handleNavigation('/transactions')
                         )}
                     </View>
 

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import { Linking } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
-import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThree } from 'phosphor-react-native';
+import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThree, Bell } from 'phosphor-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -55,6 +55,8 @@ export default function PaymentLinksScreen() {
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
+    const [showActionMenu, setShowActionMenu] = useState(false);
+    const [conversations, setConversations] = useState<any[]>([]);
 
     // Helper to get chain icon
     const getChainIcon = (chain?: string) => {
@@ -113,6 +115,15 @@ export default function PaymentLinksScreen() {
                         evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
                         solana: userData.solanaWalletAddress
                     });
+                }
+
+                // Fetch recent conversations for sidebar
+                const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+                const conversationsData = await conversationsResponse.json();
+                if (conversationsData.success && conversationsData.data) {
+                    setConversations(conversationsData.data.slice(0, 10)); // Get recent 10
                 }
             } catch (error) {
                 console.error('Failed to fetch user data:', error);
@@ -335,8 +346,9 @@ export default function PaymentLinksScreen() {
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 userName={userName}
-                conversations={[]}
+                conversations={conversations}
                 onHomeClick={() => router.push('/')}
+                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
             />
 
             {/* Details Modal */}
@@ -376,10 +388,139 @@ export default function PaymentLinksScreen() {
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={closeModal}>
-                                <X size={24} color={Colors.textSecondary} />
-                            </TouchableOpacity>
+                            <View style={styles.modalHeaderRight}>
+                                {selectedLink?.status !== 'PAID' && (
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            LayoutAnimation.configureNext(LayoutAnimation.create(
+                                                200,
+                                                LayoutAnimation.Types.easeInEaseOut,
+                                                LayoutAnimation.Properties.opacity
+                                            ));
+                                            setShowActionMenu(!showActionMenu);
+                                        }}
+                                        style={styles.menuButton}
+                                    >
+                                        <DotsThree size={24} color={Colors.textSecondary} weight="bold" />
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity onPress={closeModal}>
+                                    <X size={24} color={Colors.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
                         </View>
+
+                        {/* iOS Pull-Down Style Menu */}
+                        {showActionMenu && selectedLink?.status !== 'PAID' && (
+                            <>
+                                {/* Backdrop to dismiss menu */}
+                                <TouchableOpacity
+                                    style={styles.menuBackdrop}
+                                    activeOpacity={1}
+                                    onPress={() => {
+                                        LayoutAnimation.configureNext(LayoutAnimation.create(
+                                            150,
+                                            LayoutAnimation.Types.easeInEaseOut,
+                                            LayoutAnimation.Properties.opacity
+                                        ));
+                                        setShowActionMenu(false);
+                                    }}
+                                />
+                                <Animated.View
+                                    style={[
+                                        styles.pullDownMenu,
+                                        {
+                                            opacity: 1,
+                                            transform: [{ scale: 1 }]
+                                        }
+                                    ]}
+                                >
+                                    <TouchableOpacity
+                                        style={styles.pullDownMenuItem}
+                                        onPress={async () => {
+                                            setShowActionMenu(false);
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            try {
+                                                const token = await getAccessToken();
+                                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                                const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/remind`, {
+                                                    method: 'POST',
+                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                });
+                                                const data = await response.json();
+                                                if (data.success) {
+                                                    Alert.alert('Success', 'Reminder sent successfully!');
+                                                } else {
+                                                    Alert.alert('Error', data.error?.message || 'Failed to send reminder');
+                                                }
+                                            } catch (error) {
+                                                Alert.alert('Error', 'Failed to send reminder');
+                                            }
+                                        }}
+                                    >
+                                        <Bell size={18} color={Colors.primary} weight="fill" />
+                                        <Text style={styles.pullDownMenuText}>Send Reminder</Text>
+                                    </TouchableOpacity>
+
+                                    <View style={styles.pullDownMenuDivider} />
+
+                                    <TouchableOpacity
+                                        style={styles.pullDownMenuItem}
+                                        onPress={async () => {
+                                            setShowActionMenu(false);
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            const remindersEnabled = selectedLink?.content?.reminders_enabled !== false;
+                                            const newState = !remindersEnabled;
+                                            try {
+                                                const token = await getAccessToken();
+                                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                                const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/toggle-reminders`, {
+                                                    method: 'POST',
+                                                    headers: {
+                                                        'Authorization': `Bearer ${token}`,
+                                                        'Content-Type': 'application/json'
+                                                    },
+                                                    body: JSON.stringify({ enabled: newState })
+                                                });
+                                                const data = await response.json();
+                                                if (data.success) {
+                                                    Alert.alert('Success', `Automatic reminders ${newState ? 'enabled' : 'disabled'}`);
+                                                    setSelectedLink({
+                                                        ...selectedLink,
+                                                        content: { ...selectedLink.content, reminders_enabled: newState }
+                                                    });
+                                                } else {
+                                                    Alert.alert('Error', data.error?.message || 'Failed to toggle reminders');
+                                                }
+                                            } catch (error) {
+                                                Alert.alert('Error', 'Failed to toggle reminders');
+                                            }
+                                        }}
+                                    >
+                                        <Bell size={18} color={selectedLink?.content?.reminders_enabled !== false ? Colors.textSecondary : Colors.primary} weight={selectedLink?.content?.reminders_enabled !== false ? 'regular' : 'fill'} />
+                                        <Text style={styles.pullDownMenuText}>
+                                            {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <View style={styles.pullDownMenuDivider} />
+
+                                    <TouchableOpacity
+                                        style={styles.pullDownMenuItem}
+                                        onPress={() => {
+                                            setShowActionMenu(false);
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                            handleDelete(selectedLink.id);
+                                            closeModal();
+                                        }}
+                                    >
+                                        <Trash size={18} color="#EF4444" weight="fill" />
+                                        <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete</Text>
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            </>
+                        )}
 
                         <View style={styles.amountCard}>
                             <Text style={styles.amountCardValue}>
@@ -418,20 +559,14 @@ export default function PaymentLinksScreen() {
                             style={styles.viewButton}
                             onPress={async () => {
                                 try {
-                                    setShowModal(false);
                                     const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
                                     const url = `${apiUrl}/payment-link/${selectedLink.id}`;
-                                    console.log('Opening payment link in system browser:', url);
-
-                                    const canOpen = await Linking.canOpenURL(url);
-                                    if (canOpen) {
-                                        await Linking.openURL(url);
-                                    } else {
-                                        Alert.alert('Error', 'Cannot open this URL');
-                                    }
+                                    await WebBrowser.openBrowserAsync(url, {
+                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+                                        controlsColor: Colors.primary,
+                                    });
                                 } catch (error: any) {
-                                    console.error('Failed to open browser:', error);
-                                    Alert.alert('Error', `Failed to open payment link: ${error?.message || 'Unknown error'}`);
+                                    Alert.alert('Error', `Failed to open: ${error?.message}`);
                                 }
                             }}
                         >
@@ -603,6 +738,23 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
         elevation: 10,
     },
+    nudgeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.surface,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+        paddingVertical: 14,
+        borderRadius: 12,
+        marginTop: 12,
+        gap: 8,
+    },
+    nudgeButtonText: {
+        ...Typography.button,
+        color: Colors.primary,
+        fontSize: 16,
+    },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -613,6 +765,83 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: 12,
+    },
+    modalHeaderRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    menuButton: {
+        padding: 4,
+    },
+    actionMenu: {
+        backgroundColor: Colors.surface,
+        borderRadius: 12,
+        padding: 8,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    actionMenuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        gap: 12,
+    },
+    actionMenuItemText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 15,
+        color: Colors.textPrimary,
+    },
+    actionMenuDivider: {
+        height: 1,
+        backgroundColor: '#E5E7EB',
+        marginHorizontal: 8,
+    },
+    pullDownMenu: {
+        position: 'absolute',
+        top: 50,
+        right: 24,
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        borderRadius: 14,
+        paddingVertical: 6,
+        minWidth: 200,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10,
+        zIndex: 1000,
+    },
+    pullDownMenuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        gap: 10,
+    },
+    pullDownMenuText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 16,
+        color: Colors.textPrimary,
+    },
+    pullDownMenuDivider: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+        marginHorizontal: 0,
+    },
+    menuBackdrop: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'transparent',
+        zIndex: 999,
     },
     statusIcon: {
         width: 40,
