@@ -30,18 +30,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
-const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
 
-// Profile color options for gradient backgrounds
-const PROFILE_COLOR_OPTIONS: [string, string][] = [
-    ['#667eea', '#764ba2'],
-    ['#f093fb', '#f5576c'],
-    ['#4facfe', '#00f2fe'],
-    ['#43e97b', '#38f9d7'],
-    ['#fa709a', '#fee140'],
-    ['#a8edea', '#fed6e3'],
-    ['#ff9a9e', '#fecfef'],
-    ['#ffecd2', '#fcb69f'],
+// Profile color gradient options (same as in home screen)
+const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
+    ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
+    ['#34D399', '#10B981', '#059669'], // Green
+    ['#F472B6', '#EC4899', '#DB2777'], // Pink
+    ['#FBBF24', '#F59E0B', '#D97706'], // Amber
+    ['#A78BFA', '#8B5CF6', '#7C3AED'], // Purple
+    ['#F87171', '#EF4444', '#DC2626'], // Red
+    ['#38BDF8', '#0EA5E9', '#0284C7'], // Sky
+    ['#4ADE80', '#22C55E', '#16A34A'], // Emerald
 ];
 
 interface Transaction {
@@ -98,8 +97,8 @@ export default function TransactionsScreen() {
         try {
             const token = await getAccessToken();
             if (!token) return;
-
-            const response = await fetch(`${API_URL}/api/users/profile`, {
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/users/profile`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -144,7 +143,8 @@ export default function TransactionsScreen() {
             const token = await getAccessToken();
             if (!token) return;
 
-            const response = await fetch(`${API_URL}/api/transactions`, {
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/transactions`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -248,11 +248,11 @@ export default function TransactionsScreen() {
         <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)} style={styles.headerButton}>
+                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
                         <List size={24} color={Colors.textPrimary} weight="bold" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Transactions</Text>
-                    <TouchableOpacity onPress={() => setIsProfileModalVisible(true)} style={styles.headerButton}>
+                    <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
                         {profileIcon.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
                         ) : profileIcon.emoji ? (
