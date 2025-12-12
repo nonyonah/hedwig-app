@@ -142,6 +142,9 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                 created_at,
                 updated_at
             `)
+            .eq('privy_id', req.user!.privyId)
+            .single();
+
         if (error || !user) {
             console.error('[Auth] /me error:', error || 'User not found in DB');
             console.log('[Auth] Checked privy_id:', req.user!.privyId);

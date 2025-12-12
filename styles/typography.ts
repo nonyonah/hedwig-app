@@ -7,13 +7,13 @@ export const Typography = StyleSheet.create({
         color: '#000000',
     },
     subtitle: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'RethinkSans_500Medium',
         fontSize: 16,
         color: '#000000',
         textAlign: 'center',
     },
     body: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'RethinkSans_500Medium',
         fontSize: 16,
         color: '#000000',
     },
@@ -23,7 +23,7 @@ export const Typography = StyleSheet.create({
         color: '#FFFFFF',
     },
     input: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'RethinkSans_500Medium',
         fontSize: 16,
         color: '#000000',
     },
@@ -44,12 +44,12 @@ export const Typography = StyleSheet.create({
         color: '#FFFFFF',
     },
     email: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 16,
         color: '#6B7280',
     },
     caption: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'RethinkSans_500Medium',
         fontSize: 12,
         color: '#6B7280',
     },
@@ -69,7 +69,7 @@ export const Typography = StyleSheet.create({
         color: '#000000',
     },
     serifText: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'RethinkSans_500Medium',
         fontSize: 16,
         color: '#000000',
     },

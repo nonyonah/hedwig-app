@@ -37,6 +37,18 @@ const CHAINS: Record<string, any> = {
     'optimism': { name: 'Optimism', icon: ICONS.optimism },
 };
 
+// Profile color gradient options (consistent with ProfileModal)
+const PROFILE_COLOR_OPTIONS = [
+    ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
+    ['#34D399', '#10B981', '#059669'], // Green
+    ['#F472B6', '#EC4899', '#DB2777'], // Pink
+    ['#FBBF24', '#F59E0B', '#D97706'], // Amber
+    ['#A78BFA', '#8B5CF6', '#7C3AED'], // Purple
+    ['#F87171', '#EF4444', '#DC2626'], // Red
+    ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
+    ['#FB923C', '#F97316', '#EA580C'], // Orange
+] as const;
+
 export default function InvoicesScreen() {
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
@@ -48,6 +60,7 @@ export default function InvoicesScreen() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
+    const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
 
     useEffect(() => {
@@ -72,6 +85,24 @@ export default function InvoicesScreen() {
                         firstName: userData.firstName || '',
                         lastName: userData.lastName || ''
                     });
+
+                    // Set profile icon
+                    if (userData.avatar) {
+                        try {
+                            if (userData.avatar.trim().startsWith('{')) {
+                                const parsed = JSON.parse(userData.avatar);
+                                setProfileIcon(parsed);
+                            } else {
+                                setProfileIcon({ imageUri: userData.avatar });
+                            }
+                        } catch (e) {
+                            setProfileIcon({ imageUri: userData.avatar });
+                        }
+                    } else if (userData.profileEmoji) {
+                        setProfileIcon({ emoji: userData.profileEmoji });
+                    } else if (userData.profileColorIndex !== undefined) {
+                        setProfileIcon({ colorIndex: userData.profileColorIndex });
+                    }
                     setWalletAddresses({
                         evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
                         solana: userData.solanaWalletAddress
@@ -252,12 +283,20 @@ export default function InvoicesScreen() {
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Invoices</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                        <LinearGradient
-                            colors={getUserGradient(user?.id || userName.firstName)}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.profileIcon}
-                        />
+                        {profileIcon.imageUri ? (
+                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                        ) : profileIcon.emoji ? (
+                            <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                            </View>
+                        ) : (
+                            <LinearGradient
+                                colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.profileIcon}
+                            />
+                        )}
                     </TouchableOpacity>
                 </View>
 

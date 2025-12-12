@@ -851,72 +851,67 @@ export default function HomeScreen() {
                     {/* Header */}
                     <View style={styles.header}>
                         <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                            <List size={24} color={Colors.textPrimary} />
+                            <List size={24} color={Colors.textPrimary} weight="bold" />
                         </TouchableOpacity>
-                        <View style={{ flex: 1 }} />
                         <View style={styles.headerRight}>
+
                             <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                                {profileIcon?.imageUri ? (
-                                    <Image
-                                        source={{ uri: profileIcon.imageUri }}
-                                        style={styles.profileIcon}
-                                    />
+                                {profileIcon.imageUri ? (
+                                    <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                                ) : profileIcon.emoji ? (
+                                    <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                        <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                                    </View>
                                 ) : (
                                     <LinearGradient
-                                        colors={profileIcon?.colorIndex !== undefined
-                                            ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
-                                            : (profileIcon?.emoji ? ['#F3F4F6', '#E5E7EB', '#D1D5DB'] : getUserGradient(user?.id || userName.firstName))}
+                                        colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
-                                        style={[styles.profileIcon, { justifyContent: 'center', alignItems: 'center' }]}
-                                    >
-                                        {profileIcon?.emoji ? (
-                                            <Text style={{ fontSize: 18 }}>{profileIcon.emoji}</Text>
-                                        ) : (
-                                            <Text style={{ fontSize: 16, color: '#FFFFFF', fontFamily: 'RethinkSans_700Bold' }}>
-                                                {userName.firstName ? userName.firstName[0].toUpperCase() : 'U'}
-                                            </Text>
-                                        )}
-                                    </LinearGradient>
+                                        style={styles.profileIcon}
+                                    />
                                 )}
                             </TouchableOpacity>
                         </View>
                     </View>
 
                     {/* Chat Area */}
-                    <View style={styles.chatArea}>
-                        {messages.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>
-                                    {displayedGreeting || getGreeting()}
-                                    {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
-                                </Text>
-                                <Text style={styles.emptySubtext}>How can I help you today?</Text>
-                            </View>
-                        ) : (
-                            <FlatList
-                                ref={flatListRef}
-                                data={messages}
-                                renderItem={({ item, index }) => renderMessage({ item, index })}
-                                keyExtractor={item => item.id}
-                                contentContainerStyle={styles.messageList}
-                                showsVerticalScrollIndicator={false}
-                                scrollEnabled={true}
-                                keyboardShouldPersistTaps="handled"
-                                keyboardDismissMode="on-drag"
-                                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                                removeClippedSubviews={false}
-                            />
-                        )}
-                        {isGenerating && (
-                            <View style={styles.thinkingContainer}>
-                                <Text style={styles.thinkingText}>Thinking...</Text>
-                            </View>
-                        )}
-                    </View>
+                    < View style={styles.chatArea} >
+                        {
+                            messages.length === 0 ? (
+                                <View style={styles.emptyState}>
+                                    <Text style={styles.emptyStateText}>
+                                        {displayedGreeting || getGreeting()}
+                                        {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
+                                    </Text>
+                                    <Text style={styles.emptySubtext}>How can I help you today?</Text>
+                                </View>
+                            ) : (
+                                <FlatList
+                                    ref={flatListRef}
+                                    data={messages}
+                                    renderItem={({ item, index }) => renderMessage({ item, index })}
+                                    keyExtractor={item => item.id}
+                                    contentContainerStyle={styles.messageList}
+                                    showsVerticalScrollIndicator={false}
+                                    scrollEnabled={true}
+                                    keyboardShouldPersistTaps="handled"
+                                    keyboardDismissMode="on-drag"
+                                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                                    removeClippedSubviews={false}
+                                />
+                            )
+                        }
+                        {
+                            isGenerating && (
+                                <View style={styles.thinkingContainer}>
+                                    <Text style={styles.thinkingText}>Thinking...</Text>
+                                </View>
+                            )
+                        }
+                    </View >
 
                     {/* Input Area */}
-                    <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]}>
+                    < View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]} >
                         <View style={styles.inputWrapper}>
                             <TextInput
                                 style={styles.input}
@@ -939,7 +934,7 @@ export default function HomeScreen() {
                                 )}
                             </TouchableOpacity>
                         </View>
-                    </View>
+                    </View >
 
                     <ProfileModal
                         visible={isProfileModalVisible}
@@ -951,8 +946,8 @@ export default function HomeScreen() {
                             fetchUserProfile();
                         }}
                     />
-                </SafeAreaView>
-            </TouchableWithoutFeedback>
+                </SafeAreaView >
+            </TouchableWithoutFeedback >
 
             <Sidebar
                 isOpen={isSidebarOpen}
@@ -984,7 +979,7 @@ export default function HomeScreen() {
                     setMessages(prev => [...prev, successMsg]);
                 }}
             />
-        </View>
+        </View >
     );
 }
 

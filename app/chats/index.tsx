@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, TextInput, Platform, LayoutAnimation } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
-import { List, Chat, MagnifyingGlass, Plus, Trash, CheckCircle, Circle, X } from 'phosphor-react-native';
+import { List, Chat, MagnifyingGlass, Plus, Trash, CheckCircle, X } from 'phosphor-react-native';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
@@ -132,11 +132,13 @@ export default function ChatsScreen() {
 
     const enterSelectionMode = (initialId: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setIsSelectionMode(true);
         setSelectedChats(new Set([initialId]));
     };
 
     const cancelSelection = () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setIsSelectionMode(false);
         setSelectedChats(new Set());
     };
@@ -163,6 +165,7 @@ export default function ChatsScreen() {
 
             // Optimistic Update
             const idsToDelete = Array.from(selectedChats);
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setConversations(prev => prev.filter(c => !selectedChats.has(c.id)));
             setIsSelectionMode(false);
             setSelectedChats(new Set());
@@ -220,7 +223,13 @@ export default function ChatsScreen() {
                         {isSelected ? (
                             <CheckCircle size={24} color={Colors.primary} weight="fill" />
                         ) : (
-                            <Circle size={24} color={Colors.textSecondary} />
+                            <View style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 12,
+                                borderWidth: 2,
+                                borderColor: Colors.textSecondary
+                            }} />
                         )}
                     </View>
                 ) : (
@@ -288,7 +297,9 @@ export default function ChatsScreen() {
                                 <List size={24} color={Colors.textPrimary} />
                             </TouchableOpacity>
                             <Text style={styles.headerTitle}>Chats</Text>
-                            <View style={{ width: 24 }} />
+                            <TouchableOpacity onPress={() => router.replace('/')}>
+                                <Plus size={24} color={Colors.textPrimary} />
+                            </TouchableOpacity>
                         </View>
                     )}
                 </View>
@@ -331,7 +342,7 @@ export default function ChatsScreen() {
                         }
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <Chat size={48} color={Colors.textSecondary} weight="duotone" />
+                                <Chat size={48} color={Colors.textSecondary} weight="bold" />
                                 <Text style={styles.emptyStateText}>
                                     {searchQuery ? 'No chats found' : 'No conversations yet'}
                                 </Text>
@@ -341,16 +352,7 @@ export default function ChatsScreen() {
                 )}
             </SafeAreaView>
 
-            {/* Floating Action Button (FAB) */}
-            {!isSelectionMode && (
-                <TouchableOpacity
-                    style={styles.fab}
-                    onPress={() => router.push('/')}
-                    activeOpacity={0.8}
-                >
-                    <Plus size={28} color="#FFFFFF" weight="bold" />
-                </TouchableOpacity>
-            )}
+
 
             <ProfileModal
                 visible={showProfileModal}
@@ -364,7 +366,7 @@ export default function ChatsScreen() {
                 onClose={() => setIsSidebarOpen(false)}
                 userName={userName}
                 conversations={conversations}
-                onHomeClick={() => router.push('/')}
+                onHomeClick={() => router.replace('/')}
             />
         </View>
     );

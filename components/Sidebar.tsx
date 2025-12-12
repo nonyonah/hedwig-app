@@ -140,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {/* Navigation Menu */}
                     <View style={styles.menuSection}>
                         {renderMenuItem(
-                            <House size={22} color={Colors.textPrimary} />,
+                            <House size={22} color={Colors.textPrimary} weight="bold" />,
                             'Home',
                             pathname === '/',
                             () => {
@@ -149,19 +149,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             }
                         )}
                         {renderMenuItem(
-                            <Link size={22} color={Colors.textPrimary} />,
+                            <Link size={22} color={Colors.textPrimary} weight="bold" />,
                             'Payment Links',
                             pathname === '/payment-links',
                             () => handleNavigation('/payment-links')
                         )}
                         {renderMenuItem(
-                            <Receipt size={22} color={Colors.textPrimary} />,
+                            <Receipt size={22} color={Colors.textPrimary} weight="bold" />,
                             'Invoices',
                             pathname === '/invoices',
                             () => handleNavigation('/invoices')
                         )}
                         {renderMenuItem(
-                            <Chat size={22} color={Colors.textPrimary} />,
+                            <Chat size={22} color={Colors.textPrimary} weight="bold" />,
                             'Chats',
                             pathname === '/chats',
                             () => handleNavigation('/chats')
@@ -203,7 +203,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     }}
                                     delayLongPress={500}
                                 >
-                                    <Chat size={18} color={Colors.textSecondary} weight="duotone" />
+                                    <Chat size={18} color={Colors.textSecondary} weight="bold" />
                                     <Text style={styles.recentText} numberOfLines={1}>
                                         {conv.title || 'Untitled'}
                                     </Text>
@@ -215,7 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <TouchableOpacity style={styles.logoutItem} onPress={handleLogout}>
                         <View style={styles.menuItemLeft}>
                             <View style={styles.menuIcon}>
-                                <SignOut size={22} color={Colors.textPrimary} />
+                                <SignOut size={22} color={Colors.textPrimary} weight="bold" />
                             </View>
                             <Text style={styles.menuText}>Log out</Text>
                         </View>
@@ -307,13 +307,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     menuText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
     },
     menuTextActive: {
         color: Colors.primary,
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'RethinkSans_700Bold',
     },
     logoutItem: {
         flexDirection: 'row',
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     sectionTitle: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginBottom: 16,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     recentText: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'RethinkSans_500Medium',
         fontSize: 14,
         color: Colors.textPrimary,
         marginLeft: 12,

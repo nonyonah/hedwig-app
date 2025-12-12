@@ -46,7 +46,7 @@ export default function RootLayout() {
                         contentStyle: { backgroundColor: '#FFFFFF' },
                     }}
                 >
-                    <Stack.Screen name="index" />
+                    <Stack.Screen name="index" options={{ gestureEnabled: false }} />
                     <Stack.Screen name="auth/welcome" />
                     <Stack.Screen name="auth/login" />
                     <Stack.Screen name="auth/profile" />
@@ -68,7 +68,7 @@ export default function RootLayout() {
                             contentStyle: { backgroundColor: '#FFFFFF' },
                         }}
                     >
-                        <Stack.Screen name="index" />
+                        <Stack.Screen name="index" options={{ gestureEnabled: false }} />
                         <Stack.Screen name="auth/welcome" />
                         <Stack.Screen name="auth/login" />
                         <Stack.Screen name="auth/profile" />
