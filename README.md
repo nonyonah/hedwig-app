@@ -37,18 +37,16 @@ Hedwig is an AI-powered growth partner for African freelancers. It helps them cr
 
 ## 📱 Features
 
-### ✅ Implemented
-- **Login Screen** - Google & Apple sign-in via Privy
-- **Wallet Integration** - Auto-create Base, Celo, Solana wallets
-- **Design System** - Matching provided UI designs
+## 📱 Features
 
-### 🚧 Coming Soon
-- AI Chat Interface
-- Document Generation (Invoices, Proposals, Contracts)
-- Payment Links
-- Offramp (Paycrest integration)
-- Transaction History
-- Client & Project Management
+- **AI Growth Partner**: Chat interface powered by Gemini to help freelancers manage their business.
+- **Document Generation**: Create professional invoices, proposals, and contracts instantly.
+- **Crypto Payments**: Accept payments across Base, Solana, Celo, and Stacks (Bitcoin L2).
+- **Payment Links & Invoices**: Shareable public pages for clients to pay seamlessly.
+- **Wallet Integration**: Seamless wallet creation and management via Privy (EVM/Solana) and Stacks.
+- **Secure Authentication**: Google & Apple sign-in with biometric security.
+- **Transaction Management**: integrated transaction confirmation with gas estimation and platform fees.
+- **Client & Project Management**: Organize your freelance work efficiently.
 
 ## 🎨 Design System
 
@@ -145,10 +143,8 @@ npx expo build:android
 
 1. ✅ Fill in `EXPO_PUBLIC_PRIVY_APP_ID` in `.env`
 2. ✅ Test login with Expo Go
-3. 🚧 Build AI chat interface
-4. 🚧 Implement document generation
-5. 🚧 Add offramp screens
+3. 🚀 Explore the AI Chat and generate your first invoice!
 
 ---
 
-**Current Status**: ✅ Login screen ready for testing!
+**Current Status**: 🚀 Beta Ready - Core features implemented including multi-chain payments and document generation.
