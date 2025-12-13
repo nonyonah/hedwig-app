@@ -297,16 +297,16 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
 async function handleCreateProposal(params: ActionParams, user: any): Promise<ActionResult> {
     try {
         const title = params.title || params.for || 'Project Proposal';
-        const clientName = params.client_name;
-        const clientEmail = params.client_email;
-        const problemStatement = params.problem_statement || params.problem;
-        const proposedSolution = params.proposed_solution || params.solution;
+        const clientName = params.client_name || 'Client';
+        const clientEmail = params.client_email || '';
+        const problemStatement = params.problem_statement || params.problem || `Providing professional services for ${title}.`;
+        const proposedSolution = params.proposed_solution || params.solution || `I will deliver high-quality work for this project, including all agreed-upon deliverables.`;
         const deliverables = params.deliverables || [];
-        const timeline = params.timeline;
+        const timeline = params.timeline || 'To be discussed based on project requirements.';
         const milestones = params.milestones || [];
         const pricingBreakdown = params.pricing_breakdown || params.pricing || [];
-        const totalCost = params.total_cost || params.total;
-        const paymentTerms = params.payment_terms;
+        const totalCost = params.total_cost || params.total || 'To be discussed based on scope.';
+        const paymentTerms = params.payment_terms || '';
 
         // Get user data for freelancer info
         const { data: userData } = await supabase

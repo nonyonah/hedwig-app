@@ -21,8 +21,19 @@ config.resolver.extraNodeModules = {
     process: require.resolve('process/browser'),
 };
 
-// Prefer browser exports to avoid Node.js specific modules
+// Fix for ESM/CJS interop issues with certain packages
 config.resolver.unstable_enablePackageExports = true;
-config.resolver.unstable_conditionNames = ['browser', 'require', 'react-native'];
+config.resolver.unstable_conditionNames = ['react-native', 'browser', 'require', 'import'];
+
+// Force certain packages to be resolved as CommonJS
+config.transformer = {
+    ...config.transformer,
+    getTransformOptions: async () => ({
+        transform: {
+            experimentalImportSupport: false,
+            inlineRequires: true,
+        },
+    }),
+};
 
 module.exports = config;

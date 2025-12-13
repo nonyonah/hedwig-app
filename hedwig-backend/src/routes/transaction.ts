@@ -192,66 +192,131 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
             try {
                 console.log('[Transactions] Fetching Solana transactions for:', solAddress);
                 const pubKey = new PublicKey(solAddress);
-                // Get signatures (history)
-                const signatures = await solanaConnection.getSignaturesForAddress(pubKey, { limit: 20 });
+                // Get signatures (history) - limit to 10 to reduce rate limiting issues
+                const signatures = await solanaConnection.getSignaturesForAddress(pubKey, { limit: 10 });
                 console.log('[Transactions] Solana signatures found:', signatures.length);
 
-                // Get parsed details for each signature
-                // Note: This can be slow if we fetch too many. Limit is 20.
-                // We'll process them in parallel or batch? 
-                // For simplified MVP, we just take signatures and block time. 
-                // To get amounts, we need `getParsedTransactions`.
-
                 const validSignatures = signatures.filter(s => !s.err);
-                const txIds = validSignatures.map(s => s.signature);
 
-                if (txIds.length > 0) {
-                    const txDetails = await solanaConnection.getParsedTransactions(txIds, { maxSupportedTransactionVersion: 0 });
+                // Process transactions one at a time with delay to avoid rate limiting
+                for (let i = 0; i < validSignatures.length; i++) {
+                    const signatureInfo = validSignatures[i];
 
-                    txDetails.forEach((tx, idx) => {
-                        if (!tx) return;
+                    try {
+                        // Add delay between requests to avoid hitting rate limits
+                        if (i > 0) {
+                            await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay
+                        }
 
-                        const signatureInfo = validSignatures[idx];
-                        const date = signatureInfo.blockTime ? new Date(signatureInfo.blockTime * 1000).toISOString() : new Date().toISOString();
+                        const txDetails = await solanaConnection.getParsedTransaction(
+                            signatureInfo.signature,
+                            { maxSupportedTransactionVersion: 0 }
+                        );
 
-                        // Heuristic to check if Incoming or Outgoing
-                        // We check the pre/post balances of our account.
-                        const accountIndex = tx.transaction.message.accountKeys.findIndex((key: any) => key.pubkey.toBase58() === solAddress);
+                        if (!txDetails || !txDetails.meta) continue;
 
+                        const date = signatureInfo.blockTime
+                            ? new Date(signatureInfo.blockTime * 1000).toISOString()
+                            : new Date().toISOString();
+
+                        // Check for SPL token transfers (USDC, etc.)
+                        const tokenTransfers = txDetails.meta.postTokenBalances || [];
+                        const preTokenBalances = txDetails.meta.preTokenBalances || [];
+
+                        // Known USDC mint addresses on Solana
+                        const USDC_MINTS = [
+                            'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC mainnet
+                            '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', // USDC devnet
+                        ];
+
+                        let tokenSymbol = 'SOL';
                         let amount = 0;
-                        let type: 'IN' | 'OUT' = 'IN'; // default
+                        let type: 'IN' | 'OUT' = 'IN';
+                        let isTokenTx = false;
 
-                        if (accountIndex !== -1 && tx.meta) {
-                            const preBalance = tx.meta.preBalances[accountIndex];
-                            const postBalance = tx.meta.postBalances[accountIndex];
-                            const diff = postBalance - preBalance;
+                        // Check for token transfers
+                        for (const postBalance of tokenTransfers) {
+                            const preBalance = preTokenBalances.find(
+                                (p: any) => p.accountIndex === postBalance.accountIndex
+                            );
 
-                            if (diff > 0) {
-                                type = 'IN';
-                                amount = diff / 1e9; // lamports to SOL
-                            } else {
-                                type = 'OUT';
-                                amount = Math.abs(diff) / 1e9;
+                            if (postBalance.owner === solAddress || preBalance?.owner === solAddress) {
+                                const mint = postBalance.mint;
+                                const postAmount = parseFloat(postBalance.uiTokenAmount?.uiAmountString || '0');
+                                const preAmount = parseFloat(preBalance?.uiTokenAmount?.uiAmountString || '0');
+                                const diff = postAmount - preAmount;
+
+                                if (Math.abs(diff) > 0.000001) {
+                                    isTokenTx = true;
+                                    if (USDC_MINTS.includes(mint)) {
+                                        tokenSymbol = 'USDC';
+                                    } else {
+                                        tokenSymbol = 'SPL'; // Generic SPL token
+                                    }
+
+                                    if (diff > 0) {
+                                        type = 'IN';
+                                        amount = diff;
+                                    } else {
+                                        type = 'OUT';
+                                        amount = Math.abs(diff);
+                                    }
+                                    break;
+                                }
                             }
                         }
 
-                        // Determine sender/receiver (simplified)
-                        const from = tx.transaction.message.accountKeys[0].pubkey.toBase58();
+                        // If not a token transfer, check native SOL
+                        if (!isTokenTx) {
+                            const accountIndex = txDetails.transaction.message.accountKeys.findIndex(
+                                (key: any) => key.pubkey.toBase58() === solAddress
+                            );
+
+                            if (accountIndex !== -1) {
+                                const preBalance = txDetails.meta.preBalances[accountIndex];
+                                const postBalance = txDetails.meta.postBalances[accountIndex];
+                                const diff = postBalance - preBalance;
+
+                                // Only include if significant amount (> 0.001 SOL, excludes fee-only txs)
+                                if (Math.abs(diff) > 1000000) { // 0.001 SOL in lamports
+                                    if (diff > 0) {
+                                        type = 'IN';
+                                        amount = diff / 1e9;
+                                    } else {
+                                        type = 'OUT';
+                                        amount = Math.abs(diff) / 1e9;
+                                    }
+                                    tokenSymbol = 'SOL';
+                                } else {
+                                    continue; // Skip tiny txs (likely just fees)
+                                }
+                            }
+                        }
+
+                        // Skip if no meaningful transfer found
+                        if (amount === 0) continue;
+
+                        const from = txDetails.transaction.message.accountKeys[0].pubkey.toBase58();
 
                         allTransactions.push({
                             id: `sol-${signatureInfo.signature}`,
                             type: type,
-                            description: type === 'IN' ? `Received from ${from.slice(0, 4)}...${from.slice(-4)}` : `Sent SOL`,
-                            amount: amount.toFixed(4),
-                            token: 'SOL', // Only handling native SOL for simplicity right now
+                            description: type === 'IN'
+                                ? `Received ${tokenSymbol} from ${from.slice(0, 4)}...${from.slice(-4)}`
+                                : `Sent ${tokenSymbol}`,
+                            amount: tokenSymbol === 'USDC' ? amount.toFixed(2) : amount.toFixed(4),
+                            token: tokenSymbol,
                             date: date,
                             hash: signatureInfo.signature,
                             network: 'solana',
                             status: 'completed',
                             from: from,
-                            to: solAddress // placeholder
+                            to: solAddress
                         });
-                    });
+                    } catch (txErr) {
+                        console.log('[Transactions] Error fetching Solana tx:', signatureInfo.signature.slice(0, 10), txErr);
+                        // Continue with next transaction
+                    }
                 }
 
             } catch (err) {

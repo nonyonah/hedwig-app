@@ -227,11 +227,10 @@ export default function TransactionsScreen() {
     };
 
     const closeModal = () => {
-        Animated.spring(slideAnim, {
+        Animated.timing(slideAnim, {
             toValue: 0,
+            duration: 250,
             useNativeDriver: true,
-            damping: 25,
-            stiffness: 300,
         }).start(() => setIsDetailModalVisible(false));
     };
 
@@ -349,10 +348,13 @@ export default function TransactionsScreen() {
                         keyExtractor={(item) => item.id}
                         renderItem={renderTransactionItem}
                         renderSectionHeader={({ section: { title } }) => (
-                            <Text style={styles.sectionHeader}>{title}</Text>
+                            <View style={styles.sectionHeaderContainer}>
+                                <Text style={styles.sectionHeader}>{title}</Text>
+                            </View>
                         )}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        stickySectionHeadersEnabled={true}
                     />
                 )}
             </SafeAreaView>
@@ -526,13 +528,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingBottom: 40,
     },
+    sectionHeaderContainer: {
+        backgroundColor: '#FFFFFF',
+        marginHorizontal: -20,
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 8,
+    },
     sectionHeader: {
         fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
-        marginTop: 24,
-        marginBottom: 12,
-        backgroundColor: '#FFFFFF',
     },
     // Transaction Item Styles (matching invoice/payment-links cards)
     txItem: {

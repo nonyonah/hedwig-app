@@ -3,11 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Keyboard
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
 import { useAuth } from '../hooks/useAuth';
 import { useWallet } from '../hooks/useWallet';
 import { usePrivy } from '@privy-io/expo';
-import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square } from 'phosphor-react-native';
+import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File } from 'phosphor-react-native';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
@@ -145,6 +148,7 @@ export default function HomeScreen() {
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
     const [isTransactionReviewVisible, setIsTransactionReviewVisible] = useState(false);
     const [transactionData, setTransactionData] = useState<any>(null);
+    const [attachedFiles, setAttachedFiles] = useState<{ uri: string; name: string; mimeType: string }[]>([]);
 
     // Animate view mode changes
     useEffect(() => {
@@ -506,19 +510,46 @@ export default function HomeScreen() {
             Alert.alert('Error', 'Failed to delete conversation');
         }
     };
+    // File picker functions
+    const pickDocument = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/pdf', 'image/*'],
+                multiple: true,
+            });
+
+            if (!result.canceled && result.assets) {
+                const newFiles = result.assets.map(asset => ({
+                    uri: asset.uri,
+                    name: asset.name,
+                    mimeType: asset.mimeType || 'application/octet-stream',
+                }));
+                setAttachedFiles(prev => [...prev, ...newFiles].slice(0, 5)); // Max 5 files
+            }
+        } catch (error) {
+            console.error('Error picking document:', error);
+            Alert.alert('Error', 'Failed to pick document');
+        }
+    };
+
+    const removeAttachment = (index: number) => {
+        setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+    };
 
     const sendMessage = async () => {
-        if (!inputText.trim() || isGenerating) return;
+        if ((!inputText.trim() && attachedFiles.length === 0) || isGenerating) return;
 
         const userMessage: Message = {
             id: Date.now().toString(),
             role: 'user',
-            content: inputText.trim(),
+            content: inputText.trim() || (attachedFiles.length > 0 ? `[Uploaded ${attachedFiles.length} file(s)]` : ''),
             createdAt: new Date().toISOString(),
         };
 
         setMessages(prev => [...prev, userMessage]);
+        const currentFiles = [...attachedFiles]; // Save files before clearing
         setInputText('');
+        setAttachedFiles([]);
         setIsGenerating(true);
 
         // Create new abort controller for this request
@@ -529,18 +560,52 @@ export default function HomeScreen() {
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-            const response = await fetch(`${apiUrl}/api/chat/message`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    message: userMessage.content,
-                    conversationId: conversationId,
-                }),
-                signal: abortController.signal,
-            });
+            let response;
+
+            if (currentFiles.length > 0) {
+                // Use FormData for file uploads
+                const formData = new FormData();
+                formData.append('message', userMessage.content);
+                if (conversationId) {
+                    formData.append('conversationId', conversationId);
+                }
+
+                // Add files to FormData
+                for (const file of currentFiles) {
+                    const fileInfo = await FileSystem.getInfoAsync(file.uri);
+                    if (fileInfo.exists) {
+                        formData.append('files', {
+                            uri: file.uri,
+                            name: file.name,
+                            type: file.mimeType,
+                        } as any);
+                    }
+                }
+
+                response = await fetch(`${apiUrl}/api/chat/message`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        // Don't set Content-Type for FormData - browser/fetch will set it with boundary
+                    },
+                    body: formData,
+                    signal: abortController.signal,
+                });
+            } else {
+                // Regular JSON request without files
+                response = await fetch(`${apiUrl}/api/chat/message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        message: userMessage.content,
+                        conversationId: conversationId,
+                    }),
+                    signal: abortController.signal,
+                });
+            }
 
             // Check if request was aborted
             if (abortController.signal.aborted) {
@@ -808,106 +873,125 @@ export default function HomeScreen() {
 
     return (
         <View style={{ flex: 1 }}>
-            <SafeAreaView style={styles.container}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={Colors.textPrimary} weight="bold" />
-                    </TouchableOpacity>
-                    <View style={styles.headerRight}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                <SafeAreaView style={styles.container}>
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
+                            <List size={24} color={Colors.textPrimary} weight="bold" />
+                        </TouchableOpacity>
+                        <View style={styles.headerRight}>
 
-                        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                            {profileIcon.imageUri ? (
-                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                            ) : profileIcon.emoji ? (
-                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                            <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
+                                {profileIcon.imageUri ? (
+                                    <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                                ) : profileIcon.emoji ? (
+                                    <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                        <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                                    </View>
+                                ) : (
+                                    <LinearGradient
+                                        colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.profileIcon}
+                                    />
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Chat Area */}
+                    < View style={styles.chatArea} >
+                        {
+                            messages.length === 0 ? (
+                                <View style={styles.emptyState}>
+                                    <Text style={styles.emptyStateText}>
+                                        {displayedGreeting || getGreeting()}
+                                        {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
+                                    </Text>
+                                    <Text style={styles.emptySubtext}>How can I help you today?</Text>
                                 </View>
                             ) : (
-                                <LinearGradient
-                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.profileIcon}
+                                <FlatList
+                                    ref={flatListRef}
+                                    data={messages}
+                                    renderItem={({ item, index }) => renderMessage({ item, index })}
+                                    keyExtractor={item => item.id}
+                                    contentContainerStyle={styles.messageList}
+                                    showsVerticalScrollIndicator={false}
+                                    scrollEnabled={true}
+                                    keyboardShouldPersistTaps="handled"
+                                    keyboardDismissMode="on-drag"
+                                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                                    removeClippedSubviews={false}
                                 />
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                </View>
+                            )
+                        }
+                        {
+                            isGenerating && (
+                                <View style={styles.thinkingContainer}>
+                                    <Text style={styles.thinkingText}>Thinking...</Text>
+                                </View>
+                            )
+                        }
+                    </View >
 
-                {/* Chat Area */}
-                < View style={styles.chatArea} >
-                    {
-                        messages.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>
-                                    {displayedGreeting || getGreeting()}
-                                    {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
-                                </Text>
-                                <Text style={styles.emptySubtext}>How can I help you today?</Text>
+                    {/* Input Area */}
+                    < View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]} >
+                        {/* Attached Files Preview */}
+                        {attachedFiles.length > 0 && (
+                            <View style={styles.attachmentsPreview}>
+                                {attachedFiles.map((file, index) => (
+                                    <View key={index} style={styles.attachmentChip}>
+                                        <File size={14} color={Colors.primary} />
+                                        <Text style={styles.attachmentName} numberOfLines={1}>{file.name}</Text>
+                                        <TouchableOpacity onPress={() => removeAttachment(index)}>
+                                            <X size={14} color={Colors.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
                             </View>
-                        ) : (
-                            <FlatList
-                                ref={flatListRef}
-                                data={messages}
-                                renderItem={({ item, index }) => renderMessage({ item, index })}
-                                keyExtractor={item => item.id}
-                                contentContainerStyle={styles.messageList}
-                                showsVerticalScrollIndicator={false}
-                                scrollEnabled={true}
-                                keyboardShouldPersistTaps="handled"
-                                keyboardDismissMode="on-drag"
-                                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                                removeClippedSubviews={false}
+                        )}
+                        <View style={styles.inputWrapper}>
+                            <TouchableOpacity style={styles.attachButton} onPress={pickDocument}>
+                                <Paperclip size={20} color={Colors.textSecondary} />
+                            </TouchableOpacity>
+                            <TextInput
+                                style={styles.input}
+                                value={inputText}
+                                onChangeText={setInputText}
+                                placeholder="Ask Hedwig to create an invoice..."
+                                placeholderTextColor={Colors.textPlaceholder}
+                                multiline
+                                maxLength={1000}
                             />
-                        )
-                    }
-                    {
-                        isGenerating && (
-                            <View style={styles.thinkingContainer}>
-                                <Text style={styles.thinkingText}>Thinking...</Text>
-                            </View>
-                        )
-                    }
-                </View >
+                            <TouchableOpacity
+                                style={[styles.sendButton, (!inputText.trim() && attachedFiles.length === 0) && styles.sendButtonDisabled]}
+                                onPress={sendMessage}
+                                disabled={(!inputText.trim() && attachedFiles.length === 0) || isGenerating}
+                            >
+                                {isGenerating ? (
+                                    <ActivityIndicator color="#FFFFFF" size="small" />
+                                ) : (
+                                    <ArrowUp size={20} color="#FFFFFF" weight="bold" />
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View >
 
-                {/* Input Area */}
-                < View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]} >
-                    <View style={styles.inputWrapper}>
-                        <TextInput
-                            style={styles.input}
-                            value={inputText}
-                            onChangeText={setInputText}
-                            placeholder="Ask Hedwig to create an invoice..."
-                            placeholderTextColor={Colors.textPlaceholder}
-                            multiline
-                            maxLength={1000}
-                        />
-                        <TouchableOpacity
-                            style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-                            onPress={sendMessage}
-                            disabled={!inputText.trim() || isGenerating}
-                        >
-                            {isGenerating ? (
-                                <ActivityIndicator color="#FFFFFF" size="small" />
-                            ) : (
-                                <ArrowUp size={20} color="#FFFFFF" weight="bold" />
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                </View >
-
-                <ProfileModal
-                    visible={isProfileModalVisible}
-                    onClose={() => setIsProfileModalVisible(false)}
-                    userName={userName}
-                    walletAddresses={walletAddresses}
-                    profileIcon={profileIcon}
-                    onProfileUpdate={() => {
-                        fetchUserProfile();
-                    }}
-                />
-            </SafeAreaView >
+                    <ProfileModal
+                        visible={isProfileModalVisible}
+                        onClose={() => setIsProfileModalVisible(false)}
+                        userName={userName}
+                        walletAddresses={walletAddresses}
+                        profileIcon={profileIcon}
+                        onProfileUpdate={() => {
+                            fetchUserProfile();
+                        }}
+                    />
+                </SafeAreaView >
+            </TouchableWithoutFeedback>
 
             <Sidebar
                 isOpen={isSidebarOpen}
@@ -1068,6 +1152,32 @@ const styles = StyleSheet.create({
         padding: 8,
         // borderWidth: 1,
         // borderColor: Colors.border,
+    },
+    attachButton: {
+        padding: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    attachmentsPreview: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 8,
+    },
+    attachmentChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#E8F4FD',
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 16,
+        gap: 6,
+        maxWidth: 150,
+    },
+    attachmentName: {
+        ...Typography.caption,
+        color: Colors.primary,
+        flex: 1,
     },
     input: {
         flex: 1,

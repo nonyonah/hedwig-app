@@ -144,6 +144,46 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 });
 
 /**
+ * GET /api/documents/:id/public
+ * Get public document details by ID (for sharing)
+ */
+router.get('/:id/public', async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        console.log('[Documents] Public GET request for ID:', id);
+
+        const { data: doc, error } = await supabase
+            .from('documents')
+            .select(`
+                *,
+                user:users(
+                    id,
+                    first_name,
+                    last_name,
+                    email
+                )
+            `)
+            .eq('id', id)
+            .single();
+
+        if (error || !doc) {
+            console.error('[Documents] Document not found for ID:', id);
+            res.status(404).json({ success: false, error: { message: 'Document not found' } });
+            return;
+        }
+
+        console.log('[Documents] Returning public document:', doc.id, 'Type:', doc.type);
+        res.json({
+            success: true,
+            data: { document: doc }
+        });
+    } catch (error) {
+        console.error('[Documents] Unexpected error:', error);
+        next(error);
+    }
+});
+
+/**
  * GET /api/documents/:id
  * Get document details by ID (Public access for viewing invoices/payment links)
  */

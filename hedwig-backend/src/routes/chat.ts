@@ -4,17 +4,44 @@ import { supabase } from '../lib/supabase';
 import { GeminiService } from '../services/gemini';
 import { handleAction } from '../services/actions';
 import { getOrCreateUser } from '../utils/userHelper';
+import multer from 'multer';
 
 const router = Router();
+
+// Configure multer for memory storage (files stored in buffer)
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+        files: 5 // Max 5 files per request
+    },
+    fileFilter: (_req, file, cb) => {
+        // Allow PDFs and images
+        const allowedTypes = [
+            'application/pdf',
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/webp'
+        ];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`File type ${file.mimetype} not allowed`));
+        }
+    }
+});
 
 /**
  * POST /api/chat/message
  * Send a message and get AI response
+ * Supports optional file attachments (PDFs, images) for document analysis
  */
-router.post('/message', authenticate, async (req: Request, res: Response, next) => {
+router.post('/message', authenticate, upload.array('files', 5), async (req: Request, res: Response, next) => {
     try {
         const { message, conversationId } = req.body;
         const privyUserId = req.user!.id;
+        const uploadedFiles = req.files as Express.Multer.File[] | undefined;
 
         if (!message) {
             res.status(400).json({
@@ -23,6 +50,8 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
             });
             return;
         }
+
+        console.log('[Chat] Files uploaded:', uploadedFiles?.length || 0);
 
         // Get or Create user
         // This ensures the user exists even if it's their first time without hitting profile endpoint
@@ -99,10 +128,93 @@ router.post('/message', authenticate, async (req: Request, res: Response, next) 
             content: msg.content,
         }));
 
+        // Process uploaded files for Gemini
+        let fileData: { mimeType: string; data: string }[] | undefined;
+        if (uploadedFiles && uploadedFiles.length > 0) {
+            fileData = uploadedFiles.map(file => ({
+                mimeType: file.mimetype,
+                data: file.buffer.toString('base64')
+            }));
+            console.log('[Chat] Processed files for Gemini:', fileData.map(f => f.mimeType));
+        }
+
+        // Detect and fetch content from URLs in the message
+        let enhancedMessage = message;
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const urls = message.match(urlRegex);
+        let urlFetchFailed = false;
+
+        if (urls && urls.length > 0) {
+            console.log('[Chat] URLs detected in message:', urls);
+            const urlContents: string[] = [];
+
+            for (const url of urls.slice(0, 3)) { // Limit to 3 URLs
+                try {
+                    console.log('[Chat] Fetching content from:', url);
+                    const response = await fetch(url, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                            'Accept-Language': 'en-US,en;q=0.5',
+                        },
+                        signal: AbortSignal.timeout(10000) // 10 second timeout
+                    });
+
+                    if (response.ok) {
+                        const contentType = response.headers.get('content-type') || '';
+
+                        if (contentType.includes('text/html') || contentType.includes('text/plain')) {
+                            let text = await response.text();
+                            // Strip HTML tags for cleaner text (basic)
+                            text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+                            text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+                            text = text.replace(/<[^>]+>/g, ' ');
+                            text = text.replace(/&nbsp;/g, ' ');
+                            text = text.replace(/&amp;/g, '&');
+                            text = text.replace(/&lt;/g, '<');
+                            text = text.replace(/&gt;/g, '>');
+                            text = text.replace(/\s+/g, ' ').trim();
+
+                            // Check if we got meaningful content
+                            if (text.length > 50) {
+                                // Limit to first 5000 characters
+                                if (text.length > 5000) {
+                                    text = text.substring(0, 5000) + '... [truncated]';
+                                }
+                                urlContents.push(`\n\n[Content from ${url}]:\n${text}`);
+                                console.log('[Chat] Successfully fetched content from URL, length:', text.length);
+                            } else {
+                                console.log('[Chat] URL returned minimal content (likely blocked):', text.length);
+                                urlFetchFailed = true;
+                            }
+                        } else {
+                            console.log('[Chat] Unsupported content type:', contentType);
+                            urlFetchFailed = true;
+                        }
+                    } else {
+                        console.log('[Chat] Failed to fetch URL:', response.status);
+                        urlFetchFailed = true;
+                    }
+                } catch (urlError: any) {
+                    console.log('[Chat] Error fetching URL:', urlError.message);
+                    urlFetchFailed = true;
+                }
+            }
+
+            if (urlContents.length > 0) {
+                enhancedMessage = message + urlContents.join('\n');
+                console.log('[Chat] Enhanced message with URL content');
+            } else if (urlFetchFailed) {
+                // Add note that URL couldn't be fetched
+                enhancedMessage = message + `\n\n[Note: The URL could not be accessed - the website may block automated access. Ask the user to paste the job description or content directly instead of just the link.]`;
+                console.log('[Chat] URL fetch failed, added note for AI');
+            }
+        }
+
         // Generate AI response
         let aiResponseObj;
         try {
-            aiResponseObj = await GeminiService.generateChatResponse(message, history);
+            aiResponseObj = await GeminiService.generateChatResponse(enhancedMessage, history, fileData);
         } catch (geminiError: any) {
             console.error('[Chat] Gemini generation failed:', geminiError);
             // Fallback response for fetch failures (likely network or API key issues)

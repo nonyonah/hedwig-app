@@ -27,111 +27,63 @@ export interface PricingItem {
 }
 
 export function generateProposalTemplate(data: ProposalData): string {
-    const deliverablesList = data.deliverables.map((d, i) =>
-        `${i + 1}. ${d}`
-    ).join('\n');
+    const deliverablesList = data.deliverables && data.deliverables.length > 0
+        ? data.deliverables.map(d => `- ${d}`).join('\n')
+        : '- To be defined based on project scope';
 
-    const milestonesList = data.milestones.map((m, i) => {
-        const phaseName = m.phase || `Milestone ${i + 1}`;
-        return `**Phase ${i + 1}: ${phaseName}**\n${m.description || 'Work on deliverables'}\nDuration: ${m.duration || 'TBD'}`;
-    }).join('\n\n');
+    const milestonesList = data.milestones && data.milestones.length > 0
+        ? data.milestones.map((m, i) => {
+            const phaseName = m.phase || `Phase ${i + 1}`;
+            return `**${phaseName}:** ${m.description || 'Work on deliverables'} (${m.duration || 'TBD'})`;
+        }).join('\n')
+        : '';
 
-    const pricingList = data.pricing_breakdown.map(p =>
-        `- ${p.item}: ${p.cost}`
-    ).join('\n');
+    const pricingList = data.pricing_breakdown && data.pricing_breakdown.length > 0
+        ? data.pricing_breakdown.map(p => `- ${p.item}: ${p.cost}`).join('\n')
+        : '';
 
-    const paymentTerms = data.payment_terms || 'An invoice will be generated automatically and sent to you via email after the project is completed.';
+    const timelineSection = data.timeline && data.timeline !== 'TBD' && data.timeline !== 'To be determined' && data.timeline !== 'To be discussed based on project requirements.'
+        ? `\n\n## Timeline\n\n${data.timeline}${milestonesList ? '\n\n' + milestonesList : ''}`
+        : '';
 
-    return `
-# PROJECT PROPOSAL
+    const pricingSection = data.total_cost && data.total_cost !== 'TBD' && data.total_cost !== 'To be determined' && data.total_cost !== 'To be discussed based on scope.'
+        ? `\n\n## Compensation\n\n${pricingList ? pricingList + '\n\n' : ''}**Total:** ${data.total_cost}`
+        : '\n\n## Compensation\n\nThis is a paid engagement. Pricing can be discussed based on scope and requirements.';
 
-**To:** ${data.client_name}  
-**From:** ${data.freelancer_name}  
-**Date:** ${new Date().toLocaleDateString()}  
-**Subject:** ${data.title}
+    // Safe defaults for overview and scope
+    const overview = data.problem_statement && data.problem_statement !== 'undefined'
+        ? data.problem_statement
+        : `Professional services for ${data.title}.`;
 
----
+    const scope = data.proposed_solution && data.proposed_solution !== 'undefined'
+        ? data.proposed_solution
+        : `I will deliver high-quality work for this project, meeting all requirements and deadlines.`;
 
-## EXECUTIVE SUMMARY
+    return `# Proposal: ${data.title}
 
-Thank you for considering my services for your project. This proposal outlines my approach to delivering **${data.title}**, including scope, timeline, and investment required.
+## Overview
 
----
+${overview}
 
-## PROBLEM STATEMENT
+## Scope of Work
 
-This project addresses a critical business need for ${data.client_name}. ${data.problem_statement}
+${scope}
 
-By addressing these challenges, we can unlock new opportunities for growth and improved efficiency in your operations.
+## Deliverables
 
----
+${deliverablesList}${timelineSection}${pricingSection}
 
-## PROPOSED SOLUTION
+## Next Steps
 
-To solve the challenges outlined above, I propose the following comprehensive approach:
-
-${data.proposed_solution}
-
-This solution is designed to deliver measurable results while ensuring seamless integration with your existing workflows. My approach combines industry best practices with tailored strategies specific to your needs.
-
----
-
-## DELIVERABLES
-
-You will receive the following high-quality deliverables upon project completion:
-
-${deliverablesList}
+Please share any additional details about your requirements so we can proceed. Once you're ready, click "Accept Proposal" to move forward.
 
 ---
-
-## PROJECT TIMELINE & MILESTONES
-
-**Estimated Timeline:** ${data.timeline}
-
-${milestonesList}
-
----
-
-## INVESTMENT & PRICING
-
-${pricingList}
-
-**Total Project Investment:** ${data.total_cost}
-
----
-
-## PAYMENT TERMS
-
-${paymentTerms}
-
-All payments will be processed securely through the Hedwig platform using cryptocurrency.
-
----
-
-## ABOUT ME
-
-${data.about_freelancer}
-
----
-
-## NEXT STEPS
-
-If you're ready to move forward:
-
-1. **Accept this proposal** - Click the "Accept Proposal" button below
-2. **Initial payment** - Complete the first milestone payment
-3. **Project kickoff** - We'll schedule a kickoff call to align on details
-4. **Delivery** - I'll deliver according to the timeline above
-
----
-
-## ACCEPTANCE
-
-By clicking "Accept Proposal," you agree to the terms, scope, timeline, and pricing outlined in this document. A formal contract will be generated upon acceptance.
 
 **Proposed by:** ${data.freelancer_name}  
-**Email:** ${data.freelancer_email}
+**Email:** ${data.freelancer_email}  
+**Date:** ${new Date().toLocaleDateString()}
 
-**Status:** Awaiting Client Acceptance
+**Status:** Awaiting Acceptance
 `.trim();
 }
+

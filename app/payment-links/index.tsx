@@ -215,11 +215,10 @@ export default function PaymentLinksScreen() {
     };
 
     const closeModal = () => {
-        Animated.spring(slideAnim, {
+        Animated.timing(slideAnim, {
             toValue: 0,
+            duration: 250,
             useNativeDriver: true,
-            damping: 25,
-            stiffness: 300,
         }).start(() => setShowModal(false));
     };
 
@@ -265,8 +264,8 @@ export default function PaymentLinksScreen() {
                         <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
                     </View>
                     <View style={styles.iconContainer}>
-                        <ShareNetwork size={24} color={Colors.primary} weight="duotone" />
-                        <View style={[styles.statusDot, item.status === 'PAID' ? { backgroundColor: Colors.success } : { backgroundColor: Colors.warning }]} />
+                        <Image source={ICONS.usdc} style={styles.cardTokenIcon} />
+                        <Image source={getChainIcon(item.chain)} style={styles.cardChainBadge} />
                     </View>
                 </View>
 
@@ -375,10 +374,17 @@ export default function PaymentLinksScreen() {
                     >
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderLeft}>
-                                <Image
-                                    source={selectedLink?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
-                                    style={styles.statusIcon}
-                                />
+                                {/* Token icon with status badge */}
+                                <View style={styles.modalIconContainer}>
+                                    <Image
+                                        source={ICONS.usdc}
+                                        style={styles.modalTokenIcon}
+                                    />
+                                    <Image
+                                        source={selectedLink?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
+                                        style={styles.modalStatusBadge}
+                                    />
+                                </View>
                                 <View>
                                     <Text style={styles.modalTitle}>
                                         {selectedLink?.status === 'PAID' ? 'Paid' : 'Pending'}
@@ -612,15 +618,10 @@ const styles = StyleSheet.create({
         paddingBottom: 32,
     },
     card: {
-        backgroundColor: Colors.surface,
+        backgroundColor: '#f5f5f5',
         borderRadius: 24,
         padding: 20,
         marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -641,6 +642,23 @@ const styles = StyleSheet.create({
     },
     iconContainer: {
         position: 'relative',
+        width: 40,
+        height: 40,
+    },
+    cardTokenIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+    },
+    cardChainBadge: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
     },
     badgeIcon: {
         width: 20,
@@ -843,9 +861,25 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
         zIndex: 999,
     },
-    statusIcon: {
+    modalIconContainer: {
+        position: 'relative',
+        marginRight: 12,
+    },
+    modalTokenIcon: {
         width: 40,
         height: 40,
+        borderRadius: 20,
+    },
+    modalStatusBadge: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
     },
     modalTitle: {
         fontFamily: 'RethinkSans_700Bold',

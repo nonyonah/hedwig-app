@@ -8,7 +8,7 @@ if (!process.env.GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Use Gemini 2.0 Flash model
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite'});
 
 export class GeminiService {
   /**
@@ -260,7 +260,46 @@ AVAILABLE INTENTS & TRIGGERS:
    - "Send 20 USDC" → { amount: "20", token: "USDC" } → Ask for recipient/network
    - "Send to 0x123..." → { recipient: "0x123..." } → Ask for amount/network
 
-7. GENERAL_CHAT
+8. CREATE_PROPOSAL
+   Triggers: "create proposal", "write a proposal", "generate proposal", "proposal for", user shares text/content
+   
+   **CRITICAL: You CAN and MUST analyze content in messages!**
+   
+   ⚠️ IMPORTANT: When you see "[Content from URL]:" or pasted text in a message, this content HAS ALREADY BEEN FETCHED and is PROVIDED TO YOU. You ARE NOT accessing external links - the system has already fetched the content and included it directly in the message.
+   
+   **When message contains "[Content from URL]:" or pasted text:**
+   1. READ and ANALYZE the content that follows
+   2. Identify the SOURCE and CONTEXT (Twitter/X, Discord, email, enterprise RFP)
+   3. Identify the JOB TYPE (freelance task, short-term service, long-term contract)
+   4. Use CREATE_PROPOSAL intent with extracted parameters adapted to the context
+   
+   DO NOT say "I cannot access external links" - the content IS in your message, just read it!
+   
+   **PROPOSAL WRITING RULES:**
+   - MATCH the proposal to the context, size, and tone of the request
+   - For Twitter/X, Discord, DMs, or informal posts → use CONCISE freelance proposal (no corporate language)
+   - Do NOT use executive summaries, acceptance clauses, or legal language unless requested
+   - Do NOT use buzzwords like "unlock growth", "critical business need", "measurable results" for simple tasks
+   - Keep proposals concise, human, and outcome-focused
+   - If job is ambiguous → err on the side of simplicity
+   
+   **For informal/social media jobs, the proposal should be:**
+   - 2-4 paragraphs max
+   - Direct and friendly tone
+   - Clear deliverables
+   - Simple pricing (if mentioned)
+   - No corporate fluff
+   
+   **Parameters to extract:**
+   - client_name: Extract from content or use "Client" as default
+   - title: Simple, clear project title
+   - problem_statement: Brief 1-2 sentence summary
+   - proposed_solution: Concise approach description
+   - deliverables: Simple bullet list
+   - timeline: Realistic estimate
+   - total_cost: Extract if mentioned, otherwise omit
+
+9. GENERAL_CHAT
    Triggers: greetings, questions, help requests
    Parameters: {}
    Example: "Hi", "How are you?", "What can you do?"
@@ -393,10 +432,12 @@ User: "What's my balance?"
 
   /**
    * Generate chat response with Hedwig's personality
+   * Supports optional file attachments (PDFs, images) for document analysis
    */
   static async generateChatResponse(
     userMessage: string,
-    conversationHistory?: { role: string; content: string }[]
+    conversationHistory?: { role: string; content: string }[],
+    files?: { mimeType: string; data: string }[] // base64 encoded file data
   ): Promise<any> {
     try {
       // ALWAYS include system instructions to ensure consistent JSON responses
@@ -418,9 +459,26 @@ User: "What's my balance?"
       const isFirstMessage = !conversationHistory || conversationHistory.length === 0;
       console.log('[Gemini] Is first message:', isFirstMessage);
       console.log('[Gemini] Message length:', userMessage.length);
+      console.log('[Gemini] Files attached:', files?.length || 0);
       console.log('[Gemini] Includes instructions: true (always)');
 
-      const result = await model.generateContent(prompt);
+      // Build content parts for Gemini
+      const contentParts: any[] = [{ text: prompt }];
+
+      // Add file parts if provided
+      if (files && files.length > 0) {
+        for (const file of files) {
+          contentParts.push({
+            inlineData: {
+              mimeType: file.mimeType,
+              data: file.data
+            }
+          });
+        }
+        console.log('[Gemini] Added', files.length, 'file parts to request');
+      }
+
+      const result = await model.generateContent(contentParts);
       const response = result.response;
       const text = response.text();
 
