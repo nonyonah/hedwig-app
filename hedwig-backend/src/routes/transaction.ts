@@ -9,21 +9,17 @@ const router = Router();
 
 // Initialize Alchemy for Base Sepolia
 const baseConfig = {
-    apiKey: process.env.ALCHEMY_API_KEY, // Default to env var
+    apiKey: process.env.ALCHEMY_API_KEY,
     network: Network.BASE_SEPOLIA,
 };
 const baseAlchemy = new Alchemy(baseConfig);
 
-// Initialize Alchemy for Celo Alfajores (if supported, otherwise fallback to standard RPC)
-/* Note: Alchemy supports Celo (CELO_MAINNET, CELO_ALFAJORES). 
-   If this throws type error during build, we will remove and use standard RPC. 
-   Assuming usage of correct enum if available, or casting if type defs are lagging. 
-*/
-const celoConfig = {
+// Initialize Alchemy for Celo Sepolia (using custom URL since SDK doesn't have CELO_SEPOLIA enum yet)
+const celoSepoliaConfig = {
     apiKey: process.env.ALCHEMY_API_KEY,
-    network: Network.CELO_ALFAJORES,
+    url: `https://celo-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
 };
-const celoAlchemy = new Alchemy(celoConfig);
+const celoAlchemy = new Alchemy(celoSepoliaConfig);
 
 // Initialize Solana Connection
 const solanaConnection = new Connection(process.env.SOLANA_RPC_URL || clusterApiUrl('devnet'), 'confirmed');
@@ -44,15 +40,21 @@ interface TransactionItem {
 
 router.get('/', authenticate, async (req: Request, res: Response) => {
     try {
+        console.log('[Transactions] Route hit');
         const privyId = req.user!.privyId;
+        console.log('[Transactions] User privyId:', privyId);
+
         const user = await getOrCreateUser(privyId);
 
         if (!user) {
+            console.log('[Transactions] User not found');
             return res.status(404).json({ success: false, error: 'User not found' });
         }
 
         const ethAddress = user.ethereum_wallet_address;
         const solAddress = user.solana_wallet_address;
+        console.log('[Transactions] Addresses - ETH:', ethAddress, 'SOL:', solAddress);
+        console.log('[Transactions] ALCHEMY_API_KEY present:', !!process.env.ALCHEMY_API_KEY);
 
         const allTransactions: TransactionItem[] = [];
 
@@ -123,7 +125,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                 console.error('[Transactions] Error fetching Base transactions:', err);
             }
 
-            // 2. Fetch Celo Transactions (Alchemy)
+            // 2. Fetch Celo Transactions (Alchemy SDK with Celo Sepolia)
             try {
                 // Incoming
                 const incomingCelo = await celoAlchemy.core.getAssetTransfers({
