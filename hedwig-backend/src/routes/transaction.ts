@@ -3,7 +3,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { getOrCreateUser } from '../utils/userHelper';
 import { Network, Alchemy, AssetTransfersCategory, SortingOrder } from 'alchemy-sdk';
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 
 const router = Router();
 
@@ -15,14 +15,15 @@ const baseConfig = {
 const baseAlchemy = new Alchemy(baseConfig);
 
 // Initialize Alchemy for Celo Sepolia (using custom URL since SDK doesn't have CELO_SEPOLIA enum yet)
-const celoSepoliaConfig = {
+const celoConfig = {
     apiKey: process.env.ALCHEMY_API_KEY,
     url: `https://celo-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
 };
-const celoAlchemy = new Alchemy(celoSepoliaConfig);
+const celoAlchemy = new Alchemy(celoConfig);
 
-// Initialize Solana Connection
-const solanaConnection = new Connection(process.env.SOLANA_RPC_URL || clusterApiUrl('devnet'), 'confirmed');
+// Initialize Solana Connection using Alchemy RPC
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || `https://solana-devnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
+const solanaConnection = new Connection(SOLANA_RPC_URL, 'confirmed');
 
 interface TransactionItem {
     id: string;
@@ -91,11 +92,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                         description: `Received from ${tx.from.slice(0, 6)}...${tx.from.slice(-4)}`,
                         amount: tx.value?.toString() || '0',
                         token: tx.asset || 'ETH',
-                        date: tx.metadata.blockTimestamp, // Alchemy returns ISO string or timestamp? Metadata usually blockTimestamp. Check docs. 
-                        // Wait, getAssetTransfers doesn't always return blockTimestamp without withMetadata: true?
-                        // Actually getAssetTransfers response `transfers` items have `metadata` which includes `blockTimestamp` date string.
-                        // Let's verify defaults. Standard response has rawContract etc. 
-                        // We might need to map it carefully. `blockTimestamp` is date string in ISO format for Alchemy V2 transfers API.
+                        date: tx.metadata?.blockTimestamp || new Date().toISOString(),
                         hash: tx.hash,
                         network: 'base',
                         status: 'completed',
@@ -112,7 +109,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                         description: `Sent to ${tx.to?.slice(0, 6)}...${tx.to?.slice(-4)}`,
                         amount: tx.value?.toString() || '0',
                         token: tx.asset || 'ETH',
-                        date: tx.metadata.blockTimestamp,
+                        date: tx.metadata?.blockTimestamp || new Date().toISOString(),
                         hash: tx.hash,
                         network: 'base',
                         status: 'completed',
@@ -157,7 +154,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                         description: `Received from ${tx.from.slice(0, 6)}...${tx.from.slice(-4)}`,
                         amount: tx.value?.toString() || '0',
                         token: tx.asset || 'CELO',
-                        date: tx.metadata.blockTimestamp,
+                        date: tx.metadata?.blockTimestamp || new Date().toISOString(),
                         hash: tx.hash,
                         network: 'celo',
                         status: 'completed',
@@ -174,7 +171,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                         description: `Sent to ${tx.to?.slice(0, 6)}...${tx.to?.slice(-4)}`,
                         amount: tx.value?.toString() || '0',
                         token: tx.asset || 'CELO',
-                        date: tx.metadata.blockTimestamp,
+                        date: tx.metadata?.blockTimestamp || new Date().toISOString(),
                         hash: tx.hash,
                         network: 'celo',
                         status: 'completed',
