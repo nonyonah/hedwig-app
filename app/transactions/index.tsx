@@ -13,7 +13,8 @@ import {
     SectionList,
     Platform,
     Image,
-    LayoutAnimation
+    LayoutAnimation,
+    Animated
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
@@ -24,12 +25,40 @@ import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
 
 import { Colors } from '../../theme/colors';
+import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
+
+// Icons for tokens, networks, and status (matching invoices/payment-links screens)
+const ICONS = {
+    eth: require('../../assets/icons/tokens/eth.png'),
+    usdc: require('../../assets/icons/tokens/usdc.png'),
+    sol: require('../../assets/icons/tokens/sol.png'),
+    celo: require('../../assets/icons/tokens/celo.png'),
+    base: require('../../assets/icons/networks/base.png'),
+    celoNetwork: require('../../assets/icons/networks/celo.png'),
+    solana: require('../../assets/icons/networks/solana.png'),
+    statusSuccess: require('../../assets/icons/status/success.png'),
+    statusPending: require('../../assets/icons/status/pending.png'),
+    statusFailed: require('../../assets/icons/status/failed.png'),
+};
+
+const CHAINS: Record<string, { name: string; icon: any }> = {
+    'base': { name: 'Base', icon: ICONS.base },
+    'celo': { name: 'Celo', icon: ICONS.celoNetwork },
+    'solana': { name: 'Solana', icon: ICONS.solana },
+};
+
+const TOKENS: Record<string, any> = {
+    'ETH': ICONS.eth,
+    'USDC': ICONS.usdc,
+    'SOL': ICONS.sol,
+    'CELO': ICONS.celo,
+};
 
 // Profile color gradient options (same as in home screen)
 const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
@@ -198,6 +227,8 @@ export default function TransactionsScreen() {
 
     const renderTransactionItem = ({ item }: { item: Transaction }) => {
         const isReceived = item.type === 'IN';
+        const tokenIcon = TOKENS[item.token.toUpperCase()] || ICONS.usdc;
+        const chainInfo = CHAINS[item.network] || CHAINS.base;
 
         return (
             <TouchableOpacity
@@ -207,37 +238,27 @@ export default function TransactionsScreen() {
                     setIsDetailModalVisible(true);
                 }}
             >
+                {/* Token Icon with Chain Badge (like invoice/payment-links cards) */}
                 <View style={styles.txIconContainer}>
-                    <View style={[styles.txIconBase, { backgroundColor: isReceived ? '#EDF7ED' : '#F1F5F9' }]}>
-                        {isReceived ? (
-                            <ArrowDownLeft size={24} color={Colors.success} weight="bold" />
-                        ) : (
-                            <ArrowUpRight size={24} color={Colors.textSecondary} weight="bold" />
-                        )}
-                    </View>
-                    {/* Small Network Badge */}
-                    <View style={styles.networkBadge}>
-                        {/* Simply using text for network letter for now to avoid svg complexity issues in this snippet */}
-                        <Text style={styles.networkBadgeText}>
-                            {item.network === 'base' ? 'B' : item.network === 'celo' ? 'C' : 'S'}
-                        </Text>
+                    <Image source={tokenIcon} style={styles.txTokenIcon} />
+                    <View style={styles.chainBadge}>
+                        <Image source={chainInfo.icon} style={styles.chainBadgeIcon} />
                     </View>
                 </View>
 
                 <View style={styles.txContent}>
                     <Text style={styles.txTitle}>{isReceived ? 'Received' : 'Sent'}</Text>
                     <Text style={styles.txSubtitle} numberOfLines={1} ellipsizeMode="middle">
-                        {isReceived ? `From ${item.from}` : `To ${item.to}`}
+                        {isReceived ? `From ${item.from.slice(0, 6)}...${item.from.slice(-4)}` : `To ${item.to.slice(0, 6)}...${item.to.slice(-4)}`}
                     </Text>
                 </View>
 
                 <View style={styles.txAmountContainer}>
-                    <Text style={[styles.txAmount, { color: isReceived ? Colors.success : Colors.error }]}>
+                    <Text style={[styles.txAmount, { color: isReceived ? Colors.success : Colors.textPrimary }]}>
                         {isReceived ? '+' : '-'}{item.amount} {item.token}
                     </Text>
-                    {/* Placeholder fiat value (since we don't have real-time rates hooked up yet) */}
                     <Text style={styles.txFiatAmount}>
-                        ≈ ${parseFloat(item.amount).toFixed(2)}
+                        ≈ ${parseFloat(item.amount || '0').toFixed(2)}
                     </Text>
                 </View>
             </TouchableOpacity>
@@ -321,78 +342,84 @@ export default function TransactionsScreen() {
                 onRequestClose={() => setIsDetailModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
+                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setIsDetailModalVisible(false)} />
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
+                            <View style={styles.modalHeaderLeft}>
+                                <Image
+                                    source={selectedTransaction?.status === 'completed' ? ICONS.statusSuccess : ICONS.statusPending}
+                                    style={styles.statusIcon}
+                                />
+                                <View>
+                                    <Text style={styles.modalTitle}>
+                                        {selectedTransaction?.type === 'IN' ? 'Received' : 'Sent'}
+                                    </Text>
+                                    <Text style={styles.modalSubtitle}>
+                                        {selectedTransaction?.date ? format(new Date(selectedTransaction.date), 'MMM d, yyyy • h:mm a') : ''}
+                                    </Text>
+                                </View>
+                            </View>
                             <TouchableOpacity onPress={() => setIsDetailModalVisible(false)} style={styles.closeButton}>
-                                <X size={20} color={Colors.textPrimary} />
+                                <X size={20} color={Colors.textSecondary} />
                             </TouchableOpacity>
                         </View>
 
                         {selectedTransaction && (
-                            <View style={styles.detailBody}>
-                                <View style={styles.detailIconContainer}>
-                                    <View style={[styles.detailIconRing, { backgroundColor: selectedTransaction.type === 'IN' ? '#EDF7ED' : '#F1F5F9' }]}>
-                                        {selectedTransaction.type === 'IN' ? (
-                                            <ArrowDownLeft size={32} color={Colors.success} weight="bold" />
-                                        ) : (
-                                            <ArrowUpRight size={32} color={Colors.textSecondary} weight="bold" />
-                                        )}
+                            <>
+                                {/* Amount Card */}
+                                <View style={styles.amountCard}>
+                                    <Text style={styles.amountCardValue}>
+                                        {selectedTransaction.type === 'IN' ? '+' : '-'}{selectedTransaction.amount}
+                                    </Text>
+                                    <View style={styles.amountCardSub}>
+                                        <Image source={TOKENS[selectedTransaction.token.toUpperCase()] || ICONS.usdc} style={styles.smallIcon} />
+                                        <Text style={styles.amountCardSubText}>{selectedTransaction.amount} {selectedTransaction.token}</Text>
                                     </View>
-                                    <Text style={styles.detailTitle}>
-                                        {selectedTransaction.type === 'IN' ? 'Received from' : 'Sent to'} {selectedTransaction.type === 'IN' ? selectedTransaction.from.slice(0, 4) + '...' + selectedTransaction.from.slice(-4) : selectedTransaction.to.slice(0, 4) + '...' + selectedTransaction.to.slice(-4)}
-                                    </Text>
-                                    <Text style={styles.detailDate}>
-                                        {format(new Date(selectedTransaction.date), 'MMM d, yyyy • h:mm a')}
-                                    </Text>
                                 </View>
 
-                                <View style={styles.detailAmountCard}>
-                                    <Text style={styles.detailAmountBig}>
-                                        {selectedTransaction.amount} {selectedTransaction.token}
-                                    </Text>
-                                    <Text style={styles.detailFiatBig}>
-                                        ≈ ${parseFloat(selectedTransaction.amount).toFixed(2)}
-                                    </Text>
-                                </View>
-
-                                <View style={styles.detailRows}>
+                                {/* Details Card */}
+                                <View style={styles.detailsCard}>
                                     <View style={styles.detailRow}>
-                                        <View style={styles.detailRowLeft}>
-                                            <Receipt size={18} color={Colors.textSecondary} />
-                                            <Text style={styles.detailRowLabel}>Transaction ID</Text>
-                                        </View>
-                                        <TouchableOpacity
-                                            style={styles.detailRowValueContainer}
-                                            onPress={() => copyToClipboard(selectedTransaction.hash)}
-                                        >
-                                            <Text style={styles.detailRowValue} numberOfLines={1} ellipsizeMode="middle">
-                                                {selectedTransaction.hash}
+                                        <Text style={styles.detailLabel}>Transaction ID</Text>
+                                        <TouchableOpacity onPress={() => copyToClipboard(selectedTransaction.hash)} style={styles.detailValueRow}>
+                                            <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">
+                                                {selectedTransaction.hash.slice(0, 10)}...{selectedTransaction.hash.slice(-8)}
                                             </Text>
-                                            <Copy size={14} color={Colors.textTertiary} />
+                                            <Copy size={14} color={Colors.textTertiary} style={{ marginLeft: 6 }} />
                                         </TouchableOpacity>
                                     </View>
-
+                                    <View style={styles.detailDivider} />
                                     <View style={styles.detailRow}>
-                                        <View style={styles.detailRowLeft}>
-                                            <Wallet size={18} color={Colors.textSecondary} />
-                                            <Text style={styles.detailRowLabel}>Network</Text>
-                                        </View>
-                                        <View style={styles.detailRowValueContainer}>
-                                            <Text style={[styles.detailRowValue, { textTransform: 'capitalize' }]}>
-                                                {selectedTransaction.network}
+                                        <Text style={styles.detailLabel}>{selectedTransaction.type === 'IN' ? 'From' : 'To'}</Text>
+                                        <Text style={styles.detailValue}>
+                                            {selectedTransaction.type === 'IN'
+                                                ? `${selectedTransaction.from.slice(0, 6)}...${selectedTransaction.from.slice(-4)}`
+                                                : `${selectedTransaction.to.slice(0, 6)}...${selectedTransaction.to.slice(-4)}`
+                                            }
+                                        </Text>
+                                    </View>
+                                    <View style={styles.detailDivider} />
+                                    <View style={styles.detailRow}>
+                                        <Text style={styles.detailLabel}>Chain</Text>
+                                        <View style={styles.chainValue}>
+                                            <Image
+                                                source={CHAINS[selectedTransaction.network]?.icon || ICONS.base}
+                                                style={styles.smallIcon}
+                                            />
+                                            <Text style={styles.detailValue}>
+                                                {CHAINS[selectedTransaction.network]?.name || 'Base'}
                                             </Text>
                                         </View>
                                     </View>
-
-                                    <TouchableOpacity
-                                        style={styles.viewExplorerButton}
-                                        onPress={() => openExplorer(selectedTransaction)}
-                                    >
-                                        <Text style={styles.viewExplorerText}>View on Explorer</Text>
-                                        <ArrowUpRight size={16} color={Colors.primary} weight="bold" />
-                                    </TouchableOpacity>
                                 </View>
-                            </View>
+
+                                <TouchableOpacity
+                                    style={styles.viewButton}
+                                    onPress={() => openExplorer(selectedTransaction)}
+                                >
+                                    <Text style={styles.viewButtonText}>View on Explorer</Text>
+                                </TouchableOpacity>
+                            </>
                         )}
                     </View>
                 </View>
@@ -412,14 +439,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 16,
         justifyContent: 'space-between',
-    },
-    headerButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderRadius: 20,
-        backgroundColor: '#F3F4F6',
     },
     headerTitle: {
         fontFamily: 'RethinkSans_700Bold',
@@ -451,6 +470,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         backgroundColor: '#FFFFFF',
     },
+    // Transaction Item Styles (matching invoice/payment-links cards)
     txItem: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -462,30 +482,33 @@ const styles = StyleSheet.create({
         position: 'relative',
         marginRight: 16,
     },
-    txIconBase: {
+    txTokenIcon: {
         width: 48,
         height: 48,
         borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
     },
-    networkBadge: {
+    chainBadge: {
         position: 'absolute',
         bottom: -2,
         right: -2,
-        backgroundColor: Colors.textPrimary,
-        width: 18,
-        height: 18,
-        borderRadius: 9,
+        backgroundColor: '#FFFFFF',
+        width: 20,
+        height: 20,
+        borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
         borderColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
     },
-    networkBadgeText: {
-        color: '#FFFFFF',
-        fontSize: 8,
-        fontWeight: 'bold',
+    chainBadgeIcon: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
     },
     txContent: {
         flex: 1,
@@ -533,7 +556,7 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         textAlign: 'center',
     },
-    // Modal Styles
+    // Modal Styles (matching invoice screen)
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -543,13 +566,34 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
+        paddingHorizontal: 20,
         paddingBottom: 40,
-        height: '60%',
     },
     modalHeader: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
-        padding: 16,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 16,
+    },
+    modalHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statusIcon: {
+        width: 40,
+        height: 40,
+        marginRight: 12,
+    },
+    modalTitle: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 18,
+        color: Colors.textPrimary,
+    },
+    modalSubtitle: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 13,
+        color: Colors.textSecondary,
+        marginTop: 2,
     },
     closeButton: {
         width: 32,
@@ -559,98 +603,85 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    detailBody: {
-        alignItems: 'center',
-        paddingHorizontal: 24,
-    },
-    detailIconContainer: {
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    detailIconRing: {
-        marginBottom: 16,
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    detailTitle: {
-        fontFamily: 'RethinkSans_700Bold',
-        fontSize: 18,
-        color: Colors.textPrimary,
-        marginBottom: 6,
-        textAlign: 'center',
-    },
-    detailDate: {
-        fontFamily: 'RethinkSans_500Medium',
-        fontSize: 14,
-        color: Colors.textSecondary,
-    },
-    detailAmountCard: {
+    // Amount Card
+    amountCard: {
         backgroundColor: '#F9FAFB',
         borderRadius: 16,
         padding: 24,
-        width: '100%',
         alignItems: 'center',
-        marginBottom: 32,
+        marginBottom: 20,
         borderWidth: 1,
         borderColor: '#F3F4F6',
     },
-    detailAmountBig: {
+    amountCardValue: {
         fontFamily: 'RethinkSans_700Bold',
-        fontSize: 32,
+        fontSize: 36,
         color: Colors.textPrimary,
-        marginBottom: 4,
+        marginBottom: 8,
     },
-    detailFiatBig: {
+    amountCardSub: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    amountCardSubText: {
         fontFamily: 'RethinkSans_500Medium',
-        fontSize: 16,
+        fontSize: 15,
         color: Colors.textSecondary,
+        marginLeft: 6,
     },
-    detailRows: {
-        width: '100%',
+    smallIcon: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+    },
+    // Details Card
+    detailsCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
+        marginBottom: 20,
     },
     detailRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
+        paddingVertical: 12,
     },
-    detailRowLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    detailDivider: {
+        height: 1,
+        backgroundColor: '#F3F4F6',
     },
-    detailRowLabel: {
+    detailLabel: {
         fontFamily: 'RethinkSans_500Medium',
         fontSize: 15,
         color: Colors.textSecondary,
-        marginLeft: 10,
     },
-    detailRowValueContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-        justifyContent: 'flex-end',
-        marginLeft: 20,
-    },
-    detailRowValue: {
+    detailValue: {
         fontFamily: 'RethinkSans_500Medium',
         fontSize: 15,
         color: Colors.textPrimary,
-        marginRight: 6,
     },
-    viewExplorerButton: {
+    detailValueRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        marginTop: 8,
     },
-    viewExplorerText: {
+    chainValue: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    viewButton: {
+        backgroundColor: Colors.primary,
+        borderRadius: 12,
+        paddingVertical: 16,
+        alignItems: 'center',
+    },
+    viewButtonText: {
         fontFamily: 'RethinkSans_600SemiBold',
-        fontSize: 15,
-        color: Colors.primary,
-        marginRight: 6,
+        fontSize: 16,
+        color: '#FFFFFF',
     },
 });
+
