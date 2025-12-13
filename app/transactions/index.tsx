@@ -241,7 +241,7 @@ export default function TransactionsScreen() {
     const openExplorer = async (tx: Transaction) => {
         let url = '';
         if (tx.network === 'base') url = `https://sepolia.basescan.org/tx/${tx.hash}`;
-        if (tx.network === 'celo') url = `https://alfajores.celoscan.io/tx/${tx.hash}`;
+        if (tx.network === 'celo') url = `https://celo-sepolia.blockscout.com/tx/${tx.hash}`;
         if (tx.network === 'solana') url = `https://explorer.solana.com/tx/${tx.hash}?cluster=devnet`;
 
         if (url) {
