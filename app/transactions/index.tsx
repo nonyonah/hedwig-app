@@ -44,6 +44,8 @@ const ICONS = {
     statusSuccess: require('../../assets/icons/status/success.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
     statusFailed: require('../../assets/icons/status/failed.png'),
+    send: require('../../assets/icons/status/send.png'),
+    receive: require('../../assets/icons/status/receive.png'),
 };
 
 const CHAINS: Record<string, { name: string; icon: any }> = {
@@ -401,10 +403,17 @@ export default function TransactionsScreen() {
                     >
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderLeft}>
-                                <Image
-                                    source={selectedTransaction?.status === 'completed' ? ICONS.statusSuccess : ICONS.statusPending}
-                                    style={styles.statusIcon}
-                                />
+                                {/* Token icon with send/receive badge */}
+                                <View style={styles.modalIconContainer}>
+                                    <Image
+                                        source={TOKENS[selectedTransaction?.token?.toUpperCase() || 'USDC'] || ICONS.usdc}
+                                        style={styles.modalTokenIcon}
+                                    />
+                                    <Image
+                                        source={selectedTransaction?.type === 'IN' ? ICONS.receive : ICONS.send}
+                                        style={styles.modalStatusBadge}
+                                    />
+                                </View>
                                 <View>
                                     <Text style={styles.modalTitle}>
                                         {selectedTransaction?.type === 'IN' ? 'Received' : 'Sent'}
@@ -634,10 +643,22 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    statusIcon: {
+    modalIconContainer: {
+        position: 'relative',
+        marginRight: 12,
+    },
+    modalTokenIcon: {
         width: 40,
         height: 40,
-        marginRight: 12,
+        borderRadius: 20,
+    },
+    modalStatusBadge: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
     },
     modalTitle: {
         fontFamily: 'RethinkSans_700Bold',
