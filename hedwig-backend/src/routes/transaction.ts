@@ -191,9 +191,11 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
         // 3. Fetch Solana Transactions
         if (solAddress) {
             try {
+                console.log('[Transactions] Fetching Solana transactions for:', solAddress);
                 const pubKey = new PublicKey(solAddress);
                 // Get signatures (history)
                 const signatures = await solanaConnection.getSignaturesForAddress(pubKey, { limit: 20 });
+                console.log('[Transactions] Solana signatures found:', signatures.length);
 
                 // Get parsed details for each signature
                 // Note: This can be slow if we fetch too many. Limit is 20.

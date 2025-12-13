@@ -37,10 +37,9 @@ const { width } = Dimensions.get('window');
 const ICONS = {
     eth: require('../../assets/icons/tokens/eth.png'),
     usdc: require('../../assets/icons/tokens/usdc.png'),
-    sol: require('../../assets/icons/tokens/sol.png'),
-    celo: require('../../assets/icons/tokens/celo.png'),
+    usdt: require('../../assets/icons/tokens/usdt.png'),
     base: require('../../assets/icons/networks/base.png'),
-    celoNetwork: require('../../assets/icons/networks/celo.png'),
+    celo: require('../../assets/icons/networks/celo.png'),
     solana: require('../../assets/icons/networks/solana.png'),
     statusSuccess: require('../../assets/icons/status/success.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
@@ -49,15 +48,17 @@ const ICONS = {
 
 const CHAINS: Record<string, { name: string; icon: any }> = {
     'base': { name: 'Base', icon: ICONS.base },
-    'celo': { name: 'Celo', icon: ICONS.celoNetwork },
+    'celo': { name: 'Celo', icon: ICONS.celo },
     'solana': { name: 'Solana', icon: ICONS.solana },
 };
 
+// Map token symbols to available icons (fallback to eth for native tokens, usdc for stablecoins)
 const TOKENS: Record<string, any> = {
     'ETH': ICONS.eth,
     'USDC': ICONS.usdc,
-    'SOL': ICONS.sol,
-    'CELO': ICONS.celo,
+    'USDT': ICONS.usdt,
+    'SOL': ICONS.eth, // Fallback to eth icon for SOL (no sol.png available)
+    'CELO': ICONS.eth, // Fallback to eth icon for CELO (no celo.png available)
 };
 
 // Profile color gradient options (same as in home screen)
@@ -103,23 +104,25 @@ export default function TransactionsScreen() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [conversations, setConversations] = useState<any[]>([]);
 
     // Profile Modal
     const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
     const [userData, setUserData] = useState<UserData | null>(null);
     const [profileIcon, setProfileIcon] = useState<{ type: 'emoji' | 'image'; emoji?: string; imageUri?: string; colorIndex?: number }>({
         type: 'emoji',
-        emoji: '👤',
-        colorIndex: 0
+        colorIndex: 0 // Start with gradient, no emoji (loading state)
     });
 
-    // Detail Modal
+    // Detail Modal with slide animation
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+    const slideAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         fetchTransactions();
         fetchUserData();
+        fetchConversations();
     }, []);
 
     const fetchUserData = async () => {
@@ -166,6 +169,25 @@ export default function TransactionsScreen() {
         }
     };
 
+    const fetchConversations = async () => {
+        try {
+            const token = await getAccessToken();
+            if (!token) return;
+
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/chat/conversations`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setConversations(data.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching conversations:', error);
+        }
+    };
+
     const fetchTransactions = async () => {
         try {
             setIsLoading(true);
@@ -188,6 +210,27 @@ export default function TransactionsScreen() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // Modal open/close with spring animation (matching payment-links/invoices)
+    const openModal = (tx: Transaction) => {
+        setSelectedTransaction(tx);
+        setIsDetailModalVisible(true);
+        Animated.spring(slideAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+            damping: 25,
+            stiffness: 300,
+        }).start();
+    };
+
+    const closeModal = () => {
+        Animated.spring(slideAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+            damping: 25,
+            stiffness: 300,
+        }).start(() => setIsDetailModalVisible(false));
     };
 
     const copyToClipboard = async (text: string) => {
@@ -233,10 +276,7 @@ export default function TransactionsScreen() {
         return (
             <TouchableOpacity
                 style={styles.txItem}
-                onPress={() => {
-                    setSelectedTransaction(item);
-                    setIsDetailModalVisible(true);
-                }}
+                onPress={() => openModal(item)}
             >
                 {/* Token Icon with Chain Badge (like invoice/payment-links cards) */}
                 <View style={styles.txIconContainer}>
@@ -319,6 +359,9 @@ export default function TransactionsScreen() {
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 userName={userData ? { firstName: userData.firstName, lastName: userData.lastName } : undefined}
+                conversations={conversations}
+                onHomeClick={() => router.push('/')}
+                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
             />
 
             {/* Profile Modal */}
@@ -338,12 +381,24 @@ export default function TransactionsScreen() {
             <Modal
                 visible={isDetailModalVisible}
                 transparent
-                animationType="slide"
-                onRequestClose={() => setIsDetailModalVisible(false)}
+                animationType="none"
+                onRequestClose={closeModal}
             >
                 <View style={styles.modalOverlay}>
-                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setIsDetailModalVisible(false)} />
-                    <View style={styles.modalContent}>
+                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
+                    <Animated.View
+                        style={[
+                            styles.modalContent,
+                            {
+                                transform: [{
+                                    translateY: slideAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [600, 0]
+                                    })
+                                }]
+                            }
+                        ]}
+                    >
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderLeft}>
                                 <Image
@@ -359,7 +414,7 @@ export default function TransactionsScreen() {
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={() => setIsDetailModalVisible(false)} style={styles.closeButton}>
+                            <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
                                 <X size={20} color={Colors.textSecondary} />
                             </TouchableOpacity>
                         </View>
@@ -421,7 +476,7 @@ export default function TransactionsScreen() {
                                 </TouchableOpacity>
                             </>
                         )}
-                    </View>
+                    </Animated.View>
                 </View>
             </Modal>
         </View>
