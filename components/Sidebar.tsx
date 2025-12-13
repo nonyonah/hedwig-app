@@ -230,13 +230,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 <View style={styles.footer}>
                     <TouchableOpacity style={styles.footerLink}>
-                        <Text style={styles.footerText}>Frequently asked questions</Text>
+                        <Text style={styles.footerText}>Feedback</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.footerLink}>
-                        <Text style={styles.footerText}>Terms & conditions</Text>
+                        <Text style={styles.footerText}>Contact us</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.footerLink}>
-                        <Text style={styles.footerText}>Privacy notice</Text>
+                        <Text style={styles.footerText}>What's new</Text>
                     </TouchableOpacity>
                 </View>
             </Animated.View>

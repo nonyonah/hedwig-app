@@ -433,7 +433,7 @@ export default function TransactionsScreen() {
                                 {/* Amount Card */}
                                 <View style={styles.amountCard}>
                                     <Text style={styles.amountCardValue}>
-                                        {selectedTransaction.type === 'IN' ? '+' : '-'}{selectedTransaction.amount}
+                                        {selectedTransaction.type === 'IN' ? '+' : '-'}${selectedTransaction.amount}
                                     </Text>
                                     <View style={styles.amountCardSub}>
                                         <Image source={TOKENS[selectedTransaction.token.toUpperCase()] || ICONS.usdc} style={styles.smallIcon} />
