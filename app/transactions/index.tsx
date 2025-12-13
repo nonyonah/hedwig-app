@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
     },
     viewButton: {
         backgroundColor: Colors.primary,
-        borderRadius: 12,
+        borderRadius: 30,
         paddingVertical: 16,
         alignItems: 'center',
     },
