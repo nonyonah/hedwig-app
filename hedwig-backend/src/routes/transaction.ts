@@ -22,7 +22,9 @@ const celoConfig = {
 const celoAlchemy = new Alchemy(celoConfig);
 
 // Initialize Solana Connection using Alchemy RPC
-const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || `https://solana-devnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
+// Note: Solana requires a separate Alchemy app - use SOLANA_RPC_URL environment variable
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://solana-devnet.g.alchemy.com/v2/f69kp28_ExLI1yBQmngVL3g16oUzv2up';
+console.log('[Transactions] Solana RPC URL:', SOLANA_RPC_URL.substring(0, 50) + '...');
 const solanaConnection = new Connection(SOLANA_RPC_URL, 'confirmed');
 
 interface TransactionItem {
