@@ -619,16 +619,10 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        padding: 24,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 20,
         paddingBottom: 40,
-        maxHeight: '80%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 10,
     },
     modalHeader: {
         flexDirection: 'row',
@@ -667,10 +661,12 @@ const styles = StyleSheet.create({
     // Amount Card
     amountCard: {
         backgroundColor: '#F9FAFB',
-        borderRadius: 20,
+        borderRadius: 16,
         padding: 24,
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
     },
     amountCardValue: {
         fontFamily: 'RethinkSans_700Bold',
@@ -697,8 +693,10 @@ const styles = StyleSheet.create({
     detailsCard: {
         backgroundColor: '#F9FAFB',
         borderRadius: 16,
-        padding: 20,
-        marginBottom: 24,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
+        marginBottom: 20,
     },
     detailRow: {
         flexDirection: 'row',
@@ -708,8 +706,7 @@ const styles = StyleSheet.create({
     },
     detailDivider: {
         height: 1,
-        backgroundColor: '#E5E7EB',
-        marginVertical: 16,
+        backgroundColor: '#F3F4F6',
     },
     detailLabel: {
         fontFamily: 'RethinkSans_500Medium',
@@ -732,7 +729,7 @@ const styles = StyleSheet.create({
     },
     viewButton: {
         backgroundColor: Colors.primary,
-        borderRadius: 30,
+        borderRadius: 12,
         paddingVertical: 16,
         alignItems: 'center',
     },
