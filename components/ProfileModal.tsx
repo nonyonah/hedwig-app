@@ -9,9 +9,8 @@ import { Typography } from '../styles/typography';
 import { ethers } from 'ethers';
 
 import {
-    NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
-    NetworkBitcoin, TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN,
-    TokenBTC, TokenSTX
+    NetworkBase, NetworkSolana, NetworkCelo,
+    TokenETH, TokenUSDC, TokenUSDT, TokenSOL, TokenCELO, TokenCUSD
 } from './CryptoIcons';
 import { getUserGradient } from '../utils/gradientUtils';
 import { getOrCreateStacksWallet, getSTXBalance } from '../services/stacksWallet';
@@ -74,69 +73,15 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         ]
     },
     {
-        name: 'Celo', // Celo Sepolia
-        id: 11142220,
+        name: 'Celo', // Celo Alfajores
+        id: 44787,
         icon: NetworkCelo,
         color: '#35D07F',
         addressType: 'evm',
         tokens: [
             { symbol: 'CELO', icon: TokenCELO },
+            { symbol: 'cUSD', icon: TokenCUSD },
             { symbol: 'USDC', icon: TokenUSDC }
-        ]
-    },
-    {
-        name: 'Lisk',
-        id: 1135,
-        icon: NetworkLisk,
-        color: '#0D1D2D',
-        addressType: 'evm',
-        tokens: [
-            { symbol: 'ETH', icon: TokenETH },
-            { symbol: 'USDT', icon: TokenUSDT }
-        ]
-    },
-    {
-        name: 'Optimism',
-        id: 10,
-        icon: NetworkOptimism,
-        color: '#FF0420',
-        addressType: 'evm',
-        tokens: [
-            { symbol: 'ETH', icon: TokenETH },
-            { symbol: 'USDC', icon: TokenUSDC }
-        ]
-    },
-    {
-        name: 'Polygon',
-        id: 137,
-        icon: NetworkPolygon,
-        color: '#8247E5',
-        addressType: 'evm',
-        tokens: [
-            { symbol: 'MATIC', icon: TokenMATIC },
-            { symbol: 'USDC', icon: TokenUSDC }
-        ]
-    },
-    {
-        name: 'Arbitrum',
-        id: 42161,
-        icon: NetworkArbitrumOne,
-        color: '#2D374B',
-        addressType: 'evm',
-        tokens: [
-            { symbol: 'ETH', icon: TokenETH },
-            { symbol: 'USDC', icon: TokenUSDC }
-        ]
-    },
-    {
-        name: 'Bitcoin Testnet',
-        id: 0, // Bitcoin doesn't use numeric chain ID
-        icon: NetworkBitcoin,
-        color: '#F7931A',
-        addressType: 'bitcoin',
-        tokens: [
-            { symbol: 'BTC', icon: TokenBTC },
-            { symbol: 'STX', icon: TokenSTX }
         ]
     },
 ];
@@ -233,7 +178,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
         setupWallets();
     }, [user]);
 
-    // Fetch Balances via Backend API
+    // Fetch Balances via Backend API with periodic refresh
     useEffect(() => {
         const fetchBalances = async () => {
             if (!visible || !user) return;
@@ -278,12 +223,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             newBalances['Base_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
-                    } else if (bal.chain === 'celo_sepolia') {
+                    } else if (bal.chain === 'celo_sepolia' || bal.chain === 'celo_alfajores') {
                         if (bal.asset === 'celo') {
                             newBalances['Celo_CELO'] = parseFloat(bal.display_values?.celo || '0').toFixed(6);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         } else if (bal.asset === 'usdc') {
                             newBalances['Celo_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
+                            totalUsd += parseFloat(bal.display_values?.usd || '0');
+                        } else if (bal.asset === 'cusd') {
+                            newBalances['Celo_cUSD'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
                     } else if (bal.chain === 'solana_devnet') {
@@ -292,14 +240,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         } else if (bal.asset === 'usdc') {
                             newBalances['Solana Devnet_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
-                            totalUsd += parseFloat(bal.display_values?.usd || '0');
-                        }
-                    } else if (bal.chain === 'bitcoin_testnet') {
-                        if (bal.asset === 'btc') {
-                            newBalances['Bitcoin Testnet_BTC'] = parseFloat(bal.display_values?.btc || '0').toFixed(8);
-                            totalUsd += parseFloat(bal.display_values?.usd || '0');
-                        } else if (bal.asset === 'stx') {
-                            newBalances['Bitcoin Testnet_STX'] = parseFloat(bal.display_values?.stx || '0').toFixed(6);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
                     }
@@ -314,7 +254,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
             }
         };
 
+        // Initial fetch
         fetchBalances();
+
+        // Periodic refresh every 30 seconds while modal is visible
+        let intervalId: NodeJS.Timeout | null = null;
+        if (visible) {
+            intervalId = setInterval(fetchBalances, 30000);
+        }
+
+        // Cleanup interval on unmount or when modal closes
+        return () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
     }, [visible, user]);
 
     // Update addresses when wallets change

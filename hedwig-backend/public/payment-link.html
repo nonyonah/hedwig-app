@@ -560,58 +560,7 @@
             await openContractCall(options);
         }
 
-        // ... Existing Solana & EVM logic ...
-
-
-        const TOKENS = [
-            {
-                symbol: 'USDC',
-                name: 'USD Coin',
-                icon: '/assets/icons/tokens/usdc.png',
-                decimals: 6,
-                addresses: {
-                    base: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-                    celo: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B'
-                }
-            },
-            {
-                symbol: 'cUSD',
-                name: 'Celo USD',
-                icon: '/assets/icons/tokens/cusd.png',
-                decimals: 18,
-                addresses: {
-                    celo: '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1'
-                }
-            },
-            {
-                symbol: 'USDT',
-                name: 'Tether',
-                icon: '/assets/icons/tokens/usdt.png',
-                addresses: {
-                    base: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
-                    celo: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e',
-                }
-            },
-            {
-                symbol: 'ETH',
-                name: 'Ethereum',
-                icon: '/assets/icons/tokens/eth.png',
-                isNative: true
-            },
-            {
-                symbol: 'CELO',
-                name: 'Celo',
-                icon: '/assets/icons/tokens/celo.png',
-                isNative: true
-            },
-            {
-                symbol: 'SOL',
-                name: 'Solana',
-                icon: '/assets/icons/networks/solana.png',
-                isNative: true,
-                isSolana: true
-            }
-        ];
+        // EVM Token and Contract Configuration
 
         const ERC20_ABI = [
             "function transfer(address to, uint256 amount) returns (bool)",
