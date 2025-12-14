@@ -80,7 +80,6 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         addressType: 'evm',
         tokens: [
             { symbol: 'CELO', icon: TokenCELO },
-            { symbol: 'cUSD', icon: TokenCUSD },
             { symbol: 'USDC', icon: TokenUSDC }
         ]
     },
@@ -229,9 +228,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         } else if (bal.asset === 'usdc') {
                             newBalances['Celo_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
-                            totalUsd += parseFloat(bal.display_values?.usd || '0');
-                        } else if (bal.asset === 'cusd') {
-                            newBalances['Celo_cUSD'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
                     } else if (bal.chain === 'solana_devnet') {

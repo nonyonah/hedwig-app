@@ -27,55 +27,81 @@ export interface PricingItem {
 }
 
 export function generateProposalTemplate(data: ProposalData): string {
+    // Build deliverables list with bullet points
     const deliverablesList = data.deliverables && data.deliverables.length > 0
-        ? data.deliverables.map(d => `- ${d}`).join('\n')
-        : '- To be defined based on project scope';
+        ? data.deliverables.map(d => `• ${d}`).join('\n')
+        : '• Final deliverables to be confirmed upon project kickoff';
 
-    const milestonesList = data.milestones && data.milestones.length > 0
+    // Build milestones section
+    const milestonesSection = data.milestones && data.milestones.length > 0
         ? data.milestones.map((m, i) => {
             const phaseName = m.phase || `Phase ${i + 1}`;
-            return `**${phaseName}:** ${m.description || 'Work on deliverables'} (${m.duration || 'TBD'})`;
-        }).join('\n')
+            return `**${phaseName}** (${m.duration || 'TBD'})\n${m.description || 'Work on deliverables'}`;
+        }).join('\n\n')
         : '';
 
-    const pricingList = data.pricing_breakdown && data.pricing_breakdown.length > 0
-        ? data.pricing_breakdown.map(p => `- ${p.item}: ${p.cost}`).join('\n')
+    // Build pricing breakdown
+    const pricingBreakdown = data.pricing_breakdown && data.pricing_breakdown.length > 0
+        ? data.pricing_breakdown.map(p => `• ${p.item}: ${p.cost}`).join('\n')
         : '';
 
-    const timelineSection = data.timeline && data.timeline !== 'TBD' && data.timeline !== 'To be determined' && data.timeline !== 'To be discussed based on project requirements.'
-        ? `\n\n## Timeline\n\n${data.timeline}${milestonesList ? '\n\n' + milestonesList : ''}`
+    // Timeline section with milestones
+    const timelineSection = data.timeline && data.timeline !== 'TBD' && data.timeline !== 'To be determined'
+        ? `## Timeline\n\n**Estimated Duration:** ${data.timeline}\n\n${milestonesSection ? '### Project Phases\n\n' + milestonesSection : ''}`
         : '';
 
-    const pricingSection = data.total_cost && data.total_cost !== 'TBD' && data.total_cost !== 'To be determined' && data.total_cost !== 'To be discussed based on scope.'
-        ? `\n\n## Compensation\n\n${pricingList ? pricingList + '\n\n' : ''}**Total:** ${data.total_cost}`
-        : '\n\n## Compensation\n\nThis is a paid engagement. Pricing can be discussed based on scope and requirements.';
+    // Pricing section with breakdown
+    const totalCost = data.total_cost && data.total_cost !== 'TBD' && data.total_cost !== 'To be determined'
+        ? data.total_cost
+        : 'To be discussed based on final scope';
+
+    const pricingSection = `## Pricing
+
+${pricingBreakdown ? '### Breakdown\n\n' + pricingBreakdown + '\n\n' : ''}**Total:** ${totalCost}
+
+${data.payment_terms && data.payment_terms !== 'TBD' ? `**Payment Terms:** ${data.payment_terms}` : '*Payment terms to be discussed upon acceptance.*'}`;
 
     // Safe defaults for overview and scope
-    const overview = data.problem_statement && data.problem_statement !== 'undefined'
+    const overview = data.problem_statement && data.problem_statement !== 'undefined' && data.problem_statement.length > 20
         ? data.problem_statement
-        : `Professional services for ${data.title}.`;
+        : `I'm excited to submit this proposal for ${data.title}. Based on the project requirements, I'm confident I can deliver high-quality work that meets your needs and exceeds expectations.`;
 
-    const scope = data.proposed_solution && data.proposed_solution !== 'undefined'
+    const scope = data.proposed_solution && data.proposed_solution !== 'undefined' && data.proposed_solution.length > 20
         ? data.proposed_solution
-        : `I will deliver high-quality work for this project, meeting all requirements and deadlines.`;
+        : `My approach will focus on understanding your specific requirements, developing solutions iteratively with your feedback, and delivering polished final assets that achieve your goals.`;
 
-    return `# Proposal: ${data.title}
 
-## Overview
+
+    return `# ${data.title}
+
+*Proposal for ${data.client_name}*
+
+---
+
+## Project Understanding
 
 ${overview}
 
-## Scope of Work
+## My Approach
 
 ${scope}
 
-## Deliverables
+## What You'll Receive
 
-${deliverablesList}${timelineSection}${pricingSection}
+${deliverablesList}
+
+${timelineSection ? '\n' + timelineSection : ''}
+
+${pricingSection}
+
+
 
 ## Next Steps
 
-Please share any additional details about your requirements so we can proceed. Once you're ready, click "Accept Proposal" to move forward.
+1. Review this proposal and let me know if you have any questions
+2. Once approved, I'll send a brief kickoff questionnaire
+3. We'll schedule a quick call to align on expectations
+4. Work begins!
 
 ---
 
@@ -83,7 +109,7 @@ Please share any additional details about your requirements so we can proceed. O
 **Email:** ${data.freelancer_email}  
 **Date:** ${new Date().toLocaleDateString()}
 
-**Status:** Awaiting Acceptance
+*Click "Accept Proposal" when you're ready to proceed.*
 `.trim();
 }
 

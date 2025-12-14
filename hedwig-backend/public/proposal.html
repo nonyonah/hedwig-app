@@ -100,19 +100,12 @@
         <!-- Accept Section -->
         <div id="accept-section" class="hidden mt-12 pt-8 border-t-2 border-gray-200 no-print">
             <div class="text-center space-y-6">
-                <h3 class="text-xl font-bold text-gray-900">Accept Proposal</h3>
-                <p class="text-gray-600">Review the proposal above and accept to proceed</p>
-
-                <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 space-y-4">
-                    <div class="text-center">
-                        <div class="text-sm text-gray-600 mb-2">Total Amount</div>
-                        <div class="text-4xl font-bold text-gray-900" id="proposal-amount"></div>
-                    </div>
-                </div>
+                <h3 class="text-xl font-bold text-gray-900">Ready to Proceed?</h3>
+                <p class="text-gray-600">Review the proposal above and accept to move forward</p>
 
                 <button id="accept-btn"
                     class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-4 px-8 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg">
-                    Accept Proposal & Connect Wallet
+                    Accept Proposal
                 </button>
 
                 <p class="text-xs text-gray-500">
@@ -196,8 +189,6 @@
                 } else {
                     // Show accept section
                     document.getElementById('accept-section').classList.remove('hidden');
-                    const amount = parseFloat(documentData.amount || 0);
-                    document.getElementById('proposal-amount').textContent = `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 }
 
             } catch (error) {

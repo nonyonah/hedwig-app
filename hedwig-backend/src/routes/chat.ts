@@ -181,7 +181,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                                 if (text.length > 5000) {
                                     text = text.substring(0, 5000) + '... [truncated]';
                                 }
-                                urlContents.push(`\n\n[Content from ${url}]:\n${text}`);
+                                urlContents.push(`\n\n--- [CONTENT FROM URL: ${url}] ---\n${text}\n--- [END CONTENT] ---\n`);
                                 console.log('[Chat] Successfully fetched content from URL, length:', text.length);
                             } else {
                                 console.log('[Chat] URL returned minimal content (likely blocked):', text.length);

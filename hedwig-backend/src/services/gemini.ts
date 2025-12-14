@@ -8,7 +8,7 @@ if (!process.env.GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Use Gemini 2.0 Flash model
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite'});
+const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
 export class GeminiService {
   /**
@@ -265,39 +265,65 @@ AVAILABLE INTENTS & TRIGGERS:
    
    **CRITICAL: You CAN and MUST analyze content in messages!**
    
-   ⚠️ IMPORTANT: When you see "[Content from URL]:" or pasted text in a message, this content HAS ALREADY BEEN FETCHED and is PROVIDED TO YOU. You ARE NOT accessing external links - the system has already fetched the content and included it directly in the message.
+   ⚠️ IMPORTANT: When you see "--- [CONTENT FROM URL: ... ] ---" or pasted text/file content in a message, this content HAS ALREADY BEEN PROVIDED TO YOU. Analyze it thoroughly.
    
-   **When message contains "[Content from URL]:" or pasted text:**
-   1. READ and ANALYZE the content that follows
-   2. Identify the SOURCE and CONTEXT (Twitter/X, Discord, email, enterprise RFP)
-   3. Identify the JOB TYPE (freelance task, short-term service, long-term contract)
-   4. Use CREATE_PROPOSAL intent with extracted parameters adapted to the context
+   **When message contains extracted content:**
+   1. **READ EVERYTHING:** Carefully read ALL the provided content. Extract every relevant detail.
+   2. **IDENTIFY THE PROJECT:** What exactly do they need? Be specific.
+   3. **EXPAND WITH EXPERTISE:** Add professional insights based on your knowledge of the field.
+   4. **BE COMPREHENSIVE:** Generate a detailed, impressive proposal that shows you understand the project.
    
-   DO NOT say "I cannot access external links" - the content IS in your message, just read it!
+   **PROPOSAL GENERATION RULES - CREATE DETAILED PROPOSALS:**
    
-   **PROPOSAL WRITING RULES:**
-   - MATCH the proposal to the context, size, and tone of the request
-   - For Twitter/X, Discord, DMs, or informal posts → use CONCISE freelance proposal (no corporate language)
-   - Do NOT use executive summaries, acceptance clauses, or legal language unless requested
-   - Do NOT use buzzwords like "unlock growth", "critical business need", "measurable results" for simple tasks
-   - Keep proposals concise, human, and outcome-focused
-   - If job is ambiguous → err on the side of simplicity
+   ⚠️ **CRITICAL: WRITE IN FIRST PERSON!**
+   - ALL proposal text must be written as if the USER (freelancer) is speaking directly to the client
+   - Use "I", "my", "I'll", "I'm" - NEVER "the freelancer", "they", or third person
+   - Examples:
+     - ✅ "I understand you need a new logo..."
+     - ✅ "My approach will be..."
+     - ✅ "I'll deliver the final files by..."
+     - ❌ "The freelancer will deliver..."
+     - ❌ "This proposal outlines..."
    
-   **For informal/social media jobs, the proposal should be:**
-   - 2-4 paragraphs max
-   - Direct and friendly tone
-   - Clear deliverables
-   - Simple pricing (if mentioned)
-   - No corporate fluff
+   **Overview Section (problem_statement):**
+   - Write 2-3 paragraphs in FIRST PERSON explaining YOUR understanding of their needs
+   - Start with "I" - e.g., "I understand you're looking for...", "I can see that you need..."
+   - Reference specific details from their content
+   - Show empathy for their challenges
+   - End with how YOU can help (e.g., "I'm excited to help you achieve...")
    
-   **Parameters to extract:**
-   - client_name: Extract from content or use "Client" as default
-   - title: Simple, clear project title
-   - problem_statement: Brief 1-2 sentence summary
-   - proposed_solution: Concise approach description
-   - deliverables: Simple bullet list
-   - timeline: Realistic estimate
-   - total_cost: Extract if mentioned, otherwise omit
+   **Scope of Work (proposed_solution):**
+   - Write in FIRST PERSON describing what YOU will do
+   - List 4-6 clear phases: "First, I'll...", "Next, I'll...", "Then I'll..."
+   - Include your methodology (e.g., "I'll start with research, then move to wireframing...")
+   - Mention tools/technologies YOU use if relevant
+   
+   **Deliverables:**
+   - List 5-10 SPECIFIC deliverables they will receive
+   - Be concrete: "Logo in PNG, SVG, and AI formats" not just "Logo files"
+   - Include revisions: "Up to 3 rounds of revisions"
+   - Add value-adds like "Source files included"
+   
+   **Timeline:**
+   - Break into phases with specific durations
+   - Example: "Week 1: Discovery & Research, Week 2-3: Design, Week 4: Revisions"
+   - Be realistic but efficient
+   
+   **Pricing:**
+   - If they mentioned a budget, work within it
+   - If no budget mentioned, give a reasonable range or "Starting from $X"
+   - Explain what's included in the price
+   
+   **Parameters to extract (ALL REQUIRED - NEVER USE GENERIC DEFAULTS):**
+   - client_name: Extract from content or use "Client" if truly unknown
+   - title: Specific descriptive title (e.g. "E-commerce Website Redesign for Fashion Brand")
+   - problem_statement: 2-3 paragraphs showing deep understanding of their needs
+   - proposed_solution: Detailed step-by-step approach (at least 4 phases)
+   - deliverables: Array of 5-10 specific items they will receive
+   - timeline: Detailed with phases (e.g. "4 weeks: Week 1 - Research, Week 2-3 - Development, Week 4 - Testing")
+   - milestones: Array of {phase: string, description: string, duration: string}
+   - total_cost: Specific amount or range (e.g. "$1,500" or "$1,000 - $2,000")
+   - pricing_breakdown: Array of {item: string, cost: string} for line items
 
 9. GENERAL_CHAT
    Triggers: greetings, questions, help requests

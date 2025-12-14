@@ -5,7 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+
 
 import { useAuth } from '../hooks/useAuth';
 import { useWallet } from '../hooks/useWallet';
@@ -572,14 +572,11 @@ export default function HomeScreen() {
 
                 // Add files to FormData
                 for (const file of currentFiles) {
-                    const fileInfo = await FileSystem.getInfoAsync(file.uri);
-                    if (fileInfo.exists) {
-                        formData.append('files', {
-                            uri: file.uri,
-                            name: file.name,
-                            type: file.mimeType,
-                        } as any);
-                    }
+                    formData.append('files', {
+                        uri: file.uri,
+                        name: file.name,
+                        type: file.mimeType || 'application/octet-stream',
+                    } as any);
                 }
 
                 response = await fetch(`${apiUrl}/api/chat/message`, {
@@ -869,126 +866,128 @@ export default function HomeScreen() {
 
     return (
         <View style={{ flex: 1 }}>
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-                <SafeAreaView style={styles.container}>
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                            <List size={24} color={Colors.textPrimary} weight="bold" />
-                        </TouchableOpacity>
-                        <View style={styles.headerRight}>
+            <SafeAreaView style={styles.container}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
+                        <List size={24} color={Colors.textPrimary} weight="bold" />
+                    </TouchableOpacity>
+                    <View style={styles.headerRight}>
 
-                            <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                                {profileIcon.imageUri ? (
-                                    <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                                ) : profileIcon.emoji ? (
-                                    <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                        <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                                    </View>
-                                ) : (
-                                    <LinearGradient
-                                        colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.profileIcon}
-                                    />
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    {/* Chat Area */}
-                    < View style={styles.chatArea} >
-                        {
-                            messages.length === 0 ? (
-                                <View style={styles.emptyState}>
-                                    <Text style={styles.emptyStateText}>
-                                        {displayedGreeting || getGreeting()}
-                                        {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
-                                    </Text>
-                                    <Text style={styles.emptySubtext}>How can I help you today?</Text>
+                        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
+                            {profileIcon.imageUri ? (
+                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                            ) : profileIcon.emoji ? (
+                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
                                 </View>
                             ) : (
-                                <FlatList
-                                    ref={flatListRef}
-                                    style={styles.messageListContainer}
-                                    data={messages}
-                                    renderItem={({ item, index }) => renderMessage({ item, index })}
-                                    keyExtractor={item => item.id}
-                                    contentContainerStyle={styles.messageList}
-                                    showsVerticalScrollIndicator={false}
-                                    scrollEnabled={true}
-                                    keyboardShouldPersistTaps="handled"
-                                    keyboardDismissMode="on-drag"
-                                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                                    removeClippedSubviews={false}
+                                <LinearGradient
+                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.profileIcon}
                                 />
-                            )
-                        }
-                        {
-                            isGenerating && (
-                                <View style={styles.thinkingContainer}>
-                                    <Text style={styles.thinkingText}>Thinking...</Text>
-                                </View>
-                            )
-                        }
-                    </View >
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
 
-                    {/* Input Area */}
-                    < View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]} >
-                        {/* Attached Files Preview */}
-                        {attachedFiles.length > 0 && (
-                            <View style={styles.attachmentsPreview}>
-                                {attachedFiles.map((file, index) => (
-                                    <View key={index} style={styles.attachmentChip}>
-                                        <File size={14} color={Colors.primary} />
-                                        <Text style={styles.attachmentName} numberOfLines={1}>{file.name}</Text>
-                                        <TouchableOpacity onPress={() => removeAttachment(index)}>
-                                            <X size={14} color={Colors.textSecondary} />
-                                        </TouchableOpacity>
-                                    </View>
-                                ))}
+                {/* Chat Area */}
+                < View style={styles.chatArea} >
+                    {
+                        messages.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyStateText}>
+                                    {displayedGreeting || getGreeting()}
+                                    {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
+                                </Text>
+                                <Text style={styles.emptySubtext}>How can I help you today?</Text>
                             </View>
-                        )}
-                        <View style={styles.inputWrapper}>
-                            <TouchableOpacity style={styles.attachButton} onPress={pickDocument}>
-                                <Paperclip size={20} color={Colors.textSecondary} />
-                            </TouchableOpacity>
-                            <TextInput
-                                style={styles.input}
-                                value={inputText}
-                                onChangeText={setInputText}
-                                placeholder="Ask Hedwig to create an invoice..."
-                                placeholderTextColor={Colors.textPlaceholder}
-                                multiline
-                                maxLength={1000}
+                        ) : (
+                            <FlatList
+                                ref={flatListRef}
+                                style={styles.messageListContainer}
+                                data={messages}
+                                renderItem={({ item, index }) => renderMessage({ item, index })}
+                                keyExtractor={item => item.id}
+                                contentContainerStyle={styles.messageList}
+                                showsVerticalScrollIndicator={false}
+                                scrollEnabled={true}
+                                keyboardShouldPersistTaps="handled"
+                                keyboardDismissMode="on-drag"
+                                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                                removeClippedSubviews={false}
+                                decelerationRate="normal"
+                                bounces={true}
+                                scrollEventThrottle={16}
                             />
-                            <TouchableOpacity
-                                style={[styles.sendButton, (!inputText.trim() && attachedFiles.length === 0) && styles.sendButtonDisabled]}
-                                onPress={sendMessage}
-                                disabled={(!inputText.trim() && attachedFiles.length === 0) || isGenerating}
-                            >
-                                {isGenerating ? (
-                                    <ActivityIndicator color="#FFFFFF" size="small" />
-                                ) : (
-                                    <ArrowUp size={20} color="#FFFFFF" weight="bold" />
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View >
+                        )
+                    }
+                    {
+                        isGenerating && (
+                            <View style={styles.thinkingContainer}>
+                                <Text style={styles.thinkingText}>Thinking...</Text>
+                            </View>
+                        )
+                    }
+                </View >
 
-                    <ProfileModal
-                        visible={isProfileModalVisible}
-                        onClose={() => setIsProfileModalVisible(false)}
-                        userName={userName}
-                        walletAddresses={walletAddresses}
-                        profileIcon={profileIcon}
-                        onProfileUpdate={() => {
-                            fetchUserProfile();
-                        }}
-                    />
-                </SafeAreaView >
-            </TouchableWithoutFeedback>
+                {/* Input Area */}
+                < View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]} >
+                    {/* Attached Files Preview */}
+                    {attachedFiles.length > 0 && (
+                        <View style={styles.attachmentsPreview}>
+                            {attachedFiles.map((file, index) => (
+                                <View key={index} style={styles.attachmentChip}>
+                                    <File size={14} color={Colors.primary} />
+                                    <Text style={styles.attachmentName} numberOfLines={1}>{file.name}</Text>
+                                    <TouchableOpacity onPress={() => removeAttachment(index)}>
+                                        <X size={14} color={Colors.textSecondary} />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    <View style={styles.inputWrapper}>
+                        <TouchableOpacity style={styles.attachButton} onPress={pickDocument}>
+                            <Paperclip size={20} color={Colors.textSecondary} />
+                        </TouchableOpacity>
+                        <TextInput
+                            style={styles.input}
+                            value={inputText}
+                            onChangeText={setInputText}
+                            placeholder="Ask Hedwig to create an invoice..."
+                            placeholderTextColor={Colors.textPlaceholder}
+                            multiline
+                            maxLength={1000}
+                            onBlur={() => Keyboard.dismiss()}
+                        />
+                        <TouchableOpacity
+                            style={[styles.sendButton, (!inputText.trim() && attachedFiles.length === 0) && styles.sendButtonDisabled]}
+                            onPress={sendMessage}
+                            disabled={(!inputText.trim() && attachedFiles.length === 0) || isGenerating}
+                        >
+                            {isGenerating ? (
+                                <ActivityIndicator color="#FFFFFF" size="small" />
+                            ) : (
+                                <ArrowUp size={20} color="#FFFFFF" weight="bold" />
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View >
+
+                <ProfileModal
+                    visible={isProfileModalVisible}
+                    onClose={() => setIsProfileModalVisible(false)}
+                    userName={userName}
+                    walletAddresses={walletAddresses}
+                    profileIcon={profileIcon}
+                    onProfileUpdate={() => {
+                        fetchUserProfile();
+                    }}
+                />
+            </SafeAreaView >
 
             <Sidebar
                 isOpen={isSidebarOpen}
