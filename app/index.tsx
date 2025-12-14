@@ -716,7 +716,7 @@ export default function HomeScreen() {
         if (parts.length === 0) {
             return (
                 <View style={styles.aiBubble}>
-                    <Text style={styles.aiMessageText} selectable>{content}</Text>
+                    <Text style={styles.aiMessageText}>{content}</Text>
                 </View>
             );
         }
@@ -725,7 +725,7 @@ export default function HomeScreen() {
             <>
                 {parts.map((part, index) => part.type === 'text' ? (
                     <View key={index} style={styles.aiBubble}>
-                        <Text style={styles.aiMessageText} selectable>{part.value}</Text>
+                        <Text style={styles.aiMessageText}>{part.value}</Text>
                     </View>
                 ) : (
                     <LinkPreviewCard
@@ -771,7 +771,7 @@ export default function HomeScreen() {
             <Animated.View style={[isUser ? styles.userMessageContainer : styles.aiMessageContainer, animatedStyle]}>
                 {isUser ? (
                     <View style={styles.userBubble}>
-                        <Text style={styles.userMessageText} selectable>{item.content}</Text>
+                        <Text style={styles.userMessageText}>{item.content}</Text>
                     </View>
                 ) : (
                     <View style={styles.aiContainer}>
@@ -779,14 +779,10 @@ export default function HomeScreen() {
                         <View style={styles.aiActions}>
                             <TouchableOpacity
                                 style={styles.actionIcon}
-                                onPress={() => {
+                                onPress={async () => {
                                     // Copy to clipboard
-                                    if (Platform.OS === 'web') {
-                                        navigator.clipboard.writeText(item.content);
-                                    } else {
-                                        // For native, you'd need @react-native-clipboard/clipboard
-                                        Alert.alert('Copied', 'Message copied to clipboard');
-                                    }
+                                    await Clipboard.setStringAsync(item.content);
+                                    Alert.alert('Copied', 'Message copied to clipboard');
                                 }}
                             >
                                 <Copy size={16} color={Colors.textSecondary} />
@@ -915,6 +911,7 @@ export default function HomeScreen() {
                             ) : (
                                 <FlatList
                                     ref={flatListRef}
+                                    style={styles.messageListContainer}
                                     data={messages}
                                     renderItem={({ item, index }) => renderMessage({ item, index })}
                                     keyExtractor={item => item.id}
@@ -1458,6 +1455,9 @@ const styles = StyleSheet.create({
     cursor: {
         opacity: 0.8,
         fontWeight: '300',
+    },
+    messageListContainer: {
+        flex: 1,
     },
     messageList: {
         paddingHorizontal: 0, // Remove padding here - let individual message containers handle it
