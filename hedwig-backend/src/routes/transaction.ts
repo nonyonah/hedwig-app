@@ -1,9 +1,9 @@
-
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { getOrCreateUser } from '../utils/userHelper';
 import { Network, Alchemy, AssetTransfersCategory, SortingOrder } from 'alchemy-sdk';
 import { Connection, PublicKey } from '@solana/web3.js';
+import { supabase } from '../lib/supabase';
 
 const router = Router();
 
@@ -45,7 +45,8 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     try {
         console.log('[Transactions] Route hit');
         const privyId = req.user!.privyId;
-        console.log('[Transactions] User privyId:', privyId);
+        const userId = req.user!.id;
+        console.log('[Transactions] User:', { privyId, userId });
 
         const user = await getOrCreateUser(privyId);
 
@@ -60,6 +61,31 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
         console.log('[Transactions] ALCHEMY_API_KEY present:', !!process.env.ALCHEMY_API_KEY);
 
         const allTransactions: TransactionItem[] = [];
+
+        // 0. Fetch Local DB Transactions (Source of truth for app actions)
+        const { data: dbTransactions } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (dbTransactions) {
+            dbTransactions.forEach(tx => {
+                allTransactions.push({
+                    id: tx.id,
+                    type: tx.type === 'PAYMENT_RECEIVED' ? 'IN' : 'OUT',
+                    description: tx.description || (tx.type === 'OFFRAMP' ? 'Offramp to Bank' : 'Transaction'),
+                    amount: tx.amount.toString(),
+                    token: tx.token,
+                    date: tx.created_at,
+                    hash: tx.tx_hash || '',
+                    network: tx.chain.toLowerCase(),
+                    status: tx.status.toLowerCase(),
+                    from: tx.from_address,
+                    to: tx.to_address,
+                });
+            });
+        }
 
         // 1. Fetch Base Transactions (Alchemy)
         if (ethAddress) {
@@ -88,40 +114,45 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
                 // Process Base Incoming
                 incoming.transfers.forEach(tx => {
-                    allTransactions.push({
-                        id: `base-${tx.hash}`,
-                        type: 'IN',
-                        description: `Received from ${tx.from.slice(0, 6)}...${tx.from.slice(-4)}`,
-                        amount: tx.value?.toString() || '0',
-                        token: tx.asset || 'ETH',
-                        date: tx.metadata?.blockTimestamp || new Date().toISOString(),
-                        hash: tx.hash,
-                        network: 'base',
-                        status: 'completed',
-                        from: tx.from,
-                        to: tx.to || ethAddress
-                    });
+                    // Avoid duplicates if matching hash exists from DB
+                    if (!allTransactions.some(t => t.hash === tx.hash)) {
+                        allTransactions.push({
+                            id: `base-${tx.hash}`,
+                            type: 'IN',
+                            description: `Received from ${tx.from.slice(0, 6)}...${tx.from.slice(-4)}`,
+                            amount: tx.value?.toString() || '0',
+                            token: tx.asset || 'ETH',
+                            date: tx.metadata?.blockTimestamp || new Date().toISOString(),
+                            hash: tx.hash,
+                            network: 'base',
+                            status: 'completed',
+                            from: tx.from,
+                            to: tx.to || ethAddress
+                        });
+                    }
                 });
 
                 // Process Base Outgoing
                 outgoing.transfers.forEach(tx => {
-                    allTransactions.push({
-                        id: `base-${tx.hash}`,
-                        type: 'OUT',
-                        description: `Sent to ${tx.to?.slice(0, 6)}...${tx.to?.slice(-4)}`,
-                        amount: tx.value?.toString() || '0',
-                        token: tx.asset || 'ETH',
-                        date: tx.metadata?.blockTimestamp || new Date().toISOString(),
-                        hash: tx.hash,
-                        network: 'base',
-                        status: 'completed',
-                        from: tx.from,
-                        to: tx.to || ''
-                    });
+                    if (!allTransactions.some(t => t.hash === tx.hash)) {
+                        allTransactions.push({
+                            id: `base-${tx.hash}`,
+                            type: 'OUT',
+                            description: `Sent to ${tx.to?.slice(0, 6)}...${tx.to?.slice(-4)}`,
+                            amount: tx.value?.toString() || '0',
+                            token: tx.asset || 'ETH',
+                            date: tx.metadata?.blockTimestamp || new Date().toISOString(),
+                            hash: tx.hash,
+                            network: 'base',
+                            status: 'completed',
+                            from: tx.from,
+                            to: tx.to || ''
+                        });
+                    }
                 });
 
-            } catch (err) {
-                console.error('[Transactions] Error fetching Base transactions:', err);
+            } catch (error) {
+                console.error('[Transactions] Error fetching Base transactions:', error);
             }
 
             // 2. Fetch Celo Transactions (Alchemy SDK with Celo Sepolia)

@@ -1,12 +1,231 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
+import { authenticate } from '../middleware/auth';
+import { supabase } from '../lib/supabase';
 
 const router = Router();
 
-// Client routes for managing freelancer clients
-// Placeholder for now
+/**
+ * GET /api/clients
+ * Get all clients for the authenticated user
+ */
+router.get('/', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const userId = req.user!.id;
 
-router.get('/', (_req, res) => {
-    res.json({ message: 'Client routes - Coming soon' });
+        const { data: clients, error } = await supabase
+            .from('clients')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            throw new Error(`Failed to fetch clients: ${error.message}`);
+        }
+
+        // Map to camelCase
+        const formattedClients = clients.map(client => ({
+            id: client.id,
+            userId: client.user_id,
+            name: client.name,
+            email: client.email,
+            phone: client.phone,
+            company: client.company,
+            address: client.address,
+            walletAddress: client.wallet_address,
+            createdAt: client.created_at,
+            updatedAt: client.updated_at,
+        }));
+
+        res.json({
+            success: true,
+            data: { clients: formattedClients },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * GET /api/clients/:id
+ * Get a specific client
+ */
+router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user!.id;
+
+        const { data: client, error } = await supabase
+            .from('clients')
+            .select('*')
+            .eq('id', id)
+            .eq('user_id', userId)
+            .single();
+
+        if (error || !client) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Client not found' },
+            });
+            return;
+        }
+
+        const formattedClient = {
+            id: client.id,
+            userId: client.user_id,
+            name: client.name,
+            email: client.email,
+            phone: client.phone,
+            company: client.company,
+            address: client.address,
+            walletAddress: client.wallet_address,
+            createdAt: client.created_at,
+            updatedAt: client.updated_at,
+        };
+
+        res.json({
+            success: true,
+            data: { client: formattedClient },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/clients
+ * Create a new client
+ */
+router.post('/', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { name, email, phone, company, address, walletAddress } = req.body;
+        const userId = req.user!.id;
+
+        if (!name) {
+            res.status(400).json({ success: false, error: 'Name is required' });
+            return;
+        }
+
+        const { data: client, error } = await supabase
+            .from('clients')
+            .insert({
+                user_id: userId,
+                name,
+                email,
+                phone,
+                company,
+                address,
+                wallet_address: walletAddress,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            throw new Error(`Failed to create client: ${error.message}`);
+        }
+
+        const formattedClient = {
+            id: client.id,
+            userId: client.user_id,
+            name: client.name,
+            email: client.email,
+            phone: client.phone,
+            company: client.company,
+            address: client.address,
+            walletAddress: client.wallet_address,
+            createdAt: client.created_at,
+            updatedAt: client.updated_at,
+        };
+
+        res.json({
+            success: true,
+            data: { client: formattedClient },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * PUT /api/clients/:id
+ * Update a client
+ */
+router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const { name, email, phone, company, address, walletAddress } = req.body;
+        const userId = req.user!.id;
+
+        const { data: client, error } = await supabase
+            .from('clients')
+            .update({
+                name,
+                email,
+                phone,
+                company,
+                address,
+                wallet_address: walletAddress,
+            })
+            .eq('id', id)
+            .eq('user_id', userId)
+            .select()
+            .single();
+
+        if (error || !client) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Client not found or update failed' },
+            });
+            return;
+        }
+
+        const formattedClient = {
+            id: client.id,
+            userId: client.user_id,
+            name: client.name,
+            email: client.email,
+            phone: client.phone,
+            company: client.company,
+            address: client.address,
+            walletAddress: client.wallet_address,
+            createdAt: client.created_at,
+            updatedAt: client.updated_at,
+        };
+
+        res.json({
+            success: true,
+            data: { client: formattedClient },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * DELETE /api/clients/:id
+ * Delete a client
+ */
+router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user!.id;
+
+        const { error } = await supabase
+            .from('clients')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', userId);
+
+        if (error) {
+            throw new Error(`Failed to delete client: ${error.message}`);
+        }
+
+        res.json({
+            success: true,
+            message: 'Client deleted successfully',
+        });
+    } catch (error) {
+        next(error);
+    }
 });
 
 export default router;

@@ -8,14 +8,24 @@ const router = Router();
 /**
  * GET /api/offramp/rates
  * Get current exchange rates
+ * Query params: token, amount, currency, network
  */
 router.get('/rates', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { token = 'USDC', currency = 'NGN' } = req.query;
+        const { token = 'USDC', amount = '10', currency = 'NGN', network = 'base' } = req.query;
+
+        // Ensure amount is a number
+        const amountNum = parseFloat(amount as string);
+        if (isNaN(amountNum)) {
+            res.status(400).json({ success: false, error: 'Invalid amount' });
+            return;
+        }
 
         const rate = await PaycrestService.getExchangeRate(
-            token as 'USDC' | 'CUSD',
-            currency as string
+            token as string,
+            amountNum,
+            currency as string,
+            network as string
         );
 
         res.json({
@@ -52,40 +62,59 @@ router.post('/verify-account', authenticate, async (req: Request, res: Response,
  */
 router.post('/create', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, token, network, bankName, accountNumber, accountName, returnAddress } =
+        const { amount, token, network, bankName, accountNumber, accountName, returnAddress, currency, memo } =
             req.body;
         const userId = req.user!.id;
 
-        // Create order with Paycrest
-        const order = await PaycrestService.createOfframpOrder({
-            amount,
+        const amountNum = parseFloat(amount);
+        if (isNaN(amountNum)) {
+            res.status(400).json({ success: false, error: 'Invalid amount' });
+            return;
+        }
+
+        // 1. Fetch current rate
+        const rate = await PaycrestService.getExchangeRate(
             token,
-            network,
-            recipientBankDetails: {
-                bankName,
-                accountNumber,
+            amountNum,
+            currency || 'NGN',
+            network
+        );
+
+        // 2. Create order with Paycrest
+        const order = await PaycrestService.createOfframpOrder({
+            amount: amountNum,
+            token: token as 'USDC' | 'CUSD',
+            network: network as 'base' | 'celo',
+            rate,
+            recipient: {
+                institution: bankName, // Map bankName to institution
+                accountIdentifier: accountNumber, // Map accountNumber to accountIdentifier
                 accountName,
+                currency,
+                memo,
             },
             returnAddress,
         });
 
-        // Save order to database
+        // 3. Save order to database
         const { data: dbOrder, error } = await supabase
             .from('offramp_orders')
             .insert({
                 user_id: userId,
-                paycrest_order_id: order.orderId,
+                paycrest_order_id: order.id, // Using id from response
                 status: 'PENDING',
                 chain: network.toUpperCase(),
                 token,
-                crypto_amount: parseFloat(amount),
-                fiat_currency: order.fiatCurrency,
-                fiat_amount: order.fiatAmount,
-                exchange_rate: order.exchangeRate,
-                service_fee: order.serviceFee,
+                crypto_amount: amountNum,
+                fiat_currency: order.fiatCurrency!,
+                fiat_amount: order.fiatAmount!,
+                exchange_rate: order.exchangeRate!,
+                service_fee: order.senderFee,
                 bank_name: bankName,
                 account_number: accountNumber,
                 account_name: accountName,
+                receive_address: order.receiveAddress, // New column
+                memo: memo, // New column
             })
             .select()
             .single();
@@ -110,6 +139,8 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
             bankName: dbOrder.bank_name,
             accountNumber: dbOrder.account_number,
             accountName: dbOrder.account_name,
+            receiveAddress: dbOrder.receive_address,
+            memo: dbOrder.memo,
             createdAt: dbOrder.created_at,
             updatedAt: dbOrder.updated_at,
         };
@@ -157,6 +188,7 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
             bankName: order.bank_name,
             accountNumber: order.account_number,
             accountName: order.account_name,
+            receiveAddress: order.receive_address,
             createdAt: order.created_at,
             updatedAt: order.updated_at,
         }));
@@ -199,12 +231,12 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
             const paycrestOrder = await PaycrestService.getOrderStatus(order.paycrest_order_id);
 
             // Update local status if changed
-            if (paycrestOrder.status !== order.status.toLowerCase()) {
+            if (paycrestOrder.status && paycrestOrder.status.toLowerCase() !== order.status.toLowerCase()) {
                 const { data: updatedOrder } = await supabase
                     .from('offramp_orders')
                     .update({
                         status: paycrestOrder.status.toUpperCase(),
-                        tx_hash: paycrestOrder.txHash,
+                        tx_hash: paycrestOrder.txHash || order.tx_hash,
                     })
                     .eq('id', order.id)
                     .select()
@@ -234,6 +266,7 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
             bankName: order.bank_name,
             accountNumber: order.account_number,
             accountName: order.account_name,
+            receiveAddress: order.receive_address,
             txHash: order.tx_hash,
             createdAt: order.created_at,
             updatedAt: order.updated_at,
