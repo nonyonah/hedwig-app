@@ -27,10 +27,10 @@ export interface PricingItem {
 }
 
 export function generateProposalTemplate(data: ProposalData): string {
-    // Build deliverables list with bullet points
+    // Build deliverables list with proper markdown list syntax
     const deliverablesList = data.deliverables && data.deliverables.length > 0
-        ? data.deliverables.map(d => `• ${d}`).join('\n')
-        : '• Final deliverables to be confirmed upon project kickoff';
+        ? data.deliverables.map(d => `- ${d}`).join('\n')
+        : '- Final deliverables to be confirmed upon project kickoff';
 
     // Build milestones section
     const milestonesSection = data.milestones && data.milestones.length > 0
@@ -40,9 +40,9 @@ export function generateProposalTemplate(data: ProposalData): string {
         }).join('\n\n')
         : '';
 
-    // Build pricing breakdown
+    // Build pricing breakdown with proper list syntax
     const pricingBreakdown = data.pricing_breakdown && data.pricing_breakdown.length > 0
-        ? data.pricing_breakdown.map(p => `• ${p.item}: ${p.cost}`).join('\n')
+        ? data.pricing_breakdown.map(p => `- ${p.item}: ${p.cost}`).join('\n')
         : '';
 
     // Timeline section with milestones

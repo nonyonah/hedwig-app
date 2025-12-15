@@ -675,45 +675,106 @@ export default function HomeScreen() {
 
     // Function to render message content with preview cards for links
     const renderMessageContent = (content: string) => {
-        const linkRegex = /\/(invoice|payment-link|contract|proposal)\/([a-zA-Z0-9_-]+)/g;
+        // Match both Markdown links and bare paths
+        // Markdown: [text](http://domain.com/invoice/doc_xxx) or [text](/invoice/doc_xxx)
+        // Bare: /invoice/doc_xxx or http://domain.com/invoice/doc_xxx
+        const markdownLinkRegex = /\[([^\]]*)\]\(((?:https?:\/\/[^\/]+)?\/(?:invoice|payment-link|contract|proposal)\/([a-zA-Z0-9_-]+))\)/g;
+        const bareLinkRegex = /((?:https?:\/\/[^\/\s]+)?\/(?:invoice|payment-link|contract|proposal)\/([a-zA-Z0-9_-]+))/g;
+
         const parts: Array<{ type: 'text' | 'link'; value: string; path?: string; docType?: string; docId?: string }> = [];
-        let lastIndex = 0;
+
+        // First, find all markdown links
+        const markdownMatches: Array<{ index: number; length: number; path: string; docType: string; docId: string }> = [];
         let match;
 
-        while ((match = linkRegex.exec(content)) !== null) {
-            // Add text before the link
-            if (match.index > lastIndex) {
-                parts.push({
-                    type: 'text',
-                    value: content.substring(lastIndex, match.index),
-                });
-            }
+        while ((match = markdownLinkRegex.exec(content)) !== null) {
+            const fullUrl = match[2];
+            const docId = match[3];
+            // Extract docType from path
+            const docTypeMatch = fullUrl.match(/\/(invoice|payment-link|contract|proposal)\//);
+            const docType = docTypeMatch ? docTypeMatch[1] : 'document';
 
-            // Add the link as a special part
-            parts.push({
-                type: 'link',
-                value: match[0],
-                path: match[0],
-                docType: match[1],
-                docId: match[2],
+            markdownMatches.push({
+                index: match.index,
+                length: match[0].length,
+                path: '/' + docType + '/' + docId,
+                docType,
+                docId,
             });
-
-            lastIndex = match.index + match[0].length;
         }
 
-        // Add any remaining text
-        if (lastIndex < content.length) {
-            parts.push({
-                type: 'text',
-                value: content.substring(lastIndex),
-            });
+        // If we found markdown links, use those
+        if (markdownMatches.length > 0) {
+            let lastIndex = 0;
+
+            for (const m of markdownMatches) {
+                // Add text before the link
+                if (m.index > lastIndex) {
+                    const textBefore = content.substring(lastIndex, m.index).trim();
+                    if (textBefore) {
+                        parts.push({ type: 'text', value: textBefore });
+                    }
+                }
+
+                // Add the link as a preview card
+                parts.push({
+                    type: 'link',
+                    value: m.path,
+                    path: m.path,
+                    docType: m.docType,
+                    docId: m.docId,
+                });
+
+                lastIndex = m.index + m.length;
+            }
+
+            // Add remaining text
+            if (lastIndex < content.length) {
+                const remaining = content.substring(lastIndex).trim();
+                if (remaining) {
+                    parts.push({ type: 'text', value: remaining });
+                }
+            }
+        } else {
+            // Fall back to bare link detection
+            let lastIndex = 0;
+            while ((match = bareLinkRegex.exec(content)) !== null) {
+                if (match.index > lastIndex) {
+                    parts.push({
+                        type: 'text',
+                        value: content.substring(lastIndex, match.index),
+                    });
+                }
+
+                const fullUrl = match[1];
+                const docId = match[2];
+                const docTypeMatch = fullUrl.match(/\/(invoice|payment-link|contract|proposal)\//);
+                const docType = docTypeMatch ? docTypeMatch[1] : 'document';
+
+                parts.push({
+                    type: 'link',
+                    value: fullUrl,
+                    path: '/' + docType + '/' + docId,
+                    docType,
+                    docId,
+                });
+
+                lastIndex = match.index + match[0].length;
+            }
+
+            if (lastIndex < content.length) {
+                parts.push({
+                    type: 'text',
+                    value: content.substring(lastIndex),
+                });
+            }
         }
 
         // If no links found, just return plain text
         if (parts.length === 0) {
             return (
                 <View style={styles.aiBubble}>
-                    <Text style={styles.aiMessageText}>{content}</Text>
+                    <Text style={styles.aiMessageText} selectable>{content}</Text>
                 </View>
             );
         }
@@ -722,7 +783,7 @@ export default function HomeScreen() {
             <>
                 {parts.map((part, index) => part.type === 'text' ? (
                     <View key={index} style={styles.aiBubble}>
-                        <Text style={styles.aiMessageText}>{part.value}</Text>
+                        <Text style={styles.aiMessageText} selectable>{part.value}</Text>
                     </View>
                 ) : (
                     <LinkPreviewCard
@@ -768,7 +829,7 @@ export default function HomeScreen() {
             <Animated.View style={[isUser ? styles.userMessageContainer : styles.aiMessageContainer, animatedStyle]}>
                 {isUser ? (
                     <View style={styles.userBubble}>
-                        <Text style={styles.userMessageText}>{item.content}</Text>
+                        <Text style={styles.userMessageText} selectable>{item.content}</Text>
                     </View>
                 ) : (
                     <View style={styles.aiContainer}>
