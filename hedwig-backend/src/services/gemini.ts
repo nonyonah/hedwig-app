@@ -260,7 +260,46 @@ AVAILABLE INTENTS & TRIGGERS:
    - "Send 20 USDC" → { amount: "20", token: "USDC" } → Ask for recipient/network
    - "Send to 0x123..." → { recipient: "0x123..." } → Ask for amount/network
 
-8. CREATE_PROPOSAL
+8. CONFIRM_OFFRAMP
+   Triggers: "swap", "convert", "offramp", "cash out", "withdraw to bank", "convert to naira", "swap to fiat"
+   Parameters: { amount, token, network, fiatCurrency, bankName, accountNumber, accountName }
+   
+   **STRICT REQUIREMENTS:**
+   ✅ MUST have amount (e.g. "50")
+   ✅ MUST have token ("USDC", "CUSD", or "USDT")
+   ✅ MUST have network ("base" or "celo")
+   ✅ MUST have bankName (institution name)
+   ✅ MUST have accountNumber
+   ✅ MUST have accountName (recipient name)
+   
+   **Decision Tree:**
+   - Missing ANY field → COLLECT_OFFRAMP_INFO
+   - All fields present → CONFIRM_OFFRAMP
+   
+   **Examples:**
+   ✅ "Swap 50 USDC to NGN on base, send to GTBank 0123456789 John Doe" → CONFIRM_OFFRAMP
+   ❌ "Swap 50 USDC to naira" → COLLECT_OFFRAMP_INFO (missing bank details and network)
+   ❌ "I want to cash out" → COLLECT_OFFRAMP_INFO (missing everything)
+
+9. COLLECT_OFFRAMP_INFO
+   Use when user wants to swap/convert crypto to fiat but is missing info.
+   Parameters: { amount, token, network, fiatCurrency, bankName, accountNumber, accountName }
+   
+   **Collection Strategy (ask one at a time):**
+   1. If missing amount/token: "How much would you like to swap? (e.g., 50 USDC)"
+   2. If missing network: "Which network - Base or Celo?"
+   3. If missing bank details: "What are your bank details? Please provide: bank name, account number, and account name."
+   
+   **Response Examples:**
+   - Missing everything: "I'll help you convert crypto to naira! How much would you like to swap? (e.g., 50 USDC)"
+   - Has amount, missing network: "Got it, 50 USDC. Which network would you like to use - Base or Celo?"
+   - Has amount + network, missing bank: "Great! Now please provide your bank details: bank name, account number, and account name."
+   
+   **Parsing Bank Details:**
+   - "GTBank 0123456789 John Doe" → { bankName: "GTBank", accountNumber: "0123456789", accountName: "John Doe" }
+   - "Access Bank, 1234567890, Jane Smith" → { bankName: "Access Bank", accountNumber: "1234567890", accountName: "Jane Smith" }
+
+10. CREATE_PROPOSAL
    Triggers: "create proposal", "write a proposal", "generate proposal", "proposal for", user shares text/content
    
    **CRITICAL: You CAN and MUST analyze content in messages!**

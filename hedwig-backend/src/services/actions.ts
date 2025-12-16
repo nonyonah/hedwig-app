@@ -69,6 +69,28 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                     }
                 };
 
+            case 'CONFIRM_OFFRAMP':
+                // Return offramp data for frontend to show confirmation modal
+                return {
+                    text: '',
+                    data: {
+                        requiresOfframpConfirmation: true,
+                        offramp: {
+                            amount: params.amount,
+                            token: params.token || 'USDC',
+                            network: params.network || 'base',
+                            fiatCurrency: params.fiatCurrency || 'NGN',
+                            bankName: params.bankName,
+                            accountNumber: params.accountNumber,
+                            accountName: params.accountName
+                        }
+                    }
+                };
+
+            case 'COLLECT_OFFRAMP_INFO':
+                // Don't execute offramp yet, Gemini will collect all fields
+                return { text: '' };
+
             case 'CREATE_PROPOSAL':
                 return await handleCreateProposal(params, user);
 

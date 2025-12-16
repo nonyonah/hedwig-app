@@ -275,6 +275,39 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             };
         }
 
+        // For CONFIRM_OFFRAMP, include offramp parameters for frontend modal
+        if (aiResponseObj.intent === 'CONFIRM_OFFRAMP' && aiResponseObj.parameters) {
+            const params = aiResponseObj.parameters;
+
+            // Fetch current rate from Paycrest
+            let rate = '0';
+            let estimatedFiat = 0;
+            try {
+                const PaycrestService = (await import('../services/paycrest')).default;
+                rate = await PaycrestService.getExchangeRate(
+                    params.token || 'USDC',
+                    parseFloat(params.amount) || 10,
+                    params.fiatCurrency || 'NGN',
+                    params.network || 'base'
+                );
+                estimatedFiat = parseFloat(params.amount) * parseFloat(rate);
+            } catch (rateError) {
+                console.error('[Chat] Failed to fetch rate:', rateError);
+            }
+
+            responseData.parameters = {
+                amount: params.amount,
+                token: params.token || 'USDC',
+                network: params.network || 'base',
+                fiatCurrency: params.fiatCurrency || 'NGN',
+                bankName: params.bankName,
+                accountNumber: params.accountNumber,
+                accountName: params.accountName,
+                rate: rate,
+                estimatedFiat: estimatedFiat.toFixed(2)
+            };
+        }
+
         res.json({
             success: true,
             data: responseData,

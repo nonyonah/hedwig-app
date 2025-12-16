@@ -21,6 +21,7 @@ import { Typography } from '../styles/typography';
 import { Sidebar } from '../components/Sidebar';
 import { ProfileModal } from '../components/ProfileModal';
 import { TransactionConfirmationModal } from '../components/TransactionConfirmationModal';
+import { OfframpConfirmationModal } from '../components/OfframpConfirmationModal';
 import { LinkPreviewCard } from '../components/LinkPreviewCard';
 import { getUserGradient } from '../utils/gradientUtils';
 
@@ -148,6 +149,8 @@ export default function HomeScreen() {
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
     const [isTransactionReviewVisible, setIsTransactionReviewVisible] = useState(false);
     const [transactionData, setTransactionData] = useState<any>(null);
+    const [isOfframpReviewVisible, setIsOfframpReviewVisible] = useState(false);
+    const [offrampData, setOfframpData] = useState<any>(null);
     const [attachedFiles, setAttachedFiles] = useState<{ uri: string; name: string; mimeType: string }[]>([]);
 
     // Animate view mode changes
@@ -642,6 +645,12 @@ export default function HomeScreen() {
                     setTransactionData(data.data.parameters);
                     setIsTransactionReviewVisible(true);
                 }
+
+                // Handle Offramp Intent
+                if (data.data.intent === 'CONFIRM_OFFRAMP' && data.data.parameters) {
+                    setOfframpData(data.data.parameters);
+                    setIsOfframpReviewVisible(true);
+                }
             } else {
                 Alert.alert('Error', data.error?.message || 'Failed to get response');
             }
@@ -1075,6 +1084,22 @@ export default function HomeScreen() {
                         id: Date.now().toString() + '_tx_success',
                         role: 'assistant',
                         content: `Transaction sent successfully! Hash: ${hash}`,
+                        createdAt: new Date().toISOString()
+                    };
+                    setMessages(prev => [...prev, successMsg]);
+                }}
+            />
+            {/* Offramp Confirmation Modal */}
+            <OfframpConfirmationModal
+                visible={isOfframpReviewVisible}
+                onClose={() => setIsOfframpReviewVisible(false)}
+                data={offrampData}
+                onSuccess={(orderId) => {
+                    // Add success message to chat
+                    const successMsg: Message = {
+                        id: Date.now().toString() + '_offramp_success',
+                        role: 'assistant',
+                        content: `Offramp order created successfully! Order ID: ${orderId}`,
                         createdAt: new Date().toISOString()
                     };
                     setMessages(prev => [...prev, successMsg]);
