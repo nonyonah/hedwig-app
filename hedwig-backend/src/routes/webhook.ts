@@ -51,4 +51,45 @@ router.post('/paycrest', async (req: Request, res: Response, next) => {
     }
 });
 
+/**
+ * POST /api/webhooks/chainhook
+ * Endpoint for Stacks Chainhook events
+ */
+router.post('/chainhook', async (req: Request, res: Response) => {
+    try {
+        const event = req.body;
+
+        console.log('Received Chainhook event:', JSON.stringify(event, null, 2));
+
+        // Validate basic structure
+        if (!event || !event.apply || !event.apply.length) {
+            console.log('Invalid or empty chainhook payload');
+            res.status(200).json({ received: true });
+            return;
+        }
+
+        // Process applied blocks
+        for (const block of event.apply) {
+            const transactions = block.transactions;
+            if (!transactions || !transactions.length) continue;
+
+            for (const tx of transactions) {
+                const txId = tx.transaction_identifier?.hash;
+                const status = tx.metadata?.success;
+
+                if (status) {
+                    console.log(`Processing successful transaction: ${txId}`);
+                    // Logic to handle payment confirmation would go here
+                    // e.g. verify contract call arguments, find matching invoice, update DB
+                }
+            }
+        }
+
+        res.status(200).json({ received: true });
+    } catch (error) {
+        console.error('Error processing chainhook:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 export default router;
