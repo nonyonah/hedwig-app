@@ -224,6 +224,45 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             };
         }
 
+        // AUTO-VERIFY BANK ACCOUNT: If we have bank details but no account name, fetch it automatically
+        if (aiResponseObj.intent === 'COLLECT_OFFRAMP_INFO' && aiResponseObj.parameters) {
+            const params = aiResponseObj.parameters;
+
+            // Check if we have all required fields EXCEPT accountName
+            if (params.amount && params.token && params.network &&
+                params.bankName && params.accountNumber && !params.accountName) {
+
+                console.log('[Chat] Auto-verifying bank account:', params.bankName, params.accountNumber);
+
+                try {
+                    const PaycrestService = (await import('../services/paycrest')).default;
+                    const verifyResult = await PaycrestService.verifyBankAccount(
+                        params.bankName,
+                        params.accountNumber
+                    );
+
+                    if (verifyResult.verified && verifyResult.accountName) {
+                        console.log('[Chat] Bank account verified:', verifyResult.accountName);
+
+                        // Add the account name to parameters
+                        aiResponseObj.parameters.accountName = verifyResult.accountName;
+
+                        // Upgrade intent to CONFIRM_OFFRAMP since we now have all required fields
+                        aiResponseObj.intent = 'CONFIRM_OFFRAMP';
+                        aiResponseObj.naturalResponse = `I found your account: **${verifyResult.accountName}**. Ready to proceed with your withdrawal?`;
+
+                        console.log('[Chat] Upgraded intent to CONFIRM_OFFRAMP');
+                    } else {
+                        // Could not verify, ask for account name manually
+                        aiResponseObj.naturalResponse = `I couldn't verify this account automatically. Please provide the account name for ${params.bankName} account ${params.accountNumber}.`;
+                    }
+                } catch (verifyError) {
+                    console.error('[Chat] Bank verification failed:', verifyError);
+                    // Fall through with original response asking for account name
+                }
+            }
+        }
+
         let finalResponseText = '';
         let actionResult = null;
 
