@@ -23,6 +23,7 @@ import conversationsRoutes from './routes/conversations';
 import webhookRoutes from './routes/webhook';
 import pdfRoutes from './routes/pdf';
 import walletRoutes from './routes/wallet';
+import notificationRoutes from './routes/notifications';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -134,6 +135,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../public')));

@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
+import AlchemyWebhooksService, { AlchemyActivity } from '../services/alchemyWebhooks';
+import NotificationService from '../services/notifications';
 
 const router = Router();
 
@@ -201,6 +203,116 @@ async function processPaymentEvent(data: {
         }
     } catch (error) {
         console.error('[Chainhook] Error processing payment:', error);
+    }
+}
+
+/**
+ * POST /api/webhooks/alchemy
+ * Endpoint for Alchemy Address Activity webhooks (Base Sepolia, Celo Alfajores)
+ */
+router.post('/alchemy', async (req: Request, res: Response) => {
+    try {
+        // Get raw body for signature validation
+        const rawBody = JSON.stringify(req.body);
+        const signature = req.headers['x-alchemy-signature'] as string;
+
+        if (!signature) {
+            console.warn('[Alchemy] Missing X-Alchemy-Signature header');
+            res.status(401).json({ error: 'Missing signature' });
+            return;
+        }
+
+        // Parse and validate the webhook
+        const { valid, event, error } = AlchemyWebhooksService.parseAndValidate(rawBody, signature);
+
+        if (!valid || !event) {
+            console.warn('[Alchemy] Invalid webhook:', error);
+            res.status(401).json({ error: error || 'Invalid webhook' });
+            return;
+        }
+
+        console.log(`[Alchemy] Received ${event.type} event: ${event.id}`);
+
+        // Process Address Activity events
+        if (event.type === 'ADDRESS_ACTIVITY' && event.event?.activity) {
+            await processAlchemyActivity(event.event.network, event.event.activity);
+        }
+
+        res.status(200).json({ received: true });
+    } catch (error) {
+        console.error('[Alchemy] Error processing webhook:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Process Alchemy Address Activity events
+ */
+async function processAlchemyActivity(network: string, activities: AlchemyActivity[]) {
+    for (const activity of activities) {
+        const transfer = AlchemyWebhooksService.extractTransferInfo(activity);
+        console.log(`[Alchemy] Processing transfer on ${network}:`, transfer);
+
+        try {
+            // Find user by wallet address (recipient)
+            const { data: recipientUser } = await supabase
+                .from('users')
+                .select('id, privy_id')
+                .or(`evm_address.ilike.${transfer.to},wallet_address.ilike.${transfer.to}`)
+                .single();
+
+            if (recipientUser) {
+                // Send push notification for received payment
+                await NotificationService.notifyTransaction(recipientUser.id, {
+                    type: 'received',
+                    amount: transfer.value.toString(),
+                    token: transfer.asset,
+                    network: network,
+                    txHash: transfer.txHash,
+                });
+
+                console.log(`[Alchemy] Notified user ${recipientUser.id} of received payment`);
+            }
+
+            // Find user by wallet address (sender)
+            const { data: senderUser } = await supabase
+                .from('users')
+                .select('id, privy_id')
+                .or(`evm_address.ilike.${transfer.from},wallet_address.ilike.${transfer.from}`)
+                .single();
+
+            if (senderUser) {
+                // Send push notification for sent payment
+                await NotificationService.notifyTransaction(senderUser.id, {
+                    type: 'sent',
+                    amount: transfer.value.toString(),
+                    token: transfer.asset,
+                    network: network,
+                    txHash: transfer.txHash,
+                });
+
+                console.log(`[Alchemy] Notified user ${senderUser.id} of sent payment`);
+            }
+
+            // Record the transaction
+            await supabase
+                .from('transactions')
+                .upsert({
+                    tx_hash: transfer.txHash,
+                    type: 'TRANSFER',
+                    status: 'CONFIRMED',
+                    amount: transfer.value.toString(),
+                    token: transfer.asset,
+                    network: network,
+                    from_address: transfer.from,
+                    to_address: transfer.to,
+                    block_height: parseInt(transfer.blockNumber, 16),
+                    confirmed_at: new Date().toISOString(),
+                }, { onConflict: 'tx_hash' });
+
+        } catch (err) {
+            console.error('[Alchemy] Error processing activity:', err);
+        }
     }
 }
 
