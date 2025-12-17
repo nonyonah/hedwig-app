@@ -33,8 +33,8 @@ export function usePushNotifications() {
     const [error, setError] = useState<string | null>(null);
     const [isRegistered, setIsRegistered] = useState(false);
 
-    const notificationListener = useRef<Notifications.Subscription>();
-    const responseListener = useRef<Notifications.Subscription>();
+    const notificationListener = useRef<Notifications.Subscription | undefined>();
+    const responseListener = useRef<Notifications.Subscription | undefined>();
 
     /**
      * Register for push notifications
@@ -63,8 +63,11 @@ export function usePushNotifications() {
             }
 
             // Get project ID for Expo push token
-            const projectId = Constants.expoConfig?.extra?.eas?.projectId
-                ?? Constants.easConfig?.projectId;
+            // Try multiple sources for project ID
+            const projectId =
+                Constants.expoConfig?.extra?.eas?.projectId ||
+                (Constants as any).easConfig?.projectId ||
+                Constants.expoConfig?.owner; // Fallback
 
             if (!projectId) {
                 setError('Project ID not found - configure in app.json');
@@ -73,7 +76,7 @@ export function usePushNotifications() {
 
             // Get the Expo push token
             const tokenData = await Notifications.getExpoPushTokenAsync({
-                projectId,
+                projectId: projectId as string,
             });
 
             const token = tokenData.data;
