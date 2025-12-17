@@ -91,29 +91,31 @@ export class PaycrestService {
 
     /**
      * Verify bank account details
-     * Note: Check if Paycrest has a verification endpoint or if this was custom
-     * Keeping existing signature but might need update if API changed
+     * POST /verify-account
+     * Returns account name and verification status
      */
     static async verifyBankAccount(
         bankName: string,
         accountNumber: string
     ): Promise<{ accountName: string; verified: boolean }> {
         try {
-            // Verify endpoint might be different or not exist in sender API docs provided
-            // Falling back to a verify-account endpoint if it exists, roughly as before
+            // Paycrest API expects 'institution' and 'accountIdentifier' fields
             const response = await paycrestClient.post('/verify-account', {
-                bankName,
-                accountNumber,
+                institution: bankName,          // Bank name/code (e.g., "GTB", "Opay")
+                accountIdentifier: accountNumber // Account number
             });
 
+            console.log('[Paycrest] Verify account response:', response.data);
+
+            // The API returns the account name in the data field
             return {
-                accountName: response.data.accountName,
-                verified: response.data.verified || true,
+                accountName: response.data?.data?.accountName || response.data?.accountName || '',
+                verified: response.data?.status === 'success' || response.data?.verified || true,
             };
         } catch (error: any) {
             console.error('Paycrest verify account error:', error.response?.data || error.message);
-            // Non-critical for now as we focus on create order
-            return { accountName: 'Unverified Account', verified: false };
+            // Return unverified with empty name so we can fall back to asking the user
+            return { accountName: '', verified: false };
         }
     }
 
