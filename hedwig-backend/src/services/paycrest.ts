@@ -259,8 +259,15 @@ export class PaycrestService {
 
             const response = await paycrestClient.post('/sender/orders', payload);
 
-            // Response: { id, receiveAddress, validUntil, senderFee, transactionFee }
-            const apiData = response.data; // or response.data.data depending on wrapper
+            console.log('[Paycrest] Create order response:', JSON.stringify(response.data, null, 2));
+
+            // Paycrest API returns: { status: "success", message: "...", data: { id, receiveAddress, ... } }
+            const apiData = response.data?.data || response.data;
+
+            if (!apiData?.id) {
+                console.error('[Paycrest] No order ID in response:', response.data);
+                throw new Error('Paycrest did not return a valid order ID');
+            }
 
             // Calculate estimated fiat amount based on rate
             const rateVal = parseFloat(orderData.rate);
@@ -271,8 +278,8 @@ export class PaycrestService {
                 orderId: apiData.id,
                 receiveAddress: apiData.receiveAddress,
                 validUntil: apiData.validUntil,
-                senderFee: apiData.senderFee,
-                transactionFee: apiData.transactionFee,
+                senderFee: apiData.senderFee || 0,
+                transactionFee: apiData.transactionFee || 0,
                 status: 'PENDING',
                 amount: orderData.amount,
                 token: orderData.token,
