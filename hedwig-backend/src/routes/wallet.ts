@@ -245,11 +245,12 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             );
         }
 
-        // ========== SOLANA DEVNET ==========
-        if (solanaAddress) {
+        // ========== SOLANA DEVNET (DISABLED) ==========
+        // Solana support is temporarily disabled
+        if (false && solanaAddress) {
             // Native SOL
             try {
-                const solanaPublicKey = new PublicKey(solanaAddress);
+                const solanaPublicKey = new PublicKey(solanaAddress!);
                 const solBalance = await solanaDevnetConnection.getBalance(solanaPublicKey);
                 const solFormatted = (solBalance / LAMPORTS_PER_SOL).toFixed(9);
                 console.log('[Wallet] Solana SOL balance (Devnet):', solFormatted);
@@ -274,7 +275,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
 
             // Solana USDC (SPL Token)
             try {
-                const walletPublicKey = new PublicKey(solanaAddress);
+                const walletPublicKey = new PublicKey(solanaAddress!);
                 const usdcMintAddress = new PublicKey(TOKEN_ADDRESSES.solanaDevnet.USDC);
 
                 // Get the Associated Token Account for this wallet and USDC mint
@@ -307,21 +308,9 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                     display_values: { token: '0', usd: '0' }
                 });
             }
-        } else {
-            console.log('[Wallet] No Solana wallet found, returning zero balance');
-            balances.push({
-                chain: 'solana_devnet',
-                asset: 'sol',
-                raw_value: '0',
-                display_values: { sol: '0', usd: '0.00' }
-            });
-            balances.push({
-                chain: 'solana_devnet',
-                asset: 'usdc',
-                raw_value: '0',
-                display_values: { token: '0', usd: '0' }
-            });
         }
+        // Else block removed - Solana is disabled
+
 
         // ========== STACKS TESTNET (Bitcoin L2) ==========
         // Stacks wallet is generated client-side using Stacks.js
