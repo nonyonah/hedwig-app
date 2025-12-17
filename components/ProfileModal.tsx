@@ -17,8 +17,8 @@ import { getOrCreateStacksWallet, getSTXBalance } from '../services/stacksWallet
 
 // RPC URLs
 const RPC_URLS = {
-    base: 'https://sepolia.base.org',
-    celo: 'https://alfajores-forno.celo-testnet.org'
+    base: 'https://mainnet.base.org',
+    celo: 'https://forno.celo.org'
 };
 
 // Token Contracts for checking balance
@@ -61,7 +61,7 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         ]
     },
     {
-        name: 'Solana Devnet',
+        name: 'Solana',
         id: 900, // Solana doesn't really use numeric chain ID like EVM, using placeholder
         icon: NetworkSolana,
         color: '#9945FF',
@@ -214,7 +214,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                 let totalUsd = 0;
 
                 balanceData.forEach((bal: any) => {
-                    if (bal.chain === 'base_sepolia') {
+                    if (bal.chain === 'base') {
                         if (bal.asset === 'eth') {
                             newBalances['Base_ETH'] = parseFloat(bal.display_values?.eth || '0').toFixed(6);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
@@ -222,7 +222,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             newBalances['Base_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
-                    } else if (bal.chain === 'celo_sepolia' || bal.chain === 'celo_alfajores') {
+                    } else if (bal.chain === 'celo' || bal.chain === 'celo') {
                         if (bal.asset === 'celo') {
                             newBalances['Celo_CELO'] = parseFloat(bal.display_values?.celo || '0').toFixed(6);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
@@ -230,12 +230,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             newBalances['Celo_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
-                    } else if (bal.chain === 'solana_devnet') {
+                    } else if (bal.chain === 'solana') {
                         if (bal.asset === 'sol') {
-                            newBalances['Solana Devnet_SOL'] = parseFloat(bal.display_values?.sol || '0').toFixed(6);
+                            newBalances['Solana_SOL'] = parseFloat(bal.display_values?.sol || '0').toFixed(6);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         } else if (bal.asset === 'usdc') {
-                            newBalances['Solana Devnet_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
+                            newBalances['Solana_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
                     }
@@ -532,8 +532,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                                                 ? `${parseFloat(balances['Base_ETH'] || '0').toFixed(4)} ETH`
                                                                 : `${parseFloat(balances['Celo_CELO'] || '0').toFixed(4)} CELO`)
                                                             : selectedChain.addressType === 'solana'
-                                                                ? `${parseFloat(balances['Solana Devnet_SOL'] || '0').toFixed(4)} SOL`
-                                                                : `${parseFloat(balances['Bitcoin Testnet_BTC'] || '0').toFixed(6)} BTC`
+                                                                ? `${parseFloat(balances['Solana_SOL'] || '0').toFixed(4)} SOL`
+                                                                : `${parseFloat(balances['Bitcoin_BTC'] || '0').toFixed(6)} BTC`
                                                         }
                                                     </Text>
                                                 </View>

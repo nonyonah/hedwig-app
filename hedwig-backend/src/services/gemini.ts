@@ -82,9 +82,9 @@ SUPPORTED FEATURES:
 ✅ **WITHDRAW/OFFRAMP: Convert crypto to cash and send to bank accounts!**
 
 SUPPORTED NETWORKS:
-✅ Base (Sepolia testnet) - ETH, USDC
-✅ Celo (Sepolia testnet) - CELO, USDC, CUSD
-✅ Solana (Devnet) - SOL, USDC
+✅ Base (Mainnet) - ETH, USDC
+✅ Celo (Mainnet) - CELO, USDC, CUSD
+✅ Solana (Mainnet) - SOL, USDC
 
 **IMPORTANT: You CAN help users withdraw crypto to their bank account!**
 When users say "withdraw", "withdrawal", "cash out", "convert to naira", "offramp", "send to bank" - use COLLECT_OFFRAMP_INFO intent.
@@ -242,12 +242,12 @@ AVAILABLE INTENTS & TRIGGERS:
    ✅ MUST have amount (e.g. "20")
    ✅ MUST have token (e.g. "USDC", "SOL", or inferred from "$")
    ✅ MUST have recipient (e.g. "0x..." for EVM or Solana public key for Solana)
-   ✅ MUST have network ("base", "celo", "solana", or "solana_devnet")
+   ✅ MUST have network ("base", "celo", "solana", or "solana")
    
    **Network-specific tokens:**
    - Base: ETH (native), USDC
    - Celo: CELO (native), USDC
-   - Solana/Solana Devnet: SOL (native), USDC
+   - Solana/Solana Mainnet: SOL (native), USDC
    
    **Decision Tree:**
    - Missing ANY field → COLLECT_TRANSACTION_INFO
@@ -255,7 +255,7 @@ AVAILABLE INTENTS & TRIGGERS:
    
    **Examples:**
    ✅ "Send 20 USDC to 0x123... on Base" → CONFIRM_TRANSACTION
-   ✅ "Send 0.5 SOL to ABC123... on Solana" → CONFIRM_TRANSACTION (use network: "solana_devnet")
+   ✅ "Send 0.5 SOL to ABC123... on Solana" → CONFIRM_TRANSACTION (use network: "solana")
    ❌ "Send 20 USDC" → COLLECT_TRANSACTION_INFO (missing recipient/network)
    
 7. COLLECT_TRANSACTION_INFO
@@ -407,7 +407,7 @@ RULES:
 - Always include naturalResponse with friendly confirmation
 - For payment links: MUST extract amount, token (default USDC)
 - For payment links WITHOUT network specified: ASK which network (Base, Celo, or Solana)
-- For Solana transactions: use network value "solana_devnet" 
+- For Solana transactions: use network value "solana" 
 - Do NOT default to base network - always ask if network is not specified
 - Do NOT assume or create default amounts - always ask if amount is missing
 - Be conversational and helpful in naturalResponse
@@ -516,8 +516,8 @@ User: "What's my balance?"
  User: "Send 0.5 SOL to E58QzedTYZS7J5ocbBJN5gMSuuZy3NHifufTpgC8s8X3 on Solana"
  {
    "intent": "CONFIRM_TRANSACTION",
-   "parameters": { "token": "SOL", "amount": "0.5", "recipient": "E58QzedTYZS7J5ocbBJN5gMSuuZy3NHifufTpgC8s8X3", "network": "solana_devnet" },
-   "naturalResponse": "I've prepared the transaction. Please confirm you want to send 0.5 SOL on Solana Devnet."
+   "parameters": { "token": "SOL", "amount": "0.5", "recipient": "E58QzedTYZS7J5ocbBJN5gMSuuZy3NHifufTpgC8s8X3", "network": "solana" },
+   "naturalResponse": "I've prepared the transaction. Please confirm you want to send 0.5 SOL on Solana Mainnet."
  }`;
   }
 
