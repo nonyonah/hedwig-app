@@ -1,14 +1,14 @@
 import * as crypto from 'crypto';
 
 /**
- * Alchemy Webhook Event Types
+ * Alchemy Webhook Event Types - Only Address Activity is enabled
  */
 export interface AlchemyWebhookEvent {
     webhookId: string;
     id: string;
     createdAt: string;
-    type: 'ADDRESS_ACTIVITY' | 'MINED_TRANSACTION' | 'DROPPED_TRANSACTION' | 'NFT_ACTIVITY' | 'NFT_METADATA_UPDATE';
-    event: AlchemyAddressActivityEvent | any;
+    type: 'ADDRESS_ACTIVITY';
+    event: AlchemyAddressActivityEvent;
 }
 
 export interface AlchemyAddressActivityEvent {
