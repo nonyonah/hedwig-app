@@ -17,6 +17,31 @@ const paycrestClient: AxiosInstance = axios.create({
     timeout: 30000,
 });
 
+// Nigerian Bank Name to Paycrest Institution Code Mapping
+// See: https://docs.paycrest.io/resources/code-standards
+const BANK_CODE_MAP: Record<string, string> = {
+    // Major Banks (SWIFT codes)
+    'gtb': 'GTBINGLA',
+    'gtbank': 'GTBINGLA',
+    'guaranty trust bank': 'GTBINGLA',
+    'first bank': 'FBNINGLA',
+    'firstbank': 'FBNINGLA',
+    'zenith': 'ABORNGLA',
+    'zenith bank': 'ABOLNGLA',
+    'uba': 'UNLOIGLA',
+    'access': 'ACGDIGLA',
+    'access bank': 'ACGDIGLA',
+
+    // Fintech/Mobile Banks (Custom PC codes)
+    'opay': 'OPAYNGPC',
+    'kuda': 'KUDANGPC',
+    'moniepoint': 'MONINGPC',
+    'palmpay': 'ABORNGPC',
+    'carbon': 'CABONGPC',
+
+    // Add more as needed
+};
+
 // Types
 export interface BankDetails {
     institution: string; // Bank Name
@@ -99,24 +124,44 @@ export class PaycrestService {
         accountNumber: string
     ): Promise<{ accountName: string; verified: boolean }> {
         try {
-            // Paycrest API expects 'institution' and 'accountIdentifier' fields
+            // Convert bank name to Paycrest institution code
+            const institutionCode = this.getBankCode(bankName);
+
+            console.log('[Paycrest] Verifying account with:', {
+                institution: institutionCode,
+                accountIdentifier: accountNumber,
+                originalBankName: bankName
+            });
+
             const response = await paycrestClient.post('/verify-account', {
-                institution: bankName,          // Bank name/code (e.g., "GTB", "Opay")
-                accountIdentifier: accountNumber // Account number
+                institution: institutionCode,
+                accountIdentifier: accountNumber
             });
 
             console.log('[Paycrest] Verify account response:', response.data);
 
-            // The API returns the account name in the data field
+            // Paycrest returns: { status: "success", message: "Operation successful", data: "Account Name" }
+            // The account name is directly in the data field as a string
+            const accountName = typeof response.data?.data === 'string'
+                ? response.data.data
+                : '';
+
             return {
-                accountName: response.data?.data?.accountName || response.data?.accountName || '',
-                verified: response.data?.status === 'success' || response.data?.verified || true,
+                accountName: accountName,
+                verified: response.data?.status === 'success' && accountName !== '',
             };
         } catch (error: any) {
             console.error('Paycrest verify account error:', error.response?.data || error.message);
-            // Return unverified with empty name so we can fall back to asking the user
             return { accountName: '', verified: false };
         }
+    }
+
+    /**
+     * Convert common bank names to Paycrest institution codes
+     */
+    static getBankCode(bankName: string): string {
+        const normalizedName = bankName.toLowerCase().trim();
+        return BANK_CODE_MAP[normalizedName] || bankName.toUpperCase();
     }
 
     /**
