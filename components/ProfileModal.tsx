@@ -61,18 +61,6 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         ]
     },
     {
-        name: 'Solana Devnet',
-        id: 900, // Solana doesn't really use numeric chain ID like EVM, using placeholder
-        icon: NetworkSolana,
-        color: '#9945FF',
-        addressType: 'solana',
-        tokens: [
-            { symbol: 'SOL', icon: TokenSOL },
-            { symbol: 'USDC', icon: TokenUSDC },
-            { symbol: 'USDT', icon: TokenUSDT }
-        ]
-    },
-    {
         name: 'Celo', // Celo Alfajores
         id: 44787,
         icon: NetworkCelo,

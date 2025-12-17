@@ -34,11 +34,10 @@ const ICONS = {
 };
 
 // Chain configurations with explorer URLs
+// Solana is temporarily disabled
 const CHAINS: Record<string, any> = {
     'base': { name: 'Base Sepolia', icon: ICONS.base, explorer: 'https://sepolia.basescan.org/tx/', type: 'evm' },
     'celo': { name: 'Celo Sepolia', icon: ICONS.celo, explorer: 'https://celo-sepolia.celoscan.io/tx/', type: 'evm' },
-    'solana': { name: 'Solana Devnet', icon: ICONS.solana, explorer: 'https://explorer.solana.com/tx/', type: 'solana', cluster: 'devnet' },
-    'solana_devnet': { name: 'Solana Devnet', icon: ICONS.solana, explorer: 'https://explorer.solana.com/tx/', type: 'solana', cluster: 'devnet' },
     'stacks': { name: 'Stacks Testnet', icon: require('../assets/icons/networks/stacks.png'), explorer: 'https://explorer.hiro.so/txid/', type: 'stacks', cluster: 'testnet' },
 };
 
@@ -107,18 +106,20 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
     const opacityAnim = useRef(new Animated.Value(0)).current;
 
     // Helper to normalize network name
+    // Solana is temporarily disabled - redirect to base
     const normalizeNetwork = (network: string): string => {
         const n = network.toLowerCase().trim();
-        if (n === 'solana' || n === 'solana devnet' || n === 'solanadevnet') {
-            return 'solana_devnet';
+        if (n === 'solana' || n === 'solana devnet' || n === 'solanadevnet' || n === 'solana_devnet') {
+            console.warn('[Transaction] Solana is temporarily disabled, defaulting to base');
+            return 'base';
         }
         return n;
     };
 
-    // Helper to determine if network is Solana
-    const isSolanaNetwork = (network: string): boolean => {
-        const normalized = normalizeNetwork(network);
-        return normalized === 'solana' || normalized === 'solana_devnet';
+    // Helper to determine if network is Solana (DISABLED)
+    const isSolanaNetwork = (_network: string): boolean => {
+        // Solana is temporarily disabled
+        return false;
     };
 
     // Estimate gas when modal becomes visible (EVM only)
