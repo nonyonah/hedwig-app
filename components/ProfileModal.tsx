@@ -117,6 +117,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     const balanceAnim = useRef(new Animated.Value(0)).current;
     const chainsAnim = useRef(new Animated.Value(0)).current;
     const logoutAnim = useRef(new Animated.Value(0)).current;
+    const viewContentAnim = useRef(new Animated.Value(1)).current; // For view transitions
 
     // Create wallets if they don't exist
     useEffect(() => {
@@ -382,12 +383,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                     useNativeDriver: true,
                 })
             ]).start(() => {
-                // Trigger staggered entrance animations for internal elements
-                Animated.stagger(80, [
-                    Animated.spring(headerAnim, { toValue: 1, damping: 20, stiffness: 200, useNativeDriver: true }),
-                    Animated.spring(balanceAnim, { toValue: 1, damping: 20, stiffness: 200, useNativeDriver: true }),
-                    Animated.spring(chainsAnim, { toValue: 1, damping: 20, stiffness: 200, useNativeDriver: true }),
-                    Animated.spring(logoutAnim, { toValue: 1, damping: 20, stiffness: 200, useNativeDriver: true }),
+                // Trigger staggered entrance animations for internal elements (fast animations)
+                Animated.stagger(40, [
+                    Animated.spring(headerAnim, { toValue: 1, damping: 18, stiffness: 400, useNativeDriver: true }),
+                    Animated.spring(balanceAnim, { toValue: 1, damping: 18, stiffness: 400, useNativeDriver: true }),
+                    Animated.spring(chainsAnim, { toValue: 1, damping: 18, stiffness: 400, useNativeDriver: true }),
+                    Animated.spring(logoutAnim, { toValue: 1, damping: 18, stiffness: 400, useNativeDriver: true }),
                 ]).start();
             });
         } else {
@@ -409,6 +410,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
             });
         }
     }, [visible]);
+
+    // Animate content when view mode changes
+    useEffect(() => {
+        if (visible && viewMode !== 'main') {
+            viewContentAnim.setValue(0);
+            Animated.spring(viewContentAnim, {
+                toValue: 1,
+                damping: 18,
+                stiffness: 400,
+                useNativeDriver: true,
+            }).start();
+        }
+    }, [viewMode, visible]);
 
     const handleLogout = async () => {
         try {
@@ -565,7 +579,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             )}
 
                             {viewMode === 'assets' && (
-                                <View style={styles.assetsView}>
+                                <Animated.View style={[styles.assetsView, { opacity: viewContentAnim, transform: [{ translateY: viewContentAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 0] }) }] }]}>
                                     <TouchableOpacity
                                         style={styles.backButton}
                                         onPress={() => setViewMode('main')}
@@ -595,11 +609,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                             );
                                         })}
                                     </View>
-                                </View>
+                                </Animated.View>
                             )}
 
                             {viewMode === 'chains' && (
-                                <View style={styles.chainsView}>
+                                <Animated.View style={[styles.chainsView, { opacity: viewContentAnim, transform: [{ translateY: viewContentAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 0] }) }] }]}>
                                     <TouchableOpacity
                                         style={styles.backButton}
                                         onPress={() => setViewMode('main')}
@@ -631,7 +645,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                             )}
                                         </TouchableOpacity>
                                     ))}
-                                </View>
+                                </Animated.View>
                             )}
                         </ScrollView>
                     </Animated.View>
