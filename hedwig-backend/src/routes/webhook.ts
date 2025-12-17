@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
-import AlchemyWebhooksService, { AlchemyActivity } from '../services/alchemyWebhooks';
+import AlchemyWebhooksService, { AlchemyActivity, AlchemySolanaAddressActivityEvent } from '../services/alchemyWebhooks';
 import NotificationService from '../services/notifications';
 
 const router = Router();
@@ -208,7 +208,7 @@ async function processPaymentEvent(data: {
 
 /**
  * POST /api/webhooks/alchemy
- * Endpoint for Alchemy Address Activity webhooks (Base Sepolia, Celo Alfajores)
+ * Endpoint for Alchemy Address Activity webhooks (Base Sepolia, Celo Alfajores, Solana Devnet)
  */
 router.post('/alchemy', async (req: Request, res: Response) => {
     try {
@@ -233,8 +233,14 @@ router.post('/alchemy', async (req: Request, res: Response) => {
 
         console.log(`[Alchemy] Received ${event.type} event: ${event.id}`);
 
-        // Process Address Activity events
-        if (event.type === 'ADDRESS_ACTIVITY' && event.event?.activity) {
+        // Check if this is a Solana event
+        if (AlchemyWebhooksService.isSolanaEvent(event)) {
+            const solanaEvent = event.event as AlchemySolanaAddressActivityEvent;
+            console.log(`[Alchemy] Processing Solana event on ${solanaEvent.network}`);
+            await processSolanaActivity(solanaEvent);
+        }
+        // Process EVM Address Activity events
+        else if (event.type === 'ADDRESS_ACTIVITY' && 'activity' in event.event) {
             await processAlchemyActivity(event.event.network, event.event.activity);
         }
 
@@ -312,6 +318,88 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
 
         } catch (err) {
             console.error('[Alchemy] Error processing activity:', err);
+        }
+    }
+}
+
+/**
+ * Process Solana Address Activity events (Beta - Devnet)
+ */
+async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
+    const { network, transaction: transactions, slot } = event;
+
+    console.log(`[Alchemy] Processing ${transactions.length} Solana transactions on ${network} at slot ${slot}`);
+
+    for (const tx of transactions) {
+        // Skip vote transactions
+        if (tx.is_vote) {
+            continue;
+        }
+
+        const transfer = AlchemyWebhooksService.extractSolanaTransferInfo(tx, slot);
+        console.log(`[Alchemy] Processing Solana transfer:`, transfer);
+
+        try {
+            // Find user by Solana wallet address (recipient)
+            if (transfer.to) {
+                const { data: recipientUser } = await supabase
+                    .from('users')
+                    .select('id, privy_id')
+                    .or(`solana_address.eq.${transfer.to},wallet_address.eq.${transfer.to}`)
+                    .single();
+
+                if (recipientUser) {
+                    await NotificationService.notifyTransaction(recipientUser.id, {
+                        type: 'received',
+                        amount: transfer.value.toFixed(6),
+                        token: transfer.asset,
+                        network: network,
+                        txHash: transfer.signature,
+                    });
+
+                    console.log(`[Alchemy] Notified user ${recipientUser.id} of received SOL payment`);
+                }
+            }
+
+            // Find user by Solana wallet address (sender)
+            if (transfer.from) {
+                const { data: senderUser } = await supabase
+                    .from('users')
+                    .select('id, privy_id')
+                    .or(`solana_address.eq.${transfer.from},wallet_address.eq.${transfer.from}`)
+                    .single();
+
+                if (senderUser) {
+                    await NotificationService.notifyTransaction(senderUser.id, {
+                        type: 'sent',
+                        amount: transfer.value.toFixed(6),
+                        token: transfer.asset,
+                        network: network,
+                        txHash: transfer.signature,
+                    });
+
+                    console.log(`[Alchemy] Notified user ${senderUser.id} of sent SOL payment`);
+                }
+            }
+
+            // Record the transaction
+            await supabase
+                .from('transactions')
+                .upsert({
+                    tx_hash: transfer.signature,
+                    type: 'TRANSFER',
+                    status: 'CONFIRMED',
+                    amount: transfer.value.toString(),
+                    token: transfer.asset,
+                    network: network,
+                    from_address: transfer.from,
+                    to_address: transfer.to,
+                    block_height: slot,
+                    confirmed_at: new Date().toISOString(),
+                }, { onConflict: 'tx_hash' });
+
+        } catch (err) {
+            console.error('[Alchemy] Error processing Solana activity:', err);
         }
     }
 }
