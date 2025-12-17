@@ -32,7 +32,6 @@ const ICONS = {
 const CHAINS: Record<string, any> = {
     'base': { name: 'Base', icon: ICONS.base },
     'celo': { name: 'Celo', icon: ICONS.celo },
-    'solana': { name: 'Solana', icon: ICONS.solana },
     'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum },
     'optimism': { name: 'Optimism', icon: ICONS.optimism },
 };
