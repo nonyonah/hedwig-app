@@ -409,15 +409,26 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
         }
     }, [visible]);
 
-    // Animate content when view mode changes (instant)
+    // Animate content when view mode changes (any direction)
     useEffect(() => {
-        if (visible && viewMode !== 'main') {
+        if (visible) {
+            // Reset and animate both main content and sub-views
             viewContentAnim.setValue(0);
-            Animated.timing(viewContentAnim, {
-                toValue: 1,
-                duration: 120,
-                useNativeDriver: true,
-            }).start();
+            // Also reset and re-animate main content when returning to main
+            if (viewMode === 'main') {
+                balanceAnim.setValue(0);
+                chainsAnim.setValue(0);
+                Animated.parallel([
+                    Animated.timing(balanceAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
+                    Animated.timing(chainsAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
+                ]).start();
+            } else {
+                Animated.timing(viewContentAnim, {
+                    toValue: 1,
+                    duration: 100,
+                    useNativeDriver: true,
+                }).start();
+            }
         }
     }, [viewMode, visible]);
 
