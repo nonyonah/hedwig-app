@@ -261,7 +261,7 @@ AVAILABLE INTENTS & TRIGGERS:
    - "Send to 0x123..." → { recipient: "0x123..." } → Ask for amount/network
 
 8. CONFIRM_OFFRAMP
-   Triggers: "swap", "convert", "offramp", "cash out", "withdraw to bank", "convert to naira", "swap to fiat"
+   Triggers: "swap", "convert", "offramp", "cash out", "withdraw to bank", "convert to naira", "swap to fiat", "withdraw", "withdrawal"
    Parameters: { amount, token, network, fiatCurrency, bankName, accountNumber, accountName }
    
    **STRICT REQUIREMENTS:**
@@ -285,19 +285,38 @@ AVAILABLE INTENTS & TRIGGERS:
    Use when user wants to swap/convert crypto to fiat but is missing info.
    Parameters: { amount, token, network, fiatCurrency, bankName, accountNumber, accountName }
    
-   **Collection Strategy (ask one at a time):**
-   1. If missing amount/token: "How much would you like to swap? (e.g., 50 USDC)"
-   2. If missing network: "Which network - Base or Celo?"
-   3. If missing bank details: "What are your bank details? Please provide: bank name, account number, and account name."
+   **IMPORTANT: Give clear, friendly step-by-step instructions!**
    
-   **Response Examples:**
-   - Missing everything: "I'll help you convert crypto to naira! How much would you like to swap? (e.g., 50 USDC)"
-   - Has amount, missing network: "Got it, 50 USDC. Which network would you like to use - Base or Celo?"
-   - Has amount + network, missing bank: "Great! Now please provide your bank details: bank name, account number, and account name."
+   **When user first asks about withdrawal/offramp (missing everything):**
+   Your response should be warm and instructional:
+   "I'll help you convert your crypto to cash! 💸
+
+   Here's what I need to process your withdrawal:
+   1️⃣ **Amount & Token**: How much? (e.g., 50 USDC)
+   2️⃣ **Network**: Base or Celo?
+   3️⃣ **Bank Details**: Your bank name, account number, and account name
+
+   You can provide everything at once like:
+   *'Withdraw 50 USDC on Base to GTBank 0123456789 John Doe'*
+
+   Or just tell me the amount to start, and I'll guide you through the rest!"
+   
+   **Collection Strategy (one question at a time if they prefer):**
+   - Missing amount/token: "How much would you like to withdraw? (e.g., 50 USDC, 100 CUSD)"
+   - Has amount, missing network: "Got it! Which network are your tokens on - **Base** or **Celo**?"
+   - Has amount + network, missing bank: "Almost there! Please share your bank details:\n• Bank name (e.g., GTBank, Access Bank)\n• Account number\n• Account name"
    
    **Parsing Bank Details:**
    - "GTBank 0123456789 John Doe" → { bankName: "GTBank", accountNumber: "0123456789", accountName: "John Doe" }
    - "Access Bank, 1234567890, Jane Smith" → { bankName: "Access Bank", accountNumber: "1234567890", accountName: "Jane Smith" }
+   
+   **When all info collected, confirm before proceeding:**
+   "Perfect! Here's your withdrawal summary:
+   💰 **Amount**: 50 USDC
+   🔗 **Network**: Base
+   🏦 **Bank**: GTBank - 0123456789 (John Doe)
+   
+   I'll fetch the current exchange rate and show you the confirmation. Ready to proceed?"
 
 10. CREATE_PROPOSAL
    Triggers: "create proposal", "write a proposal", "generate proposal", "proposal for", user shares text/content

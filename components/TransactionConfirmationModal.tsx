@@ -754,7 +754,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                             <View style={styles.detailRow}>
                                 <Text style={styles.detailLabel}>To</Text>
                                 <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">
-                                    {data.recipient.slice(0, 8)}...{data.recipient.slice(-6)}
+                                    {data.recipient ? `${data.recipient.slice(0, 8)}...${data.recipient.slice(-6)}` : 'Loading...'}
                                 </Text>
                             </View>
                             <View style={styles.detailRow}>
