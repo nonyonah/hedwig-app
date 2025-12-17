@@ -112,6 +112,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     const modalAnim = useRef(new Animated.Value(height)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
 
+    // Staggered entrance animations for internal elements
+    const headerAnim = useRef(new Animated.Value(0)).current;
+    const balanceAnim = useRef(new Animated.Value(0)).current;
+    const chainsAnim = useRef(new Animated.Value(0)).current;
+    const logoutAnim = useRef(new Animated.Value(0)).current;
+
     // Create wallets if they don't exist
     useEffect(() => {
         const setupWallets = async () => {
@@ -357,6 +363,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     useEffect(() => {
         if (visible) {
             setIsRendered(true);
+            // Reset stagger animations
+            headerAnim.setValue(0);
+            balanceAnim.setValue(0);
+            chainsAnim.setValue(0);
+            logoutAnim.setValue(0);
+
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 1,
@@ -369,7 +381,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                     stiffness: 300,
                     useNativeDriver: true,
                 })
-            ]).start();
+            ]).start(() => {
+                // Trigger staggered entrance animations for internal elements
+                Animated.stagger(80, [
+                    Animated.spring(headerAnim, { toValue: 1, damping: 20, stiffness: 200, useNativeDriver: true }),
+                    Animated.spring(balanceAnim, { toValue: 1, damping: 20, stiffness: 200, useNativeDriver: true }),
+                    Animated.spring(chainsAnim, { toValue: 1, damping: 20, stiffness: 200, useNativeDriver: true }),
+                    Animated.spring(logoutAnim, { toValue: 1, damping: 20, stiffness: 200, useNativeDriver: true }),
+                ]).start();
+            });
         } else {
             Animated.parallel([
                 Animated.timing(opacityAnim, {
@@ -429,7 +449,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                         ]}
                     >
                         {/* Header */}
-                        <View style={styles.modalHeader}>
+                        <Animated.View style={[styles.modalHeader, { opacity: headerAnim, transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                             <View style={styles.userInfo}>
                                 {profileIcon?.imageUri ? (
                                     <Image
@@ -488,7 +508,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                                 <X size={20} color={Colors.textSecondary} />
                             </TouchableOpacity>
-                        </View>
+                        </Animated.View>
 
                         <ScrollView
                             style={styles.scrollView}
@@ -499,12 +519,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             {viewMode === 'main' && (
                                 <View style={styles.mainContent}>
                                     {/* Total Balance Card */}
-                                    <View style={styles.balanceCard}>
+                                    <Animated.View style={[styles.balanceCard, { opacity: balanceAnim, transform: [{ translateY: balanceAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                                         <Text style={styles.balanceLabel}>Total Balance</Text>
                                         <Text style={styles.balanceAmount}>${totalBalance}</Text>
-                                    </View>
+                                    </Animated.View>
 
-                                    <View style={styles.menuList}>
+                                    <Animated.View style={[styles.menuList, { opacity: chainsAnim, transform: [{ translateY: chainsAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                                         {/* Chain Selector */}
                                         <TouchableOpacity
                                             style={styles.menuItem}
@@ -540,7 +560,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                             </View>
                                             <CaretRight size={20} color={Colors.textSecondary} />
                                         </TouchableOpacity>
-                                    </View>
+                                    </Animated.View>
                                 </View>
                             )}
 

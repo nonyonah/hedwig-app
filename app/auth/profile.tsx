@@ -54,7 +54,16 @@ export default function ProfileScreen() {
                 const data = await response.json();
                 if (data.success && data.data?.user) {
                     const existingUser = data.data.user;
-                    // Pre-fill name
+
+                    // If user already has a firstName, they've already completed profile setup
+                    // Redirect them directly to biometrics or home
+                    if (existingUser.firstName && existingUser.firstName.trim() !== '') {
+                        console.log('[Profile] Existing user found with firstName, redirecting to biometrics...');
+                        router.replace('/auth/biometrics');
+                        return;
+                    }
+
+                    // Otherwise, pre-fill whatever data exists
                     if (existingUser.firstName) {
                         const fullName = existingUser.lastName
                             ? `${existingUser.firstName} ${existingUser.lastName}`
