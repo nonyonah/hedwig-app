@@ -398,7 +398,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
                             </View>
                             <View style={styles.detailRow}>
                                 <Text style={styles.detailLabel}>Name</Text>
-                                <Text style={styles.detailValue}>{data.accountName}</Text>
+                                <Text style={styles.detailValue}>{data.accountName || 'Not provided'}</Text>
                             </View>
                         </View>
 
