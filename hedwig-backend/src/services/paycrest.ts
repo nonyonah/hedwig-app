@@ -87,7 +87,70 @@ export interface ExchangeRate {
     fiatCurrency: string;
 }
 
+// Cache for supported institutions
+let institutionsCache: { [currency: string]: any[] } = {};
+let cacheTimestamp = 0;
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
 export class PaycrestService {
+    /**
+     * Get supported institutions for a currency
+     * GET /institutions/{currency}
+     */
+    static async getSupportedInstitutions(currency: string = 'NGN'): Promise<any[]> {
+        // Check cache
+        const now = Date.now();
+        if (institutionsCache[currency] && (now - cacheTimestamp) < CACHE_TTL) {
+            return institutionsCache[currency];
+        }
+
+        try {
+            const response = await paycrestClient.get(`/institutions/${currency.toUpperCase()}`);
+
+            if (response.data?.status === 'success' && response.data?.data) {
+                institutionsCache[currency] = response.data.data;
+                cacheTimestamp = now;
+                console.log(`[Paycrest] Fetched ${response.data.data.length} institutions for ${currency}`);
+                return response.data.data;
+            }
+            return [];
+        } catch (error: any) {
+            console.error('Paycrest get institutions error:', error.response?.data || error.message);
+            return [];
+        }
+    }
+
+    /**
+     * Find institution code by matching bank name
+     * Uses API institutions list for better matching
+     */
+    static async findInstitutionCode(bankName: string, currency: string = 'NGN'): Promise<string> {
+        const normalizedName = bankName.toLowerCase().trim();
+
+        // First check our static map for quick lookup
+        if (BANK_CODE_MAP[normalizedName]) {
+            return BANK_CODE_MAP[normalizedName];
+        }
+
+        // Then try to fetch from API and match
+        const institutions = await this.getSupportedInstitutions(currency);
+
+        for (const inst of institutions) {
+            const instName = (inst.name || '').toLowerCase();
+            const instCode = inst.code || '';
+
+            // Match by name containing the bank name or vice versa
+            if (instName.includes(normalizedName) || normalizedName.includes(instName)) {
+                console.log(`[Paycrest] Matched "${bankName}" to "${inst.name}" (${instCode})`);
+                return instCode;
+            }
+        }
+
+        // Fall back to uppercase bank name as code
+        console.log(`[Paycrest] No match found for "${bankName}", using as-is`);
+        return bankName.toUpperCase();
+    }
+
     /**
      * Get current exchange rate for a token pair
      * GET /rates/:token/:amount/:currency?network=:network
@@ -124,8 +187,8 @@ export class PaycrestService {
         accountNumber: string
     ): Promise<{ accountName: string; verified: boolean }> {
         try {
-            // Convert bank name to Paycrest institution code
-            const institutionCode = this.getBankCode(bankName);
+            // Convert bank name to Paycrest institution code (async API lookup)
+            const institutionCode = await this.findInstitutionCode(bankName);
 
             console.log('[Paycrest] Verifying account with:', {
                 institution: institutionCode,
@@ -172,13 +235,19 @@ export class PaycrestService {
         orderData: OfframpOrderRequest
     ): Promise<OfframpOrderResponse> {
         try {
+            // Lookup the correct institution code from Paycrest API
+            const institutionCode = await this.findInstitutionCode(
+                orderData.recipient.institution,
+                orderData.recipient.currency || 'NGN'
+            );
+
             const payload = {
                 amount: orderData.amount,
                 token: orderData.token.toUpperCase(),
                 network: orderData.network.toLowerCase(),
                 rate: orderData.rate,
                 recipient: {
-                    institution: orderData.recipient.institution,
+                    institution: institutionCode,  // Use the looked-up code
                     accountIdentifier: orderData.recipient.accountIdentifier,
                     accountName: orderData.recipient.accountName,
                     currency: orderData.recipient.currency || 'NGN',
