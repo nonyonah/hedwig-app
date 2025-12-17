@@ -370,38 +370,36 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
             chainsAnim.setValue(0);
             logoutAnim.setValue(0);
 
+            // Run ALL animations in parallel for instant feel (no sequential delays)
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 1,
-                    duration: 150,
+                    duration: 100,
                     useNativeDriver: true,
                 }),
-                Animated.spring(modalAnim, {
+                Animated.timing(modalAnim, {
                     toValue: 0,
-                    damping: 25,
-                    stiffness: 300,
+                    duration: 200,
                     useNativeDriver: true,
-                })
-            ]).start(() => {
-                // Trigger staggered entrance animations for internal elements (fast animations)
-                Animated.stagger(40, [
-                    Animated.spring(headerAnim, { toValue: 1, damping: 18, stiffness: 400, useNativeDriver: true }),
-                    Animated.spring(balanceAnim, { toValue: 1, damping: 18, stiffness: 400, useNativeDriver: true }),
-                    Animated.spring(chainsAnim, { toValue: 1, damping: 18, stiffness: 400, useNativeDriver: true }),
-                    Animated.spring(logoutAnim, { toValue: 1, damping: 18, stiffness: 400, useNativeDriver: true }),
-                ]).start();
-            });
+                }),
+                // Staggered content animations start immediately
+                Animated.stagger(25, [
+                    Animated.timing(headerAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+                    Animated.timing(balanceAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+                    Animated.timing(chainsAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+                    Animated.timing(logoutAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+                ]),
+            ]).start();
         } else {
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 0,
-                    duration: 100,
+                    duration: 80,
                     useNativeDriver: true,
                 }),
-                Animated.spring(modalAnim, {
+                Animated.timing(modalAnim, {
                     toValue: height,
-                    damping: 25,
-                    stiffness: 300,
+                    duration: 150,
                     useNativeDriver: true,
                 })
             ]).start(() => {
@@ -411,14 +409,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
         }
     }, [visible]);
 
-    // Animate content when view mode changes
+    // Animate content when view mode changes (instant)
     useEffect(() => {
         if (visible && viewMode !== 'main') {
             viewContentAnim.setValue(0);
-            Animated.spring(viewContentAnim, {
+            Animated.timing(viewContentAnim, {
                 toValue: 1,
-                damping: 18,
-                stiffness: 400,
+                duration: 120,
                 useNativeDriver: true,
             }).start();
         }
