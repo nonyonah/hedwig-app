@@ -42,7 +42,26 @@ router.post('/paycrest', async (req: Request, res: Response, next) => {
             throw new Error(`Failed to update order: ${updateError.message}`);
         }
 
-        // TODO: Send notification to user
+        // Create in-app notification for offramp status updates
+        if (status === 'completed') {
+            const currencySymbol = order.fiat_currency === 'NGN' ? '₦' : order.fiat_currency === 'GHS' ? '₵' : 'KSh';
+            const fiatAmount = order.fiat_amount?.toLocaleString() || '0';
+
+            await supabase.from('notifications').insert({
+                user_id: order.user_id,
+                type: 'offramp_success',
+                title: 'Withdrawal Complete! 💰',
+                message: `Great news! Your withdrawal of $${order.amount} USDC is complete. ${currencySymbol}${fiatAmount} has been sent to your bank account.`,
+                metadata: { orderId: order.id, amount: order.amount, fiatAmount: order.fiat_amount, currency: order.fiat_currency },
+            });
+
+            // Also send push notification
+            await NotificationService.notifyUser(order.user_id, {
+                title: '💰 Withdrawal Complete!',
+                body: `${currencySymbol}${fiatAmount} has been sent to your bank.`,
+                data: { type: 'offramp_success', orderId: order.id },
+            });
+        }
 
         res.json({
             success: true,
@@ -275,6 +294,16 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                     token: transfer.asset,
                     network: network,
                     txHash: transfer.txHash,
+                });
+
+                // Create in-app notification for received crypto
+                const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
+                await supabase.from('notifications').insert({
+                    user_id: recipientUser.id,
+                    type: 'crypto_received',
+                    title: 'Payment Received! 🎉',
+                    message: `You just received ${transfer.value} ${transfer.asset} from ${shortAddress} on ${network}. Check your wallet!`,
+                    metadata: { txHash: transfer.txHash, amount: transfer.value.toString(), token: transfer.asset, network, from: transfer.from },
                 });
 
                 console.log(`[Alchemy] Notified user ${recipientUser.id} of received payment`);

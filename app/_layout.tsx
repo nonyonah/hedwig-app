@@ -59,6 +59,7 @@ export default function RootLayout() {
                         <Stack.Screen name="payment-link/[id]" />
                         <Stack.Screen name="payment-links/index" />
                         <Stack.Screen name="settings/index" />
+                        <Stack.Screen name="notifications/index" />
                     </Stack>
                 ) : (
                     <PrivyProvider
@@ -82,6 +83,7 @@ export default function RootLayout() {
                             <Stack.Screen name="payment-link/[id]" />
                             <Stack.Screen name="payment-links/index" />
                             <Stack.Screen name="settings/index" />
+                            <Stack.Screen name="notifications/index" />
                         </Stack>
                     </PrivyProvider>
                 )}

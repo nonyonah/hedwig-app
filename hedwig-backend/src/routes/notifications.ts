@@ -123,4 +123,141 @@ router.post('/test', authenticate, async (req: Request, res: Response) => {
     }
 });
 
+// ========== IN-APP NOTIFICATIONS ==========
+
+import { supabase } from '../lib/supabase';
+
+/**
+ * GET /api/notifications
+ * Get user's in-app notifications (paginated)
+ */
+router.get('/', authenticate, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user!.id;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const offset = parseInt(req.query.offset as string) || 0;
+
+        const { data: notifications, error, count } = await supabase
+            .from('notifications')
+            .select('*', { count: 'exact' })
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+
+        if (error) {
+            throw new Error(`Failed to fetch notifications: ${error.message}`);
+        }
+
+        res.json({
+            success: true,
+            data: {
+                notifications: notifications || [],
+                total: count || 0,
+                limit,
+                offset,
+            },
+        });
+    } catch (error: any) {
+        console.error('[Notifications] Error fetching notifications:', error);
+        res.status(500).json({
+            success: false,
+            error: { message: 'Internal server error' },
+        });
+    }
+});
+
+/**
+ * GET /api/notifications/unread-count
+ * Get count of unread notifications
+ */
+router.get('/unread-count', authenticate, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user!.id;
+
+        const { count, error } = await supabase
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('is_read', false);
+
+        if (error) {
+            throw new Error(`Failed to count notifications: ${error.message}`);
+        }
+
+        res.json({
+            success: true,
+            data: { unreadCount: count || 0 },
+        });
+    } catch (error: any) {
+        console.error('[Notifications] Error counting unread:', error);
+        res.status(500).json({
+            success: false,
+            error: { message: 'Internal server error' },
+        });
+    }
+});
+
+/**
+ * PATCH /api/notifications/:id/read
+ * Mark a single notification as read
+ */
+router.patch('/:id/read', authenticate, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user!.id;
+        const notificationId = req.params.id;
+
+        const { error } = await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('id', notificationId)
+            .eq('user_id', userId);
+
+        if (error) {
+            throw new Error(`Failed to mark as read: ${error.message}`);
+        }
+
+        res.json({
+            success: true,
+            data: { message: 'Notification marked as read' },
+        });
+    } catch (error: any) {
+        console.error('[Notifications] Error marking as read:', error);
+        res.status(500).json({
+            success: false,
+            error: { message: 'Internal server error' },
+        });
+    }
+});
+
+/**
+ * POST /api/notifications/read-all
+ * Mark all notifications as read
+ */
+router.post('/read-all', authenticate, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user!.id;
+
+        const { error } = await supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('user_id', userId)
+            .eq('is_read', false);
+
+        if (error) {
+            throw new Error(`Failed to mark all as read: ${error.message}`);
+        }
+
+        res.json({
+            success: true,
+            data: { message: 'All notifications marked as read' },
+        });
+    } catch (error: any) {
+        console.error('[Notifications] Error marking all as read:', error);
+        res.status(500).json({
+            success: false,
+            error: { message: 'Internal server error' },
+        });
+    }
+});
+
 export default router;

@@ -58,14 +58,24 @@ export default function PaymentLinksScreen() {
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
 
-    // Helper to get chain icon
+    // Helper to get chain icon - handles various formats
     const getChainIcon = (chain?: string) => {
         const c = chain?.toLowerCase() || 'base';
-        if (c === 'solana') return ICONS.solana;
-        if (c === 'celo') return ICONS.celo;
-        if (c === 'arbitrum') return ICONS.arbitrum;
-        if (c === 'optimism') return ICONS.optimism;
+        if (c.includes('solana')) return ICONS.solana;
+        if (c.includes('celo')) return ICONS.celo;
+        if (c.includes('arbitrum')) return ICONS.arbitrum;
+        if (c.includes('optimism')) return ICONS.optimism;
         return ICONS.base;
+    };
+
+    // Helper to get display chain name
+    const getChainName = (chain?: string) => {
+        const c = chain?.toLowerCase() || 'base';
+        if (c.includes('solana')) return 'Solana';
+        if (c.includes('celo')) return 'Celo';
+        if (c.includes('arbitrum')) return 'Arbitrum';
+        if (c.includes('optimism')) return 'Optimism';
+        return 'Base';
     };
 
     // Animation value for modal
@@ -556,7 +566,7 @@ export default function PaymentLinksScreen() {
                                         source={getChainIcon(selectedLink?.chain)}
                                         style={styles.smallIcon}
                                     />
-                                    <Text style={styles.detailValue}>{selectedLink?.chain || 'Base'}</Text>
+                                    <Text style={styles.detailValue}>{getChainName(selectedLink?.chain)}</Text>
                                 </View>
                             </View>
                         </View>

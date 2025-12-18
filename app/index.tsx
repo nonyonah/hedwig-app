@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, KeyboardAvoidingView, Platform, Modal, Animated, Dimensions, ActivityIndicator, Alert, SafeAreaView, Keyboard, TouchableWithoutFeedback, LayoutAnimation, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -10,7 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../hooks/useAuth';
 import { useWallet } from '../hooks/useWallet';
 import { usePrivy } from '@privy-io/expo';
-import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File } from 'phosphor-react-native';
+import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File, Bell } from 'phosphor-react-native';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
@@ -152,6 +152,7 @@ export default function HomeScreen() {
     const [isOfframpReviewVisible, setIsOfframpReviewVisible] = useState(false);
     const [offrampData, setOfframpData] = useState<any>(null);
     const [attachedFiles, setAttachedFiles] = useState<{ uri: string; name: string; mimeType: string }[]>([]);
+    const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
     // Animate view mode changes
     useEffect(() => {
@@ -285,6 +286,33 @@ export default function HomeScreen() {
         }
     }, [isSidebarOpen]);
 
+    // Fetch unread notification count
+    useEffect(() => {
+        const fetchUnreadCount = async () => {
+            try {
+                const token = await getAccessToken();
+                if (!token) return;
+
+                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                const response = await fetch(`${apiUrl}/api/notifications/unread-count`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    setUnreadNotificationCount(data.data.unreadCount || 0);
+                }
+            } catch (error) {
+                console.log('[Notifications] Error fetching unread count:', error);
+            }
+        };
+
+        fetchUnreadCount();
+        // Refresh every 30 seconds
+        const interval = setInterval(fetchUnreadCount, 30000);
+        return () => clearInterval(interval);
+    }, [getAccessToken]);
+
     const loadConversation = async (id: string) => {
         try {
             const token = await getAccessToken();
@@ -405,6 +433,15 @@ export default function HomeScreen() {
     useEffect(() => {
         fetchUserProfile();
     }, [user, isReady]);
+
+    // Refresh profile data when screen regains focus (e.g., returning from profile edit)
+    useFocusEffect(
+        useCallback(() => {
+            if (user && isReady) {
+                fetchUserProfile();
+            }
+        }, [user, isReady])
+    );
 
     // Keyboard listeners for instant adjustment
     useEffect(() => {
@@ -943,6 +980,20 @@ export default function HomeScreen() {
                         <List size={24} color={Colors.textPrimary} weight="bold" />
                     </TouchableOpacity>
                     <View style={styles.headerRight}>
+                        {/* Notifications Bell */}
+                        <TouchableOpacity
+                            onPress={() => router.push('/notifications')}
+                            style={styles.notificationButton}
+                        >
+                            <Bell size={24} color={Colors.textPrimary} weight="bold" />
+                            {unreadNotificationCount > 0 && (
+                                <View style={styles.notificationBadge}>
+                                    <Text style={styles.notificationBadgeText}>
+                                        {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                                    </Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
 
                         <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
                             {profileIcon.imageUri ? (
@@ -1131,6 +1182,26 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 16,
+    },
+    notificationButton: {
+        position: 'relative',
+    },
+    notificationBadge: {
+        position: 'absolute',
+        top: -5,
+        right: -5,
+        backgroundColor: '#EF4444',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+    },
+    notificationBadgeText: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 10,
+        color: '#FFFFFF',
     },
     keyboardAvoidingView: {
         flex: 1,

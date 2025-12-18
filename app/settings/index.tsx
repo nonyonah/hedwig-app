@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CaretLeft, Check, Moon, Sun, Globe, User, SignOut, CaretRight } from 'phosphor-react-native';
+import { CaretLeft, Check, Moon, Sun, Globe, User, SignOut, CaretRight, List } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { useSettings, Currency, Theme } from '../../context/SettingsContext';
 import { usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
+import { Sidebar } from '../../components/Sidebar';
 
 const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
     { code: 'USD', label: 'US Dollar', symbol: '$' },
@@ -23,13 +24,75 @@ export default function SettingsScreen() {
     const { user, logout } = usePrivy();
 
     const [loading, setLoading] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [conversations, setConversations] = useState<any[]>([]);
+    const [userName, setUserName] = useState({ firstName: '', lastName: '' });
+    const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
 
     // Parse user data
     const privyUser = user as any;
     const email = privyUser?.email?.address || privyUser?.id || 'User';
-    // Assuming backend data fetched elsewhere or stored in context if we had a UserContext
-    // For now we'll just use what we have available or mock for "edit profile" demo
-    // Ideally we fetch the latest profile data from backend on mount
+
+    useEffect(() => {
+        fetchUserData();
+        fetchConversations();
+    }, []);
+
+    const { getAccessToken } = usePrivy();
+
+    const fetchUserData = async () => {
+        try {
+            const token = await getAccessToken();
+            if (!token) return;
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/users/profile`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const userData = data.data?.user || data.data;
+                if (userData) {
+                    setUserName({
+                        firstName: userData.firstName || '',
+                        lastName: userData.lastName || ''
+                    });
+                    // Parse avatar
+                    if (userData.avatar) {
+                        try {
+                            if (typeof userData.avatar === 'string' && userData.avatar.trim().startsWith('{')) {
+                                setProfileIcon(JSON.parse(userData.avatar));
+                            } else if (typeof userData.avatar === 'string' && userData.avatar.startsWith('data:')) {
+                                setProfileIcon({ imageUri: userData.avatar });
+                            }
+                        } catch (e) {
+                            setProfileIcon({ imageUri: userData.avatar });
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching user:', error);
+        }
+    };
+
+    const fetchConversations = async () => {
+        try {
+            const token = await getAccessToken();
+            if (!token) return;
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/chat/conversations`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setConversations(data.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching conversations:', error);
+        }
+    };
 
     const handleLogout = async () => {
         try {
@@ -47,9 +110,9 @@ export default function SettingsScreen() {
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backButton}
-                    onPress={() => router.back()}
+                    onPress={() => setIsSidebarOpen(true)}
                 >
-                    <CaretLeft size={24} color={Colors.textPrimary} />
+                    <List size={24} color={Colors.textPrimary} weight="bold" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Settings</Text>
                 <View style={{ width: 24 }} />
@@ -62,16 +125,28 @@ export default function SettingsScreen() {
                     <Text style={styles.sectionTitle}>Profile</Text>
                     <TouchableOpacity
                         style={styles.profileCard}
-                        onPress={() => router.push({ pathname: '/auth/profile', params: { email: email } })}
+                        onPress={() => router.push({ pathname: '/auth/profile', params: { email: email, edit: 'true' } })}
                     >
-                        <LinearGradient
-                            colors={getUserGradient(user?.id)}
-                            style={styles.avatar}
-                        >
-                            <User size={24} color="white" weight="bold" />
-                        </LinearGradient>
+                        {profileIcon.imageUri ? (
+                            <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
+                        ) : profileIcon.emoji ? (
+                            <View style={[styles.avatar, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
+                                <Text style={{ fontSize: 20 }}>{profileIcon.emoji}</Text>
+                            </View>
+                        ) : (
+                            <LinearGradient
+                                colors={getUserGradient(user?.id)}
+                                style={styles.avatar}
+                            >
+                                <Text style={{ color: 'white', fontFamily: 'RethinkSans_700Bold', fontSize: 18 }}>
+                                    {userName.firstName?.[0]?.toUpperCase() || 'U'}
+                                </Text>
+                            </LinearGradient>
+                        )}
                         <View style={styles.profileInfo}>
-                            <Text style={styles.profileName}>Edit Profile</Text>
+                            <Text style={styles.profileName}>
+                                {userName.firstName ? `${userName.firstName} ${userName.lastName}`.trim() : 'Edit Profile'}
+                            </Text>
                             <Text style={styles.profileSubtitle}>Update name and photo</Text>
                         </View>
                         <CaretRight size={20} color={Colors.textSecondary} />
@@ -148,6 +223,15 @@ export default function SettingsScreen() {
                 </View>
 
             </ScrollView>
+
+            <Sidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+                userName={userName}
+                conversations={conversations}
+                onHomeClick={() => router.push('/')}
+                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
+            />
         </View>
     );
 }
@@ -163,8 +247,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 20,
         paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
     },
     backButton: {
         padding: 4,

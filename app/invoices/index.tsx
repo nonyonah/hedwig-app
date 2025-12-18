@@ -32,6 +32,7 @@ const ICONS = {
 const CHAINS: Record<string, any> = {
     'base': { name: 'Base', icon: ICONS.base },
     'celo': { name: 'Celo', icon: ICONS.celo },
+    'solana': { name: 'Solana', icon: ICONS.solana },
     'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum },
     'optimism': { name: 'Optimism', icon: ICONS.optimism },
 };
@@ -63,6 +64,26 @@ export default function InvoicesScreen() {
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
+
+    // Helper to get chain icon - handles various formats like 'solana_devnet'
+    const getChainIcon = (chain?: string) => {
+        const c = chain?.toLowerCase() || 'base';
+        if (c.includes('solana')) return ICONS.solana;
+        if (c.includes('celo')) return ICONS.celo;
+        if (c.includes('arbitrum')) return ICONS.arbitrum;
+        if (c.includes('optimism')) return ICONS.optimism;
+        return ICONS.base;
+    };
+
+    // Helper to get display chain name
+    const getChainName = (chain?: string) => {
+        const c = chain?.toLowerCase() || 'base';
+        if (c.includes('solana')) return 'Solana';
+        if (c.includes('celo')) return 'Celo';
+        if (c.includes('arbitrum')) return 'Arbitrum';
+        if (c.includes('optimism')) return 'Optimism';
+        return 'Base';
+    };
 
     useEffect(() => {
         fetchInvoices();
@@ -263,7 +284,7 @@ export default function InvoicesScreen() {
                     </View>
                     <View style={styles.iconContainer}>
                         <Image source={ICONS.usdc} style={styles.cardTokenIcon} />
-                        <Image source={CHAINS[item.chain]?.icon || ICONS.base} style={styles.cardChainBadge} />
+                        <Image source={getChainIcon(item.chain)} style={styles.cardChainBadge} />
                     </View>
                 </View>
 
@@ -554,11 +575,11 @@ export default function InvoicesScreen() {
                                 <Text style={styles.detailLabel}>Chain</Text>
                                 <View style={styles.chainValue}>
                                     <Image
-                                        source={CHAINS[selectedInvoice?.chain?.toLowerCase() || 'base'].icon}
+                                        source={getChainIcon(selectedInvoice?.chain)}
                                         style={styles.smallIcon}
                                     />
                                     <Text style={styles.detailValue}>
-                                        {CHAINS[selectedInvoice?.chain?.toLowerCase() || 'base'].name}
+                                        {getChainName(selectedInvoice?.chain)}
                                     </Text>
                                 </View>
                             </View>

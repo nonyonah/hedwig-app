@@ -81,6 +81,8 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                 .update({
                     privy_id: privyId, // Ensure privy_id is synced if we matched by email
                     last_login: new Date().toISOString(),
+                    first_name: firstName || user.first_name,
+                    last_name: lastName !== undefined ? lastName : user.last_name,
                     ethereum_wallet_address: walletAddresses?.ethereum || user.ethereum_wallet_address,
                     solana_wallet_address: walletAddresses?.solana || user.solana_wallet_address,
                     stacks_wallet_address: walletAddresses?.stacks || user.stacks_wallet_address,

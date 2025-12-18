@@ -26,7 +26,7 @@ const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
 export default function ProfileScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { email } = useLocalSearchParams<{ email: string }>();
+    const { email, edit } = useLocalSearchParams<{ email: string; edit?: string }>();
     const { getAccessToken, user } = usePrivy();
 
     // State
@@ -56,8 +56,8 @@ export default function ProfileScreen() {
                     const existingUser = data.data.user;
 
                     // If user already has a firstName, they've already completed profile setup
-                    // Redirect them directly to biometrics or home
-                    if (existingUser.firstName && existingUser.firstName.trim() !== '') {
+                    // Redirect them directly to biometrics or home (but NOT if editing from settings)
+                    if (existingUser.firstName && existingUser.firstName.trim() !== '' && edit !== 'true') {
                         console.log('[Profile] Existing user found with firstName, redirecting to biometrics...');
                         router.replace('/auth/biometrics');
                         return;
@@ -96,7 +96,7 @@ export default function ProfileScreen() {
     const pickImage = async () => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 allowsEditing: true,
                 aspect: [1, 1],
                 quality: 0.5,
@@ -148,7 +148,13 @@ export default function ProfileScreen() {
             const data = await response.json();
 
             if (data.success) {
-                router.replace('/auth/biometrics');
+                // If editing from settings, go back instead of redirecting to biometrics
+                if (edit === 'true') {
+                    Alert.alert('Success', 'Profile updated successfully');
+                    router.back();
+                } else {
+                    router.replace('/auth/biometrics');
+                }
             } else {
                 throw new Error(data.error?.message || 'Failed to create profile');
             }

@@ -141,24 +141,31 @@ export default function TransactionsScreen() {
                 const user = responseData.data?.user || responseData.user;
                 setUserData(user);
 
-                // Parse avatar from API response (stored as JSON string in database)
+                // Parse avatar from API response (stored as JSON string in database or as data URI)
                 if (user?.avatar) {
                     try {
-                        const avatarData = typeof user.avatar === 'string'
-                            ? JSON.parse(user.avatar)
-                            : user.avatar;
-
-                        if (avatarData.imageUri) {
+                        // Check if it's a JSON string (starts with {) or direct image URI
+                        if (typeof user.avatar === 'string' && user.avatar.trim().startsWith('{')) {
+                            const avatarData = JSON.parse(user.avatar);
+                            if (avatarData.imageUri) {
+                                setProfileIcon({
+                                    type: 'image',
+                                    imageUri: avatarData.imageUri,
+                                    colorIndex: avatarData.colorIndex || 0
+                                });
+                            } else if (avatarData.emoji) {
+                                setProfileIcon({
+                                    type: 'emoji',
+                                    emoji: avatarData.emoji,
+                                    colorIndex: avatarData.colorIndex || 0
+                                });
+                            }
+                        } else if (typeof user.avatar === 'string' && user.avatar.startsWith('data:')) {
+                            // Direct data URI
                             setProfileIcon({
                                 type: 'image',
-                                imageUri: avatarData.imageUri,
-                                colorIndex: avatarData.colorIndex || 0
-                            });
-                        } else if (avatarData.emoji) {
-                            setProfileIcon({
-                                type: 'emoji',
-                                emoji: avatarData.emoji,
-                                colorIndex: avatarData.colorIndex || 0
+                                imageUri: user.avatar,
+                                colorIndex: 0
                             });
                         }
                     } catch (parseError) {
