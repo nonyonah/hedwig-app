@@ -71,6 +71,17 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
             { symbol: 'USDC', icon: TokenUSDC }
         ]
     },
+    {
+        name: 'Solana Devnet',
+        id: 0, // Solana uses cluster names not chain IDs
+        icon: NetworkSolana,
+        color: '#9945FF',
+        addressType: 'solana',
+        tokens: [
+            { symbol: 'SOL', icon: TokenSOL },
+            { symbol: 'USDC', icon: TokenUSDC }
+        ]
+    },
 ];
 
 // Profile color gradient options (same as in profile.tsx)
@@ -94,7 +105,12 @@ interface ProfileModalProps {
     onProfileUpdate?: () => void;
 }
 
+import { useSettings } from '../context/SettingsContext';
+
+// ... other imports ...
+
 export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, userName, walletAddresses, profileIcon }) => {
+    const { currency } = useSettings(); // Use currency from context
     const { user, logout, getAccessToken } = usePrivy();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const solanaWallet = useEmbeddedSolanaWallet();
@@ -107,7 +123,71 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     const [solAddress, setSolAddress] = useState<string>('');
     const [btcAddress, setBtcAddress] = useState<string>('');
     const [balances, setBalances] = useState<any>({});
-    const [totalBalance, setTotalBalance] = useState('0.00');
+    const [totalBalance, setTotalBalance] = useState('0.00'); // USD balance
+    const [exchangeRate, setExchangeRate] = useState<number>(1); // Rate from USD to selected currency
+
+    // Helper for currency symbol
+    const getCurrencySymbol = (curr: string) => {
+        switch (curr) {
+            case 'NGN': return '₦';
+            case 'GHS': return '₵';
+            case 'KES': return 'KSh';
+            default: return '$';
+        }
+    };
+    const currencySymbol = getCurrencySymbol(currency);
+
+    // Compute displayed balance (converted from USD)
+    const displayBalance = currency === 'USD'
+        ? totalBalance
+        : (parseFloat(totalBalance) * exchangeRate).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+    // Fetch exchange rate when currency changes
+    useEffect(() => {
+        // Fallback rates when API doesn't support the currency (approximate estimates)
+        const FALLBACK_RATES: Record<string, number> = {
+            NGN: 1600,  // ~1600 NGN per USD
+            GHS: 15,    // ~15 GHS per USD
+            KES: 155,   // ~155 KES per USD
+        };
+
+        const fetchExchangeRate = async () => {
+            if (currency === 'USD') {
+                setExchangeRate(1);
+                return;
+            }
+
+            try {
+                const token = await getAccessToken();
+                if (!token) {
+                    // No token, use fallback
+                    setExchangeRate(FALLBACK_RATES[currency] || 1);
+                    return;
+                }
+
+                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                // Fetch rate for 1 USDC to the selected currency
+                const response = await fetch(
+                    `${apiUrl}/api/offramp/rates?token=USDC&amount=1&currency=${currency}&network=base`,
+                    { headers: { 'Authorization': `Bearer ${token}` } }
+                );
+
+                const result = await response.json();
+                if (result.success && result.data?.rate) {
+                    setExchangeRate(parseFloat(result.data.rate));
+                } else {
+                    // API returned error (e.g., currency not supported) - use fallback
+                    console.log(`[ProfileModal] Using fallback rate for ${currency}`);
+                    setExchangeRate(FALLBACK_RATES[currency] || 1);
+                }
+            } catch (error) {
+                console.log('[ProfileModal] Error fetching exchange rate, using fallback:', error);
+                setExchangeRate(FALLBACK_RATES[currency] || 1);
+            }
+        };
+
+        fetchExchangeRate();
+    }, [currency, getAccessToken]);
 
     const modalAnim = useRef(new Animated.Value(height)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -370,24 +450,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
             chainsAnim.setValue(0);
             logoutAnim.setValue(0);
 
-            // Run ALL animations in parallel for instant feel (no sequential delays)
+            // Run ALL animations in parallel using spring for smooth feel
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 1,
-                    duration: 100,
+                    duration: 120,
                     useNativeDriver: true,
                 }),
-                Animated.timing(modalAnim, {
+                Animated.spring(modalAnim, {
                     toValue: 0,
-                    duration: 200,
+                    damping: 28,
+                    stiffness: 350,
                     useNativeDriver: true,
                 }),
                 // Staggered content animations start immediately
-                Animated.stagger(25, [
-                    Animated.timing(headerAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
-                    Animated.timing(balanceAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
-                    Animated.timing(chainsAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
-                    Animated.timing(logoutAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+                Animated.stagger(30, [
+                    Animated.spring(headerAnim, { toValue: 1, damping: 20, stiffness: 300, useNativeDriver: true }),
+                    Animated.spring(balanceAnim, { toValue: 1, damping: 20, stiffness: 300, useNativeDriver: true }),
+                    Animated.spring(chainsAnim, { toValue: 1, damping: 20, stiffness: 300, useNativeDriver: true }),
+                    Animated.spring(logoutAnim, { toValue: 1, damping: 20, stiffness: 300, useNativeDriver: true }),
                 ]),
             ]).start();
         } else {
@@ -397,9 +478,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                     duration: 80,
                     useNativeDriver: true,
                 }),
-                Animated.timing(modalAnim, {
+                Animated.spring(modalAnim, {
                     toValue: height,
-                    duration: 150,
+                    damping: 28,
+                    stiffness: 350,
                     useNativeDriver: true,
                 })
             ]).start(() => {
@@ -543,7 +625,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                     {/* Total Balance Card */}
                                     <Animated.View style={[styles.balanceCard, { opacity: balanceAnim, transform: [{ translateY: balanceAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                                         <Text style={styles.balanceLabel}>Total Balance</Text>
-                                        <Text style={styles.balanceAmount}>${totalBalance}</Text>
+                                        <Text style={styles.balanceAmount}>{currencySymbol}{displayBalance}</Text>
                                     </Animated.View>
 
                                     <Animated.View style={[styles.menuList, { opacity: chainsAnim, transform: [{ translateY: chainsAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>

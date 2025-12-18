@@ -106,20 +106,18 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
     const opacityAnim = useRef(new Animated.Value(0)).current;
 
     // Helper to normalize network name
-    // Solana is temporarily disabled - redirect to base
     const normalizeNetwork = (network: string): string => {
         const n = network.toLowerCase().trim();
         if (n === 'solana' || n === 'solana devnet' || n === 'solanadevnet' || n === 'solana_devnet') {
-            console.warn('[Transaction] Solana is temporarily disabled, defaulting to base');
-            return 'base';
+            return 'solana_devnet';
         }
         return n;
     };
 
-    // Helper to determine if network is Solana (DISABLED)
-    const isSolanaNetwork = (_network: string): boolean => {
-        // Solana is temporarily disabled
-        return false;
+    // Helper to determine if network is Solana
+    const isSolanaNetwork = (network: string): boolean => {
+        const n = network.toLowerCase().trim();
+        return n === 'solana' || n === 'solana_devnet' || n === 'solanadevnet' || n === 'solana devnet';
     };
 
     // Estimate gas when modal becomes visible (EVM only)

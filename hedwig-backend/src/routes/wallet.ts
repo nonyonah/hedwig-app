@@ -245,9 +245,8 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             );
         }
 
-        // ========== SOLANA DEVNET (DISABLED) ==========
-        // Solana support is temporarily disabled
-        if (false && solanaAddress) {
+        // ========== SOLANA DEVNET ==========
+        if (solanaAddress) {
             // Native SOL
             try {
                 const solanaPublicKey = new PublicKey(solanaAddress!);
@@ -309,7 +308,6 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                 });
             }
         }
-        // Else block removed - Solana is disabled
 
 
         // ========== STACKS TESTNET (Bitcoin L2) ==========

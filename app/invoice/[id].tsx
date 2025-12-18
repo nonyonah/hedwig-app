@@ -14,6 +14,7 @@ import { Button } from '../../components/Button';
 const CHAINS = [
     { id: 'base', name: 'Base', icon: require('../../assets/icons/networks/base.png') },
     { id: 'celo', name: 'Celo', icon: require('../../assets/icons/networks/celo.png') },
+    { id: 'solana', name: 'Solana', icon: require('../../assets/icons/networks/solana.png') },
 ];
 
 const TOKENS = [
@@ -263,7 +264,7 @@ function InvoiceContent() {
                         </View>
                     </View>
                     <Text style={styles.networkNotice}>
-                        Supports Base & Celo (More networks coming soon)
+                        Supports Base, Celo & Solana
                     </Text>
 
                     {/* Pay Button */}
