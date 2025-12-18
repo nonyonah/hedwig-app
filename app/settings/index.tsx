@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, Modal, TouchableWithoutFeedback } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
-import { CaretLeft, Check, Moon, Sun, Globe, User, SignOut, CaretRight, List } from 'phosphor-react-native';
+import { CaretRight, List, CaretDown, Check } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { useSettings, Currency, Theme } from '../../context/SettingsContext';
@@ -9,6 +11,7 @@ import { usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { Sidebar } from '../../components/Sidebar';
+import { Button } from '../../components/Button';
 
 const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
     { code: 'USD', label: 'US Dollar', symbol: '$' },
@@ -17,17 +20,29 @@ const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
     { code: 'KES', label: 'Kenyan Shilling', symbol: 'KSh' },
 ];
 
+const THEMES: { code: Theme; label: string }[] = [
+    { code: 'light', label: 'Light' },
+    { code: 'dark', label: 'Dark' },
+    { code: 'system', label: 'System' },
+];
+
 export default function SettingsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { currency, setCurrency, theme, setTheme, currentTheme } = useSettings();
-    const { user, logout } = usePrivy();
+    const { currency, setCurrency, theme, setTheme } = useSettings();
+    const { user, logout, getAccessToken } = usePrivy();
 
-    const [loading, setLoading] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
+
+    // Modals state
+    const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+    const [showThemeModal, setShowThemeModal] = useState(false);
+
+    // Security state
+    const [biometricsEnabled, setBiometricsEnabled] = useState(false);
 
     // Parse user data
     const privyUser = user as any;
@@ -36,9 +51,17 @@ export default function SettingsScreen() {
     useEffect(() => {
         fetchUserData();
         fetchConversations();
+        loadBiometricsState();
     }, []);
 
-    const { getAccessToken } = usePrivy();
+    const loadBiometricsState = async () => {
+        try {
+            const enabled = await AsyncStorage.getItem('biometricsEnabled');
+            setBiometricsEnabled(enabled === 'true');
+        } catch (error) {
+            console.error('Failed to load biometrics state:', error);
+        }
+    };
 
     const fetchUserData = async () => {
         try {
@@ -95,128 +118,233 @@ export default function SettingsScreen() {
     };
 
     const handleLogout = async () => {
-        try {
-            await logout();
-            router.replace('/auth/welcome');
-        } catch (error) {
-            console.error('Logout failed:', error);
-            Alert.alert('Error', 'Failed to log out');
+        Alert.alert(
+            "Log Out",
+            "Are you sure you want to log out?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Log Out",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await logout();
+                            router.replace('/auth/welcome');
+                        } catch (error) {
+                            console.error('Logout failed:', error);
+                            Alert.alert('Error', 'Failed to log out');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            "Delete Account",
+            "Are you sure? This action cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Delete", style: "destructive", onPress: () => console.log("Delete account") }
+            ]
+        );
+    };
+
+    const toggleBiometrics = async (value: boolean) => {
+        if (value) {
+            // Enabling biometrics
+            const hasHardware = await LocalAuthentication.hasHardwareAsync();
+            if (!hasHardware) {
+                Alert.alert('Error', 'Biometric hardware not available on this device.');
+                return;
+            }
+
+            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+            if (!isEnrolled) {
+                Alert.alert('Error', 'No biometrics enrolled on this device. Please set them up in settings.');
+                return;
+            }
+
+            const result = await LocalAuthentication.authenticateAsync({
+                promptMessage: 'Authenticate to enable biometrics',
+            });
+
+            if (result.success) {
+                setBiometricsEnabled(true);
+                await AsyncStorage.setItem('biometricsEnabled', 'true');
+            }
+        } else {
+            // Disabling biometrics
+            setBiometricsEnabled(false);
+            await AsyncStorage.setItem('biometricsEnabled', 'false');
         }
     };
+
+    const renderSelectionModal = (
+        visible: boolean,
+        onClose: () => void,
+        title: string,
+        options: any[],
+        selectedValue: string,
+        onSelect: (val: any) => void
+    ) => (
+        <Modal
+            visible={visible}
+            transparent
+            animationType="fade"
+            onRequestClose={onClose}
+        >
+            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
+                <TouchableWithoutFeedback>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{title}</Text>
+                        {options.map((opt) => (
+                            <TouchableOpacity
+                                key={opt.code}
+                                style={styles.modalItem}
+                                onPress={() => {
+                                    onSelect(opt.code);
+                                    onClose();
+                                }}
+                            >
+                                <Text style={[
+                                    styles.modalItemText,
+                                    selectedValue === opt.code && styles.modalItemTextSelected
+                                ]}>
+                                    {opt.label}
+                                </Text>
+                                {selectedValue === opt.code && (
+                                    <Check size={20} color={Colors.primary} weight="bold" />
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </TouchableWithoutFeedback>
+            </TouchableOpacity>
+        </Modal>
+    );
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity
-                    style={styles.backButton}
+                    style={styles.headerButton}
                     onPress={() => setIsSidebarOpen(true)}
                 >
                     <List size={24} color={Colors.textPrimary} weight="bold" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Settings</Text>
-                <View style={{ width: 24 }} />
+                <View style={styles.headerButton} />
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
 
-                {/* Profile Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Profile</Text>
-                    <TouchableOpacity
-                        style={styles.profileCard}
-                        onPress={() => router.push({ pathname: '/auth/profile', params: { email: email, edit: 'true' } })}
-                    >
-                        {profileIcon.imageUri ? (
-                            <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
-                        ) : profileIcon.emoji ? (
-                            <View style={[styles.avatar, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
-                                <Text style={{ fontSize: 20 }}>{profileIcon.emoji}</Text>
-                            </View>
-                        ) : (
-                            <LinearGradient
-                                colors={getUserGradient(user?.id)}
-                                style={styles.avatar}
-                            >
-                                <Text style={{ color: 'white', fontFamily: 'RethinkSans_700Bold', fontSize: 18 }}>
-                                    {userName.firstName?.[0]?.toUpperCase() || 'U'}
-                                </Text>
-                            </LinearGradient>
-                        )}
-                        <View style={styles.profileInfo}>
-                            <Text style={styles.profileName}>
-                                {userName.firstName ? `${userName.firstName} ${userName.lastName}`.trim() : 'Edit Profile'}
-                            </Text>
-                            <Text style={styles.profileSubtitle}>Update name and photo</Text>
+                {/* Profile Settings */}
+                <View style={styles.sectionHeaderContainer}>
+                    {/* Could add a title here if needed, but per design it seems cleaner without or integrated */}
+                </View>
+                <TouchableOpacity
+                    style={styles.profileCard}
+                    onPress={() => router.push({ pathname: '/auth/profile', params: { email: email, edit: 'true' } })}
+                >
+                    {profileIcon.imageUri ? (
+                        <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
+                    ) : profileIcon.emoji ? (
+                        <View style={[styles.avatar, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
+                            <Text style={{ fontSize: 20 }}>{profileIcon.emoji}</Text>
                         </View>
-                        <CaretRight size={20} color={Colors.textSecondary} />
+                    ) : (
+                        <LinearGradient
+                            colors={getUserGradient(user?.id)}
+                            style={styles.avatar}
+                        >
+                            <Text style={{ color: 'white', fontFamily: 'RethinkSans_700Bold', fontSize: 18 }}>
+                                {userName.firstName?.[0]?.toUpperCase() || 'U'}
+                            </Text>
+                        </LinearGradient>
+                    )}
+                    <View style={styles.profileInfo}>
+                        <Text style={styles.profileName}>
+                            {userName.firstName ? `${userName.firstName} ${userName.lastName}`.trim() : 'Edit Profile'}
+                        </Text>
+                        <Text style={styles.profileSubtitle}>Update name and photo</Text>
+                    </View>
+                    <CaretRight size={20} color={Colors.textSecondary} />
+                </TouchableOpacity>
+
+                <View style={styles.spacer} />
+
+                {/* General Settings */}
+                <Text style={styles.sectionTitle}>General Settings</Text>
+                <View style={styles.settingsGroup}>
+                    <TouchableOpacity style={styles.settingRow} onPress={() => setShowCurrencyModal(true)}>
+                        <Text style={styles.settingLabel}>Currency</Text>
+                        <View style={styles.settingValueContainer}>
+                            <Text style={styles.settingValue}>{currency}</Text>
+                            {/* <CaretDown size={16} color={Colors.textSecondary} /> */}
+                        </View>
+                    </TouchableOpacity>
+
+                    <View style={styles.divider} />
+
+                    <TouchableOpacity style={styles.settingRow} onPress={() => setShowThemeModal(true)}>
+                        <Text style={styles.settingLabel}>Theme</Text>
+                        <View style={styles.settingValueContainer}>
+                            <Text style={styles.settingValue}>
+                                {THEMES.find(t => t.code === theme)?.label || 'System'}
+                            </Text>
+                            {/* <CaretDown size={16} color={Colors.textSecondary} /> */}
+                        </View>
                     </TouchableOpacity>
                 </View>
 
-                {/* Appearance Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Appearance</Text>
-                    <View style={styles.settingItem}>
-                        <View style={styles.settingLeft}>
-                            <View style={[styles.iconContainer, { backgroundColor: '#F3F4F6' }]}>
-                                {theme === 'dark' ? <Moon size={20} color={Colors.textPrimary} /> : <Sun size={20} color={Colors.textPrimary} />}
-                            </View>
-                            <Text style={styles.settingLabel}>Theme</Text>
-                        </View>
-                        <View style={styles.themeSelector}>
-                            {(['light', 'dark', 'system'] as Theme[]).map((t) => (
-                                <TouchableOpacity
-                                    key={t}
-                                    style={[
-                                        styles.themeOption,
-                                        theme === t && styles.themeOptionSelected
-                                    ]}
-                                    onPress={() => setTheme(t)}
-                                >
-                                    <Text style={[
-                                        styles.themeOptionText,
-                                        theme === t && styles.themeOptionTextSelected
-                                    ]}>
-                                        {t.charAt(0).toUpperCase() + t.slice(1)}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                <View style={styles.spacer} />
+
+                {/* Security */}
+                <Text style={styles.sectionTitle}>Security</Text>
+                <View style={styles.settingsGroup}>
+                    <TouchableOpacity style={styles.settingRow} onPress={() => console.log('Recovery Phrase')}>
+                        <Text style={styles.settingLabel}>Recovery Phrase</Text>
+                        <CaretRight size={20} color={Colors.textSecondary} />
+                    </TouchableOpacity>
+
+                    <View style={styles.divider} />
+
+                    <View style={styles.settingRow}>
+                        <Text style={styles.settingLabel}>Biometrics</Text>
+                        <Switch
+                            trackColor={{ false: "#E5E7EB", true: Colors.success }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor="#E5E7EB"
+                            value={biometricsEnabled}
+                            onValueChange={toggleBiometrics}
+                        />
                     </View>
                 </View>
 
-                {/* Currency Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Currency</Text>
-                    {CURRENCIES.map((c) => (
-                        <TouchableOpacity
-                            key={c.code}
-                            style={styles.currencyItem}
-                            onPress={() => setCurrency(c.code)}
-                        >
-                            <View style={styles.settingLeft}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#EFF6FF' }]}>
-                                    <Text style={styles.currencySymbol}>{c.symbol}</Text>
-                                </View>
-                                <View>
-                                    <Text style={styles.settingLabel}>{c.code}</Text>
-                                    <Text style={styles.settingSubLabel}>{c.label}</Text>
-                                </View>
-                            </View>
-                            {currency === c.code && (
-                                <Check size={20} color={Colors.primary} weight="bold" />
-                            )}
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                <View style={styles.spacer} />
 
-                {/* Account Actions */}
-                <View style={[styles.section, { marginTop: 20 }]}>
-                    <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                        <SignOut size={20} color="#EF4444" weight="bold" />
-                        <Text style={styles.logoutText}>Log Out</Text>
-                    </TouchableOpacity>
-                </View>
+                <View style={styles.spacer} />
+
+                {/* Delete Account */}
+                <Button
+                    title="Delete Account"
+                    onPress={handleDeleteAccount}
+                    style={{ backgroundColor: '#EF4444' }}
+                    textStyle={{ color: '#FFFFFF' }}
+                    size="large"
+                />
+
+                {/* Log Out */}
+                <Button
+                    title="Log Out"
+                    onPress={handleLogout}
+                    style={{ backgroundColor: '#F3F4F6', marginTop: 12 }}
+                    textStyle={{ color: Colors.textPrimary }}
+                    size="large"
+                />
 
                 <View style={styles.footer}>
                     <Text style={styles.versionText}>Version 1.0.0</Text>
@@ -232,6 +360,27 @@ export default function SettingsScreen() {
                 onHomeClick={() => router.push('/')}
                 onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
             />
+
+            {/* Currency Modal */}
+            {renderSelectionModal(
+                showCurrencyModal,
+                () => setShowCurrencyModal(false),
+                "Select Currency",
+                CURRENCIES,
+                currency,
+                setCurrency
+            )}
+
+            {/* Theme Modal */}
+            {renderSelectionModal(
+                showThemeModal,
+                () => setShowThemeModal(false),
+                "Select Theme",
+                THEMES,
+                theme,
+                setTheme
+            )}
+
         </View>
     );
 }
@@ -248,8 +397,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 16,
     },
-    backButton: {
-        padding: 4,
+    headerButton: {
+        width: 40,
+        alignItems: 'flex-start',
     },
     headerTitle: {
         fontFamily: 'RethinkSans_700Bold',
@@ -258,30 +408,72 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 20,
-        paddingBottom: 40,
+        paddingBottom: 60,
     },
-    section: {
-        marginBottom: 32,
+    spacer: {
+        height: 24,
     },
     sectionTitle: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 14,
-        color: Colors.textSecondary,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        marginBottom: 16,
+        color: Colors.textPrimary,
+        marginBottom: 8,
     },
+    sectionHeaderContainer: {
+        marginBottom: 8,
+    },
+    infoContainer: {
+        backgroundColor: '#F3F4F6',
+        padding: 16,
+        borderRadius: 12,
+    },
+    infoText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 16,
+        color: Colors.textSecondary,
+    },
+    settingsGroup: {
+        backgroundColor: '#F9FAFB',
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    settingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+        height: 56,
+    },
+    settingLabel: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 16,
+        color: Colors.textPrimary,
+    },
+    settingValueContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    settingValue: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 16,
+        color: Colors.textSecondary,
+        marginRight: 4,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#F3F4F6',
+        marginLeft: 16,
+    },
+    // Profile Card Styles
     profileCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F9FAFB',
-        padding: 16,
-        borderRadius: 16,
+        marginBottom: 24,
     },
     avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
@@ -290,104 +482,65 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     profileName: {
-        fontFamily: 'RethinkSans_600SemiBold',
-        fontSize: 16,
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 18,
         color: Colors.textPrimary,
+        marginBottom: 4,
     },
     profileSubtitle: {
         fontFamily: 'RethinkSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
-    settingItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    settingLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    iconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    settingLabel: {
-        fontFamily: 'RethinkSans_600SemiBold',
-        fontSize: 16,
-        color: Colors.textPrimary,
-    },
-    settingSubLabel: {
-        fontFamily: 'RethinkSans_400Regular',
-        fontSize: 13,
-        color: Colors.textSecondary,
-    },
-    themeSelector: {
-        flexDirection: 'row',
-        backgroundColor: '#F3F4F6',
-        borderRadius: 20,
-        padding: 2,
-    },
-    themeOption: {
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 18,
-    },
-    themeOptionSelected: {
-        backgroundColor: '#FFFFFF',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-    },
-    themeOptionText: {
-        fontFamily: 'RethinkSans_500Medium',
-        fontSize: 13,
-        color: Colors.textSecondary,
-    },
-    themeOptionTextSelected: {
-        color: Colors.textPrimary,
-        fontFamily: 'RethinkSans_600SemiBold',
-    },
-    currencyItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
-    },
-    currencySymbol: {
-        fontFamily: 'RethinkSans_700Bold',
-        fontSize: 18,
-        color: Colors.primary,
-    },
-    logoutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        backgroundColor: '#FEF2F2',
-        borderRadius: 16,
-    },
-    logoutText: {
-        fontFamily: 'RethinkSans_600SemiBold',
-        fontSize: 16,
-        color: '#EF4444',
-        marginLeft: 8,
-    },
+    // Buttons
     footer: {
+        marginTop: 32,
         alignItems: 'center',
-        marginTop: 20,
     },
     versionText: {
         fontFamily: 'RethinkSans_400Regular',
         fontSize: 12,
-        color: Colors.textSecondary,
+        color: Colors.textTertiary,
+    },
+    // Modals
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        padding: 24,
+    },
+    modalContent: {
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 24,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        elevation: 5,
+    },
+    modalTitle: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 18,
+        marginBottom: 16,
+        color: Colors.textPrimary,
+        textAlign: 'center',
+    },
+    modalItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    modalItemText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 16,
+        color: Colors.textPrimary,
+    },
+    modalItemTextSelected: {
+        color: Colors.primary,
+        fontFamily: 'RethinkSans_700Bold',
     },
 });

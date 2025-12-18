@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { AppError } from '../middleware/errorHandler';
 import { getOrCreateUser } from '../utils/userHelper';
+import NotificationService from '../services/notifications';
 
 const router = Router();
 
@@ -278,6 +279,51 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
         }
 
         console.log('[Documents] Document marked as paid:', id);
+
+        // Send notifications to the document owner
+        try {
+            const docType = doc.type === 'INVOICE' ? 'Invoice' : 'Payment Link';
+            const notificationTitle = '💰 Payment Received!';
+            const notificationBody = `Your ${docType} "${doc.title}" for ${doc.amount} ${doc.currency || 'USDC'} has been paid!`;
+
+            // Send push notification
+            await NotificationService.notifyUser(doc.user_id, {
+                title: notificationTitle,
+                body: notificationBody,
+                data: {
+                    type: 'payment_received',
+                    documentId: id,
+                    documentType: doc.type,
+                    amount: doc.amount,
+                    txHash: txHash
+                }
+            });
+
+            // Create in-app notification
+            await supabase
+                .from('notifications')
+                .insert({
+                    user_id: doc.user_id,
+                    type: 'payment_received',
+                    title: notificationTitle,
+                    message: notificationBody,
+                    data: {
+                        document_id: id,
+                        document_type: doc.type,
+                        amount: doc.amount,
+                        currency: doc.currency || 'USDC',
+                        tx_hash: txHash,
+                        chain: chain,
+                        payer_address: payer
+                    },
+                    is_read: false
+                });
+
+            console.log('[Documents] Payment notification sent to user:', doc.user_id);
+        } catch (notifyError) {
+            // Don't fail the payment if notification fails
+            console.error('[Documents] Failed to send payment notification:', notifyError);
+        }
 
         res.json({
             success: true,

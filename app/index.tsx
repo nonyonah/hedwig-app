@@ -1300,7 +1300,7 @@ const styles = StyleSheet.create({
     inputWrapper: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        backgroundColor: Colors.background,
+        backgroundColor: '#f5f5f5',
         borderRadius: 24,
         padding: 8,
         // borderWidth: 1,

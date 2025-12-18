@@ -64,14 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }
     }, [isOpen]);
 
-    const handleLogout = async () => {
-        try {
-            await logout();
-            router.replace('/auth/welcome' as any);
-        } catch (error) {
-            console.error('Logout failed:', error);
-        }
-    };
+
 
     const handleNavigation = (path: string) => {
         onClose();
@@ -385,14 +378,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </View>
                             )}
 
-                            <TouchableOpacity style={styles.logoutItem} onPress={handleLogout}>
-                                <View style={styles.menuItemLeft}>
-                                    <View style={styles.menuIcon}>
-                                        <SignOut size={22} color={Colors.textPrimary} weight="bold" />
-                                    </View>
-                                    <Text style={styles.menuText}>Log out</Text>
-                                </View>
-                            </TouchableOpacity>
+
                         </ScrollView>
 
                         <View style={styles.footer}>
