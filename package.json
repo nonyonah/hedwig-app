@@ -18,7 +18,7 @@
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo-google-fonts/rethink-sans": "^0.4.2",
     "@expo/vector-icons": "^15.0.3",
-    "@privy-io/expo": "^0.60.2",
+    "@privy-io/expo": "^0.60.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.4.1",
     "@reown/appkit-ethers-react-native": "^2.0.1",

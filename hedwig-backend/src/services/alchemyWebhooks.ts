@@ -114,23 +114,34 @@ class AlchemyWebhooksService {
      * Get the appropriate signing key based on network
      */
     getSigningKey(network: string): string | null {
-        const networkLower = network.toLowerCase();
+        const networkLower = network.toLowerCase().replace(/[_-]/g, '');
+        console.log(`[Alchemy] Looking up signing key for network: ${network} (normalized: ${networkLower})`);
 
-        if (networkLower.includes('base') || networkLower === 'base-sepolia') {
-            return process.env.ALCHEMY_SIGNING_KEY_BASE || null;
+        // Base networks (base, basesepolia, base-sepolia, BASE_SEPOLIA, etc.)
+        if (networkLower.includes('base')) {
+            const key = process.env.ALCHEMY_SIGNING_KEY_BASE || null;
+            console.log(`[Alchemy] Using Base signing key: ${key ? 'present' : 'MISSING'}`);
+            return key;
         }
 
-        if (networkLower.includes('celo') || networkLower === 'celo-alfajores') {
-            return process.env.ALCHEMY_SIGNING_KEY_CELO || null;
+        // Celo networks (celo, celoalfajores, celo-alfajores, CELO_ALFAJORES, etc.)
+        if (networkLower.includes('celo')) {
+            const key = process.env.ALCHEMY_SIGNING_KEY_CELO || null;
+            console.log(`[Alchemy] Using Celo signing key: ${key ? 'present' : 'MISSING'}`);
+            return key;
         }
 
         // Solana networks
         if (networkLower.includes('solana')) {
-            return process.env.ALCHEMY_SIGNING_KEY_SOLANA || null;
+            const key = process.env.ALCHEMY_SIGNING_KEY_SOLANA || null;
+            console.log(`[Alchemy] Using Solana signing key: ${key ? 'present' : 'MISSING'}`);
+            return key;
         }
 
         // Fallback to generic key if set
-        return process.env.ALCHEMY_SIGNING_KEY || null;
+        const fallbackKey = process.env.ALCHEMY_SIGNING_KEY || null;
+        console.log(`[Alchemy] Using fallback signing key: ${fallbackKey ? 'present' : 'MISSING'}`);
+        return fallbackKey;
     }
 
     /**
@@ -160,6 +171,7 @@ class AlchemyWebhooksService {
 
             // Get network from event
             const network = this.getNetworkFromEvent(event);
+            console.log(`[Alchemy] Webhook event type: ${event.type}, network: ${network}`);
 
             // Get signing key for this network
             const signingKey = this.getSigningKey(network);
@@ -168,16 +180,20 @@ class AlchemyWebhooksService {
                 console.warn(`[Alchemy] No signing key found for network: ${network}`);
                 // Allow processing without validation in development
                 if (process.env.NODE_ENV === 'development') {
+                    console.log('[Alchemy] Skipping signature validation in development mode');
                     return { valid: true, event };
                 }
                 return { valid: false, error: 'No signing key configured for this network' };
             }
 
             // Validate signature
+            console.log(`[Alchemy] Validating signature (key first 8 chars): ${signingKey.substring(0, 8)}...`);
             if (!this.validateSignature(rawBody, signature, signingKey)) {
+                console.warn(`[Alchemy] Signature mismatch for network: ${network}`);
                 return { valid: false, error: 'Invalid signature' };
             }
 
+            console.log('[Alchemy] Signature validated successfully');
             return { valid: true, event };
         } catch (error: any) {
             return { valid: false, error: `Parse error: ${error.message}` };
@@ -204,19 +220,27 @@ class AlchemyWebhooksService {
      * Extract relevant transfer information from Solana transaction
      */
     extractSolanaTransferInfo(tx: SolanaTransaction, slot: number) {
-        const meta = tx.meta[0];
-        const message = tx.transaction[0]?.message;
+        // Handle different possible data structures from Alchemy
+        const meta = Array.isArray(tx.meta) ? tx.meta[0] : tx.meta;
+        const txData = Array.isArray(tx.transaction) ? tx.transaction[0] : tx.transaction;
+        const message = txData?.message;
 
         // Calculate balance changes to detect transfers
         const balanceChanges: { account: string; change: number }[] = [];
-        if (meta && message) {
-            for (let i = 0; i < message.account_keys.length; i++) {
-                const preBalance = meta.pre_balances[i] || 0;
-                const postBalance = meta.post_balances[i] || 0;
+
+        // Safely access account_keys - may not exist in all webhook payloads
+        const accountKeys = message?.account_keys || [];
+        const preBalances = meta?.pre_balances || [];
+        const postBalances = meta?.post_balances || [];
+
+        if (meta && accountKeys.length > 0) {
+            for (let i = 0; i < accountKeys.length; i++) {
+                const preBalance = preBalances[i] || 0;
+                const postBalance = postBalances[i] || 0;
                 const change = postBalance - preBalance;
                 if (change !== 0) {
                     balanceChanges.push({
-                        account: message.account_keys[i],
+                        account: accountKeys[i],
                         change: change / 1e9, // Convert lamports to SOL
                     });
                 }
@@ -231,7 +255,7 @@ class AlchemyWebhooksService {
             signature: tx.signature,
             slot,
             fee: meta?.fee ? meta.fee / 1e9 : 0,
-            from: sender?.account || message?.account_keys[0] || '',
+            from: sender?.account || accountKeys[0] || '',
             to: receiver?.account || '',
             value: receiver?.change || Math.abs(sender?.change || 0),
             asset: 'SOL',

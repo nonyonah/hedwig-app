@@ -15,6 +15,8 @@ import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import { getUserGradient } from '../../utils/gradientUtils';
+import { useSettings } from '../../context/SettingsContext';
+import { formatCurrency } from '../../utils/currencyUtils';
 
 // Icons for tokens, networks, and status
 const ICONS = {
@@ -46,6 +48,8 @@ const PROFILE_COLOR_OPTIONS = [
 export default function PaymentLinksScreen() {
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
+    const settings = useSettings();
+    const currency = settings?.currency || 'USD';
     const [links, setLinks] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedLink, setSelectedLink] = useState<any>(null);
@@ -279,7 +283,7 @@ export default function PaymentLinksScreen() {
                     </View>
                 </View>
 
-                <Text style={styles.amount}>${(item.amount || 0).toString().replace(/[^0-9.]/g, '')}</Text>
+                <Text style={styles.amount}>{formatCurrency((item.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}</Text>
 
                 <View style={styles.cardFooter}>
                     <Text style={styles.dateText}>
@@ -540,7 +544,7 @@ export default function PaymentLinksScreen() {
 
                         <View style={styles.amountCard}>
                             <Text style={styles.amountCardValue}>
-                                ${(selectedLink?.amount || 0).toString().replace(/[^0-9.]/g, '')}
+                                {formatCurrency((selectedLink?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
                             </Text>
                             <View style={styles.amountCardSub}>
                                 <Image source={ICONS.usdc} style={styles.smallIcon} />

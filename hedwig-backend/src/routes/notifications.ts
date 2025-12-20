@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import NotificationService from '../services/notifications';
+import { getOrCreateUser } from '../utils/userHelper';
 
 const router = Router();
 
@@ -10,8 +11,10 @@ const router = Router();
  */
 router.post('/register', authenticate, async (req: Request, res: Response) => {
     try {
-        const userId = req.user!.id;
+        const privyId = req.user!.privyId;
         const { expoPushToken, platform } = req.body;
+
+        console.log('[Notifications] Register request:', { privyId, expoPushToken: expoPushToken?.substring(0, 30), platform });
 
         if (!expoPushToken) {
             res.status(400).json({
@@ -30,8 +33,21 @@ router.post('/register', authenticate, async (req: Request, res: Response) => {
             return;
         }
 
+        // Get the actual user ID from database (email)
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            console.error('[Notifications] User not found for privyId:', privyId);
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found' },
+            });
+            return;
+        }
+
+        console.log('[Notifications] Registering device token for user:', user.id);
+
         const success = await NotificationService.registerDeviceToken(
-            userId,
+            user.id,
             expoPushToken,
             platform || 'ios'
         );

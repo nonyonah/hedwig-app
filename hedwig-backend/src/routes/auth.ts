@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { AppError } from '../middleware/errorHandler';
+import AlchemyAddressService from '../services/alchemyAddress';
 
 const router = Router();
 
@@ -103,6 +104,20 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                 solanaWallet: updatedUser.solana_wallet_address
             });
             user = updatedUser;
+        }
+
+        // Register wallet addresses with Alchemy webhooks for real-time notifications
+        if (walletAddresses?.ethereum || walletAddresses?.solana) {
+            try {
+                await AlchemyAddressService.registerUserWallets({
+                    ethereum: walletAddresses.ethereum,
+                    solana: walletAddresses.solana
+                });
+                console.log('[Auth] Registered wallets with Alchemy webhooks');
+            } catch (webhookError: any) {
+                // Don't fail registration if webhook registration fails
+                console.error('[Auth] Failed to register wallets with Alchemy:', webhookError.message);
+            }
         }
 
         res.json({

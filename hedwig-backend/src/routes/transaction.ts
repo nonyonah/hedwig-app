@@ -7,23 +7,23 @@ import { supabase } from '../lib/supabase';
 
 const router = Router();
 
-// Initialize Alchemy for Base Sepolia
+// Initialize Alchemy for Base Sepolia using RPC URL from env
 const baseConfig = {
-    apiKey: process.env.ALCHEMY_API_KEY,
+    apiKey: process.env.ALCHEMY_API_KEY || 'demo', // Fallback for SDK requirement
+    url: process.env.BASE_RPC_URL, // Use explicit RPC URL from env
     network: Network.BASE_SEPOLIA,
 };
 const baseAlchemy = new Alchemy(baseConfig);
 
-// Initialize Alchemy for Celo Sepolia (using custom URL since SDK doesn't have CELO_SEPOLIA enum yet)
+// Initialize Alchemy for Celo Sepolia using RPC URL from env
 const celoConfig = {
-    apiKey: process.env.ALCHEMY_API_KEY,
-    url: `https://celo-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    apiKey: process.env.ALCHEMY_API_KEY || 'demo', // Fallback for SDK requirement
+    url: process.env.CELO_RPC_URL, // Use explicit RPC URL from env
 };
 const celoAlchemy = new Alchemy(celoConfig);
 
-// Initialize Solana Connection using Alchemy RPC
-// Note: Solana requires a separate Alchemy app - use SOLANA_RPC_URL environment variable
-const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://solana-devnet.g.alchemy.com/v2/f69kp28_ExLI1yBQmngVL3g16oUzv2up';
+// Initialize Solana Connection using RPC URL from env
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 console.log('[Transactions] Solana RPC URL:', SOLANA_RPC_URL.substring(0, 50) + '...');
 const solanaConnection = new Connection(SOLANA_RPC_URL, 'confirmed');
 

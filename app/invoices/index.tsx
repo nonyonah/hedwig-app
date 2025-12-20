@@ -15,6 +15,8 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { getUserGradient } from '../../utils/gradientUtils';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
+import { useSettings } from '../../context/SettingsContext';
+import { formatCurrency, getCurrencySymbol } from '../../utils/currencyUtils';
 
 // Icons for tokens and chains
 const ICONS = {
@@ -52,6 +54,8 @@ const PROFILE_COLOR_OPTIONS = [
 export default function InvoicesScreen() {
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
+    const settings = useSettings();
+    const currency = settings?.currency || 'USD';
     const [invoices, setInvoices] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -288,7 +292,7 @@ export default function InvoicesScreen() {
                     </View>
                 </View>
 
-                <Text style={styles.amount}>${(item.amount || 0).toString().replace(/[^0-9.]/g, '')}</Text>
+                <Text style={styles.amount}>{formatCurrency((item.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}</Text>
 
                 <View style={styles.cardFooter}>
                     <Text style={styles.dateText}>
@@ -552,7 +556,7 @@ export default function InvoicesScreen() {
 
                         <View style={styles.amountCard}>
                             <Text style={styles.amountCardValue}>
-                                ${(selectedInvoice?.amount || 0).toString().replace(/[^0-9.]/g, '')}
+                                {formatCurrency((selectedInvoice?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
                             </Text>
                             <View style={styles.amountCardSub}>
                                 <Image source={ICONS.usdc} style={styles.smallIcon} />

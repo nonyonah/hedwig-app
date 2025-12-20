@@ -5,7 +5,7 @@ import { AppError } from '../middleware/errorHandler';
 import { supabase } from '../lib/supabase';
 import { createPublicClient, http, formatEther, formatUnits, defineChain } from 'viem';
 import { baseSepolia } from 'viem/chains';
-import { Connection, PublicKey, LAMPORTS_PER_SOL, clusterApiUrl } from '@solana/web3.js';
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
 
 const router = Router();
@@ -78,8 +78,9 @@ const celoSepoliaClient = createPublicClient({
     transport: http('https://forno.celo-sepolia.celo-testnet.org'),
 });
 
-// Create Solana Devnet connection
-const solanaDevnetConnection = new Connection(clusterApiUrl('devnet'), 'confirmed');
+// Create Solana Devnet connection - use env var or Alchemy RPC instead of deprecated clusterApiUrl
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+const solanaDevnetConnection = new Connection(SOLANA_RPC_URL, 'confirmed');
 
 /**
  * GET /api/wallet/balance

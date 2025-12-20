@@ -30,6 +30,8 @@ import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSettings } from '../../context/SettingsContext';
+import { formatCurrency } from '../../utils/currencyUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -102,6 +104,8 @@ export default function TransactionsScreen() {
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
     const insets = useSafeAreaInsets();
+    const settings = useSettings();
+    const currency = settings?.currency || 'USD';
 
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -306,7 +310,7 @@ export default function TransactionsScreen() {
                         {isReceived ? '+' : '-'}{item.amount} {item.token}
                     </Text>
                     <Text style={styles.txFiatAmount}>
-                        ≈ ${parseFloat(item.amount || '0').toFixed(2)}
+                        ≈ {formatCurrency(item.amount || '0', currency)}
                     </Text>
                 </View>
             </TouchableOpacity>

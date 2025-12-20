@@ -24,6 +24,7 @@ import { TransactionConfirmationModal } from '../components/TransactionConfirmat
 import { OfframpConfirmationModal } from '../components/OfframpConfirmationModal';
 import { LinkPreviewCard } from '../components/LinkPreviewCard';
 import { getUserGradient } from '../utils/gradientUtils';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 const { width, height } = Dimensions.get('window');
 
@@ -153,6 +154,9 @@ export default function HomeScreen() {
     const [offrampData, setOfframpData] = useState<any>(null);
     const [attachedFiles, setAttachedFiles] = useState<{ uri: string; name: string; mimeType: string }[]>([]);
     const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+    // Push notifications hook
+    const { registerForPushNotifications, registerWithBackend, isRegistered } = usePushNotifications();
 
     // Animate view mode changes
     useEffect(() => {
@@ -355,8 +359,8 @@ export default function HomeScreen() {
         }
     }, [params.conversationId, isReady, user]);
 
-    // Fetch user profile data
-    const fetchUserProfile = async () => {
+    // Fetch user profile data with retry logic for wallet addresses
+    const fetchUserProfile = async (retryCount = 0) => {
         if (!user) {
             console.log('User object is null, skipping fetch');
             return;
@@ -371,7 +375,6 @@ export default function HomeScreen() {
         console.log('Fetching user data for user:', user.id);
         try {
             const token = await getAccessToken();
-            // console.log('Got access token:', token ? 'Yes' : 'No');
 
             if (!token) {
                 console.log('No access token available, skipping fetch');
@@ -382,19 +385,15 @@ export default function HomeScreen() {
             console.log('🔗 API URL being used:', apiUrl);
 
             // Fetch user profile
-            // console.log('Fetching profile from:', `${apiUrl}/api/users/profile`);
             const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
-            // console.log('Profile response status:', profileResponse.status);
 
             const profileData = await profileResponse.json();
-            // console.log('Profile data:', JSON.stringify(profileData, null, 2));
 
             if (profileData.success && profileData.data) {
                 // Check if user data is nested in 'user' property or directly in data
                 const userData = profileData.data.user || profileData.data;
-                // console.log('[HomeScreen] Full userData:', userData);
 
                 setUserName({
                     firstName: userData.firstName || '',
@@ -413,20 +412,38 @@ export default function HomeScreen() {
                         setProfileIcon({ imageUri: userData.avatar });
                     }
                 } else if (userData.profileEmoji) {
-                    // Legacy support?
                     setProfileIcon({ emoji: userData.profileEmoji });
                 } else if (userData.profileColorIndex !== undefined) {
                     setProfileIcon({ colorIndex: userData.profileColorIndex });
                 }
+
+                const evmAddr = userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress;
+                const solAddr = userData.solanaWalletAddress;
+
                 setWalletAddresses({
-                    evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
-                    solana: userData.solanaWalletAddress
+                    evm: evmAddr,
+                    solana: solAddr
                 });
+
+                // If wallet addresses are still empty and we haven't retried too many times, retry
+                if (!evmAddr && !solAddr && retryCount < 3) {
+                    console.log(`[Profile] Wallet addresses empty, retrying (${retryCount + 1}/3)...`);
+                    setTimeout(() => fetchUserProfile(retryCount + 1), 1000);
+                }
             } else {
                 console.log('Profile fetch failed or no data:', profileData);
+                // Retry on failure (user might not be created yet)
+                if (retryCount < 3) {
+                    console.log(`[Profile] Retrying profile fetch (${retryCount + 1}/3)...`);
+                    setTimeout(() => fetchUserProfile(retryCount + 1), 1000);
+                }
             }
         } catch (error) {
             console.error('Failed to fetch user data:', error);
+            // Retry on error
+            if (retryCount < 3) {
+                setTimeout(() => fetchUserProfile(retryCount + 1), 1000);
+            }
         }
     };
 
@@ -443,28 +460,43 @@ export default function HomeScreen() {
         }, [user, isReady])
     );
 
-    // Keyboard listeners for instant adjustment
+    // Register push notifications when user is authenticated
+    useEffect(() => {
+        async function setupPushNotifications() {
+            if (!user || !isReady || isRegistered) return;
+
+            try {
+                // Get push notification token from Expo
+                const token = await registerForPushNotifications();
+
+                if (token) {
+                    // Get auth token and register with backend
+                    const authToken = await getAccessToken();
+                    if (authToken) {
+                        await registerWithBackend(authToken);
+                        console.log('[Push] Device registered for notifications');
+                    }
+                }
+            } catch (error) {
+                console.error('[Push] Failed to setup push notifications:', error);
+            }
+        }
+
+        setupPushNotifications();
+    }, [user, isReady, isRegistered]);
+
+    // Keyboard listeners - instant adjustment (no animation)
     useEffect(() => {
         const showSubscription = Keyboard.addListener(
             Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
             (e) => {
-                LayoutAnimation.configureNext(LayoutAnimation.create(
-                    e.duration || 250,
-                    LayoutAnimation.Types.keyboard,
-                    LayoutAnimation.Properties.opacity
-                ));
                 setKeyboardHeight(e.endCoordinates.height);
             }
         );
 
         const hideSubscription = Keyboard.addListener(
             Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-            (e) => {
-                LayoutAnimation.configureNext(LayoutAnimation.create(
-                    e.duration || 250,
-                    LayoutAnimation.Types.keyboard,
-                    LayoutAnimation.Properties.opacity
-                ));
+            () => {
                 setKeyboardHeight(0);
             }
         );
@@ -976,7 +1008,10 @@ export default function HomeScreen() {
             <SafeAreaView style={styles.container}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
+                    <TouchableOpacity
+                        onPress={() => { Keyboard.dismiss(); setIsSidebarOpen(true); }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
                         <List size={24} color={Colors.textPrimary} weight="bold" />
                     </TouchableOpacity>
                     <View style={styles.headerRight}>
@@ -984,6 +1019,7 @@ export default function HomeScreen() {
                         <TouchableOpacity
                             onPress={() => router.push('/notifications')}
                             style={styles.notificationButton}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
                             <Bell size={24} color={Colors.textPrimary} weight="bold" />
                             {unreadNotificationCount > 0 && (
@@ -995,7 +1031,10 @@ export default function HomeScreen() {
                             )}
                         </TouchableOpacity>
 
-                        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
+                        <TouchableOpacity
+                            onPress={() => setIsProfileModalVisible(true)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
                             {profileIcon.imageUri ? (
                                 <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
                             ) : profileIcon.emoji ? (
@@ -1015,16 +1054,18 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Chat Area */}
-                < View style={styles.chatArea} >
+                <View style={styles.chatArea}>
                     {
                         messages.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>
-                                    {displayedGreeting || getGreeting()}
-                                    {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
-                                </Text>
-                                <Text style={styles.emptySubtext}>How can I help you today?</Text>
-                            </View>
+                            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                                <View style={styles.emptyState}>
+                                    <Text style={styles.emptyStateText}>
+                                        {displayedGreeting || getGreeting()}
+                                        {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
+                                    </Text>
+                                    <Text style={styles.emptySubtext}>How can I help you today?</Text>
+                                </View>
+                            </TouchableWithoutFeedback>
                         ) : (
                             <FlatList
                                 ref={flatListRef}
@@ -1052,10 +1093,10 @@ export default function HomeScreen() {
                             </View>
                         )
                     }
-                </View >
+                </View>
 
                 {/* Input Area */}
-                < View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight : 16 }]} >
+                <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight - 20 : 16 }]}>
                     {/* Attached Files Preview */}
                     {attachedFiles.length > 0 && (
                         <View style={styles.attachmentsPreview}>
@@ -1177,6 +1218,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 12,
         backgroundColor: '#FFFFFF',
+        zIndex: 10,
     },
     headerRight: {
         flexDirection: 'row',
