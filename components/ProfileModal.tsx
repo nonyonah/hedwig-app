@@ -9,25 +9,21 @@ import { Typography } from '../styles/typography';
 import { ethers } from 'ethers';
 
 import {
-    NetworkBase, NetworkSolana, NetworkCelo,
-    TokenETH, TokenUSDC, TokenUSDT, TokenSOL, TokenCELO, TokenCUSD
+    NetworkBase, NetworkSolana,
+    TokenETH, TokenUSDC, TokenUSDT, TokenSOL
 } from './CryptoIcons';
 import { getUserGradient } from '../utils/gradientUtils';
 import { getOrCreateStacksWallet, getSTXBalance } from '../services/stacksWallet';
 
 // RPC URLs
 const RPC_URLS = {
-    base: 'https://sepolia.base.org',
-    celo: 'https://alfajores-forno.celo-testnet.org'
+    base: 'https://sepolia.base.org'
 };
 
 // Token Contracts for checking balance
 const TOKEN_CONTRACTS = {
     base: {
         USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
-    },
-    celo: {
-        cUSD: '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1'
     }
 };
 
@@ -57,17 +53,6 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         addressType: 'evm',
         tokens: [
             { symbol: 'ETH', icon: TokenETH },
-            { symbol: 'USDC', icon: TokenUSDC }
-        ]
-    },
-    {
-        name: 'Celo', // Celo Alfajores
-        id: 44787,
-        icon: NetworkCelo,
-        color: '#35D07F',
-        addressType: 'evm',
-        tokens: [
-            { symbol: 'CELO', icon: TokenCELO },
             { symbol: 'USDC', icon: TokenUSDC }
         ]
     },
@@ -295,14 +280,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         } else if (bal.asset === 'usdc') {
                             newBalances['Base_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
-                            totalUsd += parseFloat(bal.display_values?.usd || '0');
-                        }
-                    } else if (bal.chain === 'celo_sepolia' || bal.chain === 'celo_alfajores') {
-                        if (bal.asset === 'celo') {
-                            newBalances['Celo_CELO'] = parseFloat(bal.display_values?.celo || '0').toFixed(6);
-                            totalUsd += parseFloat(bal.display_values?.usd || '0');
-                        } else if (bal.asset === 'usdc') {
-                            newBalances['Celo_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
                     } else if (bal.chain === 'solana_devnet') {
@@ -640,9 +617,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                                     <Text style={styles.menuItemTitle}>{selectedChain.name}</Text>
                                                     <Text style={styles.menuItemSubtitle}>
                                                         {selectedChain.addressType === 'evm'
-                                                            ? (selectedChain.name === 'Base'
-                                                                ? `${parseFloat(balances['Base_ETH'] || '0').toFixed(4)} ETH`
-                                                                : `${parseFloat(balances['Celo_CELO'] || '0').toFixed(4)} CELO`)
+                                                            ? `${parseFloat(balances['Base_ETH'] || '0').toFixed(4)} ETH`
                                                             : selectedChain.addressType === 'solana'
                                                                 ? `${parseFloat(balances['Solana Devnet_SOL'] || '0').toFixed(4)} SOL`
                                                                 : `${parseFloat(balances['Bitcoin Testnet_BTC'] || '0').toFixed(6)} BTC`
@@ -682,7 +657,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
 
                                     <View style={styles.assetList}>
                                         {selectedChain.tokens.map((token, idx) => {
-                                            // Construct key for balance lookup e.g. Base_ETH or Celo_cUSD
+                                            // Construct key for balance lookup e.g. Base_ETH or Solana Devnet_SOL
                                             const key = `${selectedChain.name}_${token.symbol}`;
                                             const balance = balances[key] || '0.00';
 

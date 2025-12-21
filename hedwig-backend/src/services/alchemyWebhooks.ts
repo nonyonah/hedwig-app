@@ -12,7 +12,7 @@ export interface AlchemyWebhookEvent {
 }
 
 /**
- * EVM Address Activity Event (Base, Celo, etc.)
+ * EVM Address Activity Event (Base, etc.)
  */
 export interface AlchemyAddressActivityEvent {
     network: string;
@@ -92,7 +92,7 @@ export interface SolanaInstruction {
 
 /**
  * AlchemyWebhooksService - Validates and processes Alchemy webhook events
- * Supports EVM chains (Base, Celo) and Solana (Beta - Devnet)
+ * Supports EVM chains (Base) and Solana (Beta - Devnet)
  */
 class AlchemyWebhooksService {
     /**
@@ -121,13 +121,6 @@ class AlchemyWebhooksService {
         if (networkLower.includes('base')) {
             const key = process.env.ALCHEMY_SIGNING_KEY_BASE || null;
             console.log(`[Alchemy] Using Base signing key: ${key ? 'present' : 'MISSING'}`);
-            return key;
-        }
-
-        // Celo networks (celo, celoalfajores, celo-alfajores, CELO_ALFAJORES, etc.)
-        if (networkLower.includes('celo')) {
-            const key = process.env.ALCHEMY_SIGNING_KEY_CELO || null;
-            console.log(`[Alchemy] Using Celo signing key: ${key ? 'present' : 'MISSING'}`);
             return key;
         }
 

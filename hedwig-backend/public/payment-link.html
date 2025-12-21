@@ -363,14 +363,6 @@
                 explorer: 'https://sepolia.basescan.org'
             },
             {
-                id: 'celo',
-                name: 'Celo Alfajores',
-                icon: '/assets/icons/networks/celo.png',
-                chainId: 44787,
-                rpcUrl: 'https://alfajores-forno.celo-testnet.org',
-                explorer: 'https://alfajores.celoscan.io'
-            },
-            {
                 id: 'stacks',
                 name: 'Stacks Testnet',
                 icon: '/assets/icons/networks/stacks.png',
@@ -395,17 +387,7 @@
                 icon: '/assets/icons/tokens/usdc.png',
                 decimals: 6,
                 addresses: {
-                    base: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-                    celo: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B'
-                }
-            },
-            {
-                symbol: 'cUSD',
-                name: 'Celo USD',
-                icon: '/assets/icons/tokens/cusd.png',
-                decimals: 18,
-                addresses: {
-                    celo: '0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1'
+                    base: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
                 }
             },
             {
@@ -413,20 +395,13 @@
                 name: 'Tether',
                 icon: '/assets/icons/tokens/usdt.png',
                 addresses: {
-                    base: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
-                    celo: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e',
+                    base: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2'
                 }
             },
             {
                 symbol: 'ETH',
                 name: 'Ethereum',
                 icon: '/assets/icons/tokens/eth.png',
-                isNative: true
-            },
-            {
-                symbol: 'CELO',
-                name: 'Celo',
-                icon: '/assets/icons/tokens/celo.png',
                 isNative: true
             },
             {
@@ -1188,34 +1163,110 @@
 
                 // Get recipient wallet from link data
                 // linkData.user is populated by the API now with wallet addresses
-                const freelancerAddress = linkData.user ? (linkData.user.ethereum_wallet_address || linkData.user.base_wallet_address || linkData.user.celo_wallet_address) : null;
+                const freelancerAddress = linkData.user ? (linkData.user.ethereum_wallet_address || linkData.user.base_wallet_address) : null;
 
                 if (!freelancerAddress) {
                     throw new Error("Recipient wallet address not found. Cannot process payment.");
                 }
 
+                // HedwigPayment contract addresses (different per network)
+                const HEDWIG_CONTRACT_ADDRESSES = {
+                    base: '0x1c0A0eFBb438cc7705b947644F6AB88698b2704F' // Base Sepolia Testnet
+                };
+
+                // HedwigPayment contract ABI
+                const HEDWIG_ABI = [
+                    {
+                        "inputs": [
+                            { "name": "token", "type": "address" },
+                            { "name": "amount", "type": "uint256" },
+                            { "name": "freelancer", "type": "address" },
+                            { "name": "invoiceId", "type": "string" }
+                        ],
+                        "name": "pay",
+                        "outputs": [],
+                        "stateMutability": "nonpayable",
+                        "type": "function"
+                    }
+                ];
+
                 let tx;
                 if (selectedToken.isNative) {
-                    // Native ETH payment - direct transfer for now as contract focuses on ERC20
-                    console.log("Processing native payment to:", freelancerAddress);
+                    // Native ETH/CELO - Manual 99%/1% split (contract doesn't support native)
+                    const EVM_PLATFORM_WALLET = '0x5802Ae8A6BD51e98cA8770a97946ECF886500c67';
+                    const totalWei = ethers.parseEther(amount);
+                    const platformFee = totalWei / 100n; // 1%
+                    const freelancerAmount = totalWei - platformFee; // 99%
+
+                    console.log('[EVM Native] Split payment:', {
+                        total: totalWei.toString(),
+                        toFreelancer: freelancerAmount.toString(),
+                        toPlatform: platformFee.toString()
+                    });
+
+                    // First transfer: 99% to freelancer
+                    payBtnText.textContent = "Sending to freelancer (99%)...";
                     tx = await signer.sendTransaction({
                         to: freelancerAddress,
-                        value: ethers.parseEther(amount)
+                        value: freelancerAmount
                     });
+                    await tx.wait();
+
+                    // Second transfer: 1% to platform
+                    payBtnText.textContent = "Sending platform fee (1%)...";
+                    const platformTx = await signer.sendTransaction({
+                        to: EVM_PLATFORM_WALLET,
+                        value: platformFee
+                    });
+                    await platformTx.wait();
+
                 } else {
-                    // ERC20 Direct Transfer (HedwigPayment contract not configured for this token yet)
+                    // ERC20 Transfer via HedwigPayment Smart Contract (atomic split)
                     const tokenAddress = selectedToken.addresses[selectedChain.id];
+                    const contractAddress = HEDWIG_CONTRACT_ADDRESSES[selectedChain.id];
 
                     if (!tokenAddress) throw new Error(`Token ${selectedToken.symbol} not supported on ${selectedChain.name}`);
+                    if (!contractAddress) throw new Error(`HedwigPayment contract not deployed on ${selectedChain.name}`);
 
                     const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-                    const decimals = await tokenContract.decimals();
-                    const amountWei = ethers.parseUnits(amount, decimals);
+                    const hedwigContract = new ethers.Contract(contractAddress, HEDWIG_ABI, signer);
 
-                    // Direct transfer to freelancer
-                    payBtnText.textContent = "Transferring...";
-                    console.log("Transferring to:", freelancerAddress);
-                    tx = await tokenContract.transfer(freelancerAddress, amountWei);
+                    const decimals = await tokenContract.decimals();
+                    const totalAmount = ethers.parseUnits(amount, decimals);
+
+                    console.log('[EVM ERC20] Smart Contract Payment:', {
+                        contract: contractAddress,
+                        token: tokenAddress,
+                        amount: totalAmount.toString(),
+                        freelancer: freelancerAddress,
+                        paymentLinkId: linkData.id
+                    });
+
+                    // Step 1: Approve token spending for the HedwigPayment contract
+                    payBtnText.textContent = "Approving token...";
+                    const currentAllowance = await tokenContract.allowance(userAddress, contractAddress);
+
+                    if (currentAllowance < totalAmount) {
+                        console.log('[EVM] Approving token spend:', totalAmount.toString());
+                        const approveTx = await tokenContract.approve(contractAddress, totalAmount);
+                        await approveTx.wait();
+                        console.log('[EVM] Token approved');
+                    } else {
+                        console.log('[EVM] Sufficient allowance exists');
+                    }
+
+                    // Step 2: Call the pay() function on HedwigPayment contract
+                    // Contract handles 99%/1% split atomically
+                    payBtnText.textContent = "Processing payment...";
+                    tx = await hedwigContract.pay(
+                        tokenAddress,
+                        totalAmount,
+                        freelancerAddress,
+                        linkData.id // Use payment link ID as invoice ID
+                    );
+                    await tx.wait();
+
+                    console.log('[EVM] Smart contract payment complete:', tx.hash);
                 }
 
                 console.log("Transaction sent:", tx.hash);

@@ -65,6 +65,15 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
         const { amount, currency, description, remindersEnabled, recipientEmail, clientName } = req.body;
         const privyId = req.user!.privyId;
 
+        // Validate required fields
+        if (!clientName || clientName.trim() === '') {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Client name is required for payment links' }
+            });
+            return;
+        }
+
         // Get internal user ID
         const user = await getOrCreateUser(privyId);
 
@@ -283,8 +292,28 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
         // Send notifications to the document owner
         try {
             const docType = doc.type === 'INVOICE' ? 'Invoice' : 'Payment Link';
-            const notificationTitle = '💰 Payment Received!';
-            const notificationBody = `Your ${docType} "${doc.title}" for ${doc.amount} ${doc.currency || 'USDC'} has been paid!`;
+
+            // Get payer display name: prefer client_name, then email, then wallet address
+            const content = doc.content as any;
+            const clientName = content?.client_name;
+            const payerEmail = content?.recipient_email || content?.client_email;
+            const payerDisplay = clientName
+                ? clientName
+                : payerEmail
+                    ? payerEmail
+                    : payer
+                        ? `${payer.slice(0, 6)}...${payer.slice(-4)}`
+                        : 'A customer';
+
+            const notificationTitle = `💰 ${docType} Paid!`;
+            const notificationBody = `${payerDisplay} paid "${doc.title}" - ${doc.amount} ${doc.currency || 'USDC'} received!`;
+
+            console.log('[Documents] Sending payment notification:', {
+                userId: doc.user_id,
+                payerDisplay,
+                payerEmail,
+                payerWallet: payer
+            });
 
             // Send push notification
             await NotificationService.notifyUser(doc.user_id, {
@@ -299,25 +328,32 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
                 }
             });
 
-            // Create in-app notification
-            await supabase
+            // Create in-app notification (using 'metadata' field, not 'data')
+            const { error: notifError } = await supabase
                 .from('notifications')
                 .insert({
                     user_id: doc.user_id,
                     type: 'payment_received',
                     title: notificationTitle,
                     message: notificationBody,
-                    data: {
+                    metadata: {
                         document_id: id,
                         document_type: doc.type,
                         amount: doc.amount,
                         currency: doc.currency || 'USDC',
                         tx_hash: txHash,
                         chain: chain,
+                        payer_email: payerEmail || null,
                         payer_address: payer
                     },
                     is_read: false
                 });
+
+            if (notifError) {
+                console.error('[Documents] Failed to insert notification:', notifError);
+            } else {
+                console.log('[Documents] In-app notification created for user:', doc.user_id);
+            }
 
             console.log('[Documents] Payment notification sent to user:', doc.user_id);
         } catch (notifyError) {

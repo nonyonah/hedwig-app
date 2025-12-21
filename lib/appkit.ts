@@ -1,10 +1,35 @@
 import '@walletconnect/react-native-compat';
 import { createAppKit } from '@reown/appkit-react-native';
 import { EthersAdapter } from '@reown/appkit-ethers-react-native';
-import { base, celo, arbitrum, optimism } from 'viem/chains';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Storage } from '@reown/appkit-react-native';
 import { safeJsonParse, safeJsonStringify } from '@walletconnect/safe-json';
+
+// Define chains directly to avoid loading broken tempo chains from viem/chains
+const base = {
+    id: 8453,
+    name: 'Base',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: {
+        default: { http: ['https://mainnet.base.org'] },
+    },
+    blockExplorers: {
+        default: { name: 'Basescan', url: 'https://basescan.org' },
+    },
+} as const;
+
+const celo = {
+    id: 42220,
+    name: 'Celo',
+    nativeCurrency: { name: 'Celo', symbol: 'CELO', decimals: 18 },
+    rpcUrls: {
+        default: { http: ['https://forno.celo.org'] },
+    },
+    blockExplorers: {
+        default: { name: 'CeloScan', url: 'https://celoscan.io' },
+    },
+} as const;
+
 
 const projectId = process.env.EXPO_PUBLIC_REOWN_PROJECT_ID || '';
 

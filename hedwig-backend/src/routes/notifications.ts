@@ -65,10 +65,10 @@ router.post('/register', authenticate, async (req: Request, res: Response) => {
             data: { message: 'Device token registered successfully' },
         });
     } catch (error: any) {
-        console.error('[Notifications] Error registering token:', error);
+        console.error('[Notifications] Error registering token:', error.message, error.stack);
         res.status(500).json({
             success: false,
-            error: { message: 'Internal server error' },
+            error: { message: 'Internal server error', details: error.message },
         });
     }
 });
@@ -119,7 +119,29 @@ router.post('/test', authenticate, async (req: Request, res: Response) => {
 
     try {
         const userId = req.user!.id;
+        console.log('[Notifications] Creating test in-app notification for user:', userId);
 
+        // Create in-app notification in database
+        const { data: notification, error: insertError } = await supabase
+            .from('notifications')
+            .insert({
+                user_id: userId,
+                type: 'payment_received',
+                title: '💰 Test Payment Received!',
+                message: `This is a test notification. You received $10 USDC from a client.`,
+                metadata: { test: true, amount: '10', token: 'USDC' },
+            })
+            .select()
+            .single();
+
+        if (insertError) {
+            console.error('[Notifications] Error inserting test notification:', insertError);
+            throw new Error(`Failed to create notification: ${insertError.message}`);
+        }
+
+        console.log('[Notifications] Created test notification:', notification?.id);
+
+        // Also send push notification
         const tickets = await NotificationService.notifyUser(userId, {
             title: '🔔 Test Notification',
             body: 'This is a test notification from Hedwig!',
@@ -128,13 +150,13 @@ router.post('/test', authenticate, async (req: Request, res: Response) => {
 
         res.json({
             success: true,
-            data: { tickets },
+            data: { notification, pushTickets: tickets },
         });
     } catch (error: any) {
         console.error('[Notifications] Error sending test:', error);
         res.status(500).json({
             success: false,
-            error: { message: 'Internal server error' },
+            error: { message: error.message || 'Internal server error' },
         });
     }
 });
@@ -149,20 +171,41 @@ import { supabase } from '../lib/supabase';
  */
 router.get('/', authenticate, async (req: Request, res: Response) => {
     try {
-        const userId = req.user!.id;
+        const privyId = req.user!.id; // This is the Privy ID (did:privy:...)
         const limit = parseInt(req.query.limit as string) || 20;
         const offset = parseInt(req.query.offset as string) || 0;
+
+        // First, get the internal user ID from Privy ID
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userData) {
+            console.log('[Notifications] User not found for Privy ID:', privyId);
+            res.json({
+                success: true,
+                data: { notifications: [], total: 0, limit, offset },
+            });
+            return;
+        }
+
+        const internalUserId = userData.id; // This is the email (nonyonah@gmail.com)
+        console.log('[Notifications] Fetching notifications for user:', internalUserId);
 
         const { data: notifications, error, count } = await supabase
             .from('notifications')
             .select('*', { count: 'exact' })
-            .eq('user_id', userId)
+            .eq('user_id', internalUserId)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
 
         if (error) {
             throw new Error(`Failed to fetch notifications: ${error.message}`);
         }
+
+        console.log('[Notifications] Found notifications:', notifications?.length || 0);
 
         res.json({
             success: true,
@@ -188,12 +231,24 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
  */
 router.get('/unread-count', authenticate, async (req: Request, res: Response) => {
     try {
-        const userId = req.user!.id;
+        const privyId = req.user!.id;
+
+        // Get internal user ID from Privy ID
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userData) {
+            res.json({ success: true, data: { unreadCount: 0 } });
+            return;
+        }
 
         const { count, error } = await supabase
             .from('notifications')
             .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId)
+            .eq('user_id', userData.id)
             .eq('is_read', false);
 
         if (error) {
@@ -219,14 +274,26 @@ router.get('/unread-count', authenticate, async (req: Request, res: Response) =>
  */
 router.patch('/:id/read', authenticate, async (req: Request, res: Response) => {
     try {
-        const userId = req.user!.id;
+        const privyId = req.user!.id;
         const notificationId = req.params.id;
+
+        // Get internal user ID from Privy ID
+        const { data: userData } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (!userData) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
 
         const { error } = await supabase
             .from('notifications')
             .update({ is_read: true })
             .eq('id', notificationId)
-            .eq('user_id', userId);
+            .eq('user_id', userData.id);
 
         if (error) {
             throw new Error(`Failed to mark as read: ${error.message}`);
@@ -251,12 +318,24 @@ router.patch('/:id/read', authenticate, async (req: Request, res: Response) => {
  */
 router.post('/read-all', authenticate, async (req: Request, res: Response) => {
     try {
-        const userId = req.user!.id;
+        const privyId = req.user!.id;
+
+        // Get internal user ID from Privy ID
+        const { data: userData } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (!userData) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
 
         const { error } = await supabase
             .from('notifications')
             .update({ is_read: true })
-            .eq('user_id', userId)
+            .eq('user_id', userData.id)
             .eq('is_read', false);
 
         if (error) {

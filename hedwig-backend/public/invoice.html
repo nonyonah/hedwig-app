@@ -10,6 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Rethink+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Solana Web3.js for Phantom wallet -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <style>
         :root {
             --primary: #2563EB;
@@ -580,6 +582,55 @@
         const urlParts = window.location.pathname.split('/');
         const invoiceId = urlParts[urlParts.length - 1].replace('.html', '');
 
+        // Solana SPL Token Helper Functions
+        const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+        const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+
+        async function getAssociatedTokenAddress(mint, owner) {
+            const [address] = await solanaWeb3.PublicKey.findProgramAddress(
+                [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+                ASSOCIATED_TOKEN_PROGRAM_ID
+            );
+            return address;
+        }
+
+        function createTransferInstruction(source, destination, owner, amount) {
+            const keys = [
+                { pubkey: source, isSigner: false, isWritable: true },
+                { pubkey: destination, isSigner: false, isWritable: true },
+                { pubkey: owner, isSigner: true, isWritable: false },
+            ];
+            // Create data buffer using Uint8Array (browser compatible)
+            const data = new Uint8Array(9);
+            data[0] = 3; // Transfer instruction
+            // Write amount as little-endian 64-bit
+            const amountBig = BigInt(amount);
+            for (let i = 0; i < 8; i++) {
+                data[1 + i] = Number((amountBig >> BigInt(i * 8)) & BigInt(0xff));
+            }
+            return new solanaWeb3.TransactionInstruction({
+                keys,
+                programId: TOKEN_PROGRAM_ID,
+                data,
+            });
+        }
+
+        function createAssociatedTokenAccountInstruction(payer, associatedToken, owner, mint) {
+            const keys = [
+                { pubkey: payer, isSigner: true, isWritable: true },
+                { pubkey: associatedToken, isSigner: false, isWritable: true },
+                { pubkey: owner, isSigner: false, isWritable: false },
+                { pubkey: mint, isSigner: false, isWritable: false },
+                { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
+                { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+            ];
+            return new solanaWeb3.TransactionInstruction({
+                keys,
+                programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+                data: new Uint8Array(0),
+            });
+        }
+
         // Elements
         const payBtn = document.getElementById('pay-button');
         const payBtnText = document.getElementById('pay-button-text');
@@ -595,14 +646,6 @@
                 chainId: 84532,
                 rpcUrl: 'https://sepolia.base.org',
                 explorer: 'https://sepolia.basescan.org'
-            },
-            {
-                id: 'celo',
-                name: 'Celo Alfajores',
-                icon: '/assets/icons/networks/celo.png',
-                chainId: 44787,
-                rpcUrl: 'https://alfajores-forno.celo-testnet.org',
-                explorer: 'https://alfajores.celoscan.io'
             },
             {
                 id: 'solana',
@@ -628,8 +671,7 @@
                 name: 'USD Coin',
                 icon: '/assets/icons/tokens/usdc.png',
                 addresses: {
-                    base: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-                    celo: ''
+                    base: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
                 }
             },
             {
@@ -637,20 +679,13 @@
                 name: 'Tether',
                 icon: '/assets/icons/tokens/usdt.png',
                 addresses: {
-                    base: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
-                    celo: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e'
+                    base: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2'
                 }
             },
             {
                 symbol: 'ETH',
                 name: 'Ethereum',
                 icon: '/assets/icons/tokens/eth.png',
-                isNative: true
-            },
-            {
-                symbol: 'CELO',
-                name: 'Celo',
-                icon: '/assets/icons/tokens/celo.png',
                 isNative: true
             },
             {
@@ -927,6 +962,11 @@
 
 
         async function switchChain(chain) {
+            // Skip chain switching for non-EVM chains (Solana, Stacks)
+            if (!chain.chainId || chain.isSolana || chain.isStacks) {
+                return;
+            }
+
             if (!provider) return;
 
             const chainIdHex = `0x${chain.chainId.toString(16)}`;
@@ -980,6 +1020,159 @@
             payBtnText.textContent = "Processing...";
 
             try {
+                // Handle Solana payments separately
+                if (selectedChain.isSolana) {
+                    // For Solana, we need to use Phantom wallet
+                    if (!window.solana || !window.solana.isPhantom) {
+                        throw new Error("Please install Phantom wallet to pay with Solana!");
+                    }
+
+                    payBtnText.textContent = "Connecting Phantom...";
+
+                    // Connect to Phantom
+                    const resp = await window.solana.connect();
+                    const fromPubkey = resp.publicKey;
+                    console.log('[Solana] Connected to Phantom:', fromPubkey.toString());
+
+                    const freelancerAddress = invoiceData.user?.solana_wallet_address;
+                    if (!freelancerAddress) {
+                        throw new Error("Recipient Solana address not found. Cannot process payment.");
+                    }
+
+                    payBtnText.textContent = "Preparing transaction...";
+
+                    // Solana Devnet USDC mint address (same as payment-link.html)
+                    const USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'; // Devnet USDC
+
+                    // Platform fee wallet (1% fee)
+                    const PLATFORM_WALLET = '367XwKWueJw99K5b1jpwKhdYMAGgavoiV7oZvCFkv3Xt';
+
+                    // Use Solana Web3.js from CDN (already loaded via script tag)
+                    const connection = new solanaWeb3.Connection(
+                        'https://api.devnet.solana.com',
+                        'confirmed'
+                    );
+
+                    const recipientPubkey = new solanaWeb3.PublicKey(freelancerAddress);
+                    const platformPubkey = new solanaWeb3.PublicKey(PLATFORM_WALLET);
+                    const mintPubkey = new solanaWeb3.PublicKey(USDC_MINT);
+
+                    // Get associated token accounts
+                    const senderATA = await getAssociatedTokenAddress(mintPubkey, fromPubkey);
+                    const recipientATA = await getAssociatedTokenAddress(mintPubkey, recipientPubkey);
+                    const platformATA = await getAssociatedTokenAddress(mintPubkey, platformPubkey);
+
+                    // Amount in USDC (6 decimals) - Split 99%/1%
+                    const totalAmountLamports = Math.floor(invoiceData.amount * 1_000_000);
+                    const platformFee = Math.floor(totalAmountLamports * 0.01); // 1% to platform
+                    const freelancerAmount = totalAmountLamports - platformFee; // 99% to freelancer
+
+                    console.log('[Solana] Split payment:', {
+                        total: totalAmountLamports,
+                        toFreelancer: freelancerAmount,
+                        toPlatform: platformFee
+                    });
+
+                    // Create transaction
+                    const transaction = new solanaWeb3.Transaction();
+
+                    // Check if recipient ATA exists, if not, create it
+                    const recipientATAInfo = await connection.getAccountInfo(recipientATA);
+                    if (!recipientATAInfo) {
+                        transaction.add(
+                            createAssociatedTokenAccountInstruction(
+                                fromPubkey,
+                                recipientATA,
+                                recipientPubkey,
+                                mintPubkey
+                            )
+                        );
+                    }
+
+                    // Check if platform ATA exists, if not, create it
+                    const platformATAInfo = await connection.getAccountInfo(platformATA);
+                    if (!platformATAInfo) {
+                        transaction.add(
+                            createAssociatedTokenAccountInstruction(
+                                fromPubkey,
+                                platformATA,
+                                platformPubkey,
+                                mintPubkey
+                            )
+                        );
+                    }
+
+                    // Add transfer to freelancer (99%)
+                    transaction.add(
+                        createTransferInstruction(
+                            senderATA,
+                            recipientATA,
+                            fromPubkey,
+                            freelancerAmount
+                        )
+                    );
+
+                    // Add transfer to platform (1%)
+                    transaction.add(
+                        createTransferInstruction(
+                            senderATA,
+                            platformATA,
+                            fromPubkey,
+                            platformFee
+                        )
+                    );
+
+                    // Get recent blockhash
+                    const { blockhash } = await connection.getLatestBlockhash();
+                    transaction.recentBlockhash = blockhash;
+                    transaction.feePayer = fromPubkey;
+
+                    payBtnText.textContent = "Confirm in Phantom...";
+
+                    // Sign and send transaction
+                    const { signature } = await window.solana.signAndSendTransaction(transaction);
+                    console.log('[Solana] Transaction sent:', signature);
+
+                    payBtnText.textContent = "Confirming...";
+
+                    // Wait for confirmation
+                    await connection.confirmTransaction(signature, 'confirmed');
+
+                    // Mark invoice as paid in backend
+                    try {
+                        const apiUrl = window.location.hostname === 'localhost'
+                            ? 'http://localhost:3000'
+                            : window.location.origin;
+
+                        await fetch(`${apiUrl}/api/documents/${invoiceData.id}/pay`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                txHash: signature,
+                                chain: 'solana',
+                                token: 'USDC',
+                                amount: invoiceData.amount,
+                                payer: fromPubkey.toString()
+                            })
+                        });
+                    } catch (apiError) {
+                        console.error('Failed to mark as paid in backend:', apiError);
+                    }
+
+                    alert(`Payment Successful! TX: ${signature}`);
+                    window.location.reload();
+                    return;
+                }
+
+                // Handle Stacks payments separately
+                if (selectedChain.isStacks) {
+                    alert('Stacks payments: Please use the Stacks wallet to pay. The payment will be detected automatically.');
+                    payBtn.disabled = false;
+                    payBtnText.textContent = `Pay $${invoiceData.amount.toFixed(2)}`;
+                    return;
+                }
+
+                // EVM Chain payment flow (Base, Celo)
                 // 1. Switch Chain
                 await switchChain(selectedChain);
 
@@ -990,32 +1183,112 @@
 
                 const amount = invoiceData.amount.toString();
                 // Get recipient wallet
-                const freelancerAddress = invoiceData.user ? (invoiceData.user.ethereum_wallet_address || invoiceData.user.base_wallet_address || invoiceData.user.celo_wallet_address) : null;
+                const freelancerAddress = invoiceData.user ? (invoiceData.user.ethereum_wallet_address || invoiceData.user.base_wallet_address) : null;
 
                 if (!freelancerAddress) {
                     throw new Error("Recipient wallet address not found. Cannot process payment.");
                 }
 
+                // HedwigPayment contract addresses (different per network)
+                const HEDWIG_CONTRACT_ADDRESSES = {
+                    base: '0x1c0A0eFBb438cc7705b947644F6AB88698b2704F' // Base Sepolia Testnet
+                };
+
+                // HedwigPayment contract ABI (pay function + approve)
+                const HEDWIG_ABI = [
+                    {
+                        "inputs": [
+                            { "name": "token", "type": "address" },
+                            { "name": "amount", "type": "uint256" },
+                            { "name": "freelancer", "type": "address" },
+                            { "name": "invoiceId", "type": "string" }
+                        ],
+                        "name": "pay",
+                        "outputs": [],
+                        "stateMutability": "nonpayable",
+                        "type": "function"
+                    }
+                ];
+
                 let tx;
                 if (selectedToken.isNative) {
-                    // Native ETH Transfer
+                    // Native ETH/CELO Transfer - For native tokens, use direct transfer with split
+                    // (Contract doesn't support native tokens, so we do manual split)
+                    payBtnText.textContent = "Sending to freelancer (99%)...";
+
+                    const EVM_PLATFORM_WALLET = '0x5802Ae8A6BD51e98cA8770a97946ECF886500c67';
+                    const totalWei = ethers.parseEther(amount);
+                    const platformFee = totalWei / 100n; // 1%
+                    const freelancerAmount = totalWei - platformFee; // 99%
+
+                    console.log('[EVM Native] Split payment:', {
+                        total: totalWei.toString(),
+                        toFreelancer: freelancerAmount.toString(),
+                        toPlatform: platformFee.toString()
+                    });
+
+                    // First transfer: 99% to freelancer
                     tx = await signer.sendTransaction({
                         to: freelancerAddress,
-                        value: ethers.parseEther(amount)
+                        value: freelancerAmount
                     });
+                    await tx.wait();
+
+                    // Second transfer: 1% to platform
+                    payBtnText.textContent = "Sending platform fee (1%)...";
+                    const platformTx = await signer.sendTransaction({
+                        to: EVM_PLATFORM_WALLET,
+                        value: platformFee
+                    });
+                    await platformTx.wait();
+
                 } else {
-                    // ERC20 Direct Transfer (HedwigPayment contract not configured for this token yet)
+                    // ERC20 Transfer via HedwigPayment Smart Contract (atomic split)
                     const tokenAddress = selectedToken.addresses[selectedChain.id];
+                    const contractAddress = HEDWIG_CONTRACT_ADDRESSES[selectedChain.id];
 
                     if (!tokenAddress) throw new Error(`Token ${selectedToken.symbol} not supported on ${selectedChain.name}`);
+                    if (!contractAddress) throw new Error(`HedwigPayment contract not deployed on ${selectedChain.name}`);
 
                     const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-                    const decimals = await tokenContract.decimals();
-                    const amountWei = ethers.parseUnits(amount, decimals);
+                    const hedwigContract = new ethers.Contract(contractAddress, HEDWIG_ABI, signer);
 
-                    // Direct transfer to freelancer
-                    payBtnText.textContent = "Transferring...";
-                    tx = await tokenContract.transfer(freelancerAddress, amountWei);
+                    const decimals = await tokenContract.decimals();
+                    const totalAmount = ethers.parseUnits(amount, decimals);
+
+                    console.log('[EVM ERC20] Smart Contract Payment:', {
+                        contract: contractAddress,
+                        token: tokenAddress,
+                        amount: totalAmount.toString(),
+                        freelancer: freelancerAddress,
+                        invoiceId: invoiceData.id
+                    });
+
+                    // Step 1: Approve token spending for the HedwigPayment contract
+                    payBtnText.textContent = "Approving token...";
+                    const currentAllowance = await tokenContract.allowance(userAddress, contractAddress);
+
+                    if (currentAllowance < totalAmount) {
+                        console.log('[EVM] Approving token spend:', totalAmount.toString());
+                        const approveTx = await tokenContract.approve(contractAddress, totalAmount);
+                        await approveTx.wait();
+                        console.log('[EVM] Token approved');
+                    } else {
+                        console.log('[EVM] Sufficient allowance exists');
+                    }
+
+                    // Step 2: Call the pay() function on HedwigPayment contract
+                    // Contract handles 99%/1% split atomically
+                    payBtnText.textContent = "Processing payment...";
+                    tx = await hedwigContract.pay(
+                        tokenAddress,
+                        totalAmount,
+                        freelancerAddress,
+                        invoiceData.id
+                    );
+                    await tx.wait();
+
+                    console.log('[EVM] Smart contract payment complete:', tx.hash);
                 }
 
                 console.log("Transaction sent:", tx.hash);

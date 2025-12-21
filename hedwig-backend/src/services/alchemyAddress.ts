@@ -16,13 +16,11 @@ class AlchemyAddressService {
 
     // Webhook IDs for different networks (set these in environment variables)
     private baseWebhookId: string;
-    private celoWebhookId: string;
     private solanaWebhookId: string;
 
     constructor() {
         this.authToken = process.env.ALCHEMY_AUTH_TOKEN || '';
         this.baseWebhookId = process.env.ALCHEMY_BASE_WEBHOOK_ID || '';
-        this.celoWebhookId = process.env.ALCHEMY_CELO_WEBHOOK_ID || '';
         this.solanaWebhookId = process.env.ALCHEMY_SOLANA_WEBHOOK_ID || '';
     }
 
@@ -107,21 +105,15 @@ class AlchemyAddressService {
     async registerUserWallets(wallets: {
         ethereum?: string;
         solana?: string;
-    }): Promise<{ base: boolean; celo: boolean; solana: boolean }> {
-        const results = { base: false, celo: false, solana: false };
+    }): Promise<{ base: boolean; solana: boolean }> {
+        const results = { base: false, solana: false };
 
-        // EVM addresses work for both Base and Celo webhooks
+        // EVM addresses for Base webhook
         if (wallets.ethereum) {
             // Register with Base webhook
             if (this.baseWebhookId) {
                 const baseResult = await this.addAddressesToWebhook(this.baseWebhookId, [wallets.ethereum]);
                 results.base = baseResult.success;
-            }
-
-            // Register with Celo webhook
-            if (this.celoWebhookId) {
-                const celoResult = await this.addAddressesToWebhook(this.celoWebhookId, [wallets.ethereum]);
-                results.celo = celoResult.success;
             }
         }
 
@@ -146,9 +138,6 @@ class AlchemyAddressService {
         if (wallets.ethereum) {
             if (this.baseWebhookId) {
                 await this.removeAddressesFromWebhook(this.baseWebhookId, [wallets.ethereum]);
-            }
-            if (this.celoWebhookId) {
-                await this.removeAddressesFromWebhook(this.celoWebhookId, [wallets.ethereum]);
             }
         }
 

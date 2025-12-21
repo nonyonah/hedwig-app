@@ -247,11 +247,19 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                         // Add the account name to parameters
                         aiResponseObj.parameters.accountName = verifyResult.accountName;
 
-                        // Upgrade intent to CONFIRM_OFFRAMP since we now have all required fields
-                        aiResponseObj.intent = 'CONFIRM_OFFRAMP';
-                        aiResponseObj.naturalResponse = `I found your account: **${verifyResult.accountName}**. Ready to proceed with your withdrawal?`;
-
-                        console.log('[Chat] Upgraded intent to CONFIRM_OFFRAMP');
+                        // Check if this is a Solana offramp - needs bridging first
+                        const network = params.network?.toLowerCase();
+                        if (network === 'solana') {
+                            // Use bridge flow for Solana
+                            aiResponseObj.intent = 'CONFIRM_SOLANA_BRIDGE';
+                            aiResponseObj.naturalResponse = `I found your account: **${verifyResult.accountName}**. Since Paycrest doesn't support Solana directly, I'll help you bridge to Base first, then offramp. Ready to proceed?`;
+                            console.log('[Chat] Upgraded intent to CONFIRM_SOLANA_BRIDGE for Solana network');
+                        } else {
+                            // Use normal offramp flow for Base
+                            aiResponseObj.intent = 'CONFIRM_OFFRAMP';
+                            aiResponseObj.naturalResponse = `I found your account: **${verifyResult.accountName}**. Ready to proceed with your withdrawal?`;
+                            console.log('[Chat] Upgraded intent to CONFIRM_OFFRAMP');
+                        }
                     } else {
                         // Could not verify, ask for account name manually
                         aiResponseObj.naturalResponse = `I couldn't verify this account automatically. Please provide the account name for ${params.bankName} account ${params.accountNumber}.`;
@@ -345,6 +353,23 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                 rate: rate,
                 estimatedFiat: estimatedFiat.toFixed(2)
             };
+        }
+
+        // For CONFIRM_SOLANA_BRIDGE, return bridge parameters for frontend modal
+        if (aiResponseObj.intent === 'CONFIRM_SOLANA_BRIDGE' && aiResponseObj.parameters) {
+            const params = aiResponseObj.parameters;
+
+            responseData.parameters = {
+                amount: params.amount,
+                token: params.token || 'SOL',
+                network: 'solana',
+                // Offramp details for after bridging
+                fiatCurrency: params.fiatCurrency || 'NGN',
+                bankName: params.bankName,
+                accountNumber: params.accountNumber,
+                accountName: params.accountName,
+            };
+            console.log('[Chat] Returning CONFIRM_SOLANA_BRIDGE parameters for bridge flow');
         }
 
         res.json({

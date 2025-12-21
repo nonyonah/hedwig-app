@@ -22,6 +22,7 @@ import { Sidebar } from '../components/Sidebar';
 import { ProfileModal } from '../components/ProfileModal';
 import { TransactionConfirmationModal } from '../components/TransactionConfirmationModal';
 import { OfframpConfirmationModal } from '../components/OfframpConfirmationModal';
+import { SolanaBridgeModal } from '../components/SolanaBridgeModal';
 import { LinkPreviewCard } from '../components/LinkPreviewCard';
 import { getUserGradient } from '../utils/gradientUtils';
 import { usePushNotifications } from '../hooks/usePushNotifications';
@@ -152,6 +153,15 @@ export default function HomeScreen() {
     const [transactionData, setTransactionData] = useState<any>(null);
     const [isOfframpReviewVisible, setIsOfframpReviewVisible] = useState(false);
     const [offrampData, setOfframpData] = useState<any>(null);
+    const [isSolanaBridgeVisible, setIsSolanaBridgeVisible] = useState(false);
+    const [solanaBridgeData, setSolanaBridgeData] = useState<{
+        token: 'SOL' | 'USDC';
+        amount: number;
+        fiatCurrency?: string;
+        bankName?: string;
+        accountNumber?: string;
+        accountName?: string;
+    } | null>(null);
     const [attachedFiles, setAttachedFiles] = useState<{ uri: string; name: string; mimeType: string }[]>([]);
     const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
@@ -720,6 +730,21 @@ export default function HomeScreen() {
                     setOfframpData(data.data.parameters);
                     setIsOfframpReviewVisible(true);
                 }
+
+                // Handle Solana Bridge + Offramp Intent
+                if (data.data.intent === 'CONFIRM_SOLANA_BRIDGE' && data.data.parameters) {
+                    const bridgeParams = data.data.parameters;
+                    setSolanaBridgeData({
+                        token: bridgeParams.token || 'SOL',
+                        amount: parseFloat(bridgeParams.amount || '0'),
+                        // Store bank details for use after bridging
+                        fiatCurrency: bridgeParams.fiatCurrency || 'NGN',
+                        bankName: bridgeParams.bankName,
+                        accountNumber: bridgeParams.accountNumber,
+                        accountName: bridgeParams.accountName,
+                    });
+                    setIsSolanaBridgeVisible(true);
+                }
             } else {
                 Alert.alert('Error', data.error?.message || 'Failed to get response');
             }
@@ -1192,6 +1217,37 @@ export default function HomeScreen() {
                         id: Date.now().toString() + '_offramp_success',
                         role: 'assistant',
                         content: `Offramp order created successfully! Order ID: ${orderId}`,
+                        createdAt: new Date().toISOString()
+                    };
+                    setMessages(prev => [...prev, successMsg]);
+                }}
+            />
+            {/* Solana Bridge Modal */}
+            <SolanaBridgeModal
+                visible={isSolanaBridgeVisible}
+                onClose={() => setIsSolanaBridgeVisible(false)}
+                token={solanaBridgeData?.token || 'SOL'}
+                amount={solanaBridgeData?.amount || 0}
+                solanaAddress={walletAddresses.solana || ''}
+                baseAddress={walletAddresses.evm || ''}
+                getAccessToken={getAccessToken}
+                onBridgeComplete={(baseAddress, token, amount) => {
+                    // After bridge completes, open offramp modal with saved bank details
+                    setOfframpData({
+                        amount: amount.toString(),
+                        token: 'USDC',
+                        network: 'base',
+                        fiatCurrency: solanaBridgeData?.fiatCurrency || 'NGN',
+                        bankName: solanaBridgeData?.bankName || '',
+                        accountNumber: solanaBridgeData?.accountNumber || '',
+                        accountName: solanaBridgeData?.accountName || '',
+                    });
+                    setIsOfframpReviewVisible(true);
+                    // Add success message to chat
+                    const successMsg: Message = {
+                        id: Date.now().toString() + '_bridge_success',
+                        role: 'assistant',
+                        content: `Successfully bridged ${amount} ${token} to Base! You can now offramp to your bank account.`,
                         createdAt: new Date().toISOString()
                     };
                     setMessages(prev => [...prev, successMsg]);

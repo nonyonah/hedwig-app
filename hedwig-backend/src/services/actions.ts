@@ -87,6 +87,27 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                     }
                 };
 
+            case 'CONFIRM_SOLANA_BRIDGE':
+                // Return bridge data for Solana -> Base bridge + offramp flow
+                return {
+                    text: '',
+                    data: {
+                        requiresSolanaBridge: true,
+                        bridge: {
+                            amount: parseFloat(params.amount || '0'),
+                            token: params.token || 'SOL',
+                            sourceNetwork: 'solana',
+                            destinationNetwork: 'base',
+                        },
+                        offramp: {
+                            fiatCurrency: params.fiatCurrency || 'NGN',
+                            bankName: params.bankName,
+                            accountNumber: params.accountNumber,
+                            accountName: params.accountName
+                        }
+                    }
+                };
+
             case 'COLLECT_OFFRAMP_INFO':
                 // Don't execute offramp yet, Gemini will collect all fields
                 return { text: '' };
@@ -120,7 +141,7 @@ async function handleGetWalletBalance(params: ActionParams, user: any): Promise<
         // Get user's wallet addresses from database
         const { data: userData, error } = await supabase
             .from('users')
-            .select('base_wallet_address, celo_wallet_address, solana_wallet_address')
+            .select('base_wallet_address, solana_wallet_address')
             .eq('privy_id', user.privyId)
             .single();
 
@@ -133,9 +154,6 @@ async function handleGetWalletBalance(params: ActionParams, user: any): Promise<
 
         if (network === 'base' || !network) {
             responseText += `🔵 **Base**: \`${userData.base_wallet_address || 'Not created'}\`\n`;
-        }
-        if (network === 'celo' || !network) {
-            responseText += `🟢 **Celo**: \`${userData.celo_wallet_address || 'Not created'}\`\n`;
         }
         if (network === 'solana' || !network) {
             responseText += `🟣 **Solana**: \`${userData.solana_wallet_address || 'Not created'}\`\n`;
@@ -160,7 +178,6 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
 
         // Map network to chain enum
         let chain = 'BASE';
-        if (network.includes('celo')) chain = 'CELO';
         if (network.includes('solana')) chain = 'SOLANA';
         if (network.includes('arbitrum')) chain = 'ARBITRUM'; // Note: ARBITRUM not in enum yet, defaulting to BASE or need to add it
         if (network.includes('optimism')) chain = 'OPTIMISM'; // Note: OPTIMISM not in enum yet
@@ -232,7 +249,6 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
 
         const network = params.network?.toLowerCase() || 'base';
         let chain = 'BASE';
-        if (network.includes('celo')) chain = 'CELO';
         if (network.includes('solana')) chain = 'SOLANA';
         if (network.includes('arbitrum')) chain = 'ARBITRUM';
         if (network.includes('optimism')) chain = 'OPTIMISM';

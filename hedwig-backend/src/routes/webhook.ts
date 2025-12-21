@@ -181,22 +181,60 @@ async function processPaymentEvent(data: {
 
         console.log(`[Chainhook] Payment: ${amountStx} STX to ${recipient}`);
 
+        let invoiceDetails: any = null;
+        let clientInfo = '';
+
         // Update invoice status if we have an invoice ID
         if (invoiceId) {
-            const { error: updateError } = await supabase
+            const { data: invoice, error: updateError } = await supabase
                 .from('invoices')
                 .update({
                     status: 'PAID',
                     paid_at: new Date().toISOString(),
                     tx_hash: data.txId,
                 })
-                .eq('id', invoiceId);
+                .eq('id', invoiceId)
+                .select('*, user:users(*)')
+                .single();
 
             if (updateError) {
                 console.error('[Chainhook] Failed to update invoice:', updateError);
             } else {
                 console.log(`[Chainhook] Invoice ${invoiceId} marked as PAID`);
+                invoiceDetails = invoice;
+
+                // Get client info from sender address or invoice content
+                const invoiceContent = invoice.content as any;
+                clientInfo = invoiceContent?.client_name || invoiceContent?.recipient_email || `${data.sender.slice(0, 8)}...${data.sender.slice(-4)}`;
             }
+        }
+
+        // Create in-app notification for the freelancer
+        if (invoiceDetails && invoiceDetails.user_id) {
+            const invoiceNumber = `INV-${invoiceId.slice(0, 8).toUpperCase()}`;
+            await supabase.from('notifications').insert({
+                user_id: invoiceDetails.user_id,
+                type: 'payment_received',
+                title: '💰 Invoice Paid!',
+                message: `${clientInfo} paid ${invoiceNumber} - ${amountStx} STX received!`,
+                metadata: {
+                    invoiceId,
+                    txHash: data.txId,
+                    amount: amountStx.toString(),
+                    token: 'STX',
+                    network: 'stacks',
+                    clientName: clientInfo
+                },
+            });
+
+            // Also send push notification
+            await NotificationService.notifyUser(invoiceDetails.user_id, {
+                title: '💰 Invoice Paid!',
+                body: `${clientInfo} paid ${invoiceNumber} - ${amountStx} STX received!`,
+                data: { type: 'payment_received', invoiceId, txHash: data.txId },
+            });
+
+            console.log(`[Chainhook] Notification sent for invoice ${invoiceId}`);
         }
 
         // Record the payment transaction
@@ -227,7 +265,7 @@ async function processPaymentEvent(data: {
 
 /**
  * POST /api/webhooks/alchemy
- * Endpoint for Alchemy Address Activity webhooks (Base Sepolia, Celo Alfajores, Solana Devnet)
+ * Endpoint for Alchemy Address Activity webhooks (Base Sepolia, Solana Devnet)
  */
 router.post('/alchemy', async (req: Request, res: Response) => {
     try {
@@ -287,23 +325,63 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                 .single();
 
             if (recipientUser) {
-                // Send push notification for received payment
-                await NotificationService.notifyTransaction(recipientUser.id, {
-                    type: 'received',
-                    amount: transfer.value.toString(),
-                    token: transfer.asset,
-                    network: network,
-                    txHash: transfer.txHash,
+                // Check if this payment is for an invoice or payment link
+                const { data: document } = await supabase
+                    .from('documents')
+                    .select('*')
+                    .eq('user_id', recipientUser.id)
+                    .eq('status', 'PENDING')
+                    .or(`type.eq.invoice,type.eq.payment_link`)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                // Build notification message with client/document details
+                const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
+                let clientInfo = shortAddress;
+                let notificationTitle = 'Payment Received! 🎉';
+                let notificationMessage = `You received ${transfer.value} ${transfer.asset} from ${shortAddress} on ${network}.`;
+
+                if (document) {
+                    const content = document.content as any;
+                    clientInfo = content?.client_name || content?.recipient_email || shortAddress;
+                    const docType = document.type === 'invoice' ? 'Invoice' : 'Payment link';
+                    const docNumber = document.type === 'invoice'
+                        ? `INV-${document.id.slice(0, 8).toUpperCase()}`
+                        : document.title || 'Payment';
+
+                    notificationTitle = `💰 ${docType} Paid!`;
+                    notificationMessage = `${clientInfo} paid ${docNumber} - ${transfer.value} ${transfer.asset} received!`;
+
+                    // Update document status to PAID
+                    await supabase
+                        .from('documents')
+                        .update({ status: 'PAID', paid_at: new Date().toISOString(), tx_hash: transfer.txHash })
+                        .eq('id', document.id);
+                }
+
+                // Send push notification
+                await NotificationService.notifyUser(recipientUser.id, {
+                    title: notificationTitle,
+                    body: notificationMessage,
+                    data: { type: 'payment_received', txHash: transfer.txHash, documentId: document?.id },
                 });
 
-                // Create in-app notification for received crypto
-                const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
+                // Create in-app notification
                 await supabase.from('notifications').insert({
                     user_id: recipientUser.id,
-                    type: 'crypto_received',
-                    title: 'Payment Received! 🎉',
-                    message: `You just received ${transfer.value} ${transfer.asset} from ${shortAddress} on ${network}. Check your wallet!`,
-                    metadata: { txHash: transfer.txHash, amount: transfer.value.toString(), token: transfer.asset, network, from: transfer.from },
+                    type: document ? 'payment_received' : 'crypto_received',
+                    title: notificationTitle,
+                    message: notificationMessage,
+                    metadata: {
+                        txHash: transfer.txHash,
+                        amount: transfer.value.toString(),
+                        token: transfer.asset,
+                        network,
+                        from: transfer.from,
+                        documentId: document?.id,
+                        clientName: clientInfo,
+                    },
                 });
 
                 console.log(`[Alchemy] Notified user ${recipientUser.id} of received payment`);
@@ -378,12 +456,63 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
                     .single();
 
                 if (recipientUser) {
-                    await NotificationService.notifyTransaction(recipientUser.id, {
-                        type: 'received',
-                        amount: transfer.value.toFixed(6),
-                        token: transfer.asset,
-                        network: network,
-                        txHash: transfer.signature,
+                    // Check if this payment is for an invoice or payment link
+                    const { data: document } = await supabase
+                        .from('documents')
+                        .select('*')
+                        .eq('user_id', recipientUser.id)
+                        .eq('status', 'PENDING')
+                        .or(`type.eq.invoice,type.eq.payment_link`)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .single();
+
+                    // Build notification message with client/document details
+                    const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
+                    let clientInfo = shortAddress;
+                    let notificationTitle = 'Payment Received! 🎉';
+                    let notificationMessage = `You received ${transfer.value.toFixed(6)} ${transfer.asset} from ${shortAddress} on Solana.`;
+
+                    if (document) {
+                        const content = document.content as any;
+                        clientInfo = content?.client_name || content?.recipient_email || shortAddress;
+                        const docType = document.type === 'invoice' ? 'Invoice' : 'Payment link';
+                        const docNumber = document.type === 'invoice'
+                            ? `INV-${document.id.slice(0, 8).toUpperCase()}`
+                            : document.title || 'Payment';
+
+                        notificationTitle = `💰 ${docType} Paid!`;
+                        notificationMessage = `${clientInfo} paid ${docNumber} - ${transfer.value.toFixed(6)} ${transfer.asset} received!`;
+
+                        // Update document status to PAID
+                        await supabase
+                            .from('documents')
+                            .update({ status: 'PAID', paid_at: new Date().toISOString(), tx_hash: transfer.signature })
+                            .eq('id', document.id);
+                    }
+
+                    // Send push notification
+                    await NotificationService.notifyUser(recipientUser.id, {
+                        title: notificationTitle,
+                        body: notificationMessage,
+                        data: { type: 'payment_received', txHash: transfer.signature, documentId: document?.id },
+                    });
+
+                    // Create in-app notification
+                    await supabase.from('notifications').insert({
+                        user_id: recipientUser.id,
+                        type: document ? 'payment_received' : 'crypto_received',
+                        title: notificationTitle,
+                        message: notificationMessage,
+                        metadata: {
+                            txHash: transfer.signature,
+                            amount: transfer.value.toFixed(6),
+                            token: transfer.asset,
+                            network: 'solana',
+                            from: transfer.from,
+                            documentId: document?.id,
+                            clientName: clientInfo,
+                        },
                     });
 
                     console.log(`[Alchemy] Notified user ${recipientUser.id} of received SOL payment`);

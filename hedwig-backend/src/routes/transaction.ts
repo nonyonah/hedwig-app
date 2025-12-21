@@ -15,13 +15,6 @@ const baseConfig = {
 };
 const baseAlchemy = new Alchemy(baseConfig);
 
-// Initialize Alchemy for Celo Sepolia using RPC URL from env
-const celoConfig = {
-    apiKey: process.env.ALCHEMY_API_KEY || 'demo', // Fallback for SDK requirement
-    url: process.env.CELO_RPC_URL, // Use explicit RPC URL from env
-};
-const celoAlchemy = new Alchemy(celoConfig);
-
 // Initialize Solana Connection using RPC URL from env
 const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 console.log('[Transactions] Solana RPC URL:', SOLANA_RPC_URL.substring(0, 50) + '...');
@@ -35,7 +28,7 @@ interface TransactionItem {
     token: string;
     date: string; // ISO string
     hash: string;
-    network: 'base' | 'celo' | 'solana';
+    network: 'base' | 'solana';
     status: 'completed' | 'pending' | 'failed';
     from: string;
     to: string;
@@ -153,68 +146,6 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
             } catch (error) {
                 console.error('[Transactions] Error fetching Base transactions:', error);
-            }
-
-            // 2. Fetch Celo Transactions (Alchemy SDK with Celo Sepolia)
-            try {
-                // Incoming
-                const incomingCelo = await celoAlchemy.core.getAssetTransfers({
-                    fromBlock: "0x0",
-                    toAddress: ethAddress,
-                    excludeZeroValue: true,
-                    category: [AssetTransfersCategory.EXTERNAL, AssetTransfersCategory.ERC20],
-                    order: SortingOrder.DESCENDING,
-                    maxCount: 20,
-                    withMetadata: true
-                });
-
-                // Outgoing
-                const outgoingCelo = await celoAlchemy.core.getAssetTransfers({
-                    fromBlock: "0x0",
-                    fromAddress: ethAddress,
-                    excludeZeroValue: true,
-                    category: [AssetTransfersCategory.EXTERNAL, AssetTransfersCategory.ERC20],
-                    order: SortingOrder.DESCENDING,
-                    maxCount: 20,
-                    withMetadata: true
-                });
-
-                // Process Celo Incoming
-                incomingCelo.transfers.forEach(tx => {
-                    allTransactions.push({
-                        id: `celo-${tx.hash}`,
-                        type: 'IN',
-                        description: `Received from ${tx.from.slice(0, 6)}...${tx.from.slice(-4)}`,
-                        amount: tx.value?.toString() || '0',
-                        token: tx.asset || 'CELO',
-                        date: tx.metadata?.blockTimestamp || new Date().toISOString(),
-                        hash: tx.hash,
-                        network: 'celo',
-                        status: 'completed',
-                        from: tx.from,
-                        to: tx.to || ethAddress
-                    });
-                });
-
-                // Process Celo Outgoing
-                outgoingCelo.transfers.forEach(tx => {
-                    allTransactions.push({
-                        id: `celo-${tx.hash}`,
-                        type: 'OUT',
-                        description: `Sent to ${tx.to?.slice(0, 6)}...${tx.to?.slice(-4)}`,
-                        amount: tx.value?.toString() || '0',
-                        token: tx.asset || 'CELO',
-                        date: tx.metadata?.blockTimestamp || new Date().toISOString(),
-                        hash: tx.hash,
-                        network: 'celo',
-                        status: 'completed',
-                        from: tx.from,
-                        to: tx.to || ''
-                    });
-                });
-
-            } catch (err) {
-                console.error('[Transactions] Error fetching Celo transactions:', err);
             }
         }
 

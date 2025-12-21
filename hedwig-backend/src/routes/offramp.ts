@@ -83,8 +83,8 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
         // 2. Create order with Paycrest
         const order = await PaycrestService.createOfframpOrder({
             amount: amountNum,
-            token: token as 'USDC' | 'CUSD',
-            network: network as 'base' | 'celo',
+            token: token as 'USDC' | 'USDT',
+            network: network as 'base',
             rate,
             recipient: {
                 institution: bankName, // Map bankName to institution

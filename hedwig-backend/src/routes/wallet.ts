@@ -3,7 +3,7 @@ import { authenticate } from '../middleware/auth';
 import { PrivyClient } from '@privy-io/node';
 import { AppError } from '../middleware/errorHandler';
 import { supabase } from '../lib/supabase';
-import { createPublicClient, http, formatEther, formatUnits, defineChain } from 'viem';
+import { createPublicClient, http, formatEther, formatUnits } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
@@ -14,24 +14,6 @@ const router = Router();
 const privy = new PrivyClient({
     appId: process.env.PRIVY_APP_ID!,
     appSecret: process.env.PRIVY_APP_SECRET!
-});
-
-// Define Celo Sepolia chain for viem
-const celoSepolia = defineChain({
-    id: 11142220,
-    name: 'Celo Sepolia',
-    nativeCurrency: {
-        name: 'CELO',
-        symbol: 'CELO',
-        decimals: 18,
-    },
-    rpcUrls: {
-        default: { http: ['https://forno.celo-sepolia.celo-testnet.org'] },
-    },
-    blockExplorers: {
-        default: { name: 'Celo Explorer', url: 'https://celo-sepolia.celoscan.io' },
-    },
-    testnet: true,
 });
 
 // ERC20 ABI for balance fetching
@@ -57,10 +39,6 @@ const TOKEN_ADDRESSES = {
     baseSepolia: {
         USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`,
     },
-    celoSepolia: {
-        // User-provided correct USDC address for Celo Sepolia
-        USDC: '0x01C5C0122039549AD1493B8220cABEdD739BC44E' as `0x${string}`,
-    },
     solanaDevnet: {
         // User-provided USDC SPL token address for Solana Devnet
         USDC: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
@@ -71,11 +49,6 @@ const TOKEN_ADDRESSES = {
 const baseSepoliaClient = createPublicClient({
     chain: baseSepolia,
     transport: http(),
-});
-
-const celoSepoliaClient = createPublicClient({
-    chain: celoSepolia,
-    transport: http('https://forno.celo-sepolia.celo-testnet.org'),
 });
 
 // Create Solana Devnet connection - use env var or Alchemy RPC instead of deprecated clusterApiUrl
@@ -176,73 +149,12 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                     display_values: { token: '0', usd: '0' }
                 });
             }
-
-            // ========== CELO SEPOLIA ==========
-            // Celo - CELO (native)
-            try {
-                const celoBalance = await celoSepoliaClient.getBalance({ address: evmAddress });
-                const celoFormatted = formatEther(celoBalance);
-                console.log('[Wallet] Celo CELO balance:', celoFormatted);
-                balances.push({
-                    chain: 'celo_sepolia',
-                    asset: 'celo',
-                    raw_value: celoBalance.toString(),
-                    display_values: {
-                        celo: celoFormatted,
-                        usd: (parseFloat(celoFormatted) * 0.5).toFixed(2) // Approx CELO price
-                    }
-                });
-            } catch (e: any) {
-                console.error('[Wallet] Error fetching Celo CELO:', e.message);
-                balances.push({
-                    chain: 'celo_sepolia',
-                    asset: 'celo',
-                    raw_value: '0',
-                    display_values: { celo: '0', usd: '0.00' }
-                });
-            }
-
-            // Celo Sepolia - USDC
-            try {
-                const usdcBalance = await celoSepoliaClient.readContract({
-                    address: TOKEN_ADDRESSES.celoSepolia.USDC,
-                    abi: erc20Abi,
-                    functionName: 'balanceOf',
-                    args: [evmAddress],
-                });
-                const usdcDecimals = await celoSepoliaClient.readContract({
-                    address: TOKEN_ADDRESSES.celoSepolia.USDC,
-                    abi: erc20Abi,
-                    functionName: 'decimals',
-                });
-                const usdcFormatted = formatUnits(usdcBalance, usdcDecimals);
-                console.log('[Wallet] Celo USDC balance:', usdcFormatted);
-                balances.push({
-                    chain: 'celo_sepolia',
-                    asset: 'usdc',
-                    raw_value: usdcBalance.toString(),
-                    display_values: {
-                        token: usdcFormatted,
-                        usd: usdcFormatted // USDC = $1
-                    }
-                });
-            } catch (e: any) {
-                console.error('[Wallet] Error fetching Celo USDC:', e.message);
-                balances.push({
-                    chain: 'celo_sepolia',
-                    asset: 'usdc',
-                    raw_value: '0',
-                    display_values: { token: '0', usd: '0' }
-                });
-            }
         } else {
             // No EVM wallet found, return zeros
             console.log('[Wallet] No EVM wallet found, returning zero balances');
             balances.push(
                 { chain: 'base_sepolia', asset: 'eth', raw_value: '0', display_values: { eth: '0', usd: '0.00' } },
-                { chain: 'base_sepolia', asset: 'usdc', raw_value: '0', display_values: { token: '0', usd: '0' } },
-                { chain: 'celo_sepolia', asset: 'celo', raw_value: '0', display_values: { celo: '0', usd: '0.00' } },
-                { chain: 'celo_sepolia', asset: 'usdc', raw_value: '0', display_values: { token: '0', usd: '0' } }
+                { chain: 'base_sepolia', asset: 'usdc', raw_value: '0', display_values: { token: '0', usd: '0' } }
             );
         }
 

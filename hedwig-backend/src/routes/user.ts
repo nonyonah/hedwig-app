@@ -54,7 +54,6 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             avatar: user.avatar,
             ethereumWalletAddress: user.ethereum_wallet_address,
             baseWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
-            celoWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
             solanaWalletAddress: user.solana_wallet_address,
             stacksWalletAddress: user.stacks_wallet_address,
             createdAt: user.created_at,
@@ -112,7 +111,6 @@ router.patch('/profile', authenticate, async (req: Request, res: Response, next)
             avatar: user.avatar,
             ethereumWalletAddress: user.ethereum_wallet_address,
             baseWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
-            celoWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
             solanaWalletAddress: user.solana_wallet_address,
             createdAt: user.created_at,
             updatedAt: user.updated_at,

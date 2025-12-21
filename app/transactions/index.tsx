@@ -41,7 +41,6 @@ const ICONS = {
     usdc: require('../../assets/icons/tokens/usdc.png'),
     usdt: require('../../assets/icons/tokens/usdt.png'),
     base: require('../../assets/icons/networks/base.png'),
-    celo: require('../../assets/icons/networks/celo.png'),
     solana: require('../../assets/icons/networks/solana.png'),
     statusSuccess: require('../../assets/icons/status/success.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
@@ -52,7 +51,6 @@ const ICONS = {
 
 const CHAINS: Record<string, { name: string; icon: any }> = {
     'base': { name: 'Base', icon: ICONS.base },
-    'celo': { name: 'Celo', icon: ICONS.celo },
     'solana': { name: 'Solana', icon: ICONS.solana },
 };
 
@@ -62,7 +60,6 @@ const TOKENS: Record<string, any> = {
     'USDC': ICONS.usdc,
     'USDT': ICONS.usdt,
     'SOL': ICONS.eth, // Fallback to eth icon for SOL (no sol.png available)
-    'CELO': ICONS.eth, // Fallback to eth icon for CELO (no celo.png available)
 };
 
 // Profile color gradient options (same as in home screen)
@@ -85,7 +82,7 @@ interface Transaction {
     token: string;
     date: string;
     hash: string;
-    network: 'base' | 'celo' | 'solana';
+    network: 'base' | 'solana';
     status: 'completed' | 'pending' | 'failed';
     from: string;
     to: string;
@@ -253,7 +250,6 @@ export default function TransactionsScreen() {
     const openExplorer = async (tx: Transaction) => {
         let url = '';
         if (tx.network === 'base') url = `https://sepolia.basescan.org/tx/${tx.hash}`;
-        if (tx.network === 'celo') url = `https://celo-sepolia.blockscout.com/tx/${tx.hash}`;
         if (tx.network === 'solana') url = `https://explorer.solana.com/tx/${tx.hash}?cluster=devnet`;
 
         if (url) {

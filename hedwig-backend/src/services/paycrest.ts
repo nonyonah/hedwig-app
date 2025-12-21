@@ -53,8 +53,8 @@ export interface BankDetails {
 
 export interface OfframpOrderRequest {
     amount: number;
-    token: 'USDC' | 'CUSD' | 'USDT';
-    network: 'base' | 'celo' | 'solana';
+    token: 'USDC' | 'USDT';
+    network: 'base' | 'solana';
     rate: string; // Rate fetched from getExchangeRate
     recipient: BankDetails;
     returnAddress: string; // User's wallet address for refunds
