@@ -45,13 +45,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.1",
-            "extraPods": [
-              {
-                "name": "boost",
-                "modular_headers": true
-              }
-            ]
+            "deploymentTarget": "15.1"
           }
         }
       ],
