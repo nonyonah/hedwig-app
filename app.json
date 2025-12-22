@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.hedwig.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true
       }
     },
     "android": {
@@ -27,7 +28,11 @@
       },
       "package": "com.hedwig.app",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.POST_PROMOTED_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -35,7 +40,20 @@
     },
     "plugins": [
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-live-activity",
+        {
+          "enablePushNotifications": true
+        }
+      ],
+      [
+        "expo-live-updates",
+        {
+          "channelId": "hedwig_withdrawals",
+          "channelName": "Withdrawal Tracking"
+        }
+      ]
     ],
     "extra": {
       "router": {

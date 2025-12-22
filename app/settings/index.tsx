@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, Modal, TouchableWithoutFeedback, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
@@ -12,6 +12,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { Sidebar } from '../../components/Sidebar';
 import { Button } from '../../components/Button';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 
 const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
     { code: 'USD', label: 'US Dollar', symbol: '$' },
@@ -29,10 +31,13 @@ const THEMES: { code: Theme; label: string }[] = [
 export default function SettingsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { currency, setCurrency, theme, setTheme } = useSettings();
+    const { currency, setCurrency, theme, setTheme, hapticsEnabled, setHapticsEnabled, liveTrackingEnabled, setLiveTrackingEnabled } = useSettings();
     const { user, logout, getAccessToken } = usePrivy();
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Debug settings load
+    console.log('[Settings] Screen render - Haptics:', hapticsEnabled, 'LiveTracking:', liveTrackingEnabled);
     const [conversations, setConversations] = useState<any[]>([]);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
@@ -195,7 +200,17 @@ export default function SettingsScreen() {
             animationType="fade"
             onRequestClose={onClose}
         >
-            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
+            <View style={styles.modalOverlay}>
+                {/* iOS blur / Android scrim */}
+                {Platform.OS === 'ios' ? (
+                    <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+                ) : (
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.32)' }]} />
+                )}
+                <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => {
+                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onClose();
+                }} />
                 <TouchableWithoutFeedback>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>{title}</Text>
@@ -204,6 +219,7 @@ export default function SettingsScreen() {
                                 key={opt.code}
                                 style={styles.modalItem}
                                 onPress={() => {
+                                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                     onSelect(opt.code);
                                     onClose();
                                 }}
@@ -221,7 +237,7 @@ export default function SettingsScreen() {
                         ))}
                     </View>
                 </TouchableWithoutFeedback>
-            </TouchableOpacity>
+            </View>
         </Modal>
     );
 
@@ -298,6 +314,32 @@ export default function SettingsScreen() {
                             {/* <CaretDown size={16} color={Colors.textSecondary} /> */}
                         </View>
                     </TouchableOpacity>
+
+                    <View style={styles.divider} />
+
+                    <View style={styles.settingRow}>
+                        <Text style={styles.settingLabel}>Haptic Feedback</Text>
+                        <Switch
+                            trackColor={{ false: "#E5E7EB", true: Colors.success }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor="#E5E7EB"
+                            value={hapticsEnabled}
+                            onValueChange={setHapticsEnabled}
+                        />
+                    </View>
+
+                    <View style={styles.divider} />
+
+                    <View style={styles.settingRow}>
+                        <Text style={styles.settingLabel}>{Platform.OS === 'ios' ? 'Live Activities' : 'Live Updates'}</Text>
+                        <Switch
+                            trackColor={{ false: "#E5E7EB", true: Colors.success }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor="#E5E7EB"
+                            value={liveTrackingEnabled}
+                            onValueChange={setLiveTrackingEnabled}
+                        />
+                    </View>
                 </View>
 
                 <View style={styles.spacer} />

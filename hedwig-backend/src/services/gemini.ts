@@ -289,43 +289,54 @@ AVAILABLE INTENTS & TRIGGERS:
 
 9. COLLECT_OFFRAMP_INFO
    Use when user wants to swap/convert crypto to fiat but is missing info.
-   Parameters: { amount, token, network, fiatCurrency, bankName, accountNumber, accountName }
+   Parameters: { amount, token, network, fiatCurrency, bankName, accountNumber, accountName, beneficiaryId }
    
    **IMPORTANT: Give clear, friendly step-by-step instructions!**
    
+   **BENEFICIARIES FEATURE:**
+   - If user has saved beneficiaries (passed in context as {{BENEFICIARIES}}), OFFER to use them!
+   - Say "I see you have saved accounts. Would you like to use one of these?"
+   - If user says "use my GTBank account" or similar, match to beneficiary and auto-fill bank details
+   - Set beneficiaryId parameter if user selects a saved beneficiary
+   
    **When user first asks about withdrawal/offramp (missing everything):**
-   Your response should be warm and instructional:
+   
+   If user has saved beneficiaries, include them in your response:
+   "I'll help you convert your crypto to cash! 💸
+   
+   I see you have saved accounts - would you like to use one?
+   {{BENEFICIARIES_FORMATTED}}
+   
+   Or provide new bank details. I need:
+   1️⃣ **Amount**: How much? (e.g., 50 USDC)
+   2️⃣ **Network**: Base or Solana?
+   3️⃣ **Bank**: Saved account or new details"
+   
+   If no saved beneficiaries:
    "I'll help you convert your crypto to cash! 💸
 
-   Here's what I need to process your withdrawal:
+   Here's what I need:
    1️⃣ **Amount & Token**: How much? (e.g., 50 USDC)
    2️⃣ **Network**: Base or Solana?
    3️⃣ **Currency**: NGN, GHS, or KES?
-   4️⃣ **Bank Details**: Your bank name, account number, and account name
+   4️⃣ **Bank**: Bank name, account number, and name
 
-   You can provide everything at once like:
-   *'Withdraw 50 USDC on Base to GTBank 0123456789 John Doe (NGN)'*
-
-   Or just tell me the amount to start, and I'll guide you through the rest!"
+   Or all at once: *'Withdraw 50 USDC on Base to GTBank 0123456789 John Doe'*"
    
-   **Collection Strategy (one question at a time if they prefer):**
-   - Missing amount/token: "How much would you like to withdraw? (e.g., 50 USDC, 100 CUSD)"
-   - Has amount, missing network: "Got it! Which network are your tokens on - **Base** or **Solana**?"
-   - Has amount + network, missing currency: "Are you withdrawing to **Naira (NGN)**, **Cedis (GHS)**, or **Shillings (KES)**?"
-   - Has amount + network + currency, missing bank: "Almost there! Please share your bank details:\n• Bank name (e.g., GTBank, Access Bank)\n• Account number\n• Account name"
+   **Collection Strategy:**
+   - Missing amount: "How much to withdraw? (e.g., 50 USDC)"
+   - Has amount, missing network: "Which network - **Base** or **Solana**?"
+   - Has amount + network, missing bank: "Bank details or pick a saved account?"
    
-   **Parsing Bank Details:**
-   - "GTBank 0123456789 John Doe" → { bankName: "GTBank", accountNumber: "0123456789", accountName: "John Doe" }
-   - "Access Bank, 1234567890, Jane Smith" → { bankName: "Access Bank", accountNumber: "1234567890", accountName: "Jane Smith" }
-   
-   **When all info collected, confirm before proceeding:**
-   "Perfect! Here's your withdrawal summary:
+   **When all info collected, ALWAYS mention the 1% platform fee:**
+   "Here's your withdrawal summary:
    💰 **Amount**: 50 USDC
    🔗 **Network**: Base
    💱 **Currency**: NGN
    🏦 **Bank**: GTBank - 0123456789 (John Doe)
+   💵 **Platform Fee**: 1% (0.50 USDC)
    
-   I'll fetch the current exchange rate and show you the confirmation. Ready to proceed?"
+   Ready to proceed?"
 
 9b. CONFIRM_SOLANA_BRIDGE
    Triggers: User wants to offramp from SOLANA network
@@ -560,7 +571,8 @@ User: "What's my balance?"
   static async generateChatResponse(
     userMessage: string,
     conversationHistory?: { role: string; content: string }[],
-    files?: { mimeType: string; data: string }[] // base64 encoded file data
+    files?: { mimeType: string; data: string }[], // base64 encoded file data
+    context?: { beneficiaries?: { id: string; bankName: string; accountNumber: string; accountName: string }[] }
   ): Promise<any> {
     try {
       // ALWAYS include system instructions to ensure consistent JSON responses
@@ -568,6 +580,17 @@ User: "What's my balance?"
 
       // Construct the full prompt
       let prompt = `${systemInstructions}\n\n`;
+
+      // Add beneficiaries context if available
+      if (context?.beneficiaries && context.beneficiaries.length > 0) {
+        prompt += `**USER'S SAVED BENEFICIARIES (for offramp/withdrawal):**\n`;
+        context.beneficiaries.forEach((b, i) => {
+          prompt += `${i + 1}. ${b.accountName} - ${b.bankName} (${b.accountNumber.slice(0, 3)}***${b.accountNumber.slice(-3)}) [ID: ${b.id}]\n`;
+        });
+        prompt += `\nWhen user wants to withdraw, OFFER these saved accounts! If user says "use my ${context.beneficiaries[0]?.bankName} account", match and auto-fill.\n\n`;
+      } else {
+        prompt += `**USER HAS NO SAVED BENEFICIARIES** - offer to save their account after withdrawal.\n\n`;
+      }
 
       // Add history if available
       if (conversationHistory && conversationHistory.length > 0) {

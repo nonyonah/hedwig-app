@@ -23,6 +23,8 @@ import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { Connection, Transaction, clusterApiUrl } from '@solana/web3.js';
 import { Colors } from '../theme/colors';
 import { Button } from './Button';
+import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
+import { useSettings } from '../context/SettingsContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -79,6 +81,7 @@ export function SolanaBridgeModal({
     onBridgeComplete,
     getAccessToken,
 }: SolanaBridgeModalProps) {
+    const { hapticsEnabled } = useSettings();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     // Privy Solana wallet
@@ -93,23 +96,40 @@ export function SolanaBridgeModal({
     const [error, setError] = useState<string | null>(null);
     const [bridgeStatus, setBridgeStatus] = useState<string>('');
     const [txSignature, setTxSignature] = useState<string | null>(null);
+    const backdropOpacity = useRef(new Animated.Value(0)).current;
 
     // Animation effects
     useEffect(() => {
         if (visible) {
-            Animated.spring(slideAnim, {
-                toValue: 0,
-                useNativeDriver: true,
-                tension: 65,
-                friction: 11,
-            }).start();
+            modalHaptic('open', hapticsEnabled); // Haptic feedback
+            Animated.parallel([
+                Animated.spring(slideAnim, {
+                    toValue: 0,
+                    useNativeDriver: true,
+                    tension: 65,
+                    friction: 11,
+                }),
+                Animated.timing(backdropOpacity, {
+                    toValue: 1,
+                    duration: 250,
+                    useNativeDriver: true,
+                }),
+            ]).start();
             fetchQuote();
         } else {
-            Animated.timing(slideAnim, {
-                toValue: SCREEN_HEIGHT,
-                duration: 200,
-                useNativeDriver: true,
-            }).start();
+            modalHaptic('close', hapticsEnabled); // Haptic feedback
+            Animated.parallel([
+                Animated.timing(slideAnim, {
+                    toValue: SCREEN_HEIGHT,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(backdropOpacity, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+            ]).start();
             // Reset state when closing
             setStep('quote');
             setQuote(null);
@@ -487,8 +507,9 @@ export function SolanaBridgeModal({
             onRequestClose={onClose}
         >
             <View style={styles.overlay}>
+                <ModalBackdrop opacity={backdropOpacity} />
                 <TouchableOpacity
-                    style={styles.backdrop}
+                    style={StyleSheet.absoluteFill}
                     activeOpacity={1}
                     onPress={step === 'quote' || step === 'error' ? onClose : undefined}
                 />

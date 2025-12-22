@@ -8,6 +8,8 @@ import { Colors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
+import { useSettings } from '../context/SettingsContext';
 import {
     Connection,
     PublicKey,
@@ -89,6 +91,7 @@ interface TransactionConfirmationModalProps {
 type ModalState = 'confirm' | 'processing' | 'success' | 'failed';
 
 export const TransactionConfirmationModal: React.FC<TransactionConfirmationModalProps> = ({ visible, onClose, data, onSuccess }) => {
+    const { hapticsEnabled } = useSettings();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const solanaWallet = useEmbeddedSolanaWallet();
 
@@ -200,6 +203,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
             setIsRendered(true);
             setModalState('confirm'); // Reset state on open
             setTxHash(null);
+            modalHaptic('open', hapticsEnabled); // Haptic feedback
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 1,
@@ -214,6 +218,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                 })
             ]).start();
         } else {
+            modalHaptic('close', hapticsEnabled); // Haptic feedback
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 0,
@@ -796,12 +801,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
             onRequestClose={onClose}
         >
             <View style={styles.overlay}>
-                <Animated.View
-                    style={[
-                        StyleSheet.absoluteFill,
-                        { backgroundColor: 'rgba(0,0,0,0.5)', opacity: opacityAnim }
-                    ]}
-                />
+                <ModalBackdrop opacity={opacityAnim} />
                 <TouchableOpacity
                     style={StyleSheet.absoluteFill}
                     activeOpacity={1}

@@ -22,6 +22,7 @@ import clientRoutes from './routes/client';
 import projectRoutes from './routes/project';
 import conversationsRoutes from './routes/conversations';
 import webhookRoutes from './routes/webhook';
+import paycrestWebhookRoutes from './routes/paycrestWebhook';
 import pdfRoutes from './routes/pdf';
 import walletRoutes from './routes/wallet';
 import notificationRoutes from './routes/notifications';
@@ -136,6 +137,7 @@ app.use('/api/bridge', bridgeRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/webhooks/paycrest', paycrestWebhookRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);

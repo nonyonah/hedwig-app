@@ -14,6 +14,8 @@ import {
 } from './CryptoIcons';
 import { getUserGradient } from '../utils/gradientUtils';
 import { getOrCreateStacksWallet, getSTXBalance } from '../services/stacksWallet';
+import { ModalBackdrop, modalHaptic, getModalAnimationConfig } from './ui/ModalStyles';
+import { useSettings } from '../context/SettingsContext';
 
 // RPC URLs
 const RPC_URLS = {
@@ -90,12 +92,8 @@ interface ProfileModalProps {
     onProfileUpdate?: () => void;
 }
 
-import { useSettings } from '../context/SettingsContext';
-
-// ... other imports ...
-
 export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, userName, walletAddresses, profileIcon }) => {
-    const { currency } = useSettings(); // Use currency from context
+    const { currency, hapticsEnabled } = useSettings(); // Use currency and haptics from context
     const { user, logout, getAccessToken } = usePrivy();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const solanaWallet = useEmbeddedSolanaWallet();
@@ -421,6 +419,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     useEffect(() => {
         if (visible) {
             setIsRendered(true);
+            modalHaptic('open', hapticsEnabled); // Haptic feedback
             // Reset stagger animations
             headerAnim.setValue(0);
             balanceAnim.setValue(0);
@@ -449,6 +448,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                 ]),
             ]).start();
         } else {
+            modalHaptic('close', hapticsEnabled); // Haptic feedback
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 0,
@@ -509,15 +509,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                 onRequestClose={onClose}
             >
                 <View style={[styles.modalOverlay, { backgroundColor: 'transparent' }]}>
-                    <Animated.View
-                        style={[
-                            StyleSheet.absoluteFill,
-                            {
-                                backgroundColor: 'rgba(0,0,0,0.5)',
-                                opacity: opacityAnim
-                            }
-                        ]}
-                    />
+                    <ModalBackdrop opacity={opacityAnim} />
                     <TouchableOpacity
                         style={StyleSheet.absoluteFill}
                         activeOpacity={1}

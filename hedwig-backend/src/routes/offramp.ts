@@ -62,7 +62,7 @@ router.post('/verify-account', authenticate, async (req: Request, res: Response,
  */
 router.post('/create', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, token, network, bankName, accountNumber, accountName, returnAddress, currency, memo } =
+        const { amount, token, network, bankName, accountNumber, accountName, returnAddress, currency, memo, saveBeneficiary } =
             req.body;
         const userId = req.user!.id;
 
@@ -72,6 +72,9 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
+        // Platform fee is 1% (displayed to user, but Paycrest handles actual deduction)
+        const platformFee = amountNum * 0.01;
+
         // 1. Fetch current rate
         const rate = await PaycrestService.getExchangeRate(
             token,
@@ -80,15 +83,15 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
             network
         );
 
-        // 2. Create order with Paycrest
+        // 2. Create order with Paycrest (full amount - Paycrest handles fee deduction)
         const order = await PaycrestService.createOfframpOrder({
             amount: amountNum,
             token: token as 'USDC' | 'USDT',
             network: network as 'base',
             rate,
             recipient: {
-                institution: bankName, // Map bankName to institution
-                accountIdentifier: accountNumber, // Map accountNumber to accountIdentifier
+                institution: bankName,
+                accountIdentifier: accountNumber,
                 accountName,
                 currency,
                 memo,
@@ -101,7 +104,7 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
             .from('offramp_orders')
             .insert({
                 user_id: userId,
-                paycrest_order_id: order.id, // Using id from response
+                paycrest_order_id: order.id,
                 status: 'PENDING',
                 chain: network.toUpperCase(),
                 token,
@@ -113,14 +116,40 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
                 bank_name: bankName,
                 account_number: accountNumber,
                 account_name: accountName,
-                receive_address: order.receiveAddress, // New column
-                memo: memo, // New column
+                receive_address: order.receiveAddress,
+                memo: memo,
             })
             .select()
             .single();
 
         if (error) {
             throw new Error(`Failed to save offramp order: ${error.message}`);
+        }
+
+        // 4. Save beneficiary if requested
+        if (saveBeneficiary) {
+            // Check if beneficiary already exists
+            const { data: existingBeneficiary } = await supabase
+                .from('beneficiaries')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('account_number', accountNumber)
+                .eq('bank_name', bankName)
+                .single();
+
+            if (!existingBeneficiary) {
+                await supabase
+                    .from('beneficiaries')
+                    .insert({
+                        user_id: userId,
+                        bank_name: bankName,
+                        account_number: accountNumber,
+                        account_name: accountName,
+                        currency: currency || 'NGN',
+                        is_default: false,
+                    });
+                console.log('[Offramp] Saved new beneficiary for user:', userId);
+            }
         }
 
         // Map to camelCase
@@ -132,6 +161,7 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
             chain: dbOrder.chain,
             token: dbOrder.token,
             cryptoAmount: dbOrder.crypto_amount,
+            platformFee: platformFee, // Calculated 1% for display
             fiatCurrency: dbOrder.fiat_currency,
             fiatAmount: dbOrder.fiat_amount,
             exchangeRate: dbOrder.exchange_rate,

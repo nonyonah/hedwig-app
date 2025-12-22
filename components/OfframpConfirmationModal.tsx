@@ -10,6 +10,8 @@ import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../hooks/useAuth';
+import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
+import { useSettings } from '../context/SettingsContext';
 
 const { height } = Dimensions.get('window');
 
@@ -70,6 +72,7 @@ interface OfframpConfirmationModalProps {
 type ModalState = 'confirm' | 'processing' | 'awaiting_transfer' | 'success' | 'failed';
 
 export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> = ({ visible, onClose, data, onSuccess }) => {
+    const { hapticsEnabled } = useSettings();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const { getAccessToken } = useAuth();
     const evmWallets = (ethereumWallet as any)?.wallets || [];
@@ -131,6 +134,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
             setModalState('confirm');
             setOrderId(null);
             setReceiveAddress(null);
+            modalHaptic('open', hapticsEnabled); // Haptic feedback
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 1,
@@ -145,6 +149,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
                 })
             ]).start();
         } else {
+            modalHaptic('close', hapticsEnabled); // Haptic feedback
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 0,
@@ -427,12 +432,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
             onRequestClose={onClose}
         >
             <View style={styles.overlay}>
-                <Animated.View
-                    style={[
-                        StyleSheet.absoluteFill,
-                        { backgroundColor: 'rgba(0,0,0,0.5)', opacity: opacityAnim }
-                    ]}
-                />
+                <ModalBackdrop opacity={opacityAnim} />
                 <TouchableOpacity
                     style={StyleSheet.absoluteFill}
                     activeOpacity={1}

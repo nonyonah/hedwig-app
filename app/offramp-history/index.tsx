@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
@@ -7,86 +6,82 @@ import {
     TouchableOpacity,
     Modal,
     Dimensions,
-    Alert,
     SafeAreaView,
     ActivityIndicator,
     SectionList,
-    Platform,
     Image,
-    LayoutAnimation,
-    Animated
+    Animated,
+    ScrollView
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowsLeftRight } from 'phosphor-react-native';
+import { List, X, Copy, Bank, ArrowDown, CheckCircle, Clock, Warning, ArrowsCounterClockwise } from 'phosphor-react-native';
 import * as Clipboard from 'expo-clipboard';
-import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
 
 import { Colors } from '../../theme/colors';
-import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSettings } from '../../context/SettingsContext';
-import { formatCurrency } from '../../utils/currencyUtils';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
+import { useSettings } from '../../context/SettingsContext';
 
 const { width } = Dimensions.get('window');
 
-// Icons for tokens, networks, and status (matching invoices/payment-links screens)
+// Icons
 const ICONS = {
-    eth: require('../../assets/icons/tokens/eth.png'),
     usdc: require('../../assets/icons/tokens/usdc.png'),
     usdt: require('../../assets/icons/tokens/usdt.png'),
     base: require('../../assets/icons/networks/base.png'),
     solana: require('../../assets/icons/networks/solana.png'),
-    statusSuccess: require('../../assets/icons/status/success.png'),
-    statusPending: require('../../assets/icons/status/pending.png'),
-    statusFailed: require('../../assets/icons/status/failed.png'),
-    send: require('../../assets/icons/status/send.png'),
-    receive: require('../../assets/icons/status/receive.png'),
 };
 
 const CHAINS: Record<string, { name: string; icon: any }> = {
-    'base': { name: 'Base', icon: ICONS.base },
-    'solana': { name: 'Solana', icon: ICONS.solana },
+    'BASE': { name: 'Base', icon: ICONS.base },
+    'SOLANA': { name: 'Solana', icon: ICONS.solana },
 };
 
-// Map token symbols to available icons (fallback to eth for native tokens, usdc for stablecoins)
 const TOKENS: Record<string, any> = {
-    'ETH': ICONS.eth,
     'USDC': ICONS.usdc,
     'USDT': ICONS.usdt,
-    'SOL': ICONS.eth, // Fallback to eth icon for SOL (no sol.png available)
 };
 
-// Profile color gradient options (same as in home screen)
+// Status configurations with colors and icons
+const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: string; icon: any }> = {
+    'PENDING': { color: '#F59E0B', bgColor: '#FEF3C7', label: 'Pending', icon: Clock },
+    'PROCESSING': { color: '#3B82F6', bgColor: '#DBEAFE', label: 'Processing', icon: ArrowsCounterClockwise },
+    'COMPLETED': { color: '#10B981', bgColor: '#D1FAE5', label: 'Completed', icon: CheckCircle },
+    'FAILED': { color: '#EF4444', bgColor: '#FEE2E2', label: 'Failed', icon: Warning },
+    'CANCELLED': { color: '#6B7280', bgColor: '#F3F4F6', label: 'Cancelled', icon: X },
+};
+
+// Profile color gradient options
 const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
-    ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
-    ['#34D399', '#10B981', '#059669'], // Green
-    ['#F472B6', '#EC4899', '#DB2777'], // Pink
-    ['#FBBF24', '#F59E0B', '#D97706'], // Amber
-    ['#A78BFA', '#8B5CF6', '#7C3AED'], // Purple
-    ['#F87171', '#EF4444', '#DC2626'], // Red
-    ['#38BDF8', '#0EA5E9', '#0284C7'], // Sky
-    ['#4ADE80', '#22C55E', '#16A34A'], // Emerald
+    ['#60A5FA', '#3B82F6', '#2563EB'],
+    ['#34D399', '#10B981', '#059669'],
+    ['#F472B6', '#EC4899', '#DB2777'],
+    ['#FBBF24', '#F59E0B', '#D97706'],
+    ['#A78BFA', '#8B5CF6', '#7C3AED'],
+    ['#F87171', '#EF4444', '#DC2626'],
 ];
 
-interface Transaction {
+interface OfframpOrder {
     id: string;
-    type: 'IN' | 'OUT';
-    description: string;
-    amount: string;
+    paycrestOrderId: string;
+    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+    chain: string;
     token: string;
-    date: string;
-    hash: string;
-    network: 'base' | 'solana';
-    status: 'completed' | 'pending' | 'failed';
-    from: string;
-    to: string;
+    cryptoAmount: number;
+    fiatCurrency: string;
+    fiatAmount: number;
+    exchangeRate: number;
+    serviceFee: number;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    createdAt: string;
+    completedAt?: string;
 }
 
 interface UserData {
@@ -95,38 +90,32 @@ interface UserData {
     email: string;
     ethereumWalletAddress?: string;
     solanaWalletAddress?: string;
-    avatar?: string;
 }
 
-export default function TransactionsScreen() {
+export default function OfframpHistoryScreen() {
     const router = useRouter();
-    const { getAccessToken, user } = usePrivy();
-    const insets = useSafeAreaInsets();
-    const settings = useSettings();
-    const currency = settings?.currency || 'USD';
-    const hapticsEnabled = settings?.hapticsEnabled ?? true;
+    const { getAccessToken } = usePrivy();
+    const { hapticsEnabled } = useSettings();
 
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [orders, setOrders] = useState<OfframpOrder[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
-
-    // Profile Modal
-    const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
     const [userData, setUserData] = useState<UserData | null>(null);
+    const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
     const [profileIcon, setProfileIcon] = useState<{ type: 'emoji' | 'image'; emoji?: string; imageUri?: string; colorIndex?: number }>({
         type: 'emoji',
-        colorIndex: 0 // Start with gradient, no emoji (loading state)
+        colorIndex: 0
     });
 
-    // Detail Modal with slide animation
-    const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+    // Detail Modal
+    const [selectedOrder, setSelectedOrder] = useState<OfframpOrder | null>(null);
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
     const slideAnim = useRef(new Animated.Value(0)).current;
     const modalOpacity = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        fetchTransactions();
+        fetchOrders();
         fetchUserData();
         fetchConversations();
     }, []);
@@ -145,32 +134,15 @@ export default function TransactionsScreen() {
                 const user = responseData.data?.user || responseData.user;
                 setUserData(user);
 
-                // Parse avatar from API response (stored as JSON string in database or as data URI)
                 if (user?.avatar) {
                     try {
-                        // Check if it's a JSON string (starts with {) or direct image URI
                         if (typeof user.avatar === 'string' && user.avatar.trim().startsWith('{')) {
                             const avatarData = JSON.parse(user.avatar);
                             if (avatarData.imageUri) {
-                                setProfileIcon({
-                                    type: 'image',
-                                    imageUri: avatarData.imageUri,
-                                    colorIndex: avatarData.colorIndex || 0
-                                });
+                                setProfileIcon({ type: 'image', imageUri: avatarData.imageUri, colorIndex: avatarData.colorIndex || 0 });
                             } else if (avatarData.emoji) {
-                                setProfileIcon({
-                                    type: 'emoji',
-                                    emoji: avatarData.emoji,
-                                    colorIndex: avatarData.colorIndex || 0
-                                });
+                                setProfileIcon({ type: 'emoji', emoji: avatarData.emoji, colorIndex: avatarData.colorIndex || 0 });
                             }
-                        } else if (typeof user.avatar === 'string' && user.avatar.startsWith('data:')) {
-                            // Direct data URI
-                            setProfileIcon({
-                                type: 'image',
-                                imageUri: user.avatar,
-                                colorIndex: 0
-                            });
                         }
                     } catch (parseError) {
                         console.error('Error parsing avatar:', parseError);
@@ -186,12 +158,10 @@ export default function TransactionsScreen() {
         try {
             const token = await getAccessToken();
             if (!token) return;
-
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
             const response = await fetch(`${apiUrl}/api/chat/conversations`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-
             if (response.ok) {
                 const data = await response.json();
                 setConversations(data.data || []);
@@ -201,33 +171,30 @@ export default function TransactionsScreen() {
         }
     };
 
-    const fetchTransactions = async () => {
+    const fetchOrders = async () => {
         try {
             setIsLoading(true);
             const token = await getAccessToken();
             if (!token) return;
 
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const response = await fetch(`${apiUrl}/api/transactions`, {
+            const response = await fetch(`${apiUrl}/api/offramp/orders`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (response.ok) {
                 const data = await response.json();
-                setTransactions(data.data || []);
-            } else {
-                console.error('Failed to fetch transactions');
+                setOrders(data.data?.orders || []);
             }
         } catch (error) {
-            console.error('Error fetching transactions:', error);
+            console.error('Error fetching offramp orders:', error);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Modal open/close with spring animation (matching payment-links/invoices)
-    const openModal = (tx: Transaction) => {
-        setSelectedTransaction(tx);
+    const openModal = (order: OfframpOrder) => {
+        setSelectedOrder(order);
         setIsDetailModalVisible(true);
         modalHaptic('open', hapticsEnabled);
         Animated.parallel([
@@ -266,88 +233,112 @@ export default function TransactionsScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     };
 
-    const openExplorer = async (tx: Transaction) => {
-        console.log('[Transactions] Opening explorer for:', tx.network, 'hash:', tx.hash);
-
-        if (!tx.hash) {
-            Alert.alert('Error', 'Transaction hash not available');
-            return;
-        }
-
-        let url = '';
-        if (tx.network === 'base') {
-            url = `https://sepolia.basescan.org/tx/${tx.hash}`;
-        } else if (tx.network === 'solana') {
-            url = `https://explorer.solana.com/tx/${tx.hash}?cluster=devnet`;
-        }
-
-        console.log('[Transactions] Explorer URL:', url);
-
-        if (url) {
-            try {
-                await WebBrowser.openBrowserAsync(url, {
-                    presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
-                    controlsColor: Colors.primary
-                });
-            } catch (error) {
-                console.error('[Transactions] Failed to open explorer:', error);
-                Alert.alert('Error', 'Failed to open block explorer');
-            }
-        } else {
-            Alert.alert('Error', 'Explorer not available for this network');
-        }
-    };
-
     // Grouping logic for SectionList
-    const groupedTransactions = transactions.reduce((acc: any, tx) => {
-        const date = new Date(tx.date);
+    const groupedOrders = orders.reduce((acc: any, order) => {
+        const date = new Date(order.createdAt);
         let title = format(date, 'MMM d');
         if (isToday(date)) title = 'Today';
         if (isYesterday(date)) title = 'Yesterday';
 
         const existingSection = acc.find((s: any) => s.title === title);
         if (existingSection) {
-            existingSection.data.push(tx);
+            existingSection.data.push(order);
         } else {
-            acc.push({ title, data: [tx] });
+            acc.push({ title, data: [order] });
         }
         return acc;
     }, []);
 
-    const renderTransactionItem = ({ item }: { item: Transaction }) => {
-        const isReceived = item.type === 'IN';
-        const tokenIcon = TOKENS[item.token.toUpperCase()] || ICONS.usdc;
-        const chainInfo = CHAINS[item.network] || CHAINS.base;
+    const renderOrderItem = ({ item }: { item: OfframpOrder }) => {
+        const statusConfig = STATUS_CONFIG[item.status] || STATUS_CONFIG.PENDING;
+        const tokenIcon = TOKENS[item.token] || ICONS.usdc;
+        const chainInfo = CHAINS[item.chain] || CHAINS.BASE;
+        const StatusIcon = statusConfig.icon;
 
         return (
-            <TouchableOpacity
-                style={styles.txItem}
-                onPress={() => openModal(item)}
-            >
-                {/* Token Icon with Chain Badge (like invoice/payment-links cards) */}
-                <View style={styles.txIconContainer}>
-                    <Image source={tokenIcon} style={styles.txTokenIcon} />
+            <TouchableOpacity style={styles.orderItem} onPress={() => openModal(item)}>
+                {/* Token Icon with Chain Badge */}
+                <View style={styles.iconContainer}>
+                    <Image source={tokenIcon} style={styles.tokenIcon} />
                     <View style={styles.chainBadge}>
                         <Image source={chainInfo.icon} style={styles.chainBadgeIcon} />
                     </View>
                 </View>
 
-                <View style={styles.txContent}>
-                    <Text style={styles.txTitle}>{isReceived ? 'Received' : 'Sent'}</Text>
-                    <Text style={styles.txSubtitle} numberOfLines={1} ellipsizeMode="middle">
-                        {isReceived ? `From ${item.from.slice(0, 6)}...${item.from.slice(-4)}` : `To ${item.to.slice(0, 6)}...${item.to.slice(-4)}`}
-                    </Text>
+                <View style={styles.orderContent}>
+                    <Text style={styles.orderTitle}>Withdrawal to {item.bankName}</Text>
+                    <Text style={styles.orderSubtitle}>{item.accountName} • ****{item.accountNumber.slice(-4)}</Text>
                 </View>
 
-                <View style={styles.txAmountContainer}>
-                    <Text style={[styles.txAmount, { color: isReceived ? Colors.success : Colors.textPrimary }]}>
-                        {isReceived ? '+' : '-'}{item.amount} {item.token}
+                <View style={styles.orderRight}>
+                    <Text style={styles.orderAmount}>
+                        {item.fiatCurrency} {item.fiatAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </Text>
-                    <Text style={styles.txFiatAmount}>
-                        ≈ {formatCurrency(item.amount || '0', currency)}
-                    </Text>
+                    <View style={[styles.statusBadge, { backgroundColor: statusConfig.bgColor }]}>
+                        <StatusIcon size={12} color={statusConfig.color} weight="bold" />
+                        <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.label}</Text>
+                    </View>
                 </View>
             </TouchableOpacity>
+        );
+    };
+
+    // Progress Steps Component (DoorDash/Uber-like)
+    const ProgressSteps = ({ status }: { status: string }) => {
+        const steps = [
+            { key: 'PENDING', label: 'Initiated' },
+            { key: 'PROCESSING', label: 'Processing' },
+            { key: 'COMPLETED', label: 'Completed' },
+        ];
+
+        const currentIndex = steps.findIndex(s => s.key === status);
+        const isFailed = status === 'FAILED' || status === 'CANCELLED';
+
+        return (
+            <View style={styles.progressContainer}>
+                {steps.map((step, index) => {
+                    const isActive = index <= currentIndex && !isFailed;
+                    const isCompleted = index < currentIndex && !isFailed;
+                    const isCurrent = index === currentIndex && !isFailed;
+
+                    return (
+                        <View key={step.key} style={styles.progressStep}>
+                            {/* Connector Line */}
+                            {index > 0 && (
+                                <View style={[
+                                    styles.progressLine,
+                                    isActive && styles.progressLineActive
+                                ]} />
+                            )}
+
+                            {/* Step Circle */}
+                            <View style={[
+                                styles.progressCircle,
+                                isActive && styles.progressCircleActive,
+                                isCurrent && styles.progressCircleCurrent,
+                                isFailed && index === currentIndex && styles.progressCircleFailed
+                            ]}>
+                                {isCompleted ? (
+                                    <CheckCircle size={16} color="#FFFFFF" weight="bold" />
+                                ) : isFailed && index === currentIndex ? (
+                                    <X size={16} color="#FFFFFF" weight="bold" />
+                                ) : (
+                                    <Text style={[
+                                        styles.progressNumber,
+                                        isActive && styles.progressNumberActive
+                                    ]}>{index + 1}</Text>
+                                )}
+                            </View>
+
+                            {/* Step Label */}
+                            <Text style={[
+                                styles.progressLabel,
+                                isActive && styles.progressLabelActive
+                            ]}>{step.label}</Text>
+                        </View>
+                    );
+                })}
+            </View>
         );
     };
 
@@ -358,7 +349,7 @@ export default function TransactionsScreen() {
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
                         <List size={24} color={Colors.textPrimary} weight="bold" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Transactions</Text>
+                    <Text style={styles.headerTitle}>Withdrawals</Text>
                     <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
                         {profileIcon.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
@@ -381,17 +372,17 @@ export default function TransactionsScreen() {
                     <View style={styles.centered}>
                         <ActivityIndicator size="large" color={Colors.primary} />
                     </View>
-                ) : transactions.length === 0 ? (
+                ) : orders.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <ArrowsLeftRight size={48} color={Colors.textTertiary} weight="thin" />
-                        <Text style={styles.emptyTitle}>No transactions yet</Text>
-                        <Text style={styles.emptyText}>Your transaction history will appear here.</Text>
+                        <Bank size={48} color={Colors.textTertiary} weight="thin" />
+                        <Text style={styles.emptyTitle}>No withdrawals yet</Text>
+                        <Text style={styles.emptyText}>Your withdrawal history will appear here.</Text>
                     </View>
                 ) : (
                     <SectionList
-                        sections={groupedTransactions}
+                        sections={groupedOrders}
                         keyExtractor={(item) => item.id}
-                        renderItem={renderTransactionItem}
+                        renderItem={renderOrderItem}
                         renderSectionHeader={({ section: { title } }) => (
                             <View style={styles.sectionHeaderContainer}>
                                 <Text style={styles.sectionHeader}>{title}</Text>
@@ -413,7 +404,6 @@ export default function TransactionsScreen() {
                 onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
             />
 
-            {/* Profile Modal */}
             <ProfileModal
                 visible={isProfileModalVisible}
                 onClose={() => setIsProfileModalVisible(false)}
@@ -426,7 +416,7 @@ export default function TransactionsScreen() {
                 onProfileUpdate={fetchUserData}
             />
 
-            {/* Transaction Detail Modal */}
+            {/* Order Detail Modal */}
             <Modal
                 visible={isDetailModalVisible}
                 transparent
@@ -449,90 +439,90 @@ export default function TransactionsScreen() {
                             }
                         ]}
                     >
-                        <View style={styles.modalHeader}>
-                            <View style={styles.modalHeaderLeft}>
-                                {/* Token icon with send/receive badge */}
-                                <View style={styles.modalIconContainer}>
-                                    <Image
-                                        source={TOKENS[selectedTransaction?.token?.toUpperCase() || 'USDC'] || ICONS.usdc}
-                                        style={styles.modalTokenIcon}
-                                    />
-                                    <Image
-                                        source={selectedTransaction?.type === 'IN' ? ICONS.receive : ICONS.send}
-                                        style={styles.modalStatusBadge}
-                                    />
-                                </View>
-                                <View>
-                                    <Text style={styles.modalTitle}>
-                                        {selectedTransaction?.type === 'IN' ? 'Received' : 'Sent'}
-                                    </Text>
-                                    <Text style={styles.modalSubtitle}>
-                                        {selectedTransaction?.date ? format(new Date(selectedTransaction.date), 'MMM d, yyyy • h:mm a') : ''}
-                                    </Text>
-                                </View>
-                            </View>
-                            <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
-                                <X size={20} color={Colors.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        {selectedTransaction && (
-                            <>
-                                {/* Amount Card */}
-                                <View style={styles.amountCard}>
-                                    <Text style={styles.amountCardValue}>
-                                        {selectedTransaction.type === 'IN' ? '+' : '-'}${selectedTransaction.amount}
-                                    </Text>
-                                    <View style={styles.amountCardSub}>
-                                        <Image source={TOKENS[selectedTransaction.token.toUpperCase()] || ICONS.usdc} style={styles.smallIcon} />
-                                        <Text style={styles.amountCardSubText}>{selectedTransaction.amount} {selectedTransaction.token}</Text>
-                                    </View>
-                                </View>
-
-                                {/* Details Card */}
-                                <View style={styles.detailsCard}>
-                                    <View style={styles.detailRow}>
-                                        <Text style={styles.detailLabel}>Transaction ID</Text>
-                                        <TouchableOpacity onPress={() => copyToClipboard(selectedTransaction.hash)} style={styles.detailValueRow}>
-                                            <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">
-                                                {selectedTransaction.hash.slice(0, 10)}...{selectedTransaction.hash.slice(-8)}
-                                            </Text>
-                                            <Copy size={14} color={Colors.textTertiary} style={{ marginLeft: 6 }} />
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View style={styles.detailDivider} />
-                                    <View style={styles.detailRow}>
-                                        <Text style={styles.detailLabel}>{selectedTransaction.type === 'IN' ? 'From' : 'To'}</Text>
-                                        <Text style={styles.detailValue}>
-                                            {selectedTransaction.type === 'IN'
-                                                ? `${selectedTransaction.from.slice(0, 6)}...${selectedTransaction.from.slice(-4)}`
-                                                : `${selectedTransaction.to.slice(0, 6)}...${selectedTransaction.to.slice(-4)}`
-                                            }
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {/* Header */}
+                            <View style={styles.modalHeader}>
+                                <View style={styles.modalHeaderLeft}>
+                                    <Bank size={24} color={Colors.textPrimary} weight="duotone" />
+                                    <View>
+                                        <Text style={styles.modalTitle}>Withdrawal Details</Text>
+                                        <Text style={styles.modalSubtitle}>
+                                            {selectedOrder?.createdAt ? format(new Date(selectedOrder.createdAt), 'MMM d, yyyy • h:mm a') : ''}
                                         </Text>
                                     </View>
-                                    <View style={styles.detailDivider} />
-                                    <View style={styles.detailRow}>
-                                        <Text style={styles.detailLabel}>Chain</Text>
-                                        <View style={styles.chainValue}>
-                                            <Image
-                                                source={CHAINS[selectedTransaction.network]?.icon || ICONS.base}
-                                                style={styles.smallIcon}
-                                            />
+                                </View>
+                                <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                                    <X size={20} color={Colors.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+
+                            {selectedOrder && (
+                                <>
+                                    {/* Progress Steps */}
+                                    <View style={styles.progressSection}>
+                                        <ProgressSteps status={selectedOrder.status} />
+                                    </View>
+
+                                    {/* Amount Card */}
+                                    <View style={styles.amountCard}>
+                                        <Text style={styles.amountLabel}>Amount Received</Text>
+                                        <Text style={styles.amountValue}>
+                                            {selectedOrder.fiatCurrency} {selectedOrder.fiatAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </Text>
+                                        <Text style={styles.amountCrypto}>
+                                            {selectedOrder.cryptoAmount} {selectedOrder.token} @ {selectedOrder.exchangeRate?.toFixed(2)}
+                                        </Text>
+                                    </View>
+
+                                    {/* Details Card */}
+                                    <View style={styles.detailsCard}>
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.detailLabel}>Order ID</Text>
+                                            <TouchableOpacity onPress={() => copyToClipboard(selectedOrder.paycrestOrderId)} style={styles.detailValueRow}>
+                                                <Text style={styles.detailValue} numberOfLines={1}>
+                                                    {selectedOrder.paycrestOrderId.slice(0, 8)}...{selectedOrder.paycrestOrderId.slice(-6)}
+                                                </Text>
+                                                <Copy size={14} color={Colors.textTertiary} style={{ marginLeft: 6 }} />
+                                            </TouchableOpacity>
+                                        </View>
+                                        <View style={styles.detailDivider} />
+
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.detailLabel}>Bank</Text>
+                                            <Text style={styles.detailValue}>{selectedOrder.bankName}</Text>
+                                        </View>
+                                        <View style={styles.detailDivider} />
+
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.detailLabel}>Account</Text>
                                             <Text style={styles.detailValue}>
-                                                {CHAINS[selectedTransaction.network]?.name || 'Base'}
+                                                {selectedOrder.accountName} (****{selectedOrder.accountNumber.slice(-4)})
                                             </Text>
                                         </View>
-                                    </View>
-                                </View>
+                                        <View style={styles.detailDivider} />
 
-                                <TouchableOpacity
-                                    style={styles.viewButton}
-                                    onPress={() => openExplorer(selectedTransaction)}
-                                >
-                                    <Text style={styles.viewButtonText}>View on Explorer</Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.detailLabel}>Chain</Text>
+                                            <View style={styles.chainValue}>
+                                                <Image
+                                                    source={CHAINS[selectedOrder.chain]?.icon || ICONS.base}
+                                                    style={styles.smallIcon}
+                                                />
+                                                <Text style={styles.detailValue}>
+                                                    {CHAINS[selectedOrder.chain]?.name || 'Base'}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.detailDivider} />
+
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.detailLabel}>Platform Fee</Text>
+                                            <Text style={styles.detailValue}>1% ({(selectedOrder.cryptoAmount * 0.01).toFixed(2)} {selectedOrder.token})</Text>
+                                        </View>
+                                    </View>
+                                </>
+                            )}
+                        </ScrollView>
                     </Animated.View>
                 </View>
             </Modal>
@@ -561,8 +551,6 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
         overflow: 'hidden',
     },
     centered: {
@@ -586,19 +574,18 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: Colors.textPrimary,
     },
-    // Transaction Item Styles (matching invoice/payment-links cards)
-    txItem: {
+    orderItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 16,
         borderBottomWidth: 1,
         borderBottomColor: '#F3F4F6',
     },
-    txIconContainer: {
+    iconContainer: {
         position: 'relative',
         marginRight: 16,
     },
-    txTokenIcon: {
+    tokenIcon: {
         width: 48,
         height: 48,
         borderRadius: 24,
@@ -626,32 +613,40 @@ const styles = StyleSheet.create({
         height: 16,
         borderRadius: 8,
     },
-    txContent: {
+    orderContent: {
         flex: 1,
     },
-    txTitle: {
+    orderTitle: {
         fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
         marginBottom: 2,
     },
-    txSubtitle: {
+    orderSubtitle: {
         fontFamily: 'RethinkSans_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
     },
-    txAmountContainer: {
+    orderRight: {
         alignItems: 'flex-end',
     },
-    txAmount: {
+    orderAmount: {
         fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 15,
+        color: Colors.textPrimary,
+        marginBottom: 4,
     },
-    txFiatAmount: {
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 4,
+    },
+    statusText: {
         fontFamily: 'RethinkSans_500Medium',
-        fontSize: 13,
-        color: Colors.textSecondary,
-        marginTop: 2,
+        fontSize: 11,
     },
     emptyState: {
         flex: 1,
@@ -672,7 +667,74 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         textAlign: 'center',
     },
-    // Modal Styles (matching invoice screen)
+    // Progress Steps
+    progressSection: {
+        paddingVertical: 24,
+        paddingHorizontal: 16,
+        backgroundColor: '#F9FAFB',
+        borderRadius: 16,
+        marginBottom: 20,
+    },
+    progressContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    progressStep: {
+        flex: 1,
+        alignItems: 'center',
+        position: 'relative',
+    },
+    progressLine: {
+        position: 'absolute',
+        top: 14,
+        left: -50,
+        right: 50,
+        height: 2,
+        backgroundColor: '#E5E7EB',
+        zIndex: -1,
+    },
+    progressLineActive: {
+        backgroundColor: Colors.primary,
+    },
+    progressCircle: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#E5E7EB',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    progressCircleActive: {
+        backgroundColor: Colors.primary,
+    },
+    progressCircleCurrent: {
+        backgroundColor: Colors.primary,
+        borderWidth: 3,
+        borderColor: '#DBEAFE',
+    },
+    progressCircleFailed: {
+        backgroundColor: '#EF4444',
+    },
+    progressNumber: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 12,
+        color: '#9CA3AF',
+    },
+    progressNumberActive: {
+        color: '#FFFFFF',
+    },
+    progressLabel: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 12,
+        color: '#9CA3AF',
+        textAlign: 'center',
+    },
+    progressLabelActive: {
+        color: Colors.textPrimary,
+    },
+    // Modal
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -684,6 +746,7 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 24,
         paddingHorizontal: 20,
         paddingBottom: 40,
+        maxHeight: '85%',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -694,23 +757,7 @@ const styles = StyleSheet.create({
     modalHeaderLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-    },
-    modalIconContainer: {
-        position: 'relative',
-        marginRight: 12,
-    },
-    modalTokenIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-    },
-    modalStatusBadge: {
-        position: 'absolute',
-        bottom: -2,
-        right: -2,
-        width: 18,
-        height: 18,
-        borderRadius: 9,
+        gap: 12,
     },
     modalTitle: {
         fontFamily: 'RethinkSans_700Bold',
@@ -731,7 +778,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    // Amount Card
     amountCard: {
         backgroundColor: '#F9FAFB',
         borderRadius: 16,
@@ -741,35 +787,29 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#F3F4F6',
     },
-    amountCardValue: {
+    amountLabel: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 14,
+        color: Colors.textSecondary,
+        marginBottom: 8,
+    },
+    amountValue: {
         fontFamily: 'RethinkSans_700Bold',
         fontSize: 36,
         color: Colors.textPrimary,
-        marginBottom: 8,
+        marginBottom: 4,
     },
-    amountCardSub: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    amountCardSubText: {
+    amountCrypto: {
         fontFamily: 'RethinkSans_500Medium',
-        fontSize: 15,
+        fontSize: 14,
         color: Colors.textSecondary,
-        marginLeft: 6,
     },
-    smallIcon: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-    },
-    // Details Card
     detailsCard: {
         backgroundColor: '#F9FAFB',
         borderRadius: 16,
         padding: 16,
         borderWidth: 1,
         borderColor: '#F3F4F6',
-        marginBottom: 20,
     },
     detailRow: {
         flexDirection: 'row',
@@ -800,16 +840,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 6,
     },
-    viewButton: {
-        backgroundColor: Colors.primary,
-        borderRadius: 30,
-        paddingVertical: 16,
-        alignItems: 'center',
-    },
-    viewButtonText: {
-        fontFamily: 'RethinkSans_600SemiBold',
-        fontSize: 16,
-        color: '#FFFFFF',
+    smallIcon: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
     },
 });
-

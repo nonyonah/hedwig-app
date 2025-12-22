@@ -2,10 +2,11 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link, Receipt, Chat, CaretRight, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X } from 'phosphor-react-native';
+import { House, Link, Receipt, Chat, CaretRight, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank } from 'phosphor-react-native';
 import { Colors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { useSettings } from '../context/SettingsContext';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.85;
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const router = useRouter();
     const pathname = usePathname();
     const { user, logout, getAccessToken } = usePrivy();
+    const { hapticsEnabled } = useSettings();
     const insets = useSafeAreaInsets();
 
     // Animation value: 0 (closed) to 1 (open)
@@ -129,6 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { type: 'menu', id: '/invoices', title: 'Invoices', subtitle: 'View all invoices' },
                 { type: 'menu', id: '/payment-links', title: 'Payment Links', subtitle: 'View payment links' },
                 { type: 'menu', id: '/transactions', title: 'Transactions', subtitle: 'View transactions' },
+                { type: 'menu', id: '/offramp-history', title: 'Withdrawals', subtitle: 'View withdrawal history' },
                 { type: 'menu', id: '/settings', title: 'Settings', subtitle: 'App settings' },
             ];
 
@@ -189,7 +192,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const renderMenuItem = (icon: React.ReactNode, label: string, isActive: boolean, onPress: () => void) => (
         <TouchableOpacity
             style={styles.menuItem}
-            onPress={onPress}
+            onPress={async () => {
+                if (hapticsEnabled) {
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+                onPress();
+            }}
         >
             <View style={styles.menuItemLeft}>
                 <View style={styles.menuIcon}>{icon}</View>
@@ -325,6 +333,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     'Transactions',
                                     pathname === '/transactions',
                                     () => handleNavigation('/transactions')
+                                )}
+                                {renderMenuItem(
+                                    <Bank size={22} color={Colors.textPrimary} weight="bold" />,
+                                    'Withdrawals',
+                                    pathname === '/offramp-history',
+                                    () => handleNavigation('/offramp-history')
                                 )}
                                 {renderMenuItem(
                                     <Gear size={22} color={Colors.textPrimary} weight="bold" />,

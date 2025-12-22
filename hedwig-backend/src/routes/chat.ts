@@ -128,6 +128,23 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             content: msg.content,
         }));
 
+        // Fetch user's saved beneficiaries for offramp suggestions
+        const { data: beneficiaries } = await supabase
+            .from('beneficiaries')
+            .select('id, bank_name, account_number, account_name')
+            .eq('user_id', userData.id)
+            .order('is_default', { ascending: false })
+            .limit(5);
+
+        const beneficiaryContext = beneficiaries?.map(b => ({
+            id: b.id,
+            bankName: b.bank_name,
+            accountNumber: b.account_number,
+            accountName: b.account_name,
+        })) || [];
+
+        console.log('[Chat] User has', beneficiaryContext.length, 'saved beneficiaries');
+
         // Process uploaded files for Gemini
         let fileData: { mimeType: string; data: string }[] | undefined;
         if (uploadedFiles && uploadedFiles.length > 0) {
@@ -214,7 +231,12 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
         // Generate AI response
         let aiResponseObj;
         try {
-            aiResponseObj = await GeminiService.generateChatResponse(enhancedMessage, history, fileData);
+            aiResponseObj = await GeminiService.generateChatResponse(
+                enhancedMessage,
+                history,
+                fileData,
+                { beneficiaries: beneficiaryContext }
+            );
         } catch (geminiError: any) {
             console.error('[Chat] Gemini generation failed:', geminiError);
             // Fallback response for fetch failures (likely network or API key issues)

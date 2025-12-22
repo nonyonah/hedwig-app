@@ -13,6 +13,10 @@ interface SettingsContextType {
     setTheme: (theme: Theme) => Promise<void>;
     toggleTheme: () => Promise<void>;
     currentTheme: 'light' | 'dark'; // Resolved theme (if system)
+    hapticsEnabled: boolean;
+    setHapticsEnabled: (enabled: boolean) => Promise<void>;
+    liveTrackingEnabled: boolean;
+    setLiveTrackingEnabled: (enabled: boolean) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -21,6 +25,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const systemColorScheme = useColorScheme();
     const [currency, setCurrencyState] = useState<Currency>('USD');
     const [theme, setThemeState] = useState<Theme>('system');
+    const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(true);
+    const [liveTrackingEnabled, setLiveTrackingEnabledState] = useState<boolean>(true);
 
     // Initial load
     useEffect(() => {
@@ -31,9 +37,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         try {
             const storedCurrency = await AsyncStorage.getItem('settings_currency');
             const storedTheme = await AsyncStorage.getItem('settings_theme');
+            const storedHaptics = await AsyncStorage.getItem('settings_haptics');
+            const storedLiveTracking = await AsyncStorage.getItem('settings_live_tracking');
 
             if (storedCurrency) setCurrencyState(storedCurrency as Currency);
             if (storedTheme) setThemeState(storedTheme as Theme);
+            if (storedHaptics !== null) setHapticsEnabledState(storedHaptics === 'true');
+            if (storedLiveTracking !== null) setLiveTrackingEnabledState(storedLiveTracking === 'true');
         } catch (error) {
             console.error('Failed to load settings:', error);
         }
@@ -62,6 +72,24 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         await setTheme(nextTheme);
     };
 
+    const setHapticsEnabled = async (enabled: boolean) => {
+        try {
+            setHapticsEnabledState(enabled);
+            await AsyncStorage.setItem('settings_haptics', enabled ? 'true' : 'false');
+        } catch (error) {
+            console.error('Failed to save haptics setting:', error);
+        }
+    };
+
+    const setLiveTrackingEnabled = async (enabled: boolean) => {
+        try {
+            setLiveTrackingEnabledState(enabled);
+            await AsyncStorage.setItem('settings_live_tracking', enabled ? 'true' : 'false');
+        } catch (error) {
+            console.error('Failed to save live tracking setting:', error);
+        }
+    };
+
     const currentTheme = theme === 'system' ? (systemColorScheme || 'light') : theme;
 
     return (
@@ -71,7 +99,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             theme,
             setTheme,
             toggleTheme,
-            currentTheme
+            currentTheme,
+            hapticsEnabled,
+            setHapticsEnabled,
+            liveTrackingEnabled,
+            setLiveTrackingEnabled
         }}>
             {children}
         </SettingsContext.Provider>
