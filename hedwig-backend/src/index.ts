@@ -78,6 +78,19 @@ app.use(
                     "wss://api.devnet.solana.com", // Solana Devnet WebSocket
                     "wss://api.mainnet-beta.solana.com", // Solana Mainnet WebSocket
                     "wss://api.testnet.solana.com", // Solana Testnet WebSocket
+                    // Reown/WalletConnect endpoints
+                    "https://rpc.walletconnect.org",
+                    "https://rpc.walletconnect.com",
+                    "wss://relay.walletconnect.org",
+                    "wss://relay.walletconnect.com",
+                    "https://pulse.walletconnect.org",
+                    "https://explorer-api.walletconnect.com",
+                    "https://verify.walletconnect.org",
+                    "https://verify.walletconnect.com",
+                    // EVM RPC endpoints
+                    "https://mainnet.base.org",
+                    "https://sepolia.base.org",
+                    "https://forno.celo.org",
                 ],
             },
         },
@@ -143,18 +156,30 @@ app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/beneficiaries', beneficiaryRoutes);
 
-// Serve static files
+// Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Web Viewer Routes
-app.get('/invoice/:id', (_req: Request, res: Response) => {
-    res.sendFile(path.join(__dirname, '../public/invoice.html'));
-});
+// Serve React web client build
+const webClientPath = path.join(__dirname, '../web-client/dist');
+app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
 
-app.get('/payment-link/:id', (_req: Request, res: Response) => {
-    res.sendFile(path.join(__dirname, '../public/payment-link.html'));
-});
+// React Web Client Routes - Serve React app for invoice and payment pages
+const serveReactApp = (_req: Request, res: Response) => {
+    res.sendFile(path.join(webClientPath, 'index.html'));
+};
 
+// Invoice routes - served by React app
+app.get('/invoice/:id', serveReactApp);
+app.get('/invoices/:id', serveReactApp);
+
+// Payment link routes - served by React app
+app.get('/pay/:id', serveReactApp);
+app.get('/payment-link/:id', serveReactApp);
+
+// Serve React app static assets
+app.use(express.static(webClientPath));
+
+// Legacy routes - keep for backwards compatibility until fully migrated
 app.get('/contract/:id', (_req: Request, res: Response) => {
     const html = fs.readFileSync(path.join(__dirname, '../public/contract.html'), 'utf8');
     // Inject Reown project ID
