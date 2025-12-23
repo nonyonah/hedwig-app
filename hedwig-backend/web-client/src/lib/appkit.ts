@@ -69,6 +69,11 @@ export const appKit = createAppKit({
     },
     features: {
         analytics: true,
+        email: false, // Disable email authentication
+        socials: false, // Disable social authentication (Google, Apple, etc.)
+    },
+    themeVariables: {
+        '--w3m-font-family': '"Rethink Sans", sans-serif',
     },
 });
 
@@ -94,3 +99,16 @@ export const TOKENS = {
         cUSD: '0x765DE816845861e75A25fCA122bb6898B8B1282a',
     },
 } as const;
+
+// HedwigPayment contract ABI (handles 99%/1% fee split atomically)
+export const HEDWIG_PAYMENT_ABI = [
+    'function pay(address token, uint256 amount, address freelancer, string calldata invoiceId) external',
+];
+
+// HedwigPayment contract addresses per chain
+export const HEDWIG_CONTRACTS = {
+    base: '0x1c0A0eFBb438cc7705b947644F6AB88698b2704F', // HedwigPayment on Base Sepolia (use same for now)
+    baseSepolia: '0x1c0A0eFBb438cc7705b947644F6AB88698b2704F', // HedwigPayment on Base Sepolia
+    celo: '0xF1c485Ba184262F1EAC91584f6B26fdcaa3F794a', // HedwigPayment on Celo Alfajores
+} as const;
+

@@ -381,8 +381,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 12,
         backgroundColor: '#FFFFFF',
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
+        // Removed border bottom as requested
         height: 60,
         justifyContent: 'center',
     },
@@ -416,7 +415,7 @@ const styles = StyleSheet.create({
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.background,
+        backgroundColor: '#F3F4F6', // Updated to match sidebar search box
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: 12,

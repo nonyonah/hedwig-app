@@ -191,7 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const renderMenuItem = (icon: React.ReactNode, label: string, isActive: boolean, onPress: () => void) => (
         <TouchableOpacity
-            style={styles.menuItem}
+            style={[styles.menuItem, isActive && styles.menuItemActive]}
             onPress={async () => {
                 if (hapticsEnabled) {
                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -535,7 +535,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        marginBottom: 4,
+    },
+    menuItemActive: {
+        backgroundColor: '#F3F4F6',
     },
     menuItemLeft: {
         flexDirection: 'row',
@@ -552,13 +558,14 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     menuTextActive: {
-        color: Colors.primary,
+        color: Colors.textPrimary, // Keep text primary color even when active
         fontFamily: 'RethinkSans_700Bold',
     },
     logoutItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 16,
+        paddingHorizontal: 12,
         marginTop: 12,
     },
     recentsSection: {
@@ -569,12 +576,13 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: Colors.textPrimary,
         marginBottom: 16,
+        paddingHorizontal: 12,
     },
     recentItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 12,
-        paddingHorizontal: 8,
+        paddingHorizontal: 12, // Match menu item padding
         marginBottom: 4,
         backgroundColor: '#F9FAFB',
         borderRadius: 8,
@@ -588,6 +596,7 @@ const styles = StyleSheet.create({
     },
     footer: {
         marginTop: 24,
+        paddingHorizontal: 12,
     },
     footerLink: {
         paddingVertical: 8,
@@ -595,6 +604,6 @@ const styles = StyleSheet.create({
     footerText: {
         fontFamily: 'RethinkSans_500Medium',
         fontSize: 13,
-        color: Colors.textPrimary,
+        color: Colors.textSecondary,
     },
 });

@@ -170,11 +170,9 @@ export class SolanaBridgeService {
         }
 
         const fromPubkey = new PublicKey(fromAddress);
-        // Bridge program IDs - kept for future full bridge SDK integration
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _bridgeProgramId = new PublicKey(CONTRACTS.solana.bridgeProgram);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _relayerProgramId = new PublicKey(CONTRACTS.solana.relayerProgram);
+        // Bridge program IDs - reserved for future full bridge SDK integration
+        // const _bridgeProgramId = new PublicKey(CONTRACTS.solana.bridgeProgram);
+        // const _relayerProgramId = new PublicKey(CONTRACTS.solana.relayerProgram);
         const gasFeeReceiver = new PublicKey(CONTRACTS.solana.gasFeeReceiver);
 
         // Get latest blockhash
@@ -357,17 +355,16 @@ export class SolanaBridgeService {
 
     /**
      * Helper: Convert Base address to bytes for bridge instruction
-     * @internal Used for building bridge program instructions
+     * @internal Reserved for building bridge program instructions
      */
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    private addressToBytes(address: string): Uint8Array {
-        // Remove 0x prefix and convert to bytes
-        const hex = address.startsWith('0x') ? address.slice(2) : address;
-        const bytes = new Uint8Array(32);
-        const addressBytes = Buffer.from(hex, 'hex');
-        bytes.set(addressBytes, 32 - addressBytes.length);
-        return bytes;
-    }
+    // private addressToBytes(address: string): Uint8Array {
+    //     // Remove 0x prefix and convert to bytes
+    //     const hex = address.startsWith('0x') ? address.slice(2) : address;
+    //     const bytes = new Uint8Array(32);
+    //     const addressBytes = Buffer.from(hex, 'hex');
+    //     bytes.set(addressBytes, 32 - addressBytes.length);
+    //     return bytes;
+    // }
 }
 
 // Export singleton instance

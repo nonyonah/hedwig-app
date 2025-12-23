@@ -437,7 +437,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingVertical: 12,
+        backgroundColor: '#FFFFFF',
+        // Removed border bottom
+        height: 60,
     },
     headerButton: {
         width: 40,
@@ -445,7 +448,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'RethinkSans_700Bold',
-        fontSize: 18,
+        fontSize: 24, // Increased from 18
         color: Colors.textPrimary,
     },
     content: {

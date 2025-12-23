@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SectionList, ActivityIndicator, RefreshControl, Image, Platform, ScrollView, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CaretLeft, Bell, CheckCircle, CurrencyDollar, ArrowsDownUp, Megaphone } from 'phosphor-react-native';
+import { CaretLeft, Bell, CheckCircle, CurrencyDollar, ArrowsDownUp, Megaphone, Receipt, Link, Bank, Trash } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
+import { format, isToday } from 'date-fns';
+import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 
 interface Notification {
     id: string;
@@ -16,6 +18,14 @@ interface Notification {
     created_at: string;
 }
 
+const NOTIFICATION_FILTERS = [
+    { id: 'all', label: 'All' },
+    { id: 'transactions', label: 'Transactions' },
+    { id: 'payment_links', label: 'Payment Links' },
+    { id: 'invoices', label: 'Invoices' },
+    { id: 'withdrawals', label: 'Withdrawals' },
+];
+
 export default function NotificationsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -24,6 +34,7 @@ export default function NotificationsScreen() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [activeFilter, setActiveFilter] = useState('all');
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -67,12 +78,30 @@ export default function NotificationsScreen() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            // Update local state
             setNotifications(prev =>
                 prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
             );
         } catch (error) {
             console.error('[Notifications] Error marking as read:', error);
+        }
+    };
+
+    const deleteNotification = async (notificationId: string) => {
+        try {
+            // Optimistic update
+            setNotifications(prev => prev.filter(n => n.id !== notificationId));
+
+            // const token = await getAccessToken();
+            // if (!token) return;
+
+            // const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            // await fetch(`${apiUrl}/api/notifications/${notificationId}`, {
+            //     method: 'DELETE',
+            //     headers: { 'Authorization': `Bearer ${token}` }
+            // });
+        } catch (error) {
+            console.error('[Notifications] Error deleting:', error);
+            fetchNotifications(); // Revert on error
         }
     };
 
@@ -87,62 +116,179 @@ export default function NotificationsScreen() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            // Update local state
             setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         } catch (error) {
             console.error('[Notifications] Error marking all as read:', error);
         }
     };
 
-    const getNotificationIcon = (type: string) => {
+    const getNotificationIcon = (type: string, metadata: any) => {
+        // Improved icon logic based on type and metadata
+        if (type === 'payment_received') {
+            if (metadata?.documentId && metadata?.documentId.startsWith('inv_')) {
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: '#10B981' }]}>
+                        <Receipt size={20} color="#FFFFFF" weight="fill" />
+                    </View>
+                );
+            }
+            if (metadata?.documentId && !metadata?.documentId.startsWith('inv_')) {
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: '#3B82F6' }]}>
+                        <Link size={20} color="#FFFFFF" weight="bold" />
+                    </View>
+                );
+            }
+            return (
+                <View style={[styles.iconContainer, { backgroundColor: '#10B981' }]}>
+                    <CurrencyDollar size={20} color="#FFFFFF" weight="fill" />
+                </View>
+            );
+        }
+
         switch (type) {
-            case 'payment_received':
-                return <CurrencyDollar size={24} color="#10B981" weight="fill" />;
             case 'crypto_received':
-                return <ArrowsDownUp size={24} color="#3B82F6" weight="fill" />;
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: '#3B82F6' }]}>
+                        <ArrowsDownUp size={20} color="#FFFFFF" weight="fill" />
+                    </View>
+                );
             case 'offramp_success':
-                return <CheckCircle size={24} color="#8B5CF6" weight="fill" />;
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: '#8B5CF6' }]}>
+                        <Bank size={20} color="#FFFFFF" weight="fill" />
+                    </View>
+                );
             case 'announcement':
-                return <Megaphone size={24} color="#F59E0B" weight="fill" />;
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: '#F59E0B' }]}>
+                        <Megaphone size={20} color="#FFFFFF" weight="fill" />
+                    </View>
+                );
             default:
-                return <Bell size={24} color={Colors.textSecondary} weight="fill" />;
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: Colors.textSecondary }]}>
+                        <Bell size={20} color="#FFFFFF" weight="fill" />
+                    </View>
+                );
         }
     };
 
-    const formatTimeAgo = (dateString: string) => {
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMins / 60);
-        const diffDays = Math.floor(diffHours / 24);
+    const filteredNotifications = useMemo(() => {
+        if (activeFilter === 'all') return notifications;
 
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-        return date.toLocaleDateString();
+        switch (activeFilter) {
+            case 'transactions':
+                // Transactions are raw crypto transfers only
+                return notifications.filter(n => n.type === 'crypto_received');
+            case 'payment_links':
+                // Payment links are payment_received but NOT invoices (check title for distinction)
+                return notifications.filter(n => n.type === 'payment_received' && !n.title.toLowerCase().includes('invoice'));
+            case 'invoices':
+                // Invoices are payment_received where title contains "Invoice"
+                return notifications.filter(n => n.type === 'payment_received' && n.title.toLowerCase().includes('invoice'));
+            case 'withdrawals':
+                return notifications.filter(n => n.type === 'offramp_success');
+            default:
+                return notifications;
+        }
+    }, [notifications, activeFilter]);
+
+    const sections = useMemo(() => {
+        const today: Notification[] = [];
+        const earlier: Notification[] = [];
+
+        filteredNotifications.forEach(n => {
+            if (isToday(new Date(n.created_at))) {
+                today.push(n);
+            } else {
+                earlier.push(n);
+            }
+        });
+
+        const result = [];
+        if (today.length > 0) result.push({ title: 'Today', data: today });
+        if (earlier.length > 0) result.push({ title: 'Earlier', data: earlier });
+        return result;
+    }, [filteredNotifications]);
+
+    const renderRightActions = (progress: any, dragX: any, id: string) => {
+        const scale = dragX.interpolate({
+            inputRange: [-100, 0],
+            outputRange: [1, 0],
+            extrapolate: 'clamp',
+        });
+
+        return (
+            <TouchableOpacity onPress={() => deleteNotification(id)}>
+                <View style={styles.deleteButton}>
+                    <Animated.View style={{ transform: [{ scale }] }}>
+                        <Trash size={24} color="#FFFFFF" weight="bold" />
+                    </Animated.View>
+                </View>
+            </TouchableOpacity>
+        );
     };
 
-    const renderNotification = ({ item }: { item: Notification }) => (
-        <TouchableOpacity
-            style={[styles.notificationItem, !item.is_read && styles.unreadNotification]}
-            onPress={() => markAsRead(item.id)}
-            activeOpacity={0.7}
-        >
-            <View style={styles.iconContainer}>
-                {getNotificationIcon(item.type)}
-            </View>
-            <View style={styles.contentContainer}>
-                <Text style={styles.notificationTitle}>{item.title}</Text>
-                <Text style={styles.notificationMessage}>{item.message}</Text>
-                <Text style={styles.notificationTime}>{formatTimeAgo(item.created_at)}</Text>
-            </View>
-            {!item.is_read && <View style={styles.unreadDot} />}
-        </TouchableOpacity>
-    );
+    const renderNotification = ({ item }: { item: Notification }) => {
+        const date = new Date(item.created_at);
+        const isItemToday = isToday(date);
 
-    const hasUnread = notifications.some(n => !n.is_read);
+        return (
+            <Swipeable renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item.id)}>
+                <TouchableOpacity
+                    style={styles.notificationItem}
+                    onPress={() => markAsRead(item.id)}
+                    activeOpacity={0.7}
+                >
+                    {getNotificationIcon(item.type, item.metadata)}
+                    <View style={styles.contentContainer}>
+                        <View style={styles.topRow}>
+                            <Text style={styles.notificationTitle}>{item.title}</Text>
+                            <View style={styles.timeContainer}>
+                                {!isItemToday && (
+                                    <Text style={styles.dateText}>{format(date, 'MMM d, yyyy')}</Text>
+                                )}
+                                {isItemToday && (
+                                    <Text style={styles.timeText}>{format(date, 'h:mm a')}</Text>
+                                )}
+                                {!item.is_read && <View style={styles.unreadDot} />}
+                            </View>
+                        </View>
+                        <Text style={styles.notificationMessage} numberOfLines={2}>{item.message}</Text>
+                    </View>
+                </TouchableOpacity>
+            </Swipeable>
+        );
+    };
+
+    const renderHeader = () => (
+        <View style={styles.filterContainer}>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterScroll}
+            >
+                {NOTIFICATION_FILTERS.map(filter => (
+                    <TouchableOpacity
+                        key={filter.id}
+                        style={[
+                            styles.filterChip,
+                            activeFilter === filter.id && styles.filterChipActive
+                        ]}
+                        onPress={() => setActiveFilter(filter.id)}
+                    >
+                        <Text style={[
+                            styles.filterText,
+                            activeFilter === filter.id && styles.filterTextActive
+                        ]}>
+                            {filter.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+        </View>
+    );
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -155,41 +301,47 @@ export default function NotificationsScreen() {
                     <CaretLeft size={24} color={Colors.textPrimary} weight="bold" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Notifications</Text>
-                {hasUnread ? (
+                <View style={{ width: 44, alignItems: 'flex-end' }}>
                     <TouchableOpacity onPress={markAllAsRead}>
-                        <Text style={styles.markAllRead}>Mark all read</Text>
+                        <CheckCircle size={24} color={Colors.textPrimary} />
                     </TouchableOpacity>
-                ) : (
-                    <View style={{ width: 80 }} />
-                )}
+                </View>
             </View>
 
+            {/* Content */}
             {isLoading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={Colors.primary} />
                 </View>
             ) : notifications.length === 0 ? (
                 <View style={styles.emptyState}>
-                    <Bell size={64} color={Colors.textSecondary} weight="light" />
+                    <Bell size={64} color={Colors.textPlaceholder} weight="light" />
                     <Text style={styles.emptyTitle}>No notifications yet</Text>
                     <Text style={styles.emptySubtitle}>
                         When someone pays your invoice or sends you crypto, I'll let you know here!
                     </Text>
                 </View>
             ) : (
-                <FlatList
-                    data={notifications}
-                    renderItem={renderNotification}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={isRefreshing}
-                            onRefresh={handleRefresh}
-                            tintColor={Colors.primary}
-                        />
-                    }
-                />
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                    <SectionList
+                        sections={sections}
+                        keyExtractor={(item) => item.id}
+                        renderItem={renderNotification}
+                        renderSectionHeader={({ section: { title } }) => (
+                            <Text style={styles.sectionHeader}>{title}</Text>
+                        )}
+                        ListHeaderComponent={renderHeader}
+                        contentContainerStyle={styles.listContent}
+                        stickySectionHeadersEnabled={false}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={handleRefresh}
+                                tintColor={Colors.primary}
+                            />
+                        }
+                    />
+                </GestureHandlerRootView>
             )}
         </View>
     );
@@ -205,23 +357,127 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingVertical: 12,
+        marginBottom: 8,
     },
     backButton: {
-        padding: 4,
-        width: 80,
+        width: 44,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'flex-start',
     },
     headerTitle: {
         fontFamily: 'RethinkSans_700Bold',
-        fontSize: 18,
+        fontSize: 24,
         color: Colors.textPrimary,
         textAlign: 'center',
         flex: 1,
     },
-    markAllRead: {
+    filterContainer: {
+        marginBottom: 24,
+    },
+    filterScroll: {
+        paddingHorizontal: 20,
+        gap: 8,
+        paddingRight: 20, // Add padding at end of scroll
+    },
+    filterChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        backgroundColor: '#FFFFFF',
+    },
+    filterChipActive: {
+        backgroundColor: Colors.primary, // Brand color for active chip
+        borderColor: Colors.primary,
+    },
+    filterText: {
         fontFamily: 'RethinkSans_500Medium',
         fontSize: 14,
-        color: Colors.primary,
+        color: Colors.textSecondary,
+    },
+    filterTextActive: {
+        color: '#FFFFFF',
+    },
+    sectionHeader: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 18,
+        color: Colors.textPrimary,
+        marginTop: 8,
+        marginBottom: 16,
+        paddingHorizontal: 20,
+    },
+    listContent: {
+        paddingBottom: 40,
+    },
+    notificationItem: {
+        flexDirection: 'row',
+        paddingHorizontal: 20,
+        paddingVertical: 16, // Moved padding vertical to item for cleaner swipe
+        backgroundColor: '#FFFFFF',
+        // Removed margin bottom to allow swipe items to stack cleanly if needed, or keeping it but ensuring swipe layout works
+        marginBottom: 0,
+    },
+    deleteButton: {
+        backgroundColor: '#EF4444',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 80,
+        height: '100%',
+    },
+    iconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    contentContainer: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    topRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    notificationTitle: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 15,
+        color: Colors.textPrimary,
+        flex: 1,
+        marginRight: 8,
+    },
+    timeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    dateText: {
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 13,
+        color: Colors.textSecondary,
+    },
+    timeText: {
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 13,
+        color: Colors.textSecondary,
+    },
+    unreadDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#EF4444',
+        marginLeft: 8,
+    },
+    notificationMessage: {
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 14,
+        color: Colors.textSecondary,
+        lineHeight: 20,
     },
     loadingContainer: {
         flex: 1,
@@ -233,6 +489,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 40,
+        marginTop: 60,
     },
     emptyTitle: {
         fontFamily: 'RethinkSans_700Bold',
@@ -247,60 +504,5 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         textAlign: 'center',
         lineHeight: 22,
-    },
-    listContent: {
-        padding: 16,
-    },
-    notificationItem: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        backgroundColor: '#FFFFFF',
-        padding: 16,
-        borderRadius: 16,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
-    },
-    unreadNotification: {
-        backgroundColor: '#F8FAFC',
-        borderColor: '#E5E7EB',
-    },
-    iconContainer: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#F3F4F6',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    contentContainer: {
-        flex: 1,
-    },
-    notificationTitle: {
-        fontFamily: 'RethinkSans_600SemiBold',
-        fontSize: 15,
-        color: Colors.textPrimary,
-        marginBottom: 4,
-    },
-    notificationMessage: {
-        fontFamily: 'RethinkSans_400Regular',
-        fontSize: 14,
-        color: Colors.textSecondary,
-        lineHeight: 20,
-        marginBottom: 6,
-    },
-    notificationTime: {
-        fontFamily: 'RethinkSans_400Regular',
-        fontSize: 12,
-        color: '#9CA3AF',
-    },
-    unreadDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: Colors.primary,
-        marginLeft: 8,
-        marginTop: 4,
     },
 });

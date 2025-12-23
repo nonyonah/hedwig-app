@@ -1268,13 +1268,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         paddingHorizontal: 20,
         paddingVertical: 12,
         backgroundColor: '#FFFFFF',
+        // Removed border bottom
+        height: 60,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         zIndex: 10,
+    },
+    headerTitle: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 24, // Increased from 18
+        color: Colors.textPrimary,
     },
     headerRight: {
         flexDirection: 'row',

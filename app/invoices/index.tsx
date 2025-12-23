@@ -629,15 +629,18 @@ const styles = StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 16,
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        backgroundColor: '#FFFFFF',
+        // Removed border bottom
+        height: 60,
     },
     headerTitle: {
-        ...Typography.h2,
-        fontSize: 18,
-        fontWeight: '600',
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 24, // Increased from 18
+        color: Colors.textPrimary,
     },
     profileIcon: {
         width: 32,

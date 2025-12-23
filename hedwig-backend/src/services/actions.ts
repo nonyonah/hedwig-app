@@ -227,7 +227,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         }
 
         return {
-            text: `Done! I've created a payment link for ${amount} ${token}${description && description !== 'Payment' ? ` for ${description}` : ''}. Here's the link: /payment-link/${doc.id}\n\nYou can share this with your client to collect payment.${emailSent ? `\n\n✅ I also sent the link to ${recipientEmail}.` : ''}`,
+            text: `Done! I've created a payment link for ${amount} ${token}${description && description !== 'Payment' ? ` for ${description}` : ''}. Here's the link: /payment-link/${doc.id}\n\nYou can share this with your client to collect payment.${emailSent ? `\n\n✅ I also sent the link to ${recipientEmail}.` : ''}\n\n💡 Note: A 1% platform fee will be deducted when payment is received.`,
             data: { documentId: doc.id, type: 'PAYMENT_LINK' }
         };
     } catch (error) {
@@ -323,7 +323,7 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
             : `\n\n📄 ${items[0].description}: $${totalAmount}`;
 
         return {
-            text: `Perfect! I've created an invoice for ${clientName}.${itemsText}\n\nView invoice: /invoice/${doc.id}\n\nYou can send this to ${clientEmail || clientName} to request payment.${emailSent ? `\n\n✅ I also sent the invoice to ${clientEmail}.` : ''}`,
+            text: `Perfect! I've created an invoice for ${clientName}.${itemsText}\n\nView invoice: /invoice/${doc.id}\n\nYou can send this to ${clientEmail || clientName} to request payment.${emailSent ? `\n\n✅ I also sent the invoice to ${clientEmail}.` : ''}\n\n💡 Note: A 1% platform fee will be deducted when payment is received.`,
             data: { documentId: doc.id, type: 'INVOICE' }
         };
     } catch (error) {

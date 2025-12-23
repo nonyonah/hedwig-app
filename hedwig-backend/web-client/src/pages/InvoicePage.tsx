@@ -3,14 +3,16 @@ import { useParams } from 'react-router-dom';
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
 import { Wallet, DownloadSimple, CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
-import { TOKENS } from '../lib/appkit';
+import { TOKENS, HEDWIG_PAYMENT_ABI, HEDWIG_CONTRACTS } from '../lib/appkit';
 
-// ERC20 ABI for transfers
+// ERC20 ABI for transfers and approvals
 const ERC20_ABI = [
     'function transfer(address to, uint256 amount) returns (bool)',
     'function balanceOf(address account) view returns (uint256)',
     'function decimals() view returns (uint8)',
     'function symbol() view returns (string)',
+    'function allowance(address owner, address spender) view returns (uint256)',
+    'function approve(address spender, uint256 amount) returns (bool)',
 ];
 
 interface InvoiceItem {
@@ -104,43 +106,77 @@ export default function InvoicePage() {
         }
 
         setIsPaying(true);
+        let finalTxHash = '';
 
         try {
             const provider = new BrowserProvider(walletProvider as import('ethers').Eip1193Provider);
             const signer = await provider.getSigner();
 
-            // Get token address
+            // Get token address and HedwigPayment contract address
             const tokenAddress = TOKENS[selectedChain]?.[selectedToken as keyof (typeof TOKENS)[typeof selectedChain]];
+            const hedwigContractAddress = HEDWIG_CONTRACTS[selectedChain as keyof typeof HEDWIG_CONTRACTS];
 
             if (selectedToken === 'ETH') {
-                // Native ETH transfer
+                // Native ETH transfer (no smart contract, direct transfer)
                 const amountWei = parseUnits(invoice.amount.toString(), 18);
                 const tx = await signer.sendTransaction({
                     to: recipientAddress,
                     value: amountWei,
                 });
                 await tx.wait();
+                finalTxHash = tx.hash;
                 setTxHash(tx.hash);
-            } else if (tokenAddress) {
-                // ERC20 token transfer
-                const contract = new Contract(tokenAddress, ERC20_ABI, signer);
-                const decimals = await contract.decimals();
+            } else if (tokenAddress && hedwigContractAddress) {
+                // Use HedwigPayment contract for atomic 99%/1% fee split
+                const tokenContract = new Contract(tokenAddress, ERC20_ABI, signer);
+                const hedwigContract = new Contract(hedwigContractAddress, HEDWIG_PAYMENT_ABI, signer);
+                const decimals = await tokenContract.decimals();
                 const amountInUnits = parseUnits(invoice.amount.toString(), decimals);
 
-                const tx = await contract.transfer(recipientAddress, amountInUnits);
+                // Step 1: Check current allowance
+                const currentAllowance = await tokenContract.allowance(address, hedwigContractAddress);
+                
+                console.log('[Payment] Checking allowance:', {
+                    current: currentAllowance.toString(),
+                    required: amountInUnits.toString(),
+                    needsApproval: BigInt(currentAllowance.toString()) < BigInt(amountInUnits.toString())
+                });
+
+                // Step 2: Approve if needed (using explicit BigInt comparison)
+                if (BigInt(currentAllowance.toString()) < BigInt(amountInUnits.toString())) {
+                    console.log('[Payment] Approving tokens to HedwigPayment contract...');
+                    const approveTx = await tokenContract.approve(hedwigContractAddress, amountInUnits);
+                    console.log('[Payment] Approval tx submitted:', approveTx.hash);
+                    await approveTx.wait();
+                    console.log('[Payment] Tokens approved');
+                } else {
+                    console.log('[Payment] Sufficient allowance exists');
+                }
+
+                // Step 3: Call pay() on HedwigPayment contract
+                // Contract handles 99%/1% split atomically
+                console.log('[Payment] Calling HedwigPayment.pay()...');
+                const tx = await hedwigContract.pay(
+                    tokenAddress,
+                    amountInUnits,
+                    recipientAddress,
+                    invoice.id // Use invoice ID as invoiceId
+                );
                 await tx.wait();
+                finalTxHash = tx.hash;
                 setTxHash(tx.hash);
+                console.log('[Payment] Payment complete:', tx.hash);
             } else {
                 throw new Error(`Token ${selectedToken} not available on ${selectedChain}`);
             }
 
             // Update invoice status on backend
             const apiUrl = import.meta.env.VITE_API_URL || '';
-            await fetch(`${apiUrl}/api/invoices/${id}/mark-paid`, {
+            await fetch(`${apiUrl}/api/documents/${id}/pay`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    txHash: txHash,
+                    txHash: finalTxHash, // Fixed: use finalTxHash instead of stale txHash state
                     paidBy: address,
                     chain: selectedChain,
                     token: selectedToken,
