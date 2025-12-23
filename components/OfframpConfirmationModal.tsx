@@ -24,30 +24,30 @@ const ICONS = {
 
 // Chain configurations
 const CHAINS: Record<string, any> = {
-    'base': { name: 'Base Sepolia', icon: ICONS.base, type: 'evm' },
-    'celo': { name: 'Celo Sepolia', icon: ICONS.celo, type: 'evm' },
+    'base': { name: 'Base', icon: ICONS.base, type: 'evm' },
+    'celo': { name: 'Celo', icon: ICONS.celo, type: 'evm' },
 };
 
 // RPC URLs
 const RPC_URLS: Record<string, string> = {
-    base: 'https://base-sepolia.g.alchemy.com/v2/f69kp28_ExLI1yBQmngVL3g16oUzv2up',
-    celo: 'https://forno.celo-sepolia.celo-testnet.org'
+    base: 'https://base-mainnet.g.alchemy.com/v2/f69kp28_ExLI1yBQmngVL3g16oUzv2up',
+    celo: 'https://forno.celo.org'
 };
 
-// Token Addresses - TESTNET
+// Token Addresses - MAINNET
 const TOKEN_ADDRESSES: Record<string, Record<string, string>> = {
     base: {
-        USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'  // Base Sepolia Testnet USDC
+        USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'  // Base Mainnet USDC
     },
     celo: {
-        USDC: '0x01C5C0122039549AD1493B8220cABEdD739BC44E'   // Celo Sepolia USDC
+        USDC: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'   // Celo Mainnet USDC
     }
 };
 
-// Chain IDs for testnet
+// Chain IDs for mainnet
 const CHAIN_IDS: Record<string, string> = {
-    base: '0x14a34',     // 84532 in hex (Base Sepolia)
-    celo: '0xaa056c'     // 11142220 in hex (Celo Sepolia)
+    base: '0x2105',     // 8453 in hex (Base Mainnet)
+    celo: '0xa4ec'      // 42220 in hex (Celo Mainnet)
 };
 
 interface OfframpData {

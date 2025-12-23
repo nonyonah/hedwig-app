@@ -7,16 +7,16 @@ import { supabase } from '../lib/supabase';
 
 const router = Router();
 
-// Initialize Alchemy for Base Sepolia using RPC URL from env
+// Initialize Alchemy for Base Mainnet using RPC URL from env
 const baseConfig = {
     apiKey: process.env.ALCHEMY_API_KEY || 'demo', // Fallback for SDK requirement
     url: process.env.BASE_RPC_URL, // Use explicit RPC URL from env
-    network: Network.BASE_SEPOLIA,
+    network: Network.BASE_MAINNET,
 };
 const baseAlchemy = new Alchemy(baseConfig);
 
 // Initialize Solana Connection using RPC URL from env
-const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 console.log('[Transactions] Solana RPC URL:', SOLANA_RPC_URL.substring(0, 50) + '...');
 const solanaConnection = new Connection(SOLANA_RPC_URL, 'confirmed');
 

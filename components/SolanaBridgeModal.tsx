@@ -215,8 +215,8 @@ export function SolanaBridgeModal({
             const txBuffer = Buffer.from(serializedTx, 'base64');
             const transaction = Transaction.from(txBuffer);
 
-            // Connect to Solana Devnet
-            const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
+            // Connect to Solana Mainnet
+            const connection = new Connection(clusterApiUrl('mainnet-beta'), 'confirmed');
 
             // Get fresh blockhash (the backend one might be stale)
             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
@@ -232,6 +232,7 @@ export function SolanaBridgeModal({
                     transaction: transaction,
                     connection: connection,
                 },
+                // sponsor: true, // Enable gas sponsorship (temporarily disabled)
             });
 
             const signature = signResult.signature;
@@ -313,7 +314,7 @@ export function SolanaBridgeModal({
     // Render quote step
     const renderQuoteStep = () => (
         <>
-            <Text style={styles.title}>Bridge to Base</Text>
+            {/* Title moved to header */}
 
             {loading && !quote ? (
                 <View style={styles.loadingContainer}>
@@ -329,11 +330,13 @@ export function SolanaBridgeModal({
                             <Text style={styles.amountText}>
                                 {'$'}{formatAmount(quote.amount)}
                             </Text>
-                            <View style={styles.tokenBadge}>
-                                <Image source={getTokenIcon(quote.token)} style={styles.tokenIcon} />
-                                <Text style={styles.tokenText}>{quote.token}</Text>
-                                <View style={styles.chainBadge}>
-                                    <Image source={ICONS.solana} style={styles.chainIcon} />
+                            <View style={styles.tokenDisplay}>
+                                <Text style={styles.tokenSymbolText}>{quote.token}</Text>
+                                <View style={styles.tokenBadge}>
+                                    <Image source={getTokenIcon(quote.token)} style={styles.tokenIcon} />
+                                    <View style={styles.chainBadge}>
+                                        <Image source={ICONS.solana} style={styles.chainIcon} />
+                                    </View>
                                 </View>
                             </View>
                         </View>
@@ -352,11 +355,13 @@ export function SolanaBridgeModal({
                             <Text style={styles.amountText}>
                                 {'$'}{formatAmount(quote.estimatedReceiveAmount)}
                             </Text>
-                            <View style={styles.tokenBadge}>
-                                <Image source={ICONS.usdc} style={styles.tokenIcon} />
-                                <Text style={styles.tokenText}>USDC</Text>
-                                <View style={styles.chainBadge}>
-                                    <Image source={ICONS.base} style={styles.chainIcon} />
+                            <View style={styles.tokenDisplay}>
+                                <Text style={styles.tokenSymbolText}>USDC</Text>
+                                <View style={styles.tokenBadge}>
+                                    <Image source={ICONS.usdc} style={styles.tokenIcon} />
+                                    <View style={styles.chainBadge}>
+                                        <Image source={ICONS.base} style={styles.chainIcon} />
+                                    </View>
                                 </View>
                             </View>
                         </View>
@@ -520,25 +525,25 @@ export function SolanaBridgeModal({
                     ]}
                 >
                     {/* Header */}
-                    <View style={styles.header}>
-                        <View style={styles.handle} />
-                        {(step === 'quote' || step === 'error') && (
+                    {(step === 'quote' || step === 'error') && (
+                        <View style={styles.headerTitleRow}>
+                            <Text style={styles.headerTitle}>Bridge to Base</Text>
                             <TouchableOpacity
                                 style={styles.closeButton}
                                 onPress={onClose}
                             >
                                 <X size={24} color={Colors.textSecondary} />
                             </TouchableOpacity>
-                        )}
-                    </View>
+                        </View>
+                    )}
 
                     {/* Content */}
                     <View style={styles.content}>
                         {renderContent()}
                     </View>
                 </Animated.View>
-            </View>
-        </Modal>
+            </View >
+        </Modal >
     );
 }
 
@@ -562,27 +567,33 @@ const styles = StyleSheet.create({
         paddingTop: 12,
         paddingHorizontal: 16,
     },
-    handle: {
-        width: 40,
-        height: 4,
-        backgroundColor: Colors.border,
-        borderRadius: 2,
-    },
     closeButton: {
-        position: 'absolute',
-        right: 16,
-        top: 12,
         padding: 8,
+        marginRight: -8, // compensate for padding
+    },
+    headerTitleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        width: '100%',
+        marginTop: 16,
+        paddingHorizontal: 24,
+    },
+    headerTitle: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 20,
+        color: Colors.textPrimary,
     },
     content: {
         padding: 24,
         alignItems: 'center',
+        paddingTop: 8, // reduce padding since title is in header
     },
     title: {
         fontFamily: 'RethinkSans_700Bold',
         fontSize: 20,
         color: Colors.textPrimary,
-        textAlign: 'center',
+        textAlign: 'left', // Alignment change
         marginBottom: 24,
     },
     subtitle: {
@@ -626,32 +637,44 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
         flex: 1,
     },
-    tokenBadge: {
+    tokenDisplay: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        gap: 6,
+        gap: 8,
     },
-    tokenIcon: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-    },
-    tokenText: {
+    tokenSymbolText: {
         fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
     },
+    tokenBadge: {
+        width: 40,
+        height: 40,
+        position: 'relative',
+    },
+    tokenIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+    },
+    tokenText: {
+        display: 'none', // Hide text for new design or move outside
+    },
     chainBadge: {
-        marginLeft: 4,
+        position: 'absolute',
+        bottom: 4,
+        right: 4,
+        zIndex: 2,
     },
     chainIcon: {
         width: 16,
         height: 16,
         borderRadius: 8,
+        borderWidth: 1.5,
+        borderColor: '#FFFFFF',
     },
 
     // Arrow Button

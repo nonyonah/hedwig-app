@@ -82,8 +82,8 @@ SUPPORTED FEATURES:
 ✅ **WITHDRAW/OFFRAMP: Convert crypto to cash (NGN, GHS, KES) and send to bank accounts!**
 
 SUPPORTED NETWORKS:
-✅ Base (Sepolia testnet) - ETH, USDC
-✅ Solana (Devnet) - SOL, USDC
+✅ Base - ETH, USDC
+✅ Solana - SOL, USDC
 
 **IMPORTANT: You CAN help users withdraw crypto to their bank account!**
 When users say "withdraw", "withdrawal", "cash out", "convert to naira", "convert to cedis", "convert to shillings", "offramp", "send to bank" - use COLLECT_OFFRAMP_INFO intent.

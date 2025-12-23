@@ -18,8 +18,8 @@
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction } from '@solana/spl-token';
 
-// Network Configuration - Testnet First
-const IS_MAINNET = process.env.SOLANA_NETWORK === 'mainnet';
+// Network Configuration - Mainnet by default
+const IS_MAINNET = process.env.SOLANA_NETWORK !== 'testnet';
 
 // Solana RPC URLs
 const SOLANA_RPC_URL = IS_MAINNET

@@ -38,9 +38,9 @@ const ICONS = {
 // Chain configurations with explorer URLs
 // Solana is temporarily disabled
 const CHAINS: Record<string, any> = {
-    'base': { name: 'Base Sepolia', icon: ICONS.base, explorer: 'https://sepolia.basescan.org/tx/', type: 'evm' },
-    'celo': { name: 'Celo Sepolia', icon: ICONS.celo, explorer: 'https://celo-sepolia.celoscan.io/tx/', type: 'evm' },
-    'stacks': { name: 'Stacks Testnet', icon: require('../assets/icons/networks/stacks.png'), explorer: 'https://explorer.hiro.so/txid/', type: 'stacks', cluster: 'testnet' },
+    'base': { name: 'Base', icon: ICONS.base, explorer: 'https://basescan.org/tx/', type: 'evm' },
+    'celo': { name: 'Celo', icon: ICONS.celo, explorer: 'https://celoscan.io/tx/', type: 'evm' },
+    'stacks': { name: 'Stacks Mainnet', icon: require('../assets/icons/networks/stacks.png'), explorer: 'https://explorer.hiro.so/txid/', type: 'stacks' },
 };
 
 // ERC20 ABI for transfers
@@ -49,36 +49,36 @@ const ERC20_ABI = [
     "function decimals() view returns (uint8)"
 ];
 
-// Token Addresses - TESTNET
+// Token Addresses - MAINNET
 const TOKEN_ADDRESSES = {
     base: {
-        USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'  // Base Sepolia Testnet USDC
+        USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'  // Base Mainnet USDC
     },
     celo: {
-        USDC: '0x01C5C0122039549AD1493B8220cABEdD739BC44E'   // Celo Sepolia USDC
+        USDC: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'   // Celo Mainnet USDC
     },
     solana: {
-        USDC: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'  // Solana Devnet USDC
+        USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'  // Solana Mainnet USDC
     }
 };
 
-// Chain IDs for testnet
+// Chain IDs for mainnet
 const CHAIN_IDS: Record<string, string> = {
-    base: '0x14a34',     // 84532 in hex (Base Sepolia)
-    celo: '0xaa056c'     // 11142220 in hex (Celo Sepolia)
+    base: '0x2105',     // 8453 in hex (Base Mainnet)
+    celo: '0xa4ec'      // 42220 in hex (Celo Mainnet)
 };
 
 // RPC URLs - using Alchemy for EVM chains
 const RPC_URLS: Record<string, string> = {
-    base: 'https://base-sepolia.g.alchemy.com/v2/f69kp28_ExLI1yBQmngVL3g16oUzv2up',
-    celo: 'https://forno.celo-sepolia.celo-testnet.org'
+    base: 'https://base-mainnet.g.alchemy.com/v2/f69kp28_ExLI1yBQmngVL3g16oUzv2up',
+    celo: 'https://forno.celo.org'
 };
 
 interface TransactionData {
     amount: string;
     token: string;
     recipient: string;
-    network: string; // 'base' | 'celo' | 'solana' | 'solana_devnet'
+    network: string; // 'base' | 'celo' | 'solana'
 }
 
 interface TransactionConfirmationModalProps {
@@ -111,8 +111,8 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
     // Helper to normalize network name
     const normalizeNetwork = (network: string): string => {
         const n = network.toLowerCase().trim();
-        if (n === 'solana' || n === 'solana devnet' || n === 'solanadevnet' || n === 'solana_devnet') {
-            return 'solana_devnet';
+        if (n === 'solana' || n === 'solana devnet' || n === 'solanadevnet' || n === 'solana_devnet' || n === 'solana mainnet') {
+            return 'solana';
         }
         return n;
     };
@@ -120,7 +120,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
     // Helper to determine if network is Solana
     const isSolanaNetwork = (network: string): boolean => {
         const n = network.toLowerCase().trim();
-        return n === 'solana' || n === 'solana_devnet' || n === 'solanadevnet' || n === 'solana devnet';
+        return n === 'solana' || n === 'solana_devnet' || n === 'solanadevnet' || n === 'solana devnet' || n === 'solana mainnet';
     };
 
     // Estimate gas when modal becomes visible (EVM only)
@@ -258,8 +258,8 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
         console.log('To:', data.recipient);
         console.log('Amount:', data.amount, data.token);
 
-        // Connect to Solana Devnet
-        const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
+        // Connect to Solana Mainnet
+        const connection = new Connection(clusterApiUrl('mainnet-beta'), 'confirmed');
 
         const tokenSymbol = data.token.toUpperCase();
 
@@ -293,6 +293,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                     transaction: transaction,
                     connection: connection,
                 },
+                // sponsor: true, // Enable gas sponsorship (temporarily disabled)
             });
 
             const signature = result.signature;
@@ -419,6 +420,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                     transaction: transaction,
                     connection: connection,
                 },
+                // sponsor: true, // Enable gas sponsorship (temporarily disabled)
             });
 
             const signature = result.signature;
@@ -482,7 +484,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                 });
             } catch (switchError: any) {
                 console.log('Chain switch error:', switchError);
-                throw new Error(`Please switch to ${network === 'base' ? 'Base Sepolia' : 'Celo Sepolia'} testnet manually.`);
+                throw new Error(`Please switch to ${network === 'base' ? 'Base' : 'Celo'} network manually.`);
             }
         }
 
@@ -548,7 +550,8 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
 
             transactionHash = await provider.request({
                 method: 'eth_sendTransaction',
-                params: [txParams]
+                params: [txParams],
+                // sponsor: true, // Enable gas sponsorship (temporarily disabled)
             }) as string;
 
         } else {
@@ -589,7 +592,8 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
 
             transactionHash = await provider.request({
                 method: 'eth_sendTransaction',
-                params: [txParams]
+                params: [txParams],
+                // sponsor: true, // Enable gas sponsorship (temporarily disabled)
             }) as string;
         }
 
@@ -684,7 +688,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
     if (!isRendered || !data) return null;
 
     const network = normalizeNetwork(data.network);
-    const chain = CHAINS[network] || CHAINS['solana_devnet'];
+    const chain = CHAINS[network] || CHAINS['solana'];
 
     const renderContent = () => {
         switch (modalState) {

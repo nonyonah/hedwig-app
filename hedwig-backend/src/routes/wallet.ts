@@ -4,7 +4,7 @@ import { PrivyClient } from '@privy-io/node';
 import { AppError } from '../middleware/errorHandler';
 import { supabase } from '../lib/supabase';
 import { createPublicClient, http, formatEther, formatUnits } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { base } from 'viem/chains';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
 
@@ -34,26 +34,26 @@ const erc20Abi = [
     },
 ] as const;
 
-// Testnet Token Addresses
+// Mainnet Token Addresses
 const TOKEN_ADDRESSES = {
-    baseSepolia: {
-        USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`,
+    base: {
+        USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as `0x${string}`, // Base Mainnet USDC
     },
-    solanaDevnet: {
-        // User-provided USDC SPL token address for Solana Devnet
-        USDC: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+    solana: {
+        // Mainnet USDC SPL token address for Solana
+        USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
     },
 };
 
 // Create viem clients for RPC balance fetching
-const baseSepoliaClient = createPublicClient({
-    chain: baseSepolia,
+const baseClient = createPublicClient({
+    chain: base,
     transport: http(),
 });
 
-// Create Solana Devnet connection - use env var or Alchemy RPC instead of deprecated clusterApiUrl
-const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
-const solanaDevnetConnection = new Connection(SOLANA_RPC_URL, 'confirmed');
+// Create Solana Mainnet connection - use env var or default mainnet RPC
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+const solanaConnection = new Connection(SOLANA_RPC_URL, 'confirmed');
 
 /**
  * GET /api/wallet/balance
@@ -90,15 +90,15 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
 
         const balances: any[] = [];
 
-        // ========== BASE SEPOLIA ==========
+        // ========== BASE MAINNET ==========
         if (evmAddress) {
-            // Base Sepolia - ETH (native)
+            // Base Mainnet - ETH (native)
             try {
-                const ethBalance = await baseSepoliaClient.getBalance({ address: evmAddress });
+                const ethBalance = await baseClient.getBalance({ address: evmAddress });
                 const ethFormatted = formatEther(ethBalance);
                 console.log('[Wallet] Base ETH balance:', ethFormatted);
                 balances.push({
-                    chain: 'base_sepolia',
+                    chain: 'base',
                     asset: 'eth',
                     raw_value: ethBalance.toString(),
                     display_values: {
@@ -109,30 +109,30 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             } catch (e: any) {
                 console.error('[Wallet] Error fetching Base ETH:', e.message);
                 balances.push({
-                    chain: 'base_sepolia',
+                    chain: 'base',
                     asset: 'eth',
                     raw_value: '0',
                     display_values: { eth: '0', usd: '0.00' }
                 });
             }
 
-            // Base Sepolia - USDC
+            // Base Mainnet - USDC
             try {
-                const usdcBalance = await baseSepoliaClient.readContract({
-                    address: TOKEN_ADDRESSES.baseSepolia.USDC,
+                const usdcBalance = await baseClient.readContract({
+                    address: TOKEN_ADDRESSES.base.USDC,
                     abi: erc20Abi,
                     functionName: 'balanceOf',
                     args: [evmAddress],
                 });
-                const usdcDecimals = await baseSepoliaClient.readContract({
-                    address: TOKEN_ADDRESSES.baseSepolia.USDC,
+                const usdcDecimals = await baseClient.readContract({
+                    address: TOKEN_ADDRESSES.base.USDC,
                     abi: erc20Abi,
                     functionName: 'decimals',
                 });
                 const usdcFormatted = formatUnits(usdcBalance, usdcDecimals);
                 console.log('[Wallet] Base USDC balance:', usdcFormatted);
                 balances.push({
-                    chain: 'base_sepolia',
+                    chain: 'base',
                     asset: 'usdc',
                     raw_value: usdcBalance.toString(),
                     display_values: {
@@ -143,7 +143,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             } catch (e: any) {
                 console.error('[Wallet] Error fetching Base USDC:', e.message);
                 balances.push({
-                    chain: 'base_sepolia',
+                    chain: 'base',
                     asset: 'usdc',
                     raw_value: '0',
                     display_values: { token: '0', usd: '0' }
@@ -153,21 +153,21 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             // No EVM wallet found, return zeros
             console.log('[Wallet] No EVM wallet found, returning zero balances');
             balances.push(
-                { chain: 'base_sepolia', asset: 'eth', raw_value: '0', display_values: { eth: '0', usd: '0.00' } },
-                { chain: 'base_sepolia', asset: 'usdc', raw_value: '0', display_values: { token: '0', usd: '0' } }
+                { chain: 'base', asset: 'eth', raw_value: '0', display_values: { eth: '0', usd: '0.00' } },
+                { chain: 'base', asset: 'usdc', raw_value: '0', display_values: { token: '0', usd: '0' } }
             );
         }
 
-        // ========== SOLANA DEVNET ==========
+        // ========== SOLANA MAINNET ==========
         if (solanaAddress) {
             // Native SOL
             try {
                 const solanaPublicKey = new PublicKey(solanaAddress!);
-                const solBalance = await solanaDevnetConnection.getBalance(solanaPublicKey);
+                const solBalance = await solanaConnection.getBalance(solanaPublicKey);
                 const solFormatted = (solBalance / LAMPORTS_PER_SOL).toFixed(9);
-                console.log('[Wallet] Solana SOL balance (Devnet):', solFormatted);
+                console.log('[Wallet] Solana SOL balance:', solFormatted);
                 balances.push({
-                    chain: 'solana_devnet',
+                    chain: 'solana',
                     asset: 'sol',
                     raw_value: solBalance.toString(),
                     display_values: {
@@ -178,7 +178,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             } catch (e: any) {
                 console.error('[Wallet] Error fetching Solana SOL:', e.message);
                 balances.push({
-                    chain: 'solana_devnet',
+                    chain: 'solana',
                     asset: 'sol',
                     raw_value: '0',
                     display_values: { sol: '0', usd: '0.00' }
@@ -188,7 +188,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             // Solana USDC (SPL Token)
             try {
                 const walletPublicKey = new PublicKey(solanaAddress!);
-                const usdcMintAddress = new PublicKey(TOKEN_ADDRESSES.solanaDevnet.USDC);
+                const usdcMintAddress = new PublicKey(TOKEN_ADDRESSES.solana.USDC);
 
                 // Get the Associated Token Account for this wallet and USDC mint
                 const tokenAccountAddress = await getAssociatedTokenAddress(
@@ -197,12 +197,12 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                 );
 
                 // Try to get the token account info
-                const tokenAccount = await getAccount(solanaDevnetConnection, tokenAccountAddress);
+                const tokenAccount = await getAccount(solanaConnection, tokenAccountAddress);
                 const usdcBalance = Number(tokenAccount.amount) / 1_000_000; // USDC has 6 decimals
-                console.log('[Wallet] Solana USDC balance (Devnet):', usdcBalance);
+                console.log('[Wallet] Solana USDC balance:', usdcBalance);
 
                 balances.push({
-                    chain: 'solana_devnet',
+                    chain: 'solana',
                     asset: 'usdc',
                     raw_value: tokenAccount.amount.toString(),
                     display_values: {
@@ -214,7 +214,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                 // Token account may not exist if user hasn't received USDC before
                 console.log('[Wallet] Solana USDC: No token account found or error:', e.message);
                 balances.push({
-                    chain: 'solana_devnet',
+                    chain: 'solana',
                     asset: 'usdc',
                     raw_value: '0',
                     display_values: { token: '0', usd: '0' }

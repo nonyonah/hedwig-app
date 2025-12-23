@@ -19,13 +19,13 @@ import { useSettings } from '../context/SettingsContext';
 
 // RPC URLs
 const RPC_URLS = {
-    base: 'https://sepolia.base.org'
+    base: 'https://mainnet.base.org'
 };
 
 // Token Contracts for checking balance
 const TOKEN_CONTRACTS = {
     base: {
-        USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
+        USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' // Base Mainnet USDC
     }
 };
 
@@ -48,8 +48,8 @@ interface ChainInfo {
 
 const SUPPORTED_CHAINS: ChainInfo[] = [
     {
-        name: 'Base', // Base Sepolia
-        id: 84532,
+        name: 'Base', // Base Mainnet
+        id: 8453,
         icon: NetworkBase,
         color: '#0052FF',
         addressType: 'evm',
@@ -59,7 +59,7 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         ]
     },
     {
-        name: 'Solana Devnet',
+        name: 'Solana',
         id: 0, // Solana uses cluster names not chain IDs
         icon: NetworkSolana,
         color: '#9945FF',

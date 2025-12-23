@@ -26,6 +26,29 @@ const NOTIFICATION_FILTERS = [
     { id: 'withdrawals', label: 'Withdrawals' },
 ];
 
+const ICONS = {
+    usdc: require('../../assets/icons/tokens/usdc.png'),
+    base: require('../../assets/icons/networks/base.png'),
+    celo: require('../../assets/icons/networks/celo.png'),
+    solana: require('../../assets/icons/networks/solana.png'),
+    arbitrum: require('../../assets/icons/networks/arbitrum.png'),
+    optimism: require('../../assets/icons/networks/optimism.png'),
+};
+
+const getChainIcon = (chain?: string) => {
+    const c = chain?.toLowerCase() || 'base';
+    if (c.includes('solana')) return ICONS.solana;
+    if (c.includes('celo')) return ICONS.celo;
+    if (c.includes('arbitrum')) return ICONS.arbitrum;
+    if (c.includes('optimism')) return ICONS.optimism;
+    return ICONS.base;
+};
+
+const formatAddress = (address: string) => {
+    if (!address) return '';
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
 export default function NotificationsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -146,19 +169,23 @@ export default function NotificationsScreen() {
             );
         }
 
+        if (type === 'crypto_received' || type === 'offramp_success') {
+            const isWithdrawal = type === 'offramp_success';
+            // Use USDC icon as base for now, can be dynamic if metadata.token is available and mapped
+            return (
+                <View style={[styles.iconContainer, { backgroundColor: 'transparent', overflow: 'visible' }]}>
+                    <View style={styles.badgeContainer}>
+                        <Image source={ICONS.usdc} style={styles.tokenIcon} />
+                        <Image
+                            source={getChainIcon(metadata?.chain || metadata?.network)}
+                            style={styles.chainIconBadge}
+                        />
+                    </View>
+                </View>
+            );
+        }
+
         switch (type) {
-            case 'crypto_received':
-                return (
-                    <View style={[styles.iconContainer, { backgroundColor: '#3B82F6' }]}>
-                        <ArrowsDownUp size={20} color="#FFFFFF" weight="fill" />
-                    </View>
-                );
-            case 'offramp_success':
-                return (
-                    <View style={[styles.iconContainer, { backgroundColor: '#8B5CF6' }]}>
-                        <Bank size={20} color="#FFFFFF" weight="fill" />
-                    </View>
-                );
             case 'announcement':
                 return (
                     <View style={[styles.iconContainer, { backgroundColor: '#F59E0B' }]}>
@@ -255,7 +282,13 @@ export default function NotificationsScreen() {
                                 {!item.is_read && <View style={styles.unreadDot} />}
                             </View>
                         </View>
-                        <Text style={styles.notificationMessage} numberOfLines={2}>{item.message}</Text>
+                        <Text style={styles.notificationMessage} numberOfLines={2}>
+                            {item.type === 'crypto_received' && item.metadata?.amount
+                                ? `You received ${item.metadata.amount} ${item.metadata.token || 'USDC'} from ${formatAddress(item.metadata.from)}`
+                                : item.type === 'offramp_success' && item.metadata?.amount
+                                    ? `You withdrew ${item.metadata.amount} ${item.metadata.token || 'USDC'} to ${item.metadata.destination || 'your bank'}`
+                                    : item.message}
+                        </Text>
                     </View>
                 </TouchableOpacity>
             </Swipeable>
@@ -434,6 +467,29 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
+    },
+    badgeContainer: {
+        width: 40,
+        height: 40,
+        position: 'relative',
+    },
+    tokenIcon: {
+        width: 32, // Slightly smaller than container to fit overlapping chain
+        height: 32,
+        borderRadius: 16,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+    },
+    chainIconBadge: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        position: 'absolute',
+        bottom: 4, // Adjust to overlap correctly
+        right: 4,
+        borderWidth: 1.5,
+        borderColor: '#FFFFFF', // Stroke for separation
     },
     contentContainer: {
         flex: 1,

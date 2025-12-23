@@ -59,7 +59,7 @@ const ethersAdapter = new EthersAdapter();
 export const appKit = createAppKit({
     projectId,
     networks: [base, baseSepolia, celo],
-    defaultNetwork: baseSepolia,
+    defaultNetwork: base,
     adapters: [ethersAdapter],
     metadata: {
         name: 'Hedwig Payments',
