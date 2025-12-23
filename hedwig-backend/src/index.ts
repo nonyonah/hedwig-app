@@ -65,8 +65,10 @@ app.use(
                     "'self'",
                     "https://fonts.googleapis.com",
                     "https://fonts.gstatic.com",
+                    "https://fonts.reown.com",
+                    "https://*.reown.com",
                 ],
-                imgSrc: ["'self'", "data:"],
+                imgSrc: ["'self'", "data:", "https://*.walletconnect.com", "https://*.reown.com"],
                 connectSrc: [
                     "'self'",
                     "https://cdn.jsdelivr.net",
@@ -87,6 +89,15 @@ app.use(
                     "https://explorer-api.walletconnect.com",
                     "https://verify.walletconnect.org",
                     "https://verify.walletconnect.com",
+                    // Reown/Web3Modal API endpoints
+                    "https://api.web3modal.org",
+                    "https://api.web3modal.com",
+                    "https://*.web3modal.org",
+                    "https://*.web3modal.com",
+                    "https://*.reown.com",
+                    "https://*.reown.org",
+                    "wss://*.walletconnect.org",
+                    "wss://*.walletconnect.com",
                     // EVM RPC endpoints
                     "https://mainnet.base.org",
                     "https://sepolia.base.org",

@@ -579,7 +579,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                 </View>
                             </View>
                             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                                <X size={20} color={Colors.textSecondary} />
+                                <X size={20} color="#666666" weight="bold" />
                             </TouchableOpacity>
                         </Animated.View>
 
@@ -784,7 +784,12 @@ const styles = StyleSheet.create({
         fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     },
     closeButton: {
-        padding: 4,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     mainContent: {
         gap: 24,

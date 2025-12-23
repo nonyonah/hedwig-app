@@ -743,7 +743,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                         <View style={styles.header}>
                             <Text style={styles.title}>Confirm Transaction</Text>
                             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                                <X size={24} color={Colors.textSecondary} />
+                                <X size={20} color="#666666" weight="bold" />
                             </TouchableOpacity>
                         </View>
 
@@ -850,7 +850,12 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     closeButton: {
-        padding: 4,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     amountContainer: {
         alignItems: 'center',

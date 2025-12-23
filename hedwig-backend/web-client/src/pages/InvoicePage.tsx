@@ -29,6 +29,8 @@ interface InvoiceData {
     content?: {
         from?: { name: string; email?: string };
         to?: { name: string; email?: string };
+        client_name?: string;
+        recipient_email?: string;
         items?: InvoiceItem[];
         notes?: string;
     };
@@ -67,14 +69,17 @@ export default function InvoicePage() {
             try {
                 setLoading(true);
                 const apiUrl = import.meta.env.VITE_API_URL || '';
-                const response = await fetch(`${apiUrl}/api/documents/${id}/public`);
+                // Use documents endpoint with full user data
+                const response = await fetch(`${apiUrl}/api/documents/${id}`);
 
                 if (!response.ok) {
                     throw new Error('Invoice not found');
                 }
 
                 const data = await response.json();
-                setInvoice(data.data || data);
+                // Backend returns { success: true, data: { document: {...} } }
+                const doc = data.data?.document || data.data || data;
+                setInvoice(doc);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load invoice');
             } finally {
@@ -214,7 +219,7 @@ export default function InvoicePage() {
 
     const items = invoice.content?.items || [];
     const subtotal = items.reduce((sum, item) => sum + item.amount, 0) || invoice.amount;
-    const platformFee = subtotal * 0.025; // 2.5% fee
+    const platformFee = subtotal * 0.01; // 1% fee
     const freelancerReceives = subtotal - platformFee;
 
     return (
@@ -244,8 +249,12 @@ export default function InvoicePage() {
                     </div>
                     <div className="party-column">
                         <div className="party-label">To</div>
-                        <div className="party-name">{invoice.content?.to?.name || 'Client'}</div>
-                        <div className="party-email">{invoice.content?.to?.email}</div>
+                        <div className="party-name">
+                            {invoice.content?.to?.name || invoice.content?.client_name || 'Client'}
+                        </div>
+                        <div className="party-email">
+                            {invoice.content?.to?.email || invoice.content?.recipient_email}
+                        </div>
                     </div>
                 </div>
 
@@ -285,7 +294,7 @@ export default function InvoicePage() {
                         <span className="summary-value">{formatCurrency(subtotal)}</span>
                     </div>
                     <div className="summary-row">
-                        <span className="summary-label">Platform fee (2.5%)</span>
+                        <span className="summary-label">Platform fee (1%)</span>
                         <span className="summary-value">-{formatCurrency(platformFee)}</span>
                     </div>
                     <div className="summary-row">
@@ -339,9 +348,7 @@ export default function InvoicePage() {
                             </div>
                         )}
 
-                        <div style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginTop: '16px' }}>
-                            Supports Base, Celo & more
-                        </div>
+
                     </div>
                 )}
             </div>

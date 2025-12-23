@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
@@ -227,6 +228,7 @@ export default function InvoicesScreen() {
     const slideAnim = React.useRef(new Animated.Value(0)).current;
 
     const openModal = (invoice: any) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedInvoice(invoice);
         setShowModal(true);
         Animated.spring(slideAnim, {
@@ -238,6 +240,7 @@ export default function InvoicesScreen() {
     };
 
     const closeModal = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Animated.timing(slideAnim, {
             toValue: 0,
             duration: 250,
@@ -380,10 +383,16 @@ export default function InvoicesScreen() {
             <Modal
                 visible={showModal}
                 transparent={true}
-                animationType="none"
+                animationType="fade"
                 onRequestClose={closeModal}
             >
                 <View style={styles.modalOverlay}>
+                    {/* iOS blur / Android scrim */}
+                    {Platform.OS === 'ios' ? (
+                        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+                    ) : (
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.32)' }]} />
+                    )}
                     <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
                     <Animated.View
                         style={[
@@ -437,8 +446,8 @@ export default function InvoicesScreen() {
                                         <DotsThree size={24} color={Colors.textSecondary} weight="bold" />
                                     </TouchableOpacity>
                                 )}
-                                <TouchableOpacity onPress={closeModal}>
-                                    <X size={24} color={Colors.textSecondary} />
+                                <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
+                                    <X size={20} color="#666666" weight="bold" />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -596,7 +605,7 @@ export default function InvoicesScreen() {
                                     const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
                                     const url = `${apiUrl}/invoice/${selectedInvoice.id}`;
                                     await WebBrowser.openBrowserAsync(url, {
-                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
                                         controlsColor: Colors.primary,
                                     });
                                 } catch (error: any) {
@@ -814,6 +823,14 @@ const styles = StyleSheet.create({
     },
     menuButton: {
         padding: 4,
+    },
+    closeButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     actionMenu: {
         backgroundColor: Colors.surface,

@@ -9,6 +9,7 @@ import { usePrivy } from '@privy-io/expo';
 import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThree, FileText, Scroll, User } from 'phosphor-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
@@ -175,6 +176,7 @@ export default function ContractsScreen() {
     };
 
     const handleContractPress = (contract: any) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedContract(contract);
         setShowModal(true);
     };
@@ -372,8 +374,11 @@ export default function ContractsScreen() {
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={() => setShowModal(false)}>
-                                <X size={24} color={Colors.textSecondary} />
+                            <TouchableOpacity style={styles.closeButton} onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setShowModal(false);
+                            }}>
+                                <X size={20} color="#666666" weight="bold" />
                             </TouchableOpacity>
                         </View>
 
@@ -629,6 +634,14 @@ const styles = StyleSheet.create({
         height: 24,
         borderRadius: 12,
         marginRight: 12,
+    },
+    closeButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     modalTitle: {
         ...Typography.body,

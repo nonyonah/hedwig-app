@@ -53,14 +53,17 @@ export default function PaymentLinkPage() {
             try {
                 setLoading(true);
                 const apiUrl = import.meta.env.VITE_API_URL || '';
-                const response = await fetch(`${apiUrl}/api/payment-links/${id}/public`);
+                // Use documents endpoint - payment links are stored as documents
+                const response = await fetch(`${apiUrl}/api/documents/${id}`);
 
                 if (!response.ok) {
                     throw new Error('Payment link not found');
                 }
 
                 const data = await response.json();
-                setPaymentLink(data.data || data);
+                // Backend returns { success: true, data: { document: {...} } }
+                const doc = data.data?.document || data.data || data;
+                setPaymentLink(doc);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load payment link');
             } finally {
@@ -117,14 +120,15 @@ export default function PaymentLinkPage() {
 
             // Update payment link status on backend
             const apiUrl = import.meta.env.VITE_API_URL || '';
-            await fetch(`${apiUrl}/api/payment-links/${id}/mark-paid`, {
+            await fetch(`${apiUrl}/api/documents/${id}/pay`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     txHash: txHash,
-                    paidBy: address,
+                    payer: address,
                     chain: selectedChain,
                     token: selectedToken,
+                    amount: paymentLink.amount,
                 }),
             });
 
@@ -270,9 +274,7 @@ export default function PaymentLinkPage() {
                             </div>
                         )}
 
-                        <div style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginTop: '16px' }}>
-                            Supports Base, Celo & more
-                        </div>
+
                     </div>
                 )}
 

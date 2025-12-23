@@ -170,7 +170,10 @@ export class SolanaBridgeService {
         }
 
         const fromPubkey = new PublicKey(fromAddress);
+        // Bridge program IDs - kept for future full bridge SDK integration
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const _bridgeProgramId = new PublicKey(CONTRACTS.solana.bridgeProgram);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const _relayerProgramId = new PublicKey(CONTRACTS.solana.relayerProgram);
         const gasFeeReceiver = new PublicKey(CONTRACTS.solana.gasFeeReceiver);
 
