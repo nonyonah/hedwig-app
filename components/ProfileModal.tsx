@@ -272,7 +272,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                 let totalUsd = 0;
 
                 balanceData.forEach((bal: any) => {
-                    if (bal.chain === 'base_sepolia') {
+                    if (bal.chain === 'base') {
                         if (bal.asset === 'eth') {
                             newBalances['Base_ETH'] = parseFloat(bal.display_values?.eth || '0').toFixed(6);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
@@ -280,12 +280,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             newBalances['Base_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
-                    } else if (bal.chain === 'solana_devnet') {
+                    } else if (bal.chain === 'solana') {
                         if (bal.asset === 'sol') {
-                            newBalances['Solana Devnet_SOL'] = parseFloat(bal.display_values?.sol || '0').toFixed(6);
+                            newBalances['Solana_SOL'] = parseFloat(bal.display_values?.sol || '0').toFixed(6);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         } else if (bal.asset === 'usdc') {
-                            newBalances['Solana Devnet_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
+                            newBalances['Solana_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
                     }

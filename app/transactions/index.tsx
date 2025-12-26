@@ -276,9 +276,9 @@ export default function TransactionsScreen() {
 
         let url = '';
         if (tx.network === 'base') {
-            url = `https://sepolia.basescan.org/tx/${tx.hash}`;
+            url = `https://basescan.org/tx/${tx.hash}`;
         } else if (tx.network === 'solana') {
-            url = `https://explorer.solana.com/tx/${tx.hash}?cluster=devnet`;
+            url = `https://explorer.solana.com/tx/${tx.hash}`;
         }
 
         console.log('[Transactions] Explorer URL:', url);
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'RethinkSans_700Bold',
-        fontSize: 18,
+        fontSize: 22,
         color: Colors.textPrimary,
     },
     profileIcon: {

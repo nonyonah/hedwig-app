@@ -369,10 +369,13 @@ AVAILABLE INTENTS & TRIGGERS:
    ✅ "Cash out my Solana USDC to naira, GTBank 0123456789 John Doe" → CONFIRM_SOLANA_BRIDGE
    ✅ "Offramp from solana to NGN" → CONFIRM_SOLANA_BRIDGE
 
-10. CREATE_PROPOSAL
-   Triggers: "create proposal", "write a proposal", "generate proposal", "proposal for", user shares text/content
+10. CREATE_PROPOSAL  
+   ⚠️ **TEMPORARILY DISABLED** - If user asks about proposals, respond with:
+   "The proposals feature is temporarily unavailable. I can help you create invoices, payment links, or send crypto instead! What would you like to do?"
    
-   **CRITICAL: You CAN and MUST analyze content in messages!**
+   DO NOT create proposals. Redirect users to other features.
+   
+   (Original triggers were: "create proposal", "write a proposal", "generate proposal", "proposal for")
    
    ⚠️ IMPORTANT: When you see "--- [CONTENT FROM URL: ... ] ---" or pasted text/file content in a message, this content HAS ALREADY BEEN PROVIDED TO YOU. Analyze it thoroughly.
    
@@ -572,7 +575,10 @@ User: "What's my balance?"
     userMessage: string,
     conversationHistory?: { role: string; content: string }[],
     files?: { mimeType: string; data: string }[], // base64 encoded file data
-    context?: { beneficiaries?: { id: string; bankName: string; accountNumber: string; accountName: string }[] }
+    context?: {
+      beneficiaries?: { id: string; bankName: string; accountNumber: string; accountName: string }[];
+      clients?: { id: string; name: string; email: string | null; phone: string | null; company: string | null }[];
+    }
   ): Promise<any> {
     try {
       // ALWAYS include system instructions to ensure consistent JSON responses
@@ -590,6 +596,22 @@ User: "What's my balance?"
         prompt += `\nWhen user wants to withdraw, OFFER these saved accounts! If user says "use my ${context.beneficiaries[0]?.bankName} account", match and auto-fill.\n\n`;
       } else {
         prompt += `**USER HAS NO SAVED BENEFICIARIES** - offer to save their account after withdrawal.\n\n`;
+      }
+
+      // Add clients context if available
+      if (context?.clients && context.clients.length > 0) {
+        prompt += `**USER'S SAVED CLIENTS (for invoices/payment-links):**\n`;
+        context.clients.forEach((c, i) => {
+          prompt += `${i + 1}. "${c.name}"${c.company ? ` (${c.company})` : ''} - Email: ${c.email || 'N/A'}, Phone: ${c.phone || 'N/A'} [ID: ${c.id}]\n`;
+        });
+        prompt += `\nIMPORTANT: When creating invoices or payment links, MATCH client names intelligently:
+- If user mentions "John" and saved client is "John Doe", use "John Doe" as clientName
+- If user mentions "Acme" and client company is "Acme Corp", match that client
+- Use the client's saved EMAIL (${context.clients[0]?.email || 'their email'}) for clientEmail field
+- If you find a match, ALWAYS populate both clientName and clientEmail from saved data
+- If NO match found, suggest saving the client after creating the document\n\n`;
+      } else {
+        prompt += `**USER HAS NO SAVED CLIENTS** - after creating invoice/payment-link, suggest saving the client for future use.\n\n`;
       }
 
       // Add history if available

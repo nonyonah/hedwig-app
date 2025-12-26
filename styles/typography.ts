@@ -17,6 +17,11 @@ export const Typography = StyleSheet.create({
         fontSize: 16,
         color: '#000000',
     },
+    bodyBold: {
+        fontFamily: 'RethinkSans_700Bold',
+        fontSize: 16,
+        color: '#000000',
+    },
     button: {
         fontFamily: 'RethinkSans_700Bold',
         fontSize: 16,

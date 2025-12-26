@@ -5,72 +5,7 @@ import NotificationService from '../services/notifications';
 
 const router = Router();
 
-/**
- * POST /api/webhooks/paycrest
- * Webhook handler for Paycrest order updates
- */
-router.post('/paycrest', async (req: Request, res: Response, next) => {
-    try {
-        const { orderId, status, txHash } = req.body;
-
-        // Find order in database
-        const { data: order, error: findError } = await supabase
-            .from('offramp_orders')
-            .select('*')
-            .eq('paycrest_order_id', orderId)
-            .single();
-
-        if (findError || !order) {
-            res.status(404).json({
-                success: false,
-                error: { message: 'Order not found' },
-            });
-            return;
-        }
-
-        // Update order status
-        const { error: updateError } = await supabase
-            .from('offramp_orders')
-            .update({
-                status: status.toUpperCase(),
-                tx_hash: txHash,
-                ...(status === 'completed' && { completed_at: new Date().toISOString() }),
-            })
-            .eq('id', order.id);
-
-        if (updateError) {
-            throw new Error(`Failed to update order: ${updateError.message}`);
-        }
-
-        // Create in-app notification for offramp status updates
-        if (status === 'completed') {
-            const currencySymbol = order.fiat_currency === 'NGN' ? '₦' : order.fiat_currency === 'GHS' ? '₵' : 'KSh';
-            const fiatAmount = order.fiat_amount?.toLocaleString() || '0';
-
-            await supabase.from('notifications').insert({
-                user_id: order.user_id,
-                type: 'offramp_success',
-                title: 'Withdrawal Complete! 💰',
-                message: `Great news! Your withdrawal of $${order.amount} USDC is complete. ${currencySymbol}${fiatAmount} has been sent to your bank account.`,
-                metadata: { orderId: order.id, amount: order.amount, fiatAmount: order.fiat_amount, currency: order.fiat_currency },
-            });
-
-            // Also send push notification
-            await NotificationService.notifyUser(order.user_id, {
-                title: '💰 Withdrawal Complete!',
-                body: `${currencySymbol}${fiatAmount} has been sent to your bank.`,
-                data: { type: 'offramp_success', orderId: order.id },
-            });
-        }
-
-        res.json({
-            success: true,
-            data: { message: 'Webhook processed successfully' },
-        });
-    } catch (error) {
-        next(error);
-    }
-});
+// NOTE: Paycrest webhooks are handled in paycrestWebhook.ts (/api/webhooks/paycrest)
 
 /**
  * POST /api/webhooks/chainhook

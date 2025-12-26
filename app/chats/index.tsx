@@ -94,6 +94,8 @@ export default function ChatsScreen() {
                 },
             });
 
+            if (!response.ok) return;
+
             const data = await response.json();
             if (data.success && data.data) {
                 const conversationsData = data.data.conversations || data.data;
@@ -192,7 +194,7 @@ export default function ChatsScreen() {
         if (isSelectionMode) {
             toggleSelection(conversationId);
         } else {
-            router.push({ pathname: '/', params: { conversationId } });
+            router.replace({ pathname: '/', params: { conversationId } });
         }
     };
 
@@ -397,11 +399,11 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...Typography.h4,
-        fontSize: 18,
+        fontSize: 22,
     },
     selectionTitle: {
         ...Typography.h4,
-        fontSize: 18,
+        fontSize: 22,
     },
     cancelText: {
         ...Typography.body,
@@ -442,9 +444,9 @@ const styles = StyleSheet.create({
         alignItems: 'center', // Center vertically for icon alignment
         padding: 16,
         backgroundColor: '#FFFFFF',
-        borderRadius: 12,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: '#F3F4F6',
         marginBottom: 8,
     },
     chatItemSelected: {
@@ -452,10 +454,10 @@ const styles = StyleSheet.create({
         borderColor: Colors.primary,
     },
     chatIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: Colors.background,
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,

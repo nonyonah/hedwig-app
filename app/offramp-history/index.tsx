@@ -142,10 +142,18 @@ export default function OfframpHistoryScreen() {
                                 setProfileIcon({ type: 'image', imageUri: avatarData.imageUri, colorIndex: avatarData.colorIndex || 0 });
                             } else if (avatarData.emoji) {
                                 setProfileIcon({ type: 'emoji', emoji: avatarData.emoji, colorIndex: avatarData.colorIndex || 0 });
+                            } else if (avatarData.colorIndex !== undefined) {
+                                setProfileIcon({ type: 'emoji', colorIndex: avatarData.colorIndex });
                             }
+                        } else if (typeof user.avatar === 'string' && user.avatar.startsWith('data:')) {
+                            setProfileIcon({ type: 'image', imageUri: user.avatar, colorIndex: 0 });
                         }
                     } catch (parseError) {
                         console.error('Error parsing avatar:', parseError);
+                        // Fallback: treat as direct image URI
+                        if (typeof user.avatar === 'string') {
+                            setProfileIcon({ type: 'image', imageUri: user.avatar, colorIndex: 0 });
+                        }
                     }
                 }
             }
@@ -544,7 +552,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'RethinkSans_700Bold',
-        fontSize: 18,
+        fontSize: 22,
         color: Colors.textPrimary,
     },
     profileIcon: {

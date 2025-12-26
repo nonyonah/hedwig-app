@@ -180,6 +180,7 @@ export default function HomeScreen() {
     const [isTypingGreeting, setIsTypingGreeting] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [isLoadingConversation, setIsLoadingConversation] = useState(!!params.conversationId);
     const flatListRef = useRef<FlatList>(null);
     const sidebarAnim = useRef(new Animated.Value(-width * 0.8)).current;
     const messageAnimations = useRef<{ [key: string]: Animated.Value }>({}).current;
@@ -312,12 +313,15 @@ export default function HomeScreen() {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
+                // Check response before parsing to avoid JSON parse errors
+                if (!response.ok) return;
+
                 const data = await response.json();
                 if (data.success) {
                     setUnreadNotificationCount(data.data.unreadCount || 0);
                 }
             } catch (error) {
-                console.log('[Notifications] Error fetching unread count:', error);
+                // Silently fail - notifications are non-critical
             }
         };
 
@@ -328,6 +332,7 @@ export default function HomeScreen() {
     }, [getAccessToken]);
 
     const loadConversation = async (id: string) => {
+        setIsLoadingConversation(true);
         try {
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -351,6 +356,8 @@ export default function HomeScreen() {
         } catch (error) {
             console.error('Failed to load conversation:', error);
             Alert.alert('Error', 'Failed to load conversation history');
+        } finally {
+            setIsLoadingConversation(false);
         }
     };
 
@@ -398,6 +405,15 @@ export default function HomeScreen() {
             const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
+
+            // Check response before parsing to avoid JSON parse errors
+            if (!profileResponse.ok) {
+                console.log('Profile fetch failed with status:', profileResponse.status);
+                if (retryCount < 3) {
+                    setTimeout(() => fetchUserProfile(retryCount + 1), 1000);
+                }
+                return;
+            }
 
             const profileData = await profileResponse.json();
 
@@ -1081,7 +1097,12 @@ export default function HomeScreen() {
                 {/* Chat Area */}
                 <View style={styles.chatArea}>
                     {
-                        messages.length === 0 ? (
+                        isLoadingConversation ? (
+                            <View style={styles.emptyState}>
+                                <ActivityIndicator size="large" color={Colors.primary} />
+                                <Text style={[styles.emptySubtext, { marginTop: 16 }]}>Loading conversation...</Text>
+                            </View>
+                        ) : messages.length === 0 ? (
                             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                                 <View style={styles.emptyState}>
                                     <Text style={styles.emptyStateText}>
@@ -1280,7 +1301,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'RethinkSans_700Bold',
-        fontSize: 24, // Increased from 18
+        fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
     },
     headerRight: {
@@ -1723,7 +1744,6 @@ const styles = StyleSheet.create({
     messageList: {
         paddingHorizontal: 0, // Remove padding here - let individual message containers handle it
         paddingVertical: Metrics.spacing.md,
-        flexGrow: 1,
     },
     thinkingText: {
         ...Typography.body,

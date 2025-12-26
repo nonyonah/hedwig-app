@@ -110,12 +110,31 @@ router.post('/', async (req: Request, res: Response) => {
         const signature = req.headers['x-paycrest-signature'] as string;
         const rawBody = JSON.stringify(req.body);
 
-        // Verify signature (skip if no secret configured)
-        if (PAYCREST_WEBHOOK_SECRET && signature) {
+        // In production, require webhook secret and signature
+        if (process.env.NODE_ENV === 'production') {
+            if (!PAYCREST_WEBHOOK_SECRET) {
+                console.error('[PaycrestWebhook] CRITICAL: No webhook secret configured in production!');
+                res.status(500).json({ error: 'Webhook not configured' });
+                return;
+            }
+            if (!signature) {
+                console.error('[PaycrestWebhook] Missing signature in production');
+                res.status(401).json({ error: 'Missing signature' });
+                return;
+            }
             if (!verifyWebhookSignature(rawBody, signature)) {
                 console.error('[PaycrestWebhook] Invalid signature');
                 res.status(401).json({ error: 'Invalid signature' });
                 return;
+            }
+        } else {
+            // In development, verify if both secret and signature are present
+            if (PAYCREST_WEBHOOK_SECRET && signature) {
+                if (!verifyWebhookSignature(rawBody, signature)) {
+                    console.error('[PaycrestWebhook] Invalid signature');
+                    res.status(401).json({ error: 'Invalid signature' });
+                    return;
+                }
             }
         }
 

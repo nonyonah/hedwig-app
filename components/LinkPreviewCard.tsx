@@ -46,7 +46,9 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ docType, docId
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch');
+                // Silently fail - will show fallback UI
+                setError(true);
+                return;
             }
 
             const data = await response.json();
@@ -64,7 +66,7 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ docType, docId
                 setError(true);
             }
         } catch (err) {
-            console.error('Failed to fetch preview:', err);
+            // Network errors are common (offline, server down) - fail silently
             setError(true);
         } finally {
             setLoading(false);

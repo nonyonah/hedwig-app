@@ -334,9 +334,9 @@ export default function NotificationsScreen() {
                     <CaretLeft size={24} color={Colors.textPrimary} weight="bold" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Notifications</Text>
-                <View style={{ width: 44, alignItems: 'flex-end' }}>
+                <View style={{ width: 100, alignItems: 'flex-end' }}>
                     <TouchableOpacity onPress={markAllAsRead}>
-                        <CheckCircle size={24} color={Colors.textPrimary} />
+                        <Text style={styles.markAsDoneText}>Mark as done</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -394,17 +394,22 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     backButton: {
-        width: 44,
+        width: 100,
         height: 44,
         justifyContent: 'center',
         alignItems: 'flex-start',
     },
     headerTitle: {
         fontFamily: 'RethinkSans_700Bold',
-        fontSize: 24,
+        fontSize: 22,
         color: Colors.textPrimary,
         textAlign: 'center',
         flex: 1,
+    },
+    markAsDoneText: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 14,
+        color: Colors.primary,
     },
     filterContainer: {
         marginBottom: 24,
@@ -427,7 +432,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.primary,
     },
     filterText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'RethinkSans_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -530,7 +535,7 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     notificationMessage: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'RethinkSans_500Medium',
         fontSize: 14,
         color: Colors.textSecondary,
         lineHeight: 20,

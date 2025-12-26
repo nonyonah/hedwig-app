@@ -64,7 +64,22 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
     try {
         const { amount, token, network, bankName, accountNumber, accountName, returnAddress, currency, memo, saveBeneficiary } =
             req.body;
-        const userId = req.user!.id;
+        const privyId = req.user!.id;
+
+        // Look up the actual user.id from privy_id (users.id has format user_xxx)
+        const { data: userRecord, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userRecord) {
+            console.error('[Offramp] User not found for privy_id:', privyId);
+            res.status(404).json({ success: false, error: 'User not found' });
+            return;
+        }
+
+        const userId = userRecord.id;
 
         const amountNum = parseFloat(amount);
         if (isNaN(amountNum)) {
@@ -190,7 +205,22 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
  */
 router.get('/orders', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const privyId = req.user!.id;
+
+        // Look up the actual user.id from privy_id
+        const { data: userRecord, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userRecord) {
+            console.error('[Offramp] User not found for privy_id:', privyId);
+            res.status(404).json({ success: false, error: 'User not found' });
+            return;
+        }
+
+        const userId = userRecord.id;
 
         const { data: orders, error } = await supabase
             .from('offramp_orders')
@@ -239,7 +269,22 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
 router.get('/orders/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const userId = req.user!.id;
+        const privyId = req.user!.id;
+
+        // Look up the actual user.id from privy_id
+        const { data: userRecord, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userRecord) {
+            console.error('[Offramp] User not found for privy_id:', privyId);
+            res.status(404).json({ success: false, error: 'User not found' });
+            return;
+        }
+
+        const userId = userRecord.id;
 
         const { data: order, error } = await supabase
             .from('offramp_orders')
@@ -305,6 +350,59 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
         res.json({
             success: true,
             data: { order: formattedOrder },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * PATCH /api/offramp/orders/:id
+ * Update an offramp order (e.g., with transaction hash after token transfer)
+ */
+router.patch('/orders/:id', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const { txHash } = req.body;
+        const privyId = req.user!.id;
+
+        // Look up the actual user.id from privy_id
+        const { data: userRecord, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userRecord) {
+            console.error('[Offramp] User not found for privy_id:', privyId);
+            res.status(404).json({ success: false, error: 'User not found' });
+            return;
+        }
+
+        const userId = userRecord.id;
+
+        // Update order with txHash
+        const { data: order, error } = await supabase
+            .from('offramp_orders')
+            .update({ tx_hash: txHash })
+            .eq('id', id)
+            .eq('user_id', userId)
+            .select()
+            .single();
+
+        if (error || !order) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Order not found or update failed' },
+            });
+            return;
+        }
+
+        console.log('[Offramp] Updated order', id, 'with txHash:', txHash);
+
+        res.json({
+            success: true,
+            data: { order: { id: order.id, txHash: order.tx_hash } },
         });
     } catch (error) {
         next(error);

@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'RethinkSans_700Bold',
-        fontSize: 24, // Increased from 18
+        fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
     },
     content: {

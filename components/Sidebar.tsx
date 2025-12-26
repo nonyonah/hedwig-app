@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link, Receipt, Chat, CaretRight, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank } from 'phosphor-react-native';
+import { House, Link, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt } from 'phosphor-react-native';
 import { Colors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -189,6 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         outputRange: [-SIDEBAR_WIDTH, 0],
     });
 
+    // Airbnb-style menu item with active state as black pill
     const renderMenuItem = (icon: React.ReactNode, label: string, isActive: boolean, onPress: () => void) => (
         <TouchableOpacity
             style={[styles.menuItem, isActive && styles.menuItemActive]}
@@ -199,11 +200,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onPress();
             }}
         >
-            <View style={styles.menuItemLeft}>
-                <View style={styles.menuIcon}>{icon}</View>
-                <Text style={[styles.menuText, isActive && styles.menuTextActive]}>{label}</Text>
+            <View style={[styles.menuIcon, isActive && styles.menuIconActive]}>
+                {React.cloneElement(icon as React.ReactElement<{ color: string }>, {
+                    color: isActive ? '#FFFFFF' : Colors.textPrimary
+                })}
             </View>
-            <CaretRight size={16} color="#9CA3AF" weight="bold" />
+            <Text style={[styles.menuText, isActive && styles.menuTextActive]}>{label}</Text>
         </TouchableOpacity>
     );
 
@@ -231,8 +233,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     styles.sidebarContainer,
                     {
                         transform: [{ translateX: sidebarTranslateX }],
-                        paddingTop: insets.top + 20,
-                        paddingBottom: insets.bottom + 20,
+                        paddingTop: insets.top + 16,
+                        paddingBottom: insets.bottom + 16,
                     }
                 ]}
             >
@@ -242,7 +244,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <MagnifyingGlass size={20} color={Colors.textSecondary} />
                         <TextInput
                             style={styles.searchInput}
-                            placeholder="Search invoices, chats..."
+                            placeholder="Search..."
                             placeholderTextColor={Colors.textSecondary}
                             value={searchQuery}
                             onChangeText={handleSearchChange}
@@ -283,7 +285,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             <Text style={styles.searchResultTitle} numberOfLines={1}>{result.title}</Text>
                                             <Text style={styles.searchResultSubtitle} numberOfLines={1}>{result.subtitle}</Text>
                                         </View>
-                                        <CaretRight size={14} color={Colors.textSecondary} />
                                     </TouchableOpacity>
                                 ))
                             ) : (
@@ -296,13 +297,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Only show menu when not searching */}
                 {searchQuery.length === 0 && (
                     <>
-                        <View style={styles.divider} />
-
                         <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                            {/* Navigation Menu */}
+                            {/* Primary Navigation */}
                             <View style={styles.menuSection}>
                                 {renderMenuItem(
-                                    <House size={22} color={Colors.textPrimary} weight="bold" />,
+                                    <House size={22} weight="bold" />,
                                     'Home',
                                     pathname === '/',
                                     () => {
@@ -311,99 +310,66 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     }
                                 )}
                                 {renderMenuItem(
-                                    <Link size={22} color={Colors.textPrimary} weight="bold" />,
-                                    'Payment Links',
-                                    pathname === '/payment-links',
-                                    () => handleNavigation('/payment-links')
-                                )}
-                                {renderMenuItem(
-                                    <Receipt size={22} color={Colors.textPrimary} weight="bold" />,
-                                    'Invoices',
-                                    pathname === '/invoices',
-                                    () => handleNavigation('/invoices')
-                                )}
-                                {renderMenuItem(
-                                    <Chat size={22} color={Colors.textPrimary} weight="bold" />,
+                                    <Chat size={22} weight="bold" />,
                                     'Chats',
                                     pathname === '/chats',
                                     () => handleNavigation('/chats')
                                 )}
                                 {renderMenuItem(
-                                    <ArrowsLeftRight size={22} color={Colors.textPrimary} weight="bold" />,
+                                    <Receipt size={22} weight="bold" />,
+                                    'Invoices',
+                                    pathname === '/invoices',
+                                    () => handleNavigation('/invoices')
+                                )}
+                                {renderMenuItem(
+                                    <Link size={22} weight="bold" />,
+                                    'Payment Links',
+                                    pathname === '/payment-links',
+                                    () => handleNavigation('/payment-links')
+                                )}
+                                {renderMenuItem(
+                                    <Users size={22} weight="bold" />,
+                                    'Clients',
+                                    pathname === '/clients',
+                                    () => handleNavigation('/clients')
+                                )}
+                            </View>
+
+                            {/* Settings Section */}
+                            <View style={styles.settingsSection}>
+                                <Text style={styles.sectionTitle}>SETTINGS</Text>
+                                {renderMenuItem(
+                                    <ArrowsLeftRight size={22} weight="bold" />,
                                     'Transactions',
                                     pathname === '/transactions',
                                     () => handleNavigation('/transactions')
                                 )}
                                 {renderMenuItem(
-                                    <Bank size={22} color={Colors.textPrimary} weight="bold" />,
+                                    <Bank size={22} weight="bold" />,
                                     'Withdrawals',
                                     pathname === '/offramp-history',
                                     () => handleNavigation('/offramp-history')
                                 )}
                                 {renderMenuItem(
-                                    <Gear size={22} color={Colors.textPrimary} weight="bold" />,
+                                    <Gear size={22} weight="bold" />,
                                     'Settings',
                                     pathname === '/settings',
                                     () => handleNavigation('/settings')
                                 )}
                             </View>
-
-                            {/* Recent Chats */}
-                            {conversations && conversations.length > 0 && (
-                                <View style={styles.recentsSection}>
-                                    <Text style={styles.sectionTitle}>
-                                        Recent Chats
-                                    </Text>
-                                    {conversations.slice(0, 3).map((conv) => (
-                                        <TouchableOpacity
-                                            key={conv.id}
-                                            style={styles.recentItem}
-                                            onPress={() => {
-                                                if (onLoadConversation) {
-                                                    onLoadConversation(conv.id);
-                                                    onClose();
-                                                }
-                                            }}
-                                            onLongPress={async () => {
-                                                if (onDeleteConversation) {
-                                                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                                    Alert.alert(
-                                                        'Delete Conversation',
-                                                        'Are you sure you want to delete this conversation?',
-                                                        [
-                                                            { text: 'Cancel', style: 'cancel' },
-                                                            {
-                                                                text: 'Delete',
-                                                                style: 'destructive',
-                                                                onPress: () => onDeleteConversation(conv.id)
-                                                            }
-                                                        ]
-                                                    );
-                                                }
-                                            }}
-                                            delayLongPress={500}
-                                        >
-                                            <Chat size={18} color={Colors.textSecondary} weight="bold" />
-                                            <Text style={styles.recentText} numberOfLines={1}>
-                                                {conv.title || 'Untitled'}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            )}
-
-
                         </ScrollView>
 
+                        {/* Footer - Give Feedback Button */}
                         <View style={styles.footer}>
-                            <TouchableOpacity style={styles.footerLink}>
-                                <Text style={styles.footerText}>Feedback</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.footerLink}>
-                                <Text style={styles.footerText}>Contact us</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.footerLink}>
-                                <Text style={styles.footerText}>What's new</Text>
+                            <TouchableOpacity
+                                style={styles.feedbackButton}
+                                onPress={() => {
+                                    // Could open feedback modal or email
+                                    Alert.alert('Feedback', 'Thank you for your interest! Feedback feature coming soon.');
+                                }}
+                            >
+                                <PaperPlaneTilt size={22} color={Colors.textPrimary} weight="bold" />
+                                <Text style={styles.feedbackButtonText}>Give feedback</Text>
                             </TouchableOpacity>
                         </View>
                     </>
@@ -429,7 +395,7 @@ const styles = StyleSheet.create({
         left: 0,
         width: SIDEBAR_WIDTH,
         backgroundColor: '#FFFFFF',
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
@@ -439,24 +405,8 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
         elevation: 5,
     },
-    headerContainer: {
-        marginBottom: 24,
-        minHeight: 40,
-        justifyContent: 'center',
-    },
-    header: {
-        marginBottom: 24,
-    },
-    greeting: {
-        fontFamily: 'RethinkSans_700Bold',
-        fontSize: 32,
-        color: Colors.textPrimary,
-    },
-    nameHighlight: {
-        color: Colors.textPrimary,
-    },
     searchHeader: {
-        marginBottom: 16,
+        marginBottom: 24,
     },
     searchContainer: {
         flexDirection: 'row',
@@ -470,7 +420,7 @@ const styles = StyleSheet.create({
     searchInput: {
         flex: 1,
         fontFamily: 'RethinkSans_400Regular',
-        fontSize: 16,
+        fontSize: 17,
         color: Colors.textPrimary,
         padding: 0,
     },
@@ -520,90 +470,70 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingVertical: 20,
     },
-    divider: {
-        height: 1,
-        backgroundColor: '#F3F4F6',
-        marginBottom: 24,
-    },
     scrollContent: {
         flex: 1,
     },
     menuSection: {
-        marginBottom: 32,
+        marginBottom: 8,
+    },
+    settingsSection: {
+        marginTop: 8,
+    },
+    sectionTitle: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 12,
+        color: Colors.textSecondary,
+        letterSpacing: 0.5,
+        marginBottom: 12,
+        marginLeft: 4,
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
-        paddingHorizontal: 12,
-        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 100,
         marginBottom: 4,
     },
     menuItemActive: {
-        backgroundColor: '#F3F4F6',
-    },
-    menuItemLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        backgroundColor: Colors.primary,
     },
     menuIcon: {
-        marginRight: 16,
+        marginRight: 14,
         width: 24,
         alignItems: 'center',
     },
+    menuIconActive: {
+        // Icon color is handled in the render function
+    },
     menuText: {
-        fontFamily: 'RethinkSans_600SemiBold',
-        fontSize: 16,
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 17,
         color: Colors.textPrimary,
     },
     menuTextActive: {
-        color: Colors.textPrimary, // Keep text primary color even when active
-        fontFamily: 'RethinkSans_700Bold',
-    },
-    logoutItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
-        paddingHorizontal: 12,
-        marginTop: 12,
-    },
-    recentsSection: {
-        marginBottom: 32,
-    },
-    sectionTitle: {
-        fontFamily: 'RethinkSans_700Bold',
-        fontSize: 18,
-        color: Colors.textPrimary,
-        marginBottom: 16,
-        paddingHorizontal: 12,
-    },
-    recentItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 12, // Match menu item padding
-        marginBottom: 4,
-        backgroundColor: '#F9FAFB',
-        borderRadius: 8,
-    },
-    recentText: {
-        fontFamily: 'RethinkSans_500Medium',
-        fontSize: 14,
-        color: Colors.textPrimary,
-        marginLeft: 12,
-        flex: 1,
+        color: '#FFFFFF',
+        fontFamily: 'RethinkSans_600SemiBold',
     },
     footer: {
-        marginTop: 24,
-        paddingHorizontal: 12,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F3F4F6',
     },
-    footerLink: {
-        paddingVertical: 8,
+    feedbackButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 24,
+        borderRadius: 100,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        gap: 10,
     },
-    footerText: {
-        fontFamily: 'RethinkSans_500Medium',
-        fontSize: 13,
-        color: Colors.textSecondary,
+    feedbackButtonText: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 16,
+        color: Colors.textPrimary,
     },
 });

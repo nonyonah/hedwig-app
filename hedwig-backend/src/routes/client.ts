@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
+import { getOrCreateUser } from '../utils/userHelper';
 
 const router = Router();
 
@@ -10,19 +11,26 @@ const router = Router();
  */
 router.get('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const privyId = req.user!.privyId;
+
+        // Get internal user ID
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
 
         const { data: clients, error } = await supabase
             .from('clients')
             .select('*')
-            .eq('user_id', userId)
+            .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
         if (error) {
             throw new Error(`Failed to fetch clients: ${error.message}`);
         }
 
-        // Map to camelCase
+        // Map to camelCase (with safe fallbacks for columns that may not exist)
         const formattedClients = clients.map(client => ({
             id: client.id,
             userId: client.user_id,
@@ -32,6 +40,9 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             company: client.company,
             address: client.address,
             walletAddress: client.wallet_address,
+            totalEarnings: parseFloat(client.total_earnings ?? '0') || 0,
+            outstandingBalance: parseFloat(client.outstanding_balance ?? '0') || 0,
+            notes: client.notes ?? null,
             createdAt: client.created_at,
             updatedAt: client.updated_at,
         }));
@@ -52,13 +63,20 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const userId = req.user!.id;
+        const privyId = req.user!.privyId;
+
+        // Get internal user ID
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
 
         const { data: client, error } = await supabase
             .from('clients')
             .select('*')
             .eq('id', id)
-            .eq('user_id', userId)
+            .eq('user_id', user.id)
             .single();
 
         if (error || !client) {
@@ -78,6 +96,9 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
             company: client.company,
             address: client.address,
             walletAddress: client.wallet_address,
+            totalEarnings: parseFloat(client.total_earnings ?? '0') || 0,
+            outstandingBalance: parseFloat(client.outstanding_balance ?? '0') || 0,
+            notes: client.notes ?? null,
             createdAt: client.created_at,
             updatedAt: client.updated_at,
         };
@@ -98,7 +119,14 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { name, email, phone, company, address, walletAddress } = req.body;
-        const userId = req.user!.id;
+        const privyId = req.user!.privyId;
+
+        // Get internal user ID
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
 
         if (!name) {
             res.status(400).json({ success: false, error: 'Name is required' });
@@ -108,7 +136,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
         const { data: client, error } = await supabase
             .from('clients')
             .insert({
-                user_id: userId,
+                user_id: user.id,
                 name,
                 email,
                 phone,
@@ -132,6 +160,9 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             company: client.company,
             address: client.address,
             walletAddress: client.wallet_address,
+            totalEarnings: parseFloat(client.total_earnings ?? '0') || 0,
+            outstandingBalance: parseFloat(client.outstanding_balance ?? '0') || 0,
+            notes: client.notes ?? null,
             createdAt: client.created_at,
             updatedAt: client.updated_at,
         };
@@ -153,7 +184,14 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
         const { name, email, phone, company, address, walletAddress } = req.body;
-        const userId = req.user!.id;
+        const privyId = req.user!.privyId;
+
+        // Get internal user ID
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
 
         const { data: client, error } = await supabase
             .from('clients')
@@ -166,7 +204,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
                 wallet_address: walletAddress,
             })
             .eq('id', id)
-            .eq('user_id', userId)
+            .eq('user_id', user.id)
             .select()
             .single();
 
@@ -187,6 +225,9 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
             company: client.company,
             address: client.address,
             walletAddress: client.wallet_address,
+            totalEarnings: parseFloat(client.total_earnings ?? '0') || 0,
+            outstandingBalance: parseFloat(client.outstanding_balance ?? '0') || 0,
+            notes: client.notes ?? null,
             createdAt: client.created_at,
             updatedAt: client.updated_at,
         };
@@ -207,13 +248,20 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
 router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const userId = req.user!.id;
+        const privyId = req.user!.privyId;
+
+        // Get internal user ID
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
 
         const { error } = await supabase
             .from('clients')
             .delete()
             .eq('id', id)
-            .eq('user_id', userId);
+            .eq('user_id', user.id);
 
         if (error) {
             throw new Error(`Failed to delete client: ${error.message}`);

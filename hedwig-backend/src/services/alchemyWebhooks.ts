@@ -180,7 +180,6 @@ class AlchemyWebhooksService {
             }
 
             // Validate signature
-            console.log(`[Alchemy] Validating signature (key first 8 chars): ${signingKey.substring(0, 8)}...`);
             if (!this.validateSignature(rawBody, signature, signingKey)) {
                 console.warn(`[Alchemy] Signature mismatch for network: ${network}`);
                 return { valid: false, error: 'Invalid signature' };

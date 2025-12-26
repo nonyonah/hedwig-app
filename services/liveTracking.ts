@@ -8,6 +8,12 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// ============================================================
+// TEMPORARY: Set to false to disable Live Activities/Updates
+// for TestFlight builds. Set back to true when ready to enable.
+// ============================================================
+const LIVE_ACTIVITIES_ENABLED = false;
+
 // Platform-specific imports (lazy loaded)
 let LiveActivity: any = null;
 let LiveUpdates: any = null;
@@ -111,6 +117,12 @@ function formatAmount(amount: number, currency: string): string {
  * Called on first webhook (order.initiated or order.pending)
  */
 export async function startLiveTracking(details: WithdrawalDetails): Promise<void> {
+    // Skip if live activities are disabled
+    if (!LIVE_ACTIVITIES_ENABLED) {
+        console.log('[LiveTracking] Live activities disabled, skipping start');
+        return;
+    }
+
     await initModules();
 
     const { orderId, fiatAmount, fiatCurrency, bankName, status } = details;
@@ -196,6 +208,11 @@ export async function startLiveTracking(details: WithdrawalDetails): Promise<voi
  * Update live tracking for a withdrawal
  */
 export async function updateLiveTracking(details: WithdrawalDetails): Promise<void> {
+    // Skip if live activities are disabled
+    if (!LIVE_ACTIVITIES_ENABLED) {
+        return;
+    }
+
     await initModules();
 
     const { orderId, fiatAmount, fiatCurrency, bankName, status } = details;
@@ -268,6 +285,11 @@ export async function updateLiveTracking(details: WithdrawalDetails): Promise<vo
  * Called when user dismisses or we want to force stop
  */
 export async function stopLiveTracking(orderId: string): Promise<void> {
+    // Skip if live activities are disabled
+    if (!LIVE_ACTIVITIES_ENABLED) {
+        return;
+    }
+
     await initModules();
 
     console.log('[LiveTracking] Stopping tracking for order:', orderId);

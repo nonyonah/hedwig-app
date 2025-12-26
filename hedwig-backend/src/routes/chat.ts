@@ -145,6 +145,24 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
 
         console.log('[Chat] User has', beneficiaryContext.length, 'saved beneficiaries');
 
+        // Fetch user's saved clients for invoice/payment-link suggestions
+        const { data: clients } = await supabase
+            .from('clients')
+            .select('id, name, email, phone, company')
+            .eq('user_id', userData.id)
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        const clientContext = clients?.map(c => ({
+            id: c.id,
+            name: c.name,
+            email: c.email || null,
+            phone: c.phone || null,
+            company: c.company || null,
+        })) || [];
+
+        console.log('[Chat] User has', clientContext.length, 'saved clients');
+
         // Process uploaded files for Gemini
         let fileData: { mimeType: string; data: string }[] | undefined;
         if (uploadedFiles && uploadedFiles.length > 0) {
@@ -235,7 +253,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                 enhancedMessage,
                 history,
                 fileData,
-                { beneficiaries: beneficiaryContext }
+                { beneficiaries: beneficiaryContext, clients: clientContext }
             );
         } catch (geminiError: any) {
             console.error('[Chat] Gemini generation failed:', geminiError);

@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...Typography.h2,
-        fontSize: 18,
+        fontSize: 22,
         fontWeight: '600',
     },
     profileIcon: {

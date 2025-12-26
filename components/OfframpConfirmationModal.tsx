@@ -12,6 +12,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../hooks/useAuth';
 import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
+import { useLiveTracking } from '../hooks/useLiveTracking';
 
 const { height } = Dimensions.get('window');
 
@@ -75,6 +76,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
     const { hapticsEnabled } = useSettings();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const { getAccessToken } = useAuth();
+    const { startTracking } = useLiveTracking();
     const evmWallets = (ethereumWallet as any)?.wallets || [];
 
     const [modalState, setModalState] = useState<ModalState>('confirm');
@@ -85,6 +87,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
     const [currentRate, setCurrentRate] = useState<string>('');
     const [estimatedFiat, setEstimatedFiat] = useState<string>('');
     const [isLoadingRate, setIsLoadingRate] = useState(false);
+    const [tokensSent, setTokensSent] = useState(false); // Track if tokens were sent to Paycrest
 
     const modalAnim = useRef(new Animated.Value(height)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -166,6 +169,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
                 setIsRendered(false);
                 setStatusMessage('');
                 setModalState('confirm');
+                setTokensSent(false);
             });
         }
     }, [visible]);
@@ -242,7 +246,107 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
             const order = result.data.order;
             setOrderId(order.id);
             setReceiveAddress(order.receiveAddress);
-            setModalState('awaiting_transfer');
+
+            // 3. Send tokens to Paycrest receive address automatically
+            setStatusMessage('Sending tokens to Paycrest...');
+
+            const network = data.network.toLowerCase();
+            const tokenSymbol = data.token.toUpperCase();
+            const tokenAddress = TOKEN_ADDRESSES[network]?.[tokenSymbol];
+
+            if (!tokenAddress) {
+                throw new Error(`Token ${data.token} not supported on ${network}`);
+            }
+
+            // Build ERC20 transfer transaction
+            const decimals = 6; // USDC has 6 decimals
+            const amountWei = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, decimals)));
+            const recipientPadded = order.receiveAddress.slice(2).toLowerCase().padStart(64, '0');
+            const amountPadded = amountWei.toString(16).padStart(64, '0');
+            const transferData = '0xa9059cbb' + recipientPadded + amountPadded;
+
+            console.log('[Offramp] Sending tokens to:', order.receiveAddress);
+            console.log('[Offramp] Amount:', data.amount, tokenSymbol);
+
+            // Use ethers to estimate gas and get proper fee data
+            const rpcUrl = RPC_URLS[network];
+            const rpcProvider = new ethers.JsonRpcProvider(rpcUrl);
+
+            // Get gas estimates
+            const gasEstimate = await rpcProvider.estimateGas({
+                from: walletAddress,
+                to: tokenAddress,
+                data: transferData
+            });
+            const gasLimit = '0x' + (gasEstimate * 150n / 100n).toString(16);
+
+            // Get fee data
+            const feeData = await rpcProvider.getFeeData();
+            const maxFeePerGas = feeData.maxFeePerGas || BigInt(30000000000);
+            const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas || BigInt(1500000000);
+
+            // Get nonce
+            const nonce = await rpcProvider.getTransactionCount(walletAddress, 'pending');
+            const nonceHex = '0x' + nonce.toString(16);
+
+            const txParams = {
+                from: walletAddress,
+                to: tokenAddress,
+                data: transferData,
+                gasLimit: gasLimit,
+                nonce: nonceHex,
+                maxFeePerGas: '0x' + maxFeePerGas.toString(16),
+                maxPriorityFeePerGas: '0x' + maxPriorityFeePerGas.toString(16),
+                chainId: CHAIN_IDS[network],
+            };
+
+            console.log('[Offramp] TX params:', JSON.stringify(txParams, null, 2));
+
+            // Send transaction using Privy wallet
+            const txHash = await provider.request({
+                method: 'eth_sendTransaction',
+                params: [txParams]
+            }) as string;
+
+            // Mark that tokens have been sent (for error message differentiation)
+            setTokensSent(true);
+
+            console.log('[Offramp] Token transfer tx:', txHash);
+            setStatusMessage('Waiting for confirmation...');
+
+            // 4. Update order with tx hash via backend
+            try {
+                await fetch(`${apiUrl}/api/offramp/orders/${order.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ txHash })
+                });
+            } catch (e) {
+                console.log('[Offramp] Failed to update order with txHash:', e);
+                // Non-critical, continue to success
+            }
+
+            // 5. Start live tracking for lock screen updates (non-fatal if it fails)
+            try {
+                await startTracking({
+                    orderId: order.id,
+                    fiatAmount: parseFloat(estimatedFiat) || 0,
+                    fiatCurrency: data.fiatCurrency || 'NGN',
+                    bankName: data.bankName || 'Bank',
+                    accountNumber: data.accountNumber || '',
+                    status: 'PENDING',
+                });
+                console.log('[Offramp] Live tracking started for order:', order.id);
+            } catch (trackingError) {
+                console.log('[Offramp] Live tracking failed (non-fatal):', trackingError);
+                // Non-fatal - don't fail the offramp if live tracking fails
+            }
+
+            // 6. Success!
+            setModalState('success');
 
         } catch (error: any) {
             console.error('Offramp Failed:', error);
@@ -344,8 +448,18 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
                 return (
                     <View style={styles.statusContainer}>
                         <XCircle size={120} color={Colors.error || '#EF4444'} weight="fill" style={{ marginBottom: 24 }} />
-                        <Text style={styles.statusTitle}>Offramp failed. Don't worry, no funds were moved.</Text>
-                        <Text style={styles.errorMessage}>{statusMessage}</Text>
+                        <Text style={styles.statusTitle}>
+                            {tokensSent ? 'Offramp Failed' : 'Offramp Failed'}
+                        </Text>
+                        <Text style={styles.statusSubtitle}>
+                            {tokensSent
+                                ? "Your tokens have been sent to Paycrest. If the order was rejected, your funds will be automatically refunded to your wallet within 24 hours."
+                                : "Don't worry, no funds were moved."
+                            }
+                        </Text>
+                        {statusMessage ? (
+                            <Text style={styles.errorMessage}>{statusMessage}</Text>
+                        ) : null}
                         <View style={styles.actionButtonsContainer}>
                             <TouchableOpacity style={styles.closeButtonMain} onPress={onClose}>
                                 <Text style={styles.closeButtonText}>Close</Text>

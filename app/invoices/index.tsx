@@ -585,6 +585,11 @@ export default function InvoicesScreen() {
                             </View>
                             <View style={styles.detailDivider} />
                             <View style={styles.detailRow}>
+                                <Text style={styles.detailLabel}>Client</Text>
+                                <Text style={styles.detailValue}>{selectedInvoice?.content?.clientName || selectedInvoice?.content?.client_name || 'N/A'}</Text>
+                            </View>
+                            <View style={styles.detailDivider} />
+                            <View style={styles.detailRow}>
                                 <Text style={styles.detailLabel}>Chain</Text>
                                 <View style={styles.chainValue}>
                                     <Image
@@ -639,7 +644,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'RethinkSans_700Bold',
-        fontSize: 24, // Increased from 18
+        fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
     },
     profileIcon: {
