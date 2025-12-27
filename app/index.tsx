@@ -10,7 +10,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../hooks/useAuth';
 import { useWallet } from '../hooks/useWallet';
 import { usePrivy } from '@privy-io/expo';
-import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File, Bell } from 'phosphor-react-native';
+import { useOnboarding } from '../hooks/useOnboarding';
+import { useUserActions, Suggestion } from '../hooks/useUserActions';
+import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File, Bell, Plus } from 'phosphor-react-native';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
@@ -24,6 +26,8 @@ import { TransactionConfirmationModal } from '../components/TransactionConfirmat
 import { OfframpConfirmationModal } from '../components/OfframpConfirmationModal';
 import { SolanaBridgeModal } from '../components/SolanaBridgeModal';
 import { LinkPreviewCard } from '../components/LinkPreviewCard';
+import { OnboardingTooltip } from '../components/OnboardingTooltip';
+import { SuggestionChips } from '../components/SuggestionChips';
 import { getUserGradient } from '../utils/gradientUtils';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 
@@ -165,9 +169,17 @@ export default function HomeScreen() {
     const [attachedFiles, setAttachedFiles] = useState<{ uri: string; name: string; mimeType: string }[]>([]);
     const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
     const shouldAutoScrollRef = useRef(true);
+    const [isAttachmentExpanded, setIsAttachmentExpanded] = useState(false);
+    const attachmentRotation = useRef(new Animated.Value(0)).current;
 
     // Push notifications hook
     const { registerForPushNotifications, registerWithBackend, isRegistered } = usePushNotifications();
+
+    // Onboarding and user actions hooks
+    const { shouldShowTip, markTipAsSeen } = useOnboarding();
+    const { getTopSuggestions, recordAction } = useUserActions();
+    const [showChatTip, setShowChatTip] = useState(false);
+    const suggestions = getTopSuggestions(4);
 
     // Animate view mode changes
     useEffect(() => {
@@ -543,6 +555,33 @@ export default function HomeScreen() {
             return () => clearTimeout(timeoutId);
         }
     }, [messages.length]);
+
+    // Show chat onboarding tip on first visit
+    useEffect(() => {
+        if (shouldShowTip('hasSeenChatTip') && messages.length === 0) {
+            const timer = setTimeout(() => {
+                setShowChatTip(true);
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [shouldShowTip, messages.length]);
+
+    // Toggle attachment expansion with animation
+    const toggleAttachmentExpand = useCallback(() => {
+        const toValue = isAttachmentExpanded ? 0 : 1;
+        Animated.spring(attachmentRotation, {
+            toValue,
+            tension: 100,
+            friction: 10,
+            useNativeDriver: true,
+        }).start();
+        setIsAttachmentExpanded(!isAttachmentExpanded);
+    }, [isAttachmentExpanded, attachmentRotation]);
+
+    // Handle suggestion chip press
+    const handleSuggestionPress = useCallback((suggestion: Suggestion) => {
+        setInputText(suggestion.text);
+    }, []);
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -1156,6 +1195,14 @@ export default function HomeScreen() {
 
                 {/* Input Area */}
                 <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight - 20 : 16 }]}>
+                    {/* Dynamic Suggestion Chips - show only when no messages */}
+                    {messages.length === 0 && (
+                        <SuggestionChips
+                            suggestions={suggestions}
+                            onSuggestionPress={handleSuggestionPress}
+                        />
+                    )}
+
                     {/* Attached Files Preview */}
                     {attachedFiles.length > 0 && (
                         <View style={styles.attachmentsPreview}>
@@ -1170,19 +1217,49 @@ export default function HomeScreen() {
                             ))}
                         </View>
                     )}
+
                     <View style={styles.inputWrapper}>
-                        <TouchableOpacity style={styles.attachButton} onPress={pickDocument}>
-                            <Paperclip size={20} color={Colors.textSecondary} />
-                        </TouchableOpacity>
+                        {/* Expandable Attachment Button */}
+                        <View style={styles.attachmentSection}>
+                            <TouchableOpacity
+                                style={styles.attachButton}
+                                onPress={toggleAttachmentExpand}
+                            >
+                                <Animated.View style={{
+                                    transform: [{
+                                        rotate: attachmentRotation.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: ['0deg', '45deg'],
+                                        }),
+                                    }],
+                                }}>
+                                    <Plus size={22} color={Colors.textSecondary} weight="bold" />
+                                </Animated.View>
+                            </TouchableOpacity>
+
+                            {/* Expanded Attachment Options */}
+                            {isAttachmentExpanded && (
+                                <TouchableOpacity
+                                    style={styles.attachOption}
+                                    onPress={() => {
+                                        pickDocument();
+                                        toggleAttachmentExpand();
+                                    }}
+                                >
+                                    <File size={18} color={Colors.textSecondary} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
                         <TextInput
                             style={styles.input}
                             value={inputText}
                             onChangeText={setInputText}
-                            placeholder="Ask Hedwig to create an invoice..."
+                            placeholder="Message Hedwig..."
                             placeholderTextColor={Colors.textPlaceholder}
                             multiline
                             maxLength={1000}
-                            onBlur={() => Keyboard.dismiss()}
+                            onFocus={() => setIsAttachmentExpanded(false)}
                         />
                         <TouchableOpacity
                             style={[styles.sendButton, (!inputText.trim() && attachedFiles.length === 0) && styles.sendButtonDisabled]}
@@ -1196,7 +1273,7 @@ export default function HomeScreen() {
                             )}
                         </TouchableOpacity>
                     </View>
-                </View >
+                </View>
 
                 <ProfileModal
                     visible={isProfileModalVisible}
@@ -1286,6 +1363,17 @@ export default function HomeScreen() {
                     };
                     setMessages(prev => [...prev, successMsg]);
                 }}
+            />
+            {/* Chat Onboarding Tooltip */}
+            <OnboardingTooltip
+                visible={showChatTip}
+                title="Welcome to Hedwig! 👋"
+                description="I'm your AI assistant for freelancing. Try asking me to create an invoice, track a project, or send a payment link to a client."
+                onDismiss={() => {
+                    setShowChatTip(false);
+                    markTipAsSeen('hasSeenChatTip');
+                }}
+                position="center"
             />
         </View >
     );
@@ -1449,6 +1537,16 @@ const styles = StyleSheet.create({
         padding: 10,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    attachmentSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    attachOption: {
+        padding: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 4,
     },
     attachmentsPreview: {
         flexDirection: 'row',
