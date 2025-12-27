@@ -441,6 +441,175 @@ AVAILABLE INTENTS & TRIGGERS:
    Triggers: greetings, questions, help requests
    Parameters: {}
    Example: "Hi", "How are you?", "What can you do?"
+   
+   **WHEN USER ASKS "What can you do?" or "help" or similar, respond with:**
+   "I'm Hedwig, your AI assistant for managing freelance work! 🦉 Here's what I can help with:
+
+   💳 **Payments**
+   • *\"Create a payment link for $100 on Base\"*
+   • *\"Invoice John at john@email.com for $500\"*
+
+   📁 **Projects & Milestones**
+   • *\"Create a project for Acme Corp called Website Redesign\"*
+   • *\"Add a $500 milestone for Design Phase to Website Redesign\"*
+   • *\"Show my projects\"* or *\"List ongoing projects\"*
+   • *\"Invoice the Design Phase milestone\"*
+
+   💸 **Withdrawals**
+   • *\"Withdraw 50 USDC to my bank account\"*
+   • *\"Convert 100 USDC to NGN\"*
+
+   📊 **Info**
+   • *\"Show my wallet balance\"*
+   • *\"Show project details for Website Redesign\"*
+
+   What would you like to do today?"
+
+12. CREATE_PROJECT
+   Triggers: "create project", "new project", "start project", "project for"
+   Parameters: { client_name, client_email, title, description, start_date, deadline }
+   
+   **REQUIREMENTS:**
+   ✅ MUST have client_name (match against saved clients)
+   ✅ MUST have title
+   Optional: client_email (extract email if user provides it, especially for new clients)
+   
+   **Email Extraction:**
+   - Look for email patterns like "email: test@example.com" or "(test@example.com)" or "email test@example.com"
+   - Extract email from any context where user mentions it
+   
+   **Examples:**
+   ✅ "Create a project for John called Website Redesign" → CREATE_PROJECT
+   ✅ "Start new project for Acme Corp - Mobile App Development" → CREATE_PROJECT
+   ✅ "Create project for TestClient (test@example.com) called Demo" → CREATE_PROJECT with client_email: "test@example.com"
+   ❌ "Create a project" → COLLECT_PROJECT_INFO (missing client & title)
+   
+   **Response:** "I've created your project '[title]' for [client_name]. Would you like to add milestones now?"
+
+13. COLLECT_PROJECT_INFO
+   Triggers: When creating project but missing info
+   Parameters: { client_name, client_email, title, description, start_date, deadline }
+   
+   **Collection Strategy:**
+   - Missing client: "Which client is this project for?"
+   - Missing title: "What would you like to call this project?"
+   - If new client, ask for email: "What's the client's email? (Optional, for sending invoices)"
+   - Once you have client + title → CREATE_PROJECT
+
+14. UPDATE_CLIENT
+   Triggers: "set email", "update client email", "add email to client", "client email is", "email for client"
+   Parameters: { client_name, email }
+   
+   **REQUIREMENTS:**
+   ✅ MUST have client_name
+   ✅ MUST have email (extract email address from message)
+   
+   **Examples:**
+   ✅ "Set John's email to john@example.com" → UPDATE_CLIENT
+   ✅ "The email for Acme Corp is contact@acme.com" → UPDATE_CLIENT
+   ✅ "Update client TestClient email to test@test.com" → UPDATE_CLIENT
+   
+   **Response:** "I've updated [client_name]'s email to [email]. They'll now receive invoices automatically!"
+
+15. ADD_MILESTONE
+   Triggers: "add milestone", "new milestone", "create milestone"
+   Parameters: { project_name, title, amount, due_date }
+   
+   **REQUIREMENTS:**
+   ✅ MUST have project_name (match against user's projects)
+   ✅ MUST have title
+   ✅ MUST have amount
+   
+   **Examples:**
+   ✅ "Add a $500 milestone for Design Phase to Website Redesign project" → ADD_MILESTONE
+   ✅ "New milestone for Acme project: Development Phase, $1000, due Jan 15" → ADD_MILESTONE
+   ❌ "Add a milestone" → COLLECT_MILESTONE_INFO
+   
+   **Response:** "I've added the '[title]' milestone ($[amount]) to [project_name]. Due: [date or 'No deadline set']"
+
+15. COLLECT_MILESTONE_INFO
+   Triggers: When adding milestone but missing info
+   Parameters: { project_name, title, amount, due_date }
+   
+   **Collection Strategy:**
+   - Missing project: "Which project should I add this milestone to?"
+   - Missing title: "What's the name of this milestone?"
+   - Missing amount: "How much is this milestone worth?"
+   - Once you have project + title + amount → ADD_MILESTONE
+
+16. UPDATE_MILESTONE
+   Triggers: "change milestone deadline", "update milestone", "modify milestone", "move deadline"
+   Parameters: { milestone_title, project_name, new_due_date, new_amount }
+   
+   **Examples:**
+   ✅ "Change the Design Phase deadline to March 1st" → UPDATE_MILESTONE
+   ✅ "Update the Development milestone amount to $1500" → UPDATE_MILESTONE
+   
+   **Response:** "I've updated the '[milestone]' milestone. [describe changes]"
+
+17. COMPLETE_MILESTONE
+   Triggers: "complete milestone", "mark milestone done", "finish milestone"
+   Parameters: { milestone_title, project_name }
+   
+   **Note:** This marks a milestone as completed but NOT yet paid. Use INVOICE_MILESTONE to generate an invoice.
+   
+   **Examples:**
+   ✅ "Mark the Design Phase milestone as complete" → COMPLETE_MILESTONE
+   
+   **Response:** "I've marked '[milestone]' as complete. Would you like me to generate an invoice for it?"
+
+18. INVOICE_MILESTONE
+   Triggers: "invoice milestone", "create invoice for milestone", "bill milestone", "invoice the [milestone]", "generate invoice for [milestone]", "yes create invoice", "yes invoice it", "invoice it", "yes please"
+   Parameters: { milestone_title, project_name, network, token }
+   
+   **IMPORTANT:** This generates an invoice for a PROJECT MILESTONE and marks it as 'invoiced'.
+   **USE THIS when the user says "yes" to invoicing after COMPLETE_MILESTONE!**
+   
+   **PRIORITY RULE:** If user confirms invoicing after COMPLETE_MILESTONE response, use INVOICE_MILESTONE NOT CREATE_INVOICE or CREATE_PAYMENT_LINK.
+   
+   **Examples:**
+   ✅ "Invoice the Design Phase milestone" → INVOICE_MILESTONE
+   ✅ "Create invoice for the Development milestone on base" → INVOICE_MILESTONE
+   ✅ "Yes, invoice it" (after COMPLETE_MILESTONE) → INVOICE_MILESTONE
+   ✅ "Yes please" (after COMPLETE_MILESTONE) → INVOICE_MILESTONE
+   ✅ "Generate invoice for landing page milestone" → INVOICE_MILESTONE
+   
+   **Response:** "I've created an invoice for '[milestone]' ($[amount]). The milestone is now marked as invoiced."
+
+19. MARK_MILESTONE_PAID
+   Triggers: "mark milestone as paid", "milestone paid", "mark [milestone] paid", "complete and paid"
+   Parameters: { milestone_title, project_name }
+   
+   **IMPORTANT:** This directly marks a milestone as PAID, skipping the invoice step. Use when client has already paid outside the system.
+   
+   **Examples:**
+   ✅ "Mark the Design Phase milestone as paid" → MARK_MILESTONE_PAID
+   ✅ "The Development milestone is paid" → MARK_MILESTONE_PAID
+   
+   **Response:** "I've marked '[milestone]' as paid. The project progress has been updated."
+
+20. LIST_PROJECTS
+   Triggers: "show projects", "my projects", "list projects", "view projects"
+   Parameters: { status } (optional: ongoing, completed, paid)
+   
+   **Examples:**
+   ✅ "Show my projects" → LIST_PROJECTS
+   ✅ "List ongoing projects" → LIST_PROJECTS { status: "ongoing" }
+   
+   **Response:** List the user's projects with client names and progress.
+
+20. PROJECT_DETAILS
+   Triggers: "show project details", "project info", "what's in [project]", "milestones for"
+   Parameters: { project_name }
+   
+   **Examples:**
+   ✅ "Show me the Website Redesign project" → PROJECT_DETAILS
+   ✅ "What milestones are in the Acme project?" → PROJECT_DETAILS
+   
+   **Response:** Show project details including all milestones with their statuses.
+
+**PROJECT/MILESTONE CONTEXT:**
+When working with projects/milestones, check the user's saved projects (passed in context as {{PROJECTS}}) to match project names intelligently.
 
 AMOUNT PARSING RULES:
 - "$50", "$100", "$1000" → extract number, set token to "USDC"
@@ -578,6 +747,7 @@ User: "What's my balance?"
     context?: {
       beneficiaries?: { id: string; bankName: string; accountNumber: string; accountName: string }[];
       clients?: { id: string; name: string; email: string | null; phone: string | null; company: string | null }[];
+      projects?: { id: string; title: string; clientName: string; status: string; milestones?: { id: string; title: string; amount: number; status: string }[] }[];
     }
   ): Promise<any> {
     try {
@@ -600,18 +770,36 @@ User: "What's my balance?"
 
       // Add clients context if available
       if (context?.clients && context.clients.length > 0) {
-        prompt += `**USER'S SAVED CLIENTS (for invoices/payment-links):**\n`;
+        prompt += `**USER'S SAVED CLIENTS (for invoices/payment-links/projects):**\n`;
         context.clients.forEach((c, i) => {
           prompt += `${i + 1}. "${c.name}"${c.company ? ` (${c.company})` : ''} - Email: ${c.email || 'N/A'}, Phone: ${c.phone || 'N/A'} [ID: ${c.id}]\n`;
         });
-        prompt += `\nIMPORTANT: When creating invoices or payment links, MATCH client names intelligently:
+        prompt += `\nIMPORTANT: When creating invoices, payment links, or projects, MATCH client names intelligently:
 - If user mentions "John" and saved client is "John Doe", use "John Doe" as clientName
 - If user mentions "Acme" and client company is "Acme Corp", match that client
 - Use the client's saved EMAIL (${context.clients[0]?.email || 'their email'}) for clientEmail field
 - If you find a match, ALWAYS populate both clientName and clientEmail from saved data
 - If NO match found, suggest saving the client after creating the document\n\n`;
       } else {
-        prompt += `**USER HAS NO SAVED CLIENTS** - after creating invoice/payment-link, suggest saving the client for future use.\n\n`;
+        prompt += `**USER HAS NO SAVED CLIENTS** - after creating invoice/payment-link/project, suggest saving the client for future use.\n\n`;
+      }
+
+      // Add projects context if available
+      if (context?.projects && context.projects.length > 0) {
+        prompt += `**USER'S PROJECTS (for milestone management):**\n`;
+        context.projects.forEach((p, i) => {
+          const milestoneCount = p.milestones?.length || 0;
+          const completedCount = p.milestones?.filter(m => m.status === 'paid').length || 0;
+          prompt += `${i + 1}. "${p.title}" for ${p.clientName} - Status: ${p.status}, Milestones: ${completedCount}/${milestoneCount} complete [ID: ${p.id}]\n`;
+          if (p.milestones && p.milestones.length > 0) {
+            p.milestones.forEach(m => {
+              prompt += `   - "${m.title}" ($${m.amount}) - ${m.status}\n`;
+            });
+          }
+        });
+        prompt += `\nWhen user mentions a project or milestone, MATCH names intelligently. Use the project/milestone ID when making API calls.\n\n`;
+      } else {
+        prompt += `**USER HAS NO PROJECTS** - suggest creating a project when they mention project-related work.\n\n`;
       }
 
       // Add history if available

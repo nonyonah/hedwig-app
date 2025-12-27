@@ -1,12 +1,516 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
+import { authenticate } from '../middleware/auth';
+import { supabase } from '../lib/supabase';
+import { getOrCreateUser } from '../utils/userHelper';
+import { EmailService } from '../services/email';
 
 const router = Router();
 
-// Project routes for managing client projects
-// Placeholder for now
+/**
+ * GET /api/projects
+ * Get all projects for the authenticated user
+ */
+router.get('/', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const privyId = req.user!.privyId;
+        const { status, clientId } = req.query;
 
-router.get('/', (_req, res) => {
-    res.json({ message: 'Project routes - Coming soon' });
+        // Get internal user ID
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        // Build query
+        let query = supabase
+            .from('projects')
+            .select(`
+                *,
+                client:clients(id, name, email, company),
+                milestones(id, title, amount, due_date, status)
+            `)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        // Filter by status if provided
+        if (status && typeof status === 'string') {
+            query = query.eq('status', status.toUpperCase());
+        }
+
+        // Filter by client if provided
+        if (clientId && typeof clientId === 'string') {
+            query = query.eq('client_id', clientId);
+        }
+
+        const { data: projects, error } = await query;
+
+        if (error) {
+            console.error('[Projects] Error fetching projects:', error);
+            throw new Error(`Failed to fetch projects: ${error.message}`);
+        }
+
+        console.log('[Projects] Fetched projects:', projects?.length, 'projects');
+        if (projects && projects.length > 0) {
+            console.log('[Projects] First project milestones:', projects[0]?.milestones);
+        }
+
+        // Format projects with milestone progress
+        const formattedProjects = (projects || []).map(project => {
+            const milestones = project.milestones || [];
+            const totalMilestones = milestones.length;
+            // Count both 'invoiced' and 'paid' as completed for progress
+            const completedMilestones = milestones.filter((m: any) => ['invoiced', 'paid'].includes(m.status)).length;
+            const totalAmount = milestones.reduce((sum: number, m: any) => sum + parseFloat(m.amount || 0), 0);
+            const paidAmount = milestones
+                .filter((m: any) => m.status === 'paid')
+                .reduce((sum: number, m: any) => sum + parseFloat(m.amount || 0), 0);
+
+            return {
+                id: project.id,
+                clientId: project.client_id,
+                client: project.client,
+                title: project.name,
+                description: project.description,
+                status: project.status?.toLowerCase() || 'ongoing',
+                budget: project.budget,
+                currency: project.currency,
+                startDate: project.start_date,
+                deadline: project.deadline || project.end_date,
+                createdAt: project.created_at,
+                updatedAt: project.updated_at,
+                milestones: milestones.map((m: any) => ({
+                    id: m.id,
+                    title: m.title,
+                    amount: parseFloat(m.amount || 0),
+                    dueDate: m.due_date,
+                    status: m.status,
+                })),
+                progress: {
+                    totalMilestones,
+                    completedMilestones,
+                    percentage: totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0,
+                    totalAmount,
+                    paidAmount,
+                },
+            };
+        });
+
+        res.json({
+            success: true,
+            data: { projects: formattedProjects },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * GET /api/projects/:id
+ * Get a specific project with its milestones
+ */
+router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const privyId = req.user!.privyId;
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const { data: project, error } = await supabase
+            .from('projects')
+            .select(`
+                *,
+                client:clients(id, name, email, company, phone),
+                milestones(id, title, amount, due_date, status, invoice_id, created_at, updated_at)
+            `)
+            .eq('id', id)
+            .eq('user_id', user.id)
+            .single();
+
+        if (error || !project) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Project not found' },
+            });
+            return;
+        }
+
+        const milestones = project.milestones || [];
+        const totalMilestones = milestones.length;
+        // Count both 'invoiced' and 'paid' as completed for progress
+        const completedMilestones = milestones.filter((m: any) => ['invoiced', 'paid'].includes(m.status)).length;
+        const totalAmount = milestones.reduce((sum: number, m: any) => sum + parseFloat(m.amount || 0), 0);
+        const paidAmount = milestones
+            .filter((m: any) => m.status === 'paid')
+            .reduce((sum: number, m: any) => sum + parseFloat(m.amount || 0), 0);
+
+        const formattedProject = {
+            id: project.id,
+            clientId: project.client_id,
+            client: project.client,
+            title: project.name,
+            description: project.description,
+            status: project.status?.toLowerCase() || 'ongoing',
+            budget: project.budget,
+            currency: project.currency,
+            startDate: project.start_date,
+            deadline: project.deadline || project.end_date,
+            createdAt: project.created_at,
+            updatedAt: project.updated_at,
+            milestones: milestones.map((m: any) => ({
+                id: m.id,
+                title: m.title,
+                amount: parseFloat(m.amount),
+                dueDate: m.due_date,
+                status: m.status,
+                invoiceId: m.invoice_id,
+                createdAt: m.created_at,
+                updatedAt: m.updated_at,
+            })),
+            progress: {
+                totalMilestones,
+                completedMilestones,
+                percentage: totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0,
+                totalAmount,
+                paidAmount,
+            },
+        };
+
+        res.json({
+            success: true,
+            data: { project: formattedProject },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/projects
+ * Create a new project
+ */
+router.post('/', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { clientId, title, description, startDate, deadline, budget, currency } = req.body;
+        const privyId = req.user!.privyId;
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        if (!clientId) {
+            res.status(400).json({ success: false, error: { message: 'Client ID is required' } });
+            return;
+        }
+
+        if (!title) {
+            res.status(400).json({ success: false, error: { message: 'Title is required' } });
+            return;
+        }
+
+        // Verify client belongs to user
+        const { data: client, error: clientError } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('id', clientId)
+            .eq('user_id', user.id)
+            .single();
+
+        if (clientError || !client) {
+            res.status(400).json({ success: false, error: { message: 'Invalid client' } });
+            return;
+        }
+
+        const { data: project, error } = await supabase
+            .from('projects')
+            .insert({
+                client_id: clientId,
+                user_id: user.id,
+                name: title,
+                description,
+                start_date: startDate,
+                deadline: deadline,
+                end_date: deadline,
+                budget: budget || null,
+                currency: currency || 'USD',
+                status: 'ONGOING',
+            })
+            .select()
+            .single();
+
+        if (error) {
+            throw new Error(`Failed to create project: ${error.message}`);
+        }
+
+        res.json({
+            success: true,
+            data: {
+                project: {
+                    id: project.id,
+                    clientId: project.client_id,
+                    title: project.name,
+                    description: project.description,
+                    status: 'ongoing',
+                    budget: project.budget,
+                    currency: project.currency,
+                    startDate: project.start_date,
+                    deadline: project.deadline,
+                    createdAt: project.created_at,
+                    updatedAt: project.updated_at,
+                },
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * PUT /api/projects/:id
+ * Update a project
+ */
+router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const { title, description, status, startDate, deadline, budget, currency } = req.body;
+        const privyId = req.user!.privyId;
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const updateData: any = {};
+        if (title !== undefined) updateData.name = title;
+        if (description !== undefined) updateData.description = description;
+        if (status !== undefined) updateData.status = status.toUpperCase();
+        if (startDate !== undefined) updateData.start_date = startDate;
+        if (deadline !== undefined) {
+            updateData.deadline = deadline;
+            updateData.end_date = deadline;
+        }
+        if (budget !== undefined) updateData.budget = budget;
+        if (currency !== undefined) updateData.currency = currency;
+
+        const { data: project, error } = await supabase
+            .from('projects')
+            .update(updateData)
+            .eq('id', id)
+            .eq('user_id', user.id)
+            .select()
+            .single();
+
+        if (error || !project) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Project not found or update failed' },
+            });
+            return;
+        }
+
+        // Handle project completion - send emails and auto-invoice pending milestones
+        let completionEmailSent = false;
+        let pendingInvoicesSent: string[] = [];
+
+        if (status?.toUpperCase() === 'COMPLETED') {
+            console.log('[Projects] Project marked as COMPLETED, handling completion notifications...');
+
+            // Get project with client and milestones info
+            const { data: fullProject } = await supabase
+                .from('projects')
+                .select(`
+                    *,
+                    client:clients(id, name, email, company),
+                    milestones(*)
+                `)
+                .eq('id', id)
+                .single();
+
+            if (fullProject) {
+                const client = fullProject.client as any;
+                const milestones = fullProject.milestones || [];
+
+                // Get user's name for emails
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('first_name, last_name')
+                    .eq('id', user.id)
+                    .single();
+
+                const senderName = userData?.first_name && userData?.last_name
+                    ? `${userData.first_name} ${userData.last_name}`
+                    : 'Freelancer';
+
+                // Find pending milestones that need to be invoiced
+                const pendingMilestones = milestones.filter((m: any) => m.status === 'pending');
+
+                // Auto-invoice pending milestones and send emails
+                for (const milestone of pendingMilestones) {
+                    try {
+                        // Create invoice for milestone
+                        const invoiceTitle = `${milestone.title} - ${fullProject.name}`;
+                        const { data: invoice, error: invoiceError } = await supabase
+                            .from('documents')
+                            .insert({
+                                user_id: user.id,
+                                client_id: client?.id,
+                                project_id: fullProject.id,
+                                type: 'INVOICE',
+                                title: invoiceTitle,
+                                description: `Milestone: ${milestone.title}`,
+                                amount: milestone.amount,
+                                currency: fullProject.currency || 'USD',
+                                status: 'DRAFT',
+                                content: {
+                                    client_name: client?.name,
+                                    client_email: client?.email,
+                                    items: [{
+                                        description: milestone.title,
+                                        quantity: 1,
+                                        rate: parseFloat(milestone.amount),
+                                        amount: parseFloat(milestone.amount),
+                                    }],
+                                    network: 'base',
+                                    token: 'USDC',
+                                    milestone_id: milestone.id,
+                                    project_name: fullProject.name,
+                                },
+                            })
+                            .select()
+                            .single();
+
+                        if (!invoiceError && invoice) {
+                            // Update milestone status
+                            await supabase
+                                .from('milestones')
+                                .update({ invoice_id: invoice.id, status: 'invoiced' })
+                                .eq('id', milestone.id);
+
+                            // Send invoice email if client has email
+                            if (client?.email) {
+                                try {
+                                    await EmailService.sendInvoiceEmail({
+                                        to: client.email,
+                                        senderName,
+                                        amount: milestone.amount.toString(),
+                                        currency: fullProject.currency || 'USD',
+                                        description: `${milestone.title} - ${fullProject.name}`,
+                                        linkId: invoice.id,
+                                        network: 'base',
+                                    });
+                                    pendingInvoicesSent.push(milestone.title);
+                                    console.log('[Projects] Invoice email sent for milestone:', milestone.title);
+                                } catch (emailErr) {
+                                    console.error('[Projects] Failed to send invoice email:', emailErr);
+                                }
+                            }
+                        }
+                    } catch (milestoneErr) {
+                        console.error('[Projects] Error invoicing milestone:', milestone.id, milestoneErr);
+                    }
+                }
+
+                // Send project completion email to client
+                if (client?.email) {
+                    try {
+                        const totalAmount = milestones.reduce((sum: number, m: any) => sum + parseFloat(m.amount || 0), 0);
+                        const htmlContent = `
+                            <h2 style="color: #111827; margin-bottom: 16px;">🎉 Project Completed!</h2>
+                            <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                                Great news! <strong>${senderName}</strong> has marked the project <strong>"${fullProject.name}"</strong> as completed.
+                            </p>
+                            <div style="background: #f3f4f6; border-radius: 12px; padding: 20px; margin: 24px 0;">
+                                <p style="margin: 0 0 8px 0; color: #6b7280;">Project Total</p>
+                                <p style="margin: 0; font-size: 28px; font-weight: bold; color: #111827;">$${totalAmount.toFixed(2)} ${fullProject.currency || 'USD'}</p>
+                            </div>
+                            ${pendingInvoicesSent.length > 0 ? `
+                                <p style="color: #4b5563; font-size: 14px;">
+                                    <strong>Invoices sent:</strong> ${pendingInvoicesSent.join(', ')}
+                                </p>
+                            ` : ''}
+                            <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                                Thank you for your business! If you have any questions, please reach out.
+                            </p>
+                        `;
+
+                        await EmailService.sendSmartReminder(
+                            client.email,
+                            `Project Completed: ${fullProject.name}`,
+                            htmlContent
+                        );
+                        completionEmailSent = true;
+                        console.log('[Projects] Project completion email sent to:', client.email);
+                    } catch (emailErr) {
+                        console.error('[Projects] Failed to send completion email:', emailErr);
+                    }
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            data: {
+                project: {
+                    id: project.id,
+                    clientId: project.client_id,
+                    title: project.name,
+                    description: project.description,
+                    status: project.status?.toLowerCase() || 'ongoing',
+                    budget: project.budget,
+                    currency: project.currency,
+                    startDate: project.start_date,
+                    deadline: project.deadline,
+                    createdAt: project.created_at,
+                    updatedAt: project.updated_at,
+                },
+                completionEmailSent,
+                pendingInvoicesSent,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * DELETE /api/projects/:id
+ * Delete a project
+ */
+router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const privyId = req.user!.privyId;
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const { error } = await supabase
+            .from('projects')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) {
+            throw new Error(`Failed to delete project: ${error.message}`);
+        }
+
+        res.json({
+            success: true,
+            message: 'Project deleted successfully',
+        });
+    } catch (error) {
+        next(error);
+    }
 });
 
 export default router;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Alert, Animated, RefreshControl, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Alert, Animated, RefreshControl, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,8 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
+import { ProfileModal } from '../../components/ProfileModal';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface Client {
     id: string;
@@ -46,6 +48,20 @@ export default function ClientsScreen() {
     const [conversations, setConversations] = useState<any[]>([]);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
 
+    // Profile modal state
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [profileIcon, setProfileIcon] = useState<{ type: 'gradient' | 'emoji' | 'image'; colorIndex?: number; emoji?: string; imageUri?: string }>({ type: 'gradient', colorIndex: 0 });
+    const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string; bitcoin?: string }>({});
+
+    // Profile color gradient options
+    const PROFILE_COLOR_OPTIONS: [string, string][] = [
+        ['#3B82F6', '#8B5CF6'],
+        ['#10B981', '#3B82F6'],
+        ['#F59E0B', '#EF4444'],
+        ['#EC4899', '#8B5CF6'],
+        ['#14B8A6', '#22D3EE'],
+    ];
+
     const slideAnim = useRef(new Animated.Value(0)).current;
     const formSlideAnim = useRef(new Animated.Value(0)).current;
 
@@ -65,15 +81,38 @@ export default function ClientsScreen() {
                 const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
                     headers: { 'Authorization': `Bearer ${token}` },
                 });
-                if (profileResponse.ok) {
-                    const profileData = await profileResponse.json();
-                    if (profileData.success && profileData.data) {
-                        const userData = profileData.data;
-                        setUserName({
-                            firstName: userData.displayName?.split(' ')[0] || '',
-                            lastName: userData.displayName?.split(' ').slice(1).join(' ') || ''
-                        });
+                const profileData = await profileResponse.json();
+
+                if (profileData.success && profileData.data) {
+                    const userData = profileData.data.user || profileData.data;
+                    setUserName({
+                        firstName: userData.firstName || userData.displayName?.split(' ')[0] || '',
+                        lastName: userData.lastName || userData.displayName?.split(' ').slice(1).join(' ') || ''
+                    });
+
+                    // Set profile icon
+                    if (userData.avatar) {
+                        try {
+                            if (userData.avatar.trim().startsWith('{')) {
+                                const parsed = JSON.parse(userData.avatar);
+                                setProfileIcon(parsed);
+                            } else {
+                                setProfileIcon({ type: 'image', imageUri: userData.avatar });
+                            }
+                        } catch (e) {
+                            setProfileIcon({ type: 'image', imageUri: userData.avatar });
+                        }
+                    } else if (userData.profileEmoji) {
+                        setProfileIcon({ type: 'emoji', emoji: userData.profileEmoji });
+                    } else if (userData.profileColorIndex !== undefined) {
+                        setProfileIcon({ type: 'gradient', colorIndex: userData.profileColorIndex });
                     }
+
+                    // Set wallet addresses
+                    setWalletAddresses({
+                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
+                        solana: userData.solanaWalletAddress
+                    });
                 }
 
                 // Fetch recent conversations for sidebar
@@ -333,42 +372,20 @@ export default function ClientsScreen() {
             <GestureHandlerRootView>
                 <Swipeable renderRightActions={() => renderRightActions(item.id)}>
                     <TouchableOpacity style={styles.clientItem} onPress={() => openDetailModal(item)}>
-                        {/* Left Column - Earnings or Time Pill */}
-                        <View style={styles.leftColumn}>
-                            <View style={[styles.statusPill, isEarnings ? styles.statusPillActive : styles.statusPillNew]}>
-                                <Text style={[styles.statusPillText, isEarnings ? styles.statusPillTextActive : styles.statusPillTextNew]}>
-                                    {pillText}
+                        <View style={styles.clientItemContent}>
+                            {/* Left content */}
+                            <View style={styles.clientItemLeft}>
+                                <Text style={styles.clientItemCompany}>{item.company || 'Individual'}</Text>
+                                <Text style={styles.clientItemName} numberOfLines={1}>{item.name}</Text>
+                                <Text style={styles.clientItemMeta}>
+                                    {item.email || 'No email'} {item.phone ? `· ${item.phone}` : ''}
                                 </Text>
                             </View>
-                        </View>
-
-                        {/* Right Column - Content */}
-                        <View style={styles.rightColumn}>
-                            {/* Host Row (Company) */}
-                            {item.company ? (
-                                <View style={styles.hostRow}>
-                                    <Buildings size={14} color={Colors.textSecondary} weight="fill" />
-                                    <Text style={styles.hostText}>{item.company}</Text>
-                                </View>
-                            ) : <View style={{ height: 4 }} />}
-
-                            {/* Title (Name) */}
-                            <Text style={styles.itemTitle}>{item.name}</Text>
-
-                            {/* Details Row */}
-                            <View style={styles.detailsContainer}>
-                                {item.email && (
-                                    <View style={styles.detailRow}>
-                                        <Envelope size={14} color={Colors.textSecondary} />
-                                        <Text style={styles.detailText}>{item.email}</Text>
-                                    </View>
-                                )}
-                                {item.phone && (
-                                    <View style={styles.detailRow}>
-                                        <Phone size={14} color={Colors.textSecondary} />
-                                        <Text style={styles.detailText}>{item.phone}</Text>
-                                    </View>
-                                )}
+                            {/* Right - Earnings badge */}
+                            <View style={[styles.clientIconCircle, isEarnings && styles.clientIconCircleActive]}>
+                                <Text style={[styles.clientIconText, isEarnings && styles.clientIconTextActive]}>
+                                    {pillText}
+                                </Text>
                             </View>
                         </View>
                     </TouchableOpacity>
@@ -409,13 +426,31 @@ export default function ClientsScreen() {
             <SafeAreaView style={styles.container} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setIsSidebarOpen(true); }} style={styles.backButton}>
-                        <List size={24} color={Colors.textPrimary} />
+                    <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setIsSidebarOpen(true); }}>
+                        <List size={24} color={Colors.textPrimary} weight="bold" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Clients</Text>
-                    <TouchableOpacity style={styles.addButton} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openFormModal(); }}>
-                        <Plus size={24} color={Colors.primary} />
-                    </TouchableOpacity>
+                    <View style={styles.headerRight}>
+                        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openFormModal(); }}>
+                            <Plus size={24} color={Colors.textPrimary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
+                            {profileIcon.imageUri ? (
+                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                            ) : profileIcon.emoji ? (
+                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                                </View>
+                            ) : (
+                                <LinearGradient
+                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.profileIcon}
+                                />
+                            )}
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Client List */}
@@ -633,6 +668,14 @@ export default function ClientsScreen() {
                         </Animated.View>
                     </KeyboardAvoidingView>
                 </Modal>
+
+                {/* Profile Modal */}
+                <ProfileModal
+                    visible={showProfileModal}
+                    onClose={() => setShowProfileModal(false)}
+                    userName={userName}
+                    walletAddresses={walletAddresses}
+                />
             </SafeAreaView>
         </>
     );
@@ -659,30 +702,80 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 20,
         paddingVertical: 12,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.background,
         height: 60,
     },
-    backButton: {
-        padding: 4,
-    },
     headerTitle: {
-        ...Typography.h3,
+        fontFamily: 'RethinkSans_700Bold',
         fontSize: 22,
         color: Colors.textPrimary,
     },
-    addButton: {
-        padding: 4,
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    profileIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: Colors.primary,
     },
     listContent: {
         padding: 16,
     },
     clientItem: {
-        flexDirection: 'row',
         paddingVertical: 16,
-        paddingHorizontal: 4,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
+        paddingHorizontal: 16,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: '#E5E7EB',
     },
+    clientItemContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    clientItemLeft: {
+        flex: 1,
+        marginRight: 16,
+    },
+    clientItemCompany: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 14,
+        color: Colors.textSecondary,
+        marginBottom: 4,
+    },
+    clientItemName: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 18,
+        color: Colors.textPrimary,
+        marginBottom: 4,
+    },
+    clientItemMeta: {
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 14,
+        color: Colors.textTertiary,
+    },
+    clientIconCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#F3F4F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    clientIconCircleActive: {
+        backgroundColor: '#DCFCE7',
+    },
+    clientIconText: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 12,
+        color: Colors.textSecondary,
+    },
+    clientIconTextActive: {
+        color: '#16A34A',
+    },
+    // Keep old styles for reference
     leftColumn: {
         marginRight: 16,
         paddingTop: 0,

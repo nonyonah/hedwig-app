@@ -164,6 +164,7 @@ export default function HomeScreen() {
     } | null>(null);
     const [attachedFiles, setAttachedFiles] = useState<{ uri: string; name: string; mimeType: string }[]>([]);
     const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+    const shouldAutoScrollRef = useRef(true);
 
     // Push notifications hook
     const { registerForPushNotifications, registerWithBackend, isRegistered } = usePushNotifications();
@@ -533,6 +534,16 @@ export default function HomeScreen() {
         };
     }, []);
 
+    // Scroll to bottom when new messages are added
+    useEffect(() => {
+        if (messages.length > 0 && shouldAutoScrollRef.current) {
+            const timeoutId = setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: false });
+            }, 100);
+            return () => clearTimeout(timeoutId);
+        }
+    }, [messages.length]);
+
     const getGreeting = () => {
         const hour = new Date().getHours();
         let timeGreeting = '';
@@ -649,6 +660,7 @@ export default function HomeScreen() {
         setInputText('');
         setAttachedFiles([]);
         setIsGenerating(true);
+        shouldAutoScrollRef.current = true; // Scroll to bottom when sending message
 
         // Create new abort controller for this request
         const abortController = new AbortController();
@@ -1124,11 +1136,12 @@ export default function HomeScreen() {
                                 scrollEnabled={true}
                                 keyboardShouldPersistTaps="handled"
                                 keyboardDismissMode="on-drag"
-                                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
                                 removeClippedSubviews={false}
+                                maxToRenderPerBatch={5}
+                                initialNumToRender={10}
+                                windowSize={21}
                                 decelerationRate="normal"
                                 bounces={true}
-                                scrollEventThrottle={16}
                             />
                         )
                     }

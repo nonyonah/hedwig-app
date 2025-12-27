@@ -20,6 +20,7 @@ import offrampRoutes from './routes/offramp';
 import bridgeRoutes from './routes/bridge';
 import clientRoutes from './routes/client';
 import projectRoutes from './routes/project';
+import milestoneRoutes from './routes/milestone';
 import conversationsRoutes from './routes/conversations';
 import webhookRoutes from './routes/webhook';
 import paycrestWebhookRoutes from './routes/paycrestWebhook';
@@ -160,6 +161,7 @@ app.use('/api/offramp', offrampRoutes);
 app.use('/api/bridge', bridgeRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/milestones', milestoneRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/webhooks/paycrest', paycrestWebhookRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing

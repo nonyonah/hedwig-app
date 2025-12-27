@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     View,
     Text,
@@ -113,6 +113,17 @@ export default function OfframpHistoryScreen() {
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
     const slideAnim = useRef(new Animated.Value(0)).current;
     const modalOpacity = useRef(new Animated.Value(0)).current;
+
+    // Filter state
+    const [statusFilter, setStatusFilter] = useState<'all' | 'processing' | 'completed' | 'failed'>('all');
+
+    // Filter orders based on status
+    const filteredOrders = useMemo(() => {
+        if (statusFilter === 'all') return orders;
+        if (statusFilter === 'processing') return orders.filter(o => o.status === 'PENDING' || o.status === 'PROCESSING');
+        if (statusFilter === 'completed') return orders.filter(o => o.status === 'COMPLETED');
+        return orders.filter(o => o.status === 'FAILED' || o.status === 'CANCELLED');
+    }, [orders, statusFilter]);
 
     useEffect(() => {
         fetchOrders();
@@ -242,7 +253,7 @@ export default function OfframpHistoryScreen() {
     };
 
     // Grouping logic for SectionList
-    const groupedOrders = orders.reduce((acc: any, order) => {
+    const groupedOrders = filteredOrders.reduce((acc: any, order) => {
         const date = new Date(order.createdAt);
         let title = format(date, 'MMM d');
         if (isToday(date)) title = 'Today';
@@ -374,6 +385,23 @@ export default function OfframpHistoryScreen() {
                             />
                         )}
                     </TouchableOpacity>
+                </View>
+
+                {/* Filter Chips */}
+                <View style={styles.filterContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+                        {(['all', 'processing', 'completed', 'failed'] as const).map(filter => (
+                            <TouchableOpacity
+                                key={filter}
+                                style={[styles.filterChip, statusFilter === filter && styles.filterChipActive]}
+                                onPress={() => setStatusFilter(filter)}
+                            >
+                                <Text style={[styles.filterText, statusFilter === filter && styles.filterTextActive]}>
+                                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
                 </View>
 
                 {isLoading ? (
@@ -560,6 +588,30 @@ const styles = StyleSheet.create({
         height: 32,
         borderRadius: 16,
         overflow: 'hidden',
+    },
+    filterContainer: {
+        marginBottom: 16,
+    },
+    filterContent: {
+        paddingHorizontal: 20,
+        gap: 8,
+    },
+    filterChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+    },
+    filterChipActive: {
+        backgroundColor: Colors.primary,
+    },
+    filterText: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 14,
+        color: Colors.textSecondary,
+    },
+    filterTextActive: {
+        color: '#FFFFFF',
     },
     centered: {
         flex: 1,

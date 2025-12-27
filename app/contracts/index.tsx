@@ -289,7 +289,7 @@ export default function ContractsScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={Colors.textPrimary} />
+                        <List size={24} color={Colors.textPrimary} weight="bold" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Contracts</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>

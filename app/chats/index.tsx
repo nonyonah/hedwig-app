@@ -296,7 +296,7 @@ export default function ChatsScreen() {
                     ) : (
                         <View style={styles.defaultHeaderContent}>
                             <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                                <List size={24} color={Colors.textPrimary} />
+                                <List size={24} color={Colors.textPrimary} weight="bold" />
                             </TouchableOpacity>
                             <Text style={styles.headerTitle}>Chats</Text>
                             <TouchableOpacity onPress={() => router.replace('/')}>

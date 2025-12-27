@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt } from 'phosphor-react-native';
+import { House, Link, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase } from 'phosphor-react-native';
 import { Colors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -310,12 +310,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     }
                                 )}
                                 {renderMenuItem(
-                                    <Chat size={22} weight="bold" />,
-                                    'Chats',
-                                    pathname === '/chats',
-                                    () => handleNavigation('/chats')
-                                )}
-                                {renderMenuItem(
                                     <Receipt size={22} weight="bold" />,
                                     'Invoices',
                                     pathname === '/invoices',
@@ -332,6 +326,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     'Clients',
                                     pathname === '/clients',
                                     () => handleNavigation('/clients')
+                                )}
+                                {renderMenuItem(
+                                    <Briefcase size={22} weight="bold" />,
+                                    'Projects',
+                                    pathname === '/projects',
+                                    () => handleNavigation('/projects')
                                 )}
                             </View>
 

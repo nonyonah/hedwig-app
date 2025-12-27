@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
@@ -69,6 +69,14 @@ export default function InvoicesScreen() {
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending'>('all');
+
+    // Filter invoices based on status
+    const filteredInvoices = useMemo(() => {
+        if (statusFilter === 'all') return invoices;
+        if (statusFilter === 'paid') return invoices.filter(inv => inv.status === 'PAID');
+        return invoices.filter(inv => inv.status !== 'PAID');
+    }, [invoices, statusFilter]);
 
     // Helper to get chain icon - handles various formats like 'solana_devnet'
     const getChainIcon = (chain?: string) => {
@@ -316,7 +324,7 @@ export default function InvoicesScreen() {
             <SafeAreaView style={styles.container}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={Colors.textPrimary} />
+                        <List size={24} color={Colors.textPrimary} weight="bold" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Invoices</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>
@@ -337,13 +345,30 @@ export default function InvoicesScreen() {
                     </TouchableOpacity>
                 </View>
 
+                {/* Filter Chips */}
+                <View style={styles.filterContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+                        {(['all', 'paid', 'pending'] as const).map(filter => (
+                            <TouchableOpacity
+                                key={filter}
+                                style={[styles.filterChip, statusFilter === filter && styles.filterChipActive]}
+                                onPress={() => setStatusFilter(filter)}
+                            >
+                                <Text style={[styles.filterText, statusFilter === filter && styles.filterTextActive]}>
+                                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+
                 {isLoading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={Colors.primary} />
                     </View>
                 ) : (
                     <FlatList
-                        data={invoices}
+                        data={filteredInvoices}
                         renderItem={renderItem}
                         keyExtractor={(item) => item.id}
                         contentContainerStyle={styles.listContent}
@@ -652,6 +677,30 @@ const styles = StyleSheet.create({
         height: 32,
         borderRadius: 16,
         backgroundColor: Colors.primary,
+    },
+    filterContainer: {
+        marginBottom: 16,
+    },
+    filterContent: {
+        paddingHorizontal: 20,
+        gap: 8,
+    },
+    filterChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+    },
+    filterChipActive: {
+        backgroundColor: Colors.primary,
+    },
+    filterText: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        fontSize: 14,
+        color: Colors.textSecondary,
+    },
+    filterTextActive: {
+        color: '#FFFFFF',
     },
     loadingContainer: {
         flex: 1,

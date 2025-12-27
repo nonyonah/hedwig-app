@@ -423,13 +423,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#F3F4F6',
     },
     filterChipActive: {
-        backgroundColor: Colors.primary, // Brand color for active chip
-        borderColor: Colors.primary,
+        backgroundColor: Colors.primary,
     },
     filterText: {
         fontFamily: 'RethinkSans_600SemiBold',

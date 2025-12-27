@@ -163,6 +163,33 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
 
         console.log('[Chat] User has', clientContext.length, 'saved clients');
 
+        // Fetch user's projects for milestone management
+        const { data: projects } = await supabase
+            .from('projects')
+            .select(`
+                id, name, status,
+                client:clients(name),
+                milestones(id, title, amount, status)
+            `)
+            .eq('user_id', userData.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        const projectContext = projects?.map(p => ({
+            id: p.id,
+            title: p.name,
+            clientName: (p.client as any)?.name || 'Unknown',
+            status: p.status?.toLowerCase() || 'ongoing',
+            milestones: ((p.milestones as any[]) || []).map((m: any) => ({
+                id: m.id,
+                title: m.title,
+                amount: parseFloat(m.amount),
+                status: m.status,
+            })),
+        })) || [];
+
+        console.log('[Chat] User has', projectContext.length, 'projects');
+
         // Process uploaded files for Gemini
         let fileData: { mimeType: string; data: string }[] | undefined;
         if (uploadedFiles && uploadedFiles.length > 0) {
@@ -253,7 +280,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                 enhancedMessage,
                 history,
                 fileData,
-                { beneficiaries: beneficiaryContext, clients: clientContext }
+                { beneficiaries: beneficiaryContext, clients: clientContext, projects: projectContext }
             );
         } catch (geminiError: any) {
             console.error('[Chat] Gemini generation failed:', geminiError);
