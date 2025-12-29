@@ -14,8 +14,8 @@ import * as Application from 'expo-application';
 import * as Device from 'expo-device';
 
 // PostHog configuration
-const POSTHOG_API_KEY = process.env.EXPO_PUBLIC_POSTHOG_API_KEY || '';
-const POSTHOG_HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
+const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY || '';
+const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://eu.i.posthog.com';
 
 // Singleton instance - initialized lazily
 let posthogClient: PostHog | null = null;
@@ -104,7 +104,7 @@ export function trackEvent(
             ...sanitizeProperties(properties || {}),
         };
 
-        client.capture(eventName, safeProperties);
+        client.capture(eventName, safeProperties as any);
     } catch (error) {
         console.error('[Analytics] Failed to track event:', error);
     }
