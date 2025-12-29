@@ -174,9 +174,6 @@ export async function handleAction(intent: string, params: ActionParams, user: a
             case 'CREATE_CONTRACT':
                 return await handleCreateContract(params, user);
 
-            case 'GET_WALLET_BALANCE':
-                return await handleGetWalletBalance(params, user);
-
             // Project and Milestone intents
             case 'CREATE_PROJECT':
                 return await handleCreateProject(params, user);
@@ -230,38 +227,6 @@ export async function handleAction(intent: string, params: ActionParams, user: a
         return {
             text: "I encountered an error while processing your request. Please try again."
         };
-    }
-}
-
-async function handleGetWalletBalance(params: ActionParams, user: any): Promise<ActionResult> {
-    try {
-        // Get user's wallet addresses from database
-        const { data: userData, error } = await supabase
-            .from('users')
-            .select('base_wallet_address, solana_wallet_address')
-            .eq('privy_id', user.privyId)
-            .single();
-
-        if (error || !userData) {
-            return { text: "I couldn't find your wallet information. Please make sure you are logged in." };
-        }
-
-        const network = params.network?.toLowerCase();
-        let responseText = "Here are your wallet details:\n\n";
-
-        if (network === 'base' || !network) {
-            responseText += `🔵 **Base**: \`${userData.base_wallet_address || 'Not created'}\`\n`;
-        }
-        if (network === 'solana' || !network) {
-            responseText += `🟣 **Solana**: \`${userData.solana_wallet_address || 'Not created'}\`\n`;
-        }
-
-        responseText += "\n(Real-time balance fetching requires CDP integration which is currently being set up. For now, I can only show your addresses.)";
-
-        return { text: responseText };
-    } catch (error) {
-        console.error('[Actions] Error getting wallet balance:', error);
-        return { text: "Failed to fetch wallet information." };
     }
 }
 

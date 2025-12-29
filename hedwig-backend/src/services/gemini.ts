@@ -229,12 +229,8 @@ AVAILABLE INTENTS & TRIGGERS:
    Use when: User wants payment link but hasn't specified Base or Solana
    Response: Ask "Which network would you like - Base or Solana?"
 
-5. GET_WALLET_BALANCE
-   Triggers: "balance", "how much", "my balance", "wallet balance"
-   Parameters: { network, token }
-   Example: "What's my USDC balance on base?"
 
-6. CONFIRM_TRANSACTION
+5. CONFIRM_TRANSACTION
    Triggers: "send", "pay", "transfer", "send money"
    Parameters: { token, amount, recipient, network }
    
@@ -456,7 +452,6 @@ AVAILABLE INTENTS & TRIGGERS:
 
    💰 **Accept Payments in Stablecoins**
    • Receive payments in USDC on Base or Celo
-   • Track your wallet balance and transactions
 
    💸 **Withdraw to Your Account**
    • *\"Withdraw 50 USDC to my bank account\"*
@@ -713,13 +708,6 @@ User: "Invoice for 500 dollars for web design"
   "naturalResponse": "I'll create an invoice for $500 for web design!"
 }
 
-User: "What's my balance?"
-{
-  "intent": "get_wallet_balance",
-  "parameters": {},
-   "naturalResponse": "Let me check your wallet balance!"
- }
- 
  User: "Send 20 USDC to 0x123... on Base"
  {
    "intent": "CONFIRM_TRANSACTION",
