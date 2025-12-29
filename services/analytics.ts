@@ -12,88 +12,76 @@ import PostHog from 'posthog-react-native';
 import { Platform } from 'react-native';
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // PostHog configuration
 const POSTHOG_API_KEY = process.env.EXPO_PUBLIC_POSTHOG_API_KEY || '';
 const POSTHOG_HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
 
-// Singleton instance
+// Singleton instance - initialized lazily
 let posthogClient: PostHog | null = null;
 let isEnabled = true;
-let isInitialized = false;
 
 // Common properties attached to all events
-interface CommonProperties {
-    platform: 'ios' | 'android' | 'web';
-    app_version: string;
-    device_model?: string;
-    is_returning_user?: boolean;
-}
-
-let commonProperties: CommonProperties = {
+const commonProperties = {
     platform: Platform.OS as 'ios' | 'android' | 'web',
     app_version: Application.nativeApplicationVersion || '1.0.0',
     device_model: Device.modelName || undefined,
 };
 
 /**
- * Initialize PostHog client
+ * Get or create PostHog client
+ */
+function getClient(): PostHog | null {
+    if (!isEnabled || !POSTHOG_API_KEY) {
+        return null;
+    }
+
+    if (!posthogClient) {
+        try {
+            posthogClient = new PostHog(POSTHOG_API_KEY, {
+                host: POSTHOG_HOST,
+            });
+            console.log('[Analytics] PostHog client initialized');
+        } catch (error) {
+            console.error('[Analytics] Failed to initialize PostHog:', error);
+            return null;
+        }
+    }
+
+    return posthogClient;
+}
+
+/**
+ * Initialize PostHog and identify user
  * Should be called once per app launch after user identity is available
  */
 export async function initializeAnalytics(userId?: string): Promise<void> {
-    if (isInitialized || !POSTHOG_API_KEY) {
+    const client = getClient();
+    if (!client) {
         if (!POSTHOG_API_KEY) {
             console.log('[Analytics] PostHog API key not configured');
         }
         return;
     }
 
-    try {
-        // Check if analytics is enabled
-        const storedEnabled = await AsyncStorage.getItem('analyticsEnabled');
-        isEnabled = storedEnabled !== 'false';
-
-        if (!isEnabled) {
-            console.log('[Analytics] Analytics disabled by user');
-            return;
-        }
-
-        posthogClient = new PostHog(POSTHOG_API_KEY, {
-            host: POSTHOG_HOST,
-            flushAt: 20, // Batch size before sending
-            flushInterval: 30000, // 30 seconds
-        });
-
-        isInitialized = true;
-
-        // Check if returning user
-        const hasLaunched = await AsyncStorage.getItem('hasLaunchedBefore');
-        commonProperties.is_returning_user = hasLaunched === 'true';
-        await AsyncStorage.setItem('hasLaunchedBefore', 'true');
-
-        // Identify user if provided (use backend user ID, not email)
-        if (userId) {
-            identifyUser(userId);
-        }
-
-        console.log('[Analytics] PostHog initialized successfully');
-    } catch (error) {
-        console.error('[Analytics] Failed to initialize PostHog:', error);
-        // Never break app flow due to analytics failure
+    // Identify user if provided (use backend user ID, not email)
+    if (userId) {
+        identifyUser(userId);
     }
+
+    console.log('[Analytics] PostHog initialized successfully');
 }
 
 /**
  * Identify user without PII
  */
 export function identifyUser(userId: string, properties?: Record<string, any>): void {
-    if (!posthogClient || !isEnabled) return;
+    const client = getClient();
+    if (!client) return;
 
     try {
-        // Filter out any PII from properties
         const safeProperties = properties ? sanitizeProperties(properties) : undefined;
-        posthogClient.identify(userId, safeProperties);
+        client.identify(userId, safeProperties);
     } catch (error) {
         console.error('[Analytics] Failed to identify user:', error);
     }
@@ -107,7 +95,8 @@ export function trackEvent(
     eventName: string,
     properties?: Record<string, any>
 ): void {
-    if (!posthogClient || !isEnabled) return;
+    const client = getClient();
+    if (!client) return;
 
     try {
         const safeProperties = {
@@ -115,10 +104,9 @@ export function trackEvent(
             ...sanitizeProperties(properties || {}),
         };
 
-        posthogClient.capture(eventName, safeProperties);
+        client.capture(eventName, safeProperties);
     } catch (error) {
         console.error('[Analytics] Failed to track event:', error);
-        // Never break app flow due to analytics failure
     }
 }
 
@@ -150,12 +138,12 @@ function sanitizeProperties(properties: Record<string, any>): Record<string, any
  */
 export async function setAnalyticsEnabled(enabled: boolean): Promise<void> {
     isEnabled = enabled;
-    await AsyncStorage.setItem('analyticsEnabled', enabled ? 'true' : 'false');
+    const client = getClient();
 
-    if (!enabled && posthogClient) {
-        posthogClient.optOut();
-    } else if (enabled && posthogClient) {
-        posthogClient.optIn();
+    if (!enabled && client) {
+        client.optOut();
+    } else if (enabled && client) {
+        client.optIn();
     }
 }
 
@@ -163,10 +151,11 @@ export async function setAnalyticsEnabled(enabled: boolean): Promise<void> {
  * Flush pending events
  */
 export function flushEvents(): void {
-    if (!posthogClient || !isEnabled) return;
+    const client = getClient();
+    if (!client) return;
 
     try {
-        posthogClient.flush();
+        client.flush();
     } catch (error) {
         console.error('[Analytics] Failed to flush events:', error);
     }
@@ -176,10 +165,11 @@ export function flushEvents(): void {
  * Reset analytics (call on logout)
  */
 export function resetAnalytics(): void {
-    if (!posthogClient) return;
+    const client = getClient();
+    if (!client) return;
 
     try {
-        posthogClient.reset();
+        client.reset();
     } catch (error) {
         console.error('[Analytics] Failed to reset:', error);
     }
@@ -189,15 +179,14 @@ export function resetAnalytics(): void {
  * Get PostHog client for advanced usage (feature flags, etc.)
  */
 export function getPostHogClient(): PostHog | null {
-    return posthogClient;
+    return getClient();
 }
 
 // ============================================
 // Pre-defined Event Helpers
 // ============================================
 
-// Core Lifecycle
-export const Analytics = {
+const Analytics = {
     // Lifecycle
     appOpened: () => trackEvent('app_opened'),
     userOnboarded: () => trackEvent('user_onboarded'),
