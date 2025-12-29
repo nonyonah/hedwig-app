@@ -12,7 +12,7 @@ import { useWallet } from '../hooks/useWallet';
 import { usePrivy } from '@privy-io/expo';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useUserActions, Suggestion } from '../hooks/useUserActions';
-import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File, Bell, Plus } from 'phosphor-react-native';
+import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File, Bell, Plus, Microphone } from 'phosphor-react-native';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
@@ -171,6 +171,7 @@ export default function HomeScreen() {
     const shouldAutoScrollRef = useRef(true);
     const [isAttachmentExpanded, setIsAttachmentExpanded] = useState(false);
     const attachmentRotation = useRef(new Animated.Value(0)).current;
+    const attachmentMenuAnim = useRef(new Animated.Value(0)).current;
 
     // Push notifications hook
     const { registerForPushNotifications, registerWithBackend, isRegistered } = usePushNotifications();
@@ -568,15 +569,41 @@ export default function HomeScreen() {
 
     // Toggle attachment expansion with animation
     const toggleAttachmentExpand = useCallback(() => {
-        const toValue = isAttachmentExpanded ? 0 : 1;
-        Animated.spring(attachmentRotation, {
-            toValue,
-            tension: 100,
-            friction: 10,
-            useNativeDriver: true,
-        }).start();
-        setIsAttachmentExpanded(!isAttachmentExpanded);
-    }, [isAttachmentExpanded, attachmentRotation]);
+        if (isAttachmentExpanded) {
+            // Closing: animate out first, then hide
+            Animated.parallel([
+                Animated.timing(attachmentRotation, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(attachmentMenuAnim, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+            ]).start(() => {
+                setIsAttachmentExpanded(false);
+            });
+        } else {
+            // Opening: show first, then animate in
+            setIsAttachmentExpanded(true);
+            Animated.parallel([
+                Animated.spring(attachmentRotation, {
+                    toValue: 1,
+                    tension: 100,
+                    friction: 10,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(attachmentMenuAnim, {
+                    toValue: 1,
+                    tension: 100,
+                    friction: 10,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        }
+    }, [isAttachmentExpanded, attachmentRotation, attachmentMenuAnim]);
 
     // Handle suggestion chip press
     const handleSuggestionPress = useCallback((suggestion: Suggestion) => {
@@ -1194,7 +1221,7 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Input Area */}
-                <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight - 20 : 16 }]}>
+                <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight - 20 : 8 }]}>
                     {/* Dynamic Suggestion Chips - show only when no messages */}
                     {messages.length === 0 && (
                         <SuggestionChips
@@ -1218,60 +1245,90 @@ export default function HomeScreen() {
                         </View>
                     )}
 
-                    <View style={styles.inputWrapper}>
-                        {/* Expandable Attachment Button */}
-                        <View style={styles.attachmentSection}>
+                    {/* Expanded Attachment Options - animated */}
+                    {isAttachmentExpanded && (
+                        <Animated.View style={[
+                            styles.expandedAttachmentMenu,
+                            {
+                                opacity: attachmentMenuAnim,
+                                transform: [{
+                                    translateY: attachmentMenuAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [20, 0],
+                                    }),
+                                }],
+                            },
+                        ]}>
                             <TouchableOpacity
-                                style={styles.attachButton}
-                                onPress={toggleAttachmentExpand}
+                                style={styles.attachMenuOption}
+                                onPress={() => {
+                                    pickDocument();
+                                    toggleAttachmentExpand();
+                                }}
                             >
-                                <Animated.View style={{
-                                    transform: [{
-                                        rotate: attachmentRotation.interpolate({
-                                            inputRange: [0, 1],
-                                            outputRange: ['0deg', '45deg'],
-                                        }),
-                                    }],
-                                }}>
-                                    <Plus size={22} color={Colors.textSecondary} weight="bold" />
-                                </Animated.View>
+                                <View style={styles.attachMenuIconBg}>
+                                    <File size={20} color="#FFFFFF" />
+                                </View>
+                                <Text style={styles.attachMenuText}>File</Text>
                             </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.attachMenuOption, styles.attachMenuDisabled]}
+                                disabled
+                            >
+                                <View style={[styles.attachMenuIconBg, styles.attachMenuIconDisabled]}>
+                                    <ImageIcon size={20} color="#9CA3AF" />
+                                </View>
+                                <Text style={[styles.attachMenuText, styles.attachMenuTextDisabled]}>Camera</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    )}
 
-                            {/* Expanded Attachment Options */}
-                            {isAttachmentExpanded && (
-                                <TouchableOpacity
-                                    style={styles.attachOption}
-                                    onPress={() => {
-                                        pickDocument();
-                                        toggleAttachmentExpand();
-                                    }}
-                                >
-                                    <File size={18} color={Colors.textSecondary} />
-                                </TouchableOpacity>
-                            )}
+                    <View style={styles.inputRow}>
+                        {/* Plus Button - outside the input box */}
+                        <TouchableOpacity
+                            style={styles.plusButton}
+                            onPress={toggleAttachmentExpand}
+                        >
+                            <Animated.View style={{
+                                transform: [{
+                                    rotate: attachmentRotation.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: ['0deg', '45deg'],
+                                    }),
+                                }],
+                            }}>
+                                <Plus size={24} color={Colors.textSecondary} weight="bold" />
+                            </Animated.View>
+                        </TouchableOpacity>
+
+                        {/* Input Box */}
+                        <View style={styles.inputBox}>
+                            <TextInput
+                                style={styles.inputField}
+                                value={inputText}
+                                onChangeText={setInputText}
+                                placeholder="Ask anything"
+                                placeholderTextColor={Colors.textPlaceholder}
+                                multiline
+                                maxLength={1000}
+                                onFocus={() => setIsAttachmentExpanded(false)}
+                            />
                         </View>
 
-                        <TextInput
-                            style={styles.input}
-                            value={inputText}
-                            onChangeText={setInputText}
-                            placeholder="Message Hedwig..."
-                            placeholderTextColor={Colors.textPlaceholder}
-                            multiline
-                            maxLength={1000}
-                            onFocus={() => setIsAttachmentExpanded(false)}
-                        />
-                        <TouchableOpacity
-                            style={[styles.sendButton, (!inputText.trim() && attachedFiles.length === 0) && styles.sendButtonDisabled]}
-                            onPress={sendMessage}
-                            disabled={(!inputText.trim() && attachedFiles.length === 0) || isGenerating}
-                        >
-                            {isGenerating ? (
-                                <ActivityIndicator color="#FFFFFF" size="small" />
-                            ) : (
-                                <ArrowUp size={20} color="#FFFFFF" weight="bold" />
-                            )}
-                        </TouchableOpacity>
+                        {/* Send Button - only show when there's content */}
+                        {(inputText.trim() || attachedFiles.length > 0) && (
+                            <TouchableOpacity
+                                style={styles.sendButton}
+                                onPress={sendMessage}
+                                disabled={isGenerating}
+                            >
+                                {isGenerating ? (
+                                    <ActivityIndicator color="#FFFFFF" size="small" />
+                                ) : (
+                                    <ArrowUp size={20} color="#FFFFFF" weight="bold" />
+                                )}
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
 
@@ -1530,8 +1587,73 @@ const styles = StyleSheet.create({
         backgroundColor: '#f5f5f5',
         borderRadius: 24,
         padding: 8,
-        // borderWidth: 1,
-        // borderColor: Colors.border,
+    },
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: 8,
+    },
+    plusButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#f5f5f5',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    inputBox: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        backgroundColor: '#f5f5f5',
+        borderRadius: 24,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        minHeight: 44,
+    },
+    inputField: {
+        flex: 1,
+        ...Typography.body,
+        maxHeight: 100,
+        paddingVertical: 0,
+        marginRight: 8,
+    },
+    micButton: {
+        padding: 4,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    expandedAttachmentMenu: {
+        flexDirection: 'row',
+        gap: 16,
+        marginBottom: 12,
+        paddingHorizontal: 4,
+    },
+    attachMenuOption: {
+        alignItems: 'center',
+        gap: 6,
+    },
+    attachMenuIconBg: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: Colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    attachMenuIconDisabled: {
+        backgroundColor: '#E5E7EB',
+    },
+    attachMenuText: {
+        fontFamily: 'RethinkSans_500Medium',
+        fontSize: 12,
+        color: Colors.textPrimary,
+    },
+    attachMenuTextDisabled: {
+        color: '#9CA3AF',
+    },
+    attachMenuDisabled: {
+        opacity: 0.6,
     },
     attachButton: {
         padding: 10,
@@ -1575,7 +1697,7 @@ const styles = StyleSheet.create({
         maxHeight: 100,
         paddingHorizontal: 12,
         paddingVertical: 8,
-        paddingTop: 12, // Align with button
+        paddingTop: 12,
     },
     // Tool UI Styles
     toolContainer: {
