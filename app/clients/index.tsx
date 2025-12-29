@@ -13,6 +13,7 @@ import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import { LinearGradient } from 'expo-linear-gradient';
+import Analytics from '../../services/analytics';
 
 interface Client {
     id: string;
@@ -310,6 +311,8 @@ export default function ClientsScreen() {
                     ));
                 } else {
                     setClients(prev => [data.data.client, ...prev]);
+                    // Track client created
+                    Analytics.clientCreated();
                 }
                 closeFormModal();
                 setShowDetailModal(false);

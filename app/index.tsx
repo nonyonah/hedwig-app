@@ -30,6 +30,7 @@ import { OnboardingTooltip } from '../components/OnboardingTooltip';
 import { SuggestionChips } from '../components/SuggestionChips';
 import { getUserGradient } from '../utils/gradientUtils';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import Analytics, { initializeAnalytics } from '../services/analytics';
 
 const { width, height } = Dimensions.get('window');
 
@@ -375,10 +376,16 @@ export default function HomeScreen() {
         }
     };
 
-    // Initial fetch of conversations
+    // Initial fetch of conversations and analytics init
     useEffect(() => {
         if (isReady && user) {
             fetchConversations();
+
+            // Initialize analytics with user ID (not email)
+            initializeAnalytics(user.id).then(() => {
+                // Track app opened
+                Analytics.appOpened();
+            });
         }
     }, [isReady, user]);
 
@@ -728,6 +735,9 @@ export default function HomeScreen() {
         setIsGenerating(true);
         shouldAutoScrollRef.current = true; // Scroll to bottom when sending message
 
+        // Track AI message sent
+        Analytics.aiMessageSent();
+
         // Create new abort controller for this request
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
@@ -813,20 +823,26 @@ export default function HomeScreen() {
                 setMessages(prev => [...prev, aiMessage]);
                 setConversationId(data.data.conversationId);
 
+                // Track successful AI response
+                Analytics.aiResponseSuccess();
+
                 // Handle Agentic Action Intents
                 if (data.data.intent === 'CONFIRM_TRANSACTION' && data.data.parameters) {
+                    Analytics.aiFunctionTriggered('CONFIRM_TRANSACTION');
                     setTransactionData(data.data.parameters);
                     setIsTransactionReviewVisible(true);
                 }
 
                 // Handle Offramp Intent
                 if (data.data.intent === 'CONFIRM_OFFRAMP' && data.data.parameters) {
+                    Analytics.aiFunctionTriggered('CONFIRM_OFFRAMP');
                     setOfframpData(data.data.parameters);
                     setIsOfframpReviewVisible(true);
                 }
 
                 // Handle Solana Bridge + Offramp Intent
                 if (data.data.intent === 'CONFIRM_SOLANA_BRIDGE' && data.data.parameters) {
+                    Analytics.aiFunctionTriggered('CONFIRM_SOLANA_BRIDGE');
                     const bridgeParams = data.data.parameters;
                     setSolanaBridgeData({
                         token: bridgeParams.token || 'SOL',
@@ -2106,17 +2122,6 @@ const styles = StyleSheet.create({
     gridButton: {
         padding: Metrics.spacing.xs,
         marginRight: Metrics.spacing.sm,
-    },
-    inputBox: {
-        flex: 1,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 24,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        marginRight: 8,
-        minHeight: 40,
-        maxHeight: 100,
-        ...Typography.input,
     },
     sendButton: {
         backgroundColor: Colors.primary,

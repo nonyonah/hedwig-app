@@ -68,7 +68,8 @@
         }
       ],
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-localization"
     ],
     "extra": {
       "router": {
