@@ -490,8 +490,6 @@ export default function ProjectsScreen() {
                                 { transform: [{ translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] }
                             ]}
                         >
-                            <View style={styles.dragHandle} />
-
                             {/* Modal Header Row with X and Options */}
                             {selectedProject && (
                                 <>
@@ -977,14 +975,6 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 32,
         maxHeight: '85%',
         paddingTop: 12,
-    },
-    dragHandle: {
-        width: 40,
-        height: 4,
-        backgroundColor: Colors.border,
-        borderRadius: 2,
-        alignSelf: 'center',
-        marginBottom: 16,
     },
     detailModalBody: {
         paddingHorizontal: 24,

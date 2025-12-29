@@ -495,9 +495,6 @@ export default function ClientsScreen() {
                                 { transform: [{ translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] }
                             ]}
                         >
-                            {/* Drag Handle */}
-                            <View style={styles.dragHandle} />
-
                             {/* Centered Title */}
                             <Text style={styles.detailModalTitle}>{selectedClient?.name || 'Client Details'}</Text>
 
@@ -900,14 +897,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 12,
         elevation: 10,
-    },
-    dragHandle: {
-        width: 40,
-        height: 4,
-        backgroundColor: '#E5E7EB',
-        borderRadius: 2,
-        alignSelf: 'center',
-        marginBottom: 16,
     },
     detailModalTitle: {
         ...Typography.h2,
