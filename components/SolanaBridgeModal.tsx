@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     headerTitle: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 20,
         color: Colors.textPrimary,
     },
@@ -590,14 +590,14 @@ const styles = StyleSheet.create({
         paddingTop: 8, // reduce padding since title is in header
     },
     title: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 20,
         color: Colors.textPrimary,
         textAlign: 'left', // Alignment change
         marginBottom: 24,
     },
     subtitle: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 16,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
         padding: 32,
     },
     loadingText: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         marginTop: 16,
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     amountText: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 24,
         color: Colors.textPrimary,
         flex: 1,
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     tokenSymbolText: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
     },
@@ -708,12 +708,12 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     feeLabel: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
     feeValue: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 14,
         color: Colors.textPrimary,
     },
@@ -727,12 +727,12 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
     },
     cancelText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 16,
         color: Colors.textSecondary,
     },
     errorText: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.error,
         textAlign: 'center',
@@ -745,14 +745,14 @@ const styles = StyleSheet.create({
         marginVertical: 24,
     },
     helpText: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         textAlign: 'center',
         marginTop: 16,
     },
     signatureText: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 12,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -767,13 +767,13 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     resultLabel: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 4,
     },
     resultAmount: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 28,
         color: Colors.success,
     },

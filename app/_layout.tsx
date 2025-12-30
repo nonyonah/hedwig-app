@@ -3,11 +3,11 @@ import { PrivyProvider } from '@privy-io/expo';
 import Constants from 'expo-constants';
 import {
     useFonts,
-    RethinkSans_400Regular,
-    RethinkSans_500Medium,
-    RethinkSans_600SemiBold,
-    RethinkSans_700Bold
-} from '@expo-google-fonts/rethink-sans';
+    GoogleSans_400Regular,
+    GoogleSans_500Medium,
+    GoogleSans_600SemiBold,
+    GoogleSans_700Bold
+} from '@expo-google-fonts/google-sans';
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
 import { View, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -18,10 +18,10 @@ const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.en
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
-        RethinkSans_400Regular,
-        RethinkSans_500Medium,
-        RethinkSans_600SemiBold,
-        RethinkSans_700Bold,
+        GoogleSans_400Regular,
+        GoogleSans_500Medium,
+        GoogleSans_600SemiBold,
+        GoogleSans_700Bold,
         Merriweather_300Light,
         Merriweather_400Regular,
         Merriweather_700Bold,
@@ -91,4 +91,3 @@ export default function RootLayout() {
         </SettingsProvider>
     );
 }
-

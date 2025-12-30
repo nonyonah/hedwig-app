@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F3F4F6',
     },
     invoiceNumber: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -348,19 +348,19 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
     },
     partyLabel: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 12,
         color: Colors.textSecondary,
         marginBottom: 6,
     },
     partyName: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 15,
         color: Colors.textPrimary,
         marginBottom: 2,
     },
     partyEmail: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 12,
         color: Colors.textSecondary,
     },
@@ -372,19 +372,19 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     amountLabel: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
         marginBottom: 6,
     },
     amountValue: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 36,
         color: Colors.textPrimary,
         marginBottom: 4,
     },
     dueDate: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 13,
         color: Colors.textSecondary,
     },
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     itemsHeaderLabel: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 11,
         color: Colors.textSecondary,
         letterSpacing: 0.5,
@@ -408,12 +408,12 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
     },
     itemName: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 14,
         color: Colors.textPrimary,
     },
     itemPrice: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 14,
         color: Colors.textPrimary,
     },
@@ -430,12 +430,12 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     summaryLabel: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
     summaryValue: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -446,12 +446,12 @@ const styles = StyleSheet.create({
         borderTopColor: '#E5E7EB',
     },
     totalLabel: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 15,
         color: Colors.textPrimary,
     },
     totalValue: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 15,
         color: Colors.textPrimary,
     },
@@ -487,12 +487,12 @@ const styles = StyleSheet.create({
         borderRadius: 9,
     },
     selectorText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 13,
         color: Colors.textPrimary,
     },
     networkNotice: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 12,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     footerText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
     },

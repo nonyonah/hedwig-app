@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
         fontSize: 22,
     },
     profileName: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
     },
@@ -799,13 +799,13 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
     },
     balanceLabel: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 8,
     },
     balanceAmount: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 40,
         color: Colors.textPrimary,
         marginBottom: 24,
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     actionText: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 14,
         color: 'white',
     },
@@ -852,12 +852,12 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     menuItemTitle: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 15,
         color: Colors.textPrimary,
     },
     menuItemSubtitle: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 13,
         color: Colors.textSecondary,
     },
@@ -867,7 +867,7 @@ const styles = StyleSheet.create({
         borderColor: '#FEE2E2',
     },
     disconnectText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 14,
         color: Colors.error,
     },

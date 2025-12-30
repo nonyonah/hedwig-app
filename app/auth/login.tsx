@@ -225,13 +225,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     title: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 28,
         color: Colors.textPrimary,
         marginBottom: 8,
     },
     subtitle: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 16,
         color: Colors.textSecondary,
         marginBottom: 32,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 16,
         fontSize: 16,
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         color: Colors.textPrimary,
     },
     codeContainer: {
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
     },
     codeText: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 24,
         color: Colors.textPrimary,
     },

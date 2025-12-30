@@ -74,13 +74,13 @@ const styles = StyleSheet.create({
         paddingBottom: 100,
     },
     title: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 32,
         color: Colors.textPrimary,
         marginBottom: 16,
     },
     subtitle: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 17,
         color: Colors.textSecondary,
         lineHeight: 26,
@@ -95,13 +95,13 @@ const styles = StyleSheet.create({
         borderLeftColor: '#FCD34D',
     },
     featureText: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 17,
         color: Colors.textPrimary,
         lineHeight: 26,
     },
     highlight: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         textDecorationLine: 'underline',
         textDecorationColor: '#FCD34D',
     },

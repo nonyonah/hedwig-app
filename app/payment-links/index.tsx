@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
         height: 60,
     },
     headerTitle: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
     },
@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
     },
     filterText: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -899,7 +899,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     actionMenuItemText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 15,
         color: Colors.textPrimary,
     },
@@ -931,7 +931,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     pullDownMenuText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 16,
         color: Colors.textPrimary,
     },
@@ -970,12 +970,12 @@ const styles = StyleSheet.create({
         borderColor: '#FFFFFF',
     },
     modalTitle: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
     },
     modalSubtitle: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 13,
         color: Colors.textSecondary,
         marginTop: 4,
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     amountCardValue: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 36,
         color: Colors.textPrimary,
         marginBottom: 8,
@@ -1004,7 +1004,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     amountCardSubText: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -1020,12 +1020,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     detailLabel: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
     detailValue: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 14,
         color: Colors.textPrimary,
     },
@@ -1046,7 +1046,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     viewButtonText: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 16,
         color: '#FFFFFF',
     },

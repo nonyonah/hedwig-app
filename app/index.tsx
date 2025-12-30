@@ -1474,7 +1474,7 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
     headerTitle: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
     },
@@ -1499,7 +1499,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
     },
     notificationBadgeText: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 10,
         color: '#FFFFFF',
     },
@@ -1662,7 +1662,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#E5E7EB',
     },
     attachMenuText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 12,
         color: Colors.textPrimary,
     },

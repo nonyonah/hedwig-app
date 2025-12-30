@@ -761,7 +761,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
     },
     headerTitle: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 22,
         color: Colors.textPrimary,
     },
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
     },
     filterText: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -810,19 +810,19 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     projectItemClient: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 4,
     },
     projectItemTitle: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginBottom: 4,
     },
     projectItemMeta: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textTertiary,
     },
@@ -838,7 +838,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#DCFCE7',
     },
     projectIconText: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 12,
         color: Colors.primary,
     },
@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FEF3C7',
     },
     statusText: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 12,
     },
     statusTextPaid: {
@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
         borderRadius: 20,
     },
     statusTextNew: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 13,
     },
     clientInfoRow: {
@@ -1370,7 +1370,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     pullDownMenuText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 16,
         color: Colors.textPrimary,
     },

@@ -706,7 +706,7 @@ const styles = StyleSheet.create({
         height: 60,
     },
     headerTitle: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 22,
         color: Colors.textPrimary,
     },
@@ -740,19 +740,19 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     clientItemCompany: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 4,
     },
     clientItemName: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginBottom: 4,
     },
     clientItemMeta: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textTertiary,
     },
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#DCFCE7',
     },
     clientIconText: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 12,
         color: Colors.textSecondary,
     },

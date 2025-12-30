@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 17,
         color: Colors.textPrimary,
         padding: 0,
@@ -453,18 +453,18 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     searchResultTitle: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 14,
         color: Colors.textPrimary,
         marginBottom: 2,
     },
     searchResultSubtitle: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 12,
         color: Colors.textSecondary,
     },
     noResultsText: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     sectionTitle: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 12,
         color: Colors.textSecondary,
         letterSpacing: 0.5,
@@ -507,13 +507,13 @@ const styles = StyleSheet.create({
         // Icon color is handled in the render function
     },
     menuText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 17,
         color: Colors.textPrimary,
     },
     menuTextActive: {
         color: '#FFFFFF',
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
     },
     footer: {
         paddingTop: 16,
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     feedbackButtonText: {
-        fontFamily: 'RethinkSans_600SemiBold',
+        fontFamily: 'GoogleSans_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
     },

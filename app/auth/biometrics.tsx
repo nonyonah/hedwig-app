@@ -363,13 +363,13 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     title: {
-        fontFamily: 'RethinkSans_700Bold',
+        fontFamily: 'GoogleSans_700Bold',
         fontSize: 28,
         color: Colors.textPrimary,
         textAlign: 'center',
     },
     subtitle: {
-        fontFamily: 'RethinkSans_400Regular',
+        fontFamily: 'GoogleSans_400Regular',
         fontSize: 16,
         color: Colors.textSecondary,
         textAlign: 'center',

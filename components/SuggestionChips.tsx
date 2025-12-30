@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     chipText: {
-        fontFamily: 'RethinkSans_500Medium',
+        fontFamily: 'GoogleSans_500Medium',
         fontSize: 13,
         color: Colors.textPrimary,
     },
