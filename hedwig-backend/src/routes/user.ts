@@ -31,6 +31,7 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
         console.log('Raw user data from DB:', user);
         console.log('ethereum_wallet_address:', user.ethereum_wallet_address);
         console.log('solana_wallet_address:', user.solana_wallet_address);
+        console.log('avatar:', user.avatar ? user.avatar.substring(0, 100) + '...' : 'null');
 
         // Fetch counts (optional, but good to have if the frontend expects it)
         // We can do this in parallel

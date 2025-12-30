@@ -394,6 +394,7 @@ export default function InvoicesScreen() {
                 onClose={() => setShowProfileModal(false)}
                 userName={userName}
                 walletAddresses={walletAddresses}
+                profileIcon={profileIcon}
             />
 
             <Sidebar

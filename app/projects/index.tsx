@@ -724,6 +724,7 @@ export default function ProjectsScreen() {
                     onClose={() => setShowProfileModal(false)}
                     userName={userName}
                     walletAddresses={walletAddresses}
+                profileIcon={profileIcon}
                 />
             </SafeAreaView >
         </>

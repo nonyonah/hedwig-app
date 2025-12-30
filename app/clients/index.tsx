@@ -675,6 +675,7 @@ export default function ClientsScreen() {
                     onClose={() => setShowProfileModal(false)}
                     userName={userName}
                     walletAddresses={walletAddresses}
+                profileIcon={profileIcon}
                 />
             </SafeAreaView>
         </>

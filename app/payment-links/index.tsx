@@ -381,6 +381,7 @@ export default function PaymentLinksScreen() {
                 onClose={() => setShowProfileModal(false)}
                 userName={userName}
                 walletAddresses={walletAddresses}
+                profileIcon={profileIcon}
             />
 
             <Sidebar
