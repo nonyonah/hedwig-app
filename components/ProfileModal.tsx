@@ -99,6 +99,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     const solanaWallet = useEmbeddedSolanaWallet();
     // Stacks wallet is managed by stacksWallet service, not Privy
 
+    // Debug: Log profileIcon when modal opens
+    useEffect(() => {
+        if (visible) {
+            console.log('[ProfileModal] profileIcon prop:', JSON.stringify(profileIcon, null, 2));
+            console.log('[ProfileModal] Has imageUri?', !!profileIcon?.imageUri);
+        }
+    }, [visible, profileIcon]);
+
     const [isRendered, setIsRendered] = useState(false);
     const [viewMode, setViewMode] = useState<'main' | 'assets' | 'chains'>('main');
     const [selectedChain, setSelectedChain] = useState<ChainInfo>(SUPPORTED_CHAINS[0]);

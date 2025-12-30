@@ -448,14 +448,21 @@ export default function HomeScreen() {
                 });
                 // Set profile icon if available from avatar field
                 if (userData.avatar) {
+                    console.log('[Profile] Avatar data received:', userData.avatar.substring(0, 100) + '...');
                     try {
-                        if (userData.avatar.trim().startsWith('{')) {
+                        if (typeof userData.avatar === 'string' && userData.avatar.trim().startsWith('{')) {
                             const parsed = JSON.parse(userData.avatar);
+                            console.log('[Profile] Parsed avatar as JSON:', parsed);
                             setProfileIcon(parsed);
+                        } else if (typeof userData.avatar === 'string' && userData.avatar.startsWith('data:')) {
+                            console.log('[Profile] Avatar is base64 image');
+                            setProfileIcon({ imageUri: userData.avatar });
                         } else {
+                            console.log('[Profile] Avatar is URL or other format');
                             setProfileIcon({ imageUri: userData.avatar });
                         }
                     } catch (e) {
+                        console.log('[Profile] Avatar parse error, treating as URL:', e);
                         setProfileIcon({ imageUri: userData.avatar });
                     }
                 } else if (userData.profileEmoji) {
