@@ -1620,7 +1620,7 @@ const styles = StyleSheet.create({
     inputBox: {
         flex: 1,
         flexDirection: 'row',
-        alignItems: 'flex-end',
+        alignItems: 'center',
         backgroundColor: '#f5f5f5',
         borderRadius: 24,
         paddingHorizontal: 16,
@@ -1630,8 +1630,9 @@ const styles = StyleSheet.create({
     inputField: {
         flex: 1,
         ...Typography.body,
-        maxHeight: 100,
+        maxHeight: 120,
         paddingVertical: 0,
+        textAlignVertical: 'center',
         marginRight: 8,
     },
     micButton: {
