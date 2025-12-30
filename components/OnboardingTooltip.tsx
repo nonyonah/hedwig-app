@@ -156,14 +156,14 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     title: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
         flex: 1,
         marginRight: 12,
     },
     description: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         lineHeight: 20,
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     buttonText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
         color: '#FFFFFF',
     },

@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     loadingText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     title: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 15,
         color: Colors.textPrimary,
         flex: 1,
@@ -269,18 +269,18 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     statusText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 11,
         textTransform: 'uppercase',
     },
     amount: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginTop: 4,
     },
     subtitle: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 13,
         color: Colors.textSecondary,
         marginTop: 2,
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
         borderRightColor: 'rgba(0, 0, 0, 0.05)',
     },
     actionText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.primary,
     },

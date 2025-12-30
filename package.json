@@ -14,6 +14,7 @@
     "@coinbase/cdp-hooks": "^0.0.65",
     "@ethersproject/shims": "^5.8.0",
     "@expo-google-fonts/google-sans": "^0.4.0",
+    "@expo-google-fonts/google-sans-flex": "^0.4.1",
     "@expo-google-fonts/inter-tight": "^0.4.2",
     "@expo-google-fonts/merriweather": "^0.4.2",
     "@expo-google-fonts/outfit": "^0.4.3",

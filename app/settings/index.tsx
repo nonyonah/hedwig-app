@@ -270,7 +270,7 @@ export default function SettingsScreen() {
                             colors={getUserGradient(user?.id)}
                             style={styles.avatar}
                         >
-                            <Text style={{ color: 'white', fontFamily: 'GoogleSans_700Bold', fontSize: 18 }}>
+                            <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_700Bold', fontSize: 18 }}>
                                 {userName.firstName?.[0]?.toUpperCase() || 'U'}
                             </Text>
                         </LinearGradient>
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     headerTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
     },
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
         height: 24,
     },
     sectionTitle: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
         color: Colors.textPrimary,
         marginBottom: 8,
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     infoText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 16,
         color: Colors.textSecondary,
     },
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
         height: 56,
     },
     settingLabel: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
     },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     settingValue: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: Colors.textSecondary,
         marginRight: 4,
@@ -501,13 +501,13 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     profileName: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginBottom: 4,
     },
     profileSubtitle: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     versionText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 12,
         color: Colors.textTertiary,
     },
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     modalTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 18,
         marginBottom: 16,
         color: Colors.textPrimary,
@@ -554,12 +554,12 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F3F4F6',
     },
     modalItemText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 16,
         color: Colors.textPrimary,
     },
     modalItemTextSelected: {
         color: Colors.primary,
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
     },
 });

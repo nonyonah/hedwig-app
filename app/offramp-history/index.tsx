@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     headerTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 22,
         color: Colors.textPrimary,
     },
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
     },
     filterText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
         paddingBottom: 8,
     },
     sectionHeader: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
     },
@@ -677,13 +677,13 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     orderTitle: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
         marginBottom: 2,
     },
     orderSubtitle: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
     },
@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
     },
     orderAmount: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 15,
         color: Colors.textPrimary,
         marginBottom: 4,
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     statusText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 11,
     },
     emptyState: {
@@ -715,14 +715,14 @@ const styles = StyleSheet.create({
         padding: 40,
     },
     emptyTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginTop: 16,
         marginBottom: 8,
     },
     emptyText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 15,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#EF4444',
     },
     progressNumber: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 12,
         color: '#9CA3AF',
     },
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     progressLabel: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 12,
         color: '#9CA3AF',
         textAlign: 'center',
@@ -820,12 +820,12 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     modalTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
     },
     modalSubtitle: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
         marginTop: 2,
@@ -848,19 +848,19 @@ const styles = StyleSheet.create({
         borderColor: '#F3F4F6',
     },
     amountLabel: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 8,
     },
     amountValue: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 36,
         color: Colors.textPrimary,
         marginBottom: 4,
     },
     amountCrypto: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -882,12 +882,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#F3F4F6',
     },
     detailLabel: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 15,
         color: Colors.textSecondary,
     },
     detailValue: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 15,
         color: Colors.textPrimary,
     },

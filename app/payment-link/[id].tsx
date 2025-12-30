@@ -273,13 +273,13 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     headerTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 22,
         color: Colors.textPrimary,
         marginBottom: 6,
     },
     headerSubtitle: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -292,13 +292,13 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     amountLabel: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
         marginBottom: 6,
     },
     amountValue: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 32,
         color: Colors.textPrimary,
     },
@@ -319,12 +319,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#E5E7EB',
     },
     detailLabel: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
     detailValue: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
         color: Colors.textPrimary,
         maxWidth: '60%',
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
         borderRadius: 9,
     },
     networkText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textPrimary,
     },
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     networkNotice: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 12,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     footerText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
     },

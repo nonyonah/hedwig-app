@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
         height: 60,
     },
     headerTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
     },
@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
     },
     filterText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -899,7 +899,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     actionMenuItemText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 15,
         color: Colors.textPrimary,
     },
@@ -931,7 +931,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     pullDownMenuText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 16,
         color: Colors.textPrimary,
     },
@@ -970,12 +970,12 @@ const styles = StyleSheet.create({
         borderColor: '#FFFFFF',
     },
     modalTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
     },
     modalSubtitle: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 13,
         color: Colors.textSecondary,
         marginTop: 4,
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     amountCardValue: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 36,
         color: Colors.textPrimary,
         marginBottom: 8,
@@ -1004,7 +1004,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     amountCardSubText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -1020,12 +1020,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     detailLabel: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
     detailValue: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
         color: Colors.textPrimary,
     },
@@ -1046,7 +1046,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     viewButtonText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: '#FFFFFF',
     },

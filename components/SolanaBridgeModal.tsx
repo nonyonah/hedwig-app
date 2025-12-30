@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     headerTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 20,
         color: Colors.textPrimary,
     },
@@ -590,14 +590,14 @@ const styles = StyleSheet.create({
         paddingTop: 8, // reduce padding since title is in header
     },
     title: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 20,
         color: Colors.textPrimary,
         textAlign: 'left', // Alignment change
         marginBottom: 24,
     },
     subtitle: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 16,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
         padding: 32,
     },
     loadingText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         marginTop: 16,
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     amountText: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 24,
         color: Colors.textPrimary,
         flex: 1,
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     tokenSymbolText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
     },
@@ -708,12 +708,12 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     feeLabel: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
     feeValue: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
         color: Colors.textPrimary,
     },
@@ -727,12 +727,12 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
     },
     cancelText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 16,
         color: Colors.textSecondary,
     },
     errorText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.error,
         textAlign: 'center',
@@ -745,14 +745,14 @@ const styles = StyleSheet.create({
         marginVertical: 24,
     },
     helpText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         textAlign: 'center',
         marginTop: 16,
     },
     signatureText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 12,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -767,13 +767,13 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     resultLabel: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 4,
     },
     resultAmount: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 28,
         color: Colors.success,
     },

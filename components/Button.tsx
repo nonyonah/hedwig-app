@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
 
     // Base text style
     buttonText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         textAlign: 'center',
     },
 

@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     headerTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 22,
         color: Colors.textPrimary,
     },
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
         paddingBottom: 8,
     },
     sectionHeader: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
     },
@@ -630,13 +630,13 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     txTitle: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
         marginBottom: 2,
     },
     txSubtitle: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
     },
@@ -644,11 +644,11 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
     },
     txAmount: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 15,
     },
     txFiatAmount: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
         marginTop: 2,
@@ -660,14 +660,14 @@ const styles = StyleSheet.create({
         padding: 40,
     },
     emptyTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginTop: 16,
         marginBottom: 8,
     },
     emptyText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 15,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -713,12 +713,12 @@ const styles = StyleSheet.create({
         borderRadius: 9,
     },
     modalTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
     },
     modalSubtitle: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
         marginTop: 2,
@@ -742,7 +742,7 @@ const styles = StyleSheet.create({
         borderColor: '#F3F4F6',
     },
     amountCardValue: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 36,
         color: Colors.textPrimary,
         marginBottom: 8,
@@ -752,7 +752,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     amountCardSubText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 15,
         color: Colors.textSecondary,
         marginLeft: 6,
@@ -782,12 +782,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#F3F4F6',
     },
     detailLabel: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 15,
         color: Colors.textSecondary,
     },
     detailValue: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 15,
         color: Colors.textPrimary,
     },
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     viewButtonText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: '#FFFFFF',
     },

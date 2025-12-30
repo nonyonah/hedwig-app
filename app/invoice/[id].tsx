@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F3F4F6',
     },
     invoiceNumber: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -348,19 +348,19 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
     },
     partyLabel: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 12,
         color: Colors.textSecondary,
         marginBottom: 6,
     },
     partyName: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 15,
         color: Colors.textPrimary,
         marginBottom: 2,
     },
     partyEmail: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 12,
         color: Colors.textSecondary,
     },
@@ -372,19 +372,19 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     amountLabel: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
         marginBottom: 6,
     },
     amountValue: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 36,
         color: Colors.textPrimary,
         marginBottom: 4,
     },
     dueDate: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 13,
         color: Colors.textSecondary,
     },
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     itemsHeaderLabel: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 11,
         color: Colors.textSecondary,
         letterSpacing: 0.5,
@@ -408,12 +408,12 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
     },
     itemName: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
         color: Colors.textPrimary,
     },
     itemPrice: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
         color: Colors.textPrimary,
     },
@@ -430,12 +430,12 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     summaryLabel: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
     summaryValue: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -446,12 +446,12 @@ const styles = StyleSheet.create({
         borderTopColor: '#E5E7EB',
     },
     totalLabel: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 15,
         color: Colors.textPrimary,
     },
     totalValue: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 15,
         color: Colors.textPrimary,
     },
@@ -487,12 +487,12 @@ const styles = StyleSheet.create({
         borderRadius: 9,
     },
     selectorText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textPrimary,
     },
     networkNotice: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 12,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     footerText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         color: Colors.textSecondary,
     },

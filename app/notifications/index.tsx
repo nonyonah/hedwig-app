@@ -400,14 +400,14 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     headerTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 22,
         color: Colors.textPrimary,
         textAlign: 'center',
         flex: 1,
     },
     markAsDoneText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
         color: Colors.primary,
     },
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
     },
     filterText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
     },
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     sectionHeader: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginTop: 8,
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     notificationTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 15,
         color: Colors.textPrimary,
         flex: 1,
@@ -515,12 +515,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     dateText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 13,
         color: Colors.textSecondary,
     },
     timeText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 13,
         color: Colors.textSecondary,
     },
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     notificationMessage: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
         color: Colors.textSecondary,
         lineHeight: 20,
@@ -550,14 +550,14 @@ const styles = StyleSheet.create({
         marginTop: 60,
     },
     emptyTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 20,
         color: Colors.textPrimary,
         marginTop: 16,
         marginBottom: 8,
     },
     emptySubtitle: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 15,
         color: Colors.textSecondary,
         textAlign: 'center',

@@ -74,13 +74,13 @@ const styles = StyleSheet.create({
         paddingBottom: 100,
     },
     title: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 32,
         color: Colors.textPrimary,
         marginBottom: 16,
     },
     subtitle: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 17,
         color: Colors.textSecondary,
         lineHeight: 26,
@@ -95,13 +95,13 @@ const styles = StyleSheet.create({
         borderLeftColor: '#FCD34D',
     },
     featureText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 17,
         color: Colors.textPrimary,
         lineHeight: 26,
     },
     highlight: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         textDecorationLine: 'underline',
         textDecorationColor: '#FCD34D',
     },

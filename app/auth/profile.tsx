@@ -355,13 +355,13 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     title: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 28,
         color: Colors.textPrimary,
         marginBottom: 8,
     },
     subtitle: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 16,
         color: Colors.textSecondary,
     },
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     largeAvatarText: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         color: '#FFFFFF',
         fontSize: 48,
     },
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F3F4F6',
     },
     imageOptionText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         color: Colors.textPrimary,
     },
     formGroup: {
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     label: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 8,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F9FAFB',
         borderRadius: 12,
         padding: 16,
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 16,
         color: Colors.textPrimary,
     },
@@ -468,12 +468,12 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     backButtonText: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 16,
         color: Colors.textSecondary,
     },
     viewTitle: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 24,
         color: Colors.textPrimary,
         marginBottom: 32,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
         borderRadius: 24,
     },
     doneButtonText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         color: 'white',
         fontSize: 16,
     }

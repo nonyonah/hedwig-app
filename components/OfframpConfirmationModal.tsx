@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     title: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 20,
         color: Colors.textPrimary,
     },
@@ -607,13 +607,13 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     amountLabel: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 8,
     },
     amount: {
-        fontFamily: 'GoogleSans_700Bold',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: 36,
         color: Colors.textPrimary,
     },
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     fiatAmount: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 16,
         color: Colors.textSecondary,
     },
@@ -641,12 +641,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     detailLabel: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
     },
     detailValue: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
         color: Colors.textPrimary,
         maxWidth: 180,
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
         borderRadius: 10,
     },
     chainName: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
         color: Colors.textPrimary,
     },
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     warningText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 13,
         color: Colors.primary,
         flex: 1,
@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     confirmButtonText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: '#FFFFFF',
     },
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
         height: 150,
     },
     statusTitle: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
         textAlign: 'center',
@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     statusSubtitle: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textSecondary,
         textAlign: 'center',
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     errorMessage: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.error || '#EF4444',
         textAlign: 'center',
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
     },
     addressLabel: {
-        fontFamily: 'GoogleSans_500Medium',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
         color: Colors.textSecondary,
         marginBottom: 8,
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     addressText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 13,
         color: Colors.textPrimary,
         flex: 1,
@@ -766,7 +766,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
     },
     infoText: {
-        fontFamily: 'GoogleSans_400Regular',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 13,
         color: '#92400E',
         textAlign: 'center',
@@ -783,7 +783,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     closeButtonText: {
-        fontFamily: 'GoogleSans_600SemiBold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: '#FFFFFF',
     },
