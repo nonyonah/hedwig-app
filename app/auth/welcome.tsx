@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
@@ -10,25 +10,46 @@ export default function WelcomeScreen() {
     const insets = useSafeAreaInsets();
 
     return (
-        <View style={styles.container}>
-            {/* Main Content - Centered Logo */}
-            <View style={styles.centerContent}>
-                <Image
-                    source={require('../../assets/images/hedwig-logo.png')}
-                    style={styles.logo}
-                    resizeMode="contain"
-                />
-            </View>
+        <View style={[styles.container, { paddingTop: insets.top + 40 }]}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Title */}
+                <Text style={styles.title}>Welcome to Hedwig!</Text>
 
-            {/* Bottom Section */}
-            <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 8 }]}>
-                {/* Text Content */}
-                <View style={styles.textContainer}>
-                    <Text style={styles.logoText}>Hedwig</Text>
-                    <Text style={styles.tagline}>Your personal freelance assistant.</Text>
+                {/* Subtitle */}
+                <Text style={styles.subtitle}>
+                    Your personal freelance assistant. Here's what you can do:
+                </Text>
+
+                {/* Feature Cards */}
+                <View style={styles.featureCard}>
+                    <Text style={styles.featureText}>
+                        Create <Text style={styles.highlight}>payment links</Text> and{' '}
+                        <Text style={styles.highlight}>invoices</Text> in seconds with AI-powered assistance.
+                    </Text>
                 </View>
 
-                {/* Get Started Button */}
+                <View style={styles.featureCard}>
+                    <Text style={styles.featureText}>
+                        Manage <Text style={styles.highlight}>clients</Text>,{' '}
+                        <Text style={styles.highlight}>projects</Text>, and track your{' '}
+                        <Text style={styles.highlight}>milestones</Text> effortlessly.
+                    </Text>
+                </View>
+
+                <View style={styles.featureCard}>
+                    <Text style={styles.featureText}>
+                        Get paid in <Text style={styles.highlight}>crypto</Text> and{' '}
+                        <Text style={styles.highlight}>withdraw</Text> to your local bank account.
+                    </Text>
+                </View>
+            </ScrollView>
+
+            {/* Bottom Button */}
+            <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 8 }]}>
                 <Button
                     title="Get Started"
                     onPress={() => router.push('/auth/login')}
@@ -45,32 +66,47 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#FFFFFF',
     },
-    centerContent: {
+    scrollView: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
     },
-    logo: {
-        width: 120,
-        height: 120,
-    },
-    bottomSection: {
+    scrollContent: {
         paddingHorizontal: 24,
-        gap: 24,
+        paddingBottom: 100,
     },
-    textContainer: {
-        alignItems: 'center',
-        gap: 8,
-    },
-    logoText: {
+    title: {
         fontFamily: 'RethinkSans_700Bold',
-        fontSize: 28,
+        fontSize: 32,
         color: Colors.textPrimary,
+        marginBottom: 16,
     },
-    tagline: {
+    subtitle: {
         fontFamily: 'RethinkSans_400Regular',
-        fontSize: 16,
+        fontSize: 17,
         color: Colors.textSecondary,
-        textAlign: 'center',
+        lineHeight: 26,
+        marginBottom: 32,
+    },
+    featureCard: {
+        backgroundColor: '#FAFAFA',
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 16,
+        borderLeftWidth: 3,
+        borderLeftColor: '#FCD34D',
+    },
+    featureText: {
+        fontFamily: 'RethinkSans_400Regular',
+        fontSize: 17,
+        color: Colors.textPrimary,
+        lineHeight: 26,
+    },
+    highlight: {
+        fontFamily: 'RethinkSans_600SemiBold',
+        textDecorationLine: 'underline',
+        textDecorationColor: '#FCD34D',
+    },
+    buttonContainer: {
+        paddingHorizontal: 24,
+        backgroundColor: '#FFFFFF',
     },
 });
