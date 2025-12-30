@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { CaretRight, List, CaretDown, Check } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
-import { useSettings, Currency, Theme } from '../../context/SettingsContext';
+import { useSettings, Theme } from '../../context/SettingsContext';
 import { usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
@@ -15,12 +15,7 @@ import { Button } from '../../components/Button';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 
-const CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
-    { code: 'USD', label: 'US Dollar', symbol: '$' },
-    { code: 'NGN', label: 'Nigerian Naira', symbol: '₦' },
-    { code: 'GHS', label: 'Ghanaian Cedi', symbol: '₵' },
-    { code: 'KES', label: 'Kenyan Shilling', symbol: 'KSh' },
-];
+
 
 const THEMES: { code: Theme; label: string }[] = [
     { code: 'light', label: 'Light' },
@@ -31,7 +26,7 @@ const THEMES: { code: Theme; label: string }[] = [
 export default function SettingsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { currency, setCurrency, theme, setTheme, hapticsEnabled, setHapticsEnabled, liveTrackingEnabled, setLiveTrackingEnabled } = useSettings();
+    const { theme, setTheme, hapticsEnabled, setHapticsEnabled, liveTrackingEnabled, setLiveTrackingEnabled } = useSettings();
     const { user, logout, getAccessToken } = usePrivy();
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -43,7 +38,6 @@ export default function SettingsScreen() {
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
 
     // Modals state
-    const [showCurrencyModal, setShowCurrencyModal] = useState(false);
     const [showThemeModal, setShowThemeModal] = useState(false);
 
     // Security state
@@ -295,16 +289,6 @@ export default function SettingsScreen() {
                 {/* General Settings */}
                 <Text style={styles.sectionTitle}>General Settings</Text>
                 <View style={styles.settingsGroup}>
-                    <TouchableOpacity style={styles.settingRow} onPress={() => setShowCurrencyModal(true)}>
-                        <Text style={styles.settingLabel}>Currency</Text>
-                        <View style={styles.settingValueContainer}>
-                            <Text style={styles.settingValue}>{currency}</Text>
-                            {/* <CaretDown size={16} color={Colors.textSecondary} /> */}
-                        </View>
-                    </TouchableOpacity>
-
-                    <View style={styles.divider} />
-
                     <TouchableOpacity style={styles.settingRow} onPress={() => setShowThemeModal(true)}>
                         <Text style={styles.settingLabel}>Theme</Text>
                         <View style={styles.settingValueContainer}>
@@ -402,16 +386,6 @@ export default function SettingsScreen() {
                 onHomeClick={() => router.push('/')}
                 onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
             />
-
-            {/* Currency Modal */}
-            {renderSelectionModal(
-                showCurrencyModal,
-                () => setShowCurrencyModal(false),
-                "Select Currency",
-                CURRENCIES,
-                currency,
-                setCurrency
-            )}
 
             {/* Theme Modal */}
             {renderSelectionModal(
