@@ -10,7 +10,7 @@ import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThre
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
@@ -29,6 +29,7 @@ const ICONS = {
 export default function ContractsScreen() {
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
+    const themeColors = useThemeColors();
     const [contracts, setContracts] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedContract, setSelectedContract] = useState<any>(null);
@@ -274,11 +275,11 @@ export default function ContractsScreen() {
                 overshootRight={false}
                 overshootLeft={false}
             >
-                <TouchableOpacity style={styles.card} onPress={() => handleContractPress(item)}>
+                <TouchableOpacity style={[styles.card, { backgroundColor: themeColors.surface }]} onPress={() => handleContractPress(item)}>
                     <View style={styles.cardHeader}>
                         <View>
-                            <Text style={styles.contractId}>{displayId}</Text>
-                            <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+                            <Text style={[styles.contractId, { color: themeColors.textSecondary }]}>{displayId}</Text>
+                            <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
                         </View>
                         <View style={styles.iconContainer}>
                             <Scroll size={24} color={Colors.primary} weight="duotone" />
@@ -286,10 +287,10 @@ export default function ContractsScreen() {
                         </View>
                     </View>
 
-                    <Text style={styles.amount}>${(item.amount || 0).toString().replace(/[^0-9.]/g, '')}</Text>
+                    <Text style={[styles.amount, { color: themeColors.textPrimary }]}>${(item.amount || 0).toString().replace(/[^0-9.]/g, '')}</Text>
 
                     <View style={styles.cardFooter}>
-                        <Text style={styles.clientText}>For {clientName}</Text>
+                        <Text style={[styles.clientText, { color: themeColors.textSecondary }]}>For {clientName}</Text>
                         <View style={[styles.statusBadge, statusStyle.badge]}>
                             <Text style={[styles.statusText, statusStyle.text]}>
                                 {statusStyle.label}
@@ -302,14 +303,14 @@ export default function ContractsScreen() {
     };
 
     return (
-        <View style={{ flex: 1 }}>
-            <SafeAreaView style={styles.container}>
+        <View style={{ flex: 1, backgroundColor: themeColors.background }}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={Colors.textPrimary} weight="bold" />
+                        <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Contracts</Text>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Contracts</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>
                         <LinearGradient
                             colors={getUserGradient(user?.id || userName.firstName)}
@@ -335,9 +336,9 @@ export default function ContractsScreen() {
                             showsVerticalScrollIndicator={false}
                             ListEmptyComponent={
                                 <View style={styles.emptyState}>
-                                    <Scroll size={64} color={Colors.textSecondary} weight="duotone" />
-                                    <Text style={styles.emptyStateTitle}>No Contracts Yet</Text>
-                                    <Text style={styles.emptyStateText}>
+                                    <Scroll size={64} color={themeColors.textSecondary} weight="duotone" />
+                                    <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Contracts Yet</Text>
+                                    <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
                                         Create your first contract to get started
                                     </Text>
                                 </View>
@@ -372,7 +373,7 @@ export default function ContractsScreen() {
                 onRequestClose={() => setShowModal(false)}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                    <View style={[styles.modalContent, { backgroundColor: themeColors.background }]}>
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderLeft}>
                                 <Image
@@ -385,55 +386,55 @@ export default function ContractsScreen() {
                                     style={styles.statusIcon}
                                 />
                                 <View>
-                                    <Text style={styles.modalTitle}>
+                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
                                         {getStatusStyle(selectedContract?.status).label}
                                     </Text>
-                                    <Text style={styles.modalSubtitle}>
+                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
                                         {selectedContract?.created_at ? `${new Date(selectedContract.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })} • ${new Date(selectedContract.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}` : ''}
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity style={styles.closeButton} onPress={() => {
+                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                 setShowModal(false);
                             }}>
-                                <X size={20} color="#666666" weight="bold" />
+                                <X size={20} color={themeColors.textSecondary} weight="bold" />
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.amountCard}>
-                            <Text style={styles.amountCardValue}>
+                        <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                            <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
                                 ${(selectedContract?.amount || '0').toString().replace(/[^0-9.]/g, '')}
                             </Text>
                             <View style={styles.amountCardSub}>
                                 <Image source={ICONS.usdc} style={styles.smallIcon} />
-                                <Text style={styles.amountCardSubText}>{selectedContract?.amount} USDC</Text>
+                                <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedContract?.amount} USDC</Text>
                             </View>
                         </View>
 
-                        <View style={styles.detailsCard}>
+                        <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Contract ID</Text>
-                                <Text style={styles.detailValue}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Contract ID</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                                     {selectedContract ? `CON-${new Date(selectedContract.created_at).getFullYear()}-${selectedContract.id.substring(4, 7).toUpperCase()}` : ''}
                                 </Text>
                             </View>
-                            <View style={styles.detailDivider} />
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Client</Text>
-                                <Text style={styles.detailValue}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                                     {selectedContract ? (selectedContract.client_name || selectedContract.client?.name || selectedContract.content?.client_name || 'Client') : 'Client'}
                                 </Text>
                             </View>
-                            <View style={styles.detailDivider} />
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Description</Text>
-                                <Text style={[styles.detailValue, { maxWidth: 150 }]} numberOfLines={1} ellipsizeMode="tail">{selectedContract?.title}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }, { maxWidth: 150 }]} numberOfLines={1} ellipsizeMode="tail">{selectedContract?.title}</Text>
                             </View>
-                            <View style={styles.detailDivider} />
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Platform Fee</Text>
-                                <Text style={styles.detailValue}>1%</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Platform Fee</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>1%</Text>
                             </View>
                         </View>
 

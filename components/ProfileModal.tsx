@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { usePrivy, useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
 import * as Clipboard from 'expo-clipboard';
 import { SignOut, Copy, Wallet, CaretRight, CaretLeft, X, UserCircle } from 'phosphor-react-native';
-import { Colors } from '../theme/colors';
+import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import { ethers } from 'ethers';
 
@@ -95,6 +95,7 @@ interface ProfileModalProps {
 export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, userName, walletAddresses, profileIcon }) => {
     const { currency, hapticsEnabled } = useSettings(); // Use currency and haptics from context
     const { user, logout, getAccessToken } = usePrivy();
+    const themeColors = useThemeColors();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const solanaWallet = useEmbeddedSolanaWallet();
     // Stacks wallet is managed by stacksWallet service, not Privy
@@ -526,6 +527,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                     <Animated.View
                         style={[
                             styles.profileModalContent,
+                            { backgroundColor: themeColors.background },
                             { transform: [{ translateY: modalAnim }] }
                         ]}
                     >
@@ -563,7 +565,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                     </LinearGradient>
                                 )}
                                 <View>
-                                    <Text style={styles.profileName}>
+                                    <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>
                                         {userName?.firstName ? `${userName.firstName} ${userName.lastName}` : 'User'}
                                     </Text>
                                     <TouchableOpacity
@@ -581,7 +583,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                             }
                                         }}
                                     >
-                                        <Text style={styles.profileAddress}>
+                                        <Text style={[styles.profileAddress, { color: themeColors.textSecondary }]}>
                                             {selectedChain.addressType === 'evm'
                                                 ? (ethAddress ? `${ethAddress.slice(0, 6)}...${ethAddress.slice(-4)}` : '0x...')
                                                 : selectedChain.addressType === 'solana'
@@ -589,12 +591,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                                     : (btcAddress ? `${btcAddress.slice(0, 6)}...${btcAddress.slice(-4)}` : 'Not connected')
                                             }
                                         </Text>
-                                        <Copy size={14} color={Colors.textSecondary} />
+                                        <Copy size={14} color={themeColors.textTertiary} />
                                     </TouchableOpacity>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                                <X size={20} color="#666666" weight="bold" />
+                            <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
+                                <X size={20} color={themeColors.textSecondary} weight="bold" />
                             </TouchableOpacity>
                         </Animated.View>
 
@@ -608,21 +610,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                 <View style={styles.mainContent}>
                                     {/* Total Balance Card */}
                                     <Animated.View style={[styles.balanceCard, { opacity: balanceAnim, transform: [{ translateY: balanceAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-                                        <Text style={styles.balanceLabel}>Total Balance</Text>
-                                        <Text style={styles.balanceAmount}>{currencySymbol}{displayBalance}</Text>
+                                        <Text style={[styles.balanceLabel, { color: themeColors.textSecondary }]}>Total Balance</Text>
+                                        <Text style={[styles.balanceAmount, { color: themeColors.textPrimary }]}>{currencySymbol}{displayBalance}</Text>
                                     </Animated.View>
 
                                     <Animated.View style={[styles.menuList, { opacity: chainsAnim, transform: [{ translateY: chainsAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
                                         {/* Chain Selector */}
                                         <TouchableOpacity
-                                            style={styles.menuItem}
+                                            style={[styles.menuItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                                             onPress={() => setViewMode('chains')}
                                         >
                                             <View style={styles.menuItemLeft}>
                                                 <selectedChain.icon width={24} height={24} />
                                                 <View>
-                                                    <Text style={styles.menuItemTitle}>{selectedChain.name}</Text>
-                                                    <Text style={styles.menuItemSubtitle}>
+                                                    <Text style={[styles.menuItemTitle, { color: themeColors.textPrimary }]}>{selectedChain.name}</Text>
+                                                    <Text style={[styles.menuItemSubtitle, { color: themeColors.textSecondary }]}>
                                                         {selectedChain.addressType === 'evm'
                                                             ? `${parseFloat(balances['Base_ETH'] || '0').toFixed(4)} ETH`
                                                             : selectedChain.addressType === 'solana'
@@ -632,19 +634,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                                     </Text>
                                                 </View>
                                             </View>
-                                            <CaretRight size={20} color={Colors.textSecondary} />
+                                            <CaretRight size={20} color={themeColors.textTertiary} />
                                         </TouchableOpacity>
 
                                         {/* View Assets */}
                                         <TouchableOpacity
-                                            style={styles.menuItem}
+                                            style={[styles.menuItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                                             onPress={() => setViewMode('assets')}
                                         >
                                             <View style={styles.menuItemLeft}>
-                                                <Wallet size={24} color={Colors.textPrimary} />
-                                                <Text style={styles.menuItemTitle}>View Assets</Text>
+                                                <Wallet size={24} color={themeColors.textPrimary} />
+                                                <Text style={[styles.menuItemTitle, { color: themeColors.textPrimary }]}>View Assets</Text>
                                             </View>
-                                            <CaretRight size={20} color={Colors.textSecondary} />
+                                            <CaretRight size={20} color={themeColors.textSecondary} />
                                         </TouchableOpacity>
                                     </Animated.View>
                                 </View>
@@ -656,11 +658,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                         style={styles.backButton}
                                         onPress={() => setViewMode('main')}
                                     >
-                                        <CaretLeft size={20} color={Colors.textSecondary} />
-                                        <Text style={styles.backButtonText}>Back</Text>
+                                        <CaretLeft size={20} color={themeColors.textSecondary} />
+                                        <Text style={[styles.backButtonText, { color: themeColors.textSecondary }]}>Back</Text>
                                     </TouchableOpacity>
 
-                                    <Text style={styles.viewTitle}>Assets ({selectedChain.name})</Text>
+                                    <Text style={[styles.viewTitle, { color: themeColors.textPrimary }]}>Assets ({selectedChain.name})</Text>
 
                                     <View style={styles.assetList}>
                                         {selectedChain.tokens.map((token, idx) => {
@@ -669,13 +671,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                             const balance = balances[key] || '0.00';
 
                                             return (
-                                                <View key={idx} style={styles.assetItem}>
-                                                    <View style={styles.assetIcon}>
+                                                <View key={idx} style={[styles.assetItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                                                    <View style={[styles.assetIcon, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                                                         <token.icon width={24} height={24} />
                                                     </View>
                                                     <View style={styles.assetInfo}>
-                                                        <Text style={styles.assetName}>{token.symbol}</Text>
-                                                        <Text style={styles.assetBalance}>{parseFloat(balance).toFixed(4)}</Text>
+                                                        <Text style={[styles.assetName, { color: themeColors.textPrimary }]}>{token.symbol}</Text>
+                                                        <Text style={[styles.assetBalance, { color: themeColors.textSecondary }]}>{parseFloat(balance).toFixed(4)}</Text>
                                                     </View>
                                                 </View>
                                             );
@@ -690,18 +692,19 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                         style={styles.backButton}
                                         onPress={() => setViewMode('main')}
                                     >
-                                        <CaretLeft size={20} color={Colors.textSecondary} />
-                                        <Text style={styles.backButtonText}>Back</Text>
+                                        <CaretLeft size={20} color={themeColors.textSecondary} />
+                                        <Text style={[styles.backButtonText, { color: themeColors.textSecondary }]}>Back</Text>
                                     </TouchableOpacity>
 
-                                    <Text style={styles.viewTitle}>Select Chain</Text>
+                                    <Text style={[styles.viewTitle, { color: themeColors.textPrimary }]}>Select Chain</Text>
 
                                     {SUPPORTED_CHAINS.map((chain, idx) => (
                                         <TouchableOpacity
                                             key={idx}
                                             style={[
                                                 styles.chainOption,
-                                                selectedChain.name === chain.name && styles.selectedChainOption
+                                                { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                                                selectedChain.name === chain.name && { backgroundColor: themeColors.surface, borderColor: Colors.primary }
                                             ]}
                                             onPress={() => {
                                                 setSelectedChain(chain);
@@ -710,7 +713,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                         >
                                             <View style={styles.chainOptionLeft}>
                                                 <chain.icon width={24} height={24} />
-                                                <Text style={styles.chainOptionName}>{chain.name}</Text>
+                                                <Text style={[styles.chainOptionName, { color: themeColors.textPrimary }]}>{chain.name}</Text>
                                             </View>
                                             {selectedChain.name === chain.name && (
                                                 <View style={styles.selectedDot} />

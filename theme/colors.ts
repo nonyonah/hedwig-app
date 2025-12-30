@@ -88,6 +88,11 @@ export function useThemeColors(): ThemeColors {
     return isDark ? DarkColors : LightColors;
 }
 
+export function useKeyboardAppearance(): 'dark' | 'light' {
+    const settings = useSettings();
+    return settings.currentTheme === 'dark' ? 'dark' : 'light';
+}
+
 // Export static colors (for backward compatibility where hooks can't be used)
 export const Colors = LightColors;
 

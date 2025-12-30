@@ -5,7 +5,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
 import { CaretRight, List, CaretDown, Check } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
 import { usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +27,7 @@ export default function SettingsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { theme, setTheme, hapticsEnabled, setHapticsEnabled, liveTrackingEnabled, setLiveTrackingEnabled } = useSettings();
+    const themeColors = useThemeColors();
     const { user, logout, getAccessToken } = usePrivy();
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -206,12 +207,12 @@ export default function SettingsScreen() {
                     onClose();
                 }} />
                 <TouchableWithoutFeedback>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{title}</Text>
+                    <View style={[styles.modalContent, { backgroundColor: themeColors.surface }]}>
+                        <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>{title}</Text>
                         {options.map((opt) => (
                             <TouchableOpacity
                                 key={opt.code}
-                                style={styles.modalItem}
+                                style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
                                 onPress={() => {
                                     if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                     onSelect(opt.code);
@@ -220,6 +221,7 @@ export default function SettingsScreen() {
                             >
                                 <Text style={[
                                     styles.modalItemText,
+                                    { color: themeColors.textPrimary },
                                     selectedValue === opt.code && styles.modalItemTextSelected
                                 ]}>
                                     {opt.label}
@@ -236,16 +238,16 @@ export default function SettingsScreen() {
     );
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <TouchableOpacity
                     style={styles.headerButton}
                     onPress={() => setIsSidebarOpen(true)}
                 >
-                    <List size={24} color={Colors.textPrimary} weight="bold" />
+                    <List size={24} color={themeColors.textPrimary} weight="bold" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Settings</Text>
+                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Settings</Text>
                 <View style={styles.headerButton} />
             </View>
 
@@ -262,7 +264,7 @@ export default function SettingsScreen() {
                     {profileIcon.imageUri ? (
                         <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
                     ) : profileIcon.emoji ? (
-                        <View style={[styles.avatar, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
+                        <View style={[styles.avatar, { backgroundColor: themeColors.surface, justifyContent: 'center', alignItems: 'center' }]}>
                             <Text style={{ fontSize: 20 }}>{profileIcon.emoji}</Text>
                         </View>
                     ) : (
@@ -276,50 +278,50 @@ export default function SettingsScreen() {
                         </LinearGradient>
                     )}
                     <View style={styles.profileInfo}>
-                        <Text style={styles.profileName}>
+                        <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>
                             {userName.firstName ? `${userName.firstName} ${userName.lastName}`.trim() : 'Edit Profile'}
                         </Text>
-                        <Text style={styles.profileSubtitle}>Update name and photo</Text>
+                        <Text style={[styles.profileSubtitle, { color: themeColors.textSecondary }]}>Update name and photo</Text>
                     </View>
-                    <CaretRight size={20} color={Colors.textSecondary} />
+                    <CaretRight size={20} color={themeColors.textSecondary} />
                 </TouchableOpacity>
 
                 <View style={styles.spacer} />
 
                 {/* General Settings */}
-                <Text style={styles.sectionTitle}>General Settings</Text>
-                <View style={styles.settingsGroup}>
+                <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>General Settings</Text>
+                <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
                     <TouchableOpacity style={styles.settingRow} onPress={() => setShowThemeModal(true)}>
-                        <Text style={styles.settingLabel}>Theme</Text>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Theme</Text>
                         <View style={styles.settingValueContainer}>
-                            <Text style={styles.settingValue}>
+                            <Text style={[styles.settingValue, { color: themeColors.textSecondary }]}>
                                 {THEMES.find(t => t.code === theme)?.label || 'System'}
                             </Text>
-                            {/* <CaretDown size={16} color={Colors.textSecondary} /> */}
+                            {/* <CaretDown size={16} color={themeColors.textSecondary} /> */}
                         </View>
                     </TouchableOpacity>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                     <View style={styles.settingRow}>
-                        <Text style={styles.settingLabel}>Haptic Feedback</Text>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Haptic Feedback</Text>
                         <Switch
-                            trackColor={{ false: "#E5E7EB", true: Colors.success }}
+                            trackColor={{ false: themeColors.border, true: Colors.success }}
                             thumbColor={"#FFFFFF"}
-                            ios_backgroundColor="#E5E7EB"
+                            ios_backgroundColor={themeColors.border}
                             value={hapticsEnabled}
                             onValueChange={setHapticsEnabled}
                         />
                     </View>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                     <View style={styles.settingRow}>
-                        <Text style={styles.settingLabel}>{Platform.OS === 'ios' ? 'Live Activities' : 'Live Updates'}</Text>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>{Platform.OS === 'ios' ? 'Live Activities' : 'Live Updates'}</Text>
                         <Switch
-                            trackColor={{ false: "#E5E7EB", true: Colors.success }}
+                            trackColor={{ false: themeColors.border, true: Colors.success }}
                             thumbColor={"#FFFFFF"}
-                            ios_backgroundColor="#E5E7EB"
+                            ios_backgroundColor={themeColors.border}
                             value={liveTrackingEnabled}
                             onValueChange={setLiveTrackingEnabled}
                         />
@@ -329,21 +331,21 @@ export default function SettingsScreen() {
                 <View style={styles.spacer} />
 
                 {/* Security */}
-                <Text style={styles.sectionTitle}>Security</Text>
-                <View style={styles.settingsGroup}>
+                <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Security</Text>
+                <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
                     <TouchableOpacity style={styles.settingRow} onPress={() => console.log('Recovery Phrase')}>
-                        <Text style={styles.settingLabel}>Recovery Phrase</Text>
-                        <CaretRight size={20} color={Colors.textSecondary} />
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Recovery Phrase</Text>
+                        <CaretRight size={20} color={themeColors.textSecondary} />
                     </TouchableOpacity>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                     <View style={styles.settingRow}>
-                        <Text style={styles.settingLabel}>Biometrics</Text>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Biometrics</Text>
                         <Switch
-                            trackColor={{ false: "#E5E7EB", true: Colors.success }}
+                            trackColor={{ false: themeColors.border, true: Colors.success }}
                             thumbColor={"#FFFFFF"}
-                            ios_backgroundColor="#E5E7EB"
+                            ios_backgroundColor={themeColors.border}
                             value={biometricsEnabled}
                             onValueChange={toggleBiometrics}
                         />
@@ -367,8 +369,8 @@ export default function SettingsScreen() {
                 <Button
                     title="Log Out"
                     onPress={handleLogout}
-                    style={{ backgroundColor: '#F3F4F6', marginTop: 12 }}
-                    textStyle={{ color: Colors.textPrimary }}
+                    style={{ backgroundColor: themeColors.surface, marginTop: 12 }}
+                    textStyle={{ color: themeColors.textPrimary }}
                     size="large"
                 />
 
@@ -412,7 +414,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 20,
         paddingVertical: 12,
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
         // Removed border bottom
         height: 60,
     },

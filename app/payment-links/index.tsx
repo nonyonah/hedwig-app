@@ -11,7 +11,7 @@ import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThre
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
@@ -51,6 +51,7 @@ export default function PaymentLinksScreen() {
     const { getAccessToken, user } = usePrivy();
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
+    const themeColors = useThemeColors();
     const [links, setLinks] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedLink, setSelectedLink] = useState<any>(null);
@@ -278,30 +279,40 @@ export default function PaymentLinksScreen() {
     const renderItem = ({ item }: { item: any }) => {
         return (
             <TouchableOpacity
-                style={styles.card}
+                style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                 onPress={() => handleLinkPress(item)}
                 onLongPress={() => handleDelete(item.id)}
                 delayLongPress={500}
             >
                 <View style={styles.cardHeader}>
                     <View>
-                        <Text style={styles.linkId}>LINK-{item.id.substring(0, 8).toUpperCase()}</Text>
-                        <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+                        <Text style={[styles.linkId, { color: themeColors.textSecondary }]}>LINK-{item.id.substring(0, 8).toUpperCase()}</Text>
+                        <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
                     </View>
                     <View style={styles.iconContainer}>
                         <Image source={ICONS.usdc} style={styles.cardTokenIcon} />
-                        <Image source={getChainIcon(item.chain)} style={styles.cardChainBadge} />
+                        <Image source={getChainIcon(item.chain)} style={[styles.cardChainBadge, { borderColor: themeColors.surface }]} />
                     </View>
                 </View>
 
-                <Text style={styles.amount}>{formatCurrency((item.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}</Text>
+                <Text style={[styles.amount, { color: themeColors.textPrimary }]}>{formatCurrency((item.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}</Text>
 
                 <View style={styles.cardFooter}>
                     <Text style={styles.dateText}>
                         {new Date(item.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </Text>
-                    <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
-                        <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
+                    <View style={[
+                        styles.statusBadge,
+                        item.status === 'PAID'
+                            ? { backgroundColor: '#DCFCE7' } // PAID: Light green (fixed for now, maybe themeColors specific?)
+                            : { backgroundColor: themeColors.surface } // PENDING: Surface/Grey
+                    ]}>
+                        <Text style={[
+                            styles.statusText,
+                            item.status === 'PAID'
+                                ? { color: '#16A34A' }
+                                : { color: themeColors.textSecondary }
+                        ]}>
                             {item.status === 'PAID' ? 'Paid' : 'Pending'}
                         </Text>
                     </View>
@@ -312,12 +323,12 @@ export default function PaymentLinksScreen() {
 
     return (
         <View style={{ flex: 1 }}>
-            <SafeAreaView style={styles.container}>
-                <View style={styles.header}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={Colors.textPrimary} weight="bold" />
+                        <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Payment Links</Text>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Payment Links</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>
                         {profileIcon.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
@@ -342,10 +353,10 @@ export default function PaymentLinksScreen() {
                         {(['all', 'paid', 'pending'] as const).map(filter => (
                             <TouchableOpacity
                                 key={filter}
-                                style={[styles.filterChip, statusFilter === filter && styles.filterChipActive]}
+                                style={[styles.filterChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
                                 onPress={() => setStatusFilter(filter)}
                             >
-                                <Text style={[styles.filterText, statusFilter === filter && styles.filterTextActive]}>
+                                <Text style={[styles.filterText, { color: themeColors.textSecondary }, statusFilter === filter && styles.filterTextActive]}>
                                     {filter.charAt(0).toUpperCase() + filter.slice(1)}
                                 </Text>
                             </TouchableOpacity>
@@ -365,9 +376,9 @@ export default function PaymentLinksScreen() {
                         contentContainerStyle={styles.listContent}
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <ShareNetwork size={64} color={Colors.textSecondary} weight="duotone" />
-                                <Text style={styles.emptyStateTitle}>No Payment Links</Text>
-                                <Text style={styles.emptyStateText}>
+                                <ShareNetwork size={64} color={themeColors.textSecondary} weight="duotone" />
+                                <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Payment Links</Text>
+                                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
                                     Create a payment link to accept crypto payments
                                 </Text>
                             </View>
@@ -411,6 +422,7 @@ export default function PaymentLinksScreen() {
                     <Animated.View
                         style={[
                             styles.modalContent,
+                            { backgroundColor: themeColors.background },
                             {
                                 transform: [{
                                     translateY: slideAnim.interpolate({
@@ -435,10 +447,10 @@ export default function PaymentLinksScreen() {
                                     />
                                 </View>
                                 <View>
-                                    <Text style={styles.modalTitle}>
+                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
                                         {selectedLink?.status === 'PAID' ? 'Paid' : 'Pending'}
                                     </Text>
-                                    <Text style={styles.modalSubtitle}>
+                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
                                         {selectedLink?.created_at ? `${new Date(selectedLink.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')} ${new Date(selectedLink.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
                                     </Text>
                                 </View>
@@ -460,8 +472,8 @@ export default function PaymentLinksScreen() {
                                         <DotsThree size={24} color={Colors.textSecondary} weight="bold" />
                                     </TouchableOpacity>
                                 )}
-                                <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
-                                    <X size={20} color="#666666" weight="bold" />
+                                <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
+                                    <X size={20} color={themeColors.textSecondary} weight="bold" />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -485,6 +497,7 @@ export default function PaymentLinksScreen() {
                                 <Animated.View
                                     style={[
                                         styles.pullDownMenu,
+                                        { backgroundColor: themeColors.surface, borderColor: themeColors.border },
                                         {
                                             opacity: 1,
                                             transform: [{ scale: 1 }]
@@ -515,10 +528,10 @@ export default function PaymentLinksScreen() {
                                         }}
                                     >
                                         <Bell size={18} color={Colors.primary} weight="fill" />
-                                        <Text style={styles.pullDownMenuText}>Send Reminder</Text>
+                                        <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>Send Reminder</Text>
                                     </TouchableOpacity>
 
-                                    <View style={styles.pullDownMenuDivider} />
+                                    <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
 
                                     <TouchableOpacity
                                         style={styles.pullDownMenuItem}
@@ -554,12 +567,12 @@ export default function PaymentLinksScreen() {
                                         }}
                                     >
                                         <Bell size={18} color={selectedLink?.content?.reminders_enabled !== false ? Colors.textSecondary : Colors.primary} weight={selectedLink?.content?.reminders_enabled !== false ? 'regular' : 'fill'} />
-                                        <Text style={styles.pullDownMenuText}>
+                                        <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>
                                             {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
                                         </Text>
                                     </TouchableOpacity>
 
-                                    <View style={styles.pullDownMenuDivider} />
+                                    <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
 
                                     <TouchableOpacity
                                         style={styles.pullDownMenuItem}
@@ -577,40 +590,40 @@ export default function PaymentLinksScreen() {
                             </>
                         )}
 
-                        <View style={styles.amountCard}>
-                            <Text style={styles.amountCardValue}>
+                        <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                            <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
                                 {formatCurrency((selectedLink?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
                             </Text>
                             <View style={styles.amountCardSub}>
                                 <Image source={ICONS.usdc} style={styles.smallIcon} />
-                                <Text style={styles.amountCardSubText}>{selectedLink?.amount} USDC</Text>
+                                <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedLink?.amount} USDC</Text>
                             </View>
                         </View>
 
-                        <View style={styles.detailsCard}>
+                        <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Link ID</Text>
-                                <Text style={styles.detailValue}>LINK-{selectedLink?.id?.substring(0, 8).toUpperCase()}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Link ID</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>LINK-{selectedLink?.id?.substring(0, 8).toUpperCase()}</Text>
                             </View>
-                            <View style={styles.detailDivider} />
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Description</Text>
-                                <Text style={styles.detailValue}>{selectedLink?.title}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.title}</Text>
                             </View>
-                            <View style={styles.detailDivider} />
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Client</Text>
-                                <Text style={styles.detailValue}>{selectedLink?.content?.clientName || selectedLink?.content?.client_name || 'N/A'}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.content?.clientName || selectedLink?.content?.client_name || 'N/A'}</Text>
                             </View>
-                            <View style={styles.detailDivider} />
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Chain</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
                                 <View style={styles.chainValue}>
                                     <Image
                                         source={getChainIcon(selectedLink?.chain)}
                                         style={styles.smallIcon}
                                     />
-                                    <Text style={styles.detailValue}>{getChainName(selectedLink?.chain)}</Text>
+                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{getChainName(selectedLink?.chain)}</Text>
                                 </View>
                             </View>
                         </View>
@@ -739,7 +752,7 @@ const styles = StyleSheet.create({
         height: 18,
         borderRadius: 9,
         borderWidth: 2,
-        borderColor: '#FFFFFF',
+        // borderColor: '#FFFFFF', // Overridden
     },
     badgeIcon: {
         width: 20,
@@ -826,16 +839,10 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         padding: 24,
         paddingBottom: 40,
-        maxHeight: '80%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 10,
     },
     nudgeButton: {
         flexDirection: 'row',
@@ -863,7 +870,7 @@ const styles = StyleSheet.create({
     modalHeaderLeft: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        gap: 12,
+        gap: 8,
     },
     modalHeaderRight: {
         flexDirection: 'row',
@@ -877,7 +884,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#F3F4F6',
+        // backgroundColor: '#F3F4F6', // Overridden
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -906,14 +913,14 @@ const styles = StyleSheet.create({
     },
     actionMenuDivider: {
         height: 1,
-        backgroundColor: '#E5E7EB',
+        // backgroundColor: '#E5E7EB', // Overridden
         marginHorizontal: 8,
     },
     pullDownMenu: {
         position: 'absolute',
         top: 50,
         right: 24,
-        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        // backgroundColor: 'rgba(255, 255, 255, 0.98)', // Overridden
         borderRadius: 14,
         paddingVertical: 6,
         minWidth: 200,
@@ -938,7 +945,7 @@ const styles = StyleSheet.create({
     },
     pullDownMenuDivider: {
         height: StyleSheet.hairlineWidth,
-        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+        // backgroundColor: 'rgba(0, 0, 0, 0.1)', // Overridden
         marginHorizontal: 0,
     },
     menuBackdrop: {

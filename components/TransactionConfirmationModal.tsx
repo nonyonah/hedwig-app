@@ -4,7 +4,7 @@ import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/ex
 import { ethers } from 'ethers';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { X, CheckCircle, Warning, Fingerprint, ArrowSquareOut, XCircle } from 'phosphor-react-native';
-import { Colors } from '../theme/colors';
+import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
 import * as WebBrowser from 'expo-web-browser';
@@ -90,8 +90,61 @@ interface TransactionConfirmationModalProps {
 
 type ModalState = 'confirm' | 'processing' | 'success' | 'failed';
 
+// Helper function to convert technical errors into user-friendly messages
+const parseErrorMessage = (error: any): string => {
+    const message = error?.message?.toLowerCase() || '';
+
+    // Gas-related errors
+    if (message.includes('insufficient funds') || message.includes('gas required exceeds') ||
+        message.includes('insufficient balance') || message.includes('not enough balance')) {
+        return 'Insufficient funds for gas fees. Please add more funds to your wallet to cover the transaction fee.';
+    }
+    if (message.includes('gas') && (message.includes('limit') || message.includes('price'))) {
+        return 'Unable to estimate gas. The network may be congested. Please try again later.';
+    }
+
+    // Network errors
+    if (message.includes('network') || message.includes('connection') || message.includes('timeout')) {
+        return 'Network connection issue. Please check your internet connection and try again.';
+    }
+
+    // User rejection
+    if (message.includes('rejected') || message.includes('denied') || message.includes('cancelled')) {
+        return 'Transaction was cancelled.';
+    }
+
+    // Wallet errors
+    if (message.includes('wallet') && message.includes('not available')) {
+        return 'Wallet not available. Please ensure you are logged in and try again.';
+    }
+
+    // Chain/network switch errors
+    if (message.includes('switch') && message.includes('chain')) {
+        return 'Please switch to the correct network in your wallet settings.';
+    }
+
+    // Nonce errors
+    if (message.includes('nonce')) {
+        return 'Transaction conflict detected. Please wait a moment and try again.';
+    }
+
+    // Token errors
+    if (message.includes('token') && message.includes('not supported')) {
+        return 'This token is not supported on the selected network.';
+    }
+
+    // Default: return a cleaned up version of the original message
+    const cleanMessage = error?.message || 'An unexpected error occurred';
+    // Truncate very long technical messages
+    if (cleanMessage.length > 100) {
+        return 'Transaction failed. Please try again or contact support if the issue persists.';
+    }
+    return cleanMessage;
+};
+
 export const TransactionConfirmationModal: React.FC<TransactionConfirmationModalProps> = ({ visible, onClose, data, onSuccess }) => {
     const { hapticsEnabled } = useSettings();
+    const themeColors = useThemeColors();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const solanaWallet = useEmbeddedSolanaWallet();
 
@@ -666,7 +719,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
 
         } catch (error: any) {
             console.error('Transaction Failed:', error);
-            setStatusMessage(error.message || 'Unknown error');
+            setStatusMessage(parseErrorMessage(error));
             setModalState('failed');
         }
     };
@@ -701,7 +754,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                             loop
                             style={styles.lottie}
                         />
-                        <Text style={styles.statusTitle}>We're doing the thing...</Text>
+                        <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>We're doing the thing...</Text>
                     </View>
                 );
             case 'success':
@@ -713,10 +766,10 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                             loop={false}
                             style={[styles.lottie, { width: 200, height: 200 }]}
                         />
-                        <Text style={styles.statusTitle}>Transaction has been completed successfully</Text>
+                        <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>Transaction has been completed successfully</Text>
 
                         <View style={styles.actionButtonsContainer}>
-                            <TouchableOpacity style={styles.explorerButton} onPress={openExplorer}>
+                            <TouchableOpacity style={[styles.explorerButton, { backgroundColor: themeColors.surface }]} onPress={openExplorer}>
                                 <Text style={styles.explorerButtonText}>View on Block Explorer</Text>
                                 <ArrowSquareOut size={20} color={Colors.primary} />
                             </TouchableOpacity>
@@ -731,7 +784,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                 return (
                     <View style={styles.statusContainer}>
                         <XCircle size={120} color={Colors.error || '#EF4444'} weight="fill" style={{ marginBottom: 24 }} />
-                        <Text style={styles.statusTitle}>Transaction failed. Don't worry your funds are safe.</Text>
+                        <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>Transaction failed. Don't worry your funds are safe.</Text>
                         <Text style={styles.errorMessage}>{statusMessage}</Text>
                         <View style={styles.actionButtonsContainer}>
                             <TouchableOpacity style={styles.closeButtonMain} onPress={onClose}>
@@ -745,45 +798,45 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                     <>
                         {/* Header */}
                         <View style={styles.header}>
-                            <Text style={styles.title}>Confirm Transaction</Text>
-                            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                                <X size={20} color="#666666" weight="bold" />
+                            <Text style={[styles.title, { color: themeColors.textPrimary }]}>Confirm Transaction</Text>
+                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={onClose}>
+                                <X size={20} color={themeColors.textSecondary} weight="bold" />
                             </TouchableOpacity>
                         </View>
 
                         {/* Amount */}
                         <View style={styles.amountContainer}>
-                            <Text style={styles.amountLabel}>You're sending</Text>
-                            <Text style={styles.amount}>{data.amount} {data.token}</Text>
+                            <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>You're sending</Text>
+                            <Text style={[styles.amount, { color: themeColors.textPrimary }]}>{data.amount} {data.token}</Text>
                         </View>
 
                         {/* Details */}
-                        <View style={styles.detailsContainer}>
+                        <View style={[styles.detailsContainer, { backgroundColor: themeColors.surface }]}>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>To</Text>
-                                <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>To</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1} ellipsizeMode="middle">
                                     {data.recipient ? `${data.recipient.slice(0, 8)}...${data.recipient.slice(-6)}` : 'Loading...'}
                                 </Text>
                             </View>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Network</Text>
-                                <View style={styles.chainBadge}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Network</Text>
+                                <View style={[styles.chainBadge, { backgroundColor: themeColors.background }]}>
                                     {chain?.icon && <Image source={chain.icon} style={styles.chainIcon} />}
-                                    <Text style={styles.chainName}>{chain?.name || data.network}</Text>
+                                    <Text style={[styles.chainName, { color: themeColors.textPrimary }]}>{chain?.name || data.network}</Text>
                                 </View>
                             </View>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Est. Fee</Text>
-                                <Text style={styles.detailValue}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Est. Fee</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                                     {gasError ? gasError : (estimatedGas || 'Calculating...')}
                                 </Text>
                             </View>
                         </View>
 
                         {/* Biometric Warning */}
-                        <View style={styles.warningContainer}>
+                        <View style={[styles.warningContainer, { backgroundColor: themeColors.surface }]}>
                             <Fingerprint size={24} color={Colors.primary} />
-                            <Text style={styles.warningText}>
+                            <Text style={[styles.warningText, { color: themeColors.textSecondary }]}>
                                 You'll need to authenticate with biometrics to confirm this transaction
                             </Text>
                         </View>
@@ -814,6 +867,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                 <Animated.View
                     style={[
                         styles.modalContent,
+                        { backgroundColor: themeColors.background },
                         { transform: [{ translateY: modalAnim }] }
                     ]}
                 >

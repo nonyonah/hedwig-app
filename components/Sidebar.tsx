@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollV
 import { useRouter, usePathname } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
 import { House, Link, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase } from 'phosphor-react-native';
-import { Colors } from '../theme/colors';
+import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '../context/SettingsContext';
@@ -36,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const pathname = usePathname();
     const { user, logout, getAccessToken } = usePrivy();
     const { hapticsEnabled } = useSettings();
+    const themeColors = useThemeColors();
     const insets = useSafeAreaInsets();
 
     // Animation value: 0 (closed) to 1 (open)
@@ -190,6 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
 
     // Airbnb-style menu item with active state as black pill
+    // Airbnb-style menu item with active state as black pill
     const renderMenuItem = (icon: React.ReactNode, label: string, isActive: boolean, onPress: () => void) => (
         <TouchableOpacity
             style={[styles.menuItem, isActive && styles.menuItemActive]}
@@ -202,10 +204,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
             <View style={[styles.menuIcon, isActive && styles.menuIconActive]}>
                 {React.cloneElement(icon as React.ReactElement<{ color: string }>, {
-                    color: isActive ? '#FFFFFF' : Colors.textPrimary
+                    color: isActive ? '#FFFFFF' : themeColors.textPrimary
                 })}
             </View>
-            <Text style={[styles.menuText, isActive && styles.menuTextActive]}>{label}</Text>
+            <Text style={[styles.menuText, { color: themeColors.textPrimary }, isActive && styles.menuTextActive]}>{label}</Text>
         </TouchableOpacity>
     );
 
@@ -231,6 +233,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Animated.View
                 style={[
                     styles.sidebarContainer,
+                    { backgroundColor: themeColors.background },
                     {
                         transform: [{ translateX: sidebarTranslateX }],
                         paddingTop: insets.top + 16,
@@ -240,19 +243,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
                 {/* Search Header */}
                 <View style={styles.searchHeader}>
-                    <View style={styles.searchContainer}>
-                        <MagnifyingGlass size={20} color={Colors.textSecondary} />
+                    <View style={[styles.searchContainer, { backgroundColor: themeColors.surface }]}>
+                        <MagnifyingGlass size={20} color={themeColors.textSecondary} />
                         <TextInput
-                            style={styles.searchInput}
+                            style={[styles.searchInput, { color: themeColors.textPrimary }]}
                             placeholder="Search..."
-                            placeholderTextColor={Colors.textSecondary}
+                            placeholderTextColor={themeColors.textSecondary}
                             value={searchQuery}
                             onChangeText={handleSearchChange}
                             returnKeyType="search"
                         />
                         {searchQuery.length > 0 && (
                             <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); }}>
-                                <X size={18} color={Colors.textSecondary} />
+                                <X size={18} color={themeColors.textSecondary} />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -262,7 +265,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {searchQuery.length > 0 && (
                     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                         <ScrollView
-                            style={styles.searchResultsContainer}
+                            style={[styles.searchResultsContainer, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                             onScrollBeginDrag={Keyboard.dismiss}
                             keyboardShouldPersistTaps="handled"
                         >
@@ -272,23 +275,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 searchResults.map((result, index) => (
                                     <TouchableOpacity
                                         key={`${result.type}-${result.id}-${index}`}
-                                        style={styles.searchResultItem}
+                                        style={[styles.searchResultItem, { borderBottomColor: themeColors.border }]}
                                         onPress={() => handleSearchResultPress(result)}
                                     >
-                                        <View style={styles.searchResultIcon}>
+                                        <View style={[styles.searchResultIcon, { backgroundColor: themeColors.background }]}>
                                             {result.type === 'invoice' && <Receipt size={18} color={Colors.primary} />}
                                             {result.type === 'payment_link' && <Link size={18} color={Colors.primary} />}
                                             {result.type === 'conversation' && <Chat size={18} color={Colors.primary} />}
                                             {result.type === 'menu' && <House size={18} color={Colors.primary} />}
                                         </View>
                                         <View style={styles.searchResultText}>
-                                            <Text style={styles.searchResultTitle} numberOfLines={1}>{result.title}</Text>
-                                            <Text style={styles.searchResultSubtitle} numberOfLines={1}>{result.subtitle}</Text>
+                                            <Text style={[styles.searchResultTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{result.title}</Text>
+                                            <Text style={[styles.searchResultSubtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>{result.subtitle}</Text>
                                         </View>
                                     </TouchableOpacity>
                                 ))
                             ) : (
-                                <Text style={styles.noResultsText}>No results found</Text>
+                                <Text style={[styles.noResultsText, { color: themeColors.textSecondary }]}>No results found</Text>
                             )}
                         </ScrollView>
                     </TouchableWithoutFeedback>
@@ -335,9 +338,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                             </View>
 
+                            {/* Previous Chats Section */}
+                            {conversations.length > 0 && (
+                                <View style={styles.settingsSection}>
+                                    <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>PREVIOUS CHATS</Text>
+                                    {conversations.slice(0, 5).map((conv) => (
+                                        <TouchableOpacity
+                                            key={conv.id}
+                                            style={[
+                                                styles.menuItem,
+                                                currentConversationId === conv.id && styles.menuItemActive
+                                            ]}
+                                            onPress={async () => {
+                                                if (hapticsEnabled) {
+                                                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                }
+                                                if (onLoadConversation) {
+                                                    onLoadConversation(conv.id);
+                                                }
+                                                onClose();
+                                            }}
+                                            onLongPress={() => {
+                                                if (onDeleteConversation) {
+                                                    Alert.alert(
+                                                        'Delete Chat',
+                                                        'Are you sure you want to delete this conversation?',
+                                                        [
+                                                            { text: 'Cancel', style: 'cancel' },
+                                                            { text: 'Delete', style: 'destructive', onPress: () => onDeleteConversation(conv.id) }
+                                                        ]
+                                                    );
+                                                }
+                                            }}
+                                        >
+                                            <View style={[styles.menuIcon, currentConversationId === conv.id && styles.menuIconActive]}>
+                                                <Chat size={22} weight="bold" color={currentConversationId === conv.id ? '#FFFFFF' : themeColors.textPrimary} />
+                                            </View>
+                                            <Text
+                                                style={[
+                                                    styles.menuText,
+                                                    { color: themeColors.textPrimary },
+                                                    currentConversationId === conv.id && styles.menuTextActive
+                                                ]}
+                                                numberOfLines={1}
+                                            >
+                                                {conv.title || 'Untitled Chat'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+
                             {/* Settings Section */}
                             <View style={styles.settingsSection}>
-                                <Text style={styles.sectionTitle}>SETTINGS</Text>
+                                <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>SETTINGS</Text>
                                 {renderMenuItem(
                                     <ArrowsLeftRight size={22} weight="bold" />,
                                     'Transactions',
@@ -360,16 +414,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </ScrollView>
 
                         {/* Footer - Give Feedback Button */}
-                        <View style={styles.footer}>
+                        <View style={[styles.footer, { borderTopColor: themeColors.border }]}>
                             <TouchableOpacity
-                                style={styles.feedbackButton}
+                                style={[styles.feedbackButton, { borderColor: themeColors.border }]}
                                 onPress={() => {
                                     // Could open feedback modal or email
                                     Alert.alert('Feedback', 'Thank you for your interest! Feedback feature coming soon.');
                                 }}
                             >
-                                <PaperPlaneTilt size={22} color={Colors.textPrimary} weight="bold" />
-                                <Text style={styles.feedbackButtonText}>Give feedback</Text>
+                                <PaperPlaneTilt size={22} color={themeColors.textPrimary} weight="bold" />
+                                <Text style={[styles.feedbackButtonText, { color: themeColors.textPrimary }]}>Give feedback</Text>
                             </TouchableOpacity>
                         </View>
                     </>

@@ -17,7 +17,7 @@ import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
 } from '../components/CryptoIcons';
-import { Colors } from '../theme/colors';
+import { Colors, useThemeColors, useKeyboardAppearance } from '../theme/colors';
 import { Metrics } from '../theme/metrics';
 import { Typography } from '../styles/typography';
 import { Sidebar } from '../components/Sidebar';
@@ -140,6 +140,8 @@ export default function HomeScreen() {
     const params = useLocalSearchParams<{ conversationId?: string }>();
     const { isReady, user, logout, getAccessToken } = useAuth();
     const { wallets: evmWallets } = useWallet();
+    const themeColors = useThemeColors();
+    const keyboardAppearance = useKeyboardAppearance();
     const ethereumWallet = evmWallets?.[0]; // Use first wallet from our hook
     const solanaWallet = null; // TODO: Add Solana support in useWallet if needed
     const [messages, setMessages] = useState<Message[]>([]);
@@ -994,7 +996,7 @@ export default function HomeScreen() {
         if (parts.length === 0) {
             return (
                 <View style={styles.aiBubble}>
-                    <Text style={styles.aiMessageText} selectable>{content}</Text>
+                    <Text style={[styles.aiMessageText, { color: themeColors.textPrimary }]} selectable>{content}</Text>
                 </View>
             );
         }
@@ -1003,7 +1005,7 @@ export default function HomeScreen() {
             <>
                 {parts.map((part, index) => part.type === 'text' ? (
                     <View key={index} style={styles.aiBubble}>
-                        <Text style={styles.aiMessageText} selectable>{part.value}</Text>
+                        <Text style={[styles.aiMessageText, { color: themeColors.textPrimary }]} selectable>{part.value}</Text>
                     </View>
                 ) : (
                     <LinkPreviewCard
@@ -1048,8 +1050,8 @@ export default function HomeScreen() {
         return (
             <Animated.View style={[isUser ? styles.userMessageContainer : styles.aiMessageContainer, animatedStyle]}>
                 {isUser ? (
-                    <View style={styles.userBubble}>
-                        <Text style={styles.userMessageText} selectable>{item.content}</Text>
+                    <View style={[styles.userBubble, { backgroundColor: themeColors.surface }]}>
+                        <Text style={[styles.userMessageText, { color: themeColors.textPrimary }]} selectable>{item.content}</Text>
                     </View>
                 ) : (
                     <View style={styles.aiContainer}>
@@ -1063,7 +1065,7 @@ export default function HomeScreen() {
                                     Alert.alert('Copied', 'Message copied to clipboard');
                                 }}
                             >
-                                <Copy size={16} color={Colors.textSecondary} />
+                                <Copy size={16} color={themeColors.textSecondary} />
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.actionIcon}
@@ -1071,7 +1073,7 @@ export default function HomeScreen() {
                                     Alert.alert('Thanks!', 'Glad you found this helpful!');
                                 }}
                             >
-                                <ThumbsUp size={16} color={Colors.textSecondary} />
+                                <ThumbsUp size={16} color={themeColors.textSecondary} />
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.actionIcon}
@@ -1079,7 +1081,7 @@ export default function HomeScreen() {
                                     Alert.alert('Feedback', 'Thanks for your feedback. We\'ll work on improving!');
                                 }}
                             >
-                                <ThumbsDown size={16} color={Colors.textSecondary} />
+                                <ThumbsDown size={16} color={themeColors.textSecondary} />
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.actionIcon}
@@ -1147,14 +1149,14 @@ export default function HomeScreen() {
 
     return (
         <View style={{ flex: 1 }}>
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity
                         onPress={() => { Keyboard.dismiss(); setIsSidebarOpen(true); }}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <List size={24} color={Colors.textPrimary} weight="bold" />
+                        <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
                     <View style={styles.headerRight}>
                         {/* Notifications Bell */}
@@ -1163,7 +1165,7 @@ export default function HomeScreen() {
                             style={styles.notificationButton}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
-                            <Bell size={24} color={Colors.textPrimary} weight="bold" />
+                            <Bell size={24} color={themeColors.textPrimary} weight="bold" />
                             {unreadNotificationCount > 0 && (
                                 <View style={styles.notificationBadge}>
                                     <Text style={styles.notificationBadgeText}>
@@ -1201,16 +1203,16 @@ export default function HomeScreen() {
                         isLoadingConversation ? (
                             <View style={styles.emptyState}>
                                 <ActivityIndicator size="large" color={Colors.primary} />
-                                <Text style={[styles.emptySubtext, { marginTop: 16 }]}>Loading conversation...</Text>
+                                <Text style={[styles.emptySubtext, { marginTop: 16, color: themeColors.textSecondary }]}>Loading conversation...</Text>
                             </View>
                         ) : messages.length === 0 ? (
                             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                                 <View style={styles.emptyState}>
-                                    <Text style={styles.emptyStateText}>
+                                    <Text style={[styles.emptyStateText, { color: themeColors.textPrimary }]}>
                                         {displayedGreeting || getGreeting()}
                                         {isTypingGreeting && <Text style={styles.cursor}>|</Text>}
                                     </Text>
-                                    <Text style={styles.emptySubtext}>How can I help you today?</Text>
+                                    <Text style={[styles.emptySubtext, { color: themeColors.textSecondary }]}>How can I help you today?</Text>
                                 </View>
                             </TouchableWithoutFeedback>
                         ) : (
@@ -1244,7 +1246,7 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Input Area */}
-                <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight - 20 : 8 }]}>
+                <View style={[styles.inputContainer, { marginBottom: keyboardHeight > 0 ? keyboardHeight - 20 : 8 }, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
                     {/* Dynamic Suggestion Chips - show only when no messages */}
                     {messages.length === 0 && (
                         <SuggestionChips
@@ -1268,91 +1270,92 @@ export default function HomeScreen() {
                         </View>
                     )}
 
-                    {/* Expanded Attachment Options - animated */}
-                    {isAttachmentExpanded && (
-                        <Animated.View style={[
-                            styles.expandedAttachmentMenu,
-                            {
-                                opacity: attachmentMenuAnim,
-                                transform: [{
-                                    translateY: attachmentMenuAnim.interpolate({
-                                        inputRange: [0, 1],
-                                        outputRange: [20, 0],
-                                    }),
-                                }],
-                            },
-                        ]}>
-                            <TouchableOpacity
-                                style={styles.attachMenuOption}
-                                onPress={() => {
-                                    pickDocument();
-                                    toggleAttachmentExpand();
-                                }}
-                            >
-                                <View style={styles.attachMenuIconBg}>
-                                    <File size={20} color="#FFFFFF" />
-                                </View>
-                                <Text style={styles.attachMenuText}>File</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.attachMenuOption, styles.attachMenuDisabled]}
-                                disabled
-                            >
-                                <View style={[styles.attachMenuIconBg, styles.attachMenuIconDisabled]}>
-                                    <ImageIcon size={20} color="#9CA3AF" />
-                                </View>
-                                <Text style={[styles.attachMenuText, styles.attachMenuTextDisabled]}>Camera</Text>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    )}
+                    <View style={[styles.inputContainer, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
+                        {/* Attachment Menu (if expanded) - Positioned absolutely above input */}
+                        {isAttachmentExpanded && (
+                            <Animated.View style={[
+                                styles.attachmentMenu,
+                                {
+                                    opacity: attachmentMenuAnim,
+                                    transform: [
+                                        { scale: attachmentMenuAnim },
+                                        { translateY: attachmentMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }
+                                    ],
+                                    backgroundColor: themeColors.surface,
+                                    borderColor: themeColors.border
+                                }
+                            ]}>
+                                <TouchableOpacity
+                                    style={[styles.attachmentMenuItem, { backgroundColor: themeColors.surface }]}
+                                    onPress={pickDocument}
+                                >
+                                    <View style={[styles.attachMenuIconBg]}>
+                                        <File size={20} color="#FFFFFF" />
+                                    </View>
+                                </TouchableOpacity>
 
-                    <View style={styles.inputRow}>
-                        {/* Plus Button - outside the input box */}
-                        <TouchableOpacity
-                            style={styles.plusButton}
-                            onPress={toggleAttachmentExpand}
-                        >
-                            <Animated.View style={{
-                                transform: [{
-                                    rotate: attachmentRotation.interpolate({
-                                        inputRange: [0, 1],
-                                        outputRange: ['0deg', '45deg'],
-                                    }),
-                                }],
-                            }}>
-                                <Plus size={24} color={Colors.textSecondary} weight="bold" />
+                                <TouchableOpacity
+                                    style={[styles.attachmentMenuItem, { backgroundColor: themeColors.surface }]}
+                                    onPress={() => { }} // TODO: Implement camera/image picker
+                                    disabled
+                                >
+                                    <View style={[styles.attachMenuIconBg, styles.attachMenuIconDisabled]}>
+                                        <ImageIcon size={20} color="#9CA3AF" />
+                                    </View>
+                                </TouchableOpacity>
                             </Animated.View>
-                        </TouchableOpacity>
-
-                        {/* Input Box */}
-                        <View style={styles.inputBox}>
-                            <TextInput
-                                style={styles.inputField}
-                                value={inputText}
-                                onChangeText={setInputText}
-                                placeholder="Ask anything"
-                                placeholderTextColor={Colors.textPlaceholder}
-                                multiline
-                                maxLength={1000}
-                                onFocus={() => setIsAttachmentExpanded(false)}
-                            />
-                        </View>
-
-                        {/* Send Button - only show when there's content */}
-                        {(inputText.trim() || attachedFiles.length > 0) && (
-                            <TouchableOpacity
-                                style={styles.sendButton}
-                                onPress={sendMessage}
-                                disabled={isGenerating}
-                            >
-                                {isGenerating ? (
-                                    <ActivityIndicator color="#FFFFFF" size="small" />
-                                ) : (
-                                    <ArrowUp size={20} color="#FFFFFF" weight="bold" />
-                                )}
-                            </TouchableOpacity>
                         )}
+
+                        <View style={styles.inputRow}>
+                            {/* Plus Button - outside the input box */}
+                            <TouchableOpacity
+                                style={[styles.plusButton, { backgroundColor: themeColors.inputBackground }]}
+                                onPress={toggleAttachmentExpand}
+                            >
+                                <Animated.View style={{
+                                    transform: [{
+                                        rotate: attachmentRotation.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: ['0deg', '45deg'],
+                                        }),
+                                    }],
+                                }}>
+                                    <Plus size={24} color="#FFFFFF" weight="bold" />
+                                </Animated.View>
+                            </TouchableOpacity>
+
+                            {/* Input Box */}
+                            <View style={[styles.inputBox, { backgroundColor: themeColors.inputBackground }]}>
+                                <TextInput
+                                    style={[styles.inputField, { color: themeColors.textPrimary }]}
+                                    value={inputText}
+                                    onChangeText={setInputText}
+                                    placeholder="Ask anything"
+                                    placeholderTextColor={Colors.textPlaceholder}
+                                    multiline
+                                    maxLength={1000}
+                                    onFocus={() => setIsAttachmentExpanded(false)}
+                                // Removed explicit height/maxHeight to let it grow naturally
+                                />
+                            </View>
+
+                            {/* Send Button - only show when there's content */}
+                            {(inputText.trim() || attachedFiles.length > 0) && (
+                                <TouchableOpacity
+                                    style={styles.sendButton}
+                                    onPress={sendMessage}
+                                    disabled={isGenerating}
+                                >
+                                    {isGenerating ? (
+                                        <ActivityIndicator color="#FFFFFF" size="small" />
+                                    ) : (
+                                        <ArrowUp size={20} color="#FFFFFF" weight="bold" />
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
+
                 </View>
 
                 <ProfileModal
@@ -1462,7 +1465,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
     },
     loadingContainer: {
         flex: 1,
@@ -1472,7 +1475,7 @@ const styles = StyleSheet.create({
     header: {
         paddingHorizontal: 20,
         paddingVertical: 12,
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
         // Removed border bottom
         height: 60,
         flexDirection: 'row',
@@ -1483,7 +1486,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22, // Increased from 18
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
     },
     headerRight: {
         flexDirection: 'row',
@@ -1580,8 +1583,9 @@ const styles = StyleSheet.create({
         lineHeight: 24,
     },
     inputContainer: {
-        padding: 16,
-        backgroundColor: '#FFFFFF',
+        paddingVertical: 16,
+        paddingHorizontal: 8,
+        // backgroundColor: '#FFFFFF', // Overridden
     },
     quickActionsBar: {
         flexDirection: 'row',
@@ -1607,20 +1611,20 @@ const styles = StyleSheet.create({
     inputWrapper: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        backgroundColor: '#f5f5f5',
+        // backgroundColor: '#f5f5f5', // Overridden
         borderRadius: 24,
         padding: 8,
     },
     inputRow: {
         flexDirection: 'row',
-        alignItems: 'flex-end',
+        alignItems: 'flex-end', // Changed from center to align bottom
         gap: 8,
     },
     plusButton: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#f5f5f5',
+        // backgroundColor: '#f5f5f5', // Overridden
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -1792,13 +1796,13 @@ const styles = StyleSheet.create({
         ...Typography.title,
         fontSize: 32,
         textAlign: 'center',
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
         marginBottom: Metrics.spacing.sm,
     },
     emptySubtext: {
         ...Typography.body,
         fontSize: 16,
-        color: Colors.textSecondary,
+        // color: Colors.textSecondary, // Overridden
         textAlign: 'center',
     },
     modalTitle: {
@@ -2023,7 +2027,7 @@ const styles = StyleSheet.create({
         width: '100%', // Ensure full width container
     },
     userBubble: {
-        backgroundColor: '#f5f5f5',
+        // backgroundColor: '#f5f5f5', // Overridden
         padding: Metrics.spacing.md,
         borderRadius: 30,
         // borderWidth: 1,
@@ -2035,7 +2039,7 @@ const styles = StyleSheet.create({
     userMessageText: {
         ...Typography.body,
         fontSize: 16,
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
     },
     aiContainer: {
         maxWidth: '100%',
@@ -2155,6 +2159,43 @@ const styles = StyleSheet.create({
     },
     sidebarOverlayTouchable: {
         flex: 1,
+    },
+    attachmentMenu: {
+        position: 'absolute',
+        bottom: 80, // Moved up to clear input
+        left: 20,
+        // backgroundColor: '#FFFFFF', // Overridden
+        borderRadius: 16,
+        padding: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+        borderWidth: 1,
+        // borderColor: '#E5E7EB', // Overridden
+        minWidth: 180,
+    },
+    attachmentMenuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        // backgroundColor: 'transparent', // Overridden
+    },
+    attachmentMenuText: {
+        marginLeft: 12,
+        fontSize: 15,
+        fontWeight: '500',
+        // color: Colors.textPrimary, // Overridden
+    },
+    attachmentPreview: {
+        marginBottom: 12,
+        // backgroundColor: '#F9FAFB', // Overridden
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        // borderColor: '#E5E7EB', // Overridden
     },
     sidebar: {
         position: 'absolute',

@@ -9,7 +9,7 @@ import { List, Receipt, Clock, CheckCircle, WarningCircle, X, UserCircle, ShareN
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
@@ -57,6 +57,7 @@ export default function InvoicesScreen() {
     const { getAccessToken, user } = usePrivy();
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
+    const themeColors = useThemeColors();
     const [invoices, setInvoices] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -287,15 +288,15 @@ export default function InvoicesScreen() {
     const renderItem = ({ item }: { item: any }) => {
         return (
             <TouchableOpacity
-                style={styles.card}
+                style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                 onPress={() => handleInvoicePress(item)}
                 onLongPress={() => handleDelete(item.id)}
                 delayLongPress={500}
             >
                 <View style={styles.cardHeader}>
                     <View>
-                        <Text style={styles.invoiceId}>INV-{item.id.substring(0, 8).toUpperCase()}</Text>
-                        <Text style={styles.cardTitle} numberOfLines={1}>{item.title || 'Invoice'}</Text>
+                        <Text style={[styles.invoiceId, { color: themeColors.textSecondary }]}>INV-{item.id.substring(0, 8).toUpperCase()}</Text>
+                        <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title || 'Invoice'}</Text>
                     </View>
                     <View style={styles.iconContainer}>
                         <Image source={ICONS.usdc} style={styles.cardTokenIcon} />
@@ -303,7 +304,7 @@ export default function InvoicesScreen() {
                     </View>
                 </View>
 
-                <Text style={styles.amount}>{formatCurrency((item.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}</Text>
+                <Text style={[styles.amount, { color: themeColors.textPrimary }]}>{formatCurrency((item.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}</Text>
 
                 <View style={styles.cardFooter}>
                     <Text style={styles.dateText}>
@@ -321,12 +322,12 @@ export default function InvoicesScreen() {
 
     return (
         <View style={{ flex: 1 }}>
-            <SafeAreaView style={styles.container}>
-                <View style={styles.header}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={Colors.textPrimary} weight="bold" />
+                        <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Invoices</Text>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Invoices</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>
                         {profileIcon.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
@@ -351,10 +352,10 @@ export default function InvoicesScreen() {
                         {(['all', 'paid', 'pending'] as const).map(filter => (
                             <TouchableOpacity
                                 key={filter}
-                                style={[styles.filterChip, statusFilter === filter && styles.filterChipActive]}
+                                style={[styles.filterChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
                                 onPress={() => setStatusFilter(filter)}
                             >
-                                <Text style={[styles.filterText, statusFilter === filter && styles.filterTextActive]}>
+                                <Text style={[styles.filterText, { color: themeColors.textSecondary }, statusFilter === filter && styles.filterTextActive]}>
                                     {filter.charAt(0).toUpperCase() + filter.slice(1)}
                                 </Text>
                             </TouchableOpacity>
@@ -378,9 +379,9 @@ export default function InvoicesScreen() {
                         }
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <Receipt size={64} color={Colors.textSecondary} weight="duotone" />
-                                <Text style={styles.emptyStateTitle}>No Invoices Yet</Text>
-                                <Text style={styles.emptyStateText}>
+                                <Receipt size={64} color={themeColors.textSecondary} weight="duotone" />
+                                <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Invoices Yet</Text>
+                                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
                                     Create your first invoice to get paid
                                 </Text>
                             </View>
@@ -423,6 +424,7 @@ export default function InvoicesScreen() {
                     <Animated.View
                         style={[
                             styles.modalContent,
+                            { backgroundColor: themeColors.background },
                             {
                                 transform: [{
                                     translateY: slideAnim.interpolate({
@@ -447,10 +449,10 @@ export default function InvoicesScreen() {
                                     />
                                 </View>
                                 <View>
-                                    <Text style={styles.modalTitle}>
+                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
                                         {selectedInvoice?.status === 'PAID' ? `Paid` : 'Pending'}
                                     </Text>
-                                    <Text style={styles.modalSubtitle}>
+                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
                                         {selectedInvoice?.created_at ? `${new Date(selectedInvoice.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })} • ${new Date(selectedInvoice.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}` : ''}
                                     </Text>
                                 </View>
@@ -469,11 +471,11 @@ export default function InvoicesScreen() {
                                         }}
                                         style={styles.menuButton}
                                     >
-                                        <DotsThree size={24} color={Colors.textSecondary} weight="bold" />
+                                        <DotsThree size={24} color={themeColors.textSecondary} weight="bold" />
                                     </TouchableOpacity>
                                 )}
-                                <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
-                                    <X size={20} color="#666666" weight="bold" />
+                                <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
+                                    <X size={20} color={themeColors.textSecondary} weight="bold" />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -497,6 +499,7 @@ export default function InvoicesScreen() {
                                 <Animated.View
                                     style={[
                                         styles.pullDownMenu,
+                                        { backgroundColor: themeColors.surface, borderColor: themeColors.border },
                                         {
                                             opacity: 1,
                                             transform: [{ scale: 1 }]
@@ -527,10 +530,10 @@ export default function InvoicesScreen() {
                                         }}
                                     >
                                         <Bell size={18} color={Colors.primary} weight="fill" />
-                                        <Text style={styles.pullDownMenuText}>Send Reminder</Text>
+                                        <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>Send Reminder</Text>
                                     </TouchableOpacity>
 
-                                    <View style={styles.pullDownMenuDivider} />
+                                    <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
 
                                     <TouchableOpacity
                                         style={styles.pullDownMenuItem}
@@ -566,12 +569,12 @@ export default function InvoicesScreen() {
                                         }}
                                     >
                                         <Bell size={18} color={selectedInvoice?.content?.reminders_enabled !== false ? Colors.textSecondary : Colors.primary} weight={selectedInvoice?.content?.reminders_enabled !== false ? 'regular' : 'fill'} />
-                                        <Text style={styles.pullDownMenuText}>
+                                        <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>
                                             {selectedInvoice?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
                                         </Text>
                                     </TouchableOpacity>
 
-                                    <View style={styles.pullDownMenuDivider} />
+                                    <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
 
                                     <TouchableOpacity
                                         style={styles.pullDownMenuItem}
@@ -589,40 +592,40 @@ export default function InvoicesScreen() {
                             </>
                         )}
 
-                        <View style={styles.amountCard}>
-                            <Text style={styles.amountCardValue}>
+                        <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                            <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
                                 {formatCurrency((selectedInvoice?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
                             </Text>
                             <View style={styles.amountCardSub}>
                                 <Image source={ICONS.usdc} style={styles.smallIcon} />
-                                <Text style={styles.amountCardSubText}>{selectedInvoice?.amount} USDC</Text>
+                                <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedInvoice?.amount} USDC</Text>
                             </View>
                         </View>
 
-                        <View style={styles.detailsCard}>
+                        <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Invoice ID</Text>
-                                <Text style={styles.detailValue}>INV-{selectedInvoice?.id.slice(0, 8).toUpperCase()}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Invoice ID</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>INV-{selectedInvoice?.id.slice(0, 8).toUpperCase()}</Text>
                             </View>
-                            <View style={styles.detailDivider} />
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Description</Text>
-                                <Text style={styles.detailValue}>{selectedInvoice?.title}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedInvoice?.title}</Text>
                             </View>
-                            <View style={styles.detailDivider} />
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Client</Text>
-                                <Text style={styles.detailValue}>{selectedInvoice?.content?.clientName || selectedInvoice?.content?.client_name || 'N/A'}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedInvoice?.content?.clientName || selectedInvoice?.content?.client_name || 'N/A'}</Text>
                             </View>
-                            <View style={styles.detailDivider} />
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Chain</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
                                 <View style={styles.chainValue}>
                                     <Image
                                         source={getChainIcon(selectedInvoice?.chain)}
                                         style={styles.smallIcon}
                                     />
-                                    <Text style={styles.detailValue}>
+                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                                         {getChainName(selectedInvoice?.chain)}
                                     </Text>
                                 </View>
@@ -835,16 +838,11 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         padding: 24,
         paddingBottom: 40,
         maxHeight: '80%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 10,
     },
     nudgeButton: {
         flexDirection: 'row',
@@ -872,7 +870,7 @@ const styles = StyleSheet.create({
     modalHeaderLeft: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        gap: 12,
+        gap: 8,
     },
     modalHeaderRight: {
         flexDirection: 'row',

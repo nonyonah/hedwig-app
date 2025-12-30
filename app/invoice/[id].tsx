@@ -7,7 +7,7 @@ import { AppKitProvider, useAppKit, useAccount, useProvider } from '@reown/appki
 import { paymentAppKit } from '../../lib/appkit';
 import { ethers } from 'ethers';
 import { CheckCircle, DownloadSimple, Wallet } from 'phosphor-react-native';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
 
 // Mock data for chains and tokens (replace with actual data/icons later)
@@ -36,6 +36,7 @@ export default function InvoiceViewerScreen() {
 function InvoiceContent() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
+    const themeColors = useThemeColors();
     const { open } = useAppKit();
     const { address, isConnected, chainId } = useAccount();
     const provider = useProvider();
@@ -167,103 +168,103 @@ function InvoiceContent() {
     const total = subtotal; // Assuming fee is included or handled separately
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.card}>
+                <View style={[styles.card, { backgroundColor: themeColors.surface }]}>
                     {/* Header */}
-                    <View style={styles.cardHeader}>
-                        <Text style={styles.invoiceNumber}>INV-{invoice.id.slice(0, 8).toUpperCase()}</Text>
-                        <TouchableOpacity style={styles.downloadButton}>
-                            <DownloadSimple size={18} color={Colors.textSecondary} />
+                    <View style={[styles.cardHeader, { borderBottomColor: themeColors.border }]}>
+                        <Text style={[styles.invoiceNumber, { color: themeColors.textSecondary }]}>INV-{invoice.id.slice(0, 8).toUpperCase()}</Text>
+                        <TouchableOpacity style={[styles.downloadButton, { backgroundColor: themeColors.background }]}>
+                            <DownloadSimple size={18} color={themeColors.textSecondary} />
                         </TouchableOpacity>
                     </View>
 
                     {/* From / To */}
-                    <View style={styles.partiesContainer}>
+                    <View style={[styles.partiesContainer, { borderBottomColor: themeColors.border }]}>
                         <View style={styles.partyColumn}>
-                            <Text style={styles.partyLabel}>From</Text>
-                            <Text style={styles.partyName}>
+                            <Text style={[styles.partyLabel, { color: themeColors.textSecondary }]}>From</Text>
+                            <Text style={[styles.partyName, { color: themeColors.textPrimary }]}>
                                 {invoice.user?.first_name && invoice.user?.last_name
                                     ? `${invoice.user.first_name} ${invoice.user.last_name}`
                                     : invoice.user?.email || 'Hedwig User'}
                             </Text>
-                            <Text style={styles.partyEmail}>{invoice.user?.email}</Text>
+                            <Text style={[styles.partyEmail, { color: themeColors.textSecondary }]}>{invoice.user?.email}</Text>
                         </View>
-                        <View style={styles.dividerVertical} />
+                        <View style={[styles.dividerVertical, { backgroundColor: themeColors.border }]} />
                         <View style={styles.partyColumn}>
-                            <Text style={styles.partyLabel}>To</Text>
-                            <Text style={styles.partyName}>{content.client_name || 'Client'}</Text>
-                            <Text style={styles.partyEmail}>{content.recipient_email}</Text>
+                            <Text style={[styles.partyLabel, { color: themeColors.textSecondary }]}>To</Text>
+                            <Text style={[styles.partyName, { color: themeColors.textPrimary }]}>{content.client_name || 'Client'}</Text>
+                            <Text style={[styles.partyEmail, { color: themeColors.textSecondary }]}>{content.recipient_email}</Text>
                         </View>
                     </View>
 
                     {/* Amount */}
-                    <View style={styles.amountContainer}>
-                        <Text style={styles.amountLabel}>Amount Due</Text>
-                        <Text style={styles.amountValue}>${invoice.amount.toFixed(2)}</Text>
+                    <View style={[styles.amountContainer, { backgroundColor: themeColors.background }]}>
+                        <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>Amount Due</Text>
+                        <Text style={[styles.amountValue, { color: themeColors.textPrimary }]}>${invoice.amount.toFixed(2)}</Text>
                         {content.due_date && (
-                            <Text style={styles.dueDate}>Due {content.due_date}</Text>
+                            <Text style={[styles.dueDate, { color: themeColors.textSecondary }]}>Due {content.due_date}</Text>
                         )}
                     </View>
 
                     {/* Items */}
                     <View style={styles.itemsContainer}>
                         <View style={styles.itemsHeader}>
-                            <Text style={styles.itemsHeaderLabel}>ITEM</Text>
-                            <Text style={styles.itemsHeaderLabel}>AMOUNT</Text>
+                            <Text style={[styles.itemsHeaderLabel, { color: themeColors.textSecondary }]}>ITEM</Text>
+                            <Text style={[styles.itemsHeaderLabel, { color: themeColors.textSecondary }]}>AMOUNT</Text>
                         </View>
                         {items.length > 0 ? (
                             items.map((item: any, index: number) => (
                                 <View key={index} style={styles.itemRow}>
-                                    <Text style={styles.itemName}>{item.description}</Text>
-                                    <Text style={styles.itemPrice}>${item.amount.toFixed(2)}</Text>
+                                    <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>{item.description}</Text>
+                                    <Text style={[styles.itemPrice, { color: themeColors.textPrimary }]}>${item.amount.toFixed(2)}</Text>
                                 </View>
                             ))
                         ) : (
                             <View style={styles.itemRow}>
-                                <Text style={styles.itemName}>{invoice.description}</Text>
-                                <Text style={styles.itemPrice}>${invoice.amount.toFixed(2)}</Text>
+                                <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>{invoice.description}</Text>
+                                <Text style={[styles.itemPrice, { color: themeColors.textPrimary }]}>${invoice.amount.toFixed(2)}</Text>
                             </View>
                         )}
                     </View>
 
-                    <View style={styles.divider} />
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                     {/* Summary */}
                     <View style={styles.summaryContainer}>
                         <View style={styles.summaryRow}>
-                            <Text style={styles.summaryLabel}>Subtotal</Text>
-                            <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
+                            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Subtotal</Text>
+                            <Text style={[styles.summaryValue, { color: themeColors.textSecondary }]}>${subtotal.toFixed(2)}</Text>
                         </View>
                         <View style={styles.summaryRow}>
-                            <Text style={styles.summaryLabel}>Platform fee</Text>
-                            <Text style={styles.summaryValue}>-${platformFee.toFixed(2)}</Text>
+                            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Platform fee</Text>
+                            <Text style={[styles.summaryValue, { color: themeColors.textSecondary }]}>-${platformFee.toFixed(2)}</Text>
                         </View>
                         <View style={styles.summaryRow}>
-                            <Text style={styles.summaryLabel}>Freelancer receives</Text>
-                            <Text style={styles.summaryValue}>${(subtotal - platformFee).toFixed(2)}</Text>
+                            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Freelancer receives</Text>
+                            <Text style={[styles.summaryValue, { color: themeColors.textSecondary }]}>${(subtotal - platformFee).toFixed(2)}</Text>
                         </View>
-                        <View style={[styles.summaryRow, styles.totalRow]}>
-                            <Text style={styles.totalLabel}>Total</Text>
-                            <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+                        <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: themeColors.border }]}>
+                            <Text style={[styles.totalLabel, { color: themeColors.textPrimary }]}>Total</Text>
+                            <Text style={[styles.totalValue, { color: themeColors.textPrimary }]}>${total.toFixed(2)}</Text>
                         </View>
                     </View>
                 </View>
 
                 {/* Payment Section */}
-                <View style={styles.paymentSection}>
+                <View style={[styles.paymentSection, { backgroundColor: themeColors.surface }]}>
                     {/* Network & Token Display */}
                     <View style={styles.selectorsRow}>
-                        <View style={styles.selectorBadge}>
+                        <View style={[styles.selectorBadge, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
                             <Image source={selectedChain.icon} style={styles.selectorIcon} />
-                            <Text style={styles.selectorText}>{selectedChain.name}</Text>
+                            <Text style={[styles.selectorText, { color: themeColors.textPrimary }]}>{selectedChain.name}</Text>
                         </View>
-                        <View style={styles.selectorBadge}>
+                        <View style={[styles.selectorBadge, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
                             <Image source={selectedToken.icon} style={styles.selectorIcon} />
-                            <Text style={styles.selectorText}>{selectedToken.symbol}</Text>
+                            <Text style={[styles.selectorText, { color: themeColors.textPrimary }]}>{selectedToken.symbol}</Text>
                         </View>
                     </View>
-                    <Text style={styles.networkNotice}>
+                    <Text style={[styles.networkNotice, { color: themeColors.textSecondary }]}>
                         Supports Base, Celo & Solana
                     </Text>
 
@@ -280,8 +281,8 @@ function InvoiceContent() {
                 </View>
 
                 <View style={styles.footer}>
-                    <CheckCircle size={16} color={Colors.textSecondary} weight="fill" />
-                    <Text style={styles.footerText}>Secured by Hedwig</Text>
+                    <CheckCircle size={16} color={themeColors.textSecondary} weight="fill" />
+                    <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>Secured by Hedwig</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>

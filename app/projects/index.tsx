@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
 import { Briefcase, List, Calendar, User, CurrencyDollar, CheckCircle, Clock, Receipt, CaretRight, X, DotsThree, Trash, Check } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
@@ -55,6 +55,7 @@ type StatusFilter = 'all' | 'ongoing' | 'completed' | 'paid';
 export default function ProjectsScreen() {
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
+    const themeColors = useThemeColors();
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -360,19 +361,19 @@ export default function ProjectsScreen() {
         const isCompleted = ['completed', 'paid'].includes(item.status.toLowerCase()) || progress.percentage === 100;
 
         return (
-            <TouchableOpacity style={styles.projectItem} onPress={() => openDetailModal(item)} activeOpacity={0.7}>
+            <TouchableOpacity style={[styles.projectItem, { borderBottomColor: themeColors.border }]} onPress={() => openDetailModal(item)} activeOpacity={0.7}>
                 <View style={styles.projectItemContent}>
                     {/* Left content */}
                     <View style={styles.projectItemLeft}>
-                        <Text style={styles.projectItemClient}>{item.client?.name || 'No client'}</Text>
-                        <Text style={styles.projectItemTitle} numberOfLines={1}>{item.title}</Text>
-                        <Text style={styles.projectItemMeta}>
+                        <Text style={[styles.projectItemClient, { color: themeColors.textSecondary }]}>{item.client?.name || 'No client'}</Text>
+                        <Text style={[styles.projectItemTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
+                        <Text style={[styles.projectItemMeta, { color: themeColors.textTertiary }]}>
                             ${progress.totalAmount.toLocaleString()} · {progress.completedMilestones}/{progress.totalMilestones} milestones
                         </Text>
                     </View>
                     {/* Right - Progress circle */}
-                    <View style={[styles.projectIconCircle, isCompleted && styles.projectIconCircleCompleted]}>
-                        <Text style={[styles.projectIconText, isCompleted && styles.projectIconTextCompleted]}>
+                    <View style={[styles.projectIconCircle, { backgroundColor: isCompleted ? '#DCFCE7' : themeColors.surface }, !isCompleted && { borderWidth: 1, borderColor: themeColors.border }]}>
+                        <Text style={[styles.projectIconText, isCompleted ? styles.projectIconTextCompleted : { color: Colors.primary }]}>
                             {progress.percentage}%
                         </Text>
                     </View>
@@ -394,10 +395,10 @@ export default function ProjectsScreen() {
         return (
             <>
                 {sidebarElement}
-                <SafeAreaView style={styles.container} edges={['top']}>
+                <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={Colors.primary} />
-                        <Text style={styles.loadingText}>Loading projects...</Text>
+                        <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading projects...</Text>
                     </View>
                 </SafeAreaView>
             </>
@@ -407,13 +408,13 @@ export default function ProjectsScreen() {
     return (
         <>
             {sidebarElement}
-            <SafeAreaView style={styles.container} edges={['top']}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setIsSidebarOpen(true); }}>
-                        <List size={24} color={Colors.textPrimary} weight="bold" />
+                        <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Projects</Text>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Projects</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>
                         {profileIcon.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
@@ -438,10 +439,18 @@ export default function ProjectsScreen() {
                         {(['all', 'ongoing', 'completed', 'paid'] as StatusFilter[]).map(filter => (
                             <TouchableOpacity
                                 key={filter}
-                                style={[styles.filterChip, statusFilter === filter && styles.filterChipActive]}
+                                style={[
+                                    styles.filterChip,
+                                    { backgroundColor: themeColors.surface },
+                                    statusFilter === filter && { backgroundColor: Colors.primary }
+                                ]}
                                 onPress={() => { Haptics.selectionAsync(); setStatusFilter(filter); }}
                             >
-                                <Text style={[styles.filterText, statusFilter === filter && styles.filterTextActive]}>
+                                <Text style={[
+                                    styles.filterText,
+                                    { color: themeColors.textSecondary },
+                                    statusFilter === filter && styles.filterTextActive
+                                ]}>
                                     {filter.charAt(0).toUpperCase() + filter.slice(1)}
                                 </Text>
                             </TouchableOpacity>
@@ -452,13 +461,13 @@ export default function ProjectsScreen() {
                 {/* Project List */}
                 {filteredProjects.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Briefcase size={64} color={Colors.textSecondary} weight="light" />
-                        <Text style={styles.emptyTitle}>No Projects Yet</Text>
-                        <Text style={styles.emptySubtitle}>
+                        <Briefcase size={64} color={themeColors.textSecondary} weight="light" />
+                        <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Projects Yet</Text>
+                        <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
                             Projects help you track milestones and invoices for client work.
                         </Text>
-                        <View style={styles.examplesContainer}>
-                            <Text style={styles.exampleLabel}>Try saying:</Text>
+                        <View style={[styles.examplesContainer, { backgroundColor: themeColors.surface }]}>
+                            <Text style={[styles.exampleLabel, { color: themeColors.textSecondary }]}>Try saying:</Text>
                             <Text style={styles.exampleText}>"Create a project for [client] called [name]"</Text>
                             <Text style={styles.exampleText}>"Start a new project for Acme Corp"</Text>
                         </View>
@@ -488,6 +497,7 @@ export default function ProjectsScreen() {
                         <Animated.View
                             style={[
                                 styles.detailModalContent,
+                                { backgroundColor: themeColors.background },
                                 { transform: [{ translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] }
                             ]}
                         >
@@ -496,7 +506,7 @@ export default function ProjectsScreen() {
                                 <>
                                     <View style={styles.modalHeaderRow}>
                                         <View style={styles.modalHeaderLeft}>
-                                            <Text style={styles.modalHeaderTitle} numberOfLines={1}>{selectedProject.title}</Text>
+                                            <Text style={[styles.modalHeaderTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{selectedProject.title}</Text>
                                         </View>
                                         <View style={styles.modalHeaderRight}>
                                             <TouchableOpacity
@@ -511,10 +521,10 @@ export default function ProjectsScreen() {
                                                     setShowActionMenu(!showActionMenu);
                                                 }}
                                             >
-                                                <DotsThree size={24} color={Colors.textSecondary} weight="bold" />
+                                                <DotsThree size={24} color={themeColors.textSecondary} weight="bold" />
                                             </TouchableOpacity>
-                                            <TouchableOpacity style={styles.closeButton} onPress={closeDetailModal}>
-                                                <X size={20} color="#666666" weight="bold" />
+                                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeDetailModal}>
+                                                <X size={20} color={themeColors.textSecondary} weight="bold" />
                                             </TouchableOpacity>
                                         </View>
                                     </View>
@@ -534,12 +544,12 @@ export default function ProjectsScreen() {
                                                     setShowActionMenu(false);
                                                 }}
                                             />
-                                            <View style={styles.pullDownMenu}>
+                                            <View style={[styles.pullDownMenu, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: 1 }]}>
                                                 <TouchableOpacity style={styles.pullDownMenuItem} onPress={handleCompleteProject}>
                                                     <CheckCircle size={18} color={Colors.success} weight="fill" />
-                                                    <Text style={styles.pullDownMenuText}>Complete Project</Text>
+                                                    <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>Complete Project</Text>
                                                 </TouchableOpacity>
-                                                <View style={styles.pullDownMenuDivider} />
+                                                <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
                                                 <TouchableOpacity style={styles.pullDownMenuItem} onPress={handleDeleteProject}>
                                                     <Trash size={18} color="#EF4444" weight="fill" />
                                                     <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete Project</Text>
@@ -563,10 +573,10 @@ export default function ProjectsScreen() {
 
                                     {/* Client Info */}
                                     <View style={styles.clientInfoRow}>
-                                        <User size={16} color={Colors.textSecondary} />
-                                        <Text style={styles.clientInfoText}>{selectedProject.client?.name}</Text>
+                                        <User size={16} color={themeColors.textSecondary} />
+                                        <Text style={[styles.clientInfoText, { color: themeColors.textSecondary }]}>{selectedProject.client?.name}</Text>
                                         {selectedProject.startDate && (
-                                            <Text style={styles.clientInfoDate}>Started {new Date(selectedProject.startDate).toLocaleDateString()}</Text>
+                                            <Text style={[styles.clientInfoDate, { color: themeColors.textTertiary }]}>Started {new Date(selectedProject.startDate).toLocaleDateString()}</Text>
                                         )}
                                     </View>
 
@@ -588,7 +598,7 @@ export default function ProjectsScreen() {
                                                             cx={size / 2}
                                                             cy={size / 2}
                                                             r={radius}
-                                                            stroke="#E5E7EB"
+                                                            stroke={themeColors.border}
                                                             strokeWidth={strokeWidth}
                                                             fill="transparent"
                                                         />
@@ -607,8 +617,8 @@ export default function ProjectsScreen() {
                                                     </Svg>
                                                     {/* Center text */}
                                                     <View style={styles.circularProgressCenter}>
-                                                        <Text style={styles.circularProgressPercent}>{selectedProject.progress.percentage}%</Text>
-                                                        <Text style={styles.circularProgressLabel}>
+                                                        <Text style={[styles.circularProgressPercent, { color: themeColors.textPrimary }]}>{selectedProject.progress.percentage}%</Text>
+                                                        <Text style={[styles.circularProgressLabel, { color: themeColors.textSecondary }]}>
                                                             {(['completed', 'paid'].includes(selectedProject.status.toLowerCase()) || selectedProject.progress.percentage === 100) ? 'Completed' : 'Ongoing'}
                                                         </Text>
                                                     </View>
@@ -618,28 +628,28 @@ export default function ProjectsScreen() {
                                     })()}
 
                                     {/* Info Rows */}
-                                    <View style={styles.infoSection}>
+                                    <View style={[styles.infoSection, { backgroundColor: themeColors.surface }]}>
                                         <View style={styles.infoRow}>
-                                            <Text style={styles.infoLabel}>Total Budget</Text>
-                                            <Text style={styles.infoValue}>${selectedProject.progress.totalAmount.toLocaleString()}</Text>
+                                            <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Total Budget</Text>
+                                            <Text style={[styles.infoValue, { color: themeColors.textSecondary }]}>${selectedProject.progress.totalAmount.toLocaleString()}</Text>
                                         </View>
-                                        <View style={styles.infoRowDivider} />
+                                        <View style={[styles.infoRowDivider, { backgroundColor: themeColors.border }]} />
 
                                         <View style={styles.infoRow}>
-                                            <Text style={styles.infoLabel}>Amount Paid</Text>
+                                            <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Amount Paid</Text>
                                             <Text style={styles.infoValueHighlight}>${selectedProject.progress.paidAmount.toLocaleString()}</Text>
                                         </View>
-                                        <View style={styles.infoRowDivider} />
+                                        <View style={[styles.infoRowDivider, { backgroundColor: themeColors.border }]} />
 
                                         <View style={styles.infoRow}>
-                                            <Text style={styles.infoLabel}>Amount Pending</Text>
-                                            <Text style={styles.infoValue}>${(selectedProject.progress.totalAmount - selectedProject.progress.paidAmount).toLocaleString()}</Text>
+                                            <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Amount Pending</Text>
+                                            <Text style={[styles.infoValue, { color: themeColors.textSecondary }]}>${(selectedProject.progress.totalAmount - selectedProject.progress.paidAmount).toLocaleString()}</Text>
                                         </View>
-                                        <View style={styles.infoRowDivider} />
+                                        <View style={[styles.infoRowDivider, { backgroundColor: themeColors.border }]} />
 
                                         <View style={styles.infoRow}>
-                                            <Text style={styles.infoLabel}>Milestones Completed</Text>
-                                            <Text style={styles.infoValue}>{selectedProject.progress.completedMilestones} / {selectedProject.progress.totalMilestones}</Text>
+                                            <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Milestones Completed</Text>
+                                            <Text style={[styles.infoValue, { color: themeColors.textSecondary }]}>{selectedProject.progress.completedMilestones} / {selectedProject.progress.totalMilestones}</Text>
                                         </View>
                                     </View>
 
@@ -655,41 +665,47 @@ export default function ProjectsScreen() {
                                     {/* Milestones Section */}
                                     <View style={styles.milestonesSection}>
                                         <View style={styles.milestonesHeaderRow}>
-                                            <Text style={styles.milestonesTitle}>Milestones</Text>
-                                            <Text style={styles.milestonesCount}>{selectedProject.milestones?.length || 0}</Text>
+                                            <Text style={[styles.milestonesTitle, { color: themeColors.textPrimary }]}>Milestones</Text>
+                                            <Text style={[styles.milestonesCount, { color: themeColors.textSecondary }]}>{selectedProject.milestones?.length || 0}</Text>
                                         </View>
 
                                         {(selectedProject.milestones?.length ?? 0) === 0 ? (
                                             <View style={styles.noMilestonesContainer}>
-                                                <Text style={styles.noMilestones}>No milestones yet</Text>
-                                                <Text style={styles.noMilestonesHint}>Ask Hedwig to add one!</Text>
+                                                <Text style={[styles.noMilestones, { color: themeColors.textSecondary }]}>No milestones yet</Text>
+                                                <Text style={[styles.noMilestonesHint, { color: themeColors.textTertiary }]}>Ask Hedwig to add one!</Text>
                                             </View>
                                         ) : (
                                             (selectedProject.milestones || []).map((milestone, index) => (
-                                                <View key={milestone.id} style={[styles.milestoneCard, index === (selectedProject.milestones?.length ?? 0) - 1 && { marginBottom: 0 }]}>
+                                                <View key={milestone.id} style={[
+                                                    styles.milestoneCard,
+                                                    { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 },
+                                                    index === (selectedProject.milestones?.length ?? 0) - 1 && { marginBottom: 0 }
+                                                ]}>
                                                     <View style={styles.milestoneCardHeader}>
                                                         <View style={styles.milestoneCardLeft}>
                                                             {getMilestoneStatusIcon(milestone.status)}
-                                                            <Text style={styles.milestoneCardTitle}>{milestone.title}</Text>
+                                                            <Text style={[styles.milestoneCardTitle, { color: themeColors.textPrimary }]}>{milestone.title}</Text>
                                                         </View>
-                                                        <Text style={styles.milestoneCardAmount}>${milestone.amount.toLocaleString()}</Text>
+                                                        <Text style={[styles.milestoneCardAmount, { color: themeColors.textPrimary }]}>${milestone.amount.toLocaleString()}</Text>
                                                     </View>
                                                     <View style={styles.milestoneCardFooter}>
-                                                        <View style={[styles.statusBadge,
-                                                        milestone.status === 'paid' && styles.statusPaid,
-                                                        milestone.status === 'invoiced' && styles.statusInvoiced,
-                                                        milestone.status === 'pending' && styles.statusPending,
+                                                        <View style={[
+                                                            styles.statusBadge,
+                                                            milestone.status === 'paid' && { backgroundColor: '#DCFCE7' }, // Keep light green for paid
+                                                            milestone.status === 'invoiced' && { backgroundColor: '#DBEAFE' }, // Keep light blue for invoiced
+                                                            milestone.status === 'pending' && { backgroundColor: themeColors.surface }, // Surface for pending
                                                         ]}>
-                                                            <Text style={[styles.statusText,
-                                                            milestone.status === 'paid' && styles.statusTextPaid,
-                                                            milestone.status === 'invoiced' && styles.statusTextInvoiced,
-                                                            milestone.status === 'pending' && styles.statusTextPending,
+                                                            <Text style={[
+                                                                styles.statusText,
+                                                                milestone.status === 'paid' && { color: '#16A34A' },
+                                                                milestone.status === 'invoiced' && { color: '#2563EB' },
+                                                                milestone.status === 'pending' && { color: themeColors.textSecondary },
                                                             ]}>
                                                                 {milestone.status.charAt(0).toUpperCase() + milestone.status.slice(1)}
                                                             </Text>
                                                         </View>
                                                         {milestone.dueDate && (
-                                                            <Text style={styles.milestoneCardDate}>Due {new Date(milestone.dueDate).toLocaleDateString()}</Text>
+                                                            <Text style={[styles.milestoneCardDate, { color: themeColors.textSecondary }]}>Due {new Date(milestone.dueDate).toLocaleDateString()}</Text>
                                                         )}
                                                         {milestone.status === 'pending' && (
                                                             <TouchableOpacity
@@ -724,7 +740,7 @@ export default function ProjectsScreen() {
                     onClose={() => setShowProfileModal(false)}
                     userName={userName}
                     walletAddresses={walletAddresses}
-                profileIcon={profileIcon}
+                    profileIcon={profileIcon}
                 />
             </SafeAreaView >
         </>
@@ -973,10 +989,17 @@ const styles = StyleSheet.create({
     },
     detailModalContent: {
         backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        maxHeight: '85%',
-        paddingTop: 12,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: 40,
+        maxHeight: '90%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 10,
     },
     detailModalBody: {
         paddingHorizontal: 24,
@@ -1108,7 +1131,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 16,
     },
     modalHeaderTitle: {
         ...Typography.h2,
@@ -1142,8 +1165,8 @@ const styles = StyleSheet.create({
     },
     circularProgressContainer: {
         alignItems: 'center',
-        paddingVertical: 24,
-        marginBottom: 16,
+        paddingVertical: 32,
+        marginBottom: 24,
     },
     circularProgressCenter: {
         position: 'absolute',
@@ -1232,7 +1255,7 @@ const styles = StyleSheet.create({
     milestonesCount: {
         ...Typography.caption,
         color: Colors.textSecondary,
-        backgroundColor: '#E5E7EB',
+        // backgroundColor: '#E5E7EB', // Overridden
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 12,
@@ -1247,7 +1270,7 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     milestoneCard: {
-        backgroundColor: '#FAFAFA',
+        // backgroundColor: '#FAFAFA', // Overridden
         borderRadius: 12,
         padding: 16,
         marginBottom: 12,
@@ -1266,13 +1289,13 @@ const styles = StyleSheet.create({
     },
     milestoneCardTitle: {
         ...Typography.body,
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
         fontWeight: '600',
         flex: 1,
     },
     milestoneCardAmount: {
         ...Typography.bodyBold,
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
         fontSize: 16,
     },
     milestoneCardFooter: {
@@ -1335,7 +1358,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#F3F4F6',
+        // backgroundColor: '#F3F4F6', // Overridden
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -1352,7 +1375,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 70,
         right: 24,
-        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        // backgroundColor: 'rgba(255, 255, 255, 0.98)', // Overridden
         borderRadius: 14,
         paddingVertical: 6,
         minWidth: 180,
@@ -1377,21 +1400,21 @@ const styles = StyleSheet.create({
     },
     pullDownMenuDivider: {
         height: StyleSheet.hairlineWidth,
-        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+        // backgroundColor: 'rgba(0, 0, 0, 0.1)', // Overridden
         marginHorizontal: 0,
     },
     // Milestone status styles
     statusInvoiced: {
-        backgroundColor: '#FEF3C7',
+        // backgroundColor: '#FEF3C7', // Overridden
     },
     statusPending: {
-        backgroundColor: Colors.textSecondary + '20',
+        // backgroundColor: Colors.textSecondary + '20', // Overridden
     },
     statusTextInvoiced: {
-        color: '#D97706',
+        // color: '#D97706', // Overridden
     },
     statusTextPending: {
-        color: Colors.textSecondary,
+        // color: Colors.textSecondary, // Overridden
     },
     // Complete button for milestones
     completeButton: {

@@ -2,46 +2,47 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
 
 export default function WelcomeScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const themeColors = useThemeColors();
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top + 40 }]}>
+        <View style={[styles.container, { paddingTop: insets.top + 40, backgroundColor: themeColors.background }]}>
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
                 {/* Title */}
-                <Text style={styles.title}>Welcome to Hedwig!</Text>
+                <Text style={[styles.title, { color: themeColors.textPrimary }]}>Welcome to Hedwig!</Text>
 
                 {/* Subtitle */}
-                <Text style={styles.subtitle}>
+                <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
                     Your personal freelance assistant. Here's what you can do:
                 </Text>
 
                 {/* Feature Cards */}
-                <View style={styles.featureCard}>
-                    <Text style={styles.featureText}>
+                <View style={[styles.featureCard, { backgroundColor: themeColors.surface }]}>
+                    <Text style={[styles.featureText, { color: themeColors.textPrimary }]}>
                         Create <Text style={styles.highlight}>payment links</Text> and{' '}
                         <Text style={styles.highlight}>invoices</Text> in seconds with AI-powered assistance.
                     </Text>
                 </View>
 
-                <View style={styles.featureCard}>
-                    <Text style={styles.featureText}>
+                <View style={[styles.featureCard, { backgroundColor: themeColors.surface }]}>
+                    <Text style={[styles.featureText, { color: themeColors.textPrimary }]}>
                         Manage <Text style={styles.highlight}>clients</Text>,{' '}
                         <Text style={styles.highlight}>projects</Text>, and track your{' '}
                         <Text style={styles.highlight}>milestones</Text> effortlessly.
                     </Text>
                 </View>
 
-                <View style={styles.featureCard}>
-                    <Text style={styles.featureText}>
+                <View style={[styles.featureCard, { backgroundColor: themeColors.surface }]}>
+                    <Text style={[styles.featureText, { color: themeColors.textPrimary }]}>
                         Get paid in <Text style={styles.highlight}>crypto</Text> and{' '}
                         <Text style={styles.highlight}>withdraw</Text> to your local bank account.
                     </Text>
@@ -49,7 +50,7 @@ export default function WelcomeScreen() {
             </ScrollView>
 
             {/* Bottom Button */}
-            <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 8 }]}>
+            <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 8, backgroundColor: themeColors.background }]}>
                 <Button
                     title="Get Started"
                     onPress={() => router.push('/auth/login')}

@@ -24,7 +24,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
 
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
@@ -101,6 +101,7 @@ interface UserData {
 export default function TransactionsScreen() {
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
+    const themeColors = useThemeColors();
     const insets = useSafeAreaInsets();
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
@@ -321,29 +322,29 @@ export default function TransactionsScreen() {
 
         return (
             <TouchableOpacity
-                style={styles.txItem}
+                style={[styles.txItem, { borderBottomColor: themeColors.border }]}
                 onPress={() => openModal(item)}
             >
                 {/* Token Icon with Chain Badge (like invoice/payment-links cards) */}
                 <View style={styles.txIconContainer}>
                     <Image source={tokenIcon} style={styles.txTokenIcon} />
-                    <View style={styles.chainBadge}>
+                    <View style={[styles.chainBadge, { backgroundColor: themeColors.background, borderColor: themeColors.background }]}>
                         <Image source={chainInfo.icon} style={styles.chainBadgeIcon} />
                     </View>
                 </View>
 
                 <View style={styles.txContent}>
-                    <Text style={styles.txTitle}>{isReceived ? 'Received' : 'Sent'}</Text>
-                    <Text style={styles.txSubtitle} numberOfLines={1} ellipsizeMode="middle">
+                    <Text style={[styles.txTitle, { color: themeColors.textPrimary }]}>{isReceived ? 'Received' : 'Sent'}</Text>
+                    <Text style={[styles.txSubtitle, { color: themeColors.textSecondary }]} numberOfLines={1} ellipsizeMode="middle">
                         {isReceived ? `From ${item.from.slice(0, 6)}...${item.from.slice(-4)}` : `To ${item.to.slice(0, 6)}...${item.to.slice(-4)}`}
                     </Text>
                 </View>
 
                 <View style={styles.txAmountContainer}>
-                    <Text style={[styles.txAmount, { color: isReceived ? Colors.success : Colors.textPrimary }]}>
+                    <Text style={[styles.txAmount, { color: isReceived ? Colors.success : themeColors.textPrimary }]}>
                         {isReceived ? '+' : '-'}{item.amount} {item.token}
                     </Text>
-                    <Text style={styles.txFiatAmount}>
+                    <Text style={[styles.txFiatAmount, { color: themeColors.textSecondary }]}>
                         ≈ {formatCurrency(item.amount || '0', currency)}
                     </Text>
                 </View>
@@ -352,13 +353,13 @@ export default function TransactionsScreen() {
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-            <SafeAreaView style={styles.safeArea}>
-                <View style={styles.header}>
+        <View style={{ flex: 1, backgroundColor: themeColors.background }}>
+            <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={Colors.textPrimary} weight="bold" />
+                        <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Transactions</Text>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Transactions</Text>
                     <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
                         {profileIcon.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
@@ -383,9 +384,9 @@ export default function TransactionsScreen() {
                     </View>
                 ) : transactions.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <ArrowsLeftRight size={48} color={Colors.textTertiary} weight="thin" />
-                        <Text style={styles.emptyTitle}>No transactions yet</Text>
-                        <Text style={styles.emptyText}>Your transaction history will appear here.</Text>
+                        <ArrowsLeftRight size={48} color={themeColors.textTertiary} weight="thin" />
+                        <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No transactions yet</Text>
+                        <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>Your transaction history will appear here.</Text>
                     </View>
                 ) : (
                     <SectionList
@@ -393,8 +394,8 @@ export default function TransactionsScreen() {
                         keyExtractor={(item) => item.id}
                         renderItem={renderTransactionItem}
                         renderSectionHeader={({ section: { title } }) => (
-                            <View style={styles.sectionHeaderContainer}>
-                                <Text style={styles.sectionHeader}>{title}</Text>
+                            <View style={[styles.sectionHeaderContainer, { backgroundColor: themeColors.background }]}>
+                                <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>{title}</Text>
                             </View>
                         )}
                         contentContainerStyle={styles.listContent}
@@ -439,6 +440,7 @@ export default function TransactionsScreen() {
                     <Animated.View
                         style={[
                             styles.modalContent,
+                            { backgroundColor: themeColors.background },
                             {
                                 transform: [{
                                     translateY: slideAnim.interpolate({
@@ -463,62 +465,62 @@ export default function TransactionsScreen() {
                                     />
                                 </View>
                                 <View>
-                                    <Text style={styles.modalTitle}>
+                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
                                         {selectedTransaction?.type === 'IN' ? 'Received' : 'Sent'}
                                     </Text>
-                                    <Text style={styles.modalSubtitle}>
+                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
                                         {selectedTransaction?.date ? format(new Date(selectedTransaction.date), 'MMM d, yyyy • h:mm a') : ''}
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
-                                <X size={20} color={Colors.textSecondary} />
+                            <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
+                                <X size={20} color={themeColors.textSecondary} />
                             </TouchableOpacity>
                         </View>
 
                         {selectedTransaction && (
                             <>
                                 {/* Amount Card */}
-                                <View style={styles.amountCard}>
-                                    <Text style={styles.amountCardValue}>
+                                <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                                    <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
                                         {selectedTransaction.type === 'IN' ? '+' : '-'}${selectedTransaction.amount}
                                     </Text>
                                     <View style={styles.amountCardSub}>
                                         <Image source={TOKENS[selectedTransaction.token.toUpperCase()] || ICONS.usdc} style={styles.smallIcon} />
-                                        <Text style={styles.amountCardSubText}>{selectedTransaction.amount} {selectedTransaction.token}</Text>
+                                        <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedTransaction.amount} {selectedTransaction.token}</Text>
                                     </View>
                                 </View>
 
                                 {/* Details Card */}
-                                <View style={styles.detailsCard}>
+                                <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                                     <View style={styles.detailRow}>
-                                        <Text style={styles.detailLabel}>Transaction ID</Text>
+                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Transaction ID</Text>
                                         <TouchableOpacity onPress={() => copyToClipboard(selectedTransaction.hash)} style={styles.detailValueRow}>
-                                            <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1} ellipsizeMode="middle">
                                                 {selectedTransaction.hash.slice(0, 10)}...{selectedTransaction.hash.slice(-8)}
                                             </Text>
-                                            <Copy size={14} color={Colors.textTertiary} style={{ marginLeft: 6 }} />
+                                            <Copy size={14} color={themeColors.textTertiary} style={{ marginLeft: 6 }} />
                                         </TouchableOpacity>
                                     </View>
-                                    <View style={styles.detailDivider} />
+                                    <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                                     <View style={styles.detailRow}>
-                                        <Text style={styles.detailLabel}>{selectedTransaction.type === 'IN' ? 'From' : 'To'}</Text>
-                                        <Text style={styles.detailValue}>
+                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{selectedTransaction.type === 'IN' ? 'From' : 'To'}</Text>
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                                             {selectedTransaction.type === 'IN'
                                                 ? `${selectedTransaction.from.slice(0, 6)}...${selectedTransaction.from.slice(-4)}`
                                                 : `${selectedTransaction.to.slice(0, 6)}...${selectedTransaction.to.slice(-4)}`
                                             }
                                         </Text>
                                     </View>
-                                    <View style={styles.detailDivider} />
+                                    <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                                     <View style={styles.detailRow}>
-                                        <Text style={styles.detailLabel}>Chain</Text>
+                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
                                         <View style={styles.chainValue}>
                                             <Image
                                                 source={CHAINS[selectedTransaction.network]?.icon || ICONS.base}
                                                 style={styles.smallIcon}
                                             />
-                                            <Text style={styles.detailValue}>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                                                 {CHAINS[selectedTransaction.network]?.name || 'Base'}
                                             </Text>
                                         </View>
@@ -575,7 +577,7 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
     },
     sectionHeaderContainer: {
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
         marginHorizontal: -20,
         paddingHorizontal: 20,
         paddingTop: 16,
@@ -584,7 +586,7 @@ const styles = StyleSheet.create({
     sectionHeader: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
     },
     // Transaction Item Styles (matching invoice/payment-links cards)
     txItem: {
@@ -592,7 +594,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
+        // borderBottomColor: '#F3F4F6', // Overridden
     },
     txIconContainer: {
         position: 'relative',
@@ -607,14 +609,14 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: -2,
         right: -2,
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
         width: 20,
         height: 20,
         borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: '#FFFFFF',
+        // borderColor: '#FFFFFF', // Overridden
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
@@ -632,13 +634,13 @@ const styles = StyleSheet.create({
     txTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
         marginBottom: 2,
     },
     txSubtitle: {
         fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
-        color: Colors.textSecondary,
+        // color: Colors.textSecondary, // Overridden
     },
     txAmountContainer: {
         alignItems: 'flex-end',
@@ -679,10 +681,11 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#FFFFFF', // To be overridden
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        paddingHorizontal: 20,
+        paddingHorizontal: 24,
+        paddingTop: 24,
         paddingBottom: 40,
     },
     modalHeader: {
@@ -694,6 +697,7 @@ const styles = StyleSheet.create({
     modalHeaderLeft: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 8,
     },
     modalIconContainer: {
         position: 'relative',
@@ -715,36 +719,34 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
     },
     modalSubtitle: {
         fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
-        color: Colors.textSecondary,
+        // color: Colors.textSecondary, // Overridden
         marginTop: 2,
     },
     closeButton: {
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#F3F4F6',
+        // backgroundColor: '#F3F4F6', // Overridden
         justifyContent: 'center',
         alignItems: 'center',
     },
     // Amount Card
     amountCard: {
-        backgroundColor: '#F9FAFB',
+        // backgroundColor: '#F9FAFB', // Overridden
         borderRadius: 16,
         padding: 24,
         alignItems: 'center',
         marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
     },
     amountCardValue: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 36,
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
         marginBottom: 8,
     },
     amountCardSub: {
@@ -764,11 +766,9 @@ const styles = StyleSheet.create({
     },
     // Details Card
     detailsCard: {
-        backgroundColor: '#F9FAFB',
+        // backgroundColor: '#F9FAFB', // Overridden
         borderRadius: 16,
         padding: 16,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
         marginBottom: 20,
     },
     detailRow: {

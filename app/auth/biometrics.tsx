@@ -6,13 +6,14 @@ import { Fingerprint } from 'phosphor-react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet, usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
 import { getOrCreateStacksWallet } from '../../services/stacksWallet';
 
 export default function BiometricsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const themeColors = useThemeColors();
     const ethWalletHook = useEmbeddedEthereumWallet();
     const solWalletHook = useEmbeddedSolanaWallet();
     const { user, getAccessToken } = usePrivy();
@@ -287,7 +288,7 @@ export default function BiometricsScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             <View style={styles.content}>
                 <View style={styles.iconContainer}>
                     <LinearGradient
@@ -299,8 +300,8 @@ export default function BiometricsScreen() {
                 </View>
 
                 <View style={styles.textContainer}>
-                    <Text style={styles.title}>Secure your account</Text>
-                    <Text style={styles.subtitle}>
+                    <Text style={[styles.title, { color: themeColors.textPrimary }]}>Secure your account</Text>
+                    <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
                         Log in faster and sign transactions securely with Hedwig using your biometrics.
                     </Text>
                 </View>

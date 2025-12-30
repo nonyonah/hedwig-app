@@ -21,7 +21,7 @@ import {
 import { X, CheckCircle, Clock, Wallet, ArrowDown } from 'phosphor-react-native';
 import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { Connection, Transaction, clusterApiUrl } from '@solana/web3.js';
-import { Colors } from '../theme/colors';
+import { Colors, useThemeColors } from '../theme/colors';
 import { Button } from './Button';
 import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
@@ -71,6 +71,44 @@ interface SolanaBridgeModalProps {
 // Modal steps
 type BridgeStep = 'quote' | 'signing' | 'bridging' | 'complete' | 'error';
 
+// Helper function to convert technical errors into user-friendly messages
+const parseErrorMessage = (error: any): string => {
+    const message = error?.message?.toLowerCase() || '';
+
+    // Gas-related errors
+    if (message.includes('insufficient funds') || message.includes('gas required exceeds') ||
+        message.includes('insufficient balance') || message.includes('not enough balance')) {
+        return 'Insufficient funds for gas fees. Please add more funds to cover the transaction fee.';
+    }
+
+    // Network errors
+    if (message.includes('network') || message.includes('connection') || message.includes('timeout')) {
+        return 'Network connection issue. Please check your internet and try again.';
+    }
+
+    // User rejection
+    if (message.includes('rejected') || message.includes('denied') || message.includes('cancelled')) {
+        return 'Transaction was cancelled.';
+    }
+
+    // Wallet errors
+    if (message.includes('wallet') && message.includes('not available')) {
+        return 'Wallet not available. Please ensure you are logged in.';
+    }
+
+    // Bridge-specific errors
+    if (message.includes('bridge') && message.includes('quote')) {
+        return 'Unable to get bridge quote. Please try again later.';
+    }
+
+    // Default: return cleaned message or generic error
+    const cleanMessage = error?.message || 'An unexpected error occurred';
+    if (cleanMessage.length > 80) {
+        return 'Bridge failed. Please try again or contact support.';
+    }
+    return cleanMessage;
+};
+
 export function SolanaBridgeModal({
     visible,
     onClose,
@@ -82,6 +120,7 @@ export function SolanaBridgeModal({
     getAccessToken,
 }: SolanaBridgeModalProps) {
     const { hapticsEnabled } = useSettings();
+    const themeColors = useThemeColors();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     // Privy Solana wallet
@@ -163,7 +202,7 @@ export function SolanaBridgeModal({
             }
         } catch (err: any) {
             console.error('[SolanaBridge] Quote error:', err);
-            setError(err.message || 'Failed to get bridge quote');
+            setError(parseErrorMessage(err));
         } finally {
             setLoading(false);
         }
@@ -281,7 +320,7 @@ export function SolanaBridgeModal({
             setStep('complete');
         } catch (err: any) {
             console.error('[SolanaBridge] Bridge error:', err);
-            setError(err.message || 'Bridge failed');
+            setError(parseErrorMessage(err));
             setStep('error');
         } finally {
             setLoading(false);
@@ -319,23 +358,23 @@ export function SolanaBridgeModal({
             {loading && !quote ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={Colors.primary} />
-                    <Text style={styles.loadingText}>Getting bridge quote...</Text>
+                    <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Getting bridge quote...</Text>
                 </View>
             ) : quote ? (
                 <View style={styles.quoteContainer}>
 
                     {/* Top Card: From (Solana) */}
-                    <View style={styles.swapCard}>
+                    <View style={[styles.swapCard, { backgroundColor: themeColors.surface }]}>
                         <View style={styles.cardRow}>
-                            <Text style={styles.amountText}>
+                            <Text style={[styles.amountText, { color: themeColors.textPrimary }]}>
                                 {'$'}{formatAmount(quote.amount)}
                             </Text>
                             <View style={styles.tokenDisplay}>
-                                <Text style={styles.tokenSymbolText}>{quote.token}</Text>
+                                <Text style={[styles.tokenSymbolText, { color: themeColors.textPrimary }]}>{quote.token}</Text>
                                 <View style={styles.tokenBadge}>
                                     <Image source={getTokenIcon(quote.token)} style={styles.tokenIcon} />
                                     <View style={styles.chainBadge}>
-                                        <Image source={ICONS.solana} style={styles.chainIcon} />
+                                        <Image source={ICONS.solana} style={[styles.chainIcon, { borderColor: themeColors.background }]} />
                                     </View>
                                 </View>
                             </View>
@@ -344,23 +383,23 @@ export function SolanaBridgeModal({
 
                     {/* Central Arrow Button */}
                     <View style={styles.arrowContainer}>
-                        <View style={styles.arrowCircle}>
-                            <ArrowDown size={20} color={Colors.textPrimary} weight="bold" />
+                        <View style={[styles.arrowCircle, { backgroundColor: themeColors.surface, borderColor: themeColors.background }]}>
+                            <ArrowDown size={20} color={themeColors.textPrimary} weight="bold" />
                         </View>
                     </View>
 
                     {/* Bottom Card: To (Base) */}
-                    <View style={styles.swapCard}>
+                    <View style={[styles.swapCard, { backgroundColor: themeColors.surface }]}>
                         <View style={styles.cardRow}>
-                            <Text style={styles.amountText}>
+                            <Text style={[styles.amountText, { color: themeColors.textPrimary }]}>
                                 {'$'}{formatAmount(quote.estimatedReceiveAmount)}
                             </Text>
                             <View style={styles.tokenDisplay}>
-                                <Text style={styles.tokenSymbolText}>USDC</Text>
+                                <Text style={[styles.tokenSymbolText, { color: themeColors.textPrimary }]}>USDC</Text>
                                 <View style={styles.tokenBadge}>
                                     <Image source={ICONS.usdc} style={styles.tokenIcon} />
                                     <View style={styles.chainBadge}>
-                                        <Image source={ICONS.base} style={styles.chainIcon} />
+                                        <Image source={ICONS.base} style={[styles.chainIcon, { borderColor: themeColors.background }]} />
                                     </View>
                                 </View>
                             </View>
@@ -368,14 +407,14 @@ export function SolanaBridgeModal({
                     </View>
 
                     {/* Fee Breakdown */}
-                    <View style={styles.feeContainer}>
+                    <View style={[styles.feeContainer, { backgroundColor: themeColors.surface }]}>
                         <View style={styles.feeRow}>
-                            <Text style={styles.feeLabel}>Relay Fee</Text>
-                            <Text style={styles.feeValue}>{quote.relayFee} SOL</Text>
+                            <Text style={[styles.feeLabel, { color: themeColors.textSecondary }]}>Relay Fee</Text>
+                            <Text style={[styles.feeValue, { color: themeColors.textPrimary }]}>{quote.relayFee} SOL</Text>
                         </View>
                         <View style={styles.feeRow}>
-                            <Text style={styles.feeLabel}>Estimated Time</Text>
-                            <Text style={styles.feeValue}>{quote.estimatedTime}</Text>
+                            <Text style={[styles.feeLabel, { color: themeColors.textSecondary }]}>Estimated Time</Text>
+                            <Text style={[styles.feeValue, { color: themeColors.textPrimary }]}>{quote.estimatedTime}</Text>
                         </View>
                     </View>
                 </View>
@@ -404,8 +443,8 @@ export function SolanaBridgeModal({
             <View style={styles.statusIcon}>
                 <Wallet size={48} color={Colors.primary} weight="fill" />
             </View>
-            <Text style={styles.title}>Sign Transaction</Text>
-            <Text style={styles.subtitle}>{bridgeStatus}</Text>
+            <Text style={[styles.title, { color: themeColors.textPrimary }]}>Sign Transaction</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>{bridgeStatus}</Text>
             <ActivityIndicator size="large" color={Colors.primary} style={styles.spinner} />
         </>
     );
@@ -416,15 +455,15 @@ export function SolanaBridgeModal({
             <View style={styles.statusIcon}>
                 <Clock size={48} color={Colors.warning} weight="fill" />
             </View>
-            <Text style={styles.title}>Bridging...</Text>
-            <Text style={styles.subtitle}>{bridgeStatus}</Text>
+            <Text style={[styles.title, { color: themeColors.textPrimary }]}>Bridging...</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>{bridgeStatus}</Text>
             <ActivityIndicator size="large" color={Colors.primary} style={styles.spinner} />
             {txSignature && (
-                <Text style={styles.signatureText}>
+                <Text style={[styles.signatureText, { color: themeColors.textSecondary }]}>
                     Tx: {txSignature.slice(0, 8)}...{txSignature.slice(-8)}
                 </Text>
             )}
-            <Text style={styles.helpText}>
+            <Text style={[styles.helpText, { color: themeColors.textSecondary }]}>
                 This usually takes about 30 seconds. Please don't close this screen.
             </Text>
         </>
@@ -436,13 +475,13 @@ export function SolanaBridgeModal({
             <View style={styles.statusIcon}>
                 <CheckCircle size={64} color={Colors.success} weight="fill" />
             </View>
-            <Text style={styles.title}>Bridge Complete!</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: themeColors.textPrimary }]}>Bridge Complete!</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
                 Your tokens are now on Base and ready for offramping.
             </Text>
 
-            <View style={styles.resultBox}>
-                <Text style={styles.resultLabel}>Received on Base</Text>
+            <View style={[styles.resultBox, { backgroundColor: themeColors.surface }]}>
+                <Text style={[styles.resultLabel, { color: themeColors.textSecondary }]}>Received on Base</Text>
                 <Text style={styles.resultAmount}>
                     {formatAmount(quote?.estimatedReceiveAmount || 0)} USDC
                 </Text>
@@ -465,8 +504,8 @@ export function SolanaBridgeModal({
             <View style={styles.statusIcon}>
                 <X size={64} color={Colors.error} weight="fill" />
             </View>
-            <Text style={styles.title}>Bridge Failed</Text>
-            <Text style={styles.subtitle}>{error}</Text>
+            <Text style={[styles.title, { color: themeColors.textPrimary }]}>Bridge Failed</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>{error}</Text>
 
             <View style={styles.buttonContainer}>
                 <Button
@@ -480,7 +519,7 @@ export function SolanaBridgeModal({
                     size="large"
                 />
                 <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={[styles.cancelText, { color: themeColors.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
             </View>
         </>
@@ -521,18 +560,19 @@ export function SolanaBridgeModal({
                 <Animated.View
                     style={[
                         styles.container,
+                        { backgroundColor: themeColors.background },
                         { transform: [{ translateY: slideAnim }] },
                     ]}
                 >
                     {/* Header */}
                     {(step === 'quote' || step === 'error') && (
                         <View style={styles.headerTitleRow}>
-                            <Text style={styles.headerTitle}>Bridge to Base</Text>
+                            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Bridge to Base</Text>
                             <TouchableOpacity
                                 style={styles.closeButton}
                                 onPress={onClose}
                             >
-                                <X size={24} color={Colors.textSecondary} />
+                                <X size={24} color={themeColors.textSecondary} />
                             </TouchableOpacity>
                         </View>
                     )}

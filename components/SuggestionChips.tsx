@@ -6,7 +6,7 @@ import {
     ScrollView,
     StyleSheet,
 } from 'react-native';
-import { Colors } from '../theme/colors';
+import { Colors, useThemeColors } from '../theme/colors';
 import type { Suggestion } from '../hooks/useUserActions';
 
 interface SuggestionChipsProps {
@@ -15,6 +15,8 @@ interface SuggestionChipsProps {
 }
 
 export function SuggestionChips({ suggestions, onSuggestionPress }: SuggestionChipsProps) {
+    const themeColors = useThemeColors();
+
     if (!suggestions || suggestions.length === 0) return null;
 
     return (
@@ -27,14 +29,14 @@ export function SuggestionChips({ suggestions, onSuggestionPress }: SuggestionCh
                 {suggestions.map((suggestion) => (
                     <TouchableOpacity
                         key={suggestion.id}
-                        style={styles.chip}
+                        style={[styles.chip, { backgroundColor: themeColors.surface }]}
                         onPress={() => onSuggestionPress(suggestion)}
                         activeOpacity={0.7}
                     >
                         {suggestion.icon && (
                             <Text style={styles.chipIcon}>{suggestion.icon}</Text>
                         )}
-                        <Text style={styles.chipText}>{suggestion.label}</Text>
+                        <Text style={[styles.chipText, { color: themeColors.textPrimary }]}>{suggestion.label}</Text>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -47,13 +49,13 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     scrollContent: {
-        paddingHorizontal: 4,
+        paddingHorizontal: 0,
         gap: 8,
     },
     chip: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f5f5f5',
+        // backgroundColor: '#f5f5f5', // Overridden
         paddingVertical: 8,
         paddingHorizontal: 14,
         borderRadius: 20,
@@ -65,6 +67,6 @@ const styles = StyleSheet.create({
     chipText: {
         fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
     },
 });

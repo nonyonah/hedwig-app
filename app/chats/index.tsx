@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
 import { List, Chat, MagnifyingGlass, Plus, Trash, CheckCircle, X } from 'phosphor-react-native';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
@@ -15,6 +15,7 @@ import Fuse from 'fuse.js';
 export default function ChatsScreen() {
     const router = useRouter();
     const { user, getAccessToken } = usePrivy();
+    const themeColors = useThemeColors();
     const [conversations, setConversations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -225,6 +226,7 @@ export default function ChatsScreen() {
             <TouchableOpacity
                 style={[
                     styles.chatItem,
+                    { backgroundColor: themeColors.surface, borderColor: themeColors.border },
                     isSelectionMode && isSelected && styles.chatItemSelected
                 ]}
                 onPress={() => handleChatPress(item.id)}
@@ -248,25 +250,25 @@ export default function ChatsScreen() {
                                 height: 24,
                                 borderRadius: 12,
                                 borderWidth: 2,
-                                borderColor: Colors.textSecondary
+                                borderColor: themeColors.textSecondary
                             }} />
                         )}
                     </View>
                 ) : (
-                    <View style={styles.chatIcon}>
-                        <Chat size={24} color={Colors.textPrimary} weight="duotone" />
+                    <View style={[styles.chatIcon, { backgroundColor: themeColors.background }]}>
+                        <Chat size={24} color={themeColors.textPrimary} weight="duotone" />
                     </View>
                 )}
 
                 <View style={styles.chatContent}>
                     <View style={styles.chatHeader}>
-                        <Text style={styles.chatTitle} numberOfLines={1}>
+                        <Text style={[styles.chatTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>
                             {item.title || 'New Conversation'}
                         </Text>
-                        <Text style={styles.chatTime}>{timeAgo}</Text>
+                        <Text style={[styles.chatTime, { color: themeColors.textSecondary }]}>{timeAgo}</Text>
                     </View>
                     {lastMessage && (
-                        <Text style={styles.chatPreview} numberOfLines={2}>
+                        <Text style={[styles.chatPreview, { color: themeColors.textSecondary }]} numberOfLines={2}>
                             {lastMessage.role === 'user' ? 'You: ' : ''}{lastMessage.content}
                         </Text>
                     )}
@@ -289,16 +291,16 @@ export default function ChatsScreen() {
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-            <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={{ flex: 1, backgroundColor: themeColors.background }}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     {isSelectionMode ? (
                         <View style={styles.selectionHeaderContent}>
                             <TouchableOpacity onPress={cancelSelection} hitSlop={10}>
                                 <Text style={styles.cancelText}>Cancel</Text>
                             </TouchableOpacity>
-                            <Text style={styles.selectionTitle}>{selectedChats.size} selected</Text>
+                            <Text style={[styles.selectionTitle, { color: themeColors.textPrimary }]}>{selectedChats.size} selected</Text>
                             <TouchableOpacity
                                 onPress={confirmDeleteSelected}
                                 disabled={selectedChats.size === 0}
@@ -306,7 +308,7 @@ export default function ChatsScreen() {
                             >
                                 <Trash
                                     size={24}
-                                    color={selectedChats.size > 0 ? '#EF4444' : Colors.textPlaceholder}
+                                    color={selectedChats.size > 0 ? '#EF4444' : themeColors.textTertiary}
                                     weight={selectedChats.size > 0 ? 'fill' : 'regular'}
                                 />
                             </TouchableOpacity>
@@ -314,11 +316,11 @@ export default function ChatsScreen() {
                     ) : (
                         <View style={styles.defaultHeaderContent}>
                             <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                                <List size={24} color={Colors.textPrimary} weight="bold" />
+                                <List size={24} color={themeColors.textPrimary} weight="bold" />
                             </TouchableOpacity>
-                            <Text style={styles.headerTitle}>Chats</Text>
+                            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Chats</Text>
                             <TouchableOpacity onPress={() => router.replace('/')}>
-                                <Plus size={24} color={Colors.textPrimary} />
+                                <Plus size={24} color={themeColors.textPrimary} />
                             </TouchableOpacity>
                         </View>
                     )}
@@ -327,19 +329,19 @@ export default function ChatsScreen() {
                 {/* Search Bar */}
                 {!isSelectionMode && (
                     <View style={styles.searchContainer}>
-                        <View style={styles.searchBar}>
-                            <MagnifyingGlass size={20} color={Colors.textSecondary} />
+                        <View style={[styles.searchBar, { backgroundColor: themeColors.surface }]}>
+                            <MagnifyingGlass size={20} color={themeColors.textSecondary} />
                             <TextInput
-                                style={styles.searchInput}
+                                style={[styles.searchInput, { color: themeColors.textPrimary }]}
                                 placeholder="Search chats..."
-                                placeholderTextColor={Colors.textPlaceholder}
+                                placeholderTextColor={themeColors.textTertiary}
                                 value={searchQuery}
                                 onChangeText={setSearchQuery}
                                 autoCapitalize="none"
                             />
                             {searchQuery.length > 0 && (
                                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                                    <X size={16} color={Colors.textSecondary} />
+                                    <X size={16} color={themeColors.textSecondary} />
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -362,8 +364,8 @@ export default function ChatsScreen() {
                         }
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <Chat size={48} color={Colors.textSecondary} weight="bold" />
-                                <Text style={styles.emptyStateText}>
+                                <Chat size={48} color={themeColors.textSecondary} weight="bold" />
+                                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
                                     {searchQuery ? 'No chats found' : 'No conversations yet'}
                                 </Text>
                             </View>
@@ -396,12 +398,12 @@ export default function ChatsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
     },
     header: {
         paddingHorizontal: 20,
         paddingVertical: 12,
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
         // Removed border bottom as requested
         height: 60,
         justifyContent: 'center',
@@ -436,7 +438,7 @@ const styles = StyleSheet.create({
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F3F4F6', // Updated to match sidebar search box
+        // backgroundColor: '#F3F4F6', // Overridden
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: 12,
@@ -446,7 +448,7 @@ const styles = StyleSheet.create({
     searchInput: {
         flex: 1,
         ...Typography.body,
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
         height: '100%',
     },
     loadingContainer: {
@@ -462,10 +464,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center', // Center vertically for icon alignment
         padding: 16,
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#F3F4F6',
+        // borderColor: '#F3F4F6', // Overridden
         marginBottom: 8,
     },
     chatItemSelected: {

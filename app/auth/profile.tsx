@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Aler
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, Check, CaretLeft } from 'phosphor-react-native';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,6 +27,8 @@ const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
 export default function ProfileScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const themeColors = useThemeColors();
+    const keyboardAppearance = useKeyboardAppearance();
     const { email, edit } = useLocalSearchParams<{ email: string; edit?: string }>();
     const { getAccessToken, user } = usePrivy();
 
@@ -199,7 +201,7 @@ export default function ProfileScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -209,8 +211,8 @@ export default function ProfileScreen() {
                 {viewMode === 'main' && (
                     <>
                         <View style={styles.titleSection}>
-                            <Text style={styles.title}>Your Profile</Text>
-                            <Text style={styles.subtitle}>Introduce yourself to others.</Text>
+                            <Text style={[styles.title, { color: themeColors.textPrimary }]}>Your Profile</Text>
+                            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Introduce yourself to others.</Text>
                         </View>
 
                         {/* PFP Section */}
@@ -237,22 +239,22 @@ export default function ProfileScreen() {
                                         )}
                                     </LinearGradient>
                                 )}
-                                <View style={styles.cameraIcon}>
-                                    <Camera size={20} color="#374151" weight="fill" />
+                                <View style={[styles.cameraIcon, { backgroundColor: themeColors.background }]}>
+                                    <Camera size={20} color={themeColors.textPrimary} weight="fill" />
                                 </View>
                             </TouchableOpacity>
 
                             {showImageOptions && (
-                                <View style={styles.imageOptions}>
-                                    <TouchableOpacity style={styles.imageOptionItem} onPress={pickImage}>
-                                        <Text style={styles.imageOptionText}>Choose from Library</Text>
+                                <View style={[styles.imageOptions, { backgroundColor: themeColors.surface }]}>
+                                    <TouchableOpacity style={[styles.imageOptionItem, { borderBottomColor: themeColors.border }]} onPress={pickImage}>
+                                        <Text style={[styles.imageOptionText, { color: themeColors.textPrimary }]}>Choose from Library</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.imageOptionItem} onPress={() => {
                                         setProfileIcon({ emoji: '😀', colorIndex: 0 });
                                         setViewMode('emoji');
                                         setShowImageOptions(false);
                                     }}>
-                                        <Text style={styles.imageOptionText}>Use Emoji</Text>
+                                        <Text style={[styles.imageOptionText, { color: themeColors.textPrimary }]}>Use Emoji</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -260,14 +262,15 @@ export default function ProfileScreen() {
 
                         {/* Name Input */}
                         <View style={styles.formGroup}>
-                            <Text style={styles.label}>Name</Text>
+                            <Text style={[styles.label, { color: themeColors.textSecondary }]}>Name</Text>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, { backgroundColor: themeColors.surface, color: themeColors.textPrimary }]}
                                 placeholder="Your Name"
-                                placeholderTextColor="#9CA3AF"
+                                placeholderTextColor={themeColors.textSecondary}
                                 value={name}
                                 onChangeText={setName}
                                 autoCapitalize="words"
+                                keyboardAppearance={keyboardAppearance}
                             />
                         </View>
                     </>
@@ -276,11 +279,11 @@ export default function ProfileScreen() {
                 {viewMode === 'emoji' && (
                     <View style={styles.emojiContent}>
                         <TouchableOpacity style={styles.backButton} onPress={() => setViewMode('main')}>
-                            <CaretLeft size={20} color={Colors.textSecondary} />
-                            <Text style={styles.backButtonText}>Back</Text>
+                            <CaretLeft size={20} color={themeColors.textSecondary} />
+                            <Text style={[styles.backButtonText, { color: themeColors.textSecondary }]}>Back</Text>
                         </TouchableOpacity>
 
-                        <Text style={styles.viewTitle}>Choose Emoji</Text>
+                        <Text style={[styles.viewTitle, { color: themeColors.textPrimary }]}>Choose Emoji</Text>
 
                         <View style={styles.emojiInputContainer}>
                             <LinearGradient
@@ -300,7 +303,7 @@ export default function ProfileScreen() {
                             </LinearGradient>
                         </View>
 
-                        <Text style={[styles.label, { marginTop: 24 }]}>Background Color</Text>
+                        <Text style={[styles.label, { marginTop: 24, color: themeColors.textSecondary }]}>Background Color</Text>
                         <View style={styles.colorGrid}>
                             {PROFILE_COLOR_OPTIONS.map((colors, idx) => (
                                 <TouchableOpacity
@@ -322,7 +325,7 @@ export default function ProfileScreen() {
 
             {/* Fixed Button at Bottom */}
             {viewMode === 'main' && (
-                <Animated.View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 8, transform: [{ translateY: Animated.multiply(keyboardOffset, -1) }] }]}>
+                <Animated.View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 8, transform: [{ translateY: Animated.multiply(keyboardOffset, -1) }], backgroundColor: themeColors.background }]}>
                     <Button
                         title="Save Profile"
                         onPress={handleSave}

@@ -20,7 +20,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
 
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -96,6 +96,7 @@ export default function OfframpHistoryScreen() {
     const router = useRouter();
     const { getAccessToken } = usePrivy();
     const { hapticsEnabled } = useSettings();
+    const themeColors = useThemeColors();
 
     const [orders, setOrders] = useState<OfframpOrder[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -275,25 +276,25 @@ export default function OfframpHistoryScreen() {
         const StatusIcon = statusConfig.icon;
 
         return (
-            <TouchableOpacity style={styles.orderItem} onPress={() => openModal(item)}>
+            <TouchableOpacity style={[styles.orderItem, { borderBottomColor: themeColors.border }]} onPress={() => openModal(item)}>
                 {/* Token Icon with Chain Badge */}
                 <View style={styles.iconContainer}>
                     <Image source={tokenIcon} style={styles.tokenIcon} />
-                    <View style={styles.chainBadge}>
+                    <View style={[styles.chainBadge, { backgroundColor: themeColors.background, borderColor: themeColors.background }]}>
                         <Image source={chainInfo.icon} style={styles.chainBadgeIcon} />
                     </View>
                 </View>
 
                 <View style={styles.orderContent}>
-                    <Text style={styles.orderTitle}>Withdrawal to {item.bankName}</Text>
-                    <Text style={styles.orderSubtitle}>{item.accountName} • ****{item.accountNumber.slice(-4)}</Text>
+                    <Text style={[styles.orderTitle, { color: themeColors.textPrimary }]}>Withdrawal to {item.bankName}</Text>
+                    <Text style={[styles.orderSubtitle, { color: themeColors.textSecondary }]}>{item.accountName} • ****{item.accountNumber.slice(-4)}</Text>
                 </View>
 
                 <View style={styles.orderRight}>
-                    <Text style={styles.orderAmount}>
+                    <Text style={[styles.orderAmount, { color: themeColors.textPrimary }]}>
                         {item.fiatCurrency} {item.fiatAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </Text>
-                    <View style={[styles.statusBadge, { backgroundColor: statusConfig.bgColor }]}>
+                    <View style={[styles.statusBadge, { backgroundColor: statusConfig.color + '20' }]}>
                         <StatusIcon size={12} color={statusConfig.color} weight="bold" />
                         <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.label}</Text>
                     </View>
@@ -352,7 +353,7 @@ export default function OfframpHistoryScreen() {
                             {/* Step Label */}
                             <Text style={[
                                 styles.progressLabel,
-                                isActive && styles.progressLabelActive
+                                isActive && [styles.progressLabelActive, { color: themeColors.textPrimary }]
                             ]}>{step.label}</Text>
                         </View>
                     );
@@ -362,13 +363,13 @@ export default function OfframpHistoryScreen() {
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-            <SafeAreaView style={styles.safeArea}>
-                <View style={styles.header}>
+        <View style={{ flex: 1, backgroundColor: themeColors.background }}>
+            <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={Colors.textPrimary} weight="bold" />
+                        <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Withdrawals</Text>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
                     <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
                         {profileIcon.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
@@ -393,10 +394,18 @@ export default function OfframpHistoryScreen() {
                         {(['all', 'processing', 'completed', 'failed'] as const).map(filter => (
                             <TouchableOpacity
                                 key={filter}
-                                style={[styles.filterChip, statusFilter === filter && styles.filterChipActive]}
-                                onPress={() => setStatusFilter(filter)}
+                                style={[
+                                    styles.filterChip,
+                                    { backgroundColor: themeColors.surface },
+                                    statusFilter === filter && { backgroundColor: Colors.primary }
+                                ]}
+                                onPress={() => { Haptics.selectionAsync(); setStatusFilter(filter); }}
                             >
-                                <Text style={[styles.filterText, statusFilter === filter && styles.filterTextActive]}>
+                                <Text style={[
+                                    styles.filterText,
+                                    { color: themeColors.textSecondary },
+                                    statusFilter === filter && styles.filterTextActive
+                                ]}>
                                     {filter.charAt(0).toUpperCase() + filter.slice(1)}
                                 </Text>
                             </TouchableOpacity>
@@ -410,9 +419,9 @@ export default function OfframpHistoryScreen() {
                     </View>
                 ) : orders.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Bank size={48} color={Colors.textTertiary} weight="thin" />
-                        <Text style={styles.emptyTitle}>No withdrawals yet</Text>
-                        <Text style={styles.emptyText}>Your withdrawal history will appear here.</Text>
+                        <Bank size={48} color={themeColors.textTertiary} weight="thin" />
+                        <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No withdrawals yet</Text>
+                        <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>Your withdrawal history will appear here.</Text>
                     </View>
                 ) : (
                     <SectionList
@@ -420,8 +429,8 @@ export default function OfframpHistoryScreen() {
                         keyExtractor={(item) => item.id}
                         renderItem={renderOrderItem}
                         renderSectionHeader={({ section: { title } }) => (
-                            <View style={styles.sectionHeaderContainer}>
-                                <Text style={styles.sectionHeader}>{title}</Text>
+                            <View style={[styles.sectionHeaderContainer, { backgroundColor: themeColors.background }]}>
+                                <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>{title}</Text>
                             </View>
                         )}
                         contentContainerStyle={styles.listContent}
@@ -456,7 +465,7 @@ export default function OfframpHistoryScreen() {
             <Modal
                 visible={isDetailModalVisible}
                 transparent
-                animationType="none"
+                animationType="fade"
                 onRequestClose={closeModal}
             >
                 <View style={styles.modalOverlay}>
@@ -465,6 +474,7 @@ export default function OfframpHistoryScreen() {
                     <Animated.View
                         style={[
                             styles.modalContent,
+                            { backgroundColor: themeColors.background },
                             {
                                 transform: [{
                                     translateY: slideAnim.interpolate({
@@ -475,85 +485,83 @@ export default function OfframpHistoryScreen() {
                             }
                         ]}
                     >
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            {/* Header */}
-                            <View style={styles.modalHeader}>
-                                <View style={styles.modalHeaderLeft}>
-                                    <Bank size={24} color={Colors.textPrimary} weight="duotone" />
-                                    <View>
-                                        <Text style={styles.modalTitle}>Withdrawal Details</Text>
-                                        <Text style={styles.modalSubtitle}>
-                                            {selectedOrder?.createdAt ? format(new Date(selectedOrder.createdAt), 'MMM d, yyyy • h:mm a') : ''}
-                                        </Text>
-                                    </View>
+                        {/* Header */}
+                        <View style={styles.modalHeader}>
+                            <View style={styles.modalHeaderLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Image source={selectedOrder ? (TOKENS[selectedOrder.token] || ICONS.usdc) : ICONS.usdc} style={styles.tokenIcon} />
                                 </View>
-                                <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
-                                    <X size={20} color={Colors.textSecondary} />
-                                </TouchableOpacity>
+                                <View>
+                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                                        {selectedOrder?.status ? (selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1).toLowerCase()) : ''}
+                                    </Text>
+                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                        {selectedOrder?.createdAt ? format(new Date(selectedOrder.createdAt), 'MMM d, h:mm a') : ''}
+                                    </Text>
+                                </View>
                             </View>
+                            <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
+                                <X size={20} color={themeColors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
 
+                        <ScrollView showsVerticalScrollIndicator={false}>
                             {selectedOrder && (
                                 <>
                                     {/* Progress Steps */}
-                                    <View style={styles.progressSection}>
+                                    <View style={[styles.progressSection, { backgroundColor: themeColors.surface }]}>
                                         <ProgressSteps status={selectedOrder.status} />
                                     </View>
 
                                     {/* Amount Card */}
-                                    <View style={styles.amountCard}>
-                                        <Text style={styles.amountLabel}>Amount Received</Text>
-                                        <Text style={styles.amountValue}>
-                                            {selectedOrder.fiatCurrency} {selectedOrder.fiatAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                                        <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>Amount Sent</Text>
+                                        <Text style={[styles.amountValue, { color: themeColors.textPrimary }]}>
+                                            {selectedOrder.fiatCurrency} {selectedOrder.fiatAmount?.toLocaleString()}
                                         </Text>
-                                        <Text style={styles.amountCrypto}>
-                                            {selectedOrder.cryptoAmount} {selectedOrder.token} @ {selectedOrder.exchangeRate?.toFixed(2)}
+                                        <Text style={[styles.amountCrypto, { color: themeColors.textSecondary }]}>
+                                            {selectedOrder.cryptoAmount} {selectedOrder.token}
                                         </Text>
                                     </View>
 
                                     {/* Details Card */}
-                                    <View style={styles.detailsCard}>
+                                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                                         <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>Order ID</Text>
-                                            <TouchableOpacity onPress={() => copyToClipboard(selectedOrder.paycrestOrderId)} style={styles.detailValueRow}>
-                                                <Text style={styles.detailValue} numberOfLines={1}>
-                                                    {selectedOrder.paycrestOrderId.slice(0, 8)}...{selectedOrder.paycrestOrderId.slice(-6)}
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Status</Text>
+                                            <View style={[styles.statusBadge, { backgroundColor: STATUS_CONFIG[selectedOrder.status].color + '20' }]}>
+                                                <Text style={[styles.statusText, { color: STATUS_CONFIG[selectedOrder.status].color }]}>
+                                                    {STATUS_CONFIG[selectedOrder.status].label}
                                                 </Text>
-                                                <Copy size={14} color={Colors.textTertiary} style={{ marginLeft: 6 }} />
-                                            </TouchableOpacity>
+                                            </View>
                                         </View>
-                                        <View style={styles.detailDivider} />
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
 
                                         <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>Bank</Text>
-                                            <Text style={styles.detailValue}>{selectedOrder.bankName}</Text>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Bank</Text>
+                                            <View style={{ alignItems: 'flex-end' }}>
+                                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedOrder.bankName}</Text>
+                                                <Text style={[styles.detailSubValue, { color: themeColors.textSecondary, fontSize: 12 }]}>{selectedOrder.accountNumber}</Text>
+                                            </View>
                                         </View>
-                                        <View style={styles.detailDivider} />
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
 
                                         <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>Account</Text>
-                                            <Text style={styles.detailValue}>
-                                                {selectedOrder.accountName} (****{selectedOrder.accountNumber.slice(-4)})
-                                            </Text>
-                                        </View>
-                                        <View style={styles.detailDivider} />
-
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>Chain</Text>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
                                             <View style={styles.chainValue}>
                                                 <Image
                                                     source={CHAINS[selectedOrder.chain]?.icon || ICONS.base}
                                                     style={styles.smallIcon}
                                                 />
-                                                <Text style={styles.detailValue}>
+                                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                                                     {CHAINS[selectedOrder.chain]?.name || 'Base'}
                                                 </Text>
                                             </View>
                                         </View>
-                                        <View style={styles.detailDivider} />
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
 
                                         <View style={styles.detailRow}>
-                                            <Text style={styles.detailLabel}>Platform Fee</Text>
-                                            <Text style={styles.detailValue}>1% ({(selectedOrder.cryptoAmount * 0.01).toFixed(2)} {selectedOrder.token})</Text>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Platform Fee</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>1% ({(selectedOrder.cryptoAmount * 0.01).toFixed(2)} {selectedOrder.token})</Text>
                                         </View>
                                     </View>
                                 </>
@@ -569,7 +577,7 @@ export default function OfframpHistoryScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
     },
     header: {
         flexDirection: 'row',
@@ -600,7 +608,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 20,
-        backgroundColor: '#F3F4F6',
+        // backgroundColor: '#F3F4F6', // Overridden
     },
     filterChipActive: {
         backgroundColor: Colors.primary,
@@ -623,7 +631,7 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
     },
     sectionHeaderContainer: {
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
         marginHorizontal: -20,
         paddingHorizontal: 20,
         paddingTop: 16,
@@ -632,7 +640,7 @@ const styles = StyleSheet.create({
     sectionHeader: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
     },
     orderItem: {
         flexDirection: 'row',
@@ -801,12 +809,12 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#FFFFFF', // To be overridden
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        paddingHorizontal: 20,
+        paddingHorizontal: 24,
+        paddingTop: 24,
         paddingBottom: 40,
-        maxHeight: '85%',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -817,7 +825,7 @@ const styles = StyleSheet.create({
     modalHeaderLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 8,
     },
     modalTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
@@ -834,18 +842,16 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#F3F4F6',
+        // backgroundColor: '#F3F4F6', // Overridden
         justifyContent: 'center',
         alignItems: 'center',
     },
     amountCard: {
-        backgroundColor: '#F9FAFB',
+        // backgroundColor: '#F9FAFB', // Overridden
         borderRadius: 16,
         padding: 24,
         alignItems: 'center',
         marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
     },
     amountLabel: {
         fontFamily: 'GoogleSansFlex_500Medium',
@@ -865,11 +871,9 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
     },
     detailsCard: {
-        backgroundColor: '#F9FAFB',
+        // backgroundColor: '#F9FAFB', // Overridden
         borderRadius: 16,
         padding: 16,
-        borderWidth: 1,
-        borderColor: '#F3F4F6',
     },
     detailRow: {
         flexDirection: 'row',
@@ -879,7 +883,7 @@ const styles = StyleSheet.create({
     },
     detailDivider: {
         height: 1,
-        backgroundColor: '#F3F4F6',
+        // backgroundColor: '#F3F4F6', // Overridden
     },
     detailLabel: {
         fontFamily: 'GoogleSansFlex_500Medium',
@@ -890,6 +894,11 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 15,
         color: Colors.textPrimary,
+    },
+    detailSubValue: { // Added for bank details
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 12,
+        color: Colors.textSecondary,
     },
     detailValueRow: {
         flexDirection: 'row',

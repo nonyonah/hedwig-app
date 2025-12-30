@@ -7,7 +7,7 @@ import { AppKitProvider, useAppKit, useAccount, useProvider } from '@reown/appki
 import { paymentAppKit } from '../../lib/appkit';
 import { ethers } from 'ethers';
 import { Wallet, CheckCircle } from 'phosphor-react-native';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
 
 // Mock data for chains and tokens (replace with actual data/icons later)
@@ -39,6 +39,7 @@ function PaymentLinkContent() {
     const { open } = useAppKit();
     const { address, isConnected, chainId } = useAccount();
     const provider = useProvider();
+    const themeColors = useThemeColors();
 
     const [document, setDocument] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -172,42 +173,42 @@ function PaymentLinkContent() {
     if (!document) return null;
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.card}>
+                <View style={[styles.card, { backgroundColor: themeColors.surface }]}>
                     {/* Header */}
                     <View style={styles.headerSection}>
-                        <Text style={styles.headerTitle}>Payment Request</Text>
-                        <Text style={styles.headerSubtitle}>Complete your payment securely</Text>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Payment Request</Text>
+                        <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>Complete your payment securely</Text>
                     </View>
 
                     {/* Amount Display */}
-                    <View style={styles.amountContainer}>
-                        <Text style={styles.amountLabel}>Amount Due</Text>
-                        <Text style={styles.amountValue}>{document.amount} {document.currency}</Text>
+                    <View style={[styles.amountContainer, { backgroundColor: themeColors.background }]}>
+                        <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>Amount Due</Text>
+                        <Text style={[styles.amountValue, { color: themeColors.textPrimary }]}>{document.amount} {document.currency}</Text>
                     </View>
 
                     {/* Details Section */}
-                    <View style={styles.detailsContainer}>
+                    <View style={[styles.detailsContainer, { backgroundColor: themeColors.background }]}>
                         <View style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>From</Text>
-                            <Text style={styles.detailValue}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>From</Text>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                                 {document.user?.first_name && document.user?.last_name
                                     ? `${document.user.first_name} ${document.user.last_name}`
                                     : document.user?.email || 'Hedwig User'}
                             </Text>
                         </View>
-                        <View style={styles.divider} />
+                        <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
                         <View style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>For</Text>
-                            <Text style={styles.detailValue}>{document.title || 'Services'}</Text>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>For</Text>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{document.title || 'Services'}</Text>
                         </View>
-                        <View style={styles.divider} />
+                        <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
                         <View style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>Network</Text>
-                            <View style={styles.networkBadge}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Network</Text>
+                            <View style={[styles.networkBadge, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                                 <Image source={selectedChain.icon} style={styles.networkIcon} />
-                                <Text style={styles.networkText}>{selectedChain.name}</Text>
+                                <Text style={[styles.networkText, { color: themeColors.textPrimary }]}>{selectedChain.name}</Text>
                             </View>
                         </View>
                     </View>
@@ -226,14 +227,14 @@ function PaymentLinkContent() {
                     </View>
 
                     {/* Network Notice */}
-                    <Text style={styles.networkNotice}>
+                    <Text style={[styles.networkNotice, { color: themeColors.textSecondary }]}>
                         Supports Base, Celo & Solana
                     </Text>
                 </View>
 
                 <View style={styles.footer}>
-                    <CheckCircle size={16} color={Colors.textSecondary} weight="fill" />
-                    <Text style={styles.footerText}>Secured by Hedwig</Text>
+                    <CheckCircle size={16} color={themeColors.textTertiary || Colors.textSecondary} weight="fill" />
+                    <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>Secured by Hedwig</Text>
                 </View>
             </ScrollView>
         </SafeAreaView>

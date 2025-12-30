@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, SectionList, ActivityIndicato
 import { useRouter } from 'expo-router';
 import { CaretLeft, Bell, CheckCircle, CurrencyDollar, ArrowsDownUp, Megaphone, Receipt, Link, Bank, Trash } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
 import { format, isToday } from 'date-fns';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -52,6 +52,7 @@ const formatAddress = (address: string) => {
 export default function NotificationsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const themeColors = useThemeColors();
     const { getAccessToken } = usePrivy();
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -264,25 +265,25 @@ export default function NotificationsScreen() {
         return (
             <Swipeable renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item.id)}>
                 <TouchableOpacity
-                    style={styles.notificationItem}
+                    style={[styles.notificationItem, { backgroundColor: themeColors.background }]}
                     onPress={() => markAsRead(item.id)}
                     activeOpacity={0.7}
                 >
                     {getNotificationIcon(item.type, item.metadata)}
                     <View style={styles.contentContainer}>
                         <View style={styles.topRow}>
-                            <Text style={styles.notificationTitle}>{item.title}</Text>
+                            <Text style={[styles.notificationTitle, { color: themeColors.textPrimary }]}>{item.title}</Text>
                             <View style={styles.timeContainer}>
                                 {!isItemToday && (
-                                    <Text style={styles.dateText}>{format(date, 'MMM d, yyyy')}</Text>
+                                    <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{format(date, 'MMM d, yyyy')}</Text>
                                 )}
                                 {isItemToday && (
-                                    <Text style={styles.timeText}>{format(date, 'h:mm a')}</Text>
+                                    <Text style={[styles.timeText, { color: themeColors.textSecondary }]}>{format(date, 'h:mm a')}</Text>
                                 )}
                                 {!item.is_read && <View style={styles.unreadDot} />}
                             </View>
                         </View>
-                        <Text style={styles.notificationMessage} numberOfLines={2}>
+                        <Text style={[styles.notificationMessage, { color: themeColors.textSecondary }]} numberOfLines={2}>
                             {item.type === 'crypto_received' && item.metadata?.amount
                                 ? `You received ${item.metadata.amount} ${item.metadata.token || 'USDC'} from ${formatAddress(item.metadata.from)}`
                                 : item.type === 'offramp_success' && item.metadata?.amount
@@ -307,12 +308,14 @@ export default function NotificationsScreen() {
                         key={filter.id}
                         style={[
                             styles.filterChip,
+                            { backgroundColor: themeColors.surface },
                             activeFilter === filter.id && styles.filterChipActive
                         ]}
                         onPress={() => setActiveFilter(filter.id)}
                     >
                         <Text style={[
                             styles.filterText,
+                            { color: themeColors.textSecondary },
                             activeFilter === filter.id && styles.filterTextActive
                         ]}>
                             {filter.label}
@@ -324,16 +327,16 @@ export default function NotificationsScreen() {
     );
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backButton}
                     onPress={() => router.back()}
                 >
-                    <CaretLeft size={24} color={Colors.textPrimary} weight="bold" />
+                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Notifications</Text>
+                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Notifications</Text>
                 <View style={{ width: 100, alignItems: 'flex-end' }}>
                     <TouchableOpacity onPress={markAllAsRead}>
                         <Text style={styles.markAsDoneText}>Mark as done</Text>
@@ -348,9 +351,9 @@ export default function NotificationsScreen() {
                 </View>
             ) : notifications.length === 0 ? (
                 <View style={styles.emptyState}>
-                    <Bell size={64} color={Colors.textPlaceholder} weight="light" />
-                    <Text style={styles.emptyTitle}>No notifications yet</Text>
-                    <Text style={styles.emptySubtitle}>
+                    <Bell size={64} color={themeColors.textSecondary} weight="light" />
+                    <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No notifications yet</Text>
+                    <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
                         When someone pays your invoice or sends you crypto, I'll let you know here!
                     </Text>
                 </View>
@@ -361,7 +364,7 @@ export default function NotificationsScreen() {
                         keyExtractor={(item) => item.id}
                         renderItem={renderNotification}
                         renderSectionHeader={({ section: { title } }) => (
-                            <Text style={styles.sectionHeader}>{title}</Text>
+                            <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>{title}</Text>
                         )}
                         ListHeaderComponent={renderHeader}
                         contentContainerStyle={styles.listContent}

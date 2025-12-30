@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Animated, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/colors';
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { Button } from '../../components/Button';
 
@@ -11,6 +11,8 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 export default function LoginScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const themeColors = useThemeColors();
+    const keyboardAppearance = useKeyboardAppearance();
 
     // State
     const [step, setStep] = useState<'email' | 'otp'>('email');
@@ -128,7 +130,7 @@ export default function LoginScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -139,31 +141,36 @@ export default function LoginScreen() {
             <View style={styles.content}>
                 {step === 'email' ? (
                     <>
-                        <Text style={styles.title}>Continue with Email</Text>
-                        <Text style={styles.subtitle}>Sign in or sign up with your email.</Text>
+                        <Text style={[styles.title, { color: themeColors.textPrimary }]}>Continue with Email</Text>
+                        <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Sign in or sign up with your email.</Text>
 
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, { backgroundColor: themeColors.surface, color: themeColors.textPrimary }]}
                             placeholder="Email Address"
                             placeholderTextColor="#9CA3AF"
                             value={email}
                             onChangeText={setEmail}
                             autoCapitalize="none"
                             keyboardType="email-address"
+                            keyboardAppearance={keyboardAppearance}
                             autoFocus
                         />
                     </>
                 ) : (
                     <>
-                        <Text style={styles.title}>Enter Code</Text>
-                        <Text style={styles.subtitle}>
-                            We sent a verification code to your email <Text style={{ fontWeight: '600', color: Colors.textPrimary }}>{email}</Text>.
+                        <Text style={[styles.title, { color: themeColors.textPrimary }]}>Enter Code</Text>
+                        <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
+                            We sent a verification code to your email <Text style={{ fontWeight: '600', color: themeColors.textPrimary }}>{email}</Text>.
                         </Text>
 
                         <View style={styles.codeContainer}>
                             {[0, 1, 2, 3, 4, 5].map((index) => (
-                                <View key={index} style={[styles.codeBox, code.length === index && styles.codeBoxActive]}>
-                                    <Text style={styles.codeText}>
+                                <View key={index} style={[
+                                    styles.codeBox,
+                                    { backgroundColor: themeColors.surface },
+                                    code.length === index && { borderColor: themeColors.textPrimary, backgroundColor: themeColors.background }
+                                ]}>
+                                    <Text style={[styles.codeText, { color: themeColors.textPrimary }]}>
                                         {code[index] || ''}
                                     </Text>
                                 </View>
@@ -180,6 +187,7 @@ export default function LoginScreen() {
                                 }
                             }}
                             keyboardType="number-pad"
+                            keyboardAppearance={keyboardAppearance}
                             autoFocus
                             maxLength={6}
                         />

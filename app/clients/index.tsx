@@ -8,7 +8,7 @@ import { Users, Plus, User, Envelope, Phone, Trash, PencilSimple, X, List, Curre
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
@@ -29,6 +29,7 @@ interface Client {
 export default function ClientsScreen() {
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
+    const themeColors = useThemeColors();
     const [clients, setClients] = useState<Client[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -374,19 +375,26 @@ export default function ClientsScreen() {
         return (
             <GestureHandlerRootView>
                 <Swipeable renderRightActions={() => renderRightActions(item.id)}>
-                    <TouchableOpacity style={styles.clientItem} onPress={() => openDetailModal(item)}>
+                    <TouchableOpacity style={[styles.clientItem, { borderBottomColor: themeColors.border }]} onPress={() => openDetailModal(item)}>
                         <View style={styles.clientItemContent}>
                             {/* Left content */}
                             <View style={styles.clientItemLeft}>
-                                <Text style={styles.clientItemCompany}>{item.company || 'Individual'}</Text>
-                                <Text style={styles.clientItemName} numberOfLines={1}>{item.name}</Text>
-                                <Text style={styles.clientItemMeta}>
+                                <Text style={[styles.clientItemCompany, { color: themeColors.textSecondary }]}>{item.company || 'Individual'}</Text>
+                                <Text style={[styles.clientItemName, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.name}</Text>
+                                <Text style={[styles.clientItemMeta, { color: themeColors.textTertiary }]}>
                                     {item.email || 'No email'} {item.phone ? `· ${item.phone}` : ''}
                                 </Text>
                             </View>
                             {/* Right - Earnings badge */}
-                            <View style={[styles.clientIconCircle, isEarnings && styles.clientIconCircleActive]}>
-                                <Text style={[styles.clientIconText, isEarnings && styles.clientIconTextActive]}>
+                            <View style={[
+                                styles.clientIconCircle,
+                                isEarnings ? styles.clientIconCircleActive : { backgroundColor: themeColors.surface },
+                                isEarnings ? { backgroundColor: '#DCFCE7' } : {} // Keep light green for earnings? Or maybe themeColors.primaryLight? Let's use hardcoded light green for now but maybe better distinct color
+                            ]}>
+                                <Text style={[
+                                    styles.clientIconText,
+                                    isEarnings ? styles.clientIconTextActive : { color: themeColors.textSecondary }
+                                ]}>
                                     {pillText}
                                 </Text>
                             </View>
@@ -413,10 +421,10 @@ export default function ClientsScreen() {
         return (
             <>
                 {sidebarElement}
-                <SafeAreaView style={styles.container}>
+                <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={Colors.primary} />
-                        <Text style={styles.loadingText}>Loading clients...</Text>
+                        <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading clients...</Text>
                     </View>
                 </SafeAreaView>
             </>
@@ -426,16 +434,16 @@ export default function ClientsScreen() {
     return (
         <>
             {sidebarElement}
-            <SafeAreaView style={styles.container} edges={['top']}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setIsSidebarOpen(true); }}>
-                        <List size={24} color={Colors.textPrimary} weight="bold" />
+                        <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Clients</Text>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Clients</Text>
                     <View style={styles.headerRight}>
                         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openFormModal(); }}>
-                            <Plus size={24} color={Colors.textPrimary} />
+                            <Plus size={24} color={themeColors.textPrimary} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => setShowProfileModal(true)}>
                             {profileIcon.imageUri ? (
@@ -459,9 +467,9 @@ export default function ClientsScreen() {
                 {/* Client List */}
                 {clients.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Users size={64} color={Colors.textSecondary} weight="light" />
-                        <Text style={styles.emptyTitle}>No Clients Yet</Text>
-                        <Text style={styles.emptySubtitle}>
+                        <Users size={64} color={themeColors.textSecondary} weight="light" />
+                        <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Clients Yet</Text>
+                        <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
                             Add your first client to start tracking earnings and creating invoices
                         </Text>
                         <TouchableOpacity style={styles.addClientButton} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openFormModal(); }}>
@@ -495,11 +503,12 @@ export default function ClientsScreen() {
                         <Animated.View
                             style={[
                                 styles.detailModalContent,
+                                { backgroundColor: themeColors.background },
                                 { transform: [{ translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] }
                             ]}
                         >
                             {/* Centered Title */}
-                            <Text style={styles.detailModalTitle}>{selectedClient?.name || 'Client Details'}</Text>
+                            <Text style={[styles.detailModalTitle, { color: themeColors.textPrimary }]}>{selectedClient?.name || 'Client Details'}</Text>
 
                             {selectedClient && (
                                 <ScrollView showsVerticalScrollIndicator={false} style={styles.detailModalBody} contentContainerStyle={{ paddingBottom: 16 }}>
@@ -524,35 +533,35 @@ export default function ClientsScreen() {
                                     </View>
 
                                     {/* Contact Details Card */}
-                                    <View style={styles.detailsCard}>
+                                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                                         {selectedClient.email && (
                                             <>
                                                 <View style={styles.detailCardRow}>
-                                                    <Text style={styles.detailCardLabel}>Email</Text>
-                                                    <Text style={styles.detailCardValue}>{selectedClient.email}</Text>
+                                                    <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Email</Text>
+                                                    <Text style={[styles.detailCardValue, { color: themeColors.textPrimary }]}>{selectedClient.email}</Text>
                                                 </View>
-                                                {selectedClient.phone && <View style={styles.detailCardDivider} />}
+                                                {selectedClient.phone && <View style={[styles.detailCardDivider, { backgroundColor: themeColors.border }]} />}
                                             </>
                                         )}
                                         {selectedClient.phone && (
                                             <View style={styles.detailCardRow}>
-                                                <Text style={styles.detailCardLabel}>Phone</Text>
-                                                <Text style={styles.detailCardValue}>{selectedClient.phone}</Text>
+                                                <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Phone</Text>
+                                                <Text style={[styles.detailCardValue, { color: themeColors.textPrimary }]}>{selectedClient.phone}</Text>
                                             </View>
                                         )}
                                         {!selectedClient.email && !selectedClient.phone && (
                                             <View style={styles.detailCardRow}>
-                                                <Text style={styles.detailCardLabel}>Contact</Text>
-                                                <Text style={[styles.detailCardValue, { color: Colors.textSecondary }]}>No contact info</Text>
+                                                <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Contact</Text>
+                                                <Text style={[styles.detailCardValue, { color: themeColors.textSecondary }]}>No contact info</Text>
                                             </View>
                                         )}
                                     </View>
 
                                     {/* Client Since */}
-                                    <View style={styles.detailsCard}>
+                                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                                         <View style={styles.detailCardRow}>
-                                            <Text style={styles.detailCardLabel}>Client Since</Text>
-                                            <Text style={styles.detailCardValue}>
+                                            <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Client Since</Text>
+                                            <Text style={[styles.detailCardValue, { color: themeColors.textPrimary }]}>
                                                 {new Date(selectedClient.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                             </Text>
                                         </View>
@@ -595,61 +604,65 @@ export default function ClientsScreen() {
                         <Animated.View
                             style={[
                                 styles.formModalContent,
+                                { backgroundColor: themeColors.background },
                                 { transform: [{ translateY: formSlideAnim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] }
                             ]}
                         >
                             <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>{isEditing ? 'Edit Client' : 'New Client'}</Text>
-                                <TouchableOpacity style={styles.closeButton} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); closeFormModal(); }}>
-                                    <X size={20} color={Colors.textSecondary} weight="bold" />
+                                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>{isEditing ? 'Edit Client' : 'New Client'}</Text>
+                                <TouchableOpacity
+                                    style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); closeFormModal(); }}
+                                >
+                                    <X size={20} color={themeColors.textSecondary} weight="bold" />
                                 </TouchableOpacity>
                             </View>
 
                             <ScrollView style={styles.formBody}>
                                 <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Name *</Text>
+                                    <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Name *</Text>
                                     <TextInput
-                                        style={styles.input}
+                                        style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
                                         value={formName}
                                         onChangeText={setFormName}
                                         placeholder="Client name"
-                                        placeholderTextColor={Colors.textSecondary}
+                                        placeholderTextColor={themeColors.textTertiary}
                                     />
                                 </View>
 
                                 <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Email</Text>
+                                    <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email</Text>
                                     <TextInput
-                                        style={styles.input}
+                                        style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
                                         value={formEmail}
                                         onChangeText={setFormEmail}
                                         placeholder="client@example.com"
-                                        placeholderTextColor={Colors.textSecondary}
+                                        placeholderTextColor={themeColors.textTertiary}
                                         keyboardType="email-address"
                                         autoCapitalize="none"
                                     />
                                 </View>
 
                                 <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Phone</Text>
+                                    <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Phone</Text>
                                     <TextInput
-                                        style={styles.input}
+                                        style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
                                         value={formPhone}
                                         onChangeText={setFormPhone}
                                         placeholder="+1 234 567 8900"
-                                        placeholderTextColor={Colors.textSecondary}
+                                        placeholderTextColor={themeColors.textTertiary}
                                         keyboardType="phone-pad"
                                     />
                                 </View>
 
                                 <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Company</Text>
+                                    <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Company</Text>
                                     <TextInput
-                                        style={styles.input}
+                                        style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
                                         value={formCompany}
                                         onChangeText={setFormCompany}
                                         placeholder="Company name (optional)"
-                                        placeholderTextColor={Colors.textSecondary}
+                                        placeholderTextColor={themeColors.textTertiary}
                                     />
                                 </View>
                             </ScrollView>
@@ -675,7 +688,7 @@ export default function ClientsScreen() {
                     onClose={() => setShowProfileModal(false)}
                     userName={userName}
                     walletAddresses={walletAddresses}
-                profileIcon={profileIcon}
+                    profileIcon={profileIcon}
                 />
             </SafeAreaView>
         </>
@@ -881,7 +894,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
     },
-    modalContent: {
+    modalContent: { // Form modal
         backgroundColor: Colors.background,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
@@ -889,13 +902,13 @@ const styles = StyleSheet.create({
     },
     // New Detail Modal Styles (Gojek-inspired)
     detailModalContent: {
-        backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
+        // backgroundColor: '#FFFFFF', // Overridden
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         paddingHorizontal: 24,
-        paddingTop: 12,
+        paddingTop: 24,
         paddingBottom: 40,
-        maxHeight: '80%',
+        maxHeight: '90%',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.1,
@@ -906,7 +919,7 @@ const styles = StyleSheet.create({
         ...Typography.h2,
         fontSize: 22,
         fontWeight: '700',
-        color: Colors.textPrimary,
+        // color: Colors.textPrimary, // Overridden
         textAlign: 'center',
         marginBottom: 8,
     },
@@ -924,11 +937,11 @@ const styles = StyleSheet.create({
     },
     companyBadgeText: {
         ...Typography.body,
-        color: Colors.textSecondary,
+        // color: Colors.textSecondary, // Overridden via inline or default
         fontSize: 15,
     },
     summaryCard: {
-        backgroundColor: '#F0FDF4',
+        // backgroundColor: '#F0FDF4', // Overridden
         borderRadius: 16,
         padding: 20,
         alignItems: 'center',
@@ -936,7 +949,7 @@ const styles = StyleSheet.create({
     },
     summaryCardLabel: {
         ...Typography.caption,
-        color: '#059669',
+        // color: '#059669', // Overridden
         fontSize: 13,
         fontWeight: '600',
         textTransform: 'uppercase',
@@ -1025,7 +1038,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     formModalContent: {
-        backgroundColor: '#FFFFFF',
+        // backgroundColor: '#FFFFFF', // Overridden
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
@@ -1051,7 +1064,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#F3F4F6',
+        // backgroundColor: '#F3F4F6', // Overridden
         justifyContent: 'center',
         alignItems: 'center',
     },
