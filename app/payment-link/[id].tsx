@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22,
         color: Colors.textPrimary,
         marginBottom: 6,
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     amountValue: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 32,
         color: Colors.textPrimary,
     },

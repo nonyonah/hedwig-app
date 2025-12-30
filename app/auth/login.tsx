@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     title: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 28,
         color: Colors.textPrimary,
         marginBottom: 8,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
     },
     codeText: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 24,
         color: Colors.textPrimary,
     },

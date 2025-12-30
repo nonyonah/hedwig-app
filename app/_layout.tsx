@@ -6,7 +6,6 @@ import {
     GoogleSansFlex_400Regular,
     GoogleSansFlex_500Medium,
     GoogleSansFlex_600SemiBold,
-    GoogleSansFlex_700Bold
 } from '@expo-google-fonts/google-sans-flex';
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
 import { View, ActivityIndicator, Platform } from 'react-native';
@@ -21,7 +20,6 @@ export default function RootLayout() {
         GoogleSansFlex_400Regular,
         GoogleSansFlex_500Medium,
         GoogleSansFlex_600SemiBold,
-        GoogleSansFlex_700Bold,
         Merriweather_300Light,
         Merriweather_400Regular,
         Merriweather_700Bold,

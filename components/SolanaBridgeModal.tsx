@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 20,
         color: Colors.textPrimary,
     },
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
         paddingTop: 8, // reduce padding since title is in header
     },
     title: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 20,
         color: Colors.textPrimary,
         textAlign: 'left', // Alignment change
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     amountText: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 24,
         color: Colors.textPrimary,
         flex: 1,
@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     resultAmount: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 28,
         color: Colors.success,
     },

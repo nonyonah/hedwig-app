@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
         height: 60,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
     },
@@ -979,7 +979,7 @@ const styles = StyleSheet.create({
         borderColor: '#FFFFFF',
     },
     modalTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
     },
@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     amountCardValue: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 36,
         color: Colors.textPrimary,
         marginBottom: 8,

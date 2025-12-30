@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22,
         color: Colors.textPrimary,
     },
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
         padding: 40,
     },
     emptyTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginTop: 16,
@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     modalTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
     },
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     amountValue: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 36,
         color: Colors.textPrimary,
         marginBottom: 4,

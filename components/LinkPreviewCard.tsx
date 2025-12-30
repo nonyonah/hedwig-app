@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
     amount: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginTop: 4,

@@ -816,7 +816,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     balanceAmount: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 40,
         color: Colors.textPrimary,
         marginBottom: 24,

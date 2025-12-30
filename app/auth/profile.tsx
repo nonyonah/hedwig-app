@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     title: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 28,
         color: Colors.textPrimary,
         marginBottom: 8,
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     largeAvatarText: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         color: '#FFFFFF',
         fontSize: 48,
     },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
     },
     viewTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 24,
         color: Colors.textPrimary,
         marginBottom: 32,

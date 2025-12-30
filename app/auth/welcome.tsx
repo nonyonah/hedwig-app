@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
         paddingBottom: 100,
     },
     title: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 32,
         color: Colors.textPrimary,
         marginBottom: 16,

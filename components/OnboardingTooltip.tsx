@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     title: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
         flex: 1,

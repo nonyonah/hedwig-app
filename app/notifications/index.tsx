@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22,
         color: Colors.textPrimary,
         textAlign: 'center',
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     sectionHeader: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginTop: 8,
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     notificationTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 15,
         color: Colors.textPrimary,
         flex: 1,
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
         marginTop: 60,
     },
     emptyTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 20,
         color: Colors.textPrimary,
         marginTop: 16,

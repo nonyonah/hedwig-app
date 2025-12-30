@@ -706,7 +706,7 @@ const styles = StyleSheet.create({
         height: 60,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22,
         color: Colors.textPrimary,
     },

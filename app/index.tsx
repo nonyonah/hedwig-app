@@ -1474,7 +1474,7 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
     },
@@ -1499,7 +1499,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
     },
     notificationBadgeText: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 10,
         color: '#FFFFFF',
     },

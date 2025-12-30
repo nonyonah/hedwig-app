@@ -761,7 +761,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22,
         color: Colors.textPrimary,
     },

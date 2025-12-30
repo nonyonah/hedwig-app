@@ -270,7 +270,7 @@ export default function SettingsScreen() {
                             colors={getUserGradient(user?.id)}
                             style={styles.avatar}
                         >
-                            <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_700Bold', fontSize: 18 }}>
+                            <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 }}>
                                 {userName.firstName?.[0]?.toUpperCase() || 'U'}
                             </Text>
                         </LinearGradient>
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
     },
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     profileName: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
         marginBottom: 4,
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     modalTitle: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         marginBottom: 16,
         color: Colors.textPrimary,
@@ -560,6 +560,6 @@ const styles = StyleSheet.create({
     },
     modalItemTextSelected: {
         color: Colors.primary,
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
     },
 });

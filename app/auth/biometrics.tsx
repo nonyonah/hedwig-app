@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     title: {
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 28,
         color: Colors.textPrimary,
         textAlign: 'center',
