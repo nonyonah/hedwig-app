@@ -527,23 +527,30 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                 {profileIcon?.imageUri ? (
                                     <Image
                                         source={{ uri: profileIcon.imageUri }}
-                                        style={styles.avatarContainer}
+                                        style={[styles.avatarContainer, styles.avatarImage]}
                                     />
-                                ) : (
+                                ) : profileIcon?.emoji ? (
                                     <LinearGradient
                                         colors={profileIcon?.colorIndex !== undefined
                                             ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
-                                            : (profileIcon?.emoji ? ['#F3F4F6', '#E5E7EB', '#D1D5DB'] : getUserGradient(user?.id || userName?.firstName))}
+                                            : ['#F3F4F6', '#E5E7EB', '#D1D5DB']}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
                                         style={styles.avatarContainer}
                                     >
-                                        {profileIcon?.emoji ? (
-                                            <Text style={styles.emojiAvatar}>{profileIcon.emoji}</Text>
-                                        ) : (
-                                            userName?.firstName && (
-                                                <Text style={styles.avatarText}>{userName.firstName[0].toUpperCase()}</Text>
-                                            )
+                                        <Text style={styles.emojiAvatar}>{profileIcon.emoji}</Text>
+                                    </LinearGradient>
+                                ) : (
+                                    <LinearGradient
+                                        colors={profileIcon?.colorIndex !== undefined
+                                            ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
+                                            : getUserGradient(user?.id || userName?.firstName)}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.avatarContainer}
+                                    >
+                                        {userName?.firstName && (
+                                            <Text style={styles.avatarText}>{userName.firstName[0].toUpperCase()}</Text>
                                         )}
                                     </LinearGradient>
                                 )}
@@ -767,6 +774,10 @@ const styles = StyleSheet.create({
     },
     emojiAvatar: {
         fontSize: 22,
+    },
+    avatarImage: {
+        resizeMode: 'cover',
+        overflow: 'hidden',
     },
     profileName: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
