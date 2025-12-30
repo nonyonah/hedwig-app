@@ -37,6 +37,7 @@ export default function ContractsScreen() {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
+    const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
 
     useEffect(() => {
         fetchContracts();
@@ -64,6 +65,23 @@ export default function ContractsScreen() {
                         evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
                         solana: userData.solanaWalletAddress
                     });
+
+                    // Set profile icon
+                    if (userData.avatar) {
+                        try {
+                            if (typeof userData.avatar === 'string' && userData.avatar.trim().startsWith('{')) {
+                                setProfileIcon(JSON.parse(userData.avatar));
+                            } else {
+                                setProfileIcon({ imageUri: userData.avatar });
+                            }
+                        } catch (e) {
+                            setProfileIcon({ imageUri: userData.avatar });
+                        }
+                    } else if (userData.profileEmoji) {
+                        setProfileIcon({ emoji: userData.profileEmoji });
+                    } else if (userData.profileColorIndex !== undefined) {
+                        setProfileIcon({ colorIndex: userData.profileColorIndex });
+                    }
                 }
             } catch (error) {
                 console.error('Failed to fetch user data:', error);
