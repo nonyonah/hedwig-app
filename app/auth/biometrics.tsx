@@ -326,7 +326,7 @@ export default function BiometricsScreen() {
                         disabled={isEnableLoading || isLaterLoading}
                     />
                 </View>
-                <View style={{ height: insets.bottom + 20 }} />
+                <View style={{ height: insets.bottom + 8 }} />
             </View>
         </View>
     );

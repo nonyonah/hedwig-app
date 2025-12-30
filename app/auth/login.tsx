@@ -1,14 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Animated, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft } from 'phosphor-react-native';
 import { Colors } from '../../theme/colors';
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { Button } from '../../components/Button';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-console.log('🔗 [Login] API_URL configured as:', API_URL);
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -20,10 +18,43 @@ export default function LoginScreen() {
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Keyboard animation
+    const keyboardOffset = useRef(new Animated.Value(0)).current;
+
     // Hooks
     const { sendCode, loginWithCode } = useLoginWithEmail();
     const { getAccessToken, user, isReady } = usePrivy();
     const inputRef = useRef<TextInput>(null);
+
+    // Keyboard listeners for smooth animation matching keyboard speed
+    useEffect(() => {
+        const keyboardWillShow = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            (e) => {
+                Animated.timing(keyboardOffset, {
+                    toValue: e.endCoordinates.height - insets.bottom,
+                    duration: e.duration || 250,
+                    useNativeDriver: false,
+                }).start();
+            }
+        );
+
+        const keyboardWillHide = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            (e) => {
+                Animated.timing(keyboardOffset, {
+                    toValue: 0,
+                    duration: e.duration || 250,
+                    useNativeDriver: false,
+                }).start();
+            }
+        );
+
+        return () => {
+            keyboardWillShow.remove();
+            keyboardWillHide.remove();
+        };
+    }, [insets.bottom]);
 
     // Handle sending email code
     const handleSendCode = async () => {
@@ -101,14 +132,11 @@ export default function LoginScreen() {
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                    {/* Icon removed as per instruction */}
+                    {/* Back button placeholder */}
                 </TouchableOpacity>
             </View>
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.content}
-            >
+            <View style={styles.content}>
                 {step === 'email' ? (
                     <>
                         <Text style={styles.title}>Continue with Email</Text>
@@ -124,21 +152,9 @@ export default function LoginScreen() {
                             keyboardType="email-address"
                             autoFocus
                         />
-
-                        <View style={{ flex: 1 }} />
-
-                        <Button
-                            title="Next"
-                            onPress={handleSendCode}
-                            variant="primary"
-                            size="large"
-                            loading={loading}
-                            disabled={!email || loading}
-                        />
                     </>
                 ) : (
                     <>
-                        {/* No Icon here as requested */}
                         <Text style={styles.title}>Enter Code</Text>
                         <Text style={styles.subtitle}>
                             We sent a verification code to your email <Text style={{ fontWeight: '600', color: Colors.textPrimary }}>{email}</Text>.
@@ -169,21 +185,24 @@ export default function LoginScreen() {
                         />
 
                         <TouchableOpacity onPress={() => inputRef.current?.focus()} style={styles.overlay} />
-
-                        <View style={{ flex: 1 }} />
-
-                        <Button
-                            title="Next"
-                            onPress={handleVerify}
-                            variant="primary"
-                            size="large"
-                            loading={loading}
-                            disabled={code.length !== 6 || loading}
-                        />
                     </>
                 )}
-                <View style={{ height: insets.bottom + 20 }} />
-            </KeyboardAvoidingView>
+
+                <View style={{ flex: 1 }} />
+
+                {/* Animated Button Container */}
+                <Animated.View style={[styles.buttonContainer, { marginBottom: keyboardOffset }]}>
+                    <Button
+                        title="Next"
+                        onPress={step === 'email' ? handleSendCode : handleVerify}
+                        variant="primary"
+                        size="large"
+                        loading={loading}
+                        disabled={step === 'email' ? !email || loading : code.length !== 6 || loading}
+                    />
+                    <View style={{ height: insets.bottom + 8 }} />
+                </Animated.View>
+            </View>
         </View>
     );
 }
@@ -263,5 +282,8 @@ const styles = StyleSheet.create({
         left: 24,
         right: 24,
         height: 60,
+    },
+    buttonContainer: {
+        width: '100%',
     },
 });
