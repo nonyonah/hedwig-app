@@ -27,6 +27,7 @@
     "@reown/appkit-ethers-react-native": "^2.0.1",
     "@reown/appkit-react-native": "^2.0.1",
     "@reown/appkit-solana-react-native": "^2.0.1",
+    "@sentry/react-native": "^7.8.0",
     "@solana-program/system": "^0.10.0",
     "@stacks/network": "^7.2.0",
     "@stacks/transactions": "^7.3.0",

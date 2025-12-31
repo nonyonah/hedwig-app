@@ -1,4 +1,5 @@
-import { Stack } from 'expo-router';
+import React from 'react';
+import { Stack, useNavigationContainerRef } from 'expo-router';
 import { PrivyProvider } from '@privy-io/expo';
 import Constants from 'expo-constants';
 import {
@@ -12,9 +13,37 @@ import { View, ActivityIndicator, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
 import { useThemeColors } from '../theme/colors';
+import * as Sentry from '@sentry/react-native';
+import { isRunningInExpoGo } from 'expo';
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || '';
+
+// Sentry Navigation Integration for Expo Router
+const navigationIntegration = Sentry.reactNavigationIntegration({
+    enableTimeToInitialDisplay: !isRunningInExpoGo(),
+});
+
+// Initialize Sentry
+Sentry.init({
+    dsn: SENTRY_DSN,
+    // Adds more context data to events
+    sendDefaultPii: true,
+    // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
+    // Adjust this value in production for performance.
+    tracesSampleRate: __DEV__ ? 1.0 : 0.2,
+    // Enable native frames tracking (disabled in Expo Go)
+    enableNativeFramesTracking: !isRunningInExpoGo(),
+    // Add navigation integration for route tracking
+    integrations: [navigationIntegration],
+    // Only send errors in production, log in dev
+    enabled: !__DEV__,
+    // Environment tag
+    environment: __DEV__ ? 'development' : 'production',
+    // Debug mode in development
+    debug: __DEV__,
+});
 
 // Themed Stack component that uses the theme context
 function ThemedStack() {
@@ -70,7 +99,7 @@ function WebLayout() {
     );
 }
 
-// Native layout with Privy (PostHog is initialized programmatically in analytics.ts)
+// Native layout with Privy
 function NativeLayout() {
     return (
         <PrivyProvider
@@ -82,7 +111,16 @@ function NativeLayout() {
     );
 }
 
-export default function RootLayout() {
+function RootLayout() {
+    // Register navigation container for Sentry route tracking
+    const ref = useNavigationContainerRef();
+
+    React.useEffect(() => {
+        if (ref) {
+            navigationIntegration.registerNavigationContainer(ref);
+        }
+    }, [ref]);
+
     const [fontsLoaded] = useFonts({
         GoogleSansFlex_400Regular,
         GoogleSansFlex_500Medium,
@@ -111,3 +149,6 @@ export default function RootLayout() {
         </SettingsProvider>
     );
 }
+
+// Wrap with Sentry for automatic error boundary and performance tracking
+export default Sentry.wrap(RootLayout);

@@ -69,7 +69,14 @@
       ],
       "expo-font",
       "expo-secure-store",
-      "expo-localization"
+      "expo-localization",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "hedwig",
+          "project": "hedwig-app"
+        }
+      ]
     ],
     "extra": {
       "router": {
