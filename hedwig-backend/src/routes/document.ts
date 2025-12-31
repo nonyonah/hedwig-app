@@ -7,6 +7,9 @@ import NotificationService from '../services/notifications';
 
 const router = Router();
 
+// Vercel-hosted web client URL for invoice and payment link pages
+const WEB_CLIENT_URL = process.env.WEB_CLIENT_URL || 'https://web-client-eight-alpha.vercel.app';
+
 /**
  * POST /api/documents/invoice
  * Create a new invoice
@@ -47,9 +50,15 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
 
         if (error) throw error;
 
+        // Generate shareable Vercel URL for the invoice
+        const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
+
         res.json({
             success: true,
-            data: { document: doc }
+            data: { 
+                document: doc,
+                shareableUrl 
+            }
         });
     } catch (error) {
         next(error);
@@ -82,7 +91,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             return;
         }
 
-        // Create payment link record
+        // Create payment link record (payment_link_url will be updated after we have the ID)
         const { data: doc, error } = await supabase
             .from('documents')
             .insert({
@@ -92,7 +101,6 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 amount: parseFloat(amount),
                 currency: currency || 'USDC',
                 status: 'DRAFT',
-                payment_link_url: `https://hedwig.app/pay/${Date.now()}`,
                 content: {
                     recipient_email: recipientEmail,
                     client_name: clientName,
@@ -104,9 +112,18 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
 
         if (error) throw error;
 
+        // Update with the shareable Vercel URL now that we have the document ID
+        const shareableUrl = `${WEB_CLIENT_URL}/pay/${doc.id}`;
+        await supabase
+            .from('documents')
+            .update({ payment_link_url: shareableUrl })
+            .eq('id', doc.id);
+
         res.json({
             success: true,
-            data: { document: doc }
+            data: { 
+                document: { ...doc, payment_link_url: shareableUrl }
+            }
         });
     } catch (error) {
         next(error);
