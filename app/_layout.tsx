@@ -70,10 +70,8 @@ function WebLayout() {
     );
 }
 
-// Native layout with Privy
+// Native layout with Privy (PostHog is initialized programmatically in analytics.ts)
 function NativeLayout() {
-    const colors = useThemeColors();
-
     return (
         <PrivyProvider
             appId={PRIVY_APP_ID}

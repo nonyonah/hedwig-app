@@ -6,7 +6,7 @@ import { Copy, ShareNetwork, CheckCircle, Clock, WarningCircle, ArrowSquareOut }
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../theme/colors';
+import { Colors, useThemeColors } from '../theme/colors';
 
 interface LinkPreviewCardProps {
     docType: 'invoice' | 'payment-link' | 'contract' | 'proposal';
@@ -26,6 +26,7 @@ interface DocumentPreview {
 export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ docType, docId, path }) => {
     const router = useRouter();
     const { getAccessToken } = usePrivy();
+    const themeColors = useThemeColors();
     const [preview, setPreview] = useState<DocumentPreview | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -132,10 +133,10 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ docType, docId
 
     if (loading) {
         return (
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color={Colors.primary} />
-                    <Text style={styles.loadingText}>Loading preview...</Text>
+                    <ActivityIndicator size="small" color={themeColors.primary} />
+                    <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading preview...</Text>
                 </View>
             </View>
         );
@@ -143,20 +144,20 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ docType, docId
 
     if (error || !preview) {
         return (
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                 <TouchableOpacity style={styles.content} onPress={handleTap}>
-                    <View style={styles.iconContainer}>
+                    <View style={[styles.iconContainer, { backgroundColor: themeColors.surfaceHighlight }]}>
                         <Text style={styles.emoji}>{getTypeEmoji()}</Text>
                     </View>
                     <View style={styles.info}>
-                        <Text style={styles.title}>{getTypeLabel()}</Text>
-                        <Text style={styles.subtitle}>Tap to view • ID: {docId?.substring(0, 8)}...</Text>
+                        <Text style={[styles.title, { color: themeColors.textPrimary }]}>{getTypeLabel()}</Text>
+                        <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Tap to view • ID: {docId?.substring(0, 8)}...</Text>
                     </View>
                 </TouchableOpacity>
-                <View style={styles.actions}>
-                    <TouchableOpacity style={styles.actionButton} onPress={handleCopy}>
-                        <Copy size={16} color={Colors.primary} />
-                        <Text style={styles.actionText}>Copy</Text>
+                <View style={[styles.actions, { borderTopColor: themeColors.border }]}>
+                    <TouchableOpacity style={[styles.actionButton, { borderRightColor: themeColors.border }]} onPress={handleCopy}>
+                        <Copy size={16} color={themeColors.primary} />
+                        <Text style={[styles.actionText, { color: themeColors.primary }]}>Copy</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -164,37 +165,37 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ docType, docId
     }
 
     return (
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
             <TouchableOpacity style={styles.content} onPress={handleTap}>
                 <View style={[styles.iconContainer, { backgroundColor: `${getStatusColor(preview.status)}15` }]}>
                     <Text style={styles.emoji}>{getTypeEmoji()}</Text>
                 </View>
                 <View style={styles.info}>
                     <View style={styles.titleRow}>
-                        <Text style={styles.title} numberOfLines={1}>{preview.title}</Text>
-                        <View style={styles.statusBadge}>
+                        <Text style={[styles.title, { color: themeColors.textPrimary }]} numberOfLines={1}>{preview.title}</Text>
+                        <View style={[styles.statusBadge, { backgroundColor: themeColors.surfaceHighlight }]}>
                             {getStatusIcon(preview.status)}
                             <Text style={[styles.statusText, { color: getStatusColor(preview.status) }]}>
                                 {preview.status}
                             </Text>
                         </View>
                     </View>
-                    <Text style={styles.amount}>${preview.amount?.toFixed(2)} USDC</Text>
+                    <Text style={[styles.amount, { color: themeColors.textPrimary }]}>${preview.amount?.toFixed(2)} USDC</Text>
                     {preview.clientName && (
-                        <Text style={styles.subtitle} numberOfLines={1}>
+                        <Text style={[styles.subtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>
                             Client: {preview.clientName}
                         </Text>
                     )}
                 </View>
             </TouchableOpacity>
-            <View style={styles.actions}>
-                <TouchableOpacity style={styles.actionButton} onPress={handleCopy}>
-                    <Copy size={16} color={Colors.primary} />
-                    <Text style={styles.actionText}>Copy</Text>
+            <View style={[styles.actions, { borderTopColor: themeColors.border }]}>
+                <TouchableOpacity style={[styles.actionButton, { borderRightColor: themeColors.border }]} onPress={handleCopy}>
+                    <Copy size={16} color={themeColors.primary} />
+                    <Text style={[styles.actionText, { color: themeColors.primary }]}>Copy</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton} onPress={handleOpenInBrowser}>
-                    <ArrowSquareOut size={16} color={Colors.primary} />
-                    <Text style={styles.actionText}>Open</Text>
+                <TouchableOpacity style={[styles.actionButton, { borderRightColor: themeColors.border }]} onPress={handleOpenInBrowser}>
+                    <ArrowSquareOut size={16} color={themeColors.primary} />
+                    <Text style={[styles.actionText, { color: themeColors.primary }]}>Open</Text>
                 </TouchableOpacity>
             </View>
         </View>

@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Appearance, ColorSchemeName } from 'react-native';
 
 export type Currency = 'USD' | 'NGN' | 'GHS' | 'KES';
 export type Theme = 'light' | 'dark' | 'system';
@@ -23,10 +23,20 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const systemColorScheme = useColorScheme();
+    const [deviceTheme, setDeviceTheme] = useState<ColorSchemeName>(Appearance.getColorScheme());
     const [currency, setCurrencyState] = useState<Currency>('USD');
     const [theme, setThemeState] = useState<Theme>('system');
     const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(true);
     const [liveTrackingEnabled, setLiveTrackingEnabledState] = useState<boolean>(true);
+
+    // Listen for system theme changes
+    useEffect(() => {
+        const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+            console.log('[Settings] System theme changed to:', colorScheme);
+            setDeviceTheme(colorScheme);
+        });
+        return () => subscription.remove();
+    }, []);
 
     // Initial load
     useEffect(() => {
@@ -60,6 +70,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const setTheme = async (newTheme: Theme) => {
         try {
+            console.log('[Settings] Setting theme to:', newTheme);
             setThemeState(newTheme);
             await AsyncStorage.setItem('settings_theme', newTheme);
         } catch (error) {
@@ -90,7 +101,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     };
 
-    const currentTheme = theme === 'system' ? (systemColorScheme || 'light') : theme;
+    // Use deviceTheme (from listener) or systemColorScheme (from hook) - prioritize the reactive one
+    const resolvedSystemTheme = deviceTheme || systemColorScheme || 'light';
+    const currentTheme = theme === 'system' ? resolvedSystemTheme : theme;
+
+    console.log('[Settings] Theme state:', { storedTheme: theme, deviceTheme, systemColorScheme, currentTheme });
 
     return (
         <SettingsContext.Provider value={{

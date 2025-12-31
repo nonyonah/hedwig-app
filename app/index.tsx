@@ -12,7 +12,7 @@ import { useWallet } from '../hooks/useWallet';
 import { usePrivy } from '@privy-io/expo';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useUserActions, Suggestion } from '../hooks/useUserActions';
-import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File, Bell, Plus, Microphone } from 'phosphor-react-native';
+import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File, Bell, Plus, Microphone, Stop } from 'phosphor-react-native';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
@@ -727,6 +727,15 @@ export default function HomeScreen() {
         setAttachedFiles(prev => prev.filter((_, i) => i !== index));
     };
 
+    // Stop AI generation
+    const stopGeneration = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        setIsGenerating(false);
+    };
+
     const sendMessage = async () => {
         if ((!inputText.trim() && attachedFiles.length === 0) || isGenerating) return;
 
@@ -884,13 +893,6 @@ export default function HomeScreen() {
             }
         } finally {
             setIsGenerating(false);
-            abortControllerRef.current = null;
-        }
-    };
-
-    const stopGeneration = () => {
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
             abortControllerRef.current = null;
         }
     };
@@ -1320,7 +1322,7 @@ export default function HomeScreen() {
                                         }),
                                     }],
                                 }}>
-                                    <Plus size={24} color="#FFFFFF" weight="bold" />
+                                    <Plus size={24} color={themeColors.textPrimary} weight="bold" />
                                 </Animated.View>
                             </TouchableOpacity>
 
@@ -1335,21 +1337,20 @@ export default function HomeScreen() {
                                     multiline
                                     maxLength={1000}
                                     onFocus={() => setIsAttachmentExpanded(false)}
-                                // Removed explicit height/maxHeight to let it grow naturally
+                                    keyboardAppearance={keyboardAppearance}
                                 />
                             </View>
 
                             {/* Send Button - only show when there's content */}
-                            {(inputText.trim() || attachedFiles.length > 0) && (
+                            {(inputText.trim() || attachedFiles.length > 0 || isGenerating) && (
                                 <TouchableOpacity
                                     style={styles.sendButton}
-                                    onPress={sendMessage}
-                                    disabled={isGenerating}
+                                    onPress={isGenerating ? stopGeneration : sendMessage}
                                 >
                                     {isGenerating ? (
-                                        <ActivityIndicator color="#FFFFFF" size="small" />
+                                        <Stop size={22} color="#FFFFFF" weight="fill" />
                                     ) : (
-                                        <ArrowUp size={20} color="#FFFFFF" weight="bold" />
+                                        <ArrowUp size={22} color="#FFFFFF" weight="bold" />
                                     )}
                                 </TouchableOpacity>
                             )}
@@ -2137,9 +2138,9 @@ const styles = StyleSheet.create({
     },
     sendButton: {
         backgroundColor: Colors.primary,
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
         marginLeft: Metrics.spacing.sm,
