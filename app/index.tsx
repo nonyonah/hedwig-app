@@ -1277,41 +1277,6 @@ export default function HomeScreen() {
                     )}
 
                     <View style={[styles.inputContainer, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
-                        {/* Attachment Menu (if expanded) - Positioned absolutely above input */}
-                        {isAttachmentExpanded && (
-                            <Animated.View style={[
-                                styles.attachmentMenu,
-                                {
-                                    opacity: attachmentMenuAnim,
-                                    transform: [
-                                        { scale: attachmentMenuAnim },
-                                        { translateY: attachmentMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }
-                                    ],
-                                    backgroundColor: themeColors.surface,
-                                    borderColor: themeColors.border
-                                }
-                            ]}>
-                                <TouchableOpacity
-                                    style={[styles.attachmentMenuItem, { backgroundColor: themeColors.surface }]}
-                                    onPress={pickDocument}
-                                >
-                                    <View style={[styles.attachMenuIconBg]}>
-                                        <File size={20} color="#FFFFFF" />
-                                    </View>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[styles.attachmentMenuItem, { backgroundColor: themeColors.surface }]}
-                                    onPress={() => { }} // TODO: Implement camera/image picker
-                                    disabled
-                                >
-                                    <View style={[styles.attachMenuIconBg, styles.attachMenuIconDisabled]}>
-                                        <ImageIcon size={20} color="#9CA3AF" />
-                                    </View>
-                                </TouchableOpacity>
-                            </Animated.View>
-                        )}
-
                         <View style={styles.inputRow}>
                             {/* Plus Button - outside the input box */}
                             <TouchableOpacity
@@ -1330,8 +1295,41 @@ export default function HomeScreen() {
                                 </Animated.View>
                             </TouchableOpacity>
 
+                            {/* Expanded Attachment Buttons - slide out horizontally */}
+                            {isAttachmentExpanded && (
+                                <Animated.View style={[
+                                    styles.inlineAttachmentButtons,
+                                    {
+                                        opacity: attachmentMenuAnim,
+                                        transform: [
+                                            {
+                                                translateX: attachmentMenuAnim.interpolate({
+                                                    inputRange: [0, 1],
+                                                    outputRange: [-20, 0]
+                                                })
+                                            }
+                                        ],
+                                    }
+                                ]}>
+                                    <TouchableOpacity
+                                        style={[styles.inlineAttachButton, { backgroundColor: themeColors.inputBackground }]}
+                                        onPress={pickDocument}
+                                    >
+                                        <File size={22} color={themeColors.textPrimary} />
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.inlineAttachButton, { backgroundColor: themeColors.inputBackground, opacity: 0.5 }]}
+                                        onPress={() => { }} // TODO: Implement camera/image picker
+                                        disabled
+                                    >
+                                        <ImageIcon size={22} color={themeColors.textSecondary} />
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            )}
+
                             {/* Input Box */}
-                            <View style={[styles.inputBox, { backgroundColor: themeColors.inputBackground }]}>
+                            <View style={[styles.inputBox, { backgroundColor: themeColors.inputBackground, flex: isAttachmentExpanded ? 1 : 1 }]}>
                                 <TextInput
                                     style={[styles.inputField, { color: themeColors.textPrimary }]}
                                     value={inputText}
@@ -1630,6 +1628,18 @@ const styles = StyleSheet.create({
         height: 44,
         borderRadius: 22,
         // backgroundColor: '#f5f5f5', // Overridden
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    inlineAttachmentButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    inlineAttachButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
     },
