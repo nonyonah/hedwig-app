@@ -11,8 +11,12 @@ import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import * as Haptics from 'expo-haptics';
 import Fuse from 'fuse.js';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 export default function ChatsScreen() {
+    // Track screen view
+    useAnalyticsScreen('Chats');
+
     const router = useRouter();
     const { user, getAccessToken } = usePrivy();
     const themeColors = useThemeColors();

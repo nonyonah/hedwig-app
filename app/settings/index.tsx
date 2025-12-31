@@ -14,6 +14,8 @@ import { Sidebar } from '../../components/Sidebar';
 import { Button } from '../../components/Button';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import Analytics from '../../services/analytics';
 
 
 
@@ -24,6 +26,9 @@ const THEMES: { code: Theme; label: string }[] = [
 ];
 
 export default function SettingsScreen() {
+    // Track screen view
+    useAnalyticsScreen('Settings');
+
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { theme, setTheme, hapticsEnabled, setHapticsEnabled, liveTrackingEnabled, setLiveTrackingEnabled } = useSettings();
@@ -31,9 +36,6 @@ export default function SettingsScreen() {
     const { user, logout, getAccessToken } = usePrivy();
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-    // Debug settings load
-    console.log('[Settings] Screen render - Haptics:', hapticsEnabled, 'LiveTracking:', liveTrackingEnabled);
     const [conversations, setConversations] = useState<any[]>([]);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
@@ -128,6 +130,7 @@ export default function SettingsScreen() {
                     style: "destructive",
                     onPress: async () => {
                         try {
+                            Analytics.userLoggedOut();
                             await logout();
                             router.replace('/auth/welcome');
                         } catch (error) {

@@ -7,6 +7,7 @@ import { Colors, useThemeColors } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
 import { format, isToday } from 'date-fns';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 interface Notification {
     id: string;
@@ -50,6 +51,9 @@ const formatAddress = (address: string) => {
 };
 
 export default function NotificationsScreen() {
+    // Track screen view
+    useAnalyticsScreen('Notifications');
+
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const themeColors = useThemeColors();

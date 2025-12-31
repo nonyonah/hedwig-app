@@ -33,6 +33,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 const { width } = Dimensions.get('window');
 
@@ -99,6 +100,9 @@ interface UserData {
 }
 
 export default function TransactionsScreen() {
+    // Track screen view
+    useAnalyticsScreen('Transactions');
+
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
     const themeColors = useThemeColors();

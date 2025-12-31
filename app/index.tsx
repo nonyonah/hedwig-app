@@ -30,7 +30,8 @@ import { OnboardingTooltip } from '../components/OnboardingTooltip';
 import { SuggestionChips } from '../components/SuggestionChips';
 import { getUserGradient } from '../utils/gradientUtils';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import Analytics, { initializeAnalytics } from '../services/analytics';
+import Analytics, { initializeAnalytics, trackScreen } from '../services/analytics';
+import { useAnalyticsScreen } from '../hooks/useAnalyticsScreen';
 
 const { width, height } = Dimensions.get('window');
 
@@ -136,6 +137,9 @@ const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
 ] as const;
 
 export default function HomeScreen() {
+    // Track screen view
+    useAnalyticsScreen('Home');
+
     const router = useRouter();
     const params = useLocalSearchParams<{ conversationId?: string }>();
     const { isReady, user, logout, getAccessToken } = useAuth();

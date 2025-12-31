@@ -18,6 +18,8 @@ import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency, getCurrencySymbol } from '../../utils/currencyUtils';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import Analytics from '../../services/analytics';
 
 // Icons for tokens and chains
 const ICONS = {
@@ -53,6 +55,9 @@ const PROFILE_COLOR_OPTIONS = [
 ] as const;
 
 export default function InvoicesScreen() {
+    // Track screen view
+    useAnalyticsScreen('Invoices');
+
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
     const settings = useSettings();
