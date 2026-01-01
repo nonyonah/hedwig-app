@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, Modal, TouchableWithoutFeedback, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, Modal, TouchableWithoutFeedback, Platform, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
@@ -246,18 +246,13 @@ export default function SettingsScreen() {
         <Modal
             visible={showRecoveryWarning}
             transparent
-            animationType="fade"
+            animationType="slide"
             onRequestClose={() => {
                 setShowRecoveryWarning(false);
                 setRecoveryAcknowledged(false);
             }}
         >
-            <View style={styles.modalOverlay}>
-                {Platform.OS === 'ios' ? (
-                    <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                ) : (
-                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)' }]} />
-                )}
+            <View style={styles.bottomSheetOverlay}>
                 <TouchableOpacity
                     style={StyleSheet.absoluteFill}
                     activeOpacity={1}
@@ -267,90 +262,112 @@ export default function SettingsScreen() {
                         setRecoveryAcknowledged(false);
                     }}
                 />
-                <TouchableWithoutFeedback>
-                    <View style={[styles.recoveryModalContent, { backgroundColor: themeColors.surface }]}>
-                        {/* Shield Icon */}
-                        <View style={styles.shieldIconContainer}>
-                            <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
-                                <ShieldWarning size={32} color={themeColors.textPrimary} weight="fill" />
-                            </View>
+                <View style={[styles.bottomSheetContent, { backgroundColor: themeColors.surface }]}>
+                    {/* Handle Bar */}
+                    <View style={styles.handleBar} />
+
+                    {/* Shield Icon */}
+                    <View style={styles.shieldIconContainer}>
+                        <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
+                            <ShieldWarning size={32} color={themeColors.textPrimary} weight="fill" />
                         </View>
-
-                        {/* Title */}
-                        <Text style={[styles.recoveryTitle, { color: themeColors.textPrimary }]}>
-                            Keep Your Recovery Phrase Safe
-                        </Text>
-
-                        {/* Subtitle */}
-                        <Text style={[styles.recoverySubtitle, { color: themeColors.textSecondary }]}>
-                            Your wallet key controls access to your funds. Anyone with it can move assets without permission.
-                        </Text>
-
-                        {/* Warning Items */}
-                        <View style={styles.warningItemsContainer}>
-                            <View style={styles.warningItem}>
-                                <Lock size={24} color={themeColors.textSecondary} weight="regular" />
-                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
-                                    Your recovery phrase is like a password, keep it secret.
-                                </Text>
-                            </View>
-
-                            <View style={styles.warningItem}>
-                                <Copy size={24} color={themeColors.textSecondary} weight="regular" />
-                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
-                                    If you enter it in another app, it can steal your funds and Hedwig account.
-                                </Text>
-                            </View>
-
-                            <View style={styles.warningItem}>
-                                <WarningCircle size={24} color={themeColors.textSecondary} weight="regular" />
-                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
-                                    We do not recommend ever sharing it with any app or person.
-                                </Text>
-                            </View>
-                        </View>
-
-                        {/* Checkbox */}
-                        <TouchableOpacity
-                            style={styles.checkboxContainer}
-                            onPress={() => {
-                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                setRecoveryAcknowledged(!recoveryAcknowledged);
-                            }}
-                        >
-                            {recoveryAcknowledged ? (
-                                <CheckSquare size={24} color={Colors.primary} weight="fill" />
-                            ) : (
-                                <Square size={24} color={themeColors.textSecondary} weight="regular" />
-                            )}
-                            <Text style={[styles.checkboxText, { color: themeColors.textSecondary }]}>
-                                I understand that sharing this key could lead to loss of funds.
-                            </Text>
-                        </TouchableOpacity>
-
-                        {/* Continue Button */}
-                        <TouchableOpacity
-                            style={[
-                                styles.continueButton,
-                                { backgroundColor: recoveryAcknowledged ? Colors.primary : themeColors.border }
-                            ]}
-                            disabled={!recoveryAcknowledged}
-                            onPress={() => {
-                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                setShowRecoveryWarning(false);
-                                setRecoveryAcknowledged(false);
-                                router.push('/settings/recovery-phrase');
-                            }}
-                        >
-                            <Text style={[
-                                styles.continueButtonText,
-                                { color: recoveryAcknowledged ? '#FFFFFF' : themeColors.textSecondary }
-                            ]}>
-                                Continue
-                            </Text>
-                        </TouchableOpacity>
                     </View>
-                </TouchableWithoutFeedback>
+
+                    {/* Title */}
+                    <Text style={[styles.recoveryTitle, { color: themeColors.textPrimary }]}>
+                        Keep Your Recovery Phrase Safe
+                    </Text>
+
+                    {/* Subtitle */}
+                    <Text style={[styles.recoverySubtitle, { color: themeColors.textSecondary }]}>
+                        Your wallet key controls access to your funds. Anyone with it can move assets without permission.
+                    </Text>
+
+                    {/* Warning Items */}
+                    <View style={styles.warningItemsContainer}>
+                        <View style={styles.warningItem}>
+                            <Lock size={24} color={themeColors.textSecondary} weight="regular" />
+                            <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                Your recovery phrase is like a password, keep it secret.
+                            </Text>
+                        </View>
+
+                        <View style={styles.warningItem}>
+                            <Copy size={24} color={themeColors.textSecondary} weight="regular" />
+                            <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                If you enter it in another app, it can steal your funds and Hedwig account.
+                            </Text>
+                        </View>
+
+                        <View style={styles.warningItem}>
+                            <WarningCircle size={24} color={themeColors.textSecondary} weight="regular" />
+                            <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                We do not recommend ever sharing it with any app or person.
+                            </Text>
+                        </View>
+                    </View>
+
+                    {/* Checkbox */}
+                    <TouchableOpacity
+                        style={styles.checkboxContainer}
+                        onPress={() => {
+                            if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setRecoveryAcknowledged(!recoveryAcknowledged);
+                        }}
+                    >
+                        {recoveryAcknowledged ? (
+                            <CheckSquare size={24} color={Colors.primary} weight="fill" />
+                        ) : (
+                            <Square size={24} color={themeColors.textSecondary} weight="regular" />
+                        )}
+                        <Text style={[styles.checkboxText, { color: themeColors.textSecondary }]}>
+                            I understand that sharing this key could lead to loss of funds.
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* Continue Button - with biometric auth */}
+                    <TouchableOpacity
+                        style={[
+                            styles.continueButton,
+                            { backgroundColor: recoveryAcknowledged ? Colors.primary : themeColors.border }
+                        ]}
+                        disabled={!recoveryAcknowledged}
+                        onPress={async () => {
+                            if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+                            try {
+                                // Authenticate with biometrics
+                                const authResult = await LocalAuthentication.authenticateAsync({
+                                    promptMessage: 'Authenticate to view recovery phrase',
+                                    cancelLabel: 'Cancel',
+                                    disableDeviceFallback: false,
+                                });
+
+                                if (authResult.success) {
+                                    setShowRecoveryWarning(false);
+                                    setRecoveryAcknowledged(false);
+
+                                    // Open web export page
+                                    const webClientUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'https://hedwig.vercel.app';
+                                    const exportUrl = `${webClientUrl}/export-wallet`;
+                                    await Linking.openURL(exportUrl);
+                                } else {
+                                    Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
+                                }
+                            } catch (error) {
+                                console.error('Biometric auth error:', error);
+                                Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
+                            }
+                        }}
+                    >
+                        <Text style={[
+                            styles.continueButtonText,
+                            { color: recoveryAcknowledged ? '#FFFFFF' : themeColors.textSecondary }
+                        ]}>
+                            Continue
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </Modal>
     );
@@ -757,5 +774,30 @@ const styles = StyleSheet.create({
     continueButtonText: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
+    },
+    // Bottom Sheet Styles
+    bottomSheetOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    bottomSheetContent: {
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 24,
+        paddingBottom: 40,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+        elevation: 8,
+    },
+    handleBar: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#D1D5DB',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
     },
 });

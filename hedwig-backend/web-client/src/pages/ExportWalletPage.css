@@ -1,0 +1,203 @@
+.container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+.card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 32px;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 32px;
+}
+
+.loading-container p {
+    margin-top: 16px;
+    color: #666;
+}
+
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.header-icon {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
+    color: #7c3aed;
+}
+
+.header-icon.success {
+    color: #10b981;
+}
+
+.title {
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 12px 0;
+    color: #1a1a1a;
+}
+
+.subtitle {
+    font-size: 14px;
+    text-align: center;
+    color: #666;
+    margin: 0 0 24px 0;
+    line-height: 1.5;
+}
+
+.chain-selector {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.chain-button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 600;
+    color: #666;
+}
+
+.chain-button:hover {
+    border-color: #7c3aed;
+}
+
+.chain-button.active {
+    border-color: #7c3aed;
+    background: rgba(124, 58, 237, 0.05);
+    color: #7c3aed;
+}
+
+.chain-icon {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.chain-icon.eth {
+    color: #627EEA;
+}
+
+.chain-icon.sol {
+    color: #9945FF;
+}
+
+.wallet-info {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.wallet-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.wallet-address {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+    font-family: 'SF Mono', monospace;
+}
+
+.error-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    color: #ef4444;
+    font-size: 14px;
+}
+
+.primary-button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.primary-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+}
+
+.primary-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.warning-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(245, 158, 11, 0.1);
+    border-radius: 8px;
+    margin-top: 16px;
+    color: #d97706;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.warning-box svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.footer {
+    margin-top: 24px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}

@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './lib/appkit'; // Initialize AppKit
 import InvoicePage from './pages/InvoicePage';
 import PaymentLinkPage from './pages/PaymentLinkPage';
+import ExportWalletPage from './pages/ExportWalletPage';
+import { PrivyWrapper } from './lib/PrivyWrapper';
 import './index.css';
 
 function App() {
@@ -15,6 +17,13 @@ function App() {
         {/* Payment link routes */}
         <Route path="/pay/:id" element={<PaymentLinkPage />} />
         <Route path="/payment-link/:id" element={<PaymentLinkPage />} />
+
+        {/* Export wallet route - wrapped with Privy */}
+        <Route path="/export-wallet" element={
+          <PrivyWrapper>
+            <ExportWalletPage />
+          </PrivyWrapper>
+        } />
 
         {/* Fallback */}
         <Route path="*" element={
@@ -35,3 +44,4 @@ function App() {
 }
 
 export default App;
+
