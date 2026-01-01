@@ -297,4 +297,91 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
     }
 });
 
+/**
+ * POST /api/wallet/export
+ * Export private key for a user's embedded wallet
+ * SECURITY: This endpoint requires authentication and should only be used
+ * when the user has explicitly confirmed they want to export their key.
+ */
+router.post('/export', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const userId = req.user!.privyId;
+        const { chainType } = req.body; // 'ethereum' or 'solana'
+        
+        console.log('[Wallet] Export request for user:', userId, 'chain:', chainType);
+        
+        if (!chainType || !['ethereum', 'solana'].includes(chainType)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid chainType. Must be "ethereum" or "solana".'
+            });
+        }
+        
+        // Get user to find the wallet
+        const user = await privy.users()._get(userId);
+        
+        // Find the embedded wallet for the requested chain
+        const embeddedWallet = user.linked_accounts.find(
+            (account: any) => account.type === 'wallet' && 
+                account.connector_type === 'embedded' &&
+                ((chainType === 'ethereum' && account.address?.startsWith('0x')) ||
+                 (chainType === 'solana' && !account.address?.startsWith('0x')))
+        ) as any;
+        
+        if (!embeddedWallet) {
+            return res.status(404).json({
+                success: false,
+                error: `No ${chainType} embedded wallet found for this user.`
+            });
+        }
+        
+        console.log('[Wallet] Found wallet:', embeddedWallet.address);
+        
+        // Export the wallet using Privy's API
+        // Note: The wallet ID format for embedded wallets
+        const walletId = embeddedWallet.id || embeddedWallet.wallet_id;
+        
+        if (!walletId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Wallet ID not found. Cannot export.'
+            });
+        }
+        
+        try {
+            const exportResult = await privy.wallets().export(walletId, {});
+            
+            console.log('[Wallet] Export successful for wallet:', embeddedWallet.address);
+            
+            res.json({
+                success: true,
+                data: {
+                    address: embeddedWallet.address,
+                    chainType,
+                    privateKey: exportResult.private_key
+                }
+            });
+        } catch (exportError: any) {
+            console.error('[Wallet] Privy export error:', exportError);
+            
+            // Handle specific Privy errors
+            if (exportError.message?.includes('not found')) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Wallet not found in Privy system.'
+                });
+            }
+            
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to export wallet. The wallet may not support export.'
+            });
+        }
+        
+    } catch (error: any) {
+        console.error('[Wallet] Export error:', error.message);
+        next(new AppError('Failed to export wallet', 500));
+    }
+});
+
 export default router;

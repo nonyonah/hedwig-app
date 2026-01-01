@@ -1,13 +1,14 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CaretLeft, Wallet, CurrencyEth } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../../theme/colors';
-import { usePrivy, useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
+import { usePrivy } from '@privy-io/expo';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '../../../context/SettingsContext';
 import { useAnalyticsScreen } from '../../../hooks/useAnalyticsScreen';
+import { PrivateKeyModal } from '../../../components/PrivateKeyModal';
 
 // Solana icon component
 const SolanaIcon = ({ size = 24, color = '#FFFFFF' }: { size?: number; color?: string }) => (
@@ -24,12 +25,18 @@ export default function RecoveryPhraseScreen() {
     const themeColors = useThemeColors();
     const { hapticsEnabled } = useSettings();
 
-    // Privy hooks for wallet access
-    const { user, isReady } = usePrivy();
-    const evmWalletHook = useEmbeddedEthereumWallet();
-    const solanaWalletHook = useEmbeddedSolanaWallet();
+    // Privy hooks
+    const { user, getAccessToken } = usePrivy();
 
-    // Get wallet addresses from user's linked accounts (more reliable than hooks)
+    // Modal state
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalChainType, setModalChainType] = useState<'ethereum' | 'solana'>('ethereum');
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportError, setExportError] = useState<string | null>(null);
+    const [exportedKey, setExportedKey] = useState<string | null>(null);
+    const [exportedAddress, setExportedAddress] = useState<string | null>(null);
+
+    // Get wallet addresses from user's linked accounts
     const walletInfo = useMemo(() => {
         if (!user) return { evmAddress: null, solanaAddress: null };
 
@@ -53,50 +60,59 @@ export default function RecoveryPhraseScreen() {
         };
     }, [user]);
 
-    const handleExportEvm = async () => {
+    const handleExport = async (chainType: 'ethereum' | 'solana') => {
         if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+        // Reset state and open modal
+        setModalChainType(chainType);
+        setExportedKey(null);
+        setExportError(null);
+        setExportedAddress(chainType === 'ethereum' ? walletInfo.evmAddress : walletInfo.solanaAddress);
+        setModalVisible(true);
+        setIsExporting(true);
+
         try {
-            if (!evmWalletHook.wallet) {
-                Alert.alert('Wallet Not Ready', 'Please wait for the wallet to initialize and try again.');
-                return;
+            const token = await getAccessToken();
+            if (!token) {
+                throw new Error('Not authenticated');
             }
-            await evmWalletHook.wallet.exportWallet();
+
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/wallet/export`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ chainType })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Failed to export wallet');
+            }
+
+            setExportedKey(data.data.privateKey);
+            setExportedAddress(data.data.address);
         } catch (error: any) {
-            console.error('EVM export error:', error);
-            Alert.alert('Export Failed', error.message || 'Failed to export Ethereum wallet.');
+            console.error('Export error:', error);
+            setExportError(error.message || 'Failed to export private key');
+        } finally {
+            setIsExporting(false);
         }
     };
 
-    const handleExportSolana = async () => {
-        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        try {
-            if (!solanaWalletHook.wallet) {
-                Alert.alert('Wallet Not Ready', 'Please wait for the wallet to initialize and try again.');
-                return;
-            }
-            await solanaWalletHook.wallet.exportWallet();
-        } catch (error: any) {
-            console.error('Solana export error:', error);
-            Alert.alert('Export Failed', error.message || 'Failed to export Solana wallet.');
-        }
+    const handleCloseModal = () => {
+        setModalVisible(false);
+        setExportedKey(null);
+        setExportError(null);
     };
 
     const formatAddress = (address: string | null) => {
         if (!address) return 'Not available';
         return `${address.slice(0, 6)}...${address.slice(-4)}`;
     };
-
-    // Show loading if Privy is not ready
-    if (!isReady) {
-        return (
-            <View style={[styles.container, styles.loadingContainer, { backgroundColor: themeColors.background }]}>
-                <ActivityIndicator size="large" color={Colors.primary} />
-                <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading wallets...</Text>
-            </View>
-        );
-    }
 
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
@@ -139,7 +155,7 @@ export default function RecoveryPhraseScreen() {
                             styles.exportButton,
                             { backgroundColor: walletInfo.evmAddress ? Colors.primary : themeColors.border }
                         ]}
-                        onPress={handleExportEvm}
+                        onPress={() => handleExport('ethereum')}
                         disabled={!walletInfo.evmAddress}
                     >
                         <Wallet size={20} color="#FFFFFF" weight="bold" />
@@ -165,7 +181,7 @@ export default function RecoveryPhraseScreen() {
                             styles.exportButton,
                             { backgroundColor: walletInfo.solanaAddress ? '#9945FF' : themeColors.border }
                         ]}
-                        onPress={handleExportSolana}
+                        onPress={() => handleExport('solana')}
                         disabled={!walletInfo.solanaAddress}
                     >
                         <Wallet size={20} color="#FFFFFF" weight="bold" />
@@ -181,6 +197,17 @@ export default function RecoveryPhraseScreen() {
                     </Text>
                 </View>
             </ScrollView>
+
+            {/* Private Key Modal */}
+            <PrivateKeyModal
+                visible={modalVisible}
+                onClose={handleCloseModal}
+                chainType={modalChainType}
+                address={exportedAddress}
+                privateKey={exportedKey}
+                isLoading={isExporting}
+                error={exportError}
+            />
         </View>
     );
 }
@@ -188,15 +215,6 @@ export default function RecoveryPhraseScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-    },
-    loadingContainer: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loadingText: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 14,
-        marginTop: 12,
     },
     header: {
         flexDirection: 'row',
