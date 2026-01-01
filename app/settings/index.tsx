@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, Te
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useRouter } from 'expo-router';
-import { CaretRight, List, CaretDown, Check } from 'phosphor-react-native';
+import { CaretRight, List, CaretDown, Check, ShieldWarning, Lock, Copy, WarningCircle, CheckSquare, Square } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
@@ -42,6 +42,8 @@ export default function SettingsScreen() {
 
     // Modals state
     const [showThemeModal, setShowThemeModal] = useState(false);
+    const [showRecoveryWarning, setShowRecoveryWarning] = useState(false);
+    const [recoveryAcknowledged, setRecoveryAcknowledged] = useState(false);
 
     // Security state
     const [biometricsEnabled, setBiometricsEnabled] = useState(false);
@@ -240,6 +242,119 @@ export default function SettingsScreen() {
         </Modal>
     );
 
+    const renderRecoveryWarningModal = () => (
+        <Modal
+            visible={showRecoveryWarning}
+            transparent
+            animationType="fade"
+            onRequestClose={() => {
+                setShowRecoveryWarning(false);
+                setRecoveryAcknowledged(false);
+            }}
+        >
+            <View style={styles.modalOverlay}>
+                {Platform.OS === 'ios' ? (
+                    <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+                ) : (
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.7)' }]} />
+                )}
+                <TouchableOpacity
+                    style={StyleSheet.absoluteFill}
+                    activeOpacity={1}
+                    onPress={() => {
+                        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setShowRecoveryWarning(false);
+                        setRecoveryAcknowledged(false);
+                    }}
+                />
+                <TouchableWithoutFeedback>
+                    <View style={[styles.recoveryModalContent, { backgroundColor: themeColors.surface }]}>
+                        {/* Shield Icon */}
+                        <View style={styles.shieldIconContainer}>
+                            <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
+                                <ShieldWarning size={32} color={themeColors.textPrimary} weight="fill" />
+                            </View>
+                        </View>
+
+                        {/* Title */}
+                        <Text style={[styles.recoveryTitle, { color: themeColors.textPrimary }]}>
+                            Keep Your Recovery Phrase Safe
+                        </Text>
+
+                        {/* Subtitle */}
+                        <Text style={[styles.recoverySubtitle, { color: themeColors.textSecondary }]}>
+                            Your wallet key controls access to your funds. Anyone with it can move assets without permission.
+                        </Text>
+
+                        {/* Warning Items */}
+                        <View style={styles.warningItemsContainer}>
+                            <View style={styles.warningItem}>
+                                <Lock size={24} color={themeColors.textSecondary} weight="regular" />
+                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                    Your recovery phrase is like a password, keep it secret.
+                                </Text>
+                            </View>
+
+                            <View style={styles.warningItem}>
+                                <Copy size={24} color={themeColors.textSecondary} weight="regular" />
+                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                    If you enter it in another app, it can steal your funds and Hedwig account.
+                                </Text>
+                            </View>
+
+                            <View style={styles.warningItem}>
+                                <WarningCircle size={24} color={themeColors.textSecondary} weight="regular" />
+                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                    We do not recommend ever sharing it with any app or person.
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Checkbox */}
+                        <TouchableOpacity
+                            style={styles.checkboxContainer}
+                            onPress={() => {
+                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setRecoveryAcknowledged(!recoveryAcknowledged);
+                            }}
+                        >
+                            {recoveryAcknowledged ? (
+                                <CheckSquare size={24} color={Colors.primary} weight="fill" />
+                            ) : (
+                                <Square size={24} color={themeColors.textSecondary} weight="regular" />
+                            )}
+                            <Text style={[styles.checkboxText, { color: themeColors.textSecondary }]}>
+                                I understand that sharing this key could lead to loss of funds.
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Continue Button */}
+                        <TouchableOpacity
+                            style={[
+                                styles.continueButton,
+                                { backgroundColor: recoveryAcknowledged ? Colors.primary : themeColors.border }
+                            ]}
+                            disabled={!recoveryAcknowledged}
+                            onPress={() => {
+                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                setShowRecoveryWarning(false);
+                                setRecoveryAcknowledged(false);
+                                router.push('/settings/recovery-phrase');
+                            }}
+                        >
+                            <Text style={[
+                                styles.continueButtonText,
+                                { color: recoveryAcknowledged ? '#FFFFFF' : themeColors.textSecondary }
+                            ]}>
+                                Continue
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableWithoutFeedback>
+            </View>
+        </Modal>
+    );
+
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Header */}
@@ -336,7 +451,7 @@ export default function SettingsScreen() {
                 {/* Security */}
                 <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Security</Text>
                 <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
-                    <TouchableOpacity style={styles.settingRow} onPress={() => console.log('Recovery Phrase')}>
+                    <TouchableOpacity style={styles.settingRow} onPress={() => setShowRecoveryWarning(true)}>
                         <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Recovery Phrase</Text>
                         <CaretRight size={20} color={themeColors.textSecondary} />
                     </TouchableOpacity>
@@ -401,6 +516,9 @@ export default function SettingsScreen() {
                 theme,
                 setTheme
             )}
+
+            {/* Recovery Warning Modal */}
+            {renderRecoveryWarningModal()}
 
         </View>
     );
@@ -566,5 +684,78 @@ const styles = StyleSheet.create({
     modalItemTextSelected: {
         color: Colors.primary,
         fontFamily: 'GoogleSansFlex_600SemiBold',
+    },
+    // Recovery Warning Modal Styles
+    recoveryModalContent: {
+        backgroundColor: 'white',
+        borderRadius: 24,
+        padding: 24,
+        marginHorizontal: 24,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+        elevation: 8,
+    },
+    shieldIconContainer: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    shieldIconBackground: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: '#2A2A2E',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    recoveryTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 22,
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    recoverySubtitle: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 24,
+        lineHeight: 20,
+    },
+    warningItemsContainer: {
+        marginBottom: 24,
+    },
+    warningItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 16,
+    },
+    warningItemText: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        flex: 1,
+        marginLeft: 12,
+        lineHeight: 20,
+    },
+    checkboxContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 20,
+    },
+    checkboxText: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        flex: 1,
+        marginLeft: 12,
+        lineHeight: 20,
+    },
+    continueButton: {
+        borderRadius: 16,
+        paddingVertical: 16,
+        alignItems: 'center',
+    },
+    continueButtonText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 16,
     },
 });
