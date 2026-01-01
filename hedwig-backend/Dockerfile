@@ -16,11 +16,11 @@ ENV NODE_ENV="production"
 # Throw-away build stage to reduce size of final image
 FROM base AS build
 
-# Install packages needed to build node modules (added rsync for expo-live-updates)
+# Install packages needed to build node modules (rsync needed for expo-live-updates)
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential git node-gyp pkg-config python-is-python3 rsync
 
-# Install node modules (include dev for TypeScript)
+# Install node modules (include dev for TypeScript build)
 COPY package-lock.json package.json ./
 RUN npm ci --include=dev
 

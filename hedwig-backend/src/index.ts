@@ -211,11 +211,12 @@ app.use(notFound);
 // Error handler (must be last)
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`🚀 Hedwig Backend running on port ${PORT}`);
+// Start server - bind to 0.0.0.0 for Fly.io/Docker
+const HOST = process.env.HOST || '0.0.0.0';
+app.listen(Number(PORT), HOST, () => {
+    console.log(`🚀 Hedwig Backend running on ${HOST}:${PORT}`);
     console.log(`📝 Environment: ${process.env.NODE_ENV}`);
-    console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+    console.log(`🔗 Health check: http://${HOST}:${PORT}/health`);
 });
 
 // Graceful shutdown
