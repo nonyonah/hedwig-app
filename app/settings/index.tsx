@@ -351,7 +351,7 @@ export default function SettingsScreen() {
 
                                 if (authResult.success) {
                                     // Build URL first
-                                    const webClientUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'https://hedwig.vercel.app';
+                                    const webClientUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'http://192.168.0.229:5173';
                                     const exportUrl = `${webClientUrl}/export-wallet`;
 
                                     // Close modal AFTER a small delay to let browser open

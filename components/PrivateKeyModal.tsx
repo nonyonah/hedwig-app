@@ -255,7 +255,6 @@ const styles = StyleSheet.create({
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
         fontSize: 12,
         lineHeight: 18,
-        wordBreak: 'break-all',
     },
     copyButton: {
         flexDirection: 'row',

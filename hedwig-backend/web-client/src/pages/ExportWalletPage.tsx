@@ -96,7 +96,7 @@ export default function ExportWalletPage() {
 
     // Authenticated view
     const currentWallet = selectedChain === 'ethereum' ? evmWallet : solanaWallet;
-    const currentAddress = currentWallet?.address;
+    const currentAddress = (currentWallet as any)?.address;
 
     return (
         <div className="container">
