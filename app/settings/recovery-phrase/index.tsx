@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CaretLeft, Wallet, CurrencyEth } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,21 +24,44 @@ export default function RecoveryPhraseScreen() {
     const themeColors = useThemeColors();
     const { hapticsEnabled } = useSettings();
 
-    // Privy hooks for wallet access and export
-    const { user } = usePrivy();
-    const evmWallet = useEmbeddedEthereumWallet();
-    const solanaWallet = useEmbeddedSolanaWallet();
+    // Privy hooks for wallet access
+    const { user, isReady } = usePrivy();
+    const evmWalletHook = useEmbeddedEthereumWallet();
+    const solanaWalletHook = useEmbeddedSolanaWallet();
+
+    // Get wallet addresses from user's linked accounts (more reliable than hooks)
+    const walletInfo = useMemo(() => {
+        if (!user) return { evmAddress: null, solanaAddress: null };
+
+        const linkedAccounts = (user as any).linkedAccounts || [];
+
+        const evmAccount = linkedAccounts.find(
+            (account: any) => account.type === 'wallet' &&
+                account.walletClientType === 'privy' &&
+                account.chainType === 'ethereum'
+        );
+
+        const solanaAccount = linkedAccounts.find(
+            (account: any) => account.type === 'wallet' &&
+                account.walletClientType === 'privy' &&
+                account.chainType === 'solana'
+        );
+
+        return {
+            evmAddress: evmAccount?.address || null,
+            solanaAddress: solanaAccount?.address || null
+        };
+    }, [user]);
 
     const handleExportEvm = async () => {
         if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         try {
-            if (!evmWallet.wallet) {
-                Alert.alert('No Wallet', 'No Ethereum wallet found to export.');
+            if (!evmWalletHook.wallet) {
+                Alert.alert('Wallet Not Ready', 'Please wait for the wallet to initialize and try again.');
                 return;
             }
-            // Privy will show its modal to export the wallet
-            await evmWallet.wallet.exportWallet();
+            await evmWalletHook.wallet.exportWallet();
         } catch (error: any) {
             console.error('EVM export error:', error);
             Alert.alert('Export Failed', error.message || 'Failed to export Ethereum wallet.');
@@ -49,25 +72,31 @@ export default function RecoveryPhraseScreen() {
         if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         try {
-            if (!solanaWallet.wallet) {
-                Alert.alert('No Wallet', 'No Solana wallet found to export.');
+            if (!solanaWalletHook.wallet) {
+                Alert.alert('Wallet Not Ready', 'Please wait for the wallet to initialize and try again.');
                 return;
             }
-            // Privy will show its modal to export the wallet
-            await solanaWallet.wallet.exportWallet();
+            await solanaWalletHook.wallet.exportWallet();
         } catch (error: any) {
             console.error('Solana export error:', error);
             Alert.alert('Export Failed', error.message || 'Failed to export Solana wallet.');
         }
     };
 
-    const formatAddress = (address: string) => {
-        if (!address) return '';
+    const formatAddress = (address: string | null) => {
+        if (!address) return 'Not available';
         return `${address.slice(0, 6)}...${address.slice(-4)}`;
     };
 
-    const evmAddress = evmWallet.wallet?.address;
-    const solanaAddress = solanaWallet.wallet?.address;
+    // Show loading if Privy is not ready
+    if (!isReady) {
+        return (
+            <View style={[styles.container, styles.loadingContainer, { backgroundColor: themeColors.background }]}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading wallets...</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
@@ -101,14 +130,17 @@ export default function RecoveryPhraseScreen() {
                         <View style={styles.walletInfo}>
                             <Text style={[styles.walletName, { color: themeColors.textPrimary }]}>Ethereum Wallet</Text>
                             <Text style={[styles.walletAddress, { color: themeColors.textSecondary }]}>
-                                {evmAddress ? formatAddress(evmAddress) : 'Not available'}
+                                {formatAddress(walletInfo.evmAddress)}
                             </Text>
                         </View>
                     </View>
                     <TouchableOpacity
-                        style={[styles.exportButton, { backgroundColor: Colors.primary }]}
+                        style={[
+                            styles.exportButton,
+                            { backgroundColor: walletInfo.evmAddress ? Colors.primary : themeColors.border }
+                        ]}
                         onPress={handleExportEvm}
-                        disabled={!evmWallet.wallet}
+                        disabled={!walletInfo.evmAddress}
                     >
                         <Wallet size={20} color="#FFFFFF" weight="bold" />
                         <Text style={styles.exportButtonText}>Export Private Key</Text>
@@ -124,14 +156,17 @@ export default function RecoveryPhraseScreen() {
                         <View style={styles.walletInfo}>
                             <Text style={[styles.walletName, { color: themeColors.textPrimary }]}>Solana Wallet</Text>
                             <Text style={[styles.walletAddress, { color: themeColors.textSecondary }]}>
-                                {solanaAddress ? formatAddress(solanaAddress) : 'Not available'}
+                                {formatAddress(walletInfo.solanaAddress)}
                             </Text>
                         </View>
                     </View>
                     <TouchableOpacity
-                        style={[styles.exportButton, { backgroundColor: '#9945FF' }]}
+                        style={[
+                            styles.exportButton,
+                            { backgroundColor: walletInfo.solanaAddress ? '#9945FF' : themeColors.border }
+                        ]}
                         onPress={handleExportSolana}
-                        disabled={!solanaWallet.wallet}
+                        disabled={!walletInfo.solanaAddress}
                     >
                         <Wallet size={20} color="#FFFFFF" weight="bold" />
                         <Text style={styles.exportButtonText}>Export Private Key</Text>
@@ -153,6 +188,15 @@ export default function RecoveryPhraseScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    loadingContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        marginTop: 12,
     },
     header: {
         flexDirection: 'row',
