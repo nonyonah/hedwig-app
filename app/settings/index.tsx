@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, Modal, TouchableWithoutFeedback, Platform, Linking } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, Modal, TouchableWithoutFeedback, Platform, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import { CaretRight, List, CaretDown, Check, ShieldWarning, Lock, Copy, WarningCircle, CheckSquare, Square } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,6 +48,10 @@ export default function SettingsScreen() {
 
     // Security state
     const [biometricsEnabled, setBiometricsEnabled] = useState(false);
+    const [isBiometricExporting, setIsBiometricExporting] = useState(false);
+
+    // Animation for bottom sheet
+    const slideAnim = useRef(new Animated.Value(0)).current;
 
     // Parse user data
     const privyUser = user as any;
@@ -326,14 +331,15 @@ export default function SettingsScreen() {
                     </TouchableOpacity>
 
                     {/* Continue Button - with biometric auth */}
-                    <TouchableOpacity
-                        style={[
-                            styles.continueButton,
-                            { backgroundColor: recoveryAcknowledged ? Colors.primary : themeColors.border }
-                        ]}
-                        disabled={!recoveryAcknowledged}
+                    <Button
+                        title={isBiometricExporting ? 'Authenticating...' : 'Continue'}
+                        loading={isBiometricExporting}
+                        disabled={!recoveryAcknowledged || isBiometricExporting}
+                        variant={recoveryAcknowledged ? 'primary' : 'secondary'}
+                        size="large"
                         onPress={async () => {
                             if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            setIsBiometricExporting(true);
 
                             try {
                                 // Authenticate with biometrics
@@ -347,26 +353,24 @@ export default function SettingsScreen() {
                                     setShowRecoveryWarning(false);
                                     setRecoveryAcknowledged(false);
 
-                                    // Open web export page
+                                    // Open in-app browser
                                     const webClientUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'https://hedwig.vercel.app';
                                     const exportUrl = `${webClientUrl}/export-wallet`;
-                                    await Linking.openURL(exportUrl);
+                                    await WebBrowser.openBrowserAsync(exportUrl, {
+                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+                                        controlsColor: Colors.primary,
+                                    });
                                 } else {
                                     Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
                                 }
                             } catch (error) {
                                 console.error('Biometric auth error:', error);
                                 Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
+                            } finally {
+                                setIsBiometricExporting(false);
                             }
                         }}
-                    >
-                        <Text style={[
-                            styles.continueButtonText,
-                            { color: recoveryAcknowledged ? '#FFFFFF' : themeColors.textSecondary }
-                        ]}>
-                            Continue
-                        </Text>
-                    </TouchableOpacity>
+                    />
                 </View>
             </View>
         </Modal>
