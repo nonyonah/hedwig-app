@@ -350,24 +350,30 @@ export default function SettingsScreen() {
                                 });
 
                                 if (authResult.success) {
-                                    setShowRecoveryWarning(false);
-                                    setRecoveryAcknowledged(false);
-
-                                    // Open in-app browser
+                                    // Build URL first
                                     const webClientUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'https://hedwig.vercel.app';
                                     const exportUrl = `${webClientUrl}/export-wallet`;
+
+                                    // Close modal AFTER a small delay to let browser open
+                                    setIsBiometricExporting(false);
+
+                                    // Open in-app browser first
                                     await WebBrowser.openBrowserAsync(exportUrl, {
                                         presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
                                         controlsColor: Colors.primary,
                                     });
+
+                                    // Close modal after browser is dismissed
+                                    setShowRecoveryWarning(false);
+                                    setRecoveryAcknowledged(false);
                                 } else {
+                                    setIsBiometricExporting(false);
                                     Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
                                 }
                             } catch (error) {
                                 console.error('Biometric auth error:', error);
-                                Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
-                            } finally {
                                 setIsBiometricExporting(false);
+                                Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
                             }
                         }}
                     />
