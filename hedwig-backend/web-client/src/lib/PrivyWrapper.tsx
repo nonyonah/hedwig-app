@@ -1,5 +1,5 @@
 import { PrivyProvider } from '@privy-io/react-auth';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 interface PrivyWrapperProps {
     children: ReactNode;
@@ -24,7 +24,12 @@ export function PrivyWrapper({ children }: PrivyWrapperProps) {
                 },
                 loginMethods: ['email', 'google', 'apple'],
                 embeddedWallets: {
-                    createOnLogin: 'all-users',
+                    ethereum: {
+                        createOnLogin: 'all-users',
+                    },
+                    solana: {
+                        createOnLogin: 'all-users',
+                    },
                 },
             }}
         >
