@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Platform, Alert, KeyboardAvoidingView } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { X, PaperPlaneTilt, Star } from 'phosphor-react-native';
+import { X, PaperPlaneTilt, Bug, Lightbulb } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSettings } from '../context/SettingsContext';
-import Analytics from '../services/analytics';
+import { trackEvent } from '../services/analytics';
+
+type FeedbackType = 'feature' | 'bug' | null;
 
 interface FeedbackModalProps {
     visible: boolean;
@@ -15,13 +16,18 @@ interface FeedbackModalProps {
 export function FeedbackModal({ visible, onClose }: FeedbackModalProps) {
     const themeColors = useThemeColors();
     const { hapticsEnabled } = useSettings();
-    const [rating, setRating] = useState<number>(0);
+    const [feedbackType, setFeedbackType] = useState<FeedbackType>(null);
     const [feedback, setFeedback] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async () => {
-        if (!feedback.trim() && rating === 0) {
-            Alert.alert('Feedback Required', 'Please provide a rating or write some feedback.');
+        if (!feedback.trim()) {
+            Alert.alert('Description Required', 'Please describe your feedback.');
+            return;
+        }
+
+        if (!feedbackType) {
+            Alert.alert('Type Required', 'Please select if this is a feature request or bug report.');
             return;
         }
 
@@ -30,18 +36,23 @@ export function FeedbackModal({ visible, onClose }: FeedbackModalProps) {
 
         try {
             // Track feedback as PostHog event
-            Analytics.trackEvent('feedback_submitted', {
-                rating,
+            await trackEvent('feedback_submitted', {
+                type: feedbackType,
                 feedback: feedback.trim(),
                 feedback_length: feedback.trim().length,
             });
 
             // Reset and close
-            setRating(0);
+            setFeedbackType(null);
             setFeedback('');
             onClose();
 
-            Alert.alert('Thank You!', 'Your feedback helps us improve Hedwig.');
+            Alert.alert(
+                'Thank You!',
+                feedbackType === 'feature'
+                    ? 'Your feature request has been submitted.'
+                    : 'Your bug report has been submitted. We\'ll look into it.'
+            );
         } catch (error) {
             console.error('Feedback submission error:', error);
             Alert.alert('Error', 'Failed to submit feedback. Please try again.');
@@ -52,7 +63,7 @@ export function FeedbackModal({ visible, onClose }: FeedbackModalProps) {
 
     const handleClose = () => {
         if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setRating(0);
+        setFeedbackType(null);
         setFeedback('');
         onClose();
     };
@@ -87,31 +98,71 @@ export function FeedbackModal({ visible, onClose }: FeedbackModalProps) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Rating */}
+                    {/* Feedback Type Selection */}
                     <Text style={[styles.label, { color: themeColors.textSecondary }]}>
-                        How's your experience?
+                        What type of feedback?
                     </Text>
-                    <View style={styles.ratingContainer}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                            <TouchableOpacity
-                                key={star}
-                                onPress={() => {
-                                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    setRating(star);
-                                }}
-                            >
-                                <Star
-                                    size={36}
-                                    color={star <= rating ? '#FFB800' : themeColors.border}
-                                    weight={star <= rating ? 'fill' : 'regular'}
-                                />
-                            </TouchableOpacity>
-                        ))}
+                    <View style={styles.typeContainer}>
+                        <TouchableOpacity
+                            style={[
+                                styles.typeButton,
+                                {
+                                    backgroundColor: feedbackType === 'feature' ? Colors.primary : themeColors.background,
+                                    borderColor: feedbackType === 'feature' ? Colors.primary : themeColors.border,
+                                }
+                            ]}
+                            onPress={() => {
+                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setFeedbackType('feature');
+                            }}
+                        >
+                            <Lightbulb
+                                size={24}
+                                color={feedbackType === 'feature' ? '#FFFFFF' : themeColors.textPrimary}
+                                weight="fill"
+                            />
+                            <Text style={[
+                                styles.typeText,
+                                { color: feedbackType === 'feature' ? '#FFFFFF' : themeColors.textPrimary }
+                            ]}>
+                                Feature Request
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.typeButton,
+                                {
+                                    backgroundColor: feedbackType === 'bug' ? '#EF4444' : themeColors.background,
+                                    borderColor: feedbackType === 'bug' ? '#EF4444' : themeColors.border,
+                                }
+                            ]}
+                            onPress={() => {
+                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setFeedbackType('bug');
+                            }}
+                        >
+                            <Bug
+                                size={24}
+                                color={feedbackType === 'bug' ? '#FFFFFF' : themeColors.textPrimary}
+                                weight="fill"
+                            />
+                            <Text style={[
+                                styles.typeText,
+                                { color: feedbackType === 'bug' ? '#FFFFFF' : themeColors.textPrimary }
+                            ]}>
+                                Bug Report
+                            </Text>
+                        </TouchableOpacity>
                     </View>
 
                     {/* Feedback Input */}
-                    <Text style={[styles.label, { color: themeColors.textSecondary, marginTop: 16 }]}>
-                        Tell us more (optional)
+                    <Text style={[styles.label, { color: themeColors.textSecondary, marginTop: 20 }]}>
+                        {feedbackType === 'feature'
+                            ? 'Describe the feature you\'d like to see'
+                            : feedbackType === 'bug'
+                                ? 'Describe the bug and steps to reproduce'
+                                : 'Describe your feedback'}
                     </Text>
                     <TextInput
                         style={[
@@ -122,7 +173,13 @@ export function FeedbackModal({ visible, onClose }: FeedbackModalProps) {
                                 borderColor: themeColors.border,
                             }
                         ]}
-                        placeholder="What can we improve?"
+                        placeholder={
+                            feedbackType === 'feature'
+                                ? "I'd love to see..."
+                                : feedbackType === 'bug'
+                                    ? "When I do X, Y happens instead of Z..."
+                                    : "Tell us what's on your mind..."
+                        }
                         placeholderTextColor={themeColors.textSecondary}
                         value={feedback}
                         onChangeText={setFeedback}
@@ -190,17 +247,30 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginBottom: 12,
     },
-    ratingContainer: {
+    typeContainer: {
         flexDirection: 'row',
-        justifyContent: 'center',
         gap: 12,
+    },
+    typeButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 8,
+    },
+    typeText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 14,
     },
     textInput: {
         borderRadius: 12,
         padding: 16,
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 16,
-        minHeight: 100,
+        minHeight: 120,
         borderWidth: 1,
     },
     submitButton: {
