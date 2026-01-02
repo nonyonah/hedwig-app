@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { usePrivy } from '@privy-io/react-auth';
 import { useExportWallet } from '@privy-io/react-auth/solana';

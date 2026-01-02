@@ -6,8 +6,8 @@ import { House, Link, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingG
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import * as WebBrowser from 'expo-web-browser';
 import { useSettings } from '../context/SettingsContext';
+import { FeedbackModal } from './FeedbackModal';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.85;
@@ -47,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
@@ -423,22 +424,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                     }
                                     onClose();
-
-                                    // Build feedback URL with user info
-                                    const webClientUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'https://hedwig.vercel.app';
-                                    const privyUser = user as any;
-                                    const email = privyUser?.email?.address || privyUser?.google?.email || '';
-                                    const params = new URLSearchParams({
-                                        userId: privyUser?.id || '',
-                                        email: email,
-                                        firstName: userName?.firstName || '',
-                                        lastName: userName?.lastName || '',
-                                    });
-
-                                    await WebBrowser.openBrowserAsync(`${webClientUrl}/feedback?${params.toString()}`, {
-                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-                                        controlsColor: Colors.primary,
-                                    });
+                                    setShowFeedbackModal(true);
                                 }}
                             >
                                 <PaperPlaneTilt size={22} color={themeColors.textPrimary} weight="bold" />
@@ -448,6 +434,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </>
                 )}
             </Animated.View>
+
+            {/* Feedback Modal */}
+            <FeedbackModal
+                visible={showFeedbackModal}
+                onClose={() => setShowFeedbackModal(false)}
+            />
         </View>
     );
 };
