@@ -62,10 +62,10 @@ export const appKit = createAppKit({
     defaultNetwork: base,
     adapters: [ethersAdapter],
     metadata: {
-        name: 'Hedwig Payments',
+        name: 'Hedwig',
         description: 'Secure crypto payments for freelancers',
-        url: typeof window !== 'undefined' ? window.location.origin : 'https://hedwig.app',
-        icons: ['https://hedwig.app/icon.png'],
+        url: typeof window !== 'undefined' ? window.location.origin : 'https://hedwigbot.xyz',
+        icons: ['https://hedwigbot.xyz/icon.png'],
     },
     features: {
         analytics: true,

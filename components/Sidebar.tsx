@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Linking } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
 import { House, Link, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase } from 'phosphor-react-native';
@@ -417,9 +417,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <View style={[styles.footer, { borderTopColor: themeColors.border }]}>
                             <TouchableOpacity
                                 style={[styles.feedbackButton, { borderColor: themeColors.border }]}
-                                onPress={() => {
-                                    // Could open feedback modal or email
-                                    Alert.alert('Feedback', 'Thank you for your interest! Feedback feature coming soon.');
+                                onPress={async () => {
+                                    if (hapticsEnabled) {
+                                        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    }
+                                    onClose();
+                                    Linking.openURL('https://hedwig.userjot.com');
                                 }}
                             >
                                 <PaperPlaneTilt size={22} color={themeColors.textPrimary} weight="bold" />
