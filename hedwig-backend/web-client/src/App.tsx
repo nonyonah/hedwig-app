@@ -3,6 +3,7 @@ import './lib/appkit'; // Initialize AppKit
 import InvoicePage from './pages/InvoicePage';
 import PaymentLinkPage from './pages/PaymentLinkPage';
 import ExportWalletPage from './pages/ExportWalletPage';
+import FeedbackPage from './pages/FeedbackPage';
 import { PrivyWrapper } from './lib/PrivyWrapper';
 import './index.css';
 
@@ -24,6 +25,9 @@ function App() {
             <ExportWalletPage />
           </PrivyWrapper>
         } />
+
+        {/* Feedback route - UserJot widget */}
+        <Route path="/feedback" element={<FeedbackPage />} />
 
         {/* Fallback */}
         <Route path="*" element={
