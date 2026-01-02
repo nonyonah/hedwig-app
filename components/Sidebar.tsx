@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
 import { House, Link, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase } from 'phosphor-react-native';
@@ -7,6 +7,7 @@ import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '../context/SettingsContext';
+import { FeedbackModal } from './FeedbackModal';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.85;
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
@@ -422,7 +424,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                     }
                                     onClose();
-                                    Linking.openURL('https://hedwig.userjot.com');
+                                    setShowFeedbackModal(true);
                                 }}
                             >
                                 <PaperPlaneTilt size={22} color={themeColors.textPrimary} weight="bold" />
@@ -432,6 +434,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </>
                 )}
             </Animated.View>
+
+            {/* Feedback Modal */}
+            <FeedbackModal
+                visible={showFeedbackModal}
+                onClose={() => setShowFeedbackModal(false)}
+            />
         </View>
     );
 };
