@@ -289,7 +289,7 @@ export default function ContractsScreen() {
 
         return (
             <TouchableOpacity
-                style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                style={[styles.card, { backgroundColor: themeColors.surface }]}
                 onPress={() => openModal(item)}
                 onLongPress={() => handleDelete(item.id)}
                 delayLongPress={500}
@@ -354,8 +354,8 @@ export default function ContractsScreen() {
                                 key={filter}
                                 style={[
                                     styles.filterChip,
-                                    { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-                                    statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }
+                                    { backgroundColor: themeColors.surface },
+                                    statusFilter === filter && { backgroundColor: Colors.primary }
                                 ]}
                                 onPress={() => setStatusFilter(filter)}
                             >
@@ -483,7 +483,7 @@ export default function ContractsScreen() {
                                         setShowActionMenu(false);
                                     }}
                                 />
-                                <Animated.View style={[styles.pullDownMenu, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                                <Animated.View style={[styles.pullDownMenu, { backgroundColor: themeColors.surface }]}>
                                     <TouchableOpacity
                                         style={styles.pullDownMenuItem}
                                         onPress={() => {
@@ -609,7 +609,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 20,
-        borderWidth: 1,
     },
     filterText: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
@@ -631,7 +630,6 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         padding: 20,
         marginBottom: 16,
-        borderWidth: 1,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -755,13 +753,17 @@ const styles = StyleSheet.create({
     },
     pullDownMenu: {
         position: 'absolute',
-        top: 60,
-        right: 20,
-        borderRadius: 12,
-        borderWidth: 1,
-        overflow: 'hidden',
-        zIndex: 2,
-        minWidth: 160,
+        top: 50,
+        right: 24,
+        borderRadius: 14,
+        paddingVertical: 6,
+        minWidth: 200,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10,
+        zIndex: 1000,
     },
     pullDownMenuItem: {
         flexDirection: 'row',
@@ -774,10 +776,10 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     amountCard: {
-        borderRadius: 16,
-        padding: 20,
+        borderRadius: 20,
+        padding: 24,
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 24,
     },
     amountCardValue: {
         fontSize: 36,
@@ -785,7 +787,7 @@ const styles = StyleSheet.create({
     },
     detailsCard: {
         borderRadius: 16,
-        padding: 16,
+        padding: 20,
         marginBottom: 24,
     },
     detailRow: {
@@ -807,7 +809,7 @@ const styles = StyleSheet.create({
     },
     viewButton: {
         backgroundColor: Colors.primary,
-        borderRadius: 50,
+        borderRadius: 30,
         paddingVertical: 16,
         flexDirection: 'row',
         alignItems: 'center',
