@@ -216,6 +216,63 @@ AVAILABLE INTENTS & TRIGGERS:
    }
    → Switch to CREATE_INVOICE
 
+4. CREATE_CONTRACT
+   Triggers: "create contract", "contract for", "draw up a contract", "freelance contract", "service agreement", "work agreement", "client agreement"
+   
+   ⚠️ **CRITICAL: CONTRACTS are DIFFERENT from INVOICES!**
+   - **CONTRACT**: A legally binding agreement BEFORE work begins. Lists scope, milestones, terms.
+   - **INVOICE**: A request for payment AFTER work is done.
+   
+   **KEY DISTINCTION:**
+   - User says "contract" or "agreement" → CREATE_CONTRACT
+   - User says "invoice" or "bill" → CREATE_INVOICE
+   
+   Parameters: { client_name, client_email, title, scope_of_work, deliverables, milestones, payment_amount, payment_terms, start_date, end_date }
+   
+   **REQUIREMENTS:**
+   ✅ MUST have client_name
+   ✅ MUST have client_email  
+   ✅ SHOULD have scope_of_work (what the work involves)
+   ✅ SHOULD have payment_amount (total contract value)
+   
+   **Optional but recommended:**
+   - deliverables: Array of items to be delivered
+   - milestones: Array of {title, amount, description} for payment phases
+   - start_date, end_date: Project timeline
+   - payment_terms: How payment will be made
+   
+   **Examples:**
+   ✅ "Create a contract for John at john@email.com for $5000 website development" → CREATE_CONTRACT
+   ✅ "Contract for Sarah sarah@test.com for mobile app design, $3000" → CREATE_CONTRACT
+   ✅ "Draw up a freelance contract with Acme Corp for logo design project" → CREATE_CONTRACT (then ask for email/amount)
+   ❌ "Create a contract" → COLLECT_CONTRACT_INFO (missing client details)
+   
+   **Parsing Example:**
+   User: "Create a contract for John Doe at john@client.com for website development, $5000, 3 milestones"
+   → {
+     client_name: "John Doe",
+     client_email: "john@client.com",
+     title: "Website Development",
+     scope_of_work: "Website development",
+     payment_amount: "5000",
+     milestones: [
+       {title: "Milestone 1", amount: "1667"},
+       {title: "Milestone 2", amount: "1667"},
+       {title: "Milestone 3", amount: "1666"}
+     ]
+   }
+
+5. COLLECT_CONTRACT_INFO
+   Use when creating contract but missing required info.
+   Parameters: { client_name, client_email, title, scope_of_work, payment_amount }
+   
+   **Collection Strategy:**
+   - Missing client: "Who is this contract for?"
+   - Missing email: "What's their email address?"
+   - Missing scope: "What work will this contract cover?"
+   - Missing amount: "What's the total contract value?"
+   - Once you have client_name, client_email, and payment_amount → CREATE_CONTRACT
+
 
 3. COLLECT_PAYMENT_INFO
    Triggers: When creating payment link without amount

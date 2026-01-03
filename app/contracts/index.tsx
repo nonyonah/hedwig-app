@@ -725,12 +725,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     modalTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
-        fontWeight: '600',
     },
     modalSubtitle: {
-        fontSize: 14,
-        marginTop: 2,
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 13,
+        marginTop: 4,
     },
     modalHeaderRight: {
         flexDirection: 'row',
@@ -772,8 +773,8 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     pullDownMenuText: {
-        fontSize: 15,
-        fontWeight: '500',
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 16,
     },
     amountCard: {
         borderRadius: 20,
@@ -782,8 +783,9 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     amountCardValue: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 36,
-        fontWeight: '700',
+        marginBottom: 8,
     },
     detailsCard: {
         borderRadius: 16,
@@ -797,11 +799,12 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
     },
     detailLabel: {
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
     },
     detailValue: {
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
-        fontWeight: '600',
         maxWidth: 180,
     },
     detailDivider: {

@@ -174,6 +174,10 @@ export async function handleAction(intent: string, params: ActionParams, user: a
             case 'CREATE_CONTRACT':
                 return await handleCreateContract(params, user);
 
+            case 'COLLECT_CONTRACT_INFO':
+                // Don't create contract yet, Gemini will ask for missing info
+                return { text: '' };
+
             // Project and Milestone intents
             case 'CREATE_PROJECT':
                 return await handleCreateProject(params, user);
