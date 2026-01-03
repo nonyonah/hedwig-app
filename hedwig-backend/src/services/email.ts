@@ -202,5 +202,160 @@ export const EmailService = {
             console.error('[EmailService] Smart reminder failed:', error);
             return false;
         }
+    },
+
+    async sendContractEmail(data: {
+        to: string;
+        senderName: string;
+        contractTitle: string;
+        contractId: string;
+        approvalToken: string;
+        totalAmount?: string;
+        milestoneCount?: number;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const baseUrl = process.env.API_URL || 'https://hedwig.app';
+        const contractUrl = `${baseUrl}/contract/${data.contractId}?token=${data.approvalToken}`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                ${SHARED_STYLES}
+                .milestone-info { background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0; }
+                .milestone-info p { margin: 0; color: #166534; font-size: 14px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <span class="logo">Hedwig</span>
+                </div>
+                <div class="content">
+                    <p class="description"><strong>${data.senderName}</strong> has sent you a contract for review and approval.</p>
+                    
+                    <div class="card">
+                        <p class="amount-label">Contract</p>
+                        <h1 style="font-size: 24px; color: #111827; font-weight: 700; margin: 0;">${data.contractTitle}</h1>
+                        ${data.totalAmount ? `<p style="margin-top: 12px; font-size: 20px; color: #059669; font-weight: 600;">$${data.totalAmount}</p>` : ''}
+                    </div>
+
+                    ${data.milestoneCount ? `
+                    <div class="milestone-info">
+                        <p>📋 This contract includes <strong>${data.milestoneCount} milestone${data.milestoneCount > 1 ? 's' : ''}</strong></p>
+                    </div>
+                    ` : ''}
+                    
+                    <p class="description">Click the button below to review the full contract and approve it.</p>
+                    
+                    <div class="btn-container">
+                        <a href="${contractUrl}" class="btn" style="background-color: #059669;">Review & Approve Contract</a>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <noreply@resend.dev>',
+                to: [data.to],
+                subject: `Contract for Review: ${data.contractTitle} from ${data.senderName}`,
+                html: html,
+            });
+            console.log(`[EmailService] Contract email sent to ${data.to}`);
+            return true;
+        } catch (error) {
+            console.error('[EmailService] Contract email failed:', error);
+            return false;
+        }
+    },
+
+    async sendContractApprovedNotification(data: {
+        to: string;
+        clientName: string;
+        contractTitle: string;
+        contractId: string;
+        invoiceCount?: number;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const baseUrl = process.env.API_URL || 'https://hedwig.app';
+        const contractUrl = `${baseUrl}/contract/${data.contractId}`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                ${SHARED_STYLES}
+                .success-card { background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px; }
+                .success-icon { font-size: 48px; margin-bottom: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <span class="logo">Hedwig</span>
+                </div>
+                <div class="content">
+                    <div class="success-card">
+                        <div class="success-icon">🎉</div>
+                        <h2 style="margin: 0; color: #166534; font-size: 20px;">Contract Approved!</h2>
+                    </div>
+                    
+                    <p class="description"><strong>${data.clientName}</strong> has approved your contract:</p>
+                    
+                    <div class="card">
+                        <h1 style="font-size: 20px; color: #111827; font-weight: 700; margin: 0;">${data.contractTitle}</h1>
+                    </div>
+
+                    ${data.invoiceCount ? `
+                    <p class="description">✨ <strong>${data.invoiceCount} milestone invoice${data.invoiceCount > 1 ? 's have' : ' has'}</strong> been automatically generated and sent to your client.</p>
+                    ` : ''}
+                    
+                    <div class="btn-container">
+                        <a href="${contractUrl}" class="btn">View Contract</a>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <noreply@resend.dev>',
+                to: [data.to],
+                subject: `🎉 Contract Approved: ${data.contractTitle}`,
+                html: html,
+            });
+            console.log(`[EmailService] Contract approved notification sent to ${data.to}`);
+            return true;
+        } catch (error) {
+            console.error('[EmailService] Contract approved notification failed:', error);
+            return false;
+        }
     }
 };

@@ -225,6 +225,45 @@ class NotificationService {
             return false;
         }
     }
+
+    /**
+     * Send notification when a contract is approved by client
+     */
+    async notifyContractApproved(
+        userId: string,
+        contractId: string,
+        contractTitle: string,
+        clientName: string
+    ): Promise<ExpoPushTicket[]> {
+        // Also create in-app notification record
+        try {
+            await supabase
+                .from('notifications')
+                .insert({
+                    user_id: userId,
+                    type: 'contract_approved',
+                    title: 'Contract Approved! 🎉',
+                    message: `${clientName} has approved your contract: ${contractTitle}`,
+                    data: {
+                        contract_id: contractId,
+                        client_name: clientName
+                    },
+                    read: false
+                });
+        } catch (err) {
+            console.error('[Notifications] Failed to create in-app notification:', err);
+        }
+
+        return await this.notifyUser(userId, {
+            title: '🎉 Contract Approved!',
+            body: `${clientName} has approved your contract: ${contractTitle}`,
+            data: {
+                type: 'contract_approved',
+                contractId,
+                screen: '/contracts'
+            },
+        });
+    }
 }
 
 export default new NotificationService();

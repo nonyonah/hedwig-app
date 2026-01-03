@@ -704,4 +704,260 @@ router.post('/:id/toggle-reminders', authenticate, async (req: Request, res: Res
     }
 });
 
+/**
+ * POST /api/documents/:id/send
+ * Send a contract to client via email
+ */
+router.post('/:id/send', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const privyId = req.user!.privyId;
+
+        // Get user
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, email, first_name, last_name')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userData) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found' },
+            });
+            return;
+        }
+
+        // Fetch the contract
+        const { data: contract, error: fetchError } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('id', id)
+            .eq('type', 'CONTRACT')
+            .single();
+
+        if (fetchError || !contract) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Contract not found' },
+            });
+            return;
+        }
+
+        // Verify ownership
+        if (contract.user_id !== userData.id) {
+            res.status(403).json({
+                success: false,
+                error: { message: 'Not authorized to send this contract' },
+            });
+            return;
+        }
+
+        // Check if contract has client email
+        const clientEmail = contract.content?.client_email || contract.content?.recipient_email;
+        if (!clientEmail) {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Contract has no client email. Please add client email first.' },
+            });
+            return;
+        }
+
+        // Generate secure approval token
+        const crypto = await import('crypto');
+        const approvalToken = crypto.randomBytes(32).toString('hex');
+
+        // Update contract status and add approval token
+        const { data: updatedContract, error: updateError } = await supabase
+            .from('documents')
+            .update({
+                status: 'SENT',
+                content: {
+                    ...contract.content,
+                    approval_token: approvalToken,
+                    sent_at: new Date().toISOString()
+                }
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw new AppError(`Failed to update contract: ${updateError.message}`, 500);
+        }
+
+        // Send email to client
+        const { EmailService } = await import('../services/email');
+        const senderName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'A Hedwig User';
+        const milestones = contract.content?.milestones || [];
+        
+        const emailSent = await EmailService.sendContractEmail({
+            to: clientEmail,
+            senderName,
+            contractTitle: contract.title,
+            contractId: contract.id,
+            approvalToken,
+            totalAmount: contract.content?.payment_amount || contract.amount?.toString(),
+            milestoneCount: milestones.length
+        });
+
+        res.json({
+            success: true,
+            data: {
+                contract: updatedContract,
+                emailSent,
+                clientEmail
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * GET /api/documents/approve/:id/:token
+ * Approve a contract via email link (public endpoint)
+ */
+router.get('/approve/:id/:token', async (req: Request, res: Response, next) => {
+    try {
+        const { id, token } = req.params;
+
+        // Fetch the contract
+        const { data: contract, error: fetchError } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('id', id)
+            .eq('type', 'CONTRACT')
+            .single();
+
+        if (fetchError || !contract) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Contract not found' },
+            });
+            return;
+        }
+
+        // Verify token
+        if (!contract.content?.approval_token || contract.content.approval_token !== token) {
+            res.status(403).json({
+                success: false,
+                error: { message: 'Invalid or expired approval link' },
+            });
+            return;
+        }
+
+        // Check if already approved
+        if (contract.status === 'APPROVED' || contract.status === 'SIGNED') {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Contract has already been approved' },
+            });
+            return;
+        }
+
+        // Get freelancer info
+        const { data: freelancer } = await supabase
+            .from('users')
+            .select('id, email, first_name, last_name')
+            .eq('id', contract.user_id)
+            .single();
+
+        // Update contract status to APPROVED
+        const { error: updateError } = await supabase
+            .from('documents')
+            .update({
+                status: 'APPROVED',
+                content: {
+                    ...contract.content,
+                    approved_at: new Date().toISOString(),
+                    approval_token: null // Clear token after use
+                }
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw new AppError(`Failed to approve contract: ${updateError.message}`, 500);
+        }
+
+        // Generate milestone-based invoices
+        const milestones = contract.content?.milestones || [];
+        const clientName = contract.content?.client_name || 'Client';
+        const clientEmail = contract.content?.client_email || contract.content?.recipient_email;
+        const createdInvoices: any[] = [];
+
+        for (let i = 0; i < milestones.length; i++) {
+            const milestone = milestones[i];
+            const amount = parseFloat(milestone.amount?.toString().replace(/[^0-9.]/g, '') || '0');
+
+            if (amount > 0) {
+                const { data: invoice, error: invoiceError } = await supabase
+                    .from('documents')
+                    .insert({
+                        user_id: contract.user_id,
+                        type: 'INVOICE',
+                        title: `Milestone ${i + 1}: ${milestone.description || milestone.title || 'Milestone'}`,
+                        amount: amount,
+                        status: 'DRAFT', // Start as draft, freelancer can send when ready
+                        content: {
+                            client_name: clientName,
+                            recipient_email: clientEmail,
+                            contract_id: contract.id,
+                            milestone_index: i,
+                            milestone_description: milestone.description || milestone.title,
+                            due_date: milestone.due_date,
+                            items: [{
+                                description: milestone.description || milestone.title || `Milestone ${i + 1}`,
+                                amount: amount,
+                                quantity: 1
+                            }]
+                        }
+                    })
+                    .select()
+                    .single();
+
+                if (!invoiceError && invoice) {
+                    createdInvoices.push(invoice);
+                } else {
+                    console.error(`[Contract Approve] Failed to create invoice for milestone ${i + 1}:`, invoiceError);
+                }
+            }
+        }
+
+        // Send notification to freelancer
+        if (freelancer?.email) {
+            const { EmailService } = await import('../services/email');
+            await EmailService.sendContractApprovedNotification({
+                to: freelancer.email,
+                clientName,
+                contractTitle: contract.title,
+                contractId: contract.id,
+                invoiceCount: createdInvoices.length
+            });
+        }
+
+        // Create in-app notification
+        if (freelancer) {
+            try {
+                await NotificationService.notifyContractApproved(
+                    freelancer.id,
+                    contract.id,
+                    contract.title,
+                    clientName
+                );
+            } catch (notifError) {
+                console.error('[Contract Approve] Failed to create notification:', notifError);
+            }
+        }
+
+        // Redirect to contract page with success message
+        const baseUrl = process.env.API_URL || 'http://localhost:3000';
+        res.redirect(`${baseUrl}/contract/${id}?approved=true`);
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;

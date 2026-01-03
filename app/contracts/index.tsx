@@ -194,6 +194,47 @@ export default function ContractsScreen() {
         );
     };
 
+    const handleSendContract = async (contractId: string) => {
+        Alert.alert(
+            'Send Contract',
+            'Send this contract to your client for approval?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Send',
+                    style: 'default',
+                    onPress: async () => {
+                        try {
+                            const token = await getAccessToken();
+                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+                            const response = await fetch(`${apiUrl}/api/documents/${contractId}/send`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json'
+                                },
+                            });
+
+                            const data = await response.json();
+
+                            if (data.success) {
+                                await fetchContracts();
+                                setShowModal(false);
+                                Alert.alert('Success', `Contract sent to ${data.data.clientEmail}!`);
+                            } else {
+                                Alert.alert('Error', data.error?.message || 'Failed to send contract');
+                            }
+                        } catch (error) {
+                            console.error('Failed to send contract:', error);
+                            Alert.alert('Error', 'Failed to send contract');
+                        }
+                    }
+                },
+            ]
+        );
+    };
+
     const handleContractPress = (contract: any) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedContract(contract);
@@ -246,16 +287,20 @@ export default function ContractsScreen() {
         switch (status) {
             case 'COMPLETED':
             case 'PAID':
-            case 'SIGNED':
                 return { badge: styles.statusPaid, text: styles.statusTextPaid, label: 'Completed' };
+            case 'APPROVED':
+            case 'SIGNED':
+                return { badge: styles.statusActive, text: styles.statusTextActive, label: 'Approved' };
+            case 'SENT':
             case 'ACTIVE':
             case 'VIEWED':
-                return { badge: styles.statusActive, text: styles.statusTextActive, label: 'Active' };
+                return { badge: styles.statusSent, text: styles.statusTextSent, label: 'Sent' };
             case 'CANCELLED':
             case 'REJECTED':
                 return { badge: styles.statusFailed, text: styles.statusTextFailed, label: 'Rejected' };
+            case 'DRAFT':
             default:
-                return { badge: styles.statusPending, text: styles.statusTextPending, label: 'Pending' };
+                return { badge: styles.statusPending, text: styles.statusTextPending, label: 'Draft' };
         }
     };
 
@@ -438,6 +483,16 @@ export default function ContractsScreen() {
                             </View>
                         </View>
 
+                        {/* Send to Client button for DRAFT contracts */}
+                        {selectedContract?.status === 'DRAFT' && (
+                            <TouchableOpacity
+                                style={[styles.viewButton, { backgroundColor: '#059669', marginBottom: 12 }]}
+                                onPress={() => handleSendContract(selectedContract.id)}
+                            >
+                                <Text style={styles.viewButtonText}>Send to Client</Text>
+                            </TouchableOpacity>
+                        )}
+
                         <TouchableOpacity
                             style={styles.viewButton}
                             onPress={async () => {
@@ -566,6 +621,9 @@ const styles = StyleSheet.create({
     statusPaid: {
         backgroundColor: '#DBEAFE',
     },
+    statusSent: {
+        backgroundColor: '#E0E7FF',
+    },
     statusPending: {
         backgroundColor: '#FEF3C7',
     },
@@ -581,6 +639,9 @@ const styles = StyleSheet.create({
     },
     statusTextPaid: {
         color: '#2563EB',
+    },
+    statusTextSent: {
+        color: '#4F46E5',
     },
     statusTextPending: {
         color: '#D97706',

@@ -92,28 +92,64 @@
         class="hidden fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-50 text-red-600 px-6 py-3 rounded-full shadow-lg z-50 border border-red-100">
     </div>
 
+    <!-- Approval Success Banner -->
+    <div id="approval-banner" class="hidden fixed top-0 left-0 right-0 bg-green-600 text-white py-4 text-center z-50">
+        <div class="flex items-center justify-center gap-2">
+            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clip-rule="evenodd" />
+            </svg>
+            <span class="font-medium">Contract Approved Successfully!</span>
+        </div>
+    </div>
+
     <div class="max-w-[850px] mx-auto my-8 sm:my-12 bg-white shadow-xl min-h-[1100px] p-12 sm:p-20 relative document-paper"
         id="document-container">
         <div id="contract-content" class="markdown-body hidden"></div>
 
-        <!-- Signature Section -->
-        <div id="signature-section" class="hidden mt-12 pt-8 border-t-2 border-gray-200 no-print">
+        <!-- Approval Section -->
+        <div id="approval-section" class="hidden mt-12 pt-8 border-t-2 border-gray-200 no-print">
             <div class="flex flex-col items-center gap-6">
-                <div id="signature-status" class="text-center">
-                    <p class="text-gray-600 mb-4">Sign this contract using your crypto wallet.</p>
-                    <button id="sign-btn"
+                <!-- Email Approval (Primary) -->
+                <div id="email-approval-status" class="text-center">
+                    <p class="text-gray-600 mb-4">Review and approve this contract to proceed.</p>
+                    <button id="approve-btn"
                         class="bg-green-600 text-white px-8 py-3 rounded-full font-medium hover:bg-green-700 transition-all shadow-lg flex items-center gap-2 mx-auto">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
                             stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        Connect Wallet & Sign
+                        Approve Contract
                     </button>
-                    <p class="text-xs text-gray-400 mt-2">Powered by WalletConnect</p>
+                    <p class="text-xs text-gray-400 mt-2">By clicking approve, you agree to the terms above.</p>
                 </div>
 
-                <div id="signed-status" class="hidden text-center">
+                <!-- Divider -->
+                <div class="flex items-center gap-4 w-full max-w-sm">
+                    <div class="flex-1 h-px bg-gray-200"></div>
+                    <span class="text-gray-400 text-sm">or</span>
+                    <div class="flex-1 h-px bg-gray-200"></div>
+                </div>
+
+                <!-- Wallet Signing (Alternative) -->
+                <div id="signature-status" class="text-center">
+                    <p class="text-gray-500 text-sm mb-3">For on-chain verification:</p>
+                    <button id="sign-btn"
+                        class="bg-gray-700 text-white px-6 py-2 rounded-full font-medium hover:bg-gray-800 transition-all shadow flex items-center gap-2 mx-auto text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Sign with Wallet
+                    </button>
+                    <p class="text-xs text-gray-400 mt-2">Requires crypto wallet</p>
+                </div>
+
+                <!-- Approved Status -->
+                <div id="approved-status" class="hidden text-center">
                     <div
                         class="inline-flex items-center gap-2 bg-green-50 text-green-700 px-6 py-3 rounded-full border border-green-200">
                         <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
@@ -121,7 +157,21 @@
                                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                                 clip-rule="evenodd" />
                         </svg>
-                        <span class="font-medium">Contract Signed</span>
+                        <span class="font-medium">Contract Approved</span>
+                    </div>
+                    <p id="approved-info" class="text-sm text-gray-500 mt-2"></p>
+                </div>
+
+                <!-- Signed Status (Wallet) -->
+                <div id="signed-status" class="hidden text-center">
+                    <div
+                        class="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-6 py-3 rounded-full border border-blue-200">
+                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clip-rule="evenodd" />
+                        </svg>
+                        <span class="font-medium">Signed with Wallet</span>
                     </div>
                     <p id="signed-info" class="text-sm text-gray-500 mt-2"></p>
                     <p id="signature-hash" class="text-xs text-gray-400 mt-1 font-mono"></p>
@@ -276,9 +326,24 @@
     </script>
 
     <script>
+        let approvalToken = null;
+
         async function loadContract() {
             documentId = window.location.pathname.split('/').pop();
             window.documentId = documentId;
+
+            // Get approval token from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            approvalToken = urlParams.get('token');
+            const wasApproved = urlParams.get('approved') === 'true';
+
+            // Show approval banner if just approved
+            if (wasApproved) {
+                document.getElementById('approval-banner').classList.remove('hidden');
+                setTimeout(() => {
+                    document.getElementById('approval-banner').classList.add('hidden');
+                }, 5000);
+            }
 
             if (!documentId) {
                 showError('No contract ID provided');
@@ -298,37 +363,74 @@
                 const content = documentData.content?.generated_content || '# No content available';
 
                 console.log('[Contract] Document loaded:', documentData);
-                console.log('[Contract] Signature data:', documentData.content?.signature);
+                console.log('[Contract] Status:', documentData.status);
 
                 document.getElementById('loading').classList.add('hidden');
                 const contentDiv = document.getElementById('contract-content');
                 contentDiv.innerHTML = marked.parse(content);
-
-                // Check if contract is already signed and display signature
-                if (documentData.content?.signature) {
-                    console.log('[Contract] Found existing signature, displaying...');
-                    window.showSignedStatus(documentData.content.signature);
-                } else {
-                    console.log('[Contract] No signature found');
-                }
-
                 contentDiv.classList.remove('hidden');
 
                 document.title = `${documentData.title} | Contract`;
 
-                // Show signature section
-                const signatureSection = document.getElementById('signature-section');
-                signatureSection.classList.remove('hidden');
+                // Show approval section
+                const approvalSection = document.getElementById('approval-section');
+                approvalSection.classList.remove('hidden');
 
-                // Check if already signed
-                if (documentData.content?.signature || documentData.status === 'SIGNED') {
-                    window.showSignedStatus(documentData.content?.signature);
+                // Handle different statuses
+                const isApproved = documentData.status === 'APPROVED' || documentData.status === 'SIGNED' || documentData.status === 'PAID';
+                const hasSentToken = documentData.content?.approval_token && approvalToken;
+
+                if (isApproved) {
+                    // Already approved - show approved status
+                    window.showApprovedStatus(documentData.content?.approved_at);
+                } else if (documentData.content?.signature) {
+                    // Wallet signed
+                    window.showSignedStatus(documentData.content.signature);
+                } else if (!hasSentToken) {
+                    // No token - hide approve button (only show to client with link)
+                    document.getElementById('email-approval-status').classList.add('hidden');
                 }
 
             } catch (error) {
                 showError(error.message);
             }
         }
+
+        // Show approved status
+        window.showApprovedStatus = function (approvedAt) {
+            document.getElementById('email-approval-status').classList.add('hidden');
+            document.getElementById('signature-status').classList.add('hidden');
+            document.getElementById('approved-status').classList.remove('hidden');
+
+            if (approvedAt) {
+                const approvedDate = new Date(approvedAt).toLocaleString();
+                document.getElementById('approved-info').textContent = `Approved on ${approvedDate}`;
+            }
+        };
+
+        // Approve button handler
+        document.getElementById('approve-btn').addEventListener('click', async function () {
+            const btn = this;
+            const documentId = window.documentId;
+
+            if (!documentId || !approvalToken) {
+                alert('Invalid approval link. Please use the link from your email.');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div> Approving...';
+
+            try {
+                // Redirect to approval endpoint
+                window.location.href = `/api/documents/approve/${documentId}/${approvalToken}`;
+            } catch (error) {
+                console.error('Approval error:', error);
+                alert(error.message || 'Failed to approve contract');
+                btn.disabled = false;
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Approve Contract';
+            }
+        });
 
         // Download PDF handler
         document.getElementById('download-btn').addEventListener('click', async function () {
