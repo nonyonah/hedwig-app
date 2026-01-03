@@ -99,6 +99,16 @@ DO NOT wrap your response in markdown code blocks (no backticks or "json" labels
 
 AVAILABLE INTENTS & TRIGGERS:
 
+⚠️ **KEYWORD PRIORITY CHECK (MUST CHECK FIRST!):**
+Before selecting any intent, scan the user's message for these keywords IN THIS ORDER:
+1. If message contains "contract" or "agreement" → Use CREATE_CONTRACT or COLLECT_CONTRACT_INFO (NEVER invoice!)
+2. If message contains "invoice" or "bill" → Use CREATE_INVOICE or COLLECT_INVOICE_INFO
+3. Only if neither above → check other intents
+
+**CRITICAL: "contract" and "invoice" are MUTUALLY EXCLUSIVE. A contract is NOT an invoice!**
+- CONTRACT: Legal agreement signed BEFORE work starts
+- INVOICE: Payment request sent AFTER work is completed
+
 **IMPORTANT: Consider conversation history to avoid loops!**
 - If you JUST asked for amount and user provides one → move to COLLECT_NETWORK_INFO
 - If you JUST asked for network and user provides one → move to CREATE_PAYMENT_LINK
