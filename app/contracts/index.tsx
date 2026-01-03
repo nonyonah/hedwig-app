@@ -1,34 +1,39 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
-import { Linking } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
-import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThree, FileText, Scroll, User } from 'phosphor-react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { List, CheckCircle, FileText, X, UserCircle, Trash, DotsThree, PaperPlaneTilt, Clock, Eye } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import { getUserGradient } from '../../utils/gradientUtils';
+import { useSettings } from '../../context/SettingsContext';
+import { formatCurrency } from '../../utils/currencyUtils';
 
-// Icons
-const ICONS = {
-    usdc: require('../../assets/icons/tokens/usdc.png'),
-    base: require('../../assets/icons/networks/base.png'),
-    celo: require('../../assets/icons/networks/celo.png'),
-    statusPending: require('../../assets/icons/status/pending.png'),
-    statusSuccess: require('../../assets/icons/status/success.png'),
-    statusFailed: require('../../assets/icons/status/failed.png'),
-};
+// Profile color gradient options (consistent with ProfileModal)
+const PROFILE_COLOR_OPTIONS = [
+    ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
+    ['#34D399', '#10B981', '#059669'], // Green
+    ['#F472B6', '#EC4899', '#DB2777'], // Pink
+    ['#FBBF24', '#F59E0B', '#D97706'], // Amber
+    ['#A78BFA', '#8B5CF6', '#7C3AED'], // Purple
+    ['#F87171', '#EF4444', '#DC2626'], // Red
+    ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
+    ['#FB923C', '#F97316', '#EA580C'], // Orange
+] as const;
 
 export default function ContractsScreen() {
     const router = useRouter();
     const { getAccessToken, user } = usePrivy();
+    const settings = useSettings();
+    const currency = settings?.currency || 'USD';
     const themeColors = useThemeColors();
     const [contracts, setContracts] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -37,8 +42,23 @@ export default function ContractsScreen() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
-    const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
+    const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
+    const [showActionMenu, setShowActionMenu] = useState(false);
+    const [conversations, setConversations] = useState<any[]>([]);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'approved'>('all');
+
+    // Filter contracts based on status
+    const filteredContracts = useMemo(() => {
+        if (statusFilter === 'all') return contracts;
+        if (statusFilter === 'draft') return contracts.filter(c => c.status === 'DRAFT');
+        if (statusFilter === 'sent') return contracts.filter(c => c.status === 'SENT' || c.status === 'ACTIVE' || c.status === 'VIEWED');
+        if (statusFilter === 'approved') return contracts.filter(c => c.status === 'APPROVED' || c.status === 'SIGNED' || c.status === 'PAID' || c.status === 'COMPLETED');
+        return contracts;
+    }, [contracts, statusFilter]);
+
+    // Animation value for modal
+    const slideAnim = React.useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         fetchContracts();
@@ -62,16 +82,13 @@ export default function ContractsScreen() {
                         firstName: userData.firstName || '',
                         lastName: userData.lastName || ''
                     });
-                    setWalletAddresses({
-                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
-                        solana: userData.solanaWalletAddress
-                    });
 
                     // Set profile icon
                     if (userData.avatar) {
                         try {
-                            if (typeof userData.avatar === 'string' && userData.avatar.trim().startsWith('{')) {
-                                setProfileIcon(JSON.parse(userData.avatar));
+                            if (userData.avatar.trim().startsWith('{')) {
+                                const parsed = JSON.parse(userData.avatar);
+                                setProfileIcon(parsed);
                             } else {
                                 setProfileIcon({ imageUri: userData.avatar });
                             }
@@ -83,6 +100,19 @@ export default function ContractsScreen() {
                     } else if (userData.profileColorIndex !== undefined) {
                         setProfileIcon({ colorIndex: userData.profileColorIndex });
                     }
+                    setWalletAddresses({
+                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
+                        solana: userData.solanaWalletAddress
+                    });
+                }
+
+                // Fetch recent conversations for sidebar
+                const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+                const conversationsData = await conversationsResponse.json();
+                if (conversationsData.success && conversationsData.data) {
+                    setConversations(conversationsData.data.slice(0, 10));
                 }
             } catch (error) {
                 console.error('Failed to fetch user data:', error);
@@ -96,12 +126,10 @@ export default function ContractsScreen() {
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-            console.log('Fetching contracts...');
             const response = await fetch(`${apiUrl}/api/documents?type=CONTRACT`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
-            console.log('Contracts response:', data);
 
             if (data.success) {
                 setContracts(data.data.documents);
@@ -117,6 +145,8 @@ export default function ContractsScreen() {
     };
 
     const handleDelete = async (contractId: string) => {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
         Alert.alert(
             'Delete Contract',
             'Are you sure you want to delete this contract? This action cannot be undone.',
@@ -146,47 +176,6 @@ export default function ContractsScreen() {
                         } catch (error) {
                             console.error('Failed to delete contract:', error);
                             Alert.alert('Error', 'Failed to delete contract');
-                        }
-                    }
-                },
-            ]
-        );
-    };
-
-    const handleCompleteContract = async (contractId: string) => {
-        Alert.alert(
-            'Complete Contract',
-            'Mark this contract as completed? An invoice will be automatically generated and sent to the client.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Complete',
-                    style: 'default',
-                    onPress: async () => {
-                        try {
-                            const token = await getAccessToken();
-                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-                            const response = await fetch(`${apiUrl}/api/documents/${contractId}/complete`, {
-                                method: 'POST',
-                                headers: {
-                                    'Authorization': `Bearer ${token}`,
-                                    'Content-Type': 'application/json'
-                                },
-                            });
-
-                            const data = await response.json();
-
-                            if (data.success) {
-                                // Refresh contracts list
-                                await fetchContracts();
-                                Alert.alert('Success', 'Contract completed and invoice generated!');
-                            } else {
-                                Alert.alert('Error', data.error?.message || 'Failed to complete contract');
-                            }
-                        } catch (error) {
-                            console.error('Failed to complete contract:', error);
-                            Alert.alert('Error', 'Failed to complete contract');
                         }
                     }
                 },
@@ -235,165 +224,176 @@ export default function ContractsScreen() {
         );
     };
 
-    const handleContractPress = (contract: any) => {
+    const openModal = (contract: any) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedContract(contract);
         setShowModal(true);
+        Animated.spring(slideAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+            damping: 25,
+            stiffness: 300,
+        }).start();
     };
 
-    const renderRightActions = (progress: any, dragX: any, item: any) => {
-        const trans = dragX.interpolate({
-            inputRange: [-100, 0],
-            outputRange: [0, 100],
-            extrapolate: 'clamp',
-        });
-
-        return (
-            <Animated.View style={{ transform: [{ translateX: trans }] }}>
-                <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDelete(item.id)}
-                >
-                    <Trash size={24} color="#FFFFFF" weight="fill" />
-                </TouchableOpacity>
-            </Animated.View>
-        );
-    };
-
-    const renderLeftActions = (progress: any, dragX: any, item: any) => {
-        const isActive = item.status === 'ACTIVE' || item.status === 'VIEWED';
-
-        if (!isActive) return null;
-
-        const trans = dragX.interpolate({
-            inputRange: [0, 100],
-            outputRange: [-100, 0],
-            extrapolate: 'clamp',
-        });
-
-        return (
-            <Animated.View style={{ transform: [{ translateX: trans }] }}>
-                <TouchableOpacity
-                    style={styles.completeButton}
-                    onPress={() => handleCompleteContract(item.id)}
-                >
-                    <CheckCircle size={24} color="#FFFFFF" weight="fill" />
-                </TouchableOpacity>
-            </Animated.View>
-        );
+    const closeModal = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+        }).start(() => setShowModal(false));
     };
 
     const getStatusStyle = (status: string) => {
         switch (status) {
             case 'COMPLETED':
             case 'PAID':
-                return { badge: styles.statusPaid, text: styles.statusTextPaid, label: 'Completed' };
+                return { bg: '#DCFCE7', text: '#16A34A', label: 'Completed' };
             case 'APPROVED':
             case 'SIGNED':
-                return { badge: styles.statusActive, text: styles.statusTextActive, label: 'Approved' };
+                return { bg: '#D1FAE5', text: '#059669', label: 'Approved' };
             case 'SENT':
             case 'ACTIVE':
             case 'VIEWED':
-                return { badge: styles.statusSent, text: styles.statusTextSent, label: 'Sent' };
+                return { bg: '#E0E7FF', text: '#4F46E5', label: 'Sent' };
             case 'CANCELLED':
             case 'REJECTED':
-                return { badge: styles.statusFailed, text: styles.statusTextFailed, label: 'Rejected' };
+                return { bg: '#FEE2E2', text: '#DC2626', label: 'Rejected' };
             case 'DRAFT':
             default:
-                return { badge: styles.statusPending, text: styles.statusTextPending, label: 'Draft' };
+                return { bg: '#FEF3C7', text: '#D97706', label: 'Draft' };
+        }
+    };
+
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'COMPLETED':
+            case 'PAID':
+            case 'APPROVED':
+            case 'SIGNED':
+                return <CheckCircle size={16} color="#16A34A" weight="fill" />;
+            case 'SENT':
+            case 'ACTIVE':
+            case 'VIEWED':
+                return <PaperPlaneTilt size={16} color="#4F46E5" weight="fill" />;
+            default:
+                return <Clock size={16} color="#D97706" weight="fill" />;
         }
     };
 
     const renderItem = ({ item }: { item: any }) => {
         const statusStyle = getStatusStyle(item.status);
-
-        // Generate a display ID like CON-2024-001 from the UUID or use a placeholder
-        const displayId = `CON-${new Date(item.created_at).getFullYear()}-${item.id.substring(4, 7).toUpperCase()}`;
-
-        // robust client name retrieval
-        const clientName = item.client_name || item.client?.name || item.content?.client_name || 'Client';
+        const clientName = item.content?.client_name || 'Client';
+        const amount = item.content?.payment_amount || item.amount;
 
         return (
-            <Swipeable
-                renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item)}
-                renderLeftActions={(progress, dragX) => renderLeftActions(progress, dragX, item)}
-                overshootRight={false}
-                overshootLeft={false}
+            <TouchableOpacity
+                style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                onPress={() => openModal(item)}
+                onLongPress={() => handleDelete(item.id)}
+                delayLongPress={500}
             >
-                <TouchableOpacity style={[styles.card, { backgroundColor: themeColors.surface }]} onPress={() => handleContractPress(item)}>
-                    <View style={styles.cardHeader}>
-                        <View>
-                            <Text style={[styles.contractId, { color: themeColors.textSecondary }]}>{displayId}</Text>
-                            <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
-                        </View>
-                        <View style={styles.iconContainer}>
-                            <Scroll size={24} color={Colors.primary} weight="duotone" />
-                            <View style={[styles.statusDot, { backgroundColor: statusStyle.text.color }]} />
-                        </View>
+                <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.linkId, { color: themeColors.textSecondary }]}>CONTRACT-{item.id.substring(0, 8).toUpperCase()}</Text>
+                        <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
                     </View>
-
-                    <Text style={[styles.amount, { color: themeColors.textPrimary }]}>${(item.amount || 0).toString().replace(/[^0-9.]/g, '')}</Text>
-
-                    <View style={styles.cardFooter}>
-                        <Text style={[styles.clientText, { color: themeColors.textSecondary }]}>For {clientName}</Text>
-                        <View style={[styles.statusBadge, statusStyle.badge]}>
-                            <Text style={[styles.statusText, statusStyle.text]}>
-                                {statusStyle.label}
-                            </Text>
-                        </View>
+                    <View style={[styles.iconContainer, { backgroundColor: themeColors.background }]}>
+                        <FileText size={24} color={themeColors.textSecondary} weight="duotone" />
                     </View>
-                </TouchableOpacity>
-            </Swipeable>
+                </View>
+
+                {amount && (
+                    <Text style={[styles.amount, { color: themeColors.textPrimary }]}>
+                        {formatCurrency(amount.toString().replace(/[^0-9.]/g, ''), currency)}
+                    </Text>
+                )}
+
+                <View style={styles.cardFooter}>
+                    <Text style={[styles.clientText, { color: themeColors.textSecondary }]}>{clientName}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+                        <Text style={[styles.statusText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
+                    </View>
+                </View>
+            </TouchableOpacity>
         );
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: themeColors.background }}>
+        <View style={{ flex: 1 }}>
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
-                {/* Header */}
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
                         <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Contracts</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                        <LinearGradient
-                            colors={getUserGradient(user?.id || userName.firstName)}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.profileIcon}
-                        />
+                        {profileIcon.imageUri ? (
+                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                        ) : profileIcon.emoji ? (
+                            <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                            </View>
+                        ) : (
+                            <LinearGradient
+                                colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.profileIcon}
+                            />
+                        )}
                     </TouchableOpacity>
                 </View>
 
-                {/* Content */}
-                {
-                    isLoading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color={Colors.primary} />
-                        </View>
-                    ) : (
-                        <FlatList
-                            data={contracts}
-                            renderItem={renderItem}
-                            keyExtractor={item => item.id}
-                            contentContainerStyle={styles.listContent}
-                            showsVerticalScrollIndicator={false}
-                            ListEmptyComponent={
-                                <View style={styles.emptyState}>
-                                    <Scroll size={64} color={themeColors.textSecondary} weight="duotone" />
-                                    <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Contracts Yet</Text>
-                                    <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                                        Create your first contract to get started
-                                    </Text>
-                                </View>
-                            }
-                        />
-                    )
-                }
+                {/* Filter Chips */}
+                <View style={styles.filterContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+                        {(['all', 'draft', 'sent', 'approved'] as const).map(filter => (
+                            <TouchableOpacity
+                                key={filter}
+                                style={[
+                                    styles.filterChip,
+                                    { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                                    statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }
+                                ]}
+                                onPress={() => setStatusFilter(filter)}
+                            >
+                                <Text style={[
+                                    styles.filterText,
+                                    { color: themeColors.textSecondary },
+                                    statusFilter === filter && styles.filterTextActive
+                                ]}>
+                                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+
+                {isLoading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color={Colors.primary} />
+                    </View>
+                ) : (
+                    <FlatList
+                        data={filteredContracts}
+                        renderItem={renderItem}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={styles.listContent}
+                        ListEmptyComponent={
+                            <View style={styles.emptyState}>
+                                <FileText size={64} color={themeColors.textSecondary} weight="duotone" />
+                                <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Contracts</Text>
+                                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+                                    Create a contract with AI to get started
+                                </Text>
+                            </View>
+                        }
+                    />
+                )}
             </SafeAreaView>
 
-            {/* Profile Modal */}
             <ProfileModal
                 visible={showProfileModal}
                 onClose={() => setShowProfileModal(false)}
@@ -406,117 +406,171 @@ export default function ContractsScreen() {
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 userName={userName}
-                conversations={[]}
+                conversations={conversations}
                 onHomeClick={() => router.push('/')}
+                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
             />
 
             {/* Details Modal */}
             <Modal
                 visible={showModal}
                 transparent={true}
-                animationType="none"
-                onRequestClose={() => setShowModal(false)}
+                animationType="fade"
+                onRequestClose={closeModal}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, { backgroundColor: themeColors.background }]}>
+                    {Platform.OS === 'ios' ? (
+                        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+                    ) : (
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.32)' }]} />
+                    )}
+                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
+                    <Animated.View
+                        style={[
+                            styles.modalContent,
+                            { backgroundColor: themeColors.background },
+                            {
+                                transform: [{
+                                    translateY: slideAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [600, 0]
+                                    })
+                                }]
+                            }
+                        ]}
+                    >
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderLeft}>
-                                <Image
-                                    source={
-                                        selectedContract?.status === 'ACTIVE' || selectedContract?.status === 'VIEWED' ? ICONS.statusSuccess :
-                                            selectedContract?.status === 'COMPLETED' || selectedContract?.status === 'PAID' || selectedContract?.status === 'SIGNED' ? ICONS.statusSuccess :
-                                                selectedContract?.status === 'CANCELLED' || selectedContract?.status === 'REJECTED' ? ICONS.statusFailed :
-                                                    ICONS.statusPending
-                                    }
-                                    style={styles.statusIcon}
-                                />
+                                <View style={[styles.modalIconContainer, { backgroundColor: themeColors.surface }]}>
+                                    <FileText size={28} color={Colors.primary} weight="duotone" />
+                                </View>
                                 <View>
                                     <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
                                         {getStatusStyle(selectedContract?.status).label}
                                     </Text>
                                     <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                        {selectedContract?.created_at ? `${new Date(selectedContract.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })} • ${new Date(selectedContract.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}` : ''}
+                                        {selectedContract?.created_at ? new Date(selectedContract.created_at).toLocaleDateString('en-GB') : ''}
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                setShowModal(false);
-                            }}>
-                                <X size={20} color={themeColors.textSecondary} weight="bold" />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
-                            <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
-                                ${(selectedContract?.amount || '0').toString().replace(/[^0-9.]/g, '')}
-                            </Text>
-                            <View style={styles.amountCardSub}>
-                                <Image source={ICONS.usdc} style={styles.smallIcon} />
-                                <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedContract?.amount} USDC</Text>
+                            <View style={styles.modalHeaderRight}>
+                                {selectedContract?.status === 'DRAFT' && (
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                            setShowActionMenu(!showActionMenu);
+                                        }}
+                                        style={styles.menuButton}
+                                    >
+                                        <DotsThree size={24} color={themeColors.textSecondary} weight="bold" />
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
+                                    <X size={20} color={themeColors.textSecondary} weight="bold" />
+                                </TouchableOpacity>
                             </View>
                         </View>
 
+                        {/* Action Menu */}
+                        {showActionMenu && selectedContract?.status === 'DRAFT' && (
+                            <>
+                                <TouchableOpacity
+                                    style={styles.menuBackdrop}
+                                    activeOpacity={1}
+                                    onPress={() => {
+                                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                        setShowActionMenu(false);
+                                    }}
+                                />
+                                <Animated.View style={[styles.pullDownMenu, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                                    <TouchableOpacity
+                                        style={styles.pullDownMenuItem}
+                                        onPress={() => {
+                                            setShowActionMenu(false);
+                                            handleDelete(selectedContract.id);
+                                            closeModal();
+                                        }}
+                                    >
+                                        <Trash size={18} color="#EF4444" weight="fill" />
+                                        <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete</Text>
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            </>
+                        )}
+
+                        {/* Amount Card */}
+                        {(selectedContract?.content?.payment_amount || selectedContract?.amount) && (
+                            <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                                <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                                    {formatCurrency((selectedContract?.content?.payment_amount || selectedContract?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
+                                </Text>
+                            </View>
+                        )}
+
+                        {/* Details Card */}
                         <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                             <View style={styles.detailRow}>
                                 <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Contract ID</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
-                                    {selectedContract ? `CON-${new Date(selectedContract.created_at).getFullYear()}-${selectedContract.id.substring(4, 7).toUpperCase()}` : ''}
-                                </Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>CONTRACT-{selectedContract?.id?.substring(0, 8).toUpperCase()}</Text>
+                            </View>
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                            <View style={styles.detailRow}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Title</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1}>{selectedContract?.title}</Text>
                             </View>
                             <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
                                 <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
-                                    {selectedContract ? (selectedContract.client_name || selectedContract.client?.name || selectedContract.content?.client_name || 'Client') : 'Client'}
-                                </Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedContract?.content?.client_name || 'N/A'}</Text>
                             </View>
                             <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }, { maxWidth: 150 }]} numberOfLines={1} ellipsizeMode="tail">{selectedContract?.title}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client Email</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedContract?.content?.client_email || 'N/A'}</Text>
                             </View>
-                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Platform Fee</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>1%</Text>
-                            </View>
+                            {selectedContract?.content?.milestones?.length > 0 && (
+                                <>
+                                    <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                    <View style={styles.detailRow}>
+                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Milestones</Text>
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedContract.content.milestones.length}</Text>
+                                    </View>
+                                </>
+                            )}
                         </View>
 
-                        {/* Send to Client button for DRAFT contracts */}
+                        {/* Send to Client Button (for DRAFT) */}
                         {selectedContract?.status === 'DRAFT' && (
                             <TouchableOpacity
-                                style={[styles.viewButton, { backgroundColor: '#059669', marginBottom: 12 }]}
+                                style={[styles.viewButton, { backgroundColor: '#059669' }]}
                                 onPress={() => handleSendContract(selectedContract.id)}
                             >
+                                <PaperPlaneTilt size={20} color="#FFFFFF" weight="fill" style={{ marginRight: 8 }} />
                                 <Text style={styles.viewButtonText}>Send to Client</Text>
                             </TouchableOpacity>
                         )}
 
+                        {/* View Contract Button */}
                         <TouchableOpacity
-                            style={styles.viewButton}
+                            style={[styles.viewButton, selectedContract?.status === 'DRAFT' && { marginTop: 12 }]}
                             onPress={async () => {
                                 try {
-                                    setShowModal(false);
                                     const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
                                     const url = `${apiUrl}/contract/${selectedContract.id}`;
-                                    console.log('Opening contract in system browser:', url);
-
-                                    const canOpen = await Linking.canOpenURL(url);
-                                    if (canOpen) {
-                                        await Linking.openURL(url);
-                                    } else {
-                                        Alert.alert('Error', 'Cannot open this URL');
-                                    }
+                                    await WebBrowser.openBrowserAsync(url, {
+                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+                                        controlsColor: Colors.primary,
+                                    });
                                 } catch (error: any) {
-                                    console.error('Failed to open browser:', error);
-                                    Alert.alert('Error', `Failed to open contract: ${error?.message || 'Unknown error'}`);
+                                    Alert.alert('Error', `Failed to open: ${error?.message}`);
                                 }
                             }}
                         >
+                            <Eye size={20} color="#FFFFFF" weight="fill" style={{ marginRight: 8 }} />
                             <Text style={styles.viewButtonText}>View Contract</Text>
                         </TouchableOpacity>
-                    </View>
+                    </Animated.View>
                 </View>
             </Modal>
         </View>
@@ -526,25 +580,43 @@ export default function ContractsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 16,
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        height: 60,
     },
     headerTitle: {
-        ...Typography.h2,
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22,
-        fontWeight: '600',
     },
     profileIcon: {
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: Colors.primary,
+    },
+    filterContainer: {
+        marginBottom: 16,
+    },
+    filterContent: {
+        paddingHorizontal: 20,
+        gap: 8,
+    },
+    filterChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    filterText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 14,
+    },
+    filterTextActive: {
+        color: '#FFFFFF',
     },
     loadingContainer: {
         flex: 1,
@@ -556,15 +628,10 @@ const styles = StyleSheet.create({
         paddingBottom: 32,
     },
     card: {
-        backgroundColor: Colors.surface,
         borderRadius: 24,
         padding: 20,
         marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+        borderWidth: 1,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -572,33 +639,26 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         marginBottom: 16,
     },
-    contractId: {
+    linkId: {
         ...Typography.caption,
-        color: Colors.textSecondary,
         marginBottom: 4,
     },
     cardTitle: {
         ...Typography.body,
         fontSize: 16,
         fontWeight: '600',
-        color: Colors.textPrimary,
     },
     iconContainer: {
-        position: 'relative',
-    },
-    statusDot: {
-        position: 'absolute',
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        top: 0,
-        right: 0,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     amount: {
         ...Typography.h2,
         fontSize: 32,
         fontWeight: '700',
-        color: Colors.textPrimary,
         marginBottom: 16,
     },
     cardFooter: {
@@ -608,46 +668,15 @@ const styles = StyleSheet.create({
     },
     clientText: {
         ...Typography.body,
-        color: Colors.textSecondary,
     },
     statusBadge: {
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 12,
     },
-    statusActive: {
-        backgroundColor: '#D1FAE5',
-    },
-    statusPaid: {
-        backgroundColor: '#DBEAFE',
-    },
-    statusSent: {
-        backgroundColor: '#E0E7FF',
-    },
-    statusPending: {
-        backgroundColor: '#FEF3C7',
-    },
-    statusFailed: {
-        backgroundColor: '#FEE2E2',
-    },
     statusText: {
         ...Typography.caption,
         fontWeight: '600',
-    },
-    statusTextActive: {
-        color: '#059669',
-    },
-    statusTextPaid: {
-        color: '#2563EB',
-    },
-    statusTextSent: {
-        color: '#4F46E5',
-    },
-    statusTextPending: {
-        color: '#D97706',
-    },
-    statusTextFailed: {
-        color: '#DC2626',
     },
     emptyState: {
         flex: 1,
@@ -665,137 +694,128 @@ const styles = StyleSheet.create({
     },
     emptyStateText: {
         ...Typography.body,
-        color: Colors.textSecondary,
         textAlign: 'center',
-    },
-    deleteButton: {
-        backgroundColor: '#FF3B30',
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: 80,
-        height: '100%',
-        borderRadius: 24,
-        marginRight: 8,
-    },
-    completeButton: {
-        backgroundColor: '#34C759',
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: 80,
-        height: '100%',
-        borderRadius: 24,
-        marginLeft: 8,
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: Colors.background,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        padding: 24,
+        paddingHorizontal: 20,
+        paddingTop: 20,
         paddingBottom: 40,
-        maxHeight: '80%',
+        maxHeight: '85%',
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         marginBottom: 24,
     },
     modalHeaderLeft: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         gap: 12,
     },
-    statusIcon: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        marginRight: 12,
-    },
-    closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#F3F4F6',
+    modalIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
     },
     modalTitle: {
-        ...Typography.body,
         fontSize: 18,
         fontWeight: '600',
-        color: Colors.textPrimary,
     },
     modalSubtitle: {
-        ...Typography.caption,
-        color: Colors.textSecondary,
-        marginTop: 4,
+        fontSize: 14,
+        marginTop: 2,
     },
-    amountCard: {
-        backgroundColor: Colors.surface,
-        borderRadius: 16,
-        padding: 24,
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    amountCardValue: {
-        ...Typography.h1,
-        fontSize: 36,
-        fontWeight: '700',
-        color: Colors.textPrimary,
-        marginBottom: 8,
-    },
-    amountCardSub: {
+    modalHeaderRight: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
     },
-    smallIcon: {
-        width: 16,
-        height: 16,
+    closeButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    amountCardSubText: {
-        ...Typography.body,
-        color: Colors.textSecondary,
+    menuButton: {
+        padding: 8,
     },
-    detailsCard: {
-        backgroundColor: Colors.surface,
+    menuBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 1,
+    },
+    pullDownMenu: {
+        position: 'absolute',
+        top: 60,
+        right: 20,
+        borderRadius: 12,
+        borderWidth: 1,
+        overflow: 'hidden',
+        zIndex: 2,
+        minWidth: 160,
+    },
+    pullDownMenuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        gap: 10,
+    },
+    pullDownMenuText: {
+        fontSize: 15,
+        fontWeight: '500',
+    },
+    amountCard: {
         borderRadius: 16,
         padding: 20,
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    amountCardValue: {
+        fontSize: 36,
+        fontWeight: '700',
+    },
+    detailsCard: {
+        borderRadius: 16,
+        padding: 16,
         marginBottom: 24,
     },
     detailRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingVertical: 12,
     },
     detailLabel: {
-        ...Typography.body,
-        color: Colors.textSecondary,
+        fontSize: 14,
     },
     detailValue: {
-        ...Typography.body,
+        fontSize: 14,
         fontWeight: '600',
-        color: Colors.textPrimary,
+        maxWidth: 180,
     },
     detailDivider: {
         height: 1,
-        backgroundColor: Colors.border,
-        marginVertical: 16,
     },
     viewButton: {
         backgroundColor: Colors.primary,
-        borderRadius: 16,
-        padding: 16,
+        borderRadius: 50,
+        paddingVertical: 16,
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
     },
     viewButtonText: {
-        ...Typography.body,
         color: '#FFFFFF',
+        fontSize: 16,
         fontWeight: '600',
     },
 });
