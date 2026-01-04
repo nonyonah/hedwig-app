@@ -15,12 +15,14 @@
     "@reown/appkit": "^1.8.15",
     "@reown/appkit-adapter-ethers": "^1.8.15",
     "ethers": "^6.16.0",
+    "marked": "^17.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.11.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/marked": "^5.0.2",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",

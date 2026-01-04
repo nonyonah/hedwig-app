@@ -557,13 +557,19 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
         let clientId: string | null = null;
         let clientWasNew = false; // Track if we created a new client
         if (clientEmail) {
-            // Check if client exists by email
-            const { data: existingClient } = await supabase
+            // Normalize email to lowercase for comparison
+            const normalizedEmail = clientEmail.toLowerCase().trim();
+            console.log('[Contract] Looking up client by email:', normalizedEmail, 'for user:', userData.id);
+            
+            // Check if client exists by email (case-insensitive)
+            const { data: existingClient, error: lookupError } = await supabase
                 .from('clients')
-                .select('id, name')
+                .select('id, name, email')
                 .eq('user_id', userData.id)
-                .eq('email', clientEmail)
+                .ilike('email', normalizedEmail)
                 .single();
+
+            console.log('[Contract] Client lookup result:', existingClient, 'Error:', lookupError?.message);
 
             if (existingClient) {
                 clientId = existingClient.id;
