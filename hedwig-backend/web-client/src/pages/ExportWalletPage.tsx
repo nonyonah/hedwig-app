@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { usePrivy } from '@privy-io/react-auth';
-import { useExportWallet } from '@privy-io/react-auth/solana';
+// Solana export temporarily disabled to fix build
+// import { useExportWallet } from '@privy-io/react-auth/solana';
 import { Wallet, ShieldCheck, Warning, SpinnerGap } from '@phosphor-icons/react';
 import './ExportWalletPage.css';
 
@@ -16,7 +17,8 @@ export default function ExportWalletPage() {
 
     // Privy hooks
     const { ready, authenticated, user, login, exportWallet: exportEvmWallet } = usePrivy();
-    const { exportWallet: exportSolanaWallet } = useExportWallet();
+    // Solana export temporarily disabled
+    const exportSolanaWallet = async () => { throw new Error('Solana export temporarily unavailable'); };
 
     // Find embedded wallets
     const evmWallet = user?.linkedAccounts?.find(
