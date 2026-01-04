@@ -692,6 +692,42 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
         if (error) throw error;
         console.log('[Actions] Created contract:', doc);
 
+        // Generate approval token for client
+        const crypto = await import('crypto');
+        const approvalToken = crypto.randomBytes(32).toString('hex');
+
+        // Update contract with approval token and set status to SENT
+        await supabase
+            .from('documents')
+            .update({
+                status: 'SENT',
+                content: {
+                    ...doc.content,
+                    approval_token: approvalToken
+                }
+            })
+            .eq('id', doc.id);
+
+        // Send email to client
+        let emailSent = false;
+        if (clientEmail) {
+            try {
+                const { EmailService } = await import('./email');
+                emailSent = await EmailService.sendContractEmail({
+                    to: clientEmail,
+                    senderName: freelancerName,
+                    contractTitle: title,
+                    contractId: doc.id,
+                    approvalToken,
+                    totalAmount: paymentAmount,
+                    milestoneCount: milestones.length
+                });
+                console.log('[Contract] Email sent to client:', clientEmail, 'Success:', emailSent);
+            } catch (emailError) {
+                console.error('[Contract] Failed to send email:', emailError);
+            }
+        }
+
         const contractUrl = `${process.env.API_URL || 'http://localhost:3000'}/contract/${doc.id}`;
 
         let responseText = `🤝 **Contract Created Successfully**\n\n` +
@@ -702,14 +738,19 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             responseText += ` ✅ (New client saved)`;
         }
         
-        responseText += `\nPayment: ${paymentAmount ? `$${paymentAmount}` : 'Not specified'}\n`;
+        responseText += `\nPayment: ${paymentAmount ? `$${parseFloat(paymentAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Not specified'}\n`;
         
         if (projectId) {
             responseText += `📁 Linked to project: ${projectName}\n`;
         }
         
-        responseText += `Milestones: ${milestones.length}\n\n` +
-            `I've generated a complete contract for you!\n\n` +
+        responseText += `Milestones: ${milestones.length}\n\n`;
+        
+        if (emailSent) {
+            responseText += `📧 Contract sent to ${clientEmail}!\n\n`;
+        }
+        
+        responseText += `I've generated a complete contract for you!\n\n` +
             `[View & Download Contract](${contractUrl})`;
 
         return { text: responseText };
@@ -718,6 +759,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
         return { text: "Failed to create contract. Please try again." };
     }
 }
+
 
 
 // ============== PROJECT HANDLERS ==============
