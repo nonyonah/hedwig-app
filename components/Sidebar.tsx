@@ -353,10 +353,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     {conversations.slice(0, 5).map((conv) => (
                                         <TouchableOpacity
                                             key={conv.id}
-                                            style={[
-                                                styles.menuItem,
-                                                currentConversationId === conv.id && styles.menuItemActive
-                                            ]}
+                                            style={styles.menuItem}
                                             onPress={async () => {
                                                 if (hapticsEnabled) {
                                                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -379,14 +376,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 }
                                             }}
                                         >
-                                            <View style={[styles.menuIcon, currentConversationId === conv.id && styles.menuIconActive]}>
-                                                <Chat size={22} weight="bold" color={currentConversationId === conv.id ? '#FFFFFF' : themeColors.textPrimary} />
+                                            <View style={styles.menuIcon}>
+                                                <Chat size={22} weight="bold" color={themeColors.textPrimary} />
                                             </View>
                                             <Text
                                                 style={[
                                                     styles.menuText,
-                                                    { color: themeColors.textPrimary },
-                                                    currentConversationId === conv.id && styles.menuTextActive
+                                                    { color: themeColors.textPrimary }
                                                 ]}
                                                 numberOfLines={1}
                                             >
