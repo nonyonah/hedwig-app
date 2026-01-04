@@ -55,6 +55,30 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             console.log('[Projects] First project milestones:', projects[0]?.milestones);
         }
 
+        // Fetch contracts linked to these projects
+        const projectIds = (projects || []).map(p => p.id);
+        let contractsByProject: Record<string, { id: string; title: string; status: string }> = {};
+        
+        if (projectIds.length > 0) {
+            const { data: contracts } = await supabase
+                .from('documents')
+                .select('id, title, status, project_id')
+                .in('project_id', projectIds)
+                .eq('type', 'CONTRACT');
+            
+            if (contracts) {
+                contracts.forEach(contract => {
+                    if (contract.project_id) {
+                        contractsByProject[contract.project_id] = {
+                            id: contract.id,
+                            title: contract.title,
+                            status: contract.status?.toLowerCase() || 'draft',
+                        };
+                    }
+                });
+            }
+        }
+
         // Format projects with milestone progress
         const formattedProjects = (projects || []).map(project => {
             const milestones = project.milestones || [];
@@ -65,6 +89,8 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             const paidAmount = milestones
                 .filter((m: any) => m.status === 'paid')
                 .reduce((sum: number, m: any) => sum + parseFloat(m.amount || 0), 0);
+
+            const linkedContract = contractsByProject[project.id];
 
             return {
                 id: project.id,
@@ -79,6 +105,8 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
                 deadline: project.deadline || project.end_date,
                 createdAt: project.created_at,
                 updatedAt: project.updated_at,
+                hasContract: !!linkedContract,
+                contract: linkedContract || null,
                 milestones: milestones.map((m: any) => ({
                     id: m.id,
                     title: m.title,

@@ -237,7 +237,7 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    - User says "contract" or "agreement" → CREATE_CONTRACT
    - User says "invoice" or "bill" → CREATE_INVOICE
    
-   Parameters: { client_name, client_email, title, scope_of_work, deliverables, milestones, payment_amount, payment_terms, start_date, end_date }
+   Parameters: { client_name, client_email, title, scope_of_work, deliverables, milestones, payment_amount, payment_terms, start_date, end_date, project_name }
    
    **REQUIREMENTS:**
    ✅ MUST have client_name
@@ -250,10 +250,16 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    - milestones: Array of {title, amount, description} for payment phases
    - start_date, end_date: Project timeline
    - payment_terms: How payment will be made
+   - project_name: Link contract to an existing project (if user mentions "for project X")
+   
+   **CLIENT AUTO-CREATION:**
+   - When contract is created, client is automatically saved to user's client list
+   - No need to ask user to save client separately
    
    **Examples:**
    ✅ "Create a contract for John at john@email.com for $5000 website development" → CREATE_CONTRACT
    ✅ "Contract for Sarah sarah@test.com for mobile app design, $3000" → CREATE_CONTRACT
+   ✅ "Create a contract for the Website Redesign project" → CREATE_CONTRACT with project_name: "Website Redesign"
    ✅ "Draw up a freelance contract with Acme Corp for logo design project" → CREATE_CONTRACT (then ask for email/amount)
    ❌ "Create a contract" → COLLECT_CONTRACT_INFO (missing client details)
    

@@ -499,6 +499,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
         const milestones = params.milestones || [];
         const paymentAmount = params.payment_amount || params.amount;
         const paymentTerms = params.payment_terms;
+        const projectName = params.project_name;
 
         console.log('[Contract] Payment fields:', {
             payment_amount: params.payment_amount,
@@ -526,6 +527,55 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
 
         const freelancerName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Freelancer';
 
+        // ============== AUTO-CREATE CLIENT IF NOT EXISTS ==============
+        let clientId: string | null = null;
+        if (clientEmail) {
+            // Check if client exists by email
+            const { data: existingClient } = await supabase
+                .from('clients')
+                .select('id, name')
+                .eq('user_id', userData.id)
+                .eq('email', clientEmail)
+                .single();
+
+            if (existingClient) {
+                clientId = existingClient.id;
+                console.log('[Contract] Found existing client:', existingClient.id, existingClient.name);
+            } else {
+                // Create new client
+                const { data: newClient, error: clientError } = await supabase
+                    .from('clients')
+                    .insert({
+                        user_id: userData.id,
+                        name: clientName || 'Unknown Client',
+                        email: clientEmail,
+                    })
+                    .select('id')
+                    .single();
+
+                if (!clientError && newClient) {
+                    clientId = newClient.id;
+                    console.log('[Contract] Created new client:', newClient.id);
+                }
+            }
+        }
+
+        // ============== LINK TO PROJECT IF SPECIFIED ==============
+        let projectId: string | null = null;
+        if (projectName) {
+            // Search for project by name (case-insensitive partial match)
+            const { data: projects } = await supabase
+                .from('projects')
+                .select('id, name')
+                .eq('user_id', userData.id)
+                .ilike('name', `%${projectName}%`);
+
+            if (projects && projects.length > 0) {
+                projectId = projects[0].id;
+                console.log('[Contract] Linked to project:', projects[0].name);
+            }
+        }
+
         // Import template
         const { generateContractTemplate } = await import('../templates/contract');
 
@@ -550,14 +600,17 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             freelancer_email: userData.email
         });
 
-        // Create contract record
+        // Create contract record with client_id and project_id
         const { data: doc, error } = await supabase
             .from('documents')
             .insert({
                 user_id: userData.id,
+                client_id: clientId,
+                project_id: projectId,
                 type: 'CONTRACT',
                 title,
                 status: 'DRAFT',
+                amount: paymentAmount ? parseFloat(paymentAmount) : null,
                 content: {
                     client_name: clientName,
                     client_email: clientEmail,
@@ -584,20 +637,31 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
 
         const contractUrl = `${process.env.API_URL || 'http://localhost:3000'}/contract/${doc.id}`;
 
-        return {
-            text: `🤝 **Contract Created Successfully**\n\n` +
-                `Title: ${title}\n` +
-                `Client: ${clientName}\n` +
-                `Payment: ${paymentAmount}\n` +
-                `Milestones: ${milestones.length}\n\n` +
-                `I've generated a complete contract for you!\n\n` +
-                `[View & Download Contract](${contractUrl})`
-        };
+        let responseText = `🤝 **Contract Created Successfully**\n\n` +
+            `Title: ${title}\n` +
+            `Client: ${clientName}`;
+        
+        if (clientId && !params.client_existed) {
+            responseText += ` ✅ (New client saved)`;
+        }
+        
+        responseText += `\nPayment: ${paymentAmount ? `$${paymentAmount}` : 'Not specified'}\n`;
+        
+        if (projectId) {
+            responseText += `📁 Linked to project: ${projectName}\n`;
+        }
+        
+        responseText += `Milestones: ${milestones.length}\n\n` +
+            `I've generated a complete contract for you!\n\n` +
+            `[View & Download Contract](${contractUrl})`;
+
+        return { text: responseText };
     } catch (error) {
         console.error('[Actions] Error creating contract:', error);
         return { text: "Failed to create contract. Please try again." };
     }
 }
+
 
 // ============== PROJECT HANDLERS ==============
 

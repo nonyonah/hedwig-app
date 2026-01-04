@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur'
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
-import { Briefcase, List, Calendar, User, CurrencyDollar, CheckCircle, Clock, Receipt, CaretRight, X, DotsThree, Trash, Check } from 'phosphor-react-native';
+import { Briefcase, List, Calendar, User, CurrencyDollar, CheckCircle, Clock, Receipt, CaretRight, X, DotsThree, Trash, Check, FileText } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -41,6 +41,8 @@ interface Project {
     deadline?: string;
     createdAt: string;
     milestones: Milestone[];
+    hasContract?: boolean;
+    contract?: { id: string; title: string; status: string } | null;
     progress: {
         totalMilestones: number;
         completedMilestones: number;
@@ -365,7 +367,15 @@ export default function ProjectsScreen() {
                 <View style={styles.projectItemContent}>
                     {/* Left content */}
                     <View style={styles.projectItemLeft}>
-                        <Text style={[styles.projectItemClient, { color: themeColors.textSecondary }]}>{item.client?.name || 'No client'}</Text>
+                        <View style={styles.projectClientRow}>
+                            <Text style={[styles.projectItemClient, { color: themeColors.textSecondary }]}>{item.client?.name || 'No client'}</Text>
+                            {item.hasContract && (
+                                <View style={styles.contractBadge}>
+                                    <FileText size={10} color="#6366F1" weight="fill" />
+                                    <Text style={styles.contractBadgeText}>Contract</Text>
+                                </View>
+                            )}
+                        </View>
                         <Text style={[styles.projectItemTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
                         <Text style={[styles.projectItemMeta, { color: themeColors.textTertiary }]}>
                             ${progress.totalAmount.toLocaleString()} · {progress.completedMilestones}/{progress.totalMilestones} milestones
@@ -842,6 +852,26 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textTertiary,
+    },
+    projectClientRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 4,
+    },
+    contractBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: '#EEF2FF',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10,
+    },
+    contractBadgeText: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 10,
+        color: '#6366F1',
     },
     projectIconCircle: {
         width: 48,

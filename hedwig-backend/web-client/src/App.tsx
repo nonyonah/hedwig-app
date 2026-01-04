@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './lib/appkit'; // Initialize AppKit
 import InvoicePage from './pages/InvoicePage';
 import PaymentLinkPage from './pages/PaymentLinkPage';
+import ContractPage from './pages/ContractPage';
 import ExportWalletPage from './pages/ExportWalletPage';
 import FeedbackPage from './pages/FeedbackPage';
 import { PrivyWrapper } from './lib/PrivyWrapper';
@@ -14,6 +15,10 @@ function App() {
         {/* Invoice routes */}
         <Route path="/invoice/:id" element={<InvoicePage />} />
         <Route path="/invoices/:id" element={<InvoicePage />} />
+
+        {/* Contract routes */}
+        <Route path="/contract/:id" element={<ContractPage />} />
+        <Route path="/contracts/:id" element={<ContractPage />} />
 
         {/* Payment link routes */}
         <Route path="/pay/:id" element={<PaymentLinkPage />} />
