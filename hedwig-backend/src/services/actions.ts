@@ -555,6 +555,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
 
         // ============== AUTO-CREATE CLIENT IF NOT EXISTS ==============
         let clientId: string | null = null;
+        let clientWasNew = false; // Track if we created a new client
         if (clientEmail) {
             // Check if client exists by email
             const { data: existingClient } = await supabase
@@ -566,6 +567,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
 
             if (existingClient) {
                 clientId = existingClient.id;
+                clientWasNew = false;
                 console.log('[Contract] Found existing client:', existingClient.id, existingClient.name);
             } else {
                 // Create new client
@@ -581,6 +583,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
 
                 if (!clientError && newClient) {
                     clientId = newClient.id;
+                    clientWasNew = true;
                     console.log('[Contract] Created new client:', newClient.id);
                 }
             }
@@ -734,7 +737,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             `Title: ${title}\n` +
             `Client: ${clientName}`;
         
-        if (clientId && !params.client_existed) {
+        if (clientId && clientWasNew) {
             responseText += ` ✅ (New client saved)`;
         }
         

@@ -1,7 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import fs from 'fs';
+// fs was used for legacy contract.html, now using React app
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
@@ -192,15 +192,11 @@ app.get('/payment-link/:id', serveReactApp);
 // Serve React app static assets
 app.use(express.static(webClientPath));
 
-// Legacy routes - keep for backwards compatibility until fully migrated
-app.get('/contract/:id', (_req: Request, res: Response) => {
-    const html = fs.readFileSync(path.join(__dirname, '../public/contract.html'), 'utf8');
-    // Inject Reown project ID
-    const projectId = process.env.EXPO_PUBLIC_REOWN_PROJECT_ID || process.env.REOWN_PROJECT_ID || '';
-    const injectedHtml = html.replace('YOUR_PROJECT_ID', projectId);
-    res.send(injectedHtml);
-});
+// Contract routes - now served by React app (no wallet signing)
+app.get('/contract/:id', serveReactApp);
+app.get('/contracts/:id', serveReactApp);
 
+// Proposal routes - still using legacy HTML for now
 app.get('/proposal/:id', (_req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../public/proposal.html'));
 });
