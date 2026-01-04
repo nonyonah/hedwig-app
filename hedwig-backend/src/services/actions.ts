@@ -423,26 +423,52 @@ async function handleCreateProposal(params: ActionParams, user: any): Promise<Ac
 
         const freelancerName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Freelancer';
 
-        // Import template
-        const { generateProposalTemplate } = await import('../templates/proposal');
+        // Generate proposal content - try GPT first, fallback to template
+        let proposalContent: string;
+        
+        try {
+            const { generateProposalWithGPT, isGPTEnabled } = await import('./gpt');
+            
+            if (isGPTEnabled()) {
+                console.log('[Proposal] Generating with GPT-5.2 Nano...');
+                proposalContent = await generateProposalWithGPT({
+                    clientName,
+                    clientEmail,
+                    freelancerName,
+                    freelancerEmail: userData.email || '',
+                    title,
+                    problemStatement,
+                    proposedSolution,
+                    deliverables: Array.isArray(deliverables) ? deliverables : [deliverables].filter(Boolean),
+                    timeline,
+                    totalCost,
+                    paymentTerms,
+                });
+            } else {
+                throw new Error('GPT not configured');
+            }
+        } catch (gptError) {
+            console.log('[Proposal] GPT unavailable, using template:', gptError);
+            // Fallback to template-based generation
+            const { generateProposalTemplate } = await import('../templates/proposal');
+            proposalContent = generateProposalTemplate({
+                client_name: clientName,
+                client_email: clientEmail,
+                title,
+                problem_statement: problemStatement,
+                proposed_solution: proposedSolution,
+                deliverables: Array.isArray(deliverables) ? deliverables : [deliverables].filter(Boolean),
+                timeline,
+                milestones: Array.isArray(milestones) ? milestones : [],
+                pricing_breakdown: Array.isArray(pricingBreakdown) ? pricingBreakdown : [],
+                total_cost: totalCost,
+                payment_terms: paymentTerms,
+                about_freelancer: `Professional freelancer with expertise in ${title}.`,
+                freelancer_name: freelancerName,
+                freelancer_email: userData.email
+            });
+        }
 
-        // Generate proposal content
-        const proposalContent = generateProposalTemplate({
-            client_name: clientName,
-            client_email: clientEmail,
-            title,
-            problem_statement: problemStatement,
-            proposed_solution: proposedSolution,
-            deliverables: Array.isArray(deliverables) ? deliverables : [deliverables].filter(Boolean),
-            timeline,
-            milestones: Array.isArray(milestones) ? milestones : [],
-            pricing_breakdown: Array.isArray(pricingBreakdown) ? pricingBreakdown : [],
-            total_cost: totalCost,
-            payment_terms: paymentTerms,
-            about_freelancer: `Professional freelancer with expertise in ${title}.`,
-            freelancer_name: freelancerName,
-            freelancer_email: userData.email
-        });
 
         // Create proposal record
         const { data: doc, error } = await supabase
@@ -576,29 +602,60 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             }
         }
 
-        // Import template
-        const { generateContractTemplate } = await import('../templates/contract');
+        // Generate contract content - try GPT first, fallback to template
+        let contractContent: string;
+        
+        try {
+            const { generateContractWithGPT, isGPTEnabled } = await import('./gpt');
+            
+            if (isGPTEnabled()) {
+                console.log('[Contract] Generating with GPT-5.2 Nano...');
+                contractContent = await generateContractWithGPT({
+                    clientName,
+                    clientEmail,
+                    freelancerName,
+                    freelancerEmail: userData.email || '',
+                    title,
+                    scopeOfWork: scopeOfWork || title,
+                    deliverables: Array.isArray(deliverables) ? deliverables : [deliverables].filter(Boolean),
+                    milestones: (Array.isArray(milestones) ? milestones : []).map(m => ({
+                        title: m.title || m.description || 'Milestone',
+                        amount: m.amount || '0',
+                        description: m.description
+                    })),
+                    paymentAmount: paymentAmount || '0',
+                    paymentTerms,
+                    startDate,
+                    endDate
+                });
+            } else {
+                throw new Error('GPT not configured');
+            }
+        } catch (gptError) {
+            console.log('[Contract] GPT unavailable, using template:', gptError);
+            // Fallback to template-based generation
+            const { generateContractTemplate } = await import('../templates/contract');
+            contractContent = generateContractTemplate({
+                client_name: clientName,
+                client_email: clientEmail,
+                client_address: clientAddress,
+                title,
+                scope_of_work: scopeOfWork,
+                deliverables: Array.isArray(deliverables) ? deliverables : [deliverables].filter(Boolean),
+                milestones: Array.isArray(milestones) ? milestones : [],
+                payment_amount: paymentAmount,
+                payment_terms: paymentTerms,
+                start_date: startDate,
+                end_date: endDate,
+                revisions,
+                termination_clause: terminationClause,
+                confidentiality,
+                governing_law: governingLaw,
+                freelancer_name: freelancerName,
+                freelancer_email: userData.email
+            });
+        }
 
-        // Generate contract content
-        const contractContent = generateContractTemplate({
-            client_name: clientName,
-            client_email: clientEmail,
-            client_address: clientAddress,
-            title,
-            scope_of_work: scopeOfWork,
-            deliverables: Array.isArray(deliverables) ? deliverables : [deliverables].filter(Boolean),
-            milestones: Array.isArray(milestones) ? milestones : [],
-            payment_amount: paymentAmount,
-            payment_terms: paymentTerms,
-            start_date: startDate,
-            end_date: endDate,
-            revisions,
-            termination_clause: terminationClause,
-            confidentiality,
-            governing_law: governingLaw,
-            freelancer_name: freelancerName,
-            freelancer_email: userData.email
-        });
 
         // Create contract record with client_id and project_id
         const { data: doc, error } = await supabase

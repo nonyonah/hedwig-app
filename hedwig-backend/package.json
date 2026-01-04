@@ -47,6 +47,7 @@
     "markdown-it": "^14.1.0",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
+    "openai": "^6.15.0",
     "pdfkit": "^0.17.2",
     "puppeteer": "^23.11.1",
     "resend": "^6.5.2",
