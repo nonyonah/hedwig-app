@@ -1,13 +1,23 @@
 import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // GPT service for generating contracts and proposals
-// Using GPT-5.2 Nano for cost-effective document generation
+// Primary: OpenAI GPT-4o-mini | Fallback: Gemini 2.5 Flash
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI (may be undefined if no API key)
+const openai = process.env.OPENAI_API_KEY 
+    ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    : null;
 
-const GPT_MODEL = 'gpt-5.2-nano'; // Latest efficient model for document generation
+// Initialize Gemini (should always be available)
+const genAI = process.env.GEMINI_API_KEY 
+    ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+    : null;
+
+const geminiModel = genAI?.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+
+// Use GPT-4o-mini for cost-effective generation
+const OPENAI_MODEL = 'gpt-5.2-nano';
 
 export interface ContractGenerationParams {
     clientName: string;
@@ -39,9 +49,9 @@ export interface ProposalGenerationParams {
 }
 
 /**
- * Generate a professional contract using GPT-5.2 Nano
+ * Build contract prompt for AI generation
  */
-export async function generateContractWithGPT(params: ContractGenerationParams): Promise<string> {
+function buildContractPrompt(params: ContractGenerationParams): { system: string; user: string } {
     const systemPrompt = `You are a professional legal document writer specializing in freelance service contracts. 
 Generate clear, professional, and legally sound contracts that protect both parties.
 Always use formal language and include standard contract clauses.
@@ -61,7 +71,7 @@ Keep the contract comprehensive but not overly long (around 800-1200 words).`;
 **Project Details:**
 - Title: ${params.title}
 - Scope of Work: ${params.scopeOfWork}
-- Total Value: ${params.paymentAmount}
+- Total Value: $${params.paymentAmount}
 - Start Date: ${params.startDate || 'Upon contract signing'}
 - End Date: ${params.endDate || 'As per milestones'}
 
@@ -88,38 +98,13 @@ Include the following sections:
 11. Governing Law
 12. Signatures/Acceptance`;
 
-    try {
-        console.log('[GPT] Generating contract with GPT-5.2 Nano...');
-        
-        const completion = await openai.chat.completions.create({
-            model: GPT_MODEL,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.7,
-            max_tokens: 2000,
-        });
-
-        const content = completion.choices[0]?.message?.content;
-        
-        if (!content) {
-            throw new Error('GPT returned empty response');
-        }
-
-        console.log('[GPT] Contract generated successfully');
-        return content;
-    } catch (error) {
-        console.error('[GPT] Error generating contract:', error);
-        // Fall back to template-based generation
-        throw error;
-    }
+    return { system: systemPrompt, user: userPrompt };
 }
 
 /**
- * Generate a professional proposal using GPT-5.2 Nano
+ * Build proposal prompt for AI generation
  */
-export async function generateProposalWithGPT(params: ProposalGenerationParams): Promise<string> {
+function buildProposalPrompt(params: ProposalGenerationParams): { system: string; user: string } {
     const systemPrompt = `You are a professional business proposal writer who helps freelancers win clients.
 Generate compelling, clear proposals that:
 - Show understanding of the client's needs
@@ -141,7 +126,7 @@ Format in markdown. Keep it concise (600-900 words) but comprehensive.`;
 **Project:**
 - Title: ${params.title}
 - Timeline: ${params.timeline || 'To be discussed'}
-- Total Cost: ${params.totalCost}
+- Total Cost: $${params.totalCost}
 
 ${params.problemStatement ? `**Project Background/Problem:**\n${params.problemStatement}\n` : ''}
 
@@ -165,36 +150,121 @@ Create a proposal with these sections:
 
 Make it persuasive and client-focused.`;
 
-    try {
-        console.log('[GPT] Generating proposal with GPT-5.2 Nano...');
-        
-        const completion = await openai.chat.completions.create({
-            model: GPT_MODEL,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.75,
-            max_tokens: 1500,
-        });
-
-        const content = completion.choices[0]?.message?.content;
-        
-        if (!content) {
-            throw new Error('GPT returned empty response');
-        }
-
-        console.log('[GPT] Proposal generated successfully');
-        return content;
-    } catch (error) {
-        console.error('[GPT] Error generating proposal:', error);
-        throw error;
-    }
+    return { system: systemPrompt, user: userPrompt };
 }
 
 /**
- * Check if OpenAI API is configured
+ * Generate contract using OpenAI GPT-4o-mini
+ */
+async function generateWithOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
+    if (!openai) {
+        throw new Error('OpenAI not configured');
+    }
+    
+    console.log('[GPT] Generating with GPT-4o-mini...');
+    
+    const completion = await openai.chat.completions.create({
+        model: OPENAI_MODEL,
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    
+    if (!content) {
+        throw new Error('OpenAI returned empty response');
+    }
+
+    return content;
+}
+
+/**
+ * Generate content using Gemini (fallback)
+ */
+async function generateWithGemini(systemPrompt: string, userPrompt: string): Promise<string> {
+    if (!geminiModel) {
+        throw new Error('Gemini not configured');
+    }
+    
+    console.log('[Gemini] Generating with Gemini 2.5 Flash Lite...');
+    
+    // Combine system and user prompts for Gemini
+    const combinedPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
+    
+    const result = await geminiModel.generateContent(combinedPrompt);
+    const response = await result.response;
+    const content = response.text();
+    
+    if (!content) {
+        throw new Error('Gemini returned empty response');
+    }
+
+    return content;
+}
+
+/**
+ * Generate a professional contract - tries OpenAI first, falls back to Gemini
+ */
+export async function generateContractWithGPT(params: ContractGenerationParams): Promise<string> {
+    const { system, user } = buildContractPrompt(params);
+    
+    // Try OpenAI first
+    if (openai) {
+        try {
+            return await generateWithOpenAI(system, user);
+        } catch (error) {
+            console.error('[GPT] OpenAI error, falling back to Gemini:', error);
+        }
+    }
+    
+    // Fallback to Gemini
+    if (geminiModel) {
+        try {
+            return await generateWithGemini(system, user);
+        } catch (error) {
+            console.error('[Gemini] Gemini error:', error);
+            throw error;
+        }
+    }
+    
+    throw new Error('No AI service available for contract generation');
+}
+
+/**
+ * Generate a professional proposal - tries OpenAI first, falls back to Gemini
+ */
+export async function generateProposalWithGPT(params: ProposalGenerationParams): Promise<string> {
+    const { system, user } = buildProposalPrompt(params);
+    
+    // Try OpenAI first
+    if (openai) {
+        try {
+            return await generateWithOpenAI(system, user);
+        } catch (error) {
+            console.error('[GPT] OpenAI error, falling back to Gemini:', error);
+        }
+    }
+    
+    // Fallback to Gemini
+    if (geminiModel) {
+        try {
+            return await generateWithGemini(system, user);
+        } catch (error) {
+            console.error('[Gemini] Gemini error:', error);
+            throw error;
+        }
+    }
+    
+    throw new Error('No AI service available for proposal generation');
+}
+
+/**
+ * Check if any AI generation is available (OpenAI or Gemini)
  */
 export function isGPTEnabled(): boolean {
-    return !!process.env.OPENAI_API_KEY;
+    return !!(openai || geminiModel);
 }
