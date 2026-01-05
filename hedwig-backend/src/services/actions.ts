@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { EmailService } from './email';
+import NotificationService from './notifications';
 
 export interface ActionParams {
     [key: string]: any;
@@ -499,15 +500,52 @@ async function handleCreateProposal(params: ActionParams, user: any): Promise<Ac
         console.log('[Actions] Created proposal:', doc);
 
         const proposalUrl = `${process.env.API_URL || 'http://localhost:3000'}/proposal/${doc.id}`;
-
-        return {
-            text: `📋 **Proposal Created Successfully**\n\n` +
-                `Title: ${title}\n` +
-                `Client: ${clientName}\n` +
-                `Total: ${totalCost}\n\n` +
-                `I've generated a complete proposal for you!\n\n` +
-                `[View & Download Proposal](${proposalUrl})`
-        };
+        
+        // Send email to client if email is provided
+        let emailSent = false;
+        if (clientEmail) {
+            try {
+                await EmailService.sendProposalEmail({
+                    to: clientEmail,
+                    freelancerName: userData.first_name || 'Freelancer',
+                    clientName: clientName || 'Client',
+                    proposalTitle: title,
+                    proposalId: doc.id,
+                    totalCost: totalCost || 'To be discussed'
+                });
+                emailSent = true;
+                console.log('[Proposal] Email sent to client:', clientEmail);
+            } catch (emailError) {
+                console.error('[Proposal] Failed to send email:', emailError);
+            }
+        }
+        
+        // Send push notification to freelancer
+        try {
+            await NotificationService.notifyProposalSent(
+                userData.id,
+                doc.id,
+                title,
+                clientName || 'Client',
+                clientEmail || ''
+            );
+        } catch (notifError) {
+            console.error('[Proposal] Failed to send notification:', notifError);
+        }
+        
+        let responseText = `📋 **Proposal Created Successfully**\n\n` +
+            `Title: ${title}\n` +
+            `Client: ${clientName}\n` +
+            `Total: ${totalCost}\n\n`;
+        
+        if (emailSent) {
+            responseText += `📧 Proposal sent to ${clientEmail}!\n\n`;
+        }
+        
+        responseText += `I've generated a complete proposal for you!\n\n` +
+            `[View & Download Proposal](${proposalUrl})`;
+        
+        return { text: responseText };
     } catch (error) {
         console.error('[Actions] Error creating proposal:', error);
         return { text: "Failed to create proposal. Please try again." };

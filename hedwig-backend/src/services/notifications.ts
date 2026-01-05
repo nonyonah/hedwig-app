@@ -264,6 +264,86 @@ class NotificationService {
             },
         });
     }
+
+    /**
+     * Send notification to freelancer when a proposal is sent to client
+     */
+    async notifyProposalSent(
+        userId: string,
+        proposalId: string,
+        proposalTitle: string,
+        clientName: string,
+        clientEmail: string
+    ): Promise<ExpoPushTicket[]> {
+        // Create in-app notification record
+        try {
+            await supabase
+                .from('notifications')
+                .insert({
+                    user_id: userId,
+                    type: 'proposal_sent',
+                    title: 'Proposal Sent! 📤',
+                    message: `Your proposal "${proposalTitle}" has been sent to ${clientName}`,
+                    data: {
+                        proposal_id: proposalId,
+                        client_name: clientName,
+                        client_email: clientEmail
+                    },
+                    read: false
+                });
+        } catch (err) {
+            console.error('[Notifications] Failed to create in-app notification:', err);
+        }
+
+        return await this.notifyUser(userId, {
+            title: '📤 Proposal Sent!',
+            body: `Your proposal "${proposalTitle}" has been sent to ${clientName}`,
+            data: {
+                type: 'proposal_sent',
+                proposalId,
+                screen: '/proposals'
+            },
+        });
+    }
+
+    /**
+     * Send notification to freelancer when proposal is accepted
+     */
+    async notifyProposalAccepted(
+        userId: string,
+        proposalId: string,
+        proposalTitle: string,
+        clientName: string
+    ): Promise<ExpoPushTicket[]> {
+        // Create in-app notification record
+        try {
+            await supabase
+                .from('notifications')
+                .insert({
+                    user_id: userId,
+                    type: 'proposal_accepted',
+                    title: 'Proposal Accepted! 🎉',
+                    message: `${clientName} has accepted your proposal: ${proposalTitle}`,
+                    data: {
+                        proposal_id: proposalId,
+                        client_name: clientName
+                    },
+                    read: false
+                });
+        } catch (err) {
+            console.error('[Notifications] Failed to create in-app notification:', err);
+        }
+
+        return await this.notifyUser(userId, {
+            title: '🎉 Proposal Accepted!',
+            body: `${clientName} has accepted your proposal: ${proposalTitle}`,
+            data: {
+                type: 'proposal_accepted',
+                proposalId,
+                screen: '/proposals'
+            },
+        });
+    }
 }
 
 export default new NotificationService();

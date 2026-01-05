@@ -357,5 +357,78 @@ export const EmailService = {
             console.error('[EmailService] Contract approved notification failed:', error);
             return false;
         }
+    },
+
+    async sendProposalEmail(data: {
+        to: string;
+        freelancerName: string;
+        clientName: string;
+        proposalTitle: string;
+        proposalId: string;
+        totalCost: string;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const baseUrl = process.env.API_URL || 'http://localhost:3000';
+        const proposalUrl = `${baseUrl}/proposal/${data.proposalId}`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <span class="logo">Hedwig</span>
+                </div>
+                <div class="content">
+                    <h2 style="text-align: center; color: #111827; margin-bottom: 24px;">New Proposal</h2>
+                    
+                    <p class="description">
+                        Hi ${data.clientName},<br><br>
+                        <strong>${data.freelancerName}</strong> has sent you a proposal.
+                    </p>
+                    
+                    <div class="card">
+                        <p class="amount-label">Project Proposal</p>
+                        <h1 class="amount-value" style="font-size: 24px;">${data.proposalTitle}</h1>
+                        ${data.totalCost ? `<p style="color: #4F46E5; font-weight: 600; margin-top: 16px;">Estimated: ${data.totalCost}</p>` : ''}
+                    </div>
+                    
+                    <p class="description">Review the full proposal to see the scope, timeline, and deliverables.</p>
+                    
+                    <div class="btn-container">
+                        <a href="${proposalUrl}" class="btn">View Proposal</a>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <noreply@resend.dev>',
+                to: [data.to],
+                subject: `📋 New Proposal: ${data.proposalTitle}`,
+                html: html,
+            });
+            console.log(`[EmailService] Proposal email sent to ${data.to}`);
+            return true;
+        } catch (error) {
+            console.error('[EmailService] Proposal email failed:', error);
+            return false;
+        }
     }
 };
