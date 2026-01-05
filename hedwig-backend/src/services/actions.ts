@@ -561,14 +561,28 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
         const scopeOfWork = params.scope_of_work || params.scope;
         const deliverables = params.deliverables || [];
         const milestones = params.milestones || [];
-        const paymentAmount = params.payment_amount || params.amount;
+        
+        // Calculate payment amount: use explicit amount OR sum of milestones
+        let paymentAmount = params.payment_amount || params.amount;
+        if (!paymentAmount && milestones.length > 0) {
+            // Sum up milestone amounts
+            const milestonesTotal = milestones.reduce((sum: number, m: any) => {
+                const amount = parseFloat(m.amount) || 0;
+                return sum + amount;
+            }, 0);
+            if (milestonesTotal > 0) {
+                paymentAmount = milestonesTotal.toString();
+                console.log('[Contract] Calculated payment from milestones:', paymentAmount);
+            }
+        }
+        
         const paymentTerms = params.payment_terms;
         const projectName = params.project_name;
 
         console.log('[Contract] Payment fields:', {
             payment_amount: params.payment_amount,
             amount: params.amount,
-            payment_terms: params.payment_terms,
+            milestones_count: milestones.length,
             finalAmount: paymentAmount,
             finalTerms: paymentTerms
         });
