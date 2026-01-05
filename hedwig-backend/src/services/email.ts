@@ -430,5 +430,81 @@ export const EmailService = {
             console.error('[EmailService] Proposal email failed:', error);
             return false;
         }
+    },
+
+    async sendProposalAcceptedNotification(data: {
+        to: string;
+        clientName: string;
+        proposalTitle: string;
+        proposalId: string;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const baseUrl = process.env.API_URL || 'http://localhost:3000';
+        const proposalUrl = `${baseUrl}/proposal/${data.proposalId}`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <span class="logo">Hedwig</span>
+                </div>
+                <div class="content">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <div style="width: 64px; height: 64px; background-color: #D1FAE5; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+                            <svg style="width: 32px; height: 32px; color: #059669;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </div>
+                        <h2 style="color: #059669; font-size: 24px; margin: 0;">Proposal Accepted!</h2>
+                    </div>
+                    
+                    <p class="description">
+                        Great news! <strong>${data.clientName}</strong> has accepted your proposal.
+                    </p>
+                    
+                    <div class="card">
+                        <p class="amount-label">Accepted Proposal</p>
+                        <h1 class="amount-value" style="font-size: 20px;">${data.proposalTitle}</h1>
+                    </div>
+                    
+                    <p class="description">You can now proceed with the project. Consider sending a contract to formalize the agreement.</p>
+                    
+                    <div class="btn-container">
+                        <a href="${proposalUrl}" class="btn" style="background-color: #059669;">View Proposal</a>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <noreply@resend.dev>',
+                to: [data.to],
+                subject: `🎉 Proposal Accepted: ${data.proposalTitle}`,
+                html: html,
+            });
+            console.log(`[EmailService] Proposal accepted notification sent to ${data.to}`);
+            return true;
+        } catch (error) {
+            console.error('[EmailService] Proposal accepted notification failed:', error);
+            return false;
+        }
     }
 };

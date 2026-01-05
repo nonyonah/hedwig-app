@@ -960,4 +960,94 @@ router.get('/approve/:id/:token', async (req: Request, res: Response, next) => {
     }
 });
 
+/**
+ * POST /api/documents/:id/accept
+ * Accept a proposal - updates status and notifies freelancer
+ */
+router.post('/:id/accept', async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const { walletAddress } = req.body;
+
+        // Fetch the proposal/document
+        const { data: document, error: fetchError } = await supabase
+            .from('documents')
+            .select('*, user:users!documents_user_id_fkey(*)')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !document) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Document not found' }
+            });
+            return;
+        }
+
+        // Check if already accepted
+        if (document.status === 'ACCEPTED' || document.status === 'PAID' || document.status === 'SIGNED') {
+            res.status(400).json({
+                success: false,
+                error: { message: 'This proposal has already been accepted' }
+            });
+            return;
+        }
+
+        // Update document status to ACCEPTED (or SIGNED for compatibility)
+        const { error: updateError } = await supabase
+            .from('documents')
+            .update({
+                status: 'SIGNED',  // Using SIGNED as it's in the enum
+                content: {
+                    ...document.content,
+                    accepted_at: new Date().toISOString(),
+                    accepted_wallet: walletAddress || null
+                }
+            })
+            .eq('id', id);
+
+        if (updateError) {
+            throw new AppError('Failed to accept proposal', 500);
+        }
+
+        const clientName = document.content?.client_name || 'Client';
+        const freelancer = document.user;
+
+        // Send email notification to freelancer
+        if (freelancer?.email) {
+            const { EmailService } = await import('../services/email');
+            await EmailService.sendProposalAcceptedNotification({
+                to: freelancer.email,
+                clientName,
+                proposalTitle: document.title,
+                proposalId: document.id
+            });
+        }
+
+        // Send push notification to freelancer
+        if (freelancer) {
+            try {
+                await NotificationService.notifyProposalAccepted(
+                    freelancer.id,
+                    document.id,
+                    document.title,
+                    clientName
+                );
+            } catch (notifError) {
+                console.error('[Proposal Accept] Failed to send notification:', notifError);
+            }
+        }
+
+        res.json({
+            success: true,
+            data: {
+                message: 'Proposal accepted successfully',
+                documentId: id
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;
