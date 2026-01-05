@@ -102,8 +102,13 @@ AVAILABLE INTENTS & TRIGGERS:
 ⚠️ **KEYWORD PRIORITY CHECK (MUST CHECK FIRST!):**
 Before selecting any intent, scan the user's message for these keywords IN THIS ORDER:
 1. If message contains "contract" or "agreement" → Use CREATE_CONTRACT or COLLECT_CONTRACT_INFO (NEVER invoice!)
-2. If message contains "invoice" or "bill" → Use CREATE_INVOICE or COLLECT_INVOICE_INFO
-3. Only if neither above → check other intents
+2. If message contains BOTH "contract" AND "milestone" → Use CREATE_CONTRACT with milestones parameter populated
+   - Example: "draft a contract with a preamble milestone for $1" → CREATE_CONTRACT with milestones: [{title: "Preamble", amount: "1"}]
+   - Example: "create contract and add milestone Design for $500" → CREATE_CONTRACT with milestones included
+   - DO NOT use ADD_MILESTONE when creating a new contract - embed milestones directly in the contract!
+3. If message contains "invoice" or "bill" → Use CREATE_INVOICE or COLLECT_INVOICE_INFO
+4. If message contains "milestone" WITHOUT "contract" → Use ADD_MILESTONE (only for adding to existing projects)
+5. Only if none of the above → check other intents
 
 **CRITICAL: "contract" and "invoice" are MUTUALLY EXCLUSIVE. A contract is NOT an invoice!**
 - CONTRACT: Legal agreement signed BEFORE work starts

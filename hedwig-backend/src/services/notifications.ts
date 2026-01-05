@@ -244,11 +244,11 @@ class NotificationService {
                     type: 'contract_approved',
                     title: 'Contract Approved! 🎉',
                     message: `${clientName} has approved your contract: ${contractTitle}`,
-                    data: {
+                    metadata: {
                         contract_id: contractId,
                         client_name: clientName
                     },
-                    read: false
+                    is_read: false
                 });
         } catch (err) {
             console.error('[Notifications] Failed to create in-app notification:', err);
@@ -284,12 +284,12 @@ class NotificationService {
                     type: 'proposal_sent',
                     title: 'Proposal Sent! 📤',
                     message: `Your proposal "${proposalTitle}" has been sent to ${clientName}`,
-                    data: {
+                    metadata: {
                         proposal_id: proposalId,
                         client_name: clientName,
                         client_email: clientEmail
                     },
-                    read: false
+                    is_read: false
                 });
         } catch (err) {
             console.error('[Notifications] Failed to create in-app notification:', err);
@@ -324,11 +324,11 @@ class NotificationService {
                     type: 'proposal_accepted',
                     title: 'Proposal Accepted! 🎉',
                     message: `${clientName} has accepted your proposal: ${proposalTitle}`,
-                    data: {
+                    metadata: {
                         proposal_id: proposalId,
                         client_name: clientName
                     },
-                    read: false
+                    is_read: false
                 });
         } catch (err) {
             console.error('[Notifications] Failed to create in-app notification:', err);
