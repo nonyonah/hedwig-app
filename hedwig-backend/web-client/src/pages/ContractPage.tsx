@@ -103,23 +103,6 @@ export default function ContractPage() {
         window.print();
     };
 
-    const formatCurrency = (amount: number | string) => {
-        const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-        }).format(num || 0);
-    };
-
-    const formatDate = (dateStr?: string) => {
-        if (!dateStr) return 'N/A';
-        return new Date(dateStr).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
-    };
-
     const getStatusLabel = (status: string) => {
         switch (status.toUpperCase()) {
             case 'DRAFT':
@@ -161,10 +144,6 @@ export default function ContractPage() {
         );
     }
 
-    const freelancerName = contract.user
-        ? `${contract.user.first_name || ''} ${contract.user.last_name || ''}`.trim() || 'Freelancer'
-        : 'Freelancer';
-
     return (
         <div className="contract-container">
             {/* Approval Success Banner */}
@@ -198,90 +177,9 @@ export default function ContractPage() {
                     </div>
                 </div>
 
-                {/* Parties */}
-                <div className="parties-section">
-                    <div className="party-column">
-                        <div className="party-label">Freelancer</div>
-                        <div className="party-name">{freelancerName}</div>
-                        <div className="party-email">{contract.user?.email}</div>
-                    </div>
-                    <div className="party-column">
-                        <div className="party-label">Client</div>
-                        <div className="party-name">{contract.content?.client_name || 'Client'}</div>
-                        <div className="party-email">{contract.content?.client_email}</div>
-                    </div>
-                </div>
-
-                {/* Contract Value */}
-                {contract.content?.payment_amount && (
-                    <div className="amount-section">
-                        <div className="amount-label">Contract Value</div>
-                        <div className="amount-value">{formatCurrency(contract.content.payment_amount)}</div>
-                    </div>
-                )}
-
-                {/* Timeline */}
-                <div className="details-section">
-                    <div className="detail-row">
-                        <span className="detail-label">Start Date</span>
-                        <span className="detail-value">{formatDate(contract.content?.start_date)}</span>
-                    </div>
-                    <div className="detail-row">
-                        <span className="detail-label">End Date</span>
-                        <span className="detail-value">{formatDate(contract.content?.end_date)}</span>
-                    </div>
-                    {contract.content?.payment_terms && (
-                        <div className="detail-row">
-                            <span className="detail-label">Payment Terms</span>
-                            <span className="detail-value">{contract.content.payment_terms}</span>
-                        </div>
-                    )}
-                </div>
-
-                {/* Scope of Work */}
-                {contract.content?.scope_of_work && (
-                    <div className="section">
-                        <div className="section-title">Scope of Work</div>
-                        <div className="section-content">{contract.content.scope_of_work}</div>
-                    </div>
-                )}
-
-                {/* Deliverables */}
-                {contract.content?.deliverables && contract.content.deliverables.length > 0 && (
-                    <div className="section">
-                        <div className="section-title">Deliverables</div>
-                        <ul className="deliverables-list">
-                            {contract.content.deliverables.map((item, index) => (
-                                <li key={index}>{item}</li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-
-                {/* Milestones */}
-                {contract.content?.milestones && contract.content.milestones.length > 0 && (
-                    <div className="section">
-                        <div className="section-title">Milestones</div>
-                        <div className="milestones-list">
-                            {contract.content.milestones.map((milestone, index) => (
-                                <div key={index} className="milestone-item">
-                                    <div className="milestone-header">
-                                        <span className="milestone-number">{index + 1}</span>
-                                        <span className="milestone-title">{milestone.title}</span>
-                                        <span className="milestone-amount">{formatCurrency(milestone.amount)}</span>
-                                    </div>
-                                    {milestone.description && (
-                                        <div className="milestone-description">{milestone.description}</div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Generated Contract Content */}
+                {/* Generated Contract Content - This is the main content */}
                 {contract.content?.generated_content && (
-                    <div className="section document-content">
+                    <div className="document-content">
                         <div
                             className="markdown-body"
                             dangerouslySetInnerHTML={{
