@@ -593,44 +593,74 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
 
         // ============== AUTO-CREATE CLIENT IF NOT EXISTS ==============
         let clientId: string | null = null;
-        let clientWasNew = false; // Track if we created a new client
+        let clientWasNew = false;
+        let existingClient: any = null;
+        
+        // First, try to find client by email (most reliable)
         if (clientEmail) {
-            // Normalize email to lowercase for comparison
             const normalizedEmail = clientEmail.toLowerCase().trim();
-            console.log('[Contract] Looking up client by email:', normalizedEmail, 'for user:', userData.id);
+            console.log('[Contract] Looking up client by email:', normalizedEmail);
             
-            // Check if client exists by email (case-insensitive)
-            // Use maybeSingle() to avoid error when no client exists
-            const { data: existingClient, error: lookupError } = await supabase
+            const { data: clientByEmail } = await supabase
                 .from('clients')
                 .select('id, name, email')
                 .eq('user_id', userData.id)
                 .ilike('email', normalizedEmail)
                 .maybeSingle();
-
-            console.log('[Contract] Client lookup result:', existingClient, 'Error:', lookupError?.message);
-
-            if (existingClient) {
-                clientId = existingClient.id;
-                clientWasNew = false;
-                console.log('[Contract] Found existing client:', existingClient.id, existingClient.name);
-            } else {
-                // Create new client
-                const { data: newClient, error: clientError } = await supabase
-                    .from('clients')
-                    .insert({
-                        user_id: userData.id,
-                        name: clientName || 'Unknown Client',
-                        email: clientEmail,
-                    })
-                    .select('id')
-                    .single();
-
-                if (!clientError && newClient) {
-                    clientId = newClient.id;
-                    clientWasNew = true;
-                    console.log('[Contract] Created new client:', newClient.id);
+            
+            if (clientByEmail) {
+                existingClient = clientByEmail;
+                console.log('[Contract] Found existing client by email:', clientByEmail.name);
+            }
+        }
+        
+        // If not found by email, try to find by name
+        if (!existingClient && clientName) {
+            const normalizedName = clientName.toLowerCase().trim();
+            console.log('[Contract] Looking up client by name:', normalizedName);
+            
+            const { data: clientByName } = await supabase
+                .from('clients')
+                .select('id, name, email')
+                .eq('user_id', userData.id)
+                .ilike('name', normalizedName)
+                .maybeSingle();
+            
+            if (clientByName) {
+                existingClient = clientByName;
+                console.log('[Contract] Found existing client by name:', clientByName.name);
+                
+                // If we have an email but the found client doesn't, update it
+                if (clientEmail && !clientByName.email) {
+                    await supabase
+                        .from('clients')
+                        .update({ email: clientEmail })
+                        .eq('id', clientByName.id);
+                    existingClient.email = clientEmail;
                 }
+            }
+        }
+        
+        if (existingClient) {
+            clientId = existingClient.id;
+            clientWasNew = false;
+            console.log('[Contract] Using existing client:', existingClient.id, existingClient.name);
+        } else if (clientName || clientEmail) {
+            // Create new client only if we have at least name or email
+            const { data: newClient, error: clientError } = await supabase
+                .from('clients')
+                .insert({
+                    user_id: userData.id,
+                    name: clientName || 'Unknown Client',
+                    email: clientEmail || null,
+                })
+                .select('id')
+                .single();
+
+            if (!clientError && newClient) {
+                clientId = newClient.id;
+                clientWasNew = true;
+                console.log('[Contract] Created new client:', newClient.id);
             }
         }
 
