@@ -847,8 +847,8 @@ router.get('/approve/:id/:token', async (req: Request, res: Response, next) => {
             return;
         }
 
-        // Check if already approved
-        if (contract.status === 'APPROVED' || contract.status === 'SIGNED') {
+        // Check if already approved (SIGNED or PAID indicate approval)
+        if (contract.status === 'SIGNED' || contract.status === 'PAID') {
             res.status(400).json({
                 success: false,
                 error: { message: 'Contract has already been approved' },
@@ -863,11 +863,11 @@ router.get('/approve/:id/:token', async (req: Request, res: Response, next) => {
             .eq('id', contract.user_id)
             .single();
 
-        // Update contract status to APPROVED
+        // Update contract status to SIGNED (approved)
         const { error: updateError } = await supabase
             .from('documents')
             .update({
-                status: 'APPROVED',
+                status: 'SIGNED',
                 content: {
                     ...contract.content,
                     approved_at: new Date().toISOString(),
