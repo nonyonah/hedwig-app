@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Share } from 'react-native';
+import { useRouter, usePathname, Link } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase, FileText } from 'phosphor-react-native';
+import { House, Link as LinkIcon, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase, FileText } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -282,7 +282,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     >
                                         <View style={[styles.searchResultIcon, { backgroundColor: themeColors.background }]}>
                                             {result.type === 'invoice' && <Receipt size={18} color={Colors.primary} />}
-                                            {result.type === 'payment_link' && <Link size={18} color={Colors.primary} />}
+                                            {result.type === 'payment_link' && <LinkIcon size={18} color={Colors.primary} />}
                                             {result.type === 'conversation' && <Chat size={18} color={Colors.primary} />}
                                             {result.type === 'menu' && <House size={18} color={Colors.primary} />}
                                         </View>
@@ -321,7 +321,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     () => handleNavigation('/invoices')
                                 )}
                                 {renderMenuItem(
-                                    <Link size={22} weight="bold" />,
+                                    <LinkIcon size={22} weight="bold" />,
                                     'Payment Links',
                                     pathname === '/payment-links',
                                     () => handleNavigation('/payment-links')
@@ -351,51 +351,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <View style={styles.settingsSection}>
                                     <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>PREVIOUS CHATS</Text>
                                     {conversations.slice(0, 5).map((conv) => (
-                                        <TouchableOpacity
+                                        <Link
                                             key={conv.id}
-                                            style={styles.menuItem}
-                                            onPress={async () => {
-                                                if (hapticsEnabled) {
-                                                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                                }
-                                                onClose();
-                                                // Navigate to home with conversationId - works from any page
-                                                if (pathname === '/') {
-                                                    // Already on home, use callback
-                                                    if (onLoadConversation) {
-                                                        onLoadConversation(conv.id);
-                                                    }
-                                                } else {
-                                                    // From other pages, navigate to home with param
-                                                    router.push(`/?conversationId=${conv.id}` as any);
-                                                }
-                                            }}
-                                            onLongPress={() => {
-                                                if (onDeleteConversation) {
-                                                    Alert.alert(
-                                                        'Delete Chat',
-                                                        'Are you sure you want to delete this conversation?',
-                                                        [
-                                                            { text: 'Cancel', style: 'cancel' },
-                                                            { text: 'Delete', style: 'destructive', onPress: () => onDeleteConversation(conv.id) }
-                                                        ]
-                                                    );
-                                                }
-                                            }}
+                                            href={`/?conversationId=${conv.id}`}
+                                            asChild={Platform.OS !== 'ios'}
                                         >
-                                            <View style={styles.menuIcon}>
-                                                <Chat size={22} weight="bold" color={themeColors.textPrimary} />
-                                            </View>
-                                            <Text
-                                                style={[
-                                                    styles.menuText,
-                                                    { color: themeColors.textPrimary }
-                                                ]}
-                                                numberOfLines={1}
-                                            >
-                                                {conv.title || 'Untitled Chat'}
-                                            </Text>
-                                        </TouchableOpacity>
+                                            <Link.Trigger>
+                                                <View style={styles.menuItem}>
+                                                    <View style={styles.menuIcon}>
+                                                        <Chat size={22} weight="bold" color={themeColors.textPrimary} />
+                                                    </View>
+                                                    <Text
+                                                        style={[
+                                                            styles.menuText,
+                                                            { color: themeColors.textPrimary }
+                                                        ]}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {conv.title || 'Untitled Chat'}
+                                                    </Text>
+                                                </View>
+                                            </Link.Trigger>
+                                            {Platform.OS === 'ios' && (
+                                                <>
+                                                    <Link.Preview />
+                                                    <Link.Menu>
+                                                        <Link.MenuAction
+                                                            title="Share"
+                                                            icon="square.and.arrow.up"
+                                                            onPress={async () => {
+                                                                try {
+                                                                    await Share.share({
+                                                                        message: `Check out this conversation: ${conv.title || 'Untitled Chat'}`,
+                                                                    });
+                                                                } catch (error) {
+                                                                    console.error('Share failed:', error);
+                                                                }
+                                                            }}
+                                                        />
+                                                        <Link.MenuAction
+                                                            title="Delete"
+                                                            icon="trash"
+                                                            destructive
+                                                            onPress={() => {
+                                                                if (onDeleteConversation) {
+                                                                    onDeleteConversation(conv.id);
+                                                                }
+                                                            }}
+                                                        />
+                                                    </Link.Menu>
+                                                </>
+                                            )}
+                                        </Link>
                                     ))}
                                 </View>
                             )}
