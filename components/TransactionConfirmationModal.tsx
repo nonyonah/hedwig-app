@@ -10,6 +10,7 @@ import LottieView from 'lottie-react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
+import { SwiftUIBottomSheet } from './ios/SwiftUIBottomSheet';
 import {
     Connection,
     PublicKey,
@@ -850,6 +851,18 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
         }
     };
 
+    // iOS: Use native SwiftUI BottomSheet
+    if (Platform.OS === 'ios') {
+        return (
+            <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.65}>
+                <View style={[styles.iosContent, { backgroundColor: themeColors.background }]}>
+                    {renderContent()}
+                </View>
+            </SwiftUIBottomSheet>
+        );
+    }
+
+    // Android: Use existing Modal
     return (
         <Modal
             visible={isRendered}
@@ -1051,5 +1064,10 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: '#FFFFFF',
+    },
+    iosContent: {
+        flex: 1,
+        padding: 24,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     },
 });

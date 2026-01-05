@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSettings } from '../context/SettingsContext';
 import { trackEvent } from '../services/analytics';
+import { SwiftUIBottomSheet } from './ios/SwiftUIBottomSheet';
 
 type FeedbackType = 'feature' | 'bug' | null;
 
@@ -68,6 +69,142 @@ export function FeedbackModal({ visible, onClose }: FeedbackModalProps) {
         onClose();
     };
 
+    // Shared content for both iOS and Android
+    const modalContent = (
+        <>
+            {/* Handle Bar - only for Android since iOS native sheet has its own */}
+            {Platform.OS !== 'ios' && <View style={styles.handleBar} />}
+
+            {/* Header */}
+            <View style={styles.header}>
+                <Text style={[styles.title, { color: themeColors.textPrimary }]}>
+                    Give Feedback
+                </Text>
+                <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                    <X size={24} color={themeColors.textSecondary} weight="bold" />
+                </TouchableOpacity>
+            </View>
+
+            {/* Feedback Type Selection */}
+            <Text style={[styles.label, { color: themeColors.textSecondary }]}>
+                What type of feedback?
+            </Text>
+            <View style={styles.typeContainer}>
+                <TouchableOpacity
+                    style={[
+                        styles.typeButton,
+                        {
+                            backgroundColor: feedbackType === 'feature' ? Colors.primary : themeColors.background,
+                            borderColor: feedbackType === 'feature' ? Colors.primary : themeColors.border,
+                        }
+                    ]}
+                    onPress={() => {
+                        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setFeedbackType('feature');
+                    }}
+                >
+                    <Lightbulb
+                        size={24}
+                        color={feedbackType === 'feature' ? '#FFFFFF' : themeColors.textPrimary}
+                        weight="fill"
+                    />
+                    <Text style={[
+                        styles.typeText,
+                        { color: feedbackType === 'feature' ? '#FFFFFF' : themeColors.textPrimary }
+                    ]}>
+                        Feature Request
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[
+                        styles.typeButton,
+                        {
+                            backgroundColor: feedbackType === 'bug' ? '#EF4444' : themeColors.background,
+                            borderColor: feedbackType === 'bug' ? '#EF4444' : themeColors.border,
+                        }
+                    ]}
+                    onPress={() => {
+                        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setFeedbackType('bug');
+                    }}
+                >
+                    <Bug
+                        size={24}
+                        color={feedbackType === 'bug' ? '#FFFFFF' : themeColors.textPrimary}
+                        weight="fill"
+                    />
+                    <Text style={[
+                        styles.typeText,
+                        { color: feedbackType === 'bug' ? '#FFFFFF' : themeColors.textPrimary }
+                    ]}>
+                        Bug Report
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Feedback Input */}
+            <Text style={[styles.label, { color: themeColors.textSecondary, marginTop: 20 }]}>
+                {feedbackType === 'feature'
+                    ? 'Describe the feature you\'d like to see'
+                    : feedbackType === 'bug'
+                        ? 'Describe the bug and steps to reproduce'
+                        : 'Describe your feedback'}
+            </Text>
+            <TextInput
+                style={[
+                    styles.textInput,
+                    {
+                        backgroundColor: themeColors.background,
+                        color: themeColors.textPrimary,
+                        borderColor: themeColors.border,
+                    }
+                ]}
+                placeholder={
+                    feedbackType === 'feature'
+                        ? "I'd love to see..."
+                        : feedbackType === 'bug'
+                            ? "When I do X, Y happens instead of Z..."
+                            : "Tell us what's on your mind..."
+                }
+                placeholderTextColor={themeColors.textSecondary}
+                value={feedback}
+                onChangeText={setFeedback}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+            />
+
+            {/* Submit Button */}
+            <TouchableOpacity
+                style={[
+                    styles.submitButton,
+                    { backgroundColor: Colors.primary },
+                    isSubmitting && { opacity: 0.7 }
+                ]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+            >
+                <PaperPlaneTilt size={20} color="#FFFFFF" weight="bold" />
+                <Text style={styles.submitButtonText}>
+                    {isSubmitting ? 'Sending...' : 'Submit Feedback'}
+                </Text>
+            </TouchableOpacity>
+        </>
+    );
+
+    // iOS: Use native SwiftUI BottomSheet
+    if (Platform.OS === 'ios') {
+        return (
+            <SwiftUIBottomSheet isOpen={visible} onClose={handleClose} height={0.6}>
+                <View style={[styles.iosContent, { backgroundColor: themeColors.surface }]}>
+                    {modalContent}
+                </View>
+            </SwiftUIBottomSheet>
+        );
+    }
+
+    // Android: Use existing Modal
     return (
         <Modal
             visible={visible}
@@ -85,124 +222,7 @@ export function FeedbackModal({ visible, onClose }: FeedbackModalProps) {
                     onPress={handleClose}
                 />
                 <View style={[styles.modalContainer, { backgroundColor: themeColors.surface }]}>
-                    {/* Handle Bar */}
-                    <View style={styles.handleBar} />
-
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <Text style={[styles.title, { color: themeColors.textPrimary }]}>
-                            Give Feedback
-                        </Text>
-                        <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                            <X size={24} color={themeColors.textSecondary} weight="bold" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Feedback Type Selection */}
-                    <Text style={[styles.label, { color: themeColors.textSecondary }]}>
-                        What type of feedback?
-                    </Text>
-                    <View style={styles.typeContainer}>
-                        <TouchableOpacity
-                            style={[
-                                styles.typeButton,
-                                {
-                                    backgroundColor: feedbackType === 'feature' ? Colors.primary : themeColors.background,
-                                    borderColor: feedbackType === 'feature' ? Colors.primary : themeColors.border,
-                                }
-                            ]}
-                            onPress={() => {
-                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                setFeedbackType('feature');
-                            }}
-                        >
-                            <Lightbulb
-                                size={24}
-                                color={feedbackType === 'feature' ? '#FFFFFF' : themeColors.textPrimary}
-                                weight="fill"
-                            />
-                            <Text style={[
-                                styles.typeText,
-                                { color: feedbackType === 'feature' ? '#FFFFFF' : themeColors.textPrimary }
-                            ]}>
-                                Feature Request
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[
-                                styles.typeButton,
-                                {
-                                    backgroundColor: feedbackType === 'bug' ? '#EF4444' : themeColors.background,
-                                    borderColor: feedbackType === 'bug' ? '#EF4444' : themeColors.border,
-                                }
-                            ]}
-                            onPress={() => {
-                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                setFeedbackType('bug');
-                            }}
-                        >
-                            <Bug
-                                size={24}
-                                color={feedbackType === 'bug' ? '#FFFFFF' : themeColors.textPrimary}
-                                weight="fill"
-                            />
-                            <Text style={[
-                                styles.typeText,
-                                { color: feedbackType === 'bug' ? '#FFFFFF' : themeColors.textPrimary }
-                            ]}>
-                                Bug Report
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Feedback Input */}
-                    <Text style={[styles.label, { color: themeColors.textSecondary, marginTop: 20 }]}>
-                        {feedbackType === 'feature'
-                            ? 'Describe the feature you\'d like to see'
-                            : feedbackType === 'bug'
-                                ? 'Describe the bug and steps to reproduce'
-                                : 'Describe your feedback'}
-                    </Text>
-                    <TextInput
-                        style={[
-                            styles.textInput,
-                            {
-                                backgroundColor: themeColors.background,
-                                color: themeColors.textPrimary,
-                                borderColor: themeColors.border,
-                            }
-                        ]}
-                        placeholder={
-                            feedbackType === 'feature'
-                                ? "I'd love to see..."
-                                : feedbackType === 'bug'
-                                    ? "When I do X, Y happens instead of Z..."
-                                    : "Tell us what's on your mind..."
-                        }
-                        placeholderTextColor={themeColors.textSecondary}
-                        value={feedback}
-                        onChangeText={setFeedback}
-                        multiline
-                        numberOfLines={4}
-                        textAlignVertical="top"
-                    />
-
-                    {/* Submit Button */}
-                    <TouchableOpacity
-                        style={[
-                            styles.submitButton,
-                            { backgroundColor: Colors.primary },
-                            isSubmitting && { opacity: 0.7 }
-                        ]}
-                        onPress={handleSubmit}
-                        disabled={isSubmitting}
-                    >
-                        <PaperPlaneTilt size={20} color="#FFFFFF" weight="bold" />
-                        <Text style={styles.submitButtonText}>
-                            {isSubmitting ? 'Sending...' : 'Submit Feedback'}
-                        </Text>
-                    </TouchableOpacity>
+                    {modalContent}
                 </View>
             </KeyboardAvoidingView>
         </Modal>
@@ -286,5 +306,10 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: '#FFFFFF',
+    },
+    iosContent: {
+        flex: 1,
+        padding: 24,
+        paddingBottom: 40,
     },
 });

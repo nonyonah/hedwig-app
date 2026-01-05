@@ -25,6 +25,7 @@ import { Colors, useThemeColors } from '../theme/colors';
 import { Button } from './Button';
 import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
+import { SwiftUIBottomSheet } from './ios/SwiftUIBottomSheet';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -543,6 +544,39 @@ export function SolanaBridgeModal({
         }
     };
 
+    // Shared content wrapper
+    const sheetContent = (
+        <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+            {/* Header */}
+            {(step === 'quote' || step === 'error') && (
+                <View style={styles.headerTitleRow}>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Bridge to Base</Text>
+                    <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={onClose}
+                    >
+                        <X size={24} color={themeColors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {/* Content */}
+            <View style={styles.content}>
+                {renderContent()}
+            </View>
+        </View>
+    );
+
+    // iOS: Use native SwiftUI BottomSheet
+    if (Platform.OS === 'ios') {
+        return (
+            <SwiftUIBottomSheet isOpen={visible} onClose={onClose} height={0.7}>
+                {sheetContent}
+            </SwiftUIBottomSheet>
+        );
+    }
+
+    // Android: Use existing Modal
     return (
         <Modal
             visible={visible}
@@ -582,8 +616,8 @@ export function SolanaBridgeModal({
                         {renderContent()}
                     </View>
                 </Animated.View>
-            </View >
-        </Modal >
+            </View>
+        </Modal>
     );
 }
 

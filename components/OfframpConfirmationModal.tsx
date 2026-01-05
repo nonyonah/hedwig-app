@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
 import { useLiveTracking } from '../hooks/useLiveTracking';
+import { SwiftUIBottomSheet } from './ios/SwiftUIBottomSheet';
 
 const { height } = Dimensions.get('window');
 
@@ -538,6 +539,18 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
         }
     };
 
+    // iOS: Use native SwiftUI BottomSheet
+    if (Platform.OS === 'ios') {
+        return (
+            <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.7}>
+                <View style={[styles.iosContent, { backgroundColor: '#FFFFFF' }]}>
+                    {renderContent()}
+                </View>
+            </SwiftUIBottomSheet>
+        );
+    }
+
+    // Android: Use existing Modal
     return (
         <Modal
             visible={isRendered}
@@ -786,6 +799,11 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: '#FFFFFF',
+    },
+    iosContent: {
+        flex: 1,
+        padding: 24,
+        paddingBottom: 40,
     },
 });
 
