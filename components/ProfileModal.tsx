@@ -16,6 +16,7 @@ import { getUserGradient } from '../utils/gradientUtils';
 import { getOrCreateStacksWallet, getSTXBalance } from '../services/stacksWallet';
 import { ModalBackdrop, modalHaptic, getModalAnimationConfig } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
+import { SwiftUIBottomSheet } from './ios/SwiftUIBottomSheet';
 
 // RPC URLs
 const RPC_URLS = {
@@ -510,6 +511,215 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
 
     if (!isRendered) return null;
 
+    // Shared modal content
+    const modalContent = (
+        <>
+            {/* Header */}
+            <Animated.View style={[styles.modalHeader, Platform.OS === 'ios' ? {} : { opacity: headerAnim, transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <View style={styles.userInfo}>
+                    {profileIcon?.imageUri ? (
+                        <Image
+                            source={{ uri: profileIcon.imageUri }}
+                            style={[styles.avatarContainer, styles.avatarImage]}
+                        />
+                    ) : profileIcon?.emoji ? (
+                        <LinearGradient
+                            colors={profileIcon?.colorIndex !== undefined
+                                ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
+                                : ['#F3F4F6', '#E5E7EB', '#D1D5DB']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.avatarContainer}
+                        >
+                            <Text style={styles.emojiAvatar}>{profileIcon.emoji}</Text>
+                        </LinearGradient>
+                    ) : (
+                        <LinearGradient
+                            colors={profileIcon?.colorIndex !== undefined
+                                ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
+                                : getUserGradient(user?.id || userName?.firstName)}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.avatarContainer}
+                        >
+                            {userName?.firstName && (
+                                <Text style={styles.avatarText}>{userName.firstName[0].toUpperCase()}</Text>
+                            )}
+                        </LinearGradient>
+                    )}
+                    <View>
+                        <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>
+                            {userName?.firstName ? `${userName.firstName} ${userName.lastName}` : 'User'}
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.addressCopy}
+                            onPress={async () => {
+                                const address = selectedChain.addressType === 'evm'
+                                    ? ethAddress
+                                    : selectedChain.addressType === 'solana'
+                                        ? solAddress
+                                        : btcAddress;
+
+                                if (address) {
+                                    await Clipboard.setStringAsync(address);
+                                    Alert.alert('Copied', 'Address copied to clipboard');
+                                }
+                            }}
+                        >
+                            <Text style={[styles.profileAddress, { color: themeColors.textSecondary }]}>
+                                {selectedChain.addressType === 'evm'
+                                    ? (ethAddress ? `${ethAddress.slice(0, 6)}...${ethAddress.slice(-4)}` : '0x...')
+                                    : selectedChain.addressType === 'solana'
+                                        ? (solAddress ? `${solAddress.slice(0, 6)}...${solAddress.slice(-4)}` : 'Not connected')
+                                        : (btcAddress ? `${btcAddress.slice(0, 6)}...${btcAddress.slice(-4)}` : 'Not connected')
+                                }
+                            </Text>
+                            <Copy size={14} color={themeColors.textTertiary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
+                    <X size={20} color={themeColors.textSecondary} weight="bold" />
+                </TouchableOpacity>
+            </Animated.View>
+
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+                bounces={true}
+            >
+                {/* Content based on viewMode */}
+                {viewMode === 'main' && (
+                    <View style={styles.mainContent}>
+                        {/* Total Balance Card */}
+                        <Animated.View style={[styles.balanceCard, Platform.OS === 'ios' ? {} : { opacity: balanceAnim, transform: [{ translateY: balanceAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                            <Text style={[styles.balanceLabel, { color: themeColors.textSecondary }]}>Total Balance</Text>
+                            <Text style={[styles.balanceAmount, { color: themeColors.textPrimary }]}>{currencySymbol}{displayBalance}</Text>
+                        </Animated.View>
+
+                        <Animated.View style={[styles.menuList, Platform.OS === 'ios' ? {} : { opacity: chainsAnim, transform: [{ translateY: chainsAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                            {/* Chain Selector */}
+                            <TouchableOpacity
+                                style={[styles.menuItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                                onPress={() => setViewMode('chains')}
+                            >
+                                <View style={styles.menuItemLeft}>
+                                    <selectedChain.icon width={24} height={24} />
+                                    <View>
+                                        <Text style={[styles.menuItemTitle, { color: themeColors.textPrimary }]}>{selectedChain.name}</Text>
+                                        <Text style={[styles.menuItemSubtitle, { color: themeColors.textSecondary }]}>
+                                            {selectedChain.addressType === 'evm'
+                                                ? `${parseFloat(balances['Base_ETH'] || '0').toFixed(4)} ETH`
+                                                : selectedChain.addressType === 'solana'
+                                                    ? `${parseFloat(balances['Solana Devnet_SOL'] || '0').toFixed(4)} SOL`
+                                                    : `${parseFloat(balances['Bitcoin Testnet_BTC'] || '0').toFixed(6)} BTC`
+                                            }
+                                        </Text>
+                                    </View>
+                                </View>
+                                <CaretRight size={20} color={themeColors.textTertiary} />
+                            </TouchableOpacity>
+
+                            {/* View Assets */}
+                            <TouchableOpacity
+                                style={[styles.menuItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                                onPress={() => setViewMode('assets')}
+                            >
+                                <View style={styles.menuItemLeft}>
+                                    <Wallet size={24} color={themeColors.textPrimary} />
+                                    <Text style={[styles.menuItemTitle, { color: themeColors.textPrimary }]}>View Assets</Text>
+                                </View>
+                                <CaretRight size={20} color={themeColors.textSecondary} />
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </View>
+                )}
+
+                {viewMode === 'assets' && (
+                    <Animated.View style={[styles.assetsView, Platform.OS === 'ios' ? {} : { opacity: viewContentAnim, transform: [{ translateY: viewContentAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 0] }) }] }]}>
+                        <TouchableOpacity
+                            style={styles.backButton}
+                            onPress={() => setViewMode('main')}
+                        >
+                            <CaretLeft size={20} color={themeColors.textSecondary} />
+                            <Text style={[styles.backButtonText, { color: themeColors.textSecondary }]}>Back</Text>
+                        </TouchableOpacity>
+
+                        <Text style={[styles.viewTitle, { color: themeColors.textPrimary }]}>Assets ({selectedChain.name})</Text>
+
+                        <View style={styles.assetList}>
+                            {selectedChain.tokens.map((token, idx) => {
+                                const key = `${selectedChain.name}_${token.symbol}`;
+                                const balance = balances[key] || '0.00';
+
+                                return (
+                                    <View key={idx} style={[styles.assetItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                                        <View style={[styles.assetIcon, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                                            <token.icon width={24} height={24} />
+                                        </View>
+                                        <View style={styles.assetInfo}>
+                                            <Text style={[styles.assetName, { color: themeColors.textPrimary }]}>{token.symbol}</Text>
+                                            <Text style={[styles.assetBalance, { color: themeColors.textSecondary }]}>{parseFloat(balance).toFixed(4)}</Text>
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    </Animated.View>
+                )}
+
+                {viewMode === 'chains' && (
+                    <Animated.View style={[styles.chainsView, Platform.OS === 'ios' ? {} : { opacity: viewContentAnim, transform: [{ translateY: viewContentAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 0] }) }] }]}>
+                        <TouchableOpacity
+                            style={styles.backButton}
+                            onPress={() => setViewMode('main')}
+                        >
+                            <CaretLeft size={20} color={themeColors.textSecondary} />
+                            <Text style={[styles.backButtonText, { color: themeColors.textSecondary }]}>Back</Text>
+                        </TouchableOpacity>
+
+                        <Text style={[styles.viewTitle, { color: themeColors.textPrimary }]}>Select Chain</Text>
+
+                        {SUPPORTED_CHAINS.map((chain, idx) => (
+                            <TouchableOpacity
+                                key={idx}
+                                style={[
+                                    styles.chainOption,
+                                    { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                                    selectedChain.name === chain.name && { backgroundColor: themeColors.surface, borderColor: Colors.primary }
+                                ]}
+                                onPress={() => {
+                                    setSelectedChain(chain);
+                                    setViewMode('main');
+                                }}
+                            >
+                                <View style={styles.chainOptionLeft}>
+                                    <chain.icon width={24} height={24} />
+                                    <Text style={[styles.chainOptionName, { color: themeColors.textPrimary }]}>{chain.name}</Text>
+                                </View>
+                                {selectedChain.name === chain.name && (
+                                    <View style={styles.selectedDot} />
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                    </Animated.View>
+                )}
+            </ScrollView>
+        </>
+    );
+
+    // iOS: Use native SwiftUI BottomSheet
+    if (Platform.OS === 'ios') {
+        return (
+            <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.55}>
+                <View style={[styles.iosContent, { backgroundColor: themeColors.background }]}>
+                    {modalContent}
+                </View>
+            </SwiftUIBottomSheet>
+        );
+    }
+
+    // Android: Use existing Modal with animations
     return (
         <>
             <Modal
@@ -531,202 +741,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             { transform: [{ translateY: modalAnim }] }
                         ]}
                     >
-                        {/* Header */}
-                        <Animated.View style={[styles.modalHeader, { opacity: headerAnim, transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-                            <View style={styles.userInfo}>
-                                {profileIcon?.imageUri ? (
-                                    <Image
-                                        source={{ uri: profileIcon.imageUri }}
-                                        style={[styles.avatarContainer, styles.avatarImage]}
-                                    />
-                                ) : profileIcon?.emoji ? (
-                                    <LinearGradient
-                                        colors={profileIcon?.colorIndex !== undefined
-                                            ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
-                                            : ['#F3F4F6', '#E5E7EB', '#D1D5DB']}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.avatarContainer}
-                                    >
-                                        <Text style={styles.emojiAvatar}>{profileIcon.emoji}</Text>
-                                    </LinearGradient>
-                                ) : (
-                                    <LinearGradient
-                                        colors={profileIcon?.colorIndex !== undefined
-                                            ? PROFILE_COLOR_OPTIONS[profileIcon.colorIndex]
-                                            : getUserGradient(user?.id || userName?.firstName)}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.avatarContainer}
-                                    >
-                                        {userName?.firstName && (
-                                            <Text style={styles.avatarText}>{userName.firstName[0].toUpperCase()}</Text>
-                                        )}
-                                    </LinearGradient>
-                                )}
-                                <View>
-                                    <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>
-                                        {userName?.firstName ? `${userName.firstName} ${userName.lastName}` : 'User'}
-                                    </Text>
-                                    <TouchableOpacity
-                                        style={styles.addressCopy}
-                                        onPress={async () => {
-                                            const address = selectedChain.addressType === 'evm'
-                                                ? ethAddress
-                                                : selectedChain.addressType === 'solana'
-                                                    ? solAddress
-                                                    : btcAddress;
-
-                                            if (address) {
-                                                await Clipboard.setStringAsync(address);
-                                                Alert.alert('Copied', 'Address copied to clipboard');
-                                            }
-                                        }}
-                                    >
-                                        <Text style={[styles.profileAddress, { color: themeColors.textSecondary }]}>
-                                            {selectedChain.addressType === 'evm'
-                                                ? (ethAddress ? `${ethAddress.slice(0, 6)}...${ethAddress.slice(-4)}` : '0x...')
-                                                : selectedChain.addressType === 'solana'
-                                                    ? (solAddress ? `${solAddress.slice(0, 6)}...${solAddress.slice(-4)}` : 'Not connected')
-                                                    : (btcAddress ? `${btcAddress.slice(0, 6)}...${btcAddress.slice(-4)}` : 'Not connected')
-                                            }
-                                        </Text>
-                                        <Copy size={14} color={themeColors.textTertiary} />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                            <TouchableOpacity onPress={onClose} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                                <X size={20} color={themeColors.textSecondary} weight="bold" />
-                            </TouchableOpacity>
-                        </Animated.View>
-
-                        <ScrollView
-                            style={styles.scrollView}
-                            showsVerticalScrollIndicator={false}
-                            bounces={true}
-                        >
-                            {/* Content based on viewMode */}
-                            {viewMode === 'main' && (
-                                <View style={styles.mainContent}>
-                                    {/* Total Balance Card */}
-                                    <Animated.View style={[styles.balanceCard, { opacity: balanceAnim, transform: [{ translateY: balanceAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-                                        <Text style={[styles.balanceLabel, { color: themeColors.textSecondary }]}>Total Balance</Text>
-                                        <Text style={[styles.balanceAmount, { color: themeColors.textPrimary }]}>{currencySymbol}{displayBalance}</Text>
-                                    </Animated.View>
-
-                                    <Animated.View style={[styles.menuList, { opacity: chainsAnim, transform: [{ translateY: chainsAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-                                        {/* Chain Selector */}
-                                        <TouchableOpacity
-                                            style={[styles.menuItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                                            onPress={() => setViewMode('chains')}
-                                        >
-                                            <View style={styles.menuItemLeft}>
-                                                <selectedChain.icon width={24} height={24} />
-                                                <View>
-                                                    <Text style={[styles.menuItemTitle, { color: themeColors.textPrimary }]}>{selectedChain.name}</Text>
-                                                    <Text style={[styles.menuItemSubtitle, { color: themeColors.textSecondary }]}>
-                                                        {selectedChain.addressType === 'evm'
-                                                            ? `${parseFloat(balances['Base_ETH'] || '0').toFixed(4)} ETH`
-                                                            : selectedChain.addressType === 'solana'
-                                                                ? `${parseFloat(balances['Solana Devnet_SOL'] || '0').toFixed(4)} SOL`
-                                                                : `${parseFloat(balances['Bitcoin Testnet_BTC'] || '0').toFixed(6)} BTC`
-                                                        }
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <CaretRight size={20} color={themeColors.textTertiary} />
-                                        </TouchableOpacity>
-
-                                        {/* View Assets */}
-                                        <TouchableOpacity
-                                            style={[styles.menuItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                                            onPress={() => setViewMode('assets')}
-                                        >
-                                            <View style={styles.menuItemLeft}>
-                                                <Wallet size={24} color={themeColors.textPrimary} />
-                                                <Text style={[styles.menuItemTitle, { color: themeColors.textPrimary }]}>View Assets</Text>
-                                            </View>
-                                            <CaretRight size={20} color={themeColors.textSecondary} />
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                </View>
-                            )}
-
-                            {viewMode === 'assets' && (
-                                <Animated.View style={[styles.assetsView, { opacity: viewContentAnim, transform: [{ translateY: viewContentAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 0] }) }] }]}>
-                                    <TouchableOpacity
-                                        style={styles.backButton}
-                                        onPress={() => setViewMode('main')}
-                                    >
-                                        <CaretLeft size={20} color={themeColors.textSecondary} />
-                                        <Text style={[styles.backButtonText, { color: themeColors.textSecondary }]}>Back</Text>
-                                    </TouchableOpacity>
-
-                                    <Text style={[styles.viewTitle, { color: themeColors.textPrimary }]}>Assets ({selectedChain.name})</Text>
-
-                                    <View style={styles.assetList}>
-                                        {selectedChain.tokens.map((token, idx) => {
-                                            // Construct key for balance lookup e.g. Base_ETH or Solana Devnet_SOL
-                                            const key = `${selectedChain.name}_${token.symbol}`;
-                                            const balance = balances[key] || '0.00';
-
-                                            return (
-                                                <View key={idx} style={[styles.assetItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-                                                    <View style={[styles.assetIcon, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-                                                        <token.icon width={24} height={24} />
-                                                    </View>
-                                                    <View style={styles.assetInfo}>
-                                                        <Text style={[styles.assetName, { color: themeColors.textPrimary }]}>{token.symbol}</Text>
-                                                        <Text style={[styles.assetBalance, { color: themeColors.textSecondary }]}>{parseFloat(balance).toFixed(4)}</Text>
-                                                    </View>
-                                                </View>
-                                            );
-                                        })}
-                                    </View>
-                                </Animated.View>
-                            )}
-
-                            {viewMode === 'chains' && (
-                                <Animated.View style={[styles.chainsView, { opacity: viewContentAnim, transform: [{ translateY: viewContentAnim.interpolate({ inputRange: [0, 1], outputRange: [15, 0] }) }] }]}>
-                                    <TouchableOpacity
-                                        style={styles.backButton}
-                                        onPress={() => setViewMode('main')}
-                                    >
-                                        <CaretLeft size={20} color={themeColors.textSecondary} />
-                                        <Text style={[styles.backButtonText, { color: themeColors.textSecondary }]}>Back</Text>
-                                    </TouchableOpacity>
-
-                                    <Text style={[styles.viewTitle, { color: themeColors.textPrimary }]}>Select Chain</Text>
-
-                                    {SUPPORTED_CHAINS.map((chain, idx) => (
-                                        <TouchableOpacity
-                                            key={idx}
-                                            style={[
-                                                styles.chainOption,
-                                                { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-                                                selectedChain.name === chain.name && { backgroundColor: themeColors.surface, borderColor: Colors.primary }
-                                            ]}
-                                            onPress={() => {
-                                                setSelectedChain(chain);
-                                                setViewMode('main');
-                                            }}
-                                        >
-                                            <View style={styles.chainOptionLeft}>
-                                                <chain.icon width={24} height={24} />
-                                                <Text style={[styles.chainOptionName, { color: themeColors.textPrimary }]}>{chain.name}</Text>
-                                            </View>
-                                            {selectedChain.name === chain.name && (
-                                                <View style={styles.selectedDot} />
-                                            )}
-                                        </TouchableOpacity>
-                                    ))}
-                                </Animated.View>
-                            )}
-                        </ScrollView>
+                        {modalContent}
                     </Animated.View>
                 </View>
             </Modal>
-            {/* Modal content end */}
         </>
     );
 };
@@ -980,5 +998,10 @@ const styles = StyleSheet.create({
         height: 8,
         borderRadius: 4,
         backgroundColor: Colors.primary,
+    },
+    iosContent: {
+        flex: 1,
+        padding: 20,
+        paddingBottom: 40,
     },
 });
