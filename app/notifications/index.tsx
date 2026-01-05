@@ -190,221 +190,219 @@ export default function NotificationsScreen() {
             );
         }
 
-    }
-
-    switch (type) {
-        case 'announcement':
-            return (
-                <View style={[styles.iconContainer, { backgroundColor: '#F59E0B' }]}>
-                    <Megaphone size={20} color="#FFFFFF" weight="fill" />
-                </View>
-            );
-        case 'contract_approved':
-            return (
-                <View style={[styles.iconContainer, { backgroundColor: '#8B5CF6' }]}>
-                    <FileText size={20} color="#FFFFFF" weight="fill" />
-                </View>
-            );
-        case 'proposal_accepted':
-            return (
-                <View style={[styles.iconContainer, { backgroundColor: '#10B981' }]}>
-                    <CheckCircle size={20} color="#FFFFFF" weight="fill" />
-                </View>
-            );
-        case 'proposal_sent':
-            return (
-                <View style={[styles.iconContainer, { backgroundColor: '#3B82F6' }]}>
-                    <FileText size={20} color="#FFFFFF" weight="fill" />
-                </View>
-            );
-        default:
-            return (
-                <View style={[styles.iconContainer, { backgroundColor: Colors.textSecondary }]}>
-                    <Bell size={20} color="#FFFFFF" weight="fill" />
-                </View>
-            );
-    }
-};
-
-const filteredNotifications = useMemo(() => {
-    if (activeFilter === 'all') return notifications;
-
-    switch (activeFilter) {
-        case 'transactions':
-            // Transactions are raw crypto transfers only
-            return notifications.filter(n => n.type === 'crypto_received');
-        case 'payment_links':
-            // Payment links are payment_received but NOT invoices (check title for distinction)
-            return notifications.filter(n => n.type === 'payment_received' && !n.title.toLowerCase().includes('invoice'));
-        case 'invoices':
-            // Invoices are payment_received where title contains "Invoice"
-            return notifications.filter(n => n.type === 'payment_received' && n.title.toLowerCase().includes('invoice'));
-        case 'withdrawals':
-            return notifications.filter(n => n.type === 'offramp_success');
-        default:
-            return notifications;
-    }
-}, [notifications, activeFilter]);
-
-const sections = useMemo(() => {
-    const today: Notification[] = [];
-    const earlier: Notification[] = [];
-
-    filteredNotifications.forEach(n => {
-        if (isToday(new Date(n.created_at))) {
-            today.push(n);
-        } else {
-            earlier.push(n);
-        }
-    });
-
-    const result = [];
-    if (today.length > 0) result.push({ title: 'Today', data: today });
-    if (earlier.length > 0) result.push({ title: 'Earlier', data: earlier });
-    return result;
-}, [filteredNotifications]);
-
-const renderRightActions = (progress: any, dragX: any, id: string) => {
-    const scale = dragX.interpolate({
-        inputRange: [-100, 0],
-        outputRange: [1, 0],
-        extrapolate: 'clamp',
-    });
-
-    return (
-        <TouchableOpacity onPress={() => deleteNotification(id)}>
-            <View style={styles.deleteButton}>
-                <Animated.View style={{ transform: [{ scale }] }}>
-                    <Trash size={24} color="#FFFFFF" weight="bold" />
-                </Animated.View>
-            </View>
-        </TouchableOpacity>
-    );
-};
-
-const renderNotification = ({ item }: { item: Notification }) => {
-    const date = new Date(item.created_at);
-    const isItemToday = isToday(date);
-
-    return (
-        <Swipeable renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item.id)}>
-            <TouchableOpacity
-                style={[styles.notificationItem, { backgroundColor: themeColors.background }]}
-                onPress={() => markAsRead(item.id)}
-                activeOpacity={0.7}
-            >
-                {getNotificationIcon(item.type, item.metadata)}
-                <View style={styles.contentContainer}>
-                    <View style={styles.topRow}>
-                        <Text style={[styles.notificationTitle, { color: themeColors.textPrimary }]}>{item.title}</Text>
-                        <View style={styles.timeContainer}>
-                            {!isItemToday && (
-                                <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{format(date, 'MMM d, yyyy')}</Text>
-                            )}
-                            {isItemToday && (
-                                <Text style={[styles.timeText, { color: themeColors.textSecondary }]}>{format(date, 'h:mm a')}</Text>
-                            )}
-                            {!item.is_read && <View style={styles.unreadDot} />}
-                        </View>
+        switch (type) {
+            case 'announcement':
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: '#F59E0B' }]}>
+                        <Megaphone size={20} color="#FFFFFF" weight="fill" />
                     </View>
-                    <Text style={[styles.notificationMessage, { color: themeColors.textSecondary }]} numberOfLines={2}>
-                        {item.type === 'crypto_received' && item.metadata?.amount
-                            ? `You received ${item.metadata.amount} ${item.metadata.token || 'USDC'} from ${formatAddress(item.metadata.from)}`
-                            : item.type === 'offramp_success' && item.metadata?.amount
-                                ? `You withdrew ${item.metadata.amount} ${item.metadata.token || 'USDC'} to ${item.metadata.destination || 'your bank'}`
-                                : item.message}
-                    </Text>
+                );
+            case 'contract_approved':
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: '#8B5CF6' }]}>
+                        <FileText size={20} color="#FFFFFF" weight="fill" />
+                    </View>
+                );
+            case 'proposal_accepted':
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: '#10B981' }]}>
+                        <CheckCircle size={20} color="#FFFFFF" weight="fill" />
+                    </View>
+                );
+            case 'proposal_sent':
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: '#3B82F6' }]}>
+                        <FileText size={20} color="#FFFFFF" weight="fill" />
+                    </View>
+                );
+            default:
+                return (
+                    <View style={[styles.iconContainer, { backgroundColor: Colors.textSecondary }]}>
+                        <Bell size={20} color="#FFFFFF" weight="fill" />
+                    </View>
+                );
+        }
+    };
+
+    const filteredNotifications = useMemo(() => {
+        if (activeFilter === 'all') return notifications;
+
+        switch (activeFilter) {
+            case 'transactions':
+                // Transactions are raw crypto transfers only
+                return notifications.filter(n => n.type === 'crypto_received');
+            case 'payment_links':
+                // Payment links are payment_received but NOT invoices (check title for distinction)
+                return notifications.filter(n => n.type === 'payment_received' && !n.title.toLowerCase().includes('invoice'));
+            case 'invoices':
+                // Invoices are payment_received where title contains "Invoice"
+                return notifications.filter(n => n.type === 'payment_received' && n.title.toLowerCase().includes('invoice'));
+            case 'withdrawals':
+                return notifications.filter(n => n.type === 'offramp_success');
+            default:
+                return notifications;
+        }
+    }, [notifications, activeFilter]);
+
+    const sections = useMemo(() => {
+        const today: Notification[] = [];
+        const earlier: Notification[] = [];
+
+        filteredNotifications.forEach(n => {
+            if (isToday(new Date(n.created_at))) {
+                today.push(n);
+            } else {
+                earlier.push(n);
+            }
+        });
+
+        const result = [];
+        if (today.length > 0) result.push({ title: 'Today', data: today });
+        if (earlier.length > 0) result.push({ title: 'Earlier', data: earlier });
+        return result;
+    }, [filteredNotifications]);
+
+    const renderRightActions = (progress: any, dragX: any, id: string) => {
+        const scale = dragX.interpolate({
+            inputRange: [-100, 0],
+            outputRange: [1, 0],
+            extrapolate: 'clamp',
+        });
+
+        return (
+            <TouchableOpacity onPress={() => deleteNotification(id)}>
+                <View style={styles.deleteButton}>
+                    <Animated.View style={{ transform: [{ scale }] }}>
+                        <Trash size={24} color="#FFFFFF" weight="bold" />
+                    </Animated.View>
                 </View>
             </TouchableOpacity>
-        </Swipeable>
-    );
-};
+        );
+    };
 
-const renderHeader = () => (
-    <View style={styles.filterContainer}>
-        <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScroll}
-        >
-            {NOTIFICATION_FILTERS.map(filter => (
+    const renderNotification = ({ item }: { item: Notification }) => {
+        const date = new Date(item.created_at);
+        const isItemToday = isToday(date);
+
+        return (
+            <Swipeable renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item.id)}>
                 <TouchableOpacity
-                    key={filter.id}
-                    style={[
-                        styles.filterChip,
-                        { backgroundColor: themeColors.surface },
-                        activeFilter === filter.id && styles.filterChipActive
-                    ]}
-                    onPress={() => setActiveFilter(filter.id)}
+                    style={[styles.notificationItem, { backgroundColor: themeColors.background }]}
+                    onPress={() => markAsRead(item.id)}
+                    activeOpacity={0.7}
                 >
-                    <Text style={[
-                        styles.filterText,
-                        { color: themeColors.textSecondary },
-                        activeFilter === filter.id && styles.filterTextActive
-                    ]}>
-                        {filter.label}
-                    </Text>
+                    {getNotificationIcon(item.type, item.metadata)}
+                    <View style={styles.contentContainer}>
+                        <View style={styles.topRow}>
+                            <Text style={[styles.notificationTitle, { color: themeColors.textPrimary }]}>{item.title}</Text>
+                            <View style={styles.timeContainer}>
+                                {!isItemToday && (
+                                    <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{format(date, 'MMM d, yyyy')}</Text>
+                                )}
+                                {isItemToday && (
+                                    <Text style={[styles.timeText, { color: themeColors.textSecondary }]}>{format(date, 'h:mm a')}</Text>
+                                )}
+                                {!item.is_read && <View style={styles.unreadDot} />}
+                            </View>
+                        </View>
+                        <Text style={[styles.notificationMessage, { color: themeColors.textSecondary }]} numberOfLines={2}>
+                            {item.type === 'crypto_received' && item.metadata?.amount
+                                ? `You received ${item.metadata.amount} ${item.metadata.token || 'USDC'} from ${formatAddress(item.metadata.from)}`
+                                : item.type === 'offramp_success' && item.metadata?.amount
+                                    ? `You withdrew ${item.metadata.amount} ${item.metadata.token || 'USDC'} to ${item.metadata.destination || 'your bank'}`
+                                    : item.message}
+                        </Text>
+                    </View>
                 </TouchableOpacity>
-            ))}
-        </ScrollView>
-    </View>
-);
+            </Swipeable>
+        );
+    };
 
-return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
-        {/* Header */}
-        <View style={styles.header}>
-            <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => router.back()}
+    const renderHeader = () => (
+        <View style={styles.filterContainer}>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterScroll}
             >
-                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Notifications</Text>
-            <View style={{ width: 100, alignItems: 'flex-end' }}>
-                <TouchableOpacity onPress={markAllAsRead}>
-                    <Text style={styles.markAsDoneText}>Mark as done</Text>
-                </TouchableOpacity>
-            </View>
+                {NOTIFICATION_FILTERS.map(filter => (
+                    <TouchableOpacity
+                        key={filter.id}
+                        style={[
+                            styles.filterChip,
+                            { backgroundColor: themeColors.surface },
+                            activeFilter === filter.id && styles.filterChipActive
+                        ]}
+                        onPress={() => setActiveFilter(filter.id)}
+                    >
+                        <Text style={[
+                            styles.filterText,
+                            { color: themeColors.textSecondary },
+                            activeFilter === filter.id && styles.filterTextActive
+                        ]}>
+                            {filter.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
         </View>
+    );
 
-        {/* Content */}
-        {isLoading ? (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
+    return (
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
+            {/* Header */}
+            <View style={styles.header}>
+                <TouchableOpacity
+                    style={styles.backButton}
+                    onPress={() => router.back()}
+                >
+                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                </TouchableOpacity>
+                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Notifications</Text>
+                <View style={{ width: 100, alignItems: 'flex-end' }}>
+                    <TouchableOpacity onPress={markAllAsRead}>
+                        <Text style={styles.markAsDoneText}>Mark as done</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
-        ) : notifications.length === 0 ? (
-            <View style={styles.emptyState}>
-                <Bell size={64} color={themeColors.textSecondary} weight="light" />
-                <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No notifications yet</Text>
-                <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
-                    When someone pays your invoice or sends you crypto, I'll let you know here!
-                </Text>
-            </View>
-        ) : (
-            <GestureHandlerRootView style={{ flex: 1 }}>
-                <SectionList
-                    sections={sections}
-                    keyExtractor={(item) => item.id}
-                    renderItem={renderNotification}
-                    renderSectionHeader={({ section: { title } }) => (
-                        <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>{title}</Text>
-                    )}
-                    ListHeaderComponent={renderHeader}
-                    contentContainerStyle={styles.listContent}
-                    stickySectionHeadersEnabled={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={isRefreshing}
-                            onRefresh={handleRefresh}
-                            tintColor={Colors.primary}
-                        />
-                    }
-                />
-            </GestureHandlerRootView>
-        )}
-    </View>
-);
+
+            {/* Content */}
+            {isLoading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                </View>
+            ) : notifications.length === 0 ? (
+                <View style={styles.emptyState}>
+                    <Bell size={64} color={themeColors.textSecondary} weight="light" />
+                    <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No notifications yet</Text>
+                    <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
+                        When someone pays your invoice or sends you crypto, I'll let you know here!
+                    </Text>
+                </View>
+            ) : (
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                    <SectionList
+                        sections={sections}
+                        keyExtractor={(item) => item.id}
+                        renderItem={renderNotification}
+                        renderSectionHeader={({ section: { title } }) => (
+                            <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>{title}</Text>
+                        )}
+                        ListHeaderComponent={renderHeader}
+                        contentContainerStyle={styles.listContent}
+                        stickySectionHeadersEnabled={false}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={handleRefresh}
+                                tintColor={Colors.primary}
+                            />
+                        }
+                    />
+                </GestureHandlerRootView>
+            )}
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
