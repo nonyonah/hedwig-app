@@ -600,12 +600,13 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             console.log('[Contract] Looking up client by email:', normalizedEmail, 'for user:', userData.id);
             
             // Check if client exists by email (case-insensitive)
+            // Use maybeSingle() to avoid error when no client exists
             const { data: existingClient, error: lookupError } = await supabase
                 .from('clients')
                 .select('id, name, email')
                 .eq('user_id', userData.id)
                 .ilike('email', normalizedEmail)
-                .single();
+                .maybeSingle();
 
             console.log('[Contract] Client lookup result:', existingClient, 'Error:', lookupError?.message);
 
@@ -918,11 +919,16 @@ async function handleCreateProject(params: ActionParams, user: any): Promise<Act
             responseText += `📅 Deadline: ${new Date(deadline).toLocaleDateString()}\n`;
         }
 
-        responseText += `\nWould you like to add milestones to this project?`;
+        responseText += `\n---\n\n`;
+        responseText += `**What would you like to do next?**\n\n`;
+        responseText += `📋 **Draft a contract** for this project (recommended)\n`;
+        responseText += `📊 Add milestones to track progress\n`;
+        responseText += `💰 Create an invoice for ${client.name}\n\n`;
+        responseText += `Just let me know!`;
 
         return {
             text: responseText,
-            data: { projectId: project.id, clientId: client.id, type: 'PROJECT' }
+            data: { projectId: project.id, clientId: client.id, clientName: client.name, projectName: title, type: 'PROJECT' }
         };
     } catch (error) {
         console.error('[Actions] Error creating project:', error);
