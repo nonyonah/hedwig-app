@@ -808,6 +808,33 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
 
         const contractUrl = `${process.env.API_URL || 'http://localhost:3000'}/contract/${doc.id}`;
 
+        // ============== SYNC MILESTONES TO PROJECT ==============
+        // If contract is linked to a project and has milestones, create them in the milestones table
+        if (projectId && milestones && milestones.length > 0) {
+            console.log('[Contract] Syncing milestones to project:', projectId);
+            try {
+                const milestonesToInsert = milestones.map((m: any) => ({
+                    project_id: projectId,
+                    title: m.title || m.description || 'Milestone',
+                    amount: parseFloat(m.amount) || 0,
+                    due_date: endDate || null,
+                    status: 'pending'
+                }));
+
+                const { error: msError } = await supabase
+                    .from('milestones')
+                    .insert(milestonesToInsert);
+
+                if (msError) {
+                    console.error('[Contract] Failed to sync milestones:', msError);
+                } else {
+                    console.log('[Contract] Synced', milestonesToInsert.length, 'milestones to project');
+                }
+            } catch (syncError) {
+                console.error('[Contract] Milestone sync error:', syncError);
+            }
+        }
+
         let responseText = `🤝 **Contract Created Successfully**\n\n` +
             `Title: ${title}\n` +
             `Client: ${clientName}`;

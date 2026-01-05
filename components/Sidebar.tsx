@@ -358,10 +358,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 if (hapticsEnabled) {
                                                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                                 }
-                                                if (onLoadConversation) {
-                                                    onLoadConversation(conv.id);
-                                                }
                                                 onClose();
+                                                // Navigate to home with conversationId - works from any page
+                                                if (pathname === '/') {
+                                                    // Already on home, use callback
+                                                    if (onLoadConversation) {
+                                                        onLoadConversation(conv.id);
+                                                    }
+                                                } else {
+                                                    // From other pages, navigate to home with param
+                                                    router.push(`/?conversationId=${conv.id}` as any);
+                                                }
                                             }}
                                             onLongPress={() => {
                                                 if (onDeleteConversation) {
