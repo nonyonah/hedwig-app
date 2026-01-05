@@ -26,6 +26,7 @@ interface ContractData {
         start_date?: string;
         end_date?: string;
         generated_content?: string;
+        approval_token?: string;
     };
     user?: {
         first_name?: string;
@@ -37,7 +38,7 @@ interface ContractData {
 export default function ContractPage() {
     const { id } = useParams<{ id: string }>();
     const [searchParams] = useSearchParams();
-    const approvalToken = searchParams.get('token');
+    const urlToken = searchParams.get('token');
     const approved = searchParams.get('approved');
 
     const [contract, setContract] = useState<ContractData | null>(null);
@@ -74,7 +75,12 @@ export default function ContractPage() {
     }, [id]);
 
     const handleApprove = async () => {
-        if (!id || !approvalToken) return;
+        // Get token from URL or from contract content
+        const approvalToken = urlToken || contract?.content?.approval_token;
+        if (!id || !approvalToken) {
+            alert('No approval token found');
+            return;
+        }
 
         setIsApproving(true);
         try {
@@ -189,8 +195,8 @@ export default function ContractPage() {
                     </div>
                 )}
 
-                {/* Approval Section - Only show if has token and not yet approved */}
-                {approvalToken && !isApproved && (
+                {/* Approval Section - Show if has token (from URL or content) and not yet approved */}
+                {!isApproved && (urlToken || contract.content?.approval_token) && (
                     <div className="approval-section no-print">
                         <button
                             className="approve-button"
