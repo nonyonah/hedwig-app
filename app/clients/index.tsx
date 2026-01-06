@@ -515,8 +515,8 @@ export default function ClientsScreen() {
                                     {/* Company Badge */}
                                     {selectedClient.company && (
                                         <View style={styles.companyBadge}>
-                                            <Buildings size={16} color={Colors.textSecondary} weight="fill" />
-                                            <Text style={styles.companyBadgeText}>{selectedClient.company}</Text>
+                                            <Buildings size={16} color={themeColors.textSecondary} weight="fill" />
+                                            <Text style={[styles.companyBadgeText, { color: themeColors.textSecondary }]}>{selectedClient.company}</Text>
                                         </View>
                                     )}
 

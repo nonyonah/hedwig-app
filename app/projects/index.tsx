@@ -241,33 +241,38 @@ export default function ProjectsScreen() {
         setShowActionMenu(false);
 
         const pendingMilestones = (selectedProject.milestones || []).filter(m => m.status === 'pending');
-        if (pendingMilestones.length === 0) {
-            Alert.alert('No Pending Milestones', 'All milestones have already been processed.');
-            return;
-        }
+
+        // Different confirmation based on whether there are pending milestones
+        const title = 'Complete Project';
+        const message = pendingMilestones.length > 0
+            ? `This will mark the project as completed and generate invoices for ${pendingMilestones.length} pending milestone(s). Continue?`
+            : 'This will mark the project as completed. Continue?';
+        const buttonText = pendingMilestones.length > 0 ? 'Complete & Invoice' : 'Complete';
 
         Alert.alert(
-            'Complete Project',
-            `This will mark the project as completed and generate invoices for ${pendingMilestones.length} pending milestone(s). Continue?`,
+            title,
+            message,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Complete & Invoice',
+                    text: buttonText,
                     onPress: async () => {
                         try {
                             const token = await getAccessToken();
                             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-                            // Generate invoices for all pending milestones
-                            for (const milestone of pendingMilestones) {
-                                await fetch(`${apiUrl}/api/milestones/${milestone.id}/invoice`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Authorization': `Bearer ${token}`,
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({ network: 'base', token: 'USDC' })
-                                });
+                            // Generate invoices for pending milestones only if there are any
+                            if (pendingMilestones.length > 0) {
+                                for (const milestone of pendingMilestones) {
+                                    await fetch(`${apiUrl}/api/milestones/${milestone.id}/invoice`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({ network: 'base', token: 'USDC' })
+                                    });
+                                }
                             }
 
                             // Mark project as completed
@@ -282,7 +287,11 @@ export default function ProjectsScreen() {
 
                             fetchProjects();
                             closeDetailModal();
-                            Alert.alert('Success', `Project completed! ${pendingMilestones.length} invoice(s) generated.`);
+
+                            const successMessage = pendingMilestones.length > 0
+                                ? `Project completed! ${pendingMilestones.length} invoice(s) generated.`
+                                : 'Project marked as completed!';
+                            Alert.alert('Success', successMessage);
                         } catch (error) {
                             console.error('Failed to complete project:', error);
                             Alert.alert('Error', 'Failed to complete project');

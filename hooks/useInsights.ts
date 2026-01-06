@@ -160,31 +160,39 @@ export function useInsights() {
                 });
             }
 
-            // Top Client Analysis
-            const clientMap = new Map<string, number>();
-            allDocs.filter(doc => doc.status === 'PAID').forEach(doc => {
-                const clientName = doc.content?.clientName || doc.content?.client_name || 'Unknown';
-                const amount = typeof doc.amount === 'number' ? doc.amount : parseFloat(String(doc.amount).replace(/[^0-9.]/g, '')) || 0;
-                clientMap.set(clientName, (clientMap.get(clientName) || 0) + amount);
-            });
-
-            const sortedClients = Array.from(clientMap.entries())
-                .sort((a, b) => b[1] - a[1])
-                .filter(([name]) => name !== 'Unknown');
-
-            if (sortedClients.length > 0) {
-                const [topClientName, topClientRevenue] = sortedClients[0];
-                newInsights.push({
-                    id: 'client-top',
-                    type: 'client',
-                    title: 'Top Client',
-                    description: `${topClientName} has paid you $${topClientRevenue.toLocaleString()} in total.`,
-                    icon: 'star.fill',
-                    priority: 2,
-                    color: Colors.primary,
-                    actionLabel: 'View Clients',
-                    actionRoute: '/clients',
+            // Top Client Analysis - fetch from clients API for accurate data
+            try {
+                const clientsRes = await fetch(`${apiUrl}/api/clients`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
+                
+                if (clientsRes.ok) {
+                    const clientsData = await clientsRes.json();
+                    if (clientsData.success && clientsData.data?.clients) {
+                        const clients = clientsData.data.clients;
+                        // Sort by totalEarnings to find top client
+                        const sortedClients = [...clients]
+                            .filter((c: any) => c.totalEarnings > 0)
+                            .sort((a: any, b: any) => (b.totalEarnings || 0) - (a.totalEarnings || 0));
+                        
+                        if (sortedClients.length > 0) {
+                            const topClient = sortedClients[0];
+                            newInsights.push({
+                                id: 'client-top',
+                                type: 'client',
+                                title: 'Top Client',
+                                description: `${topClient.name} has paid you $${topClient.totalEarnings.toLocaleString()} in total.`,
+                                icon: 'star.fill',
+                                priority: 2,
+                                color: Colors.primary,
+                                actionLabel: 'View Clients',
+                                actionRoute: '/clients',
+                            });
+                        }
+                    }
+                }
+            } catch (clientError) {
+                console.log('Failed to fetch clients for top client insight:', clientError);
             }
 
             // Payment success rate
@@ -203,6 +211,93 @@ export function useInsights() {
                     color: paymentRate >= 80 ? Colors.success : paymentRate >= 50 ? Colors.warning : Colors.error,
                     trend: paymentRate >= 80 ? 'up' : paymentRate >= 50 ? 'neutral' : 'down',
                 });
+            }
+
+            // Transaction insights - fetch from transactions API
+            try {
+                const txRes = await fetch(`${apiUrl}/api/transactions`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (txRes.ok) {
+                    const txData = await txRes.json();
+                    if (txData.success && txData.data?.transactions) {
+                        const transactions = txData.data.transactions;
+                        const now = new Date();
+                        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                        
+                        // Count transactions this month
+                        const txThisMonth = transactions.filter((tx: any) => 
+                            new Date(tx.createdAt) >= startOfMonth
+                        );
+                        
+                        // Calculate total received this month
+                        const receivedThisMonth = txThisMonth
+                            .filter((tx: any) => tx.type === 'PAYMENT_RECEIVED' && tx.status === 'CONFIRMED')
+                            .reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+                        
+                        if (transactions.length > 0) {
+                            newInsights.push({
+                                id: 'transactions',
+                                type: 'generic',
+                                title: 'Transactions',
+                                description: `${txThisMonth.length} transactions this month. $${receivedThisMonth.toLocaleString()} received.`,
+                                icon: 'arrow.left.arrow.right',
+                                priority: 3,
+                                color: Colors.primary,
+                            });
+                        }
+                    }
+                }
+            } catch (txError) {
+                console.log('Failed to fetch transactions for insights:', txError);
+            }
+
+            // Offramp/Withdrawal insights
+            try {
+                const offrampRes = await fetch(`${apiUrl}/api/offramp/orders`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (offrampRes.ok) {
+                    const offrampData = await offrampRes.json();
+                    if (offrampData.success && offrampData.data?.orders) {
+                        const orders = offrampData.data.orders;
+                        const now = new Date();
+                        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                        
+                        // Count withdrawals this month
+                        const withdrawalsThisMonth = orders.filter((o: any) => 
+                            new Date(o.createdAt) >= startOfMonth
+                        );
+                        
+                        // Calculate total withdrawn this month
+                        const totalWithdrawn = withdrawalsThisMonth
+                            .filter((o: any) => o.status === 'COMPLETED')
+                            .reduce((sum: number, o: any) => sum + (o.fiatAmount || 0), 0);
+                        
+                        // Check for pending withdrawals
+                        const pendingWithdrawals = orders.filter((o: any) => 
+                            o.status === 'PENDING' || o.status === 'PROCESSING'
+                        );
+                        
+                        if (orders.length > 0) {
+                            newInsights.push({
+                                id: 'withdrawals',
+                                type: 'generic',
+                                title: 'Withdrawals',
+                                description: pendingWithdrawals.length > 0 
+                                    ? `${pendingWithdrawals.length} withdrawal${pendingWithdrawals.length > 1 ? 's' : ''} pending. ₦${totalWithdrawn.toLocaleString()} withdrawn this month.`
+                                    : `${withdrawalsThisMonth.length} withdrawal${withdrawalsThisMonth.length !== 1 ? 's' : ''} this month. ₦${totalWithdrawn.toLocaleString()} total.`,
+                                icon: 'arrow.down.to.line',
+                                priority: pendingWithdrawals.length > 0 ? 8 : 2,
+                                color: pendingWithdrawals.length > 0 ? Colors.warning : Colors.success,
+                            });
+                        }
+                    }
+                }
+            } catch (offrampError) {
+                console.log('Failed to fetch offramp orders for insights:', offrampError);
             }
 
             // Sort by priority (descending)

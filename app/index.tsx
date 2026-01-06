@@ -593,23 +593,25 @@ export default function HomeScreen() {
     // Toggle attachment expansion with animation
     const toggleAttachmentExpand = useCallback(() => {
         if (isAttachmentExpanded) {
-            // Closing: animate out first, then hide
+            // Closing: animate rotation and fade, then change layout
             Animated.parallel([
                 Animated.timing(attachmentRotation, {
                     toValue: 0,
-                    duration: 200,
+                    duration: 150,
                     useNativeDriver: true,
                 }),
                 Animated.timing(attachmentMenuAnim, {
                     toValue: 0,
-                    duration: 200,
+                    duration: 150,
                     useNativeDriver: true,
                 }),
             ]).start(() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                 setIsAttachmentExpanded(false);
             });
         } else {
-            // Opening: show first, then animate in
+            // Opening: change layout first, then animate in
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setIsAttachmentExpanded(true);
             Animated.parallel([
                 Animated.spring(attachmentRotation, {
@@ -626,6 +628,27 @@ export default function HomeScreen() {
                 }),
             ]).start();
         }
+    }, [isAttachmentExpanded, attachmentRotation, attachmentMenuAnim]);
+
+    // Close attachment menu with animation (for use on input focus, etc.)
+    const closeAttachmentMenu = useCallback(() => {
+        if (!isAttachmentExpanded) return;
+
+        Animated.parallel([
+            Animated.timing(attachmentRotation, {
+                toValue: 0,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+            Animated.timing(attachmentMenuAnim, {
+                toValue: 0,
+                duration: 150,
+                useNativeDriver: true,
+            }),
+        ]).start(() => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setIsAttachmentExpanded(false);
+        });
     }, [isAttachmentExpanded, attachmentRotation, attachmentMenuAnim]);
 
     // Handle suggestion chip press
@@ -1341,7 +1364,7 @@ export default function HomeScreen() {
                                     placeholderTextColor={Colors.textPlaceholder}
                                     multiline
                                     maxLength={1000}
-                                    onFocus={() => setIsAttachmentExpanded(false)}
+                                    onFocus={closeAttachmentMenu}
                                     keyboardAppearance={keyboardAppearance}
                                 />
                             </View>
@@ -1594,14 +1617,14 @@ const styles = StyleSheet.create({
         lineHeight: 24,
     },
     inputContainer: {
-        paddingVertical: 16,
-        paddingHorizontal: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 6,
         // backgroundColor: '#FFFFFF', // Overridden
     },
     quickActionsBar: {
         flexDirection: 'row',
         gap: 8,
-        marginBottom: 12,
+        marginBottom: 8,
     },
     quickActionButton: {
         flexDirection: 'row',
@@ -1624,7 +1647,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         // backgroundColor: '#f5f5f5', // Overridden
         borderRadius: 24,
-        padding: 8,
+        padding: 6,
     },
     inputRow: {
         flexDirection: 'row',

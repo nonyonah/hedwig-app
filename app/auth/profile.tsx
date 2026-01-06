@@ -186,7 +186,7 @@ export default function ProfileScreen() {
                     Alert.alert('Success', 'Profile updated successfully');
                     router.back();
                 } else {
-                    router.replace('/auth/biometrics');
+                    router.replace('/auth/goal');
                 }
             } else {
                 throw new Error(data.error?.message || 'Failed to create profile');

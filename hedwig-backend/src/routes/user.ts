@@ -57,6 +57,7 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             baseWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
             solanaWalletAddress: user.solana_wallet_address,
             stacksWalletAddress: user.stacks_wallet_address,
+            monthlyTarget: user.monthly_target,
             createdAt: user.created_at,
             updatedAt: user.updated_at,
             lastLogin: user.last_login,
@@ -82,7 +83,7 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
  */
 router.patch('/profile', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { firstName, lastName, email, avatar } = req.body;
+        const { firstName, lastName, email, avatar, monthlyTarget } = req.body;
         const privyId = req.user!.privyId;
 
         const updateData: any = {};
@@ -90,16 +91,34 @@ router.patch('/profile', authenticate, async (req: Request, res: Response, next)
         if (lastName !== undefined) updateData.last_name = lastName;
         if (email !== undefined) updateData.email = email;
         if (avatar !== undefined) updateData.avatar = avatar;
+        if (monthlyTarget !== undefined) updateData.monthly_target = monthlyTarget;
+
+        // Check if there's anything to update
+        if (Object.keys(updateData).length === 0) {
+            res.status(400).json({
+                success: false,
+                error: { message: 'No fields to update' },
+            });
+            return;
+        }
 
         const { data: user, error } = await supabase
             .from('users')
             .update(updateData)
             .eq('privy_id', privyId)
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) {
             throw new Error(`Failed to update profile: ${error.message}`);
+        }
+
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found' },
+            });
+            return;
         }
 
         // Map snake_case to camelCase
@@ -113,6 +132,7 @@ router.patch('/profile', authenticate, async (req: Request, res: Response, next)
             ethereumWalletAddress: user.ethereum_wallet_address,
             baseWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
             solanaWalletAddress: user.solana_wallet_address,
+            monthlyTarget: user.monthly_target,
             createdAt: user.created_at,
             updatedAt: user.updated_at,
             lastLogin: user.last_login,

@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInsights } from '../../hooks/useInsights';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
+import { TargetGoalModal } from '../../components/TargetGoalModal';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
@@ -120,8 +121,11 @@ export default function InsightsScreen() {
 
     // Calculate earnings values from insight data
     const monthlyEarnings = earningsInsight?.value ? parseInt(earningsInsight.value.replace(/[$,]/g, '')) : 0;
-    const monthlyTarget = 10000; // TODO: Make this user-configurable via settings
+    const [monthlyTarget, setMonthlyTarget] = useState(10000);
     const earningsChange = earningsInsight?.trend === 'up' ? '+23%' : '-5%';
+
+    // Target goal modal state
+    const [isTargetModalVisible, setIsTargetModalVisible] = useState(false);
 
     // Profile and Sidebar state
     const { getAccessToken, user } = usePrivy();
@@ -134,6 +138,19 @@ export default function InsightsScreen() {
         colorIndex: 0
     });
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
+
+    // Stats data from backend
+    const [statsData, setStatsData] = useState({
+        clientsCount: 0,
+        projectsCount: 0,
+        paymentLinksCount: 0,
+        topClient: null as { name: string; totalEarnings: number } | null,
+        pendingInvoicesCount: 0,
+        pendingInvoicesTotal: 0,
+        paymentRate: 0,
+        totalDocuments: 0,
+        paidDocuments: 0,
+    });
 
     // Profile color gradient options
     const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
@@ -180,6 +197,11 @@ export default function InsightsScreen() {
                         evm: userData.ethereumWalletAddress,
                         solana: userData.solanaWalletAddress
                     });
+
+                    // Load monthly target from backend
+                    if (userData.monthlyTarget) {
+                        setMonthlyTarget(userData.monthlyTarget);
+                    }
                 }
 
                 const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
@@ -191,6 +213,102 @@ export default function InsightsScreen() {
                         setConversations(conversationsData.data.slice(0, 10));
                     }
                 }
+
+                // Fetch clients for stats
+                const clientsResponse = await fetch(`${apiUrl}/api/clients`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+                let clientsCount = 0;
+                let topClient = null;
+                if (clientsResponse.ok) {
+                    const clientsData = await clientsResponse.json();
+                    if (clientsData.success && clientsData.data?.clients) {
+                        const clients = clientsData.data.clients;
+                        clientsCount = clients.length;
+                        // Find top client by totalEarnings
+                        if (clients.length > 0) {
+                            const sorted = [...clients].sort((a: any, b: any) => (b.totalEarnings || 0) - (a.totalEarnings || 0));
+                            if (sorted[0]?.totalEarnings > 0) {
+                                topClient = { name: sorted[0].name, totalEarnings: sorted[0].totalEarnings };
+                            }
+                        }
+                    }
+                }
+
+                // Fetch projects for stats
+                const projectsResponse = await fetch(`${apiUrl}/api/projects`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+                let projectsCount = 0;
+                if (projectsResponse.ok) {
+                    const projectsData = await projectsResponse.json();
+                    if (projectsData.success && projectsData.data?.projects) {
+                        // Only count active/ongoing projects, not completed ones
+                        const activeProjects = projectsData.data.projects.filter((p: any) =>
+                            p.status === 'ongoing' || p.status === 'active' || p.status === 'on_hold'
+                        );
+                        projectsCount = activeProjects.length;
+                    }
+                }
+
+                // Fetch documents for payment links count and payment rate
+                const [invoicesRes, linksRes] = await Promise.all([
+                    fetch(`${apiUrl}/api/documents?type=INVOICE`, {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                    }),
+                    fetch(`${apiUrl}/api/documents?type=PAYMENT_LINK`, {
+                        headers: { 'Authorization': `Bearer ${token}` },
+                    }),
+                ]);
+
+                let paymentLinksCount = 0;
+                let pendingInvoicesCount = 0;
+                let pendingInvoicesTotal = 0;
+                let paidDocuments = 0;
+                let totalDocuments = 0;
+
+                if (linksRes.ok) {
+                    const linksData = await linksRes.json();
+                    if (linksData.success && linksData.data?.documents) {
+                        paymentLinksCount = linksData.data.documents.length;
+                        totalDocuments += linksData.data.documents.length;
+                        paidDocuments += linksData.data.documents.filter((d: any) => d.status === 'PAID').length;
+                    }
+                }
+
+                if (invoicesRes.ok) {
+                    const invoicesData = await invoicesRes.json();
+                    if (invoicesData.success && invoicesData.data?.documents) {
+                        const invoices = invoicesData.data.documents;
+                        totalDocuments += invoices.length;
+                        paidDocuments += invoices.filter((d: any) => d.status === 'PAID').length;
+
+                        // Calculate pending invoices
+                        const pending = invoices.filter((d: any) =>
+                            d.status === 'SENT' || d.status === 'VIEWED' || d.status === 'PENDING' || d.status === 'DRAFT'
+                        );
+                        pendingInvoicesCount = pending.length;
+                        pendingInvoicesTotal = pending.reduce((sum: number, doc: any) => {
+                            const amount = typeof doc.amount === 'number' ? doc.amount : parseFloat(String(doc.amount).replace(/[^0-9.]/g, '')) || 0;
+                            return sum + amount;
+                        }, 0);
+                    }
+                }
+
+                const paymentRate = totalDocuments > 0 ? Math.round((paidDocuments / totalDocuments) * 100) : 0;
+
+                setStatsData({
+                    clientsCount,
+                    projectsCount,
+                    paymentLinksCount,
+                    topClient,
+                    pendingInvoicesCount,
+                    pendingInvoicesTotal,
+                    paymentRate,
+                    totalDocuments,
+                    paidDocuments,
+                });
+
             } catch (error) {
                 console.error('Failed to fetch user data:', error);
             }
@@ -198,7 +316,7 @@ export default function InsightsScreen() {
         fetchUserData();
     }, [user]);
 
-    // Build stats from real insight data
+    // Build stats from real backend data
     const stats = [
         {
             label: 'Monthly Earnings',
@@ -208,28 +326,40 @@ export default function InsightsScreen() {
         },
         {
             label: 'Pending Invoices',
-            value: invoiceInsight ? invoiceInsight.description.match(/\d+/)?.[0] || '0' : '0',
-            comparison: invoiceInsight?.value || '$0 total',
-            trend: 'neutral' as const
+            value: String(statsData.pendingInvoicesCount),
+            comparison: statsData.pendingInvoicesTotal > 0 ? `$${statsData.pendingInvoicesTotal.toLocaleString()} total` : '$0 total',
+            trend: statsData.pendingInvoicesCount > 0 ? 'down' as const : 'neutral' as const
         },
         {
             label: 'Active Clients',
-            value: '3',
-            comparison: clientInsight ? `Top: ${clientInsight.description.split(' ')[0]}` : '',
-            trend: 'up' as const
+            value: String(statsData.clientsCount),
+            comparison: statsData.topClient ? `Top: ${statsData.topClient.name}` : '',
+            trend: statsData.clientsCount > 0 ? 'up' as const : 'neutral' as const
         },
         {
             label: 'Payment Rate',
-            value: '94%',
-            comparison: '+12%',
-            trend: 'up' as const
+            value: `${statsData.paymentRate}%`,
+            comparison: `${statsData.paidDocuments}/${statsData.totalDocuments} paid`,
+            trend: statsData.paymentRate >= 80 ? 'up' as const : statsData.paymentRate >= 50 ? 'neutral' as const : 'down' as const
+        },
+        {
+            label: 'Payment Links',
+            value: String(statsData.paymentLinksCount),
+            comparison: 'total created',
+            trend: 'neutral' as const
+        },
+        {
+            label: 'Projects',
+            value: String(statsData.projectsCount),
+            comparison: 'in progress',
+            trend: statsData.projectsCount > 0 ? 'up' as const : 'neutral' as const
         },
     ];
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             {/* Header */}
-            <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? insets.top : 0 }]}>
+            <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <TouchableOpacity
                     onPress={() => setIsSidebarOpen(true)}
                     style={styles.menuButton}
@@ -275,7 +405,7 @@ export default function InsightsScreen() {
                         <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Monthly Progress</Text>
                         <TouchableOpacity
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            onPress={() => router.push('/settings')}
+                            onPress={() => setIsTargetModalVisible(true)}
                         >
                             <Gear size={18} color={themeColors.textSecondary} />
                         </TouchableOpacity>
@@ -377,9 +507,17 @@ export default function InsightsScreen() {
             <ProfileModal
                 visible={isProfileModalVisible}
                 onClose={() => setIsProfileModalVisible(false)}
-                userName={userName}
+                user={user}
                 walletAddresses={walletAddresses}
-                profileIcon={profileIcon}
+            />
+
+            <TargetGoalModal
+                visible={isTargetModalVisible}
+                currentTarget={monthlyTarget}
+                onClose={() => setIsTargetModalVisible(false)}
+                onSave={(newTarget) => setMonthlyTarget(newTarget)}
+                user={user}
+                getAccessToken={getAccessToken}
             />
         </SafeAreaView>
     );
@@ -394,7 +532,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingVertical: 12,
+        paddingVertical: 16,
     },
     menuButton: {
         width: 40,
