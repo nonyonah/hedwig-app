@@ -362,12 +362,6 @@ export default function OfframpHistoryScreen() {
         );
     };
 
-    const currentDate = new Date().toLocaleDateString('en-US', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long'
-    }).toUpperCase();
-
     return (
         <View style={{ flex: 1, backgroundColor: themeColors.background }}>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
@@ -375,6 +369,7 @@ export default function OfframpHistoryScreen() {
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
                         <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
                     <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
                         {profileIcon.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
@@ -391,12 +386,6 @@ export default function OfframpHistoryScreen() {
                             />
                         )}
                     </TouchableOpacity>
-                </View>
-
-                {/* Date & Title */}
-                <View style={styles.titleContainer}>
-                    <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{currentDate}</Text>
-                    <Text style={[styles.pageTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
                 </View>
 
                 {/* Filter Chips */}
@@ -601,20 +590,6 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22,
         color: Colors.textPrimary,
-    },
-    titleContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-    },
-    dateText: {
-        fontFamily: 'GoogleSansFlex_500Medium',
-        fontSize: 12,
-        letterSpacing: 1,
-        marginBottom: 4,
-    },
-    pageTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
     },
     profileIcon: {
         width: 32,

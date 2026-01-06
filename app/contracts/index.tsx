@@ -320,12 +320,6 @@ export default function ContractsScreen() {
         );
     };
 
-    const currentDate = new Date().toLocaleDateString('en-US', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long'
-    }).toUpperCase();
-
     return (
         <View style={{ flex: 1 }}>
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -333,6 +327,7 @@ export default function ContractsScreen() {
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
                         <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Contracts</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>
                         {profileIcon.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
@@ -349,12 +344,6 @@ export default function ContractsScreen() {
                             />
                         )}
                     </TouchableOpacity>
-                </View>
-
-                {/* Date & Title */}
-                <View style={styles.titleContainer}>
-                    <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{currentDate}</Text>
-                    <Text style={[styles.pageTitle, { color: themeColors.textPrimary }]}>Contracts</Text>
                 </View>
 
                 {/* Filter Chips */}
@@ -603,20 +592,6 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22,
-    },
-    titleContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-    },
-    dateText: {
-        fontFamily: 'GoogleSansFlex_500Medium',
-        fontSize: 12,
-        letterSpacing: 1,
-        marginBottom: 4,
-    },
-    pageTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
     },
     profileIcon: {
         width: 32,

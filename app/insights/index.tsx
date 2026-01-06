@@ -226,12 +226,6 @@ export default function InsightsScreen() {
         },
     ];
 
-    const currentDate = new Date().toLocaleDateString('en-US', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long'
-    }).toUpperCase();
-
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             {/* Header */}
@@ -243,6 +237,7 @@ export default function InsightsScreen() {
                 >
                     <List size={24} color={themeColors.textPrimary} weight="bold" />
                 </TouchableOpacity>
+                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Insights</Text>
                 <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
                     {profileIcon.imageUri ? (
                         <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
@@ -266,10 +261,6 @@ export default function InsightsScreen() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Date & Title */}
-                <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{currentDate}</Text>
-                <Text style={[styles.pageTitle, { color: themeColors.textPrimary }]}>Insights</Text>
-
                 {/* AI Disclaimer */}
                 <View style={[styles.disclaimer, { backgroundColor: themeColors.surface }]}>
                     <Sparkle size={16} color={Colors.primary} weight="fill" />
@@ -417,6 +408,10 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: 'hidden',
     },
+    headerTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 22,
+    },
     content: {
         flex: 1,
     },
@@ -424,18 +419,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingBottom: 40,
     },
-    dateText: {
-        fontSize: 12,
-        fontFamily: 'GoogleSansFlex_500Medium',
-        letterSpacing: 1,
-        marginBottom: 4,
-    },
-    pageTitle: {
-        fontSize: 28,
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        marginBottom: 16,
-    },
-    // AI Disclaimer
     disclaimer: {
         flexDirection: 'row',
         alignItems: 'center',

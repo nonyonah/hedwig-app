@@ -348,12 +348,6 @@ export default function NotificationsScreen() {
         </View>
     );
 
-    const currentDate = new Date().toLocaleDateString('en-US', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long'
-    }).toUpperCase();
-
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Header */}
@@ -364,17 +358,12 @@ export default function NotificationsScreen() {
                 >
                     <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
                 </TouchableOpacity>
+                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Notifications</Text>
                 <View style={{ width: 100, alignItems: 'flex-end' }}>
                     <TouchableOpacity onPress={markAllAsRead}>
                         <Text style={styles.markAsDoneText}>Mark as done</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
-
-            {/* Date & Title */}
-            <View style={styles.titleContainer}>
-                <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{currentDate}</Text>
-                <Text style={[styles.pageTitle, { color: themeColors.textPrimary }]}>Notifications</Text>
             </View>
 
             {/* Content */}
@@ -441,20 +430,6 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
         textAlign: 'center',
         flex: 1,
-    },
-    titleContainer: {
-        paddingHorizontal: 20,
-        marginBottom: 16,
-    },
-    dateText: {
-        fontSize: 12,
-        fontFamily: 'GoogleSansFlex_500Medium',
-        letterSpacing: 1,
-        marginBottom: 4,
-    },
-    pageTitle: {
-        fontSize: 28,
-        fontFamily: 'GoogleSansFlex_600SemiBold',
     },
     markAsDoneText: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
