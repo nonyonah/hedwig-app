@@ -321,6 +321,12 @@ export default function PaymentLinksScreen() {
         );
     };
 
+    const currentDate = new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
+    }).toUpperCase();
+
     return (
         <View style={{ flex: 1 }}>
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -328,7 +334,6 @@ export default function PaymentLinksScreen() {
                     <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
                         <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Payment Links</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>
                         {profileIcon.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
@@ -345,6 +350,12 @@ export default function PaymentLinksScreen() {
                             />
                         )}
                     </TouchableOpacity>
+                </View>
+
+                {/* Date & Title */}
+                <View style={styles.titleContainer}>
+                    <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{currentDate}</Text>
+                    <Text style={[styles.pageTitle, { color: themeColors.textPrimary }]}>Payment Links</Text>
                 </View>
 
                 {/* Filter Chips */}
@@ -677,6 +688,20 @@ const styles = StyleSheet.create({
         height: 32,
         borderRadius: 16,
         backgroundColor: Colors.primary,
+    },
+    titleContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 16,
+    },
+    dateText: {
+        fontSize: 12,
+        fontFamily: 'GoogleSansFlex_500Medium',
+        letterSpacing: 1,
+        marginBottom: 4,
+    },
+    pageTitle: {
+        fontSize: 28,
+        fontFamily: 'GoogleSansFlex_600SemiBold',
     },
     filterContainer: {
         marginBottom: 16,

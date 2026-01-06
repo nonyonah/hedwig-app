@@ -578,6 +578,8 @@ export default function HomeScreen() {
     }, [messages.length]);
 
     // Show chat onboarding tip on first visit
+    // Show chat onboarding tip on first visit (Disabled to prevent overlay conflict)
+    /*
     useEffect(() => {
         if (shouldShowTip('hasSeenChatTip') && messages.length === 0) {
             const timer = setTimeout(() => {
@@ -586,6 +588,7 @@ export default function HomeScreen() {
             return () => clearTimeout(timer);
         }
     }, [shouldShowTip, messages.length]);
+    */
 
     // Toggle attachment expansion with animation
     const toggleAttachmentExpand = useCallback(() => {
@@ -1527,7 +1530,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 20,
-        marginTop: -60, // Visual balance
+        marginTop: -20, // Adjusted for insights
+        paddingBottom: 40,
+    },
+    insightsWrapper: {
+        width: '100%',
+        marginBottom: 32,
     },
     logoText: {
         fontFamily: 'Merriweather_700Bold',

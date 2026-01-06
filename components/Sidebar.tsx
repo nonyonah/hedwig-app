@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Share } from 'react-native';
 import { useRouter, usePathname, Link } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link as LinkIcon, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase, FileText } from 'phosphor-react-native';
+import { House, Link as LinkIcon, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase, FileText, ChartBar } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -343,6 +343,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     'Contracts',
                                     pathname === '/contracts',
                                     () => handleNavigation('/contracts')
+                                )}
+                                {renderMenuItem(
+                                    <ChartBar size={22} weight="bold" />,
+                                    'Insights',
+                                    pathname === '/insights',
+                                    () => handleNavigation('/insights')
                                 )}
                             </View>
 

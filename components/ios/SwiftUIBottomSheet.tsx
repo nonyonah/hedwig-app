@@ -47,6 +47,8 @@ export const SwiftUIBottomSheet: React.FC<SwiftUIBottomSheetProps> = ({
 
     // iOS: Use native SwiftUI BottomSheet
     if (Platform.OS === 'ios' && Host && BottomSheet) {
+        if (!isOpen) return null; // Prevent Host from rendering overlay when closed
+
         return (
             <Host
                 style={{

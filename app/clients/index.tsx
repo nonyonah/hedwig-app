@@ -431,6 +431,12 @@ export default function ClientsScreen() {
         );
     }
 
+    const currentDate = new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
+    }).toUpperCase();
+
     return (
         <>
             {sidebarElement}
@@ -440,7 +446,6 @@ export default function ClientsScreen() {
                     <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setIsSidebarOpen(true); }}>
                         <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Clients</Text>
                     <View style={styles.headerRight}>
                         <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openFormModal(); }}>
                             <Plus size={24} color={themeColors.textPrimary} />
@@ -462,6 +467,12 @@ export default function ClientsScreen() {
                             )}
                         </TouchableOpacity>
                     </View>
+                </View>
+
+                {/* Date & Title */}
+                <View style={styles.titleContainer}>
+                    <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{currentDate}</Text>
+                    <Text style={[styles.pageTitle, { color: themeColors.textPrimary }]}>Clients</Text>
                 </View>
 
                 {/* Client List */}
@@ -728,6 +739,20 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 16,
+    },
+    titleContainer: {
+        paddingHorizontal: 20,
+        paddingBottom: 16,
+    },
+    dateText: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 12,
+        letterSpacing: 1,
+        marginBottom: 4,
+    },
+    pageTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 28,
     },
     profileIcon: {
         width: 32,

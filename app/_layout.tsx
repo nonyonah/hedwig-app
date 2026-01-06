@@ -68,6 +68,7 @@ function ThemedStack() {
             <Stack.Screen name="payment-links/index" />
             <Stack.Screen name="settings/index" />
             <Stack.Screen name="notifications/index" />
+            <Stack.Screen name="insights/index" />
         </Stack>
     );
 }
@@ -95,6 +96,7 @@ function WebLayout() {
             <Stack.Screen name="payment-links/index" />
             <Stack.Screen name="settings/index" />
             <Stack.Screen name="notifications/index" />
+            <Stack.Screen name="insights/index" />
         </Stack>
     );
 }

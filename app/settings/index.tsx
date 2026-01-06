@@ -382,6 +382,12 @@ export default function SettingsScreen() {
         </Modal>
     );
 
+    const currentDate = new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
+    }).toUpperCase();
+
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Header */}
@@ -392,11 +398,13 @@ export default function SettingsScreen() {
                 >
                     <List size={24} color={themeColors.textPrimary} weight="bold" />
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Settings</Text>
-                <View style={styles.headerButton} />
+                <View style={styles.headerSpacer} />
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+                {/* Date & Title */}
+                <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{currentDate}</Text>
+                <Text style={[styles.pageTitle, { color: themeColors.textPrimary }]}>Settings</Text>
 
                 {/* Profile Settings */}
                 <View style={styles.sectionHeaderContainer}>
@@ -574,6 +582,20 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22, // Increased from 18
         color: Colors.textPrimary,
+    },
+    headerSpacer: {
+        width: 40,
+    },
+    dateText: {
+        fontSize: 12,
+        fontFamily: 'GoogleSansFlex_500Medium',
+        letterSpacing: 1,
+        marginBottom: 4,
+    },
+    pageTitle: {
+        fontSize: 28,
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        marginBottom: 24,
     },
     content: {
         padding: 20,
