@@ -34,7 +34,9 @@ async function verifyTokenWithRetry(token: string, retries = 3): Promise<any> {
             // Use cached verification if available and recent
             const now = Date.now();
             if (verificationKeyCache && (now - cacheTimestamp) < CACHE_DURATION) {
-                console.log('[Auth] Using cached verification key');
+                if (process.env.DEBUG_AUTH === 'true') {
+                    console.log('[Auth] Using cached verification key');
+                }
             }
 
             const claims = await privy.verifyAuthToken(token);
@@ -76,8 +78,9 @@ export const authenticate = async (
         }
 
         const token = authHeader.split(' ')[1];
-        console.log('[Auth] Token received (first 20 chars):', token?.substring(0, 20) + '...');
-        console.log('[Auth] Token length:', token?.length);
+        if (process.env.DEBUG_AUTH === 'true') {
+            console.log('[Auth] Token received: [REDACTED], length:', token?.length);
+        }
 
         // Verify token with Privy (with retry logic)
         const claims = await verifyTokenWithRetry(token);

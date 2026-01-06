@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { CheckCircle, DownloadSimple, FileText, PaperPlaneTilt, Printer } from '@phosphor-icons/react';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import './ContractPage.css';
 
 interface Milestone {
@@ -189,7 +190,7 @@ export default function ContractPage() {
                         <div
                             className="markdown-body"
                             dangerouslySetInnerHTML={{
-                                __html: marked.parse(contract.content.generated_content) as string,
+                                __html: DOMPurify.sanitize(marked.parse(contract.content.generated_content) as string),
                             }}
                         />
                     </div>

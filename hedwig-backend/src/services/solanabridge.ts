@@ -257,8 +257,9 @@ export class SolanaBridgeService {
             );
         }
 
-        // Generate a unique bridge ID
-        const bridgeId = `bridge_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        // Generate a unique bridge ID using cryptographically secure random bytes
+        const crypto = await import('crypto');
+        const bridgeId = `bridge_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
 
         // Serialize transaction for client signing
         const serializedTransaction = transaction.serialize({
