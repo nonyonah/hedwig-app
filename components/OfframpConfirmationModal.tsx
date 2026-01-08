@@ -315,7 +315,32 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
             console.log('[Offramp] Token transfer tx:', txHash);
             setStatusMessage('Waiting for confirmation...');
 
-            // 4. Update order with tx hash via backend
+            // 4. Log transaction to backend for AI insights
+            try {
+                await fetch(`${apiUrl}/api/transactions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'OFFRAMP',
+                        txHash: txHash,
+                        amount: data.amount,
+                        token: data.token,
+                        chain: network.toUpperCase(),
+                        fromAddress: walletAddress,
+                        toAddress: order.receiveAddress,
+                        status: 'PENDING',
+                        amountInNgn: estimatedFiat ? parseFloat(estimatedFiat) : null,
+                    })
+                });
+                console.log('[Offramp] Transaction logged to backend');
+            } catch (logError) {
+                console.log('[Offramp] Failed to log transaction (non-fatal):', logError);
+            }
+
+            // 5. Update order with tx hash via backend
             try {
                 await fetch(`${apiUrl}/api/offramp/orders/${order.id}`, {
                     method: 'PATCH',

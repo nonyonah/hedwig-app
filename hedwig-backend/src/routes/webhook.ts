@@ -176,16 +176,19 @@ async function processPaymentEvent(data: {
         const { error: insertError } = await supabase
             .from('transactions')
             .upsert({
+                user_id: invoiceDetails?.user_id,
                 tx_hash: data.txId,
-                type: 'PAYMENT',
+                type: 'PAYMENT_RECEIVED',
                 status: 'CONFIRMED',
-                amount: amountStx.toString(),
+                chain: 'STACKS' as any,
+                amount: amountStx,
                 token: 'STX',
-                network: 'stacks',
                 from_address: data.sender,
                 to_address: recipient,
-                block_height: data.blockHeight,
-                confirmed_at: new Date().toISOString(),
+                block_number: data.blockHeight,
+                timestamp: new Date().toISOString(),
+                platform_fee: 0,
+                document_id: invoiceId || null,
             }, { onConflict: 'tx_hash' });
 
         if (insertError) {
@@ -252,6 +255,9 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
         console.log(`[Alchemy] Processing transfer on ${network}:`, transfer);
 
         try {
+            // Track document for transaction recording
+            let document: any = null;
+
             // Find user by wallet address (recipient)
             const { data: recipientUser } = await supabase
                 .from('users')
@@ -261,7 +267,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
 
             if (recipientUser) {
                 // Check if this payment is for an invoice or payment link
-                const { data: document } = await supabase
+                const { data: foundDoc } = await supabase
                     .from('documents')
                     .select('*')
                     .eq('user_id', recipientUser.id)
@@ -270,6 +276,8 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .single();
+
+                document = foundDoc;
 
                 // Build notification message with client/document details
                 const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
@@ -343,20 +351,26 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
             }
 
             // Record the transaction
-            await supabase
-                .from('transactions')
-                .upsert({
-                    tx_hash: transfer.txHash,
-                    type: 'TRANSFER',
-                    status: 'CONFIRMED',
-                    amount: transfer.value.toString(),
-                    token: transfer.asset,
-                    network: network,
-                    from_address: transfer.from,
-                    to_address: transfer.to,
-                    block_height: parseInt(transfer.blockNumber, 16),
-                    confirmed_at: new Date().toISOString(),
-                }, { onConflict: 'tx_hash' });
+            const txUserId = recipientUser?.id || senderUser?.id;
+            if (txUserId) {
+                await supabase
+                    .from('transactions')
+                    .upsert({
+                        user_id: txUserId,
+                        document_id: document?.id || null,
+                        tx_hash: transfer.txHash,
+                        type: recipientUser ? 'PAYMENT_RECEIVED' : 'PAYMENT_SENT',
+                        status: 'CONFIRMED',
+                        chain: network.toUpperCase() === 'BASE' ? 'BASE' : 'BASE' as any,
+                        amount: parseFloat(transfer.value.toString()),
+                        token: transfer.asset,
+                        from_address: transfer.from,
+                        to_address: transfer.to,
+                        block_number: parseInt(transfer.blockNumber, 16),
+                        timestamp: new Date().toISOString(),
+                        platform_fee: 0,
+                    }, { onConflict: 'tx_hash' });
+            }
 
         } catch (err) {
             console.error('[Alchemy] Error processing activity:', err);
@@ -382,17 +396,24 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
         console.log(`[Alchemy] Processing Solana transfer:`, transfer);
 
         try {
+            // Track users and document for transaction recording
+            let recipientUser: { id: string; privy_id: string } | null = null;
+            let senderUser: { id: string; privy_id: string } | null = null;
+            let document: any = null;
+
             // Find user by Solana wallet address (recipient)
             if (transfer.to) {
-                const { data: recipientUser } = await supabase
+                const { data: foundRecipient } = await supabase
                     .from('users')
                     .select('id, privy_id')
                     .or(`solana_address.eq.${transfer.to},wallet_address.eq.${transfer.to}`)
                     .single();
 
+                recipientUser = foundRecipient;
+
                 if (recipientUser) {
                     // Check if this payment is for an invoice or payment link
-                    const { data: document } = await supabase
+                    const { data: foundDoc } = await supabase
                         .from('documents')
                         .select('*')
                         .eq('user_id', recipientUser.id)
@@ -401,6 +422,8 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
                         .order('created_at', { ascending: false })
                         .limit(1)
                         .single();
+
+                    document = foundDoc;
 
                     // Build notification message with client/document details
                     const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
@@ -456,11 +479,13 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
 
             // Find user by Solana wallet address (sender)
             if (transfer.from) {
-                const { data: senderUser } = await supabase
+                const { data: foundSender } = await supabase
                     .from('users')
                     .select('id, privy_id')
                     .or(`solana_address.eq.${transfer.from},wallet_address.eq.${transfer.from}`)
                     .single();
+
+                senderUser = foundSender;
 
                 if (senderUser) {
                     await NotificationService.notifyTransaction(senderUser.id, {
@@ -476,20 +501,26 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
             }
 
             // Record the transaction
-            await supabase
-                .from('transactions')
-                .upsert({
-                    tx_hash: transfer.signature,
-                    type: 'TRANSFER',
-                    status: 'CONFIRMED',
-                    amount: transfer.value.toString(),
-                    token: transfer.asset,
-                    network: network,
-                    from_address: transfer.from,
-                    to_address: transfer.to,
-                    block_height: slot,
-                    confirmed_at: new Date().toISOString(),
-                }, { onConflict: 'tx_hash' });
+            const txUserId = recipientUser?.id || senderUser?.id;
+            if (txUserId) {
+                await supabase
+                    .from('transactions')
+                    .upsert({
+                        user_id: txUserId,
+                        document_id: document?.id || null,
+                        tx_hash: transfer.signature,
+                        type: recipientUser ? 'PAYMENT_RECEIVED' : 'PAYMENT_SENT',
+                        status: 'CONFIRMED',
+                        chain: 'SOLANA',
+                        amount: transfer.value,
+                        token: transfer.asset,
+                        from_address: transfer.from,
+                        to_address: transfer.to || '',
+                        block_number: slot,
+                        timestamp: new Date().toISOString(),
+                        platform_fee: 0,
+                    }, { onConflict: 'tx_hash' });
+            }
 
         } catch (err) {
             console.error('[Alchemy] Error processing Solana activity:', err);

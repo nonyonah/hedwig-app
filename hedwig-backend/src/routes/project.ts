@@ -242,6 +242,11 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
+        if (!deadline) {
+            res.status(400).json({ success: false, error: { message: 'Deadline is required for projects' } });
+            return;
+        }
+
         // Verify client belongs to user
         const { data: client, error: clientError } = await supabase
             .from('clients')

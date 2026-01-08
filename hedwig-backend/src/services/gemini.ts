@@ -127,17 +127,20 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
 5. **SILENT FILLING**: If a field is missing but you can reasonably infer it or it's optional, skip it or fill it with a default/placeholder rather than blocking the user.
 
 1. CREATE_PAYMENT_LINK
-   ⚠️ CRITICAL: Use ONLY when user provides BOTH amount AND network
-   Parameters: { amount, token, network, for, description, recipient_email }
+   ⚠️ CRITICAL: Use ONLY when user provides amount, network, client_name AND due_date
+   Parameters: { amount, token, network, for, description, recipient_email, client_name, due_date }
    
    **INSTRUCTIONS:**
    - Extract 'recipient_email' if provided (e.g., "send to bob@email.com")
+   - 'due_date' is REQUIRED - ask "When is this payment due?" if not provided
    - 'recipient_email' is OPTIONAL but recommended for auto-sending.
    
    **STRICT REQUIREMENTS TO USE THIS INTENT:**
    ✅ MUST have amount (e.g., "50", "100")
    ✅ MUST have network ("base")
-   ❌ If EITHER is missing → DO NOT USE THIS INTENT
+   ✅ MUST have client_name
+   ✅ MUST have due_date (e.g., "January 15", "next week", "in 7 days")
+   ❌ If ANY is missing → DO NOT USE THIS INTENT
    
    **Decision Tree with conversation awareness:**
    - NO amount & first mention of payment link → COLLECT_PAYMENT_INFO
@@ -163,6 +166,7 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    ✅ MUST have client_email
    ✅ MUST have at least one item with amount
    ✅ MUST have network ("base")
+   ✅ MUST have due_date (e.g., "January 15", "next Friday", "in 14 days")
    ❌ If ANY is missing → DO NOT USE THIS INTENT
    
    **Try to extract ALL information from user's message first!**
@@ -578,6 +582,7 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    **REQUIREMENTS:**
    ✅ MUST have client_name (match against saved clients)
    ✅ MUST have title
+   ✅ MUST have deadline (e.g., "March 1st", "in 2 weeks", "end of month")
    Optional: client_email (extract email if user provides it, especially for new clients)
    
    **Email Extraction:**
@@ -625,6 +630,7 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    ✅ MUST have project_name (match against user's projects)
    ✅ MUST have title
    ✅ MUST have amount
+   ✅ MUST have due_date (e.g., "January 20", "next month", "in 2 weeks")
    
    **Examples:**
    ✅ "Add a $500 milestone for Design Phase to Website Redesign project" → ADD_MILESTONE

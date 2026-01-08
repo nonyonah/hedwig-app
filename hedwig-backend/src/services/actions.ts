@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { EmailService } from './email';
 import NotificationService from './notifications';
+import { createCalendarEventFromSource } from '../routes/calendar';
 
 export interface ActionParams {
     [key: string]: any;
@@ -220,6 +221,17 @@ export async function handleAction(intent: string, params: ActionParams, user: a
             case 'PROJECT_DETAILS':
                 return await handleProjectDetails(params, user);
 
+            // Calendar and Reminder intents
+            case 'CREATE_REMINDER':
+                return await handleCreateReminder(params, user);
+
+            case 'LIST_UPCOMING_EVENTS':
+                return await handleListUpcomingEvents(params, user);
+
+            case 'COLLECT_REMINDER_INFO':
+                // Don't create reminder yet, Gemini will collect all fields
+                return { text: '' };
+
             case 'GENERAL_CHAT':
                 return { text: '' };
 
@@ -240,8 +252,19 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         const amount = parseFloat(params.amount || '0');
         const token = params.token || 'USDC';
         const network = params.network?.toLowerCase() || 'base';
+        const dueDate = params.due_date || params.dueDate;
+        const clientName = params.client_name;
         console.log(`[Actions] Creating payment link on ${network}`);
         const description = params.for || params.description || 'Payment';
+
+        // Require due date - if not provided, let Gemini ask for it
+        if (!dueDate) {
+            return { text: '' }; // Empty text signals Gemini to collect this field
+        }
+
+        if (!clientName) {
+            return { text: '' }; // Client name also required
+        }
 
         // Map network to chain enum
         let chain = 'BASE';
@@ -293,6 +316,19 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
             });
         }
 
+        // Create calendar event for due date
+        if (dueDate && doc) {
+            await createCalendarEventFromSource(
+                userData.id,
+                `Payment due: ${clientName}`,
+                dueDate,
+                'invoice_due',
+                'payment_link',
+                doc.id,
+                `Payment link for ${amount} ${token}`
+            );
+        }
+
         return {
             text: `Done! I've created a payment link for ${amount} ${token}${description && description !== 'Payment' ? ` for ${description}` : ''}. Here's the link: /payment-link/${doc.id}\n\nYou can share this with your client to collect payment.${emailSent ? `\n\n✅ I also sent the link to ${recipientEmail}.` : ''}\n\n💡 Note: A 1% platform fee will be deducted when payment is received.`,
             data: { documentId: doc.id, type: 'PAYMENT_LINK' }
@@ -310,6 +346,12 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
         // Extract required fields
         const clientName = params.client_name || 'Client';
         const clientEmail = params.client_email || params.recipient_email;
+        const dueDate = params.due_date || params.dueDate;
+
+        // Require due date - if not provided, let Gemini ask for it
+        if (!dueDate) {
+            return { text: '' }; // Empty text signals Gemini to collect this field
+        }
 
         // Handle items (either array or single description/amount)
         let items: Array<{ description: string, amount: number, quantity: number }> = [];
@@ -381,6 +423,19 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
                 description: items.length === 1 ? items[0].description : `${items.length} items`,
                 linkId: doc.id
             });
+        }
+
+        // Create calendar event for due date
+        if (dueDate && doc) {
+            await createCalendarEventFromSource(
+                userData.id,
+                `Invoice due: ${clientName}`,
+                dueDate,
+                'invoice_due',
+                'invoice',
+                doc.id,
+                `Invoice for $${totalAmount}`
+            );
         }
 
         // Generate response with item breakdown
@@ -890,7 +945,7 @@ async function handleCreateProject(params: ActionParams, user: any): Promise<Act
         const title = params.title || params.project_name;
         const description = params.description || '';
         const startDate = params.start_date;
-        const deadline = params.deadline;
+        const deadline = params.deadline || params.due_date;
 
         console.log('[Actions] Handling intent: CREATE_PROJECT', { client_name: clientName, client_email: clientEmail, title });
 
@@ -905,6 +960,11 @@ async function handleCreateProject(params: ActionParams, user: any): Promise<Act
             return {
                 text: `What client is this project "${title}" for?`
             };
+        }
+
+        // Require deadline - if not provided, let Gemini ask for it
+        if (!deadline) {
+            return { text: '' }; // Empty text signals Gemini to collect this field
         }
 
         // Get internal user ID
@@ -1631,5 +1691,122 @@ async function handleProjectDetails(params: ActionParams, user: any): Promise<Ac
     } catch (error) {
         console.error('[Actions] Error getting project details:', error);
         return { text: "Failed to fetch project details. Please try again." };
+    }
+}
+
+// ============== CALENDAR HANDLERS ==============
+
+async function handleCreateReminder(params: ActionParams, user: any): Promise<ActionResult> {
+    try {
+        const title = params.title || params.reminder || params.description || 'Reminder';
+        const eventDate = params.date || params.due_date || params.event_date;
+        const description = params.description || params.notes || '';
+
+        if (!eventDate) {
+            return { text: '' }; // Let Gemini ask for the date
+        }
+
+        // Parse the date
+        const parsedDate = parseNaturalDate(eventDate);
+        if (!parsedDate) {
+            return { text: `I couldn't understand that date format. Please try something like "January 15th, 2026" or "15/01/2026".` };
+        }
+
+        // Get user data
+        const { data: userData } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', user.privyId)
+            .single();
+
+        if (!userData) throw new Error('User not found');
+
+        // Create calendar event
+        const { data: event, error } = await supabase
+            .from('calendar_events')
+            .insert({
+                user_id: userData.id,
+                title,
+                description,
+                event_date: parsedDate,
+                event_type: 'custom',
+                status: 'upcoming',
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        const formattedDate = new Date(parsedDate).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        return {
+            text: `📅 **Reminder Created**\n\n` +
+                `"${title}"\n` +
+                `📆 ${formattedDate}\n\n` +
+                `I'll remind you when the time comes!`,
+            data: { eventId: event.id }
+        };
+    } catch (error) {
+        console.error('[Actions] Error creating reminder:', error);
+        return { text: "Failed to create reminder. Please try again." };
+    }
+}
+
+async function handleListUpcomingEvents(_params: ActionParams, user: any): Promise<ActionResult> {
+    try {
+        // Get user data
+        const { data: userData } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', user.privyId)
+            .single();
+
+        if (!userData) throw new Error('User not found');
+
+        // Get upcoming events
+        const { data: events, error } = await supabase
+            .from('calendar_events')
+            .select('*')
+            .eq('user_id', userData.id)
+            .eq('status', 'upcoming')
+            .gte('event_date', new Date().toISOString())
+            .order('event_date', { ascending: true })
+            .limit(10);
+
+        if (error) throw error;
+
+        if (!events || events.length === 0) {
+            return {
+                text: `📅 **No Upcoming Events**\n\n` +
+                    `You have no upcoming calendar events.\n\n` +
+                    `Say "remind me to..." to create a new reminder!`
+            };
+        }
+
+        const eventList = events.map((e: any) => {
+            const date = new Date(e.event_date);
+            const formattedDate = date.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            });
+            const typeEmoji = e.event_type === 'invoice_due' ? '💰' :
+                              e.event_type === 'milestone_due' ? '🎯' :
+                              e.event_type === 'project_deadline' ? '📁' : '📅';
+            return `${typeEmoji} **${e.title}** - ${formattedDate}`;
+        }).join('\n');
+
+        return {
+            text: `📅 **Upcoming Events**\n\n${eventList}\n\n` +
+                `Say "remind me to..." to add more events.`
+        };
+    } catch (error) {
+        console.error('[Actions] Error listing events:', error);
+        return { text: "Failed to fetch calendar events. Please try again." };
     }
 }

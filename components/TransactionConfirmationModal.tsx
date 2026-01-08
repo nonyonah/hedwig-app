@@ -10,6 +10,7 @@ import LottieView from 'lottie-react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../hooks/useAuth';
 import { SwiftUIBottomSheet } from './ios/SwiftUIBottomSheet';
 import {
     Connection,
@@ -146,6 +147,7 @@ const parseErrorMessage = (error: any): string => {
 export const TransactionConfirmationModal: React.FC<TransactionConfirmationModalProps> = ({ visible, onClose, data, onSuccess }) => {
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
+    const { getAccessToken } = useAuth();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const solanaWallet = useEmbeddedSolanaWallet();
 
@@ -715,6 +717,48 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
             }
 
             setTxHash(transactionHash);
+
+            // Log transaction to backend for AI insights
+            try {
+                const authToken = await getAccessToken();
+                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                const network = data.network.toLowerCase();
+
+                // Determine chain and get sender address
+                let fromAddress = '';
+                if (isSolanaNetwork(network)) {
+                    fromAddress = solanaWallets[0]?.address || '';
+                } else {
+                    const wallet = evmWallets[0];
+                    if (wallet) {
+                        const provider = await wallet.getProvider();
+                        const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
+                        fromAddress = accounts[0] || '';
+                    }
+                }
+
+                await fetch(`${apiUrl}/api/transactions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'PAYMENT_SENT',
+                        txHash: transactionHash,
+                        amount: data.amount,
+                        token: data.token,
+                        chain: network.toUpperCase() === 'SOLANA' ? 'SOLANA' : network.toUpperCase() === 'BASE' ? 'BASE' : 'CELO',
+                        fromAddress: fromAddress,
+                        toAddress: data.recipient,
+                        status: 'CONFIRMED',
+                    })
+                });
+                console.log('[Transaction] Logged to backend');
+            } catch (logError) {
+                console.log('[Transaction] Failed to log (non-fatal):', logError);
+            }
+
             setModalState('success');
             if (onSuccess) onSuccess(transactionHash);
 

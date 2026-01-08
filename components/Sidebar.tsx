@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Share } from 'react-native';
 import { useRouter, usePathname, Link } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link as LinkIcon, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase, FileText, ChartBar } from 'phosphor-react-native';
+import { House, Link as LinkIcon, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase, FileText, ChartBar, CalendarBlank } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -135,6 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { type: 'menu', id: '/payment-links', title: 'Payment Links', subtitle: 'View payment links' },
                 { type: 'menu', id: '/transactions', title: 'Transactions', subtitle: 'View transactions' },
                 { type: 'menu', id: '/offramp-history', title: 'Withdrawals', subtitle: 'View withdrawal history' },
+                { type: 'menu', id: '/calendar', title: 'Calendar', subtitle: 'View calendar events' },
                 { type: 'menu', id: '/settings', title: 'Settings', subtitle: 'App settings' },
             ];
 
@@ -349,6 +350,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     'Insights',
                                     pathname === '/insights',
                                     () => handleNavigation('/insights')
+                                )}
+                                {renderMenuItem(
+                                    <CalendarBlank size={22} weight="bold" />,
+                                    'Calendar',
+                                    pathname === '/calendar',
+                                    () => handleNavigation('/calendar')
                                 )}
                             </View>
 

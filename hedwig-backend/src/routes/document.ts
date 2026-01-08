@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { AppError } from '../middleware/errorHandler';
 import { getOrCreateUser } from '../utils/userHelper';
 import NotificationService from '../services/notifications';
+import { createCalendarEventFromSource, markCalendarEventCompleted } from './calendar';
 
 const router = Router();
 
@@ -18,6 +19,15 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
     try {
         const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled } = req.body;
         const privyId = req.user!.privyId;
+
+        // Validate required fields
+        if (!dueDate) {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Due date is required for invoices' }
+            });
+            return;
+        }
 
         // Get internal user ID
         const user = await getOrCreateUser(privyId);
@@ -50,6 +60,19 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
 
         if (error) throw error;
 
+        // Auto-create calendar event if invoice has due date
+        if (dueDate && doc) {
+            await createCalendarEventFromSource(
+                user.id,
+                `Invoice due: ${clientName || description || 'Invoice'}`,
+                dueDate,
+                'invoice_due',
+                'invoice',
+                doc.id,
+                `Invoice for ${doc.amount} - ${clientName || 'Client'}`
+            );
+        }
+
         // Generate shareable Vercel URL for the invoice
         const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
 
@@ -71,7 +94,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
  */
 router.post('/payment-link', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, currency, description, remindersEnabled, recipientEmail, clientName } = req.body;
+        const { amount, currency, description, remindersEnabled, recipientEmail, clientName, dueDate } = req.body;
         const privyId = req.user!.privyId;
 
         // Validate required fields
@@ -79,6 +102,14 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             res.status(400).json({
                 success: false,
                 error: { message: 'Client name is required for payment links' }
+            });
+            return;
+        }
+
+        if (!dueDate) {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Due date is required for payment links' }
             });
             return;
         }
@@ -104,6 +135,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 content: {
                     recipient_email: recipientEmail,
                     client_name: clientName,
+                    due_date: dueDate,
                     reminders_enabled: remindersEnabled !== false // Default to true
                 }
             })
@@ -118,6 +150,17 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             .from('documents')
             .update({ payment_link_url: shareableUrl })
             .eq('id', doc.id);
+
+        // Auto-create calendar event for payment link
+        await createCalendarEventFromSource(
+            user.id,
+            `Payment due: ${clientName}`,
+            dueDate,
+            'invoice_due',
+            'payment_link',
+            doc.id,
+            `Payment link for ${doc.amount} ${currency || 'USDC'}`
+        );
 
         res.json({
             success: true,
@@ -377,6 +420,9 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
             // Don't fail the payment if notification fails
             console.error('[Documents] Failed to send payment notification:', notifyError);
         }
+
+        // Mark associated calendar event as completed
+        await markCalendarEventCompleted('invoice', id);
 
         res.json({
             success: true,

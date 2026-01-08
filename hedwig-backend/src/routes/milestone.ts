@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { EmailService } from '../services/email';
+import { createCalendarEventFromSource } from './calendar';
 
 const router = Router();
 
@@ -156,6 +157,11 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
+        if (!dueDate) {
+            res.status(400).json({ success: false, error: { message: 'Due date is required for milestones' } });
+            return;
+        }
+
         // Verify project belongs to user
         const { data: project, error: projectError } = await supabase
             .from('projects')
@@ -183,6 +189,19 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 
         if (error) {
             throw new Error(`Failed to create milestone: ${error.message}`);
+        }
+
+        // Auto-create calendar event if milestone has due date
+        if (dueDate && milestone) {
+            await createCalendarEventFromSource(
+                user.id,
+                `Milestone due: ${title}`,
+                dueDate,
+                'milestone_due',
+                'milestone',
+                milestone.id,
+                `${project.name} - ${amount} due`
+            );
         }
 
         res.json({

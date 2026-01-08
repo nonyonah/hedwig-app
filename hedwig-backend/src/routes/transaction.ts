@@ -300,4 +300,124 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     }
 });
 
+/**
+ * POST /api/transactions
+ * Log a transaction from the frontend (for offramps, sends, etc.)
+ */
+router.post('/', authenticate, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user!.id;
+        const {
+            type,        // 'PAYMENT_RECEIVED' | 'PAYMENT_SENT' | 'OFFRAMP' | 'FEE_COLLECTION'
+            txHash,
+            amount,
+            token,
+            chain,       // 'BASE' | 'SOLANA' | 'CELO'
+            fromAddress,
+            toAddress,
+            documentId,
+            status = 'PENDING',
+            amountInNgn,
+            platformFee = 0,
+            networkFee,
+        } = req.body;
+
+        // Validate required fields
+        if (!type || !amount || !token || !chain || !fromAddress || !toAddress) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required fields: type, amount, token, chain, fromAddress, toAddress'
+            });
+        }
+
+        // Insert transaction into database
+        const { data: transaction, error } = await supabase
+            .from('transactions')
+            .insert({
+                user_id: userId,
+                document_id: documentId || null,
+                type: type,
+                status: status,
+                chain: chain,
+                tx_hash: txHash || null,
+                from_address: fromAddress,
+                to_address: toAddress,
+                amount: parseFloat(amount),
+                amount_in_ngn: amountInNgn ? parseFloat(amountInNgn) : null,
+                token: token,
+                platform_fee: parseFloat(platformFee) || 0,
+                network_fee: networkFee ? parseFloat(networkFee) : null,
+                timestamp: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('[Transactions] Failed to create transaction:', error);
+            return res.status(500).json({ success: false, error: 'Failed to create transaction' });
+        }
+
+        console.log('[Transactions] Transaction created:', transaction.id);
+
+        return res.status(201).json({
+            success: true,
+            data: transaction
+        });
+
+    } catch (error) {
+        console.error('[Transactions] Error creating transaction:', error);
+        return res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+/**
+ * PATCH /api/transactions/:id
+ * Update transaction status (e.g., when tx confirms on chain)
+ */
+router.patch('/:id', authenticate, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user!.id;
+        const { id } = req.params;
+        const { status, txHash, blockNumber, errorMessage } = req.body;
+
+        const updateData: any = {};
+        if (status) updateData.status = status;
+        if (txHash) updateData.tx_hash = txHash;
+        if (blockNumber) updateData.block_number = blockNumber;
+        if (errorMessage) updateData.error_message = errorMessage;
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ success: false, error: 'No update data provided' });
+        }
+
+        const { data: transaction, error } = await supabase
+            .from('transactions')
+            .update(updateData)
+            .eq('id', id)
+            .eq('user_id', userId) // Ensure user owns this transaction
+            .select()
+            .single();
+
+        if (error) {
+            console.error('[Transactions] Failed to update transaction:', error);
+            return res.status(500).json({ success: false, error: 'Failed to update transaction' });
+        }
+
+        if (!transaction) {
+            return res.status(404).json({ success: false, error: 'Transaction not found' });
+        }
+
+        console.log('[Transactions] Transaction updated:', transaction.id);
+
+        return res.json({
+            success: true,
+            data: transaction
+        });
+
+    } catch (error) {
+        console.error('[Transactions] Error updating transaction:', error);
+        return res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
 export default router;
