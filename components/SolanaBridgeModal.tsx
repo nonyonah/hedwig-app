@@ -570,7 +570,7 @@ export function SolanaBridgeModal({
     // iOS: Use native SwiftUI BottomSheet
     if (Platform.OS === 'ios') {
         return (
-            <SwiftUIBottomSheet isOpen={visible} onClose={onClose} height={0.7}>
+            <SwiftUIBottomSheet isOpen={visible} onClose={onClose} height={0.6}>
                 {sheetContent}
             </SwiftUIBottomSheet>
         );
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+        paddingBottom: Platform.OS === 'ios' ? 20 : 16,
     },
     header: {
         alignItems: 'center',

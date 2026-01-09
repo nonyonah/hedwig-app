@@ -20,6 +20,8 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { useThemeColors } from '../../theme/colors';
+import { useColorScheme } from 'react-native';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -41,7 +43,7 @@ export const PlatformModal: React.FC<PlatformModalProps> = ({
     visible,
     onClose,
     children,
-    height = 0.7,
+    height = 0.55,
     showHandle = true,
     swipeToDismiss = true,
     disableHaptics = false,
@@ -49,6 +51,9 @@ export const PlatformModal: React.FC<PlatformModalProps> = ({
     const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const backdropOpacity = useRef(new Animated.Value(0)).current;
     const [isRendered, setIsRendered] = React.useState(false);
+    const themeColors = useThemeColors();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
 
     // Haptic feedback
     const triggerHaptic = useCallback(async (type: 'open' | 'close') => {
@@ -193,18 +198,16 @@ export const PlatformModal: React.FC<PlatformModalProps> = ({
                         // iOS: Frosted glass content
                         <BlurView
                             intensity={80}
-                            tint="light"
+                            tint={isDark ? 'dark' : 'light'}
                             style={styles.iosBlurContent}
                         >
-                            <View style={styles.iosInnerContent}>
-                                {showHandle && <View style={styles.handleIOS} />}
+                            <View style={[styles.iosInnerContent, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                                 {children}
                             </View>
                         </BlurView>
                     ) : (
                         // Android: Solid elevated surface
-                        <View style={styles.androidSurface}>
-                            {showHandle && <View style={styles.handleAndroid} />}
+                        <View style={[styles.androidSurface, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                             {children}
                         </View>
                     )}
@@ -240,7 +243,6 @@ const styles = StyleSheet.create({
     iosInnerContent: {
         flex: 1,
         backgroundColor: 'rgba(255, 255, 255, 0.7)',
-        paddingTop: 8,
     },
     handleIOS: {
         width: 36,
@@ -267,7 +269,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
-        paddingTop: 8,
     },
     handleAndroid: {
         width: 32,

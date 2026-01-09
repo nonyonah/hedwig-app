@@ -5,7 +5,7 @@ import { ethers } from 'ethers';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Clipboard from 'expo-clipboard';
 import { X, CheckCircle, Warning, Fingerprint, ArrowSquareOut, XCircle, Bank, Copy, CurrencyNgn, ArrowsDownUp } from 'phosphor-react-native';
-import { Colors } from '../theme/colors';
+import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
 import * as WebBrowser from 'expo-web-browser';
@@ -75,6 +75,7 @@ type ModalState = 'confirm' | 'processing' | 'awaiting_transfer' | 'success' | '
 
 export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> = ({ visible, onClose, data, onSuccess }) => {
     const { hapticsEnabled } = useSettings();
+    const themeColors = useThemeColors();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const { getAccessToken } = useAuth();
     const { startTracking } = useLiveTracking();
@@ -499,58 +500,58 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
                     <>
                         {/* Header */}
                         <View style={styles.header}>
-                            <Text style={styles.title}>Confirm Offramp</Text>
-                            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                                <X size={20} color="#666666" weight="bold" />
+                            <Text style={[styles.title, { color: themeColors.textPrimary }]}>Confirm Offramp</Text>
+                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={onClose}>
+                                <X size={20} color={themeColors.textSecondary} weight="bold" />
                             </TouchableOpacity>
                         </View>
 
                         {/* Amount */}
                         <View style={styles.amountContainer}>
-                            <Text style={styles.amountLabel}>You're converting</Text>
-                            <Text style={styles.amount}>{data.amount} {data.token}</Text>
+                            <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>You're converting</Text>
+                            <Text style={[styles.amount, { color: themeColors.textPrimary }]}>{data.amount} {data.token}</Text>
                             <View style={styles.fiatEstimate}>
-                                <CurrencyNgn size={18} color={Colors.textSecondary} />
-                                <Text style={styles.fiatAmount}>
+                                <CurrencyNgn size={18} color={themeColors.textSecondary} />
+                                <Text style={[styles.fiatAmount, { color: themeColors.textSecondary }]}>
                                     {isLoadingRate ? 'Calculating...' : `≈ ${data.fiatCurrency} ${estimatedFiat || data.estimatedFiat || '...'}`}
                                 </Text>
                             </View>
                         </View>
 
                         {/* Details */}
-                        <View style={styles.detailsContainer}>
+                        <View style={[styles.detailsContainer, { backgroundColor: themeColors.surface }]}>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Network</Text>
-                                <View style={styles.chainBadge}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Network</Text>
+                                <View style={[styles.chainBadge, { backgroundColor: themeColors.background }]}>
                                     {chain?.icon && <Image source={chain.icon} style={styles.chainIcon} />}
-                                    <Text style={styles.chainName}>{chain?.name || data.network}</Text>
+                                    <Text style={[styles.chainName, { color: themeColors.textPrimary }]}>{chain?.name || data.network}</Text>
                                 </View>
                             </View>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Exchange Rate</Text>
-                                <Text style={styles.detailValue}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Exchange Rate</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                                     1 {data.token} = {isLoadingRate ? '...' : `${data.fiatCurrency} ${currentRate || data.rate || '...'}`}
                                 </Text>
                             </View>
-                            <View style={styles.divider} />
+                            <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Bank</Text>
-                                <Text style={styles.detailValue}>{data.bankName}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Bank</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{data.bankName}</Text>
                             </View>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Account</Text>
-                                <Text style={styles.detailValue}>{data.accountNumber}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Account</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{data.accountNumber}</Text>
                             </View>
                             <View style={styles.detailRow}>
-                                <Text style={styles.detailLabel}>Name</Text>
-                                <Text style={styles.detailValue}>{data.accountName || 'Not provided'}</Text>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Name</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{data.accountName || 'Not provided'}</Text>
                             </View>
                         </View>
 
                         {/* Biometric Warning */}
-                        <View style={styles.warningContainer}>
+                        <View style={[styles.warningContainer, { backgroundColor: themeColors.surface }]}>
                             <Fingerprint size={24} color={Colors.primary} />
-                            <Text style={styles.warningText}>
+                            <Text style={[styles.warningText, { color: themeColors.textSecondary }]}>
                                 You'll need to authenticate with biometrics to confirm this offramp
                             </Text>
                         </View>
@@ -568,7 +569,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
     if (Platform.OS === 'ios') {
         return (
             <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.7}>
-                <View style={[styles.iosContent, { backgroundColor: '#FFFFFF' }]}>
+                <View style={[styles.iosContent, { backgroundColor: themeColors.background }]}>
                     {renderContent()}
                 </View>
             </SwiftUIBottomSheet>
@@ -827,8 +828,8 @@ const styles = StyleSheet.create({
     },
     iosContent: {
         flex: 1,
-        padding: 24,
-        paddingBottom: 40,
+        padding: 20,
+        paddingBottom: 8,
     },
 });
 

@@ -898,7 +898,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
     // iOS: Use native SwiftUI BottomSheet
     if (Platform.OS === 'ios') {
         return (
-            <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.65}>
+            <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.55}>
                 <View style={[styles.iosContent, { backgroundColor: themeColors.background }]}>
                     {renderContent()}
                 </View>
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+        paddingBottom: Platform.OS === 'ios' ? 20 : 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.1,
@@ -1111,7 +1111,7 @@ const styles = StyleSheet.create({
     },
     iosContent: {
         flex: 1,
-        padding: 24,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+        padding: 20,
+        paddingBottom: 8,
     },
 });

@@ -196,7 +196,7 @@ export function FeedbackModal({ visible, onClose }: FeedbackModalProps) {
     // iOS: Use native SwiftUI BottomSheet
     if (Platform.OS === 'ios') {
         return (
-            <SwiftUIBottomSheet isOpen={visible} onClose={handleClose} height={0.6}>
+            <SwiftUIBottomSheet isOpen={visible} onClose={handleClose} height={0.5}>
                 <View style={[styles.iosContent, { backgroundColor: themeColors.surface }]}>
                     {modalContent}
                 </View>
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 24,
-        paddingBottom: 40,
+        paddingBottom: 20,
     },
     handleBar: {
         width: 40,
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     },
     iosContent: {
         flex: 1,
-        padding: 24,
-        paddingBottom: 40,
+        padding: 20,
+        paddingBottom: 12,
     },
 });
