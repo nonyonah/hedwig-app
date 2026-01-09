@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, SectionList, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, SectionList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
-import { List, CalendarBlank, Receipt, Target, Folder, Clock, Trash, CaretLeft, DeviceMobile, Check, ArrowsClockwise } from 'phosphor-react-native';
+import { List, CalendarBlank, Receipt, Target, Folder, Clock, Trash, CaretLeft } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Sidebar } from '../../components/Sidebar';
@@ -11,14 +11,6 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'react-native';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
-import {
-    addEventToDeviceCalendar,
-    syncEventsToDeviceCalendar,
-    isEventSynced,
-    requestCalendarPermissions,
-    hasCalendarPermissions,
-    CalendarEvent as DeviceCalendarEvent
-} from '../../services/calendarSync';
 
 // Profile color gradient options
 const PROFILE_COLOR_OPTIONS = [
@@ -64,8 +56,6 @@ export default function CalendarScreen() {
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
     const [conversations, setConversations] = useState<any[]>([]);
-    const [syncedEventIds, setSyncedEventIds] = useState<Set<string>>(new Set());
-    const [isSyncing, setIsSyncing] = useState(false);
 
     // Group events by date
     const sections = useMemo(() => {
@@ -99,22 +89,6 @@ export default function CalendarScreen() {
         fetchEvents();
         fetchUserData();
     }, [user]);
-
-    // Check which events are already synced to device
-    useEffect(() => {
-        const checkSyncStatus = async () => {
-            const synced = new Set<string>();
-            for (const event of events) {
-                if (await isEventSynced(event.id)) {
-                    synced.add(event.id);
-                }
-            }
-            setSyncedEventIds(synced);
-        };
-        if (events.length > 0) {
-            checkSyncStatus();
-        }
-    }, [events]);
 
     const fetchUserData = async () => {
         if (!user) return;
@@ -232,62 +206,6 @@ export default function CalendarScreen() {
         );
     };
 
-    const handleAddToDevice = async (event: CalendarEvent) => {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-        const deviceEvent: DeviceCalendarEvent = {
-            id: event.id,
-            title: event.title,
-            description: event.description || undefined,
-            eventDate: event.eventDate,
-            eventType: event.eventType,
-            sourceType: event.sourceType || undefined,
-            sourceId: event.sourceId || undefined,
-        };
-
-        const result = await addEventToDeviceCalendar(deviceEvent);
-        if (result) {
-            setSyncedEventIds(prev => new Set([...prev, event.id]));
-            Alert.alert('Added!', 'Event added to your device calendar');
-        } else {
-            Alert.alert('Error', 'Could not add event to calendar. Please check permissions.');
-        }
-    };
-
-    const handleSyncAll = async () => {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        const hasPermission = await hasCalendarPermissions();
-        if (!hasPermission) {
-            const granted = await requestCalendarPermissions();
-            if (!granted) {
-                Alert.alert('Permission Required', 'Calendar permission is needed to sync events.');
-                return;
-            }
-        }
-
-        setIsSyncing(true);
-
-        const eventsToSync: DeviceCalendarEvent[] = events.map(e => ({
-            id: e.id,
-            title: e.title,
-            description: e.description || undefined,
-            eventDate: e.eventDate,
-            eventType: e.eventType,
-            sourceType: e.sourceType || undefined,
-            sourceId: e.sourceId || undefined,
-        }));
-
-        const result = await syncEventsToDeviceCalendar(eventsToSync);
-        setIsSyncing(false);
-
-        // Update synced set
-        const allSynced = new Set(events.map(e => e.id));
-        setSyncedEventIds(allSynced);
-
-        Alert.alert('Synced!', `${result.synced} events synced to your device calendar.`);
-    };
-
     const getEventIcon = (eventType: string) => {
         switch (eventType) {
             case 'invoice_due': return <Receipt size={24} color={Colors.primary} weight="fill" />;
@@ -361,17 +279,6 @@ export default function CalendarScreen() {
                 >
                     <Trash size={20} color={themeColors.textSecondary} />
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.syncButton, syncedEventIds.has(item.id) && styles.syncButtonActive]}
-                    onPress={() => !syncedEventIds.has(item.id) && handleAddToDevice(item)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    {syncedEventIds.has(item.id) ? (
-                        <Check size={18} color="#10B981" weight="bold" />
-                    ) : (
-                        <DeviceMobile size={18} color={Colors.primary} />
-                    )}
-                </TouchableOpacity>
             </TouchableOpacity>
         );
     };
@@ -404,20 +311,6 @@ export default function CalendarScreen() {
                                 end={{ x: 1, y: 1 }}
                                 style={styles.profileIcon}
                             />
-                        )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.syncAllButton, { backgroundColor: themeColors.surface }]}
-                        onPress={handleSyncAll}
-                        disabled={isSyncing || events.length === 0}
-                    >
-                        {isSyncing ? (
-                            <ActivityIndicator size="small" color={Colors.primary} />
-                        ) : (
-                            <>
-                                <ArrowsClockwise size={16} color={Colors.primary} />
-                                <Text style={styles.syncAllText}>Sync All</Text>
-                            </>
                         )}
                     </TouchableOpacity>
                 </View>
@@ -571,24 +464,5 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 8,
         lineHeight: 20,
-    },
-    syncButton: {
-        padding: 8,
-    },
-    syncButtonActive: {
-        opacity: 0.6,
-    },
-    syncAllButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 12,
-    },
-    syncAllText: {
-        fontFamily: 'GoogleSansFlex_500Medium',
-        fontSize: 13,
-        color: '#7C3AED',
     },
 });

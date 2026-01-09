@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Link } from 'expo-router'; // Or use useRouter for programmatic navigation
+import { Link } from 'expo-router';
 import { CaretRight } from 'phosphor-react-native';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Insight } from '../../hooks/useInsights';
 import * as Haptics from 'expo-haptics';
-import { SymbolView } from 'expo-symbols'; // Assuming we have access or fallback
+
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.85; // Partial width for carousel effect

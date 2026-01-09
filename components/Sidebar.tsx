@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Share } from 'react-native';
-import { useRouter, usePathname, Link } from 'expo-router';
+import { useRouter, usePathname, Link as RouterLink } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
 import { House, Link as LinkIcon, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase, FileText, ChartBar, CalendarBlank } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
@@ -8,6 +8,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '../context/SettingsContext';
 import { FeedbackModal } from './FeedbackModal';
+
+// Import @expo/ui Link for iOS peek/pop support
+let ExpoUILink: any = null;
+if (Platform.OS === 'ios') {
+    try {
+        ExpoUILink = require('@expo/ui').Link;
+    } catch (e) {
+        console.warn('[Sidebar] Failed to import @expo/ui Link:', e);
+    }
+}
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.85;
@@ -363,33 +373,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             {conversations.length > 0 && (
                                 <View style={styles.settingsSection}>
                                     <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>PREVIOUS CHATS</Text>
-                                    {conversations.slice(0, 5).map((conv) => (
-                                        <Link
-                                            key={conv.id}
-                                            href={`/?conversationId=${conv.id}`}
-                                            asChild={Platform.OS !== 'ios'}
-                                        >
-                                            <Link.Trigger>
-                                                <View style={styles.menuItem}>
-                                                    <View style={styles.menuIcon}>
-                                                        <Chat size={22} weight="bold" color={themeColors.textPrimary} />
-                                                    </View>
-                                                    <Text
-                                                        style={[
-                                                            styles.menuText,
-                                                            { color: themeColors.textPrimary }
-                                                        ]}
-                                                        numberOfLines={1}
-                                                    >
-                                                        {conv.title || 'Untitled Chat'}
-                                                    </Text>
+                                    {conversations.slice(0, 5).map((conv) => {
+                                        const ConversationItem = (
+                                            <View style={styles.menuItem}>
+                                                <View style={styles.menuIcon}>
+                                                    <Chat size={22} weight="bold" color={themeColors.textPrimary} />
                                                 </View>
-                                            </Link.Trigger>
-                                            {Platform.OS === 'ios' && (
-                                                <>
-                                                    <Link.Preview />
-                                                    <Link.Menu>
-                                                        <Link.MenuAction
+                                                <Text
+                                                    style={[
+                                                        styles.menuText,
+                                                        { color: themeColors.textPrimary }
+                                                    ]}
+                                                    numberOfLines={1}
+                                                >
+                                                    {conv.title || 'Untitled Chat'}
+                                                </Text>
+                                            </View>
+                                        );
+
+                                        // iOS: Use @expo/ui Link for peek/pop
+                                        if (Platform.OS === 'ios' && ExpoUILink) {
+                                            return (
+                                                <ExpoUILink
+                                                    key={conv.id}
+                                                    href={`/?conversationId=${conv.id}`}
+                                                >
+                                                    <ExpoUILink.Trigger>
+                                                        {ConversationItem}
+                                                    </ExpoUILink.Trigger>
+                                                    <ExpoUILink.Preview />
+                                                    <ExpoUILink.Menu>
+                                                        <ExpoUILink.MenuAction
                                                             title="Share"
                                                             icon="square.and.arrow.up"
                                                             onPress={async () => {
@@ -402,7 +416,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                                 }
                                                             }}
                                                         />
-                                                        <Link.MenuAction
+                                                        <ExpoUILink.MenuAction
                                                             title="Delete"
                                                             icon="trash"
                                                             destructive
@@ -412,11 +426,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                                 }
                                                             }}
                                                         />
-                                                    </Link.Menu>
-                                                </>
-                                            )}
-                                        </Link>
-                                    ))}
+                                                    </ExpoUILink.Menu>
+                                                </ExpoUILink>
+                                            );
+                                        }
+
+                                        // Fallback: Simple TouchableOpacity
+                                        return (
+                                            <TouchableOpacity
+                                                key={conv.id}
+                                                onPress={() => {
+                                                    onClose();
+                                                    if (onLoadConversation) onLoadConversation(conv.id);
+                                                }}
+                                                onLongPress={() => {
+                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                    Alert.alert(
+                                                        conv.title || 'Untitled Chat',
+                                                        undefined,
+                                                        [
+                                                            {
+                                                                text: 'Share',
+                                                                onPress: async () => {
+                                                                    try {
+                                                                        await Share.share({
+                                                                            message: `Check out this conversation: ${conv.title || 'Untitled Chat'}`,
+                                                                        });
+                                                                    } catch (error) {
+                                                                        console.error('Share failed:', error);
+                                                                    }
+                                                                }
+                                                            },
+                                                            {
+                                                                text: 'Delete',
+                                                                style: 'destructive',
+                                                                onPress: () => {
+                                                                    if (onDeleteConversation) {
+                                                                        onDeleteConversation(conv.id);
+                                                                    }
+                                                                }
+                                                            },
+                                                            { text: 'Cancel', style: 'cancel' }
+                                                        ]
+                                                    );
+                                                }}
+                                            >
+                                                {ConversationItem}
+                                            </TouchableOpacity>
+                                        );
+                                    })}
                                 </View>
                             )}
 
