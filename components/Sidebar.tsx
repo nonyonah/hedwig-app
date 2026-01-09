@@ -401,7 +401,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     <ExpoUILink.Trigger>
                                                         {ConversationItem}
                                                     </ExpoUILink.Trigger>
-                                                    <ExpoUILink.Preview />
+                                                    <ExpoUILink.Preview>
+                                                        <View style={{ padding: 20, backgroundColor: themeColors.background, minHeight: 200, minWidth: 280 }}>
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                                                                <Chat size={28} weight="fill" color={Colors.primary} />
+                                                                <Text style={{ marginLeft: 12, fontSize: 18, fontWeight: '600', color: themeColors.textPrimary }}>
+                                                                    {conv.title || 'Untitled Chat'}
+                                                                </Text>
+                                                            </View>
+                                                            <Text style={{ color: themeColors.textSecondary, fontSize: 14 }}>
+                                                                Tap to open this conversation
+                                                            </Text>
+                                                        </View>
+                                                    </ExpoUILink.Preview>
                                                     <ExpoUILink.Menu>
                                                         <ExpoUILink.MenuAction
                                                             title="Share"
