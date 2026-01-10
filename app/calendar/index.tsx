@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrivy } from '@privy-io/expo';
-import { List, CalendarBlank, Receipt, Target, Folder, Clock, Trash, CaretLeft } from 'phosphor-react-native';
+import { List, CalendarBlank, Receipt, Target, Folder, Clock, Trash } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Sidebar } from '../../components/Sidebar';
@@ -293,8 +293,11 @@ export default function CalendarScreen() {
         <View style={{ flex: 1 }}>
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => router.back()}>
-                        <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                    <TouchableOpacity onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setIsSidebarOpen(true);
+                    }}>
+                        <List size={24} color={themeColors.textPrimary} weight="bold" />
                     </TouchableOpacity>
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
                     <TouchableOpacity onPress={() => setShowProfileModal(true)}>

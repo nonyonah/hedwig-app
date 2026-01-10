@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Share } from 'react-native';
-import { useRouter, usePathname, Link as RouterLink } from 'expo-router';
+import { useRouter, usePathname, Link } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
 import { House, Link as LinkIcon, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase, FileText, ChartBar, CalendarBlank } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
@@ -9,15 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { useSettings } from '../context/SettingsContext';
 import { FeedbackModal } from './FeedbackModal';
 
-// Import @expo/ui Link for iOS peek/pop support
-let ExpoUILink: any = null;
-if (Platform.OS === 'ios') {
-    try {
-        ExpoUILink = require('@expo/ui').Link;
-    } catch (e) {
-        console.warn('[Sidebar] Failed to import @expo/ui Link:', e);
-    }
-}
+
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.85;
@@ -391,17 +383,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             </View>
                                         );
 
-                                        // iOS: Use @expo/ui Link for peek/pop
-                                        if (Platform.OS === 'ios' && ExpoUILink) {
+                                        // iOS: Use expo-router Link for peek/pop
+                                        if (Platform.OS === 'ios') {
                                             return (
-                                                <ExpoUILink
+                                                <Link
                                                     key={conv.id}
                                                     href={`/?conversationId=${conv.id}`}
                                                 >
-                                                    <ExpoUILink.Trigger>
+                                                    <Link.Trigger>
                                                         {ConversationItem}
-                                                    </ExpoUILink.Trigger>
-                                                    <ExpoUILink.Preview>
+                                                    </Link.Trigger>
+                                                    <Link.Preview>
                                                         <View style={{ padding: 20, backgroundColor: themeColors.background, minHeight: 200, minWidth: 280 }}>
                                                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
                                                                 <Chat size={28} weight="fill" color={Colors.primary} />
@@ -413,9 +405,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                                 Tap to open this conversation
                                                             </Text>
                                                         </View>
-                                                    </ExpoUILink.Preview>
-                                                    <ExpoUILink.Menu>
-                                                        <ExpoUILink.MenuAction
+                                                    </Link.Preview>
+                                                    <Link.Menu>
+                                                        <Link.MenuAction
                                                             title="Share"
                                                             icon="square.and.arrow.up"
                                                             onPress={async () => {
@@ -428,7 +420,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                                 }
                                                             }}
                                                         />
-                                                        <ExpoUILink.MenuAction
+                                                        <Link.MenuAction
                                                             title="Delete"
                                                             icon="trash"
                                                             destructive
@@ -438,8 +430,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                                 }
                                                             }}
                                                         />
-                                                    </ExpoUILink.Menu>
-                                                </ExpoUILink>
+                                                    </Link.Menu>
+                                                </Link>
                                             );
                                         }
 

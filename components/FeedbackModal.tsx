@@ -194,7 +194,8 @@ export function FeedbackModal({ visible, onClose }: FeedbackModalProps) {
     );
 
     // iOS: Use native SwiftUI BottomSheet
-    if (Platform.OS === 'ios') {
+    const isIOS = Platform.OS as string === 'ios';
+    if (isIOS) {
         return (
             <SwiftUIBottomSheet isOpen={visible} onClose={handleClose} height={0.5}>
                 <View style={[styles.iosContent, { backgroundColor: themeColors.surface }]}>
