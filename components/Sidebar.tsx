@@ -393,19 +393,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     <Link.Trigger>
                                                         {ConversationItem}
                                                     </Link.Trigger>
-                                                    <Link.Preview>
-                                                        <View style={{ padding: 20, backgroundColor: themeColors.background, minHeight: 200, minWidth: 280 }}>
-                                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                                                                <Chat size={28} weight="fill" color={Colors.primary} />
-                                                                <Text style={{ marginLeft: 12, fontSize: 18, fontWeight: '600', color: themeColors.textPrimary }}>
-                                                                    {conv.title || 'Untitled Chat'}
-                                                                </Text>
-                                                            </View>
-                                                            <Text style={{ color: themeColors.textSecondary, fontSize: 14 }}>
-                                                                Tap to open this conversation
-                                                            </Text>
-                                                        </View>
-                                                    </Link.Preview>
+                                                    <Link.Preview style={{ width: 300, height: 180 }} />
                                                     <Link.Menu>
                                                         <Link.MenuAction
                                                             title="Share"

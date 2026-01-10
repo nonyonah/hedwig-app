@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+
 import { usePrivy } from '@privy-io/expo';
 import { Copy, ShareNetwork, CheckCircle, Clock, WarningCircle, ArrowSquareOut } from 'phosphor-react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -24,7 +24,7 @@ interface DocumentPreview {
 }
 
 export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ docType, docId, path }) => {
-    const router = useRouter();
+
     const { getAccessToken } = usePrivy();
     const themeColors = useThemeColors();
     const [preview, setPreview] = useState<DocumentPreview | null>(null);
@@ -126,9 +126,13 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ docType, docId
         });
     };
 
-    const handleTap = () => {
+    const handleTap = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push(path);
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+        await WebBrowser.openBrowserAsync(`${apiUrl}${path}`, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+            controlsColor: Colors.primary,
+        });
     };
 
     if (loading) {
