@@ -393,7 +393,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     <Link.Trigger>
                                                         {ConversationItem}
                                                     </Link.Trigger>
-                                                    <Link.Preview style={{ width: 300, height: 180 }} />
+                                                    <Link.Preview style={{ width: 280, height: 160 }}>
+                                                        <View style={{ flex: 1, padding: 16, backgroundColor: themeColors.background, justifyContent: 'center' }}>
+                                                            <Chat size={32} weight="fill" color={Colors.primary} style={{ marginBottom: 12 }} />
+                                                            <Text style={{ fontSize: 16, fontWeight: '600', color: themeColors.textPrimary }} numberOfLines={2}>
+                                                                {conv.title || 'Untitled Chat'}
+                                                            </Text>
+                                                        </View>
+                                                    </Link.Preview>
                                                     <Link.Menu>
                                                         <Link.MenuAction
                                                             title="Share"
