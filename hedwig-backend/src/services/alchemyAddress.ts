@@ -1,4 +1,7 @@
 import axios from 'axios';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('AlchemyAddress');
 
 /**
  * AlchemyAddressService - Manages wallet addresses for Alchemy Address Activity webhooks
@@ -29,12 +32,12 @@ class AlchemyAddressService {
      */
     private async addAddressesToWebhook(webhookId: string, addresses: string[]): Promise<AlchemyUpdateResponse> {
         if (!this.authToken) {
-            console.warn('[AlchemyAddress] No ALCHEMY_AUTH_TOKEN set, skipping address registration');
+            logger.warn('No ALCHEMY_AUTH_TOKEN set, skipping address registration');
             return { success: false, message: 'No auth token' };
         }
 
         if (!webhookId) {
-            console.warn('[AlchemyAddress] No webhook ID provided');
+            logger.warn('No webhook ID provided');
             return { success: false, message: 'No webhook ID' };
         }
 
@@ -58,10 +61,10 @@ class AlchemyAddressService {
                 }
             );
 
-            console.log(`[AlchemyAddress] Added ${addresses.length} address(es) to webhook ${webhookId}`);
+            logger.debug('Added addresses to webhook', { count: addresses.length });
             return { success: true };
         } catch (error: any) {
-            console.error('[AlchemyAddress] Failed to add addresses:', error.response?.data || error.message);
+            logger.error('Failed to add addresses', { error: error.message });
             return { success: false, message: error.message };
         }
     }
@@ -90,10 +93,10 @@ class AlchemyAddressService {
                 }
             );
 
-            console.log(`[AlchemyAddress] Removed ${addresses.length} address(es) from webhook ${webhookId}`);
+            logger.debug('Removed addresses from webhook', { count: addresses.length });
             return { success: true };
         } catch (error: any) {
-            console.error('[AlchemyAddress] Failed to remove addresses:', error.response?.data || error.message);
+            logger.error('Failed to remove addresses', { error: error.message });
             return { success: false, message: error.message };
         }
     }
@@ -123,7 +126,7 @@ class AlchemyAddressService {
             results.solana = solanaResult.success;
         }
 
-        console.log('[AlchemyAddress] Wallet registration results:', results);
+        logger.debug('Wallet registration results', results);
         return results;
     }
 

@@ -1,5 +1,8 @@
 import { PrivyClient } from '@privy-io/server-auth';
 import { supabase } from '../lib/supabase';
+import { createLogger } from './logger';
+
+const logger = createLogger('UserSync');
 
 // Initialize Privy client
 const privy = new PrivyClient(
@@ -24,7 +27,7 @@ export async function getOrCreateUser(privyId: string) {
         }
 
         // 2. If not found, fetch from Privy
-        console.log(`[UserSync] User not found in DB for ${privyId}, syncing from Privy...`);
+        logger.debug('User not found in DB, syncing from Privy');
         const privyUser = await privy.getUser(privyId);
 
         if (!privyUser) {
@@ -51,7 +54,7 @@ export async function getOrCreateUser(privyId: string) {
 
         if (!email) {
             // Can't create user without email/PK (assuming email is PK or required unique)
-            console.warn(`[UserSync] No email found for Privy user ${privyId}, cannot sync`);
+            logger.warn('No email found for Privy user, cannot sync');
             // We return null and let caller handle it, or throw
             // If schema allows null email, we can proceed. But user usually authenticates via email in this app.
         }
@@ -78,15 +81,15 @@ export async function getOrCreateUser(privyId: string) {
             .single();
 
         if (createError) {
-            console.error('[UserSync] Failed to create user:', createError);
+            logger.error('Failed to create user');
             throw createError;
         }
 
-        console.log(`[UserSync] Successfully synced user ${newUser.id}`);
+        logger.info('Successfully synced user');
         return newUser;
 
     } catch (error) {
-        console.error('[UserSync] Error:', error);
+        logger.error('Error in user sync');
         throw error;
     }
 }

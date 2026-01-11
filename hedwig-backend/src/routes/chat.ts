@@ -5,6 +5,9 @@ import { GeminiService } from '../services/gemini';
 import { handleAction } from '../services/actions';
 import { getOrCreateUser } from '../utils/userHelper';
 import multer from 'multer';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Chat');
 
 const router = Router();
 
@@ -51,7 +54,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             return;
         }
 
-        console.log('[Chat] Files uploaded:', uploadedFiles?.length || 0);
+        logger.debug('Files uploaded', { count: uploadedFiles?.length || 0 });
 
         // Get or Create user
         // This ensures the user exists even if it's their first time without hitting profile endpoint
@@ -143,7 +146,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             accountName: b.account_name,
         })) || [];
 
-        console.log('[Chat] User has', beneficiaryContext.length, 'saved beneficiaries');
+        logger.debug('User beneficiaries', { count: beneficiaryContext.length });
 
         // Fetch user's saved clients for invoice/payment-link suggestions
         const { data: clients } = await supabase
@@ -161,7 +164,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             company: c.company || null,
         })) || [];
 
-        console.log('[Chat] User has', clientContext.length, 'saved clients');
+        logger.debug('User clients', { count: clientContext.length });
 
         // Fetch user's projects for milestone management
         const { data: projects } = await supabase
@@ -188,7 +191,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             })),
         })) || [];
 
-        console.log('[Chat] User has', projectContext.length, 'projects');
+        logger.debug('User projects', { count: projectContext.length });
 
         // Process uploaded files for Gemini
         let fileData: { mimeType: string; data: string }[] | undefined;
@@ -197,7 +200,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                 mimeType: file.mimetype,
                 data: file.buffer.toString('base64')
             }));
-            console.log('[Chat] Processed files for Gemini:', fileData.map(f => f.mimeType));
+            logger.debug('Processed files for Gemini', { types: fileData.map(f => f.mimeType) });
         }
 
         // Detect and fetch content from URLs in the message
@@ -207,12 +210,12 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
         let urlFetchFailed = false;
 
         if (urls && urls.length > 0) {
-            console.log('[Chat] URLs detected in message:', urls);
+            logger.debug('URLs detected in message', { count: urls.length });
             const urlContents: string[] = [];
 
             for (const url of urls.slice(0, 3)) { // Limit to 3 URLs
                 try {
-                    console.log('[Chat] Fetching content from:', url);
+                    logger.debug('Fetching content from URL');
                     const response = await fetch(url, {
                         headers: {
                             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -244,32 +247,32 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                                     text = text.substring(0, 5000) + '... [truncated]';
                                 }
                                 urlContents.push(`\n\n--- [CONTENT FROM URL: ${url}] ---\n${text}\n--- [END CONTENT] ---\n`);
-                                console.log('[Chat] Successfully fetched content from URL, length:', text.length);
+                                logger.debug('Successfully fetched URL content', { length: text.length });
                             } else {
-                                console.log('[Chat] URL returned minimal content (likely blocked):', text.length);
+                                logger.debug('URL returned minimal content');
                                 urlFetchFailed = true;
                             }
                         } else {
-                            console.log('[Chat] Unsupported content type:', contentType);
+                            logger.debug('Unsupported content type from URL');
                             urlFetchFailed = true;
                         }
                     } else {
-                        console.log('[Chat] Failed to fetch URL:', response.status);
+                        logger.debug('Failed to fetch URL', { status: response.status });
                         urlFetchFailed = true;
                     }
                 } catch (urlError: any) {
-                    console.log('[Chat] Error fetching URL:', urlError.message);
+                    logger.debug('Error fetching URL', { error: urlError.message });
                     urlFetchFailed = true;
                 }
             }
 
             if (urlContents.length > 0) {
                 enhancedMessage = message + urlContents.join('\n');
-                console.log('[Chat] Enhanced message with URL content');
+                logger.debug('Enhanced message with URL content');
             } else if (urlFetchFailed) {
                 // Add note that URL couldn't be fetched
                 enhancedMessage = message + `\n\n[Note: The URL could not be accessed - the website may block automated access. Ask the user to paste the job description or content directly instead of just the link.]`;
-                console.log('[Chat] URL fetch failed, added note for AI');
+                logger.debug('URL fetch failed, added note for AI');
             }
         }
 
@@ -283,7 +286,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                 { beneficiaries: beneficiaryContext, clients: clientContext, projects: projectContext }
             );
         } catch (geminiError: any) {
-            console.error('[Chat] Gemini generation failed:', geminiError);
+            logger.error('Gemini generation failed', { error: geminiError.message });
             // Fallback response for fetch failures (likely network or API key issues)
             aiResponseObj = {
                 intent: 'error',
@@ -299,7 +302,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             if (params.amount && params.token && params.network &&
                 params.bankName && params.accountNumber && !params.accountName) {
 
-                console.log('[Chat] Auto-verifying bank account:', params.bankName, params.accountNumber);
+                logger.debug('Auto-verifying bank account');
 
                 try {
                     const PaycrestService = (await import('../services/paycrest')).default;
@@ -309,7 +312,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                     );
 
                     if (verifyResult.verified && verifyResult.accountName) {
-                        console.log('[Chat] Bank account verified:', verifyResult.accountName);
+                        logger.info('Bank account verified');
 
                         // Add the account name to parameters
                         aiResponseObj.parameters.accountName = verifyResult.accountName;
@@ -320,19 +323,19 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                             // Use bridge flow for Solana
                             aiResponseObj.intent = 'CONFIRM_SOLANA_BRIDGE';
                             aiResponseObj.naturalResponse = `I found your account: **${verifyResult.accountName}**. Since Paycrest doesn't support Solana directly, I'll help you bridge to Base first, then offramp. Ready to proceed?`;
-                            console.log('[Chat] Upgraded intent to CONFIRM_SOLANA_BRIDGE for Solana network');
+                            logger.debug('Upgraded intent to CONFIRM_SOLANA_BRIDGE');
                         } else {
                             // Use normal offramp flow for Base
                             aiResponseObj.intent = 'CONFIRM_OFFRAMP';
                             aiResponseObj.naturalResponse = `I found your account: **${verifyResult.accountName}**. Ready to proceed with your withdrawal?`;
-                            console.log('[Chat] Upgraded intent to CONFIRM_OFFRAMP');
+                            logger.debug('Upgraded intent to CONFIRM_OFFRAMP');
                         }
                     } else {
                         // Could not verify, ask for account name manually
                         aiResponseObj.naturalResponse = `I couldn't verify this account automatically. Please provide the account name for ${params.bankName} account ${params.accountNumber}.`;
                     }
                 } catch (verifyError) {
-                    console.error('[Chat] Bank verification failed:', verifyError);
+                    logger.error('Bank verification failed', { error: verifyError instanceof Error ? verifyError.message : 'Unknown' });
                     // Fall through with original response asking for account name
                 }
             }
@@ -343,13 +346,13 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
 
         // Execute action if intent is present
         if (aiResponseObj.intent && aiResponseObj.intent !== 'general_chat' && aiResponseObj.intent !== 'error') {
-            console.log(`[Chat] Executing action for intent: ${aiResponseObj.intent}`);
+            logger.debug('Executing action', { intent: aiResponseObj.intent });
             try {
                 const result = await handleAction(aiResponseObj.intent, aiResponseObj.parameters, req.user);
                 actionResult = result;
                 finalResponseText = result.text || aiResponseObj.naturalResponse;
             } catch (actionError: any) {
-                console.error('[Chat] Action execution failed:', actionError);
+                logger.error('Action execution failed', { error: actionError.message });
                 finalResponseText = "I understood what you wanted, but I encountered an error executing it.";
             }
         } else {
@@ -369,7 +372,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             .update({ updated_at: new Date().toISOString() })
             .eq('id', conversation.id);
 
-        console.log('[Chat] Final response text:', finalResponseText);
+        logger.debug('Chat response generated');
 
         // Build response object
         const responseData: any = {
@@ -406,7 +409,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                 );
                 estimatedFiat = parseFloat(params.amount) * parseFloat(rate);
             } catch (rateError) {
-                console.error('[Chat] Failed to fetch rate:', rateError);
+                logger.error('Failed to fetch rate', { error: rateError instanceof Error ? rateError.message : 'Unknown' });
             }
 
             responseData.parameters = {
@@ -436,7 +439,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
                 accountNumber: params.accountNumber,
                 accountName: params.accountName,
             };
-            console.log('[Chat] Returning CONFIRM_SOLANA_BRIDGE parameters for bridge flow');
+            logger.debug('Returning CONFIRM_SOLANA_BRIDGE parameters');
         }
 
         res.json({
@@ -455,7 +458,7 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
 router.get('/conversations', authenticate, async (req: Request, res: Response, next) => {
     try {
         const privyUserId = req.user!.id;
-        console.log('[Conversations] Request from Privy user:', privyUserId);
+        logger.debug('Fetching conversations');
 
         // Look up user in database by privy_id to get their email (which is the user PK)
         const { data: userData, error: userError } = await supabase
@@ -464,10 +467,10 @@ router.get('/conversations', authenticate, async (req: Request, res: Response, n
             .eq('privy_id', privyUserId)
             .single();
 
-        console.log('[Conversations] User lookup result:', { userData, userError });
+        logger.debug('User lookup completed', { found: !!userData });
 
         if (userError || !userData) {
-            console.log('[Conversations] User not found for privy_id:', privyUserId, '- returning empty conversations');
+            logger.debug('User not found, returning empty conversations');
             // Return empty array instead of error for users not yet registered
             res.json({
                 success: true,
@@ -477,7 +480,7 @@ router.get('/conversations', authenticate, async (req: Request, res: Response, n
         }
 
         const userId = userData.email; // email is the primary key
-        console.log('[Conversations] Found user email:', userId);
+        logger.debug('Found user for conversations');
 
         const { data: conversations, error } = await supabase
             .from('conversations')
@@ -485,14 +488,10 @@ router.get('/conversations', authenticate, async (req: Request, res: Response, n
             .eq('user_id', userId)
             .order('updated_at', { ascending: false });
 
-        console.log('[Conversations] Query result:', {
-            conversationsCount: conversations?.length || 0,
-            error,
-            userId
-        });
+        logger.debug('Conversations query result', { count: conversations?.length || 0 });
 
         if (error) {
-            console.error('[Conversations] Supabase error:', error);
+            logger.error('Supabase error fetching conversations', { error: error.message });
             throw new Error(`Failed to fetch conversations: ${error.message}`);
         }
 
@@ -524,14 +523,14 @@ router.get('/conversations', authenticate, async (req: Request, res: Response, n
             };
         }));
 
-        console.log('[Conversations] Sending response with', conversationsWithPreview.length, 'conversations');
+        logger.debug('Returning conversations', { count: conversationsWithPreview.length });
 
         res.json({
             success: true,
             data: conversationsWithPreview,
         });
     } catch (error) {
-        console.error('[Conversations] Error:', error);
+        logger.error('Error fetching conversations', { error: error instanceof Error ? error.message : 'Unknown' });
         next(error);
     }
 });

@@ -11,9 +11,13 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, FileText } from 'phosphor-react-native';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 export default function ProposalsScreen() {
     const router = useRouter();
+
+    // Track page view
+    useAnalyticsScreen('Proposals');
 
     return (
         <SafeAreaView style={styles.container}>

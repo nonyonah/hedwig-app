@@ -1,10 +1,13 @@
 import axios, { AxiosInstance } from 'axios';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Paycrest');
 
 const PAYCREST_API_URL = process.env.PAYCREST_API_URL || 'https://api.paycrest.io/v1';
 const PAYCREST_API_KEY = process.env.PAYCREST_API_KEY;
 
 if (!PAYCREST_API_KEY) {
-    console.warn('PAYCREST_API_KEY is not defined. Offramp features will not work.');
+    logger.warn('PAYCREST_API_KEY is not defined. Offramp features will not work.');
 }
 
 // Paycrest API client
@@ -110,12 +113,12 @@ export class PaycrestService {
             if (response.data?.status === 'success' && response.data?.data) {
                 institutionsCache[currency] = response.data.data;
                 cacheTimestamp = now;
-                console.log(`[Paycrest] Fetched ${response.data.data.length} institutions for ${currency}`);
+                logger.debug('Fetched institutions', { count: response.data.data.length, currency });
                 return response.data.data;
             }
             return [];
         } catch (error: any) {
-            console.error('Paycrest get institutions error:', error.response?.data || error.message);
+            logger.error('Error fetching institutions', { error: error.response?.data?.message || error.message });
             return [];
         }
     }
@@ -141,13 +144,13 @@ export class PaycrestService {
 
             // Match by name containing the bank name or vice versa
             if (instName.includes(normalizedName) || normalizedName.includes(instName)) {
-                console.log(`[Paycrest] Matched "${bankName}" to "${inst.name}" (${instCode})`);
+                logger.debug('Matched bank name');
                 return instCode;
             }
         }
 
         // Fall back to uppercase bank name as code
-        console.log(`[Paycrest] No match found for "${bankName}", using as-is`);
+        logger.debug('No bank match found');
         return bankName.toUpperCase();
     }
 
@@ -172,7 +175,7 @@ export class PaycrestService {
             // API returns { status, message, data: "rate_string" }
             return response.data.data;
         } catch (error: any) {
-            console.error('Paycrest get rate error:', error.response?.data || error.message);
+            logger.error('Error fetching rate', { error: error.response?.data?.message || error.message });
             throw new Error('Failed to fetch exchange rate from Paycrest: ' + (error.response?.data?.message || error.message));
         }
     }
@@ -190,18 +193,14 @@ export class PaycrestService {
             // Convert bank name to Paycrest institution code (async API lookup)
             const institutionCode = await this.findInstitutionCode(bankName);
 
-            console.log('[Paycrest] Verifying account with:', {
-                institution: institutionCode,
-                accountIdentifier: accountNumber,
-                originalBankName: bankName
-            });
+            logger.debug('Verifying bank account');
 
             const response = await paycrestClient.post('/verify-account', {
                 institution: institutionCode,
                 accountIdentifier: accountNumber
             });
 
-            console.log('[Paycrest] Verify account response:', response.data);
+            logger.debug('Account verification response received');
 
             // Paycrest returns: { status: "success", message: "Operation successful", data: "Account Name" }
             // The account name is directly in the data field as a string
@@ -214,7 +213,7 @@ export class PaycrestService {
                 verified: response.data?.status === 'success' && accountName !== '',
             };
         } catch (error: any) {
-            console.error('Paycrest verify account error:', error.response?.data || error.message);
+            logger.error('Error verifying account', { error: error.response?.data?.message || error.message });
             return { accountName: '', verified: false };
         }
     }
@@ -259,13 +258,13 @@ export class PaycrestService {
 
             const response = await paycrestClient.post('/sender/orders', payload);
 
-            console.log('[Paycrest] Create order response:', JSON.stringify(response.data, null, 2));
+            logger.info('Created offramp order');
 
             // Paycrest API returns: { status: "success", message: "...", data: { id, receiveAddress, ... } }
             const apiData = response.data?.data || response.data;
 
             if (!apiData?.id) {
-                console.error('[Paycrest] No order ID in response:', response.data);
+                logger.error('No order ID in response');
                 throw new Error('Paycrest did not return a valid order ID');
             }
 
@@ -290,7 +289,7 @@ export class PaycrestService {
                 createdAt: new Date().toISOString()
             };
         } catch (error: any) {
-            console.error('Paycrest create order error:', error.response?.data || error.message);
+            logger.error('Error creating order', { error: error.response?.data?.message || error.message });
             throw new Error('Failed to create offramp order: ' + (JSON.stringify(error.response?.data) || error.message));
         }
     }
@@ -304,7 +303,7 @@ export class PaycrestService {
             const response = await paycrestClient.get(`/sender/orders/${orderId}`);
             return response.data;
         } catch (error: any) {
-            console.error('Paycrest get order error:', error.response?.data || error.message);
+            logger.error('Error getting order status', { error: error.response?.data?.message || error.message });
             // Return null or throw?
             throw new Error('Failed to get order status from Paycrest');
         }

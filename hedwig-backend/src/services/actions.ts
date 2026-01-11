@@ -2,6 +2,9 @@ import { supabase } from '../lib/supabase';
 import { EmailService } from './email';
 import NotificationService from './notifications';
 import { createCalendarEventFromSource } from '../routes/calendar';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Actions');
 
 export interface ActionParams {
     [key: string]: any;
@@ -67,7 +70,7 @@ function parseNaturalDate(dateStr: string): string | null {
     }
 
     if (isNaN(date.getTime())) {
-        console.log('[parseNaturalDate] Could not parse date:', dateStr);
+        logger.debug('Could not parse date', { dateStr });
         return null;
     }
 
@@ -78,7 +81,7 @@ function parseNaturalDate(dateStr: string): string | null {
  * Handle user actions based on intent
  */
 export async function handleAction(intent: string, params: ActionParams, user: any): Promise<ActionResult> {
-    console.log(`[Actions] Handling intent: ${intent}`, params);
+    logger.debug('Handling intent', { intent });
 
     try {
         switch (intent.toUpperCase()) {
@@ -197,7 +200,7 @@ export async function handleAction(intent: string, params: ActionParams, user: a
             case 'COLLECT_MILESTONE_INFO':
                 // Check if we have all required fields - if so, add the milestone directly
                 if (params.project_name && (params.title || params.milestone_name) && params.amount) {
-                    console.log('[Actions] COLLECT_MILESTONE_INFO has all required fields, creating milestone directly');
+                    logger.debug('COLLECT_MILESTONE_INFO has all required fields, creating directly');
                     return await handleAddMilestone(params, user);
                 }
                 // Don't add milestone yet, Gemini will collect all fields
@@ -236,7 +239,7 @@ export async function handleAction(intent: string, params: ActionParams, user: a
                 return { text: '' };
 
             default:
-                console.log(`[Actions] Unknown intent: ${intent}`);
+                logger.debug('Unknown intent', { intent });
                 return { text: '' };
         }
     } catch (error) {
@@ -254,7 +257,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         const network = params.network?.toLowerCase() || 'base';
         const dueDate = params.due_date || params.dueDate;
         const clientName = params.client_name;
-        console.log(`[Actions] Creating payment link on ${network}`);
+        logger.debug('Creating payment link', { network });
         const description = params.for || params.description || 'Payment';
 
         // Require due date - if not provided, let Gemini ask for it
@@ -298,7 +301,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
             .single();
 
         if (error) throw error;
-        console.log('[Actions] Created document:', doc);
+        logger.info('Created payment link document');
 
         // Send email if recipient provided
         let emailSent = false;
@@ -341,7 +344,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
 
 async function handleCreateInvoice(params: ActionParams, user: any): Promise<ActionResult> {
     try {
-        console.log('[Actions] Creating invoice with params:', params);
+        logger.debug('Creating invoice');
 
         // Extract required fields
         const clientName = params.client_name || 'Client';
@@ -409,7 +412,7 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
             .single();
 
         if (error) throw error;
-        console.log('[Actions] Created invoice:', doc);
+        logger.info('Created invoice');
 
         // Send email if recipient provided
         let emailSent = false;
@@ -486,7 +489,7 @@ async function handleCreateProposal(params: ActionParams, user: any): Promise<Ac
             const { generateProposalWithGPT, isGPTEnabled } = await import('./gpt');
             
             if (isGPTEnabled()) {
-                console.log('[Proposal] Generating with GPT-5.2 Nano...');
+                logger.debug('Generating proposal with GPT');
                 proposalContent = await generateProposalWithGPT({
                     clientName,
                     clientEmail,
@@ -504,7 +507,7 @@ async function handleCreateProposal(params: ActionParams, user: any): Promise<Ac
                 throw new Error('GPT not configured');
             }
         } catch (gptError) {
-            console.log('[Proposal] GPT unavailable, using template:', gptError);
+            logger.debug('GPT unavailable, using template');
             // Fallback to template-based generation
             const { generateProposalTemplate } = await import('../templates/proposal');
             proposalContent = generateProposalTemplate({
@@ -552,7 +555,7 @@ async function handleCreateProposal(params: ActionParams, user: any): Promise<Ac
             .single();
 
         if (error) throw error;
-        console.log('[Actions] Created proposal:', doc);
+        logger.info('Created proposal');
 
         const proposalUrl = `${process.env.API_URL || 'http://localhost:3000'}/proposal/${doc.id}`;
         
@@ -569,7 +572,7 @@ async function handleCreateProposal(params: ActionParams, user: any): Promise<Ac
                     totalCost: totalCost || 'To be discussed'
                 });
                 emailSent = true;
-                console.log('[Proposal] Email sent to client:', clientEmail);
+                logger.info('Proposal email sent');
             } catch (emailError) {
                 console.error('[Proposal] Failed to send email:', emailError);
             }
@@ -627,20 +630,14 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             }, 0);
             if (milestonesTotal > 0) {
                 paymentAmount = milestonesTotal.toString();
-                console.log('[Contract] Calculated payment from milestones:', paymentAmount);
+                logger.debug('Calculated payment from milestones');
             }
         }
         
         const paymentTerms = params.payment_terms;
         const projectName = params.project_name;
 
-        console.log('[Contract] Payment fields:', {
-            payment_amount: params.payment_amount,
-            amount: params.amount,
-            milestones_count: milestones.length,
-            finalAmount: paymentAmount,
-            finalTerms: paymentTerms
-        });
+        logger.debug('Contract payment fields', { hasAmount: !!paymentAmount, milestonesCount: milestones.length });
 
         const startDate = params.start_date;
         const endDate = params.end_date;
@@ -668,7 +665,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
         // First, try to find client by email (most reliable)
         if (clientEmail) {
             const normalizedEmail = clientEmail.toLowerCase().trim();
-            console.log('[Contract] Looking up client by email:', normalizedEmail);
+            logger.debug('Looking up client by email');
             
             const { data: clientByEmail } = await supabase
                 .from('clients')
@@ -679,14 +676,14 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             
             if (clientByEmail) {
                 existingClient = clientByEmail;
-                console.log('[Contract] Found existing client by email:', clientByEmail.name);
+                logger.debug('Found existing client by email');
             }
         }
         
         // If not found by email, try to find by name
         if (!existingClient && clientName) {
             const normalizedName = clientName.toLowerCase().trim();
-            console.log('[Contract] Looking up client by name:', normalizedName);
+            logger.debug('Looking up client by name');
             
             const { data: clientByName } = await supabase
                 .from('clients')
@@ -697,7 +694,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             
             if (clientByName) {
                 existingClient = clientByName;
-                console.log('[Contract] Found existing client by name:', clientByName.name);
+                logger.debug('Found existing client by name');
                 
                 // If we have an email but the found client doesn't, update it
                 if (clientEmail && !clientByName.email) {
@@ -713,7 +710,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
         if (existingClient) {
             clientId = existingClient.id;
             clientWasNew = false;
-            console.log('[Contract] Using existing client:', existingClient.id, existingClient.name);
+            logger.debug('Using existing client');
         } else if (clientName || clientEmail) {
             // Create new client only if we have at least name or email
             const { data: newClient, error: clientError } = await supabase
@@ -729,7 +726,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             if (!clientError && newClient) {
                 clientId = newClient.id;
                 clientWasNew = true;
-                console.log('[Contract] Created new client:', newClient.id);
+                logger.debug('Created new client');
             }
         }
 
@@ -745,7 +742,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
 
             if (projects && projects.length > 0) {
                 projectId = projects[0].id;
-                console.log('[Contract] Linked to project:', projects[0].name);
+                logger.debug('Linked to project');
             }
         }
 
@@ -756,7 +753,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             const { generateContractWithGPT, isGPTEnabled } = await import('./gpt');
             
             if (isGPTEnabled()) {
-                console.log('[Contract] Generating with GPT-5.2 Nano...');
+                logger.debug('Generating contract with GPT');
                 contractContent = await generateContractWithGPT({
                     clientName,
                     clientEmail,
@@ -779,7 +776,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
                 throw new Error('GPT not configured');
             }
         } catch (gptError) {
-            console.log('[Contract] GPT unavailable, using template:', gptError);
+            logger.debug('GPT unavailable for contract, using template');
             // Fallback to template-based generation
             const { generateContractTemplate } = await import('../templates/contract');
             contractContent = generateContractTemplate({
@@ -837,7 +834,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
             .single();
 
         if (error) throw error;
-        console.log('[Actions] Created contract:', doc);
+        logger.info('Created contract');
 
         // Generate approval token for client
         const crypto = await import('crypto');
@@ -869,7 +866,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
                     totalAmount: paymentAmount,
                     milestoneCount: milestones.length
                 });
-                console.log('[Contract] Email sent to client:', clientEmail, 'Success:', emailSent);
+                logger.info('Contract email sent');
             } catch (emailError) {
                 console.error('[Contract] Failed to send email:', emailError);
             }
@@ -880,7 +877,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
         // ============== SYNC MILESTONES TO PROJECT ==============
         // If contract is linked to a project and has milestones, create them in the milestones table
         if (projectId && milestones && milestones.length > 0) {
-            console.log('[Contract] Syncing milestones to project:', projectId);
+            logger.debug('Syncing milestones to project');
             try {
                 const milestonesToInsert = milestones.map((m: any) => ({
                     project_id: projectId,
@@ -897,7 +894,7 @@ async function handleCreateContract(params: ActionParams, user: any): Promise<Ac
                 if (msError) {
                     console.error('[Contract] Failed to sync milestones:', msError);
                 } else {
-                    console.log('[Contract] Synced', milestonesToInsert.length, 'milestones to project');
+                    logger.debug('Synced milestones to project', { count: milestonesToInsert.length });
                 }
             } catch (syncError) {
                 console.error('[Contract] Milestone sync error:', syncError);
@@ -947,7 +944,7 @@ async function handleCreateProject(params: ActionParams, user: any): Promise<Act
         const startDate = params.start_date;
         const deadline = params.deadline || params.due_date;
 
-        console.log('[Actions] Handling intent: CREATE_PROJECT', { client_name: clientName, client_email: clientEmail, title });
+        logger.debug('Handling CREATE_PROJECT');
 
         // Validate required fields - if title is missing, ask for it
         if (!title) {
@@ -1073,7 +1070,7 @@ async function handleUpdateClient(params: ActionParams, user: any): Promise<Acti
         const newEmail = params.email || params.client_email;
         const newPhone = params.phone;
 
-        console.log('[Actions] Handling intent: UPDATE_CLIENT', { client_name: clientName, email: newEmail });
+        logger.debug('Handling UPDATE_CLIENT');
 
         if (!clientName) {
             return { text: "Which client would you like to update?" };
@@ -1142,7 +1139,7 @@ async function handleAddMilestone(params: ActionParams, user: any): Promise<Acti
         const rawDueDate = params.due_date;
         const dueDate = rawDueDate ? parseNaturalDate(rawDueDate) : null;
 
-        console.log('[Actions] handleAddMilestone dueDate parsing:', { raw: rawDueDate, parsed: dueDate });
+        logger.debug('Parsing milestone due date');
 
         // Get internal user ID
         const { data: userData } = await supabase
@@ -1316,7 +1313,7 @@ async function handleCompleteMilestone(params: ActionParams, user: any): Promise
             .ilike('title', `%${milestoneTitle}%`)
             .limit(1);
 
-        console.log('[Actions] Milestone search:', { milestoneTitle, projectIds, found: milestones?.length, error: milestoneError });
+        logger.debug('Milestone search completed', { found: milestones?.length || 0 });
 
         if (milestoneError) {
             console.error('[Actions] Milestone query error:', milestoneError);
@@ -1413,8 +1410,8 @@ async function handleMarkMilestonePaid(params: ActionParams, user: any): Promise
 }
 
 async function handleInvoiceMilestone(params: ActionParams, user: any): Promise<ActionResult> {
-    console.log('[Actions] ========== INVOICE MILESTONE HANDLER CALLED ==========');
-    console.log('[Actions] Params:', JSON.stringify(params));
+    logger.debug('Invoice milestone handler called');
+    logger.debug('Invoice milestone params received');
     try {
         const milestoneTitle = params.milestone_title;
         const network = params.network?.toLowerCase() || 'base';
@@ -1471,7 +1468,7 @@ async function handleInvoiceMilestone(params: ActionParams, user: any): Promise<
             return { text: "This project doesn't have a client associated with it." };
         }
 
-        console.log('[Actions] Invoice client info:', { clientId: client.id, clientName: client.name, clientEmail: client.email });
+        logger.debug('Invoice client info resolved');
 
         // Map network to chain enum
         let chain = 'BASE';
@@ -1526,9 +1523,9 @@ async function handleInvoiceMilestone(params: ActionParams, user: any): Promise<
 
         // Send invoice email to client if they have an email
         let emailSent = false;
-        console.log('[Actions] Checking if client has email for invoice notification...');
+        logger.debug('Checking if client has email for invoice notification');
         if (client.email) {
-            console.log('[Actions] Client has email, attempting to send invoice email to:', client.email);
+            logger.debug('Client has email, attempting to send invoice');
             const senderName = userData.first_name && userData.last_name
                 ? `${userData.first_name} ${userData.last_name}`
                 : 'Freelancer';
@@ -1543,12 +1540,12 @@ async function handleInvoiceMilestone(params: ActionParams, user: any): Promise<
                     linkId: invoice.id,
                     network: chain,
                 });
-                console.log('[Actions] Email send result:', emailSent);
+                logger.info('Invoice email sent for milestone');
             } catch (emailError) {
                 console.error('[Actions] Failed to send invoice email:', emailError);
             }
         } else {
-            console.log('[Actions] Client has no email, skipping invoice email notification');
+            logger.debug('Client has no email, skipping notification');
         }
 
         let responseText = `🧾 **Invoice Created for Milestone!**\n\n` +

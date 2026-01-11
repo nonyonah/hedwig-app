@@ -3,6 +3,9 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { EmailService } from '../services/email';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Projects');
 
 const router = Router();
 
@@ -46,13 +49,13 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
         const { data: projects, error } = await query;
 
         if (error) {
-            console.error('[Projects] Error fetching projects:', error);
+            logger.error('Error fetching projects');
             throw new Error(`Failed to fetch projects: ${error.message}`);
         }
 
-        console.log('[Projects] Fetched projects:', projects?.length, 'projects');
+        logger.debug('Fetched projects', { count: projects?.length });
         if (projects && projects.length > 0) {
-            console.log('[Projects] First project milestones:', projects[0]?.milestones);
+            logger.debug('First project has milestones', { count: projects[0]?.milestones?.length });
         }
 
         // Fetch contracts linked to these projects
@@ -353,7 +356,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
         let pendingInvoicesSent: string[] = [];
 
         if (status?.toUpperCase() === 'COMPLETED') {
-            console.log('[Projects] Project marked as COMPLETED, handling completion notifications...');
+            logger.debug('Project marked as COMPLETED, handling completion notifications');
 
             // Get project with client and milestones info
             const { data: fullProject } = await supabase
@@ -439,14 +442,14 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
                                         network: 'base',
                                     });
                                     pendingInvoicesSent.push(milestone.title);
-                                    console.log('[Projects] Invoice email sent for milestone:', milestone.title);
+                                    logger.info('Invoice email sent for milestone');
                                 } catch (emailErr) {
-                                    console.error('[Projects] Failed to send invoice email:', emailErr);
+                                    logger.error('Failed to send invoice email');
                                 }
                             }
                         }
                     } catch (milestoneErr) {
-                        console.error('[Projects] Error invoicing milestone:', milestone.id, milestoneErr);
+                        logger.error('Error invoicing milestone');
                     }
                 }
 
@@ -479,9 +482,9 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
                             htmlContent
                         );
                         completionEmailSent = true;
-                        console.log('[Projects] Project completion email sent to:', client.email);
+                        logger.info('Project completion email sent');
                     } catch (emailErr) {
-                        console.error('[Projects] Failed to send completion email:', emailErr);
+                        logger.error('Failed to send completion email');
                     }
                 }
             }

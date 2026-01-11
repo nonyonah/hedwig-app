@@ -12,6 +12,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import { TargetGoalModal } from '../../components/TargetGoalModal';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 52) / 2; // 2 columns with gaps
@@ -114,6 +115,9 @@ export default function InsightsScreen() {
     const insets = useSafeAreaInsets();
     const { insights, loading } = useInsights();
 
+    // Track page view
+    useAnalyticsScreen('Insights');
+
     // Extract data from insights
     const earningsInsight = insights.find(i => i.type === 'earnings');
     const invoiceInsight = insights.find(i => i.type === 'invoice');
@@ -122,7 +126,13 @@ export default function InsightsScreen() {
     // Calculate earnings values from insight data
     const monthlyEarnings = earningsInsight?.value ? parseInt(earningsInsight.value.replace(/[$,]/g, '')) : 0;
     const [monthlyTarget, setMonthlyTarget] = useState(10000);
-    const earningsChange = earningsInsight?.trend === 'up' ? '+23%' : '-5%';
+
+    // Calculate the remaining amount (don't go negative)
+    const remainingAmount = Math.max(0, monthlyTarget - monthlyEarnings);
+    const hasExceededTarget = monthlyEarnings > monthlyTarget;
+
+    // Get trend info from the earnings insight
+    const earningsTrend = earningsInsight?.trend || 'neutral';
 
     // Target goal modal state
     const [isTargetModalVisible, setIsTargetModalVisible] = useState(false);
@@ -413,8 +423,12 @@ export default function InsightsScreen() {
 
                     <View style={styles.ringContainer}>
                         <View style={styles.ringStats}>
-                            <Text style={[styles.ringStatValue, { color: themeColors.textSecondary }]}>${(monthlyTarget - monthlyEarnings).toLocaleString()}</Text>
-                            <Text style={[styles.ringStatLabel, { color: themeColors.textTertiary }]}>Remaining</Text>
+                            <Text style={[styles.ringStatValue, { color: hasExceededTarget ? Colors.success : themeColors.textSecondary }]}>
+                                {hasExceededTarget ? '+$' + (monthlyEarnings - monthlyTarget).toLocaleString() : '$' + remainingAmount.toLocaleString()}
+                            </Text>
+                            <Text style={[styles.ringStatLabel, { color: themeColors.textTertiary }]}>
+                                {hasExceededTarget ? 'Exceeded' : 'Remaining'}
+                            </Text>
                         </View>
 
                         <View style={styles.ringCenter}>
@@ -436,9 +450,15 @@ export default function InsightsScreen() {
                         </View>
                     </View>
 
-                    <View style={[styles.trendBadge, { backgroundColor: Colors.success + '15' }]}>
-                        <TrendUp size={14} color={Colors.success} weight="bold" />
-                        <Text style={[styles.trendBadgeText, { color: Colors.success }]}>{earningsChange} from last month</Text>
+                    <View style={[styles.trendBadge, { backgroundColor: (earningsTrend === 'up' ? Colors.success : earningsTrend === 'down' ? Colors.error : themeColors.textSecondary) + '15' }]}>
+                        {earningsTrend === 'up' ? (
+                            <TrendUp size={14} color={Colors.success} weight="bold" />
+                        ) : earningsTrend === 'down' ? (
+                            <TrendDown size={14} color={Colors.error} weight="bold" />
+                        ) : null}
+                        <Text style={[styles.trendBadgeText, { color: earningsTrend === 'up' ? Colors.success : earningsTrend === 'down' ? Colors.error : themeColors.textSecondary }]}>
+                            {earningsTrend === 'up' ? 'Up from last month' : earningsTrend === 'down' ? 'Down from last month' : 'Same as last month'}
+                        </Text>
                     </View>
                 </View>
 
@@ -507,7 +527,7 @@ export default function InsightsScreen() {
             <ProfileModal
                 visible={isProfileModalVisible}
                 onClose={() => setIsProfileModalVisible(false)}
-                user={user}
+                userName={userName}
                 walletAddresses={walletAddresses}
             />
 

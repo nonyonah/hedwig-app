@@ -13,6 +13,8 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import Analytics from '../../services/analytics';
+import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -67,6 +69,9 @@ export default function ProjectsScreen() {
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [completingMilestone, setCompletingMilestone] = useState<string | null>(null);
 
+    // Track page view
+    useAnalyticsScreen('Projects');
+
     // Sidebar state
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
@@ -87,6 +92,7 @@ export default function ProjectsScreen() {
     ];
 
     const slideAnim = useRef(new Animated.Value(0)).current;
+    const modalOpacity = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         fetchProjects();
@@ -184,15 +190,39 @@ export default function ProjectsScreen() {
     };
 
     const openDetailModal = async (project: Project) => {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        modalHaptic('open', true);
         setSelectedProject(project);
         setShowDetailModal(true);
-        Animated.spring(slideAnim, { toValue: 1, useNativeDriver: true, tension: 65, friction: 11 }).start();
+        Animated.parallel([
+            Animated.spring(slideAnim, {
+                toValue: 1,
+                useNativeDriver: true,
+                damping: 25,
+                stiffness: 300,
+            }),
+            Animated.timing(modalOpacity, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+        ]).start();
     };
 
     const closeDetailModal = () => {
         setShowActionMenu(false);
-        Animated.timing(slideAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+        modalHaptic('close', true);
+        Animated.parallel([
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+            Animated.timing(modalOpacity, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+        ]).start(() => {
             setShowDetailModal(false);
             setSelectedProject(null);
         });
@@ -505,13 +535,9 @@ export default function ProjectsScreen() {
                 )}
 
                 {/* Detail Modal */}
-                <Modal visible={showDetailModal} transparent animationType="fade" onRequestClose={closeDetailModal}>
+                <Modal visible={showDetailModal} transparent animationType="none" onRequestClose={closeDetailModal}>
                     <View style={styles.modalOverlay}>
-                        {Platform.OS === 'ios' ? (
-                            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                        ) : (
-                            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.32)' }]} />
-                        )}
+                        <ModalBackdrop opacity={modalOpacity} />
                         <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeDetailModal} />
                         <Animated.View
                             style={[
@@ -1030,8 +1056,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        paddingHorizontal: 24,
-        paddingTop: 24,
+        padding: 24,
         paddingBottom: 40,
         maxHeight: '90%',
         shadowColor: '#000',
@@ -1041,7 +1066,7 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     detailModalBody: {
-        paddingHorizontal: 24,
+        // No extra padding - handled by detailModalContent
     },
     detailModalTitle: {
         ...Typography.h2,
@@ -1379,7 +1404,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: 24,
-        paddingHorizontal: 24,
+        // No extra padding - handled by detailModalContent
     },
     modalHeaderLeft: {
         flex: 1,

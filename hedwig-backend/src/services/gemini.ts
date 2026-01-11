@@ -1,4 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Gemini');
 
 if (!process.env.GEMINI_API_KEY) {
   throw new Error('GEMINI_API_KEY is not defined in environment variables');
@@ -61,7 +64,7 @@ JSON Format:
 
       throw new Error("Failed to parse AI response");
     } catch (error) {
-      console.error('Error generating reminder:', error);
+      logger.error('Error generating reminder');
       // Fallback
       return {
         subject: `Reminder: Payment for ${documentTitle}`,
@@ -918,10 +921,7 @@ User: "Invoice for 500 dollars for web design"
       prompt += `User: ${userMessage}\n`;
 
       const isFirstMessage = !conversationHistory || conversationHistory.length === 0;
-      console.log('[Gemini] Is first message:', isFirstMessage);
-      console.log('[Gemini] Message length:', userMessage.length);
-      console.log('[Gemini] Files attached:', files?.length || 0);
-      console.log('[Gemini] Includes instructions: true (always)');
+      logger.debug('Processing message', { isFirstMessage, messageLength: userMessage.length });
 
       // Build content parts for Gemini
       const contentParts: any[] = [{ text: prompt }];
@@ -936,14 +936,14 @@ User: "Invoice for 500 dollars for web design"
             }
           });
         }
-        console.log('[Gemini] Added', files.length, 'file parts to request');
+        logger.debug('Added file parts to request', { count: files.length });
       }
 
       const result = await model.generateContent(contentParts);
       const response = result.response;
       const text = response.text();
 
-      console.log('[Gemini] Raw response length:', text.length);
+      logger.debug('Response received', { length: text.length });
 
       try {
         // Try to parse as JSON first
@@ -951,10 +951,10 @@ User: "Invoice for 500 dollars for web design"
         const cleanText = text.replace(/```json\n?|\n?```/g, '').trim();
         const parsed = JSON.parse(cleanText);
 
-        console.log('[Gemini] Parsed JSON response:', JSON.stringify(parsed, null, 2));
+        logger.debug('Parsed JSON response');
         return parsed;
       } catch (e) {
-        console.log('[Gemini] Failed to parse JSON, returning raw text');
+        logger.debug('Failed to parse JSON, returning raw text');
         // If parsing fails, return a default structure
         return {
           intent: 'general_chat',

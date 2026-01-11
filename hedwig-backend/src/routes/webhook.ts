@@ -2,6 +2,9 @@ import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import AlchemyWebhooksService, { AlchemyActivity, AlchemySolanaAddressActivityEvent } from '../services/alchemyWebhooks';
 import NotificationService from '../services/notifications';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Webhook');
 
 const router = Router();
 
@@ -16,11 +19,11 @@ router.post('/chainhook', async (req: Request, res: Response) => {
     try {
         const payload = req.body;
 
-        console.log('[Chainhook] Received event from:', payload.chainhook?.name || 'unknown');
+        logger.info('Received chainhook event', { hookName: payload.chainhook?.name || 'unknown' });
 
         // Validate payload structure (Hiro format)
         if (!payload.event) {
-            console.log('[Chainhook] Invalid payload: missing event section');
+            logger.warn('Invalid chainhook payload: missing event section');
             res.status(200).json({ received: true });
             return;
         }
@@ -29,7 +32,7 @@ router.post('/chainhook', async (req: Request, res: Response) => {
 
         // Handle rollbacks (chain reorganizations)
         if (rollback && rollback.length > 0) {
-            console.log(`[Chainhook] Processing ${rollback.length} rollback blocks`);
+            logger.debug('Processing rollback blocks', { count: rollback.length });
             // TODO: Handle rollback logic (reverse any database updates)
         }
 
@@ -39,14 +42,14 @@ router.post('/chainhook', async (req: Request, res: Response) => {
                 const blockHeight = block.block_identifier?.index;
                 const transactions = block.transactions || [];
 
-                console.log(`[Chainhook] Processing block ${blockHeight} with ${transactions.length} transactions`);
+                logger.debug('Processing block', { blockHeight, transactionCount: transactions.length });
 
                 for (const tx of transactions) {
                     const txId = tx.transaction_identifier?.hash;
                     const success = tx.metadata?.success;
 
                     if (!success) {
-                        console.log(`[Chainhook] Skipping failed transaction: ${txId}`);
+                        logger.debug('Skipping failed transaction');
                         continue;
                     }
 
@@ -59,7 +62,7 @@ router.post('/chainhook', async (req: Request, res: Response) => {
                             const functionName = op.function_name;
                             const args = op.function_args || [];
 
-                            console.log(`[Chainhook] Contract call: ${contractId}.${functionName}`);
+                            logger.debug('Contract call detected', { functionName });
 
                             // Handle hedwig-payment contract calls
                             if (functionName === 'pay-invoice' || functionName === 'pay') {
@@ -80,7 +83,7 @@ router.post('/chainhook', async (req: Request, res: Response) => {
 
         res.status(200).json({ received: true });
     } catch (error) {
-        console.error('[Chainhook] Error processing event:', error);
+        logger.error('Error processing chainhook event', { error: error instanceof Error ? error.message : 'Unknown' });
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -96,7 +99,7 @@ async function processPaymentEvent(data: {
     args: any[];
     sender: string;
 }) {
-    console.log('[Chainhook] Processing payment event:', data);
+    logger.debug('Processing payment event');
 
     try {
         // Extract payment details from function arguments
@@ -107,14 +110,14 @@ async function processPaymentEvent(data: {
         const invoiceId = data.args[2]?.value; // Optional for pay-invoice
 
         if (!recipient || !amount) {
-            console.log('[Chainhook] Missing payment details in args');
+            logger.warn('Missing payment details in args');
             return;
         }
 
         // Convert microSTX to STX
         const amountStx = parseInt(amount) / 1_000_000;
 
-        console.log(`[Chainhook] Payment: ${amountStx} STX to ${recipient}`);
+        logger.info('Payment processed', { amountStx });
 
         let invoiceDetails: any = null;
         let clientInfo = '';
@@ -133,9 +136,9 @@ async function processPaymentEvent(data: {
                 .single();
 
             if (updateError) {
-                console.error('[Chainhook] Failed to update invoice:', updateError);
+                logger.error('Failed to update invoice', { error: updateError.message });
             } else {
-                console.log(`[Chainhook] Invoice ${invoiceId} marked as PAID`);
+                logger.info('Invoice marked as paid');
                 invoiceDetails = invoice;
 
                 // Get client info from sender address or invoice content
@@ -169,7 +172,7 @@ async function processPaymentEvent(data: {
                 data: { type: 'payment_received', invoiceId, txHash: data.txId },
             });
 
-            console.log(`[Chainhook] Notification sent for invoice ${invoiceId}`);
+            logger.info('Notification sent for invoice payment');
         }
 
         // Record the payment transaction
@@ -192,12 +195,12 @@ async function processPaymentEvent(data: {
             }, { onConflict: 'tx_hash' });
 
         if (insertError) {
-            console.error('[Chainhook] Failed to record transaction:', insertError);
+            logger.error('Failed to record transaction', { error: insertError.message });
         } else {
-            console.log(`[Chainhook] Transaction ${data.txId} recorded`);
+            logger.info('Transaction recorded');
         }
     } catch (error) {
-        console.error('[Chainhook] Error processing payment:', error);
+        logger.error('Error processing payment event', { error: error instanceof Error ? error.message : 'Unknown' });
     }
 }
 
@@ -212,7 +215,7 @@ router.post('/alchemy', async (req: Request, res: Response) => {
         const signature = req.headers['x-alchemy-signature'] as string;
 
         if (!signature) {
-            console.warn('[Alchemy] Missing X-Alchemy-Signature header');
+            logger.warn('Missing X-Alchemy-Signature header');
             res.status(401).json({ error: 'Missing signature' });
             return;
         }
@@ -221,17 +224,17 @@ router.post('/alchemy', async (req: Request, res: Response) => {
         const { valid, event, error } = AlchemyWebhooksService.parseAndValidate(rawBody, signature);
 
         if (!valid || !event) {
-            console.warn('[Alchemy] Invalid webhook:', error);
+            logger.warn('Invalid webhook', { error });
             res.status(401).json({ error: error || 'Invalid webhook' });
             return;
         }
 
-        console.log(`[Alchemy] Received ${event.type} event: ${event.id}`);
+        logger.info('Received Alchemy event', { type: event.type });
 
         // Check if this is a Solana event
         if (AlchemyWebhooksService.isSolanaEvent(event)) {
             const solanaEvent = event.event as AlchemySolanaAddressActivityEvent;
-            console.log(`[Alchemy] Processing Solana event on ${solanaEvent.network}`);
+            logger.debug('Processing Solana event', { network: solanaEvent.network });
             await processSolanaActivity(solanaEvent);
         }
         // Process EVM Address Activity events
@@ -241,7 +244,7 @@ router.post('/alchemy', async (req: Request, res: Response) => {
 
         res.status(200).json({ received: true });
     } catch (error) {
-        console.error('[Alchemy] Error processing webhook:', error);
+        logger.error('Error processing Alchemy webhook', { error: error instanceof Error ? error.message : 'Unknown' });
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -252,7 +255,7 @@ router.post('/alchemy', async (req: Request, res: Response) => {
 async function processAlchemyActivity(network: string, activities: AlchemyActivity[]) {
     for (const activity of activities) {
         const transfer = AlchemyWebhooksService.extractTransferInfo(activity);
-        console.log(`[Alchemy] Processing transfer on ${network}:`, transfer);
+        logger.debug('Processing EVM transfer', { network, asset: transfer.asset });
 
         try {
             // Track document for transaction recording
@@ -327,7 +330,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                     },
                 });
 
-                console.log(`[Alchemy] Notified user ${recipientUser.id} of received payment`);
+                logger.info('User notified of received payment');
             }
 
             // Find user by wallet address (sender)
@@ -347,7 +350,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                     txHash: transfer.txHash,
                 });
 
-                console.log(`[Alchemy] Notified user ${senderUser.id} of sent payment`);
+                logger.info('User notified of sent payment');
             }
 
             // Record the transaction
@@ -373,7 +376,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
             }
 
         } catch (err) {
-            console.error('[Alchemy] Error processing activity:', err);
+            logger.error('Error processing Alchemy activity', { error: err instanceof Error ? err.message : 'Unknown' });
         }
     }
 }
@@ -384,7 +387,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
 async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
     const { network, transaction: transactions, slot } = event;
 
-    console.log(`[Alchemy] Processing ${transactions.length} Solana transactions on ${network} at slot ${slot}`);
+    logger.debug('Processing Solana transactions', { count: transactions.length, network, slot });
 
     for (const tx of transactions) {
         // Skip vote transactions
@@ -393,7 +396,7 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
         }
 
         const transfer = AlchemyWebhooksService.extractSolanaTransferInfo(tx, slot);
-        console.log(`[Alchemy] Processing Solana transfer:`, transfer);
+        logger.debug('Processing Solana transfer', { asset: transfer.asset, value: transfer.value });
 
         try {
             // Track users and document for transaction recording
@@ -473,7 +476,7 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
                         },
                     });
 
-                    console.log(`[Alchemy] Notified user ${recipientUser.id} of received SOL payment`);
+                    logger.info('User notified of received SOL payment');
                 }
             }
 
@@ -496,7 +499,7 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
                         txHash: transfer.signature,
                     });
 
-                    console.log(`[Alchemy] Notified user ${senderUser.id} of sent SOL payment`);
+                    logger.info('User notified of sent SOL payment');
                 }
             }
 
@@ -523,7 +526,7 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
             }
 
         } catch (err) {
-            console.error('[Alchemy] Error processing Solana activity:', err);
+            logger.error('Error processing Solana activity', { error: err instanceof Error ? err.message : 'Unknown' });
         }
     }
 }

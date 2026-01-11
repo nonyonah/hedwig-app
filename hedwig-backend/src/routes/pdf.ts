@@ -2,6 +2,9 @@ import { Router, Request, Response } from 'express';
 import PDFDocument from 'pdfkit';
 import { supabase } from '../lib/supabase';
 import { authenticate } from '../middleware/auth';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('PDF');
 
 const router = Router();
 
@@ -12,7 +15,7 @@ const router = Router();
 router.get('/:id/download-pdf', async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        console.log('[PDF] Generating PDF for document:', id);
+        logger.debug('Generating PDF for document');
 
         // Fetch document to get title and content
         const { data: docData, error: docError } = await supabase
@@ -28,7 +31,7 @@ router.get('/:id/download-pdf', async (req: Request, res: Response, next) => {
 
         const content = docData.content?.generated_content || '';
 
-        console.log('[PDF] Creating PDF document...');
+        logger.debug('Creating PDF document');
 
         // Create PDF document
         const doc = new PDFDocument({
@@ -133,10 +136,10 @@ router.get('/:id/download-pdf', async (req: Request, res: Response, next) => {
         // Finalize PDF
         doc.end();
 
-        console.log('[PDF] PDF generated and sent successfully');
+        logger.info('PDF generated and sent');
 
     } catch (error) {
-        console.error('[PDF] Error generating PDF:', error);
+        logger.error('Error generating PDF');
         next(error);
     }
 });
@@ -150,7 +153,7 @@ router.post('/:id/sign', authenticate, async (req: Request, res: Response, next)
         const { id } = req.params;
         const privyId = req.user!.privyId;
 
-        console.log('[Signature] User signing document:', id);
+        logger.debug('User signing document');
 
         // Get user data
         const { data: userData, error: userError } = await supabase
@@ -199,7 +202,7 @@ router.post('/:id/sign', authenticate, async (req: Request, res: Response, next)
 
         if (updateError) throw updateError;
 
-        console.log('[Signature] Document signed successfully');
+        logger.info('Document signed');
 
         res.json({
             success: true,
@@ -210,7 +213,7 @@ router.post('/:id/sign', authenticate, async (req: Request, res: Response, next)
         });
 
     } catch (error) {
-        console.error('[Signature] Error signing document:', error);
+        logger.error('Error signing document');
         next(error);
     }
 });
@@ -224,7 +227,7 @@ router.post('/:id/sign-wallet', async (req: Request, res: Response, next) => {
         const { id } = req.params;
         const { signer_address, signature, signed_at, message } = req.body;
 
-        console.log('[Wallet Signature] Saving wallet signature for document:', id);
+        logger.debug('Saving wallet signature for document');
 
         // Fetch document
         const { data: doc, error: docError } = await supabase
@@ -262,7 +265,7 @@ router.post('/:id/sign-wallet', async (req: Request, res: Response, next) => {
 
         if (updateError) throw updateError;
 
-        console.log('[Wallet Signature] Document signed successfully by wallet:', signer_address);
+        logger.info('Document signed by wallet');
 
         // Generate Invoice automatically
         try {
@@ -271,7 +274,7 @@ router.post('/:id/sign-wallet', async (req: Request, res: Response, next) => {
             const amount = parseFloat(amountStr);
 
             if (amount > 0) {
-                console.log('[Wallet Signature] Generating automatic invoice for contract:', id);
+                logger.debug('Generating automatic invoice for contract');
 
                 const { error: invoiceError } = await supabase
                     .from('documents')
@@ -300,13 +303,13 @@ router.post('/:id/sign-wallet', async (req: Request, res: Response, next) => {
                     });
 
                 if (invoiceError) {
-                    console.error('[Wallet Signature] Failed to create automatic invoice:', invoiceError);
+                    logger.error('Failed to create automatic invoice');
                 } else {
-                    console.log('[Wallet Signature] Automatic invoice created successfully');
+                    logger.info('Automatic invoice created');
                 }
             }
         } catch (invoiceErr) {
-            console.error('[Wallet Signature] Error generating invoice:', invoiceErr);
+            logger.error('Error generating invoice');
         }
 
         res.json({
@@ -318,7 +321,7 @@ router.post('/:id/sign-wallet', async (req: Request, res: Response, next) => {
         });
 
     } catch (error) {
-        console.error('[Wallet Signature] Error saving signature:', error);
+        logger.error('Error saving signature');
         next(error);
     }
 });

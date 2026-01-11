@@ -17,6 +17,9 @@
 
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction } from '@solana/spl-token';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('SolanaBridge');
 
 // Network Configuration - Mainnet by default
 const IS_MAINNET = process.env.SOLANA_NETWORK !== 'testnet';
@@ -107,15 +110,14 @@ export class SolanaBridgeService {
 
     constructor() {
         this.connection = new Connection(SOLANA_RPC_URL, 'confirmed');
-        console.log(`[SolanaBridge] Initialized with RPC: ${SOLANA_RPC_URL}`);
-        console.log(`[SolanaBridge] Network: ${IS_MAINNET ? 'Mainnet' : 'Testnet (Devnet/Sepolia)'}`);
+        logger.debug('Initialized', { network: IS_MAINNET ? 'Mainnet' : 'Testnet' });
     }
 
     /**
      * Get a quote for bridging tokens from Solana to Base
      */
     async getQuote(token: BridgeableToken, amount: number): Promise<BridgeQuote> {
-        console.log(`[SolanaBridge] Getting quote for ${amount} ${token}`);
+        logger.debug('Getting quote', { token, amount });
 
         // For SOL, 1:1 mapping to wrapped SOL on Base
         // For USDC, 1:1 mapping (both are stablecoins)
@@ -157,7 +159,7 @@ export class SolanaBridgeService {
      * 3. Includes bridge instructions with destination address
      */
     async buildBridgeTransaction(params: BridgeTransactionParams): Promise<BridgeTransactionResult> {
-        console.log(`[SolanaBridge] Building bridge transaction:`, params);
+        logger.debug('Building bridge transaction', { token: params.token, amount: params.amount });
 
         const { fromAddress, toAddress, token, amount } = params;
 
@@ -220,8 +222,7 @@ export class SolanaBridgeService {
             const sourceAta = await getAssociatedTokenAddress(usdcMint, fromPubkey);
             const destinationAta = await getAssociatedTokenAddress(usdcMint, gasFeeReceiver);
 
-            console.log(`[SolanaBridge] USDC transfer from ATA: ${sourceAta.toString()}`);
-            console.log(`[SolanaBridge] USDC transfer to ATA: ${destinationAta.toString()}`);
+            logger.debug('USDC transfer configured');
 
             // USDC has 6 decimals
             const USDC_DECIMALS = 6;
@@ -284,7 +285,7 @@ export class SolanaBridgeService {
      * Note: This would typically query the bridge validators or indexer
      */
     async getBridgeStatus(bridgeId: string, solanaSignature?: string): Promise<BridgeStatus> {
-        console.log(`[SolanaBridge] Checking status for bridge: ${bridgeId}`);
+        logger.debug('Checking bridge status');
 
         // If we have a Solana signature, check if it's confirmed
         if (solanaSignature) {
@@ -312,7 +313,7 @@ export class SolanaBridgeService {
                     };
                 }
             } catch (error) {
-                console.error('[SolanaBridge] Error checking signature:', error);
+                logger.error('Error checking signature', { error: error instanceof Error ? error.message : 'Unknown' });
             }
         }
 
@@ -349,7 +350,7 @@ export class SolanaBridgeService {
 
             return { sol: solAmount, usdc: usdcAmount };
         } catch (error) {
-            console.error('[SolanaBridge] Error getting balances:', error);
+            logger.error('Error getting balances', { error: error instanceof Error ? error.message : 'Unknown' });
             return { sol: 0, usdc: 0 };
         }
     }

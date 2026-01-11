@@ -12,7 +12,8 @@ import { useWallet } from '../hooks/useWallet';
 import { usePrivy } from '@privy-io/expo';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useUserActions, Suggestion } from '../hooks/useUserActions';
-import { List, UserCircle, SquaresFour, ArrowUp, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File, Bell, Plus, Microphone, Stop } from 'phosphor-react-native';
+import { useUser } from '../context/UserContext';
+import { List, UserCircle, SquaresFour, ArrowUp, ArrowDown, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File, Bell, Plus, Microphone, Stop } from 'phosphor-react-native';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
@@ -159,7 +160,7 @@ export default function HomeScreen() {
     const [isProfileModalRendered, setIsProfileModalRendered] = useState(false);
     const [selectedChain, setSelectedChain] = useState<ChainInfo>(SUPPORTED_CHAINS[0]);
     const [viewMode, setViewMode] = useState<'main' | 'assets' | 'chains'>('main');
-    const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
+
     const [isTransactionReviewVisible, setIsTransactionReviewVisible] = useState(false);
     const [transactionData, setTransactionData] = useState<any>(null);
     const [isOfframpReviewVisible, setIsOfframpReviewVisible] = useState(false);
@@ -186,6 +187,7 @@ export default function HomeScreen() {
     // Onboarding and user actions hooks
     const { shouldShowTip, markTipAsSeen } = useOnboarding();
     const { getTopSuggestions, recordAction } = useUserActions();
+    const { userName, profileIcon, walletAddresses, refreshProfile } = useUser();
     const [showChatTip, setShowChatTip] = useState(false);
     const suggestions = getTopSuggestions(4);
 
@@ -195,13 +197,15 @@ export default function HomeScreen() {
     }, [viewMode]);
 
     const [conversationId, setConversationId] = useState<string | null>(null);
-    const [userName, setUserName] = useState({ firstName: '', lastName: '' });
-    const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
+
     const [displayedGreeting, setDisplayedGreeting] = useState('');
     const [isTypingGreeting, setIsTypingGreeting] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
     const [isLoadingConversation, setIsLoadingConversation] = useState(!!params.conversationId);
+    const [showScrollBottomButton, setShowScrollBottomButton] = useState(false);
+    const isAtBottomRef = useRef(true);
+
     const flatListRef = useRef<FlatList>(null);
     const sidebarAnim = useRef(new Animated.Value(-width * 0.8)).current;
     const messageAnimations = useRef<{ [key: string]: Animated.Value }>({}).current;
@@ -241,8 +245,8 @@ export default function HomeScreen() {
                 }),
                 Animated.spring(walletModalAnim, {
                     toValue: 0,
-                    damping: 28,
-                    stiffness: 280,
+                    damping: 25,
+                    stiffness: 300,
                     useNativeDriver: true,
                 })
             ]).start();
@@ -255,8 +259,8 @@ export default function HomeScreen() {
                 }),
                 Animated.spring(walletModalAnim, {
                     toValue: height,
-                    damping: 28,
-                    stiffness: 280,
+                    damping: 25,
+                    stiffness: 300,
                     useNativeDriver: true,
                 })
             ]).start(() => {
@@ -272,8 +276,8 @@ export default function HomeScreen() {
             quickActionsOpacity.setValue(1); // Overlay appears instantly
             Animated.spring(quickActionsAnim, {
                 toValue: 0,
-                damping: 28,
-                stiffness: 280,
+                damping: 25,
+                stiffness: 300,
                 useNativeDriver: true,
             }).start();
         } else {
@@ -285,8 +289,8 @@ export default function HomeScreen() {
                 }),
                 Animated.spring(quickActionsAnim, {
                     toValue: height,
-                    damping: 28,
-                    stiffness: 280,
+                    damping: 25,
+                    stiffness: 300,
                     useNativeDriver: true,
                 })
             ]).start(() => {
@@ -353,7 +357,11 @@ export default function HomeScreen() {
     }, [getAccessToken]);
 
     const loadConversation = async (id: string) => {
+        setIsSidebarOpen(false); // Close sidebar immediately for better UX
         setIsLoadingConversation(true);
+        // Ensure we scroll to bottom when new conversation loads
+        isAtBottomRef.current = true;
+
         try {
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -372,7 +380,11 @@ export default function HomeScreen() {
                 }));
                 setMessages(loadedMessages);
                 setConversationId(id);
-                setIsSidebarOpen(false);
+
+                // Scroll to bottom after loading conversation
+                setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: false });
+                }, 150);
             }
         } catch (error) {
             console.error('Failed to load conversation:', error);
@@ -403,119 +415,15 @@ export default function HomeScreen() {
         }
     }, [params.conversationId, isReady, user]);
 
-    // Fetch user profile data with retry logic for wallet addresses
-    const fetchUserProfile = async (retryCount = 0) => {
-        if (!user) {
-            console.log('User object is null, skipping fetch');
-            return;
-        }
 
-        // Check if user is authenticated
-        if (!user.id) {
-            console.log('User not authenticated yet, skipping fetch');
-            return;
-        }
 
-        console.log('Fetching user data for user:', user.id);
-        try {
-            const token = await getAccessToken();
 
-            if (!token) {
-                console.log('No access token available, skipping fetch');
-                return;
-            }
-
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            console.log('🔗 API URL being used:', apiUrl);
-
-            // Fetch user profile
-            const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
-
-            // Check response before parsing to avoid JSON parse errors
-            if (!profileResponse.ok) {
-                console.log('Profile fetch failed with status:', profileResponse.status);
-                if (retryCount < 3) {
-                    setTimeout(() => fetchUserProfile(retryCount + 1), 1000);
-                }
-                return;
-            }
-
-            const profileData = await profileResponse.json();
-
-            if (profileData.success && profileData.data) {
-                // Check if user data is nested in 'user' property or directly in data
-                const userData = profileData.data.user || profileData.data;
-
-                setUserName({
-                    firstName: userData.firstName || '',
-                    lastName: userData.lastName || ''
-                });
-                // Set profile icon if available from avatar field
-                if (userData.avatar) {
-                    console.log('[Profile] Avatar data received:', userData.avatar.substring(0, 100) + '...');
-                    try {
-                        if (typeof userData.avatar === 'string' && userData.avatar.trim().startsWith('{')) {
-                            const parsed = JSON.parse(userData.avatar);
-                            console.log('[Profile] Parsed avatar as JSON:', parsed);
-                            setProfileIcon(parsed);
-                        } else if (typeof userData.avatar === 'string' && userData.avatar.startsWith('data:')) {
-                            console.log('[Profile] Avatar is base64 image');
-                            setProfileIcon({ imageUri: userData.avatar });
-                        } else {
-                            console.log('[Profile] Avatar is URL or other format');
-                            setProfileIcon({ imageUri: userData.avatar });
-                        }
-                    } catch (e) {
-                        console.log('[Profile] Avatar parse error, treating as URL:', e);
-                        setProfileIcon({ imageUri: userData.avatar });
-                    }
-                } else if (userData.profileEmoji) {
-                    setProfileIcon({ emoji: userData.profileEmoji });
-                } else if (userData.profileColorIndex !== undefined) {
-                    setProfileIcon({ colorIndex: userData.profileColorIndex });
-                }
-
-                const evmAddr = userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress;
-                const solAddr = userData.solanaWalletAddress;
-
-                setWalletAddresses({
-                    evm: evmAddr,
-                    solana: solAddr
-                });
-
-                // If wallet addresses are still empty and we haven't retried too many times, retry
-                if (!evmAddr && !solAddr && retryCount < 3) {
-                    console.log(`[Profile] Wallet addresses empty, retrying (${retryCount + 1}/3)...`);
-                    setTimeout(() => fetchUserProfile(retryCount + 1), 1000);
-                }
-            } else {
-                console.log('Profile fetch failed or no data:', profileData);
-                // Retry on failure (user might not be created yet)
-                if (retryCount < 3) {
-                    console.log(`[Profile] Retrying profile fetch (${retryCount + 1}/3)...`);
-                    setTimeout(() => fetchUserProfile(retryCount + 1), 1000);
-                }
-            }
-        } catch (error) {
-            console.error('Failed to fetch user data:', error);
-            // Retry on error
-            if (retryCount < 3) {
-                setTimeout(() => fetchUserProfile(retryCount + 1), 1000);
-            }
-        }
-    };
-
-    useEffect(() => {
-        fetchUserProfile();
-    }, [user, isReady]);
 
     // Refresh profile data when screen regains focus (e.g., returning from profile edit)
     useFocusEffect(
         useCallback(() => {
             if (user && isReady) {
-                fetchUserProfile();
+                refreshProfile();
             }
         }, [user, isReady])
     );
@@ -1248,24 +1156,52 @@ export default function HomeScreen() {
                                 </View>
                             </TouchableWithoutFeedback>
                         ) : (
-                            <FlatList
-                                ref={flatListRef}
-                                style={styles.messageListContainer}
-                                data={messages}
-                                renderItem={({ item, index }) => renderMessage({ item, index })}
-                                keyExtractor={item => item.id}
-                                contentContainerStyle={styles.messageList}
-                                showsVerticalScrollIndicator={false}
-                                scrollEnabled={true}
-                                keyboardShouldPersistTaps="handled"
-                                keyboardDismissMode="on-drag"
-                                removeClippedSubviews={false}
-                                maxToRenderPerBatch={5}
-                                initialNumToRender={10}
-                                windowSize={21}
-                                decelerationRate="normal"
-                                bounces={true}
-                            />
+                            <View style={{ flex: 1 }}>
+                                <FlatList
+                                    ref={flatListRef}
+                                    style={styles.messageListContainer}
+                                    data={messages}
+                                    renderItem={({ item, index }) => renderMessage({ item, index })}
+                                    keyExtractor={item => item.id}
+                                    contentContainerStyle={styles.messageList}
+                                    showsVerticalScrollIndicator={false}
+                                    scrollEnabled={true}
+                                    keyboardShouldPersistTaps="handled"
+                                    keyboardDismissMode="on-drag"
+                                    removeClippedSubviews={false}
+                                    maxToRenderPerBatch={5}
+                                    initialNumToRender={10}
+                                    windowSize={21}
+                                    decelerationRate="normal"
+                                    bounces={true}
+                                    onContentSizeChange={() => {
+                                        if (isAtBottomRef.current) {
+                                            flatListRef.current?.scrollToEnd({ animated: true });
+                                        }
+                                    }}
+                                    onScroll={(event) => {
+                                        const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+                                        const paddingToBottom = 100; // Increased threshold
+                                        const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+
+                                        isAtBottomRef.current = isCloseToBottom;
+                                        setShowScrollBottomButton(!isCloseToBottom);
+                                    }}
+                                    scrollEventThrottle={100}
+                                />
+                                {showScrollBottomButton && (
+                                    <TouchableOpacity
+                                        style={[styles.scrollToBottomButton, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}
+                                        onPress={() => {
+                                            flatListRef.current?.scrollToEnd({ animated: true });
+                                            setShowScrollBottomButton(false);
+                                        }}
+                                        activeOpacity={0.8}
+                                    >
+                                        <ArrowDown size={20} color={themeColors.textPrimary} weight="bold" />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                         )
                     }
                     {
@@ -1394,7 +1330,7 @@ export default function HomeScreen() {
                     walletAddresses={walletAddresses}
                     profileIcon={profileIcon}
                     onProfileUpdate={() => {
-                        fetchUserProfile();
+                        refreshProfile();
                     }}
                 />
             </SafeAreaView >
@@ -2189,6 +2125,22 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginLeft: Metrics.spacing.sm,
+    },
+    scrollToBottomButton: {
+        position: 'absolute',
+        bottom: 20,
+        right: 20,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+        borderWidth: 1,
     },
     sendButtonDisabled: {
         backgroundColor: Colors.border,

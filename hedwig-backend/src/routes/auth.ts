@@ -3,6 +3,9 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { AppError } from '../middleware/errorHandler';
 import AlchemyAddressService from '../services/alchemyAddress';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Auth');
 
 const router = Router();
 
@@ -15,7 +18,7 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
         const { email, firstName, lastName, walletAddresses, avatar } = req.body;
         const privyId = req.user!.privyId;
 
-        console.log('Registration request:', { email, firstName, lastName, walletAddresses });
+        logger.info('Registration request received', { firstName, lastName, hasWallets: !!walletAddresses });
 
         // Check if user already exists by privy_id or email
         const { data: existingUsers, error: findError } = await supabase
@@ -34,16 +37,7 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
             // Use email as the ID as requested
             const userId = email;
 
-            console.log('Creating new user with data:', {
-                id: userId,
-                privy_id: privyId,
-                email,
-                first_name: firstName,
-                last_name: lastName,
-                ethereum_wallet_address: walletAddresses?.ethereum,
-                solana_wallet_address: walletAddresses?.solana,
-                avatar,
-            });
+            logger.info('Creating new user', { hasEthWallet: !!walletAddresses?.ethereum, hasSolWallet: !!walletAddresses?.solana });
 
             const { data: newUser, error: createError } = await supabase
                 .from('users')
@@ -68,14 +62,7 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
             user = newUser;
         } else {
             // Update last login and wallet addresses if changed
-            console.log('[Auth] Updating existing user:', {
-                userId: user.id,
-                currentEthWallet: user.ethereum_wallet_address,
-                newEthWallet: walletAddresses?.ethereum,
-                currentSolWallet: user.solana_wallet_address,
-                newSolWallet: walletAddresses?.solana,
-                newAvatar: avatar
-            });
+            logger.debug('Updating existing user', { hasNewEthWallet: !!walletAddresses?.ethereum, hasNewSolWallet: !!walletAddresses?.solana });
 
             const { data: updatedUser, error: updateError } = await supabase
                 .from('users')
@@ -97,12 +84,7 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                 throw new AppError(`Failed to update user: ${updateError.message}`, 500);
             }
 
-            console.log('[Auth] User updated:', {
-                id: updatedUser.id,
-                privyId: updatedUser.privy_id,
-                ethereumWallet: updatedUser.ethereum_wallet_address,
-                solanaWallet: updatedUser.solana_wallet_address
-            });
+            logger.info('User updated successfully');
             user = updatedUser;
         }
 
@@ -113,10 +95,10 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                     ethereum: walletAddresses.ethereum,
                     solana: walletAddresses.solana
                 });
-                console.log('[Auth] Registered wallets with Alchemy webhooks');
+                logger.info('Registered wallets with Alchemy webhooks');
             } catch (webhookError: any) {
                 // Don't fail registration if webhook registration fails
-                console.error('[Auth] Failed to register wallets with Alchemy:', webhookError.message);
+                logger.error('Failed to register wallets with Alchemy', { error: webhookError.message });
             }
         }
 
@@ -163,8 +145,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
             .single();
 
         if (error || !user) {
-            console.error('[Auth] /me error:', error || 'User not found in DB');
-            console.log('[Auth] Checked privy_id:', req.user!.privyId);
+            logger.warn('User not found', { error: error?.message || 'User not found in DB' });
             throw new AppError('User not found', 404);
         }
 

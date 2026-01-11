@@ -26,6 +26,7 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useSettings } from '../../context/SettingsContext';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 const { width } = Dimensions.get('window');
 
@@ -97,6 +98,9 @@ export default function OfframpHistoryScreen() {
     const { getAccessToken } = usePrivy();
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
+
+    // Track page view
+    useAnalyticsScreen('Offramp History');
 
     const [orders, setOrders] = useState<OfframpOrder[]>([]);
     const [isLoading, setIsLoading] = useState(true);

@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { PrivyClient } from '@privy-io/server-auth';
 import { AppError } from './errorHandler';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('AuthMiddleware');
 
 // Initialize Privy client with increased timeout
 const privy = new PrivyClient(
@@ -29,18 +32,18 @@ declare global {
 async function verifyTokenWithRetry(token: string, retries = 3): Promise<any> {
     for (let i = 0; i < retries; i++) {
         try {
-            console.log(`[Auth] Verification attempt ${i + 1}/${retries}`);
+            logger.debug('Verification attempt', { attempt: i + 1, maxRetries: retries });
 
             // Use cached verification if available and recent
             const now = Date.now();
             if (verificationKeyCache && (now - cacheTimestamp) < CACHE_DURATION) {
                 if (process.env.DEBUG_AUTH === 'true') {
-                    console.log('[Auth] Using cached verification key');
+                    logger.debug('Using cached verification key');
                 }
             }
 
             const claims = await privy.verifyAuthToken(token);
-            console.log('[Auth] Token verified successfully');
+            logger.debug('Token verified successfully');
 
             // Cache successful verification
             verificationKeyCache = claims;
@@ -48,7 +51,7 @@ async function verifyTokenWithRetry(token: string, retries = 3): Promise<any> {
 
             return claims;
         } catch (error: any) {
-            console.error(`[Auth] Attempt ${i + 1} failed:`, error.message);
+            logger.warn('Verification attempt failed', { attempt: i + 1, error: error.message });
 
             if (i === retries - 1) {
                 // Last attempt failed
@@ -57,7 +60,7 @@ async function verifyTokenWithRetry(token: string, retries = 3): Promise<any> {
 
             // Wait before retry (exponential backoff)
             const waitTime = Math.min(1000 * Math.pow(2, i), 5000);
-            console.log(`[Auth] Retrying in ${waitTime}ms...`);
+            logger.debug('Retrying verification', { waitTimeMs: waitTime });
             await new Promise(resolve => setTimeout(resolve, waitTime));
         }
     }
@@ -73,21 +76,21 @@ export const authenticate = async (
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            console.error('[Auth] No authorization header or invalid format');
+            logger.warn('No authorization header or invalid format');
             throw new AppError('No token provided', 401);
         }
 
         const token = authHeader.split(' ')[1];
         if (process.env.DEBUG_AUTH === 'true') {
-            console.log('[Auth] Token received: [REDACTED], length:', token?.length);
+            logger.debug('Token received', { tokenLength: token?.length });
         }
 
         // Verify token with Privy (with retry logic)
         const claims = await verifyTokenWithRetry(token);
-        console.log('[Auth] Token verified successfully, userId:', claims?.userId);
+        logger.debug('Token verified for user');
 
         if (!claims || !claims.userId) {
-            console.error('[Auth] Token verification failed: no claims or userId');
+            logger.warn('Token verification failed: no claims or userId');
             throw new AppError('Invalid token', 401);
         }
 
@@ -100,7 +103,7 @@ export const authenticate = async (
 
         next();
     } catch (error) {
-        console.error('[Auth] Authentication error:', error);
+        logger.error('Authentication error', { error: error instanceof Error ? error.message : 'Unknown' });
         if (error instanceof AppError) {
             next(error);
         } else {

@@ -2,12 +2,11 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Share } from 'react-native';
 import { useRouter, usePathname, Link } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link as LinkIcon, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, PaperPlaneTilt, Briefcase, FileText, ChartBar, CalendarBlank } from 'phosphor-react-native';
+import { House, Link as LinkIcon, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, Briefcase, FileText, ChartBar, CalendarBlank } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '../context/SettingsContext';
-import { FeedbackModal } from './FeedbackModal';
 
 
 
@@ -49,7 +48,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
@@ -500,32 +498,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                             </View>
                         </ScrollView>
-
-                        {/* Footer - Give Feedback Button */}
-                        <View style={[styles.footer, { borderTopColor: themeColors.border }]}>
-                            <TouchableOpacity
-                                style={[styles.feedbackButton, { borderColor: themeColors.border }]}
-                                onPress={async () => {
-                                    if (hapticsEnabled) {
-                                        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                    }
-                                    onClose();
-                                    setShowFeedbackModal(true);
-                                }}
-                            >
-                                <PaperPlaneTilt size={22} color={themeColors.textPrimary} weight="bold" />
-                                <Text style={[styles.feedbackButtonText, { color: themeColors.textPrimary }]}>Give feedback</Text>
-                            </TouchableOpacity>
-                        </View>
                     </>
                 )}
             </Animated.View>
-
-            {/* Feedback Modal */}
-            <FeedbackModal
-                visible={showFeedbackModal}
-                onClose={() => setShowFeedbackModal(false)}
-            />
         </View>
     );
 };
@@ -665,22 +640,6 @@ const styles = StyleSheet.create({
     menuTextActive: {
         color: '#FFFFFF',
         fontFamily: 'GoogleSansFlex_600SemiBold',
-    },
-    footer: {
-        paddingTop: 16,
-        borderTopWidth: 1,
-        borderTopColor: '#F3F4F6',
-    },
-    feedbackButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 100,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        gap: 10,
     },
     feedbackButtonText: {
         fontFamily: 'GoogleSansFlex_600SemiBold',

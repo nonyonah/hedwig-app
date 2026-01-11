@@ -1,4 +1,7 @@
 import * as crypto from 'crypto';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Alchemy');
 
 /**
  * Alchemy Webhook Event Types - Address Activity for EVM and Solana
@@ -105,7 +108,7 @@ class AlchemyWebhooksService {
             const digest = hmac.digest('hex');
             return signature === digest;
         } catch (error) {
-            console.error('[Alchemy] Signature validation error:', error);
+            logger.error('Signature validation error');
             return false;
         }
     }
@@ -115,25 +118,25 @@ class AlchemyWebhooksService {
      */
     getSigningKey(network: string): string | null {
         const networkLower = network.toLowerCase().replace(/[_-]/g, '');
-        console.log(`[Alchemy] Looking up signing key for network: ${network} (normalized: ${networkLower})`);
+        logger.debug('Looking up signing key', { network });
 
         // Base networks (base, basesepolia, base-sepolia, BASE_SEPOLIA, etc.)
         if (networkLower.includes('base')) {
             const key = process.env.ALCHEMY_SIGNING_KEY_BASE || null;
-            console.log(`[Alchemy] Using Base signing key: ${key ? 'present' : 'MISSING'}`);
+            logger.debug('Using Base signing key', { present: !!key });
             return key;
         }
 
         // Solana networks
         if (networkLower.includes('solana')) {
             const key = process.env.ALCHEMY_SIGNING_KEY_SOLANA || null;
-            console.log(`[Alchemy] Using Solana signing key: ${key ? 'present' : 'MISSING'}`);
+            logger.debug('Using Solana signing key', { present: !!key });
             return key;
         }
 
         // Fallback to generic key if set
         const fallbackKey = process.env.ALCHEMY_SIGNING_KEY || null;
-        console.log(`[Alchemy] Using fallback signing key: ${fallbackKey ? 'present' : 'MISSING'}`);
+        logger.debug('Using fallback signing key', { present: !!fallbackKey });
         return fallbackKey;
     }
 
@@ -164,16 +167,16 @@ class AlchemyWebhooksService {
 
             // Get network from event
             const network = this.getNetworkFromEvent(event);
-            console.log(`[Alchemy] Webhook event type: ${event.type}, network: ${network}`);
+            logger.debug('Webhook event received', { type: event.type, network });
 
             // Get signing key for this network
             const signingKey = this.getSigningKey(network);
 
             if (!signingKey) {
-                console.warn(`[Alchemy] No signing key found for network: ${network}`);
+                logger.warn('No signing key found for network');
                 // Allow processing without validation in development
                 if (process.env.NODE_ENV === 'development') {
-                    console.log('[Alchemy] Skipping signature validation in development mode');
+                    logger.debug('Skipping signature validation in development mode');
                     return { valid: true, event };
                 }
                 return { valid: false, error: 'No signing key configured for this network' };
@@ -181,11 +184,11 @@ class AlchemyWebhooksService {
 
             // Validate signature
             if (!this.validateSignature(rawBody, signature, signingKey)) {
-                console.warn(`[Alchemy] Signature mismatch for network: ${network}`);
+                    logger.warn('Signature mismatch');
                 return { valid: false, error: 'Invalid signature' };
             }
 
-            console.log('[Alchemy] Signature validated successfully');
+            logger.info('Signature validated successfully');
             return { valid: true, event };
         } catch (error: any) {
             return { valid: false, error: `Parse error: ${error.message}` };

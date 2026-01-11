@@ -2,6 +2,9 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import PaycrestService from '../services/paycrest';
 import { supabase } from '../lib/supabase';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Offramp');
 
 const router = Router();
 
@@ -74,7 +77,7 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
             .single();
 
         if (userError || !userRecord) {
-            console.error('[Offramp] User not found for privy_id:', privyId);
+            logger.warn('User not found for order creation');
             res.status(404).json({ success: false, error: 'User not found' });
             return;
         }
@@ -163,7 +166,7 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
                         currency: currency || 'NGN',
                         is_default: false,
                     });
-                console.log('[Offramp] Saved new beneficiary for user:', userId);
+                logger.info('Saved new beneficiary for user');
             }
         }
 
@@ -215,7 +218,7 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
             .single();
 
         if (userError || !userRecord) {
-            console.error('[Offramp] User not found for privy_id:', privyId);
+            logger.warn('User not found for orders fetch');
             res.status(404).json({ success: false, error: 'User not found' });
             return;
         }
@@ -279,7 +282,7 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
             .single();
 
         if (userError || !userRecord) {
-            console.error('[Offramp] User not found for privy_id:', privyId);
+            logger.warn('User not found for order details');
             res.status(404).json({ success: false, error: 'User not found' });
             return;
         }
@@ -322,7 +325,7 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
                 }
             }
         } catch (error) {
-            console.error('Failed to fetch Paycrest order status:', error);
+            logger.warn('Failed to fetch Paycrest order status', { error: error instanceof Error ? error.message : 'Unknown' });
         }
 
         // Map to camelCase
@@ -374,7 +377,7 @@ router.patch('/orders/:id', authenticate, async (req: Request, res: Response, ne
             .single();
 
         if (userError || !userRecord) {
-            console.error('[Offramp] User not found for privy_id:', privyId);
+            logger.warn('User not found for order update');
             res.status(404).json({ success: false, error: 'User not found' });
             return;
         }
@@ -398,7 +401,7 @@ router.patch('/orders/:id', authenticate, async (req: Request, res: Response, ne
             return;
         }
 
-        console.log('[Offramp] Updated order', id, 'with txHash:', txHash);
+        logger.info('Updated order with transaction hash', { orderId: id });
 
         res.json({
             success: true,

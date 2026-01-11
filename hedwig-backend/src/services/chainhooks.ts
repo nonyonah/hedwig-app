@@ -1,4 +1,7 @@
 import { ChainhooksClient, CHAINHOOKS_BASE_URL } from '@hirosystems/chainhooks-client';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Chainhooks');
 
 /**
  * ChainhooksService - Manages Stacks blockchain event subscriptions via Hiro Chainhooks SDK
@@ -31,7 +34,7 @@ class ChainhooksService {
         });
 
         this.isInitialized = true;
-        console.log(`[Chainhooks] Initialized client for ${network}`);
+        logger.info('Initialized client', { network });
         return this.client;
     }
 
@@ -75,10 +78,10 @@ class ChainhooksService {
                 },
             });
 
-            console.log(`[Chainhooks] Registered payment hook: ${chainhook.uuid}`);
+            logger.info('Registered payment hook');
             return chainhook;
         } catch (error: any) {
-            console.error('[Chainhooks] Failed to register payment hook:', error.message);
+            logger.error('Failed to register payment hook', { error: error.message });
             throw error;
         }
     }
@@ -92,10 +95,10 @@ class ChainhooksService {
         try {
             const response = await client.getChainhooks();
             const hooks = response.results || [];
-            console.log(`[Chainhooks] Found ${hooks.length} registered hooks`);
+            logger.debug('Found registered hooks', { count: hooks.length });
             return hooks;
         } catch (error: any) {
-            console.error('[Chainhooks] Failed to list hooks:', error.message);
+            logger.error('Failed to list hooks', { error: error.message });
             throw error;
         }
     }
@@ -110,7 +113,7 @@ class ChainhooksService {
             const hook = await client.getChainhook(uuid);
             return hook;
         } catch (error: any) {
-            console.error(`[Chainhooks] Failed to get hook ${uuid}:`, error.message);
+            logger.error('Failed to get hook', { error: error.message });
             throw error;
         }
     }
@@ -124,9 +127,9 @@ class ChainhooksService {
         try {
             // Use enableChainhook with false to disable
             await client.enableChainhook(uuid, false);
-            console.log(`[Chainhooks] Disabled hook: ${uuid}`);
+            logger.info('Disabled hook');
         } catch (error: any) {
-            console.error(`[Chainhooks] Failed to disable hook ${uuid}:`, error.message);
+            logger.error('Failed to disable hook', { error: error.message });
             throw error;
         }
     }
@@ -139,9 +142,9 @@ class ChainhooksService {
 
         try {
             await client.deleteChainhook(uuid);
-            console.log(`[Chainhooks] Deleted hook: ${uuid}`);
+            logger.info('Deleted hook');
         } catch (error: any) {
-            console.error(`[Chainhooks] Failed to delete hook ${uuid}:`, error.message);
+            logger.error('Failed to delete hook', { error: error.message });
             throw error;
         }
     }

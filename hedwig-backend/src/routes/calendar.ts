@@ -2,6 +2,9 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Calendar');
 
 const router = Router();
 
@@ -161,7 +164,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             throw new Error(`Failed to create event: ${error.message}`);
         }
 
-        console.log('[Calendar] Event created:', event.id);
+        logger.info('Event created');
 
         res.status(201).json({
             success: true,
@@ -224,7 +227,7 @@ router.patch('/:id', authenticate, async (req: Request, res: Response, next) => 
             return;
         }
 
-        console.log('[Calendar] Event updated:', event.id);
+        logger.info('Event updated');
 
         res.json({
             success: true,
@@ -271,7 +274,7 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next) =>
             throw new Error(`Failed to delete event: ${error.message}`);
         }
 
-        console.log('[Calendar] Event deleted:', id);
+        logger.info('Event deleted');
 
         res.json({
             success: true,
@@ -313,14 +316,14 @@ export async function createCalendarEventFromSource(
             .single();
 
         if (error) {
-            console.error('[Calendar] Failed to create event from source:', error);
+            logger.error('Failed to create event from source');
             return null;
         }
 
-        console.log('[Calendar] Auto-created event:', event.id, 'for', sourceType, sourceId);
+        logger.debug('Auto-created event from source');
         return event;
     } catch (error) {
-        console.error('[Calendar] Error creating event from source:', error);
+        logger.error('Error creating event from source');
         return null;
     }
 }
@@ -341,14 +344,14 @@ export async function markCalendarEventCompleted(
             .eq('source_id', sourceId);
 
         if (error) {
-            console.error('[Calendar] Failed to mark event completed:', error);
+            logger.error('Failed to mark event completed');
             return false;
         }
 
-        console.log('[Calendar] Marked event completed for', sourceType, sourceId);
+        logger.debug('Marked event completed');
         return true;
     } catch (error) {
-        console.error('[Calendar] Error marking event completed:', error);
+        logger.error('Error marking event completed');
         return false;
     }
 }

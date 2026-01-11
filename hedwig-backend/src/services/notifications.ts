@@ -1,5 +1,8 @@
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Notifications');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -39,7 +42,7 @@ class NotificationService {
     async sendPushNotification(expoPushToken: string, payload: PushNotificationPayload): Promise<ExpoPushTicket> {
         // Validate Expo push token format
         if (!expoPushToken.startsWith('ExponentPushToken[') && !expoPushToken.startsWith('ExpoPushToken[')) {
-            console.error('[Notifications] Invalid Expo push token format:', expoPushToken);
+            logger.error('Invalid Expo push token format');
             return { status: 'error', message: 'Invalid token format' };
         }
 
@@ -64,14 +67,14 @@ class NotificationService {
             const ticket = response.data.data?.[0] as ExpoPushTicket;
 
             if (ticket?.status === 'ok') {
-                console.log(`[Notifications] Sent notification to ${expoPushToken}`);
+                logger.info('Sent notification');
             } else {
-                console.error('[Notifications] Failed to send:', ticket?.message);
+                logger.error('Failed to send notification');
             }
 
             return ticket || { status: 'error', message: 'No ticket received' };
         } catch (error: any) {
-            console.error('[Notifications] Error sending push notification:', error.message);
+            logger.error('Error sending push notification', { error: error.message });
             return { status: 'error', message: error.message };
         }
     }
@@ -106,7 +109,7 @@ class NotificationService {
 
             return response.data.data as ExpoPushTicket[];
         } catch (error: any) {
-            console.error('[Notifications] Error sending bulk notifications:', error.message);
+            logger.error('Error sending bulk notifications', { error: error.message });
             return [];
         }
     }
@@ -123,14 +126,14 @@ class NotificationService {
                 .eq('user_id', userId);
 
             if (error || !tokens || tokens.length === 0) {
-                console.log(`[Notifications] No device tokens found for user ${userId}`);
+                logger.debug('No device tokens found');
                 return [];
             }
 
             const pushTokens = tokens.map(t => t.expo_push_token);
             return await this.sendBulkNotifications(pushTokens, payload);
         } catch (error: any) {
-            console.error('[Notifications] Error notifying user:', error.message);
+            logger.error('Error notifying user', { error: error.message });
             return [];
         }
     }
@@ -192,14 +195,14 @@ class NotificationService {
                 }, { onConflict: 'user_id,expo_push_token' });
 
             if (error) {
-                console.error('[Notifications] Failed to register device token:', error);
+                logger.error('Failed to register device token');
                 return false;
             }
 
-            console.log(`[Notifications] Registered device token for user ${userId}`);
+            logger.info('Registered device token');
             return true;
         } catch (error: any) {
-            console.error('[Notifications] Error registering device token:', error.message);
+            logger.error('Error registering device token', { error: error.message });
             return false;
         }
     }
@@ -215,13 +218,13 @@ class NotificationService {
                 .eq('expo_push_token', expoPushToken);
 
             if (error) {
-                console.error('[Notifications] Failed to remove device token:', error);
+                logger.error('Failed to remove device token');
                 return false;
             }
 
             return true;
         } catch (error: any) {
-            console.error('[Notifications] Error removing device token:', error.message);
+            logger.error('Error removing device token', { error: error.message });
             return false;
         }
     }
@@ -251,7 +254,7 @@ class NotificationService {
                     is_read: false
                 });
         } catch (err) {
-            console.error('[Notifications] Failed to create in-app notification:', err);
+            logger.error('Failed to create in-app notification');
         }
 
         return await this.notifyUser(userId, {
@@ -292,7 +295,7 @@ class NotificationService {
                     is_read: false
                 });
         } catch (err) {
-            console.error('[Notifications] Failed to create in-app notification:', err);
+            logger.error('Failed to create in-app notification');
         }
 
         return await this.notifyUser(userId, {
@@ -331,7 +334,7 @@ class NotificationService {
                     is_read: false
                 });
         } catch (err) {
-            console.error('[Notifications] Failed to create in-app notification:', err);
+            logger.error('Failed to create in-app notification');
         }
 
         return await this.notifyUser(userId, {

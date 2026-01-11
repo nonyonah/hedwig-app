@@ -2,6 +2,9 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import NotificationService from '../services/notifications';
 import { getOrCreateUser } from '../utils/userHelper';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('NotificationsRoute');
 
 const router = Router();
 
@@ -14,7 +17,7 @@ router.post('/register', authenticate, async (req: Request, res: Response) => {
         const privyId = req.user!.privyId;
         const { expoPushToken, platform } = req.body;
 
-        console.log('[Notifications] Register request:', { privyId, expoPushToken: expoPushToken?.substring(0, 30), platform });
+        logger.debug('Register request received');
 
         if (!expoPushToken) {
             res.status(400).json({
@@ -36,7 +39,7 @@ router.post('/register', authenticate, async (req: Request, res: Response) => {
         // Get the actual user ID from database (email)
         const user = await getOrCreateUser(privyId);
         if (!user) {
-            console.error('[Notifications] User not found for privyId:', privyId);
+            logger.error('User not found');
             res.status(404).json({
                 success: false,
                 error: { message: 'User not found' },
@@ -44,7 +47,7 @@ router.post('/register', authenticate, async (req: Request, res: Response) => {
             return;
         }
 
-        console.log('[Notifications] Registering device token for user:', user.id);
+        logger.debug('Registering device token');
 
         const success = await NotificationService.registerDeviceToken(
             user.id,
@@ -65,7 +68,7 @@ router.post('/register', authenticate, async (req: Request, res: Response) => {
             data: { message: 'Device token registered successfully' },
         });
     } catch (error: any) {
-        console.error('[Notifications] Error registering token:', error.message, error.stack);
+        logger.error('Error registering token');
         res.status(500).json({
             success: false,
             error: { message: 'Internal server error', details: error.message },
@@ -96,7 +99,7 @@ router.delete('/unregister', authenticate, async (req: Request, res: Response) =
             data: { message: 'Device token removed successfully' },
         });
     } catch (error: any) {
-        console.error('[Notifications] Error removing token:', error);
+        logger.error('Error removing token');
         res.status(500).json({
             success: false,
             error: { message: 'Internal server error' },
@@ -119,7 +122,7 @@ router.post('/test', authenticate, async (req: Request, res: Response) => {
 
     try {
         const userId = req.user!.id;
-        console.log('[Notifications] Creating test in-app notification for user:', userId);
+        logger.debug('Creating test in-app notification');
 
         // Create in-app notification in database
         const { data: notification, error: insertError } = await supabase
@@ -135,11 +138,11 @@ router.post('/test', authenticate, async (req: Request, res: Response) => {
             .single();
 
         if (insertError) {
-            console.error('[Notifications] Error inserting test notification:', insertError);
+            logger.error('Error inserting test notification');
             throw new Error(`Failed to create notification: ${insertError.message}`);
         }
 
-        console.log('[Notifications] Created test notification:', notification?.id);
+        logger.info('Created test notification');
 
         // Also send push notification
         const tickets = await NotificationService.notifyUser(userId, {
@@ -153,7 +156,7 @@ router.post('/test', authenticate, async (req: Request, res: Response) => {
             data: { notification, pushTickets: tickets },
         });
     } catch (error: any) {
-        console.error('[Notifications] Error sending test:', error);
+        logger.error('Error sending test');
         res.status(500).json({
             success: false,
             error: { message: error.message || 'Internal server error' },
@@ -183,7 +186,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
             .single();
 
         if (userError || !userData) {
-            console.log('[Notifications] User not found for Privy ID:', privyId);
+            logger.debug('User not found for Privy ID');
             res.json({
                 success: true,
                 data: { notifications: [], total: 0, limit, offset },
@@ -192,7 +195,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
         }
 
         const internalUserId = userData.id; // This is the email (nonyonah@gmail.com)
-        console.log('[Notifications] Fetching notifications for user:', internalUserId);
+        logger.debug('Fetching notifications');
 
         const { data: notifications, error, count } = await supabase
             .from('notifications')
@@ -205,7 +208,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
             throw new Error(`Failed to fetch notifications: ${error.message}`);
         }
 
-        console.log('[Notifications] Found notifications:', notifications?.length || 0);
+        logger.debug('Found notifications', { count: notifications?.length || 0 });
 
         res.json({
             success: true,
@@ -217,7 +220,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
             },
         });
     } catch (error: any) {
-        console.error('[Notifications] Error fetching notifications:', error);
+        logger.error('Error fetching notifications');
         res.status(500).json({
             success: false,
             error: { message: 'Internal server error' },
@@ -260,7 +263,7 @@ router.get('/unread-count', authenticate, async (req: Request, res: Response) =>
             data: { unreadCount: count || 0 },
         });
     } catch (error: any) {
-        console.error('[Notifications] Error counting unread:', error);
+        logger.error('Error counting unread');
         res.status(500).json({
             success: false,
             error: { message: 'Internal server error' },
@@ -304,7 +307,7 @@ router.patch('/:id/read', authenticate, async (req: Request, res: Response) => {
             data: { message: 'Notification marked as read' },
         });
     } catch (error: any) {
-        console.error('[Notifications] Error marking as read:', error);
+        logger.error('Error marking as read');
         res.status(500).json({
             success: false,
             error: { message: 'Internal server error' },
@@ -347,7 +350,7 @@ router.post('/read-all', authenticate, async (req: Request, res: Response) => {
             data: { message: 'All notifications marked as read' },
         });
     } catch (error: any) {
-        console.error('[Notifications] Error marking all as read:', error);
+        logger.error('Error marking all as read');
         res.status(500).json({
             success: false,
             error: { message: 'Internal server error' },

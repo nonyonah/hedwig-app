@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 export default function WelcomeScreen() {
     const router = useRouter();
@@ -11,6 +12,9 @@ export default function WelcomeScreen() {
     const themeColors = useThemeColors();
     const scrollViewRef = useRef<ScrollView>(null);
     const positionRef = useRef(0);
+
+    // Track page view
+    useAnalyticsScreen('Welcome');
 
     const features = [
         {

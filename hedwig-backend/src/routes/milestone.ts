@@ -4,6 +4,9 @@ import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { EmailService } from '../services/email';
 import { createCalendarEventFromSource } from './calendar';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Milestone');
 
 const router = Router();
 
@@ -456,13 +459,13 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
             .eq('id', id);
 
         if (updateError) {
-            console.error('Failed to update milestone:', updateError);
+            logger.error('Failed to update milestone');
         }
 
         // Send invoice email to client if they have an email
         let emailSent = false;
         if (client.email) {
-            console.log('[Milestone Invoice] Sending invoice email to:', client.email);
+            logger.debug('Sending invoice email to client');
             try {
                 // Get user's name for the email
                 const { data: userData } = await supabase
@@ -484,12 +487,12 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
                     linkId: invoice.id,
                     network: network || 'base',
                 });
-                console.log('[Milestone Invoice] Email send result:', emailSent);
+                logger.info('Email sent');
             } catch (emailError) {
-                console.error('[Milestone Invoice] Failed to send invoice email:', emailError);
+                logger.error('Failed to send invoice email');
             }
         } else {
-            console.log('[Milestone Invoice] Client has no email, skipping email notification');
+            logger.debug('Client has no email, skipping email notification');
         }
 
         res.json({

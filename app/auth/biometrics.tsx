@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
 import { getOrCreateStacksWallet } from '../../services/stacksWallet';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 export default function BiometricsScreen() {
     const router = useRouter();
@@ -17,6 +18,9 @@ export default function BiometricsScreen() {
     const ethWalletHook = useEmbeddedEthereumWallet();
     const solWalletHook = useEmbeddedSolanaWallet();
     const { user, getAccessToken } = usePrivy();
+
+    // Track page view
+    useAnalyticsScreen('Biometrics Setup');
 
     // Store wallet addresses after creation
     const [createdWallets, setCreatedWallets] = React.useState<{ ethereum?: string, solana?: string }>({});

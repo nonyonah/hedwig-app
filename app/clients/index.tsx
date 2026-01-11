@@ -14,6 +14,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import Analytics from '../../services/analytics';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 interface Client {
     id: string;
@@ -37,6 +38,9 @@ export default function ClientsScreen() {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showFormModal, setShowFormModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+
+    // Track page view
+    useAnalyticsScreen('Clients');
 
     // Form state
     const [formName, setFormName] = useState('');

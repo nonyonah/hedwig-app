@@ -5,6 +5,9 @@ import { AppError } from '../middleware/errorHandler';
 import { getOrCreateUser } from '../utils/userHelper';
 import NotificationService from '../services/notifications';
 import { createCalendarEventFromSource, markCalendarEventCompleted } from './calendar';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Documents');
 
 const router = Router();
 
@@ -220,7 +223,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 router.get('/:id/public', async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        console.log('[Documents] Public GET request for ID:', id);
+        logger.debug('Public GET request for document');
 
         const { data: doc, error } = await supabase
             .from('documents')
@@ -237,18 +240,18 @@ router.get('/:id/public', async (req: Request, res: Response, next) => {
             .single();
 
         if (error || !doc) {
-            console.error('[Documents] Document not found for ID:', id);
+            logger.warn('Document not found for public access');
             res.status(404).json({ success: false, error: { message: 'Document not found' } });
             return;
         }
 
-        console.log('[Documents] Returning public document:', doc.id, 'Type:', doc.type);
+        logger.debug('Returning public document', { type: doc.type });
         res.json({
             success: true,
             data: { document: doc }
         });
     } catch (error) {
-        console.error('[Documents] Unexpected error:', error);
+        logger.error('Unexpected error fetching public document', { error: error instanceof Error ? error.message : 'Unknown' });
         next(error);
     }
 });
@@ -260,7 +263,7 @@ router.get('/:id/public', async (req: Request, res: Response, next) => {
 router.get('/:id', async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        console.log('[Documents] GET request for ID:', id);
+        logger.debug('GET request for document');
 
         const { data: doc, error } = await supabase
             .from('documents')
@@ -280,16 +283,16 @@ router.get('/:id', async (req: Request, res: Response, next) => {
             .eq('id', id)
             .single();
 
-        console.log('[Documents] Query result - error:', error);
-        console.log('[Documents] Query result - doc:', doc ? 'Found' : 'Not found');
+        logger.debug('Document query completed', { found: !!doc });
+        if (error) logger.debug('Query error', { code: error.code });
 
         if (error || !doc) {
-            console.error('[Documents] Document not found for ID:', id, 'Error:', error);
+            logger.warn('Document not found');
             res.status(404).json({ success: false, error: { message: 'Document not found' } });
             return;
         }
 
-        console.log('[Documents] Returning document:', doc.id, 'Type:', doc.type);
+        logger.debug('Returning document', { type: doc.type });
         res.json({
             success: true,
             data: { document: doc }
@@ -310,7 +313,7 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
         const { id } = req.params;
         const { txHash, chain, token, amount, payer } = req.body;
 
-        console.log('[Documents] Pay request for ID:', id, { txHash, chain, token, amount, payer });
+        logger.debug('Pay request received', { chain, token, amount });
 
         // Fetch the document
         const { data: doc, error: fetchError } = await supabase
@@ -347,7 +350,7 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
             throw new AppError(`Failed to update document: ${updateError.message}`, 500);
         }
 
-        console.log('[Documents] Document marked as paid:', id);
+        logger.info('Document marked as paid');
 
         // Send notifications to the document owner
         try {
@@ -368,12 +371,7 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
             const notificationTitle = `💰 ${docType} Paid!`;
             const notificationBody = `${payerDisplay} paid "${doc.title}" - ${doc.amount} ${doc.currency || 'USDC'} received!`;
 
-            console.log('[Documents] Sending payment notification:', {
-                userId: doc.user_id,
-                payerDisplay,
-                payerEmail,
-                payerWallet: payer
-            });
+            logger.debug('Sending payment notification');
 
             // Send push notification
             await NotificationService.notifyUser(doc.user_id, {
@@ -410,15 +408,15 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
                 });
 
             if (notifError) {
-                console.error('[Documents] Failed to insert notification:', notifError);
+                logger.error('Failed to insert notification', { error: notifError.message });
             } else {
-                console.log('[Documents] In-app notification created for user:', doc.user_id);
+                logger.info('In-app notification created');
             }
 
-            console.log('[Documents] Payment notification sent to user:', doc.user_id);
+            logger.info('Payment notification sent');
         } catch (notifyError) {
             // Don't fail the payment if notification fails
-            console.error('[Documents] Failed to send payment notification:', notifyError);
+            logger.error('Failed to send payment notification', { error: notifyError instanceof Error ? notifyError.message : 'Unknown' });
         }
 
         // Mark associated calendar event as completed
@@ -429,7 +427,7 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
             data: { document: updatedDoc }
         });
     } catch (error) {
-        console.error('[Documents] Pay error:', error);
+        logger.error('Pay endpoint error', { error: error instanceof Error ? error.message : 'Unknown' });
         next(error);
     }
 });
@@ -537,7 +535,7 @@ router.post('/:id/complete', authenticate, async (req: Request, res: Response, n
             .single();
 
         if (invoiceError) {
-            console.error('[Contract Complete] Failed to create invoice:', invoiceError);
+            logger.error('Failed to create invoice from contract', { error: invoiceError.message });
             // Don't fail the request if invoice creation fails
         }
 

@@ -2,6 +2,9 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { supabase } from '../lib/supabase';
 import NotificationService from '../services/notifications';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('PaycrestWebhook');
 
 const router = Router();
 
@@ -78,7 +81,7 @@ const getStatusMessage = (event: string, amount: number, currency: string): { ti
  */
 const verifyWebhookSignature = (payload: string, signature: string): boolean => {
     if (!PAYCREST_WEBHOOK_SECRET) {
-        console.warn('[PaycrestWebhook] No webhook secret configured, skipping signature verification');
+        logger.warn('No webhook secret configured, skipping signature verification');
         return true;
     }
 
@@ -113,17 +116,17 @@ router.post('/', async (req: Request, res: Response) => {
         // In production, require webhook secret and signature
         if (process.env.NODE_ENV === 'production') {
             if (!PAYCREST_WEBHOOK_SECRET) {
-                console.error('[PaycrestWebhook] CRITICAL: No webhook secret configured in production!');
+                logger.error('CRITICAL: No webhook secret configured in production');
                 res.status(500).json({ error: 'Webhook not configured' });
                 return;
             }
             if (!signature) {
-                console.error('[PaycrestWebhook] Missing signature in production');
+                logger.warn('Missing signature in production');
                 res.status(401).json({ error: 'Missing signature' });
                 return;
             }
             if (!verifyWebhookSignature(rawBody, signature)) {
-                console.error('[PaycrestWebhook] Invalid signature');
+                logger.warn('Invalid webhook signature');
                 res.status(401).json({ error: 'Invalid signature' });
                 return;
             }
@@ -131,7 +134,7 @@ router.post('/', async (req: Request, res: Response) => {
             // In development, verify if both secret and signature are present
             if (PAYCREST_WEBHOOK_SECRET && signature) {
                 if (!verifyWebhookSignature(rawBody, signature)) {
-                    console.error('[PaycrestWebhook] Invalid signature');
+                    logger.warn('Invalid webhook signature');
                     res.status(401).json({ error: 'Invalid signature' });
                     return;
                 }
@@ -139,7 +142,7 @@ router.post('/', async (req: Request, res: Response) => {
         }
 
         const { event, data } = req.body;
-        console.log('[PaycrestWebhook] Received event:', event, 'Order ID:', data?.id);
+        logger.info('Received webhook event', { event });
 
         if (!event || !data?.id) {
             res.status(400).json({ error: 'Missing event or order ID' });
@@ -157,13 +160,13 @@ router.post('/', async (req: Request, res: Response) => {
             .single();
 
         if (findError || !order) {
-            console.error('[PaycrestWebhook] Order not found:', paycrestOrderId);
+            logger.warn('Order not found for webhook');
             // Still return 200 to acknowledge webhook
             res.status(200).json({ received: true, status: 'order_not_found' });
             return;
         }
 
-        console.log('[PaycrestWebhook] Found order:', order.id, 'Current status:', order.status, 'New status:', newStatus);
+        logger.info('Processing order status update', { currentStatus: order.status, newStatus });
 
         // 2. Update order status
         const updateData: any = {
@@ -192,7 +195,7 @@ router.post('/', async (req: Request, res: Response) => {
             .eq('id', order.id);
 
         if (updateError) {
-            console.error('[PaycrestWebhook] Failed to update order:', updateError);
+            logger.error('Failed to update order status', { error: updateError.message });
         }
 
         // 3. Send push notification
@@ -238,9 +241,9 @@ router.post('/', async (req: Request, res: Response) => {
                         event: event,
                     }
                 });
-                console.log('[PaycrestWebhook] Push notification sent for order:', order.id);
+                logger.info('Push notification sent for order update');
             } catch (pushError) {
-                console.error('[PaycrestWebhook] Failed to send push notification:', pushError);
+                logger.error('Failed to send push notification', { error: pushError instanceof Error ? pushError.message : 'Unknown' });
             }
         }
 
@@ -252,7 +255,7 @@ router.post('/', async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error('[PaycrestWebhook] Error processing webhook:', error);
+        logger.error('Error processing webhook', { error: error.message });
         // Always return 200 to acknowledge receipt
         res.status(200).json({ received: true, error: error.message });
     }

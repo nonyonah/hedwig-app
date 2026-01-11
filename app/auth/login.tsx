@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/colors';
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { Button } from '../../components/Button';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -13,6 +14,9 @@ export default function LoginScreen() {
     const insets = useSafeAreaInsets();
     const themeColors = useThemeColors();
     const keyboardAppearance = useKeyboardAppearance();
+
+    // Track page view
+    useAnalyticsScreen('Login');
 
     // State
     const [step, setStep] = useState<'email' | 'otp'>('email');

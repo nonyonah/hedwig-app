@@ -4,6 +4,9 @@ import { getOrCreateUser } from '../utils/userHelper';
 import { Network, Alchemy, AssetTransfersCategory, SortingOrder } from 'alchemy-sdk';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Transactions');
 
 const router = Router();
 
@@ -17,7 +20,7 @@ const baseAlchemy = new Alchemy(baseConfig);
 
 // Initialize Solana Connection using RPC URL from env
 const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-console.log('[Transactions] Solana RPC URL:', SOLANA_RPC_URL.substring(0, 50) + '...');
+logger.debug('Solana connection initialized');
 const solanaConnection = new Connection(SOLANA_RPC_URL, 'confirmed');
 
 interface TransactionItem {
@@ -36,22 +39,22 @@ interface TransactionItem {
 
 router.get('/', authenticate, async (req: Request, res: Response) => {
     try {
-        console.log('[Transactions] Route hit');
+        logger.debug('Transactions route hit');
         const privyId = req.user!.privyId;
         const userId = req.user!.id;
-        console.log('[Transactions] User:', { privyId, userId });
+        logger.debug('Processing user request');
 
         const user = await getOrCreateUser(privyId);
 
         if (!user) {
-            console.log('[Transactions] User not found');
+            logger.debug('User not found');
             return res.status(404).json({ success: false, error: 'User not found' });
         }
 
         const ethAddress = user.ethereum_wallet_address;
         const solAddress = user.solana_wallet_address;
-        console.log('[Transactions] Addresses - ETH:', ethAddress, 'SOL:', solAddress);
-        console.log('[Transactions] ALCHEMY_API_KEY present:', !!process.env.ALCHEMY_API_KEY);
+        logger.debug('Fetching transactions');
+        logger.debug('API keys configured', { alchemyPresent: !!process.env.ALCHEMY_API_KEY });
 
         const allTransactions: TransactionItem[] = [];
 
@@ -145,18 +148,18 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                 });
 
             } catch (error) {
-                console.error('[Transactions] Error fetching Base transactions:', error);
+                logger.error('Error fetching Base transactions');
             }
         }
 
         // 3. Fetch Solana Transactions
         if (solAddress) {
             try {
-                console.log('[Transactions] Fetching Solana transactions for:', solAddress);
+                logger.debug('Fetching Solana transactions');
                 const pubKey = new PublicKey(solAddress);
                 // Get signatures (history) - limit to 10 to reduce rate limiting issues
                 const signatures = await solanaConnection.getSignaturesForAddress(pubKey, { limit: 10 });
-                console.log('[Transactions] Solana signatures found:', signatures.length);
+                logger.debug('Solana signatures found', { count: signatures.length });
 
                 const validSignatures = signatures.filter(s => !s.err);
 
@@ -276,13 +279,13 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
                             to: solAddress
                         });
                     } catch (txErr) {
-                        console.log('[Transactions] Error fetching Solana tx:', signatureInfo.signature.slice(0, 10), txErr);
+                        logger.debug('Error fetching Solana tx');
                         // Continue with next transaction
                     }
                 }
 
             } catch (err) {
-                console.error('[Transactions] Error fetching Solana transactions:', err);
+                logger.error('Error fetching Solana transactions');
             }
         }
 
@@ -295,7 +298,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        console.error('[Transactions] Global error:', error);
+        logger.error('Global error in transactions');
         return res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
@@ -353,11 +356,11 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
             .single();
 
         if (error) {
-            console.error('[Transactions] Failed to create transaction:', error);
+            logger.error('Failed to create transaction');
             return res.status(500).json({ success: false, error: 'Failed to create transaction' });
         }
 
-        console.log('[Transactions] Transaction created:', transaction.id);
+        logger.info('Transaction created');
 
         return res.status(201).json({
             success: true,
@@ -365,7 +368,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        console.error('[Transactions] Error creating transaction:', error);
+        logger.error('Error creating transaction');
         return res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
@@ -399,7 +402,7 @@ router.patch('/:id', authenticate, async (req: Request, res: Response) => {
             .single();
 
         if (error) {
-            console.error('[Transactions] Failed to update transaction:', error);
+            logger.error('Failed to update transaction');
             return res.status(500).json({ success: false, error: 'Failed to update transaction' });
         }
 
@@ -407,7 +410,7 @@ router.patch('/:id', authenticate, async (req: Request, res: Response) => {
             return res.status(404).json({ success: false, error: 'Transaction not found' });
         }
 
-        console.log('[Transactions] Transaction updated:', transaction.id);
+        logger.info('Transaction updated');
 
         return res.json({
             success: true,
@@ -415,7 +418,7 @@ router.patch('/:id', authenticate, async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        console.error('[Transactions] Error updating transaction:', error);
+        logger.error('Error updating transaction');
         return res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });

@@ -18,6 +18,7 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 // Icons for tokens, networks, and status
 const ICONS = {
@@ -48,6 +49,9 @@ const PROFILE_COLOR_OPTIONS = [
 
 export default function PaymentLinksScreen() {
     const router = useRouter();
+
+    // Track page view
+    useAnalyticsScreen('Payment Links');
     const { getAccessToken, user } = usePrivy();
     const settings = useSettings();
     const currency = settings?.currency || 'USD';

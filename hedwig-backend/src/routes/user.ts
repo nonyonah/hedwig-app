@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('User');
 
 const router = Router();
 
@@ -27,11 +30,10 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
-        // Debug logging
-        console.log('Raw user data from DB:', user);
-        console.log('ethereum_wallet_address:', user.ethereum_wallet_address);
-        console.log('solana_wallet_address:', user.solana_wallet_address);
-        console.log('avatar:', user.avatar ? user.avatar.substring(0, 100) + '...' : 'null');
+        logger.debug('Fetched user profile', { 
+            hasWallets: !!(user.ethereum_wallet_address || user.solana_wallet_address),
+            hasAvatar: !!user.avatar
+        });
 
         // Fetch counts (optional, but good to have if the frontend expects it)
         // We can do this in parallel

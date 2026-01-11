@@ -4,20 +4,23 @@ import { GeminiService } from './gemini';
 import { EmailService } from './email';
 import NotificationService from './notifications';
 import { differenceInDays, parseISO, addDays, isSameDay } from 'date-fns';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Scheduler');
 
 export const SchedulerService = {
     initScheduler() {
-        console.log('[Scheduler] Initializing Reminder Scheduler...');
+        logger.info('Initializing Reminder Scheduler');
 
         // Run every day at 10:00 AM UTC - check for overdue payments
         cron.schedule('0 10 * * *', async () => {
-            console.log('[Scheduler] Running daily automated check for overdue payments...');
+            logger.debug('Running daily automated check for overdue payments');
             await this.checkAndRemind();
         });
 
         // Run every day at 9:00 AM UTC - check for upcoming due dates
         cron.schedule('0 9 * * *', async () => {
-            console.log('[Scheduler] Running daily due date reminder check...');
+            logger.debug('Running daily due date reminder check');
             await this.checkDueDateReminders();
         });
     },
@@ -45,16 +48,16 @@ export const SchedulerService = {
                 .not('content->due_date', 'is', null);
 
             if (error) {
-                console.error('[Scheduler] Failed to fetch documents for due date reminders:', error);
+                logger.error('Failed to fetch documents for due date reminders');
                 return;
             }
 
             if (!documents || documents.length === 0) {
-                console.log('[Scheduler] No documents with due dates found.');
+                logger.debug('No documents with due dates found');
                 return;
             }
 
-            console.log(`[Scheduler] Checking ${documents.length} documents for due date reminders...`);
+            logger.debug('Checking documents for due date reminders', { count: documents.length });
 
             for (const doc of documents) {
                 await this.processDueDateReminder(doc, today, threeDaysFromNow, oneDayFromNow);
@@ -64,7 +67,7 @@ export const SchedulerService = {
             await this.checkMilestoneDueDates(today, threeDaysFromNow, oneDayFromNow);
 
         } catch (error) {
-            console.error('[Scheduler] Error in checkDueDateReminders:', error);
+            logger.error('Error in checkDueDateReminders');
         }
     },
 
@@ -100,7 +103,7 @@ export const SchedulerService = {
             const reminderKey = `reminder_${reminderType}_sent`;
             if (content[reminderKey]) return;
 
-            console.log(`[Scheduler] Sending ${reminderType} reminder for doc ${doc.id}`);
+            logger.debug('Sending reminder', { reminderType });
 
             const senderName = `${doc.user?.first_name || ''} ${doc.user?.last_name || ''}`.trim() || 'Freelancer';
             const docType = doc.type === 'INVOICE' ? 'invoice' : 'payment';
@@ -154,10 +157,10 @@ export const SchedulerService = {
                 })
                 .eq('id', doc.id);
 
-            console.log(`[Scheduler] ${reminderType} reminder sent for doc ${doc.id}`);
+            logger.info('Reminder sent');
 
         } catch (error) {
-            console.error(`[Scheduler] Failed to process due date reminder for doc ${doc.id}:`, error);
+            logger.error('Failed to process due date reminder');
         }
     },
 
@@ -221,7 +224,7 @@ export const SchedulerService = {
                 }
             }
         } catch (error) {
-            console.error('[Scheduler] Error checking milestone due dates:', error);
+            logger.error('Error checking milestone due dates');
         }
     },
 
@@ -243,23 +246,23 @@ export const SchedulerService = {
                 .lt('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()); // Older than 7 days
 
             if (error) {
-                console.error('[Scheduler] Failed to fetch documents:', error);
+                logger.error('Failed to fetch documents');
                 return;
             }
 
             if (!documents || documents.length === 0) {
-                console.log('[Scheduler] No overdue documents found.');
+                logger.debug('No overdue documents found');
                 return;
             }
 
-            console.log(`[Scheduler] Found ${documents.length} potentially overdue documents.`);
+            logger.debug('Found potentially overdue documents', { count: documents.length });
 
             for (const doc of documents) {
                 await this.processDocumentReminder(doc);
             }
 
         } catch (error) {
-            console.error('[Scheduler] Error in checkAndRemind:', error);
+            logger.error('Error in checkAndRemind');
         }
     },
 
@@ -272,13 +275,13 @@ export const SchedulerService = {
             // Check if reminders are enabled for this document (default: true for backwards compatibility)
             const remindersEnabled = content.reminders_enabled !== false;
             if (!remindersEnabled) {
-                console.log(`[Scheduler] Skipping doc ${doc.id}: Reminders disabled.`);
+                logger.debug('Skipping: Reminders disabled');
                 return;
             }
 
             // If no recipient email, we can't send a reminder
             if (!recipientEmail) {
-                console.log(`[Scheduler] Skipping doc ${doc.id}: No recipient email.`);
+                logger.debug('Skipping: No recipient email');
                 return;
             }
 
@@ -287,7 +290,7 @@ export const SchedulerService = {
             if (lastReminded) {
                 const daysSinceReminder = differenceInDays(new Date(), parseISO(lastReminded));
                 if (daysSinceReminder < 7) {
-                    console.log(`[Scheduler] Skipping doc ${doc.id}: Reminded ${daysSinceReminder} days ago.`);
+                    logger.debug('Skipping: Recently reminded');
                     return;
                 }
             }
@@ -301,7 +304,7 @@ export const SchedulerService = {
                 return;
             }
 
-            console.log(`[Scheduler] Generating reminder for doc ${doc.id} (${daysSinceCreation} days since creation)`);
+            logger.debug('Generating reminder', { daysSinceCreation });
 
             const senderName = `${doc.user?.first_name || 'Hedwig'} ${doc.user?.last_name || ''}`.trim();
 
@@ -341,11 +344,11 @@ export const SchedulerService = {
                     })
                     .eq('id', doc.id);
 
-                console.log(`[Scheduler] Reminder sent & recorded for doc ${doc.id}`);
+                logger.info('Reminder sent and recorded');
             }
 
         } catch (error) {
-            console.error(`[Scheduler] Failed to process doc ${doc.id}:`, error);
+            logger.error('Failed to process document');
         }
     }
 };

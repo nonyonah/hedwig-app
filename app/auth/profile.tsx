@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { Button } from '../../components/Button';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -31,6 +32,9 @@ export default function ProfileScreen() {
     const keyboardAppearance = useKeyboardAppearance();
     const { email, edit } = useLocalSearchParams<{ email: string; edit?: string }>();
     const { getAccessToken, user } = usePrivy();
+
+    // Track page view
+    useAnalyticsScreen('Profile Setup');
 
     // State
     const [name, setName] = useState('');

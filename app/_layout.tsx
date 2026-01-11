@@ -15,6 +15,7 @@ import { SettingsProvider, useSettings } from '../context/SettingsContext';
 import { useThemeColors } from '../theme/colors';
 import * as Sentry from '@sentry/react-native';
 import { isRunningInExpoGo } from 'expo';
+import { initializeAnalytics, trackScreen } from '../services/analytics';
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
@@ -44,6 +45,9 @@ Sentry.init({
     // Debug mode in development
     debug: __DEV__,
 });
+
+// Initialize PostHog analytics
+initializeAnalytics();
 
 // Themed Stack component that uses the theme context
 function ThemedStack() {
@@ -101,6 +105,8 @@ function WebLayout() {
     );
 }
 
+import { UserProvider } from '../context/UserContext';
+
 // Native layout with Privy
 function NativeLayout() {
     return (
@@ -108,7 +114,9 @@ function NativeLayout() {
             appId={PRIVY_APP_ID}
             clientId={PRIVY_CLIENT_ID}
         >
-            <ThemedStack />
+            <UserProvider>
+                <ThemedStack />
+            </UserProvider>
         </PrivyProvider>
     );
 }
@@ -116,10 +124,29 @@ function NativeLayout() {
 function RootLayout() {
     // Register navigation container for Sentry route tracking
     const ref = useNavigationContainerRef();
+    const routeNameRef = React.useRef<string | undefined>(undefined);
 
     React.useEffect(() => {
         if (ref) {
             navigationIntegration.registerNavigationContainer(ref);
+
+            // Track initial route
+            const initialRouteName = ref.getCurrentRoute?.()?.name;
+            if (initialRouteName) {
+                routeNameRef.current = initialRouteName;
+                trackScreen(initialRouteName);
+            }
+
+            // Listen for route changes
+            const unsubscribe = ref.addListener('state', () => {
+                const currentRouteName = ref.getCurrentRoute?.()?.name;
+                if (currentRouteName && currentRouteName !== routeNameRef.current) {
+                    routeNameRef.current = currentRouteName;
+                    trackScreen(currentRouteName);
+                }
+            });
+
+            return () => unsubscribe();
         }
     }, [ref]);
 

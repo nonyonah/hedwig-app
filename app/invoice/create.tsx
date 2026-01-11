@@ -6,11 +6,15 @@ import { ArrowLeft, CurrencyDollar, CalendarBlank, User, Envelope, FileText } fr
 import { usePrivy } from '@privy-io/expo';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 export default function CreateInvoiceScreen() {
     const router = useRouter();
     const { getAccessToken } = usePrivy();
     const [isLoading, setIsLoading] = useState(false);
+
+    // Track page view
+    useAnalyticsScreen('Create Invoice');
 
     const [formData, setFormData] = useState({
         clientName: '',

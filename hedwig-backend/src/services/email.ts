@@ -1,6 +1,8 @@
 
 import { Resend } from 'resend';
+import { createLogger } from '../utils/logger';
 
+const logger = createLogger('EmailService');
 // Initialize Resend lazily inside functions to ensure env vars are loaded
 
 const SHARED_STYLES = `
@@ -33,7 +35,7 @@ interface EmailData {
 export const EmailService = {
     async sendInvoiceEmail(data: EmailData): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
-            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
             return false;
         }
 
@@ -82,10 +84,10 @@ export const EmailService = {
                 subject: `New Invoice from ${data.senderName}`,
                 html: html,
             });
-            console.log(`[EmailService] Invoice email sent to ${data.to}`);
+            logger.info('Invoice email sent');
             return true;
         } catch (error) {
-            console.error('[EmailService] Simple invoice email failed:', error);
+            logger.error('Invoice email failed', { error: error instanceof Error ? error.message : 'Unknown' });
             return false;
         }
     },
@@ -93,7 +95,7 @@ export const EmailService = {
     async sendPaymentLinkEmail(data: EmailData): Promise<boolean> {
         // ... existing implementation ...
         if (!process.env.RESEND_API_KEY) {
-            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
             return false;
         }
 
@@ -143,17 +145,17 @@ export const EmailService = {
                 subject: `Payment Request from ${data.senderName}`,
                 html: html,
             });
-            console.log(`[EmailService] Payment link email sent to ${data.to}`);
+            logger.info('Payment link email sent');
             return true;
         } catch (error) {
-            console.error('[EmailService] Payment link email failed:', error);
+            logger.error('Payment link email failed', { error: error instanceof Error ? error.message : 'Unknown' });
             return false;
         }
     },
 
     async sendSmartReminder(to: string, subject: string, htmlContent: string, actionLink?: string, actionText?: string): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
-            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
             return false;
         }
 
@@ -196,10 +198,10 @@ export const EmailService = {
                 subject: subject,
                 html: html,
             });
-            console.log(`[EmailService] Smart reminder sent to ${to}`);
+            logger.info('Smart reminder sent');
             return true;
         } catch (error) {
-            console.error('[EmailService] Smart reminder failed:', error);
+            logger.error('Smart reminder failed', { error: error instanceof Error ? error.message : 'Unknown' });
             return false;
         }
     },
@@ -214,7 +216,7 @@ export const EmailService = {
         milestoneCount?: number;
     }): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
-            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
             return false;
         }
 
@@ -275,10 +277,10 @@ export const EmailService = {
                 subject: `Contract for Review: ${data.contractTitle} from ${data.senderName}`,
                 html: html,
             });
-            console.log(`[EmailService] Contract email sent to ${data.to}`);
+            logger.info('Contract email sent');
             return true;
         } catch (error) {
-            console.error('[EmailService] Contract email failed:', error);
+            logger.error('Contract email failed', { error: error instanceof Error ? error.message : 'Unknown' });
             return false;
         }
     },
@@ -291,7 +293,7 @@ export const EmailService = {
         invoiceCount?: number;
     }): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
-            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
             return false;
         }
 
@@ -351,10 +353,10 @@ export const EmailService = {
                 subject: `🎉 Contract Approved: ${data.contractTitle}`,
                 html: html,
             });
-            console.log(`[EmailService] Contract approved notification sent to ${data.to}`);
+            logger.info('Contract approved notification sent');
             return true;
         } catch (error) {
-            console.error('[EmailService] Contract approved notification failed:', error);
+            logger.error('Contract approved notification failed', { error: error instanceof Error ? error.message : 'Unknown' });
             return false;
         }
     },
@@ -368,7 +370,7 @@ export const EmailService = {
         totalCost: string;
     }): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
-            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
             return false;
         }
 
@@ -424,10 +426,10 @@ export const EmailService = {
                 subject: `📋 New Proposal: ${data.proposalTitle}`,
                 html: html,
             });
-            console.log(`[EmailService] Proposal email sent to ${data.to}`);
+            logger.info('Proposal email sent');
             return true;
         } catch (error) {
-            console.error('[EmailService] Proposal email failed:', error);
+            logger.error('Proposal email failed', { error: error instanceof Error ? error.message : 'Unknown' });
             return false;
         }
     },
@@ -439,7 +441,7 @@ export const EmailService = {
         proposalId: string;
     }): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
-            console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
             return false;
         }
 
@@ -500,10 +502,10 @@ export const EmailService = {
                 subject: `🎉 Proposal Accepted: ${data.proposalTitle}`,
                 html: html,
             });
-            console.log(`[EmailService] Proposal accepted notification sent to ${data.to}`);
+            logger.info('Proposal accepted notification sent');
             return true;
         } catch (error) {
-            console.error('[EmailService] Proposal accepted notification failed:', error);
+            logger.error('Proposal accepted notification failed', { error: error instanceof Error ? error.message : 'Unknown' });
             return false;
         }
     }

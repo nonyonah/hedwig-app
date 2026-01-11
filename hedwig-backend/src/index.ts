@@ -34,6 +34,9 @@ import calendarRoutes from './routes/calendar';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { SchedulerService } from './services/scheduler';
+import { createLogger } from './utils/logger';
+
+const logger = createLogger('Server');
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -145,11 +148,10 @@ app.use('/api/users', userRoutes);
 
 // Add logging middleware for chat routes
 app.use('/api/chat', (req, _res, next) => {
-    console.log('[API] Chat route hit:', {
+    logger.debug('Chat route hit', {
         method: req.method,
         path: req.path,
-        fullUrl: req.originalUrl,
-        headers: req.headers.authorization ? 'Has auth header' : 'No auth header'
+        hasAuth: !!req.headers.authorization
     });
     next();
 });
@@ -212,14 +214,13 @@ app.use(errorHandler);
 // Start server - bind to 0.0.0.0 for Fly.io/Docker
 const HOST = process.env.HOST || '0.0.0.0';
 app.listen(Number(PORT), HOST, () => {
-    console.log(`🚀 Hedwig Backend running on ${HOST}:${PORT}`);
-    console.log(`📝 Environment: ${process.env.NODE_ENV}`);
-    console.log(`🔗 Health check: http://${HOST}:${PORT}/health`);
+    logger.info('Hedwig Backend started', { host: HOST, port: PORT });
+    logger.info('Environment', { env: process.env.NODE_ENV });
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-    console.log('SIGTERM signal received: closing HTTP server');
+    logger.info('SIGTERM signal received: closing HTTP server');
     process.exit(0);
 });
 

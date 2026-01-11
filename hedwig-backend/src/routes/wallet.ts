@@ -7,6 +7,9 @@ import { createPublicClient, http, formatEther, formatUnits } from 'viem';
 import { base } from 'viem/chains';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('Wallet');
 
 const router = Router();
 
@@ -63,7 +66,7 @@ const solanaConnection = new Connection(SOLANA_RPC_URL, 'confirmed');
 router.get('/balance', authenticate, async (req: Request, res: Response, next) => {
     try {
         const userId = req.user!.privyId;
-        console.log('[Wallet] Fetching balances for user:', userId);
+        logger.debug('Fetching balances');
 
         // 1. Get User to find Wallet Addresses
         const user = await privy.users()._get(userId);
@@ -85,8 +88,8 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
         const evmAddress = embeddedEvmWallet?.address as `0x${string}` | undefined;
         const solanaAddress = embeddedSolanaWallet?.address as string | undefined;
 
-        console.log('[Wallet] Found EVM address:', evmAddress);
-        console.log('[Wallet] Found Solana address:', solanaAddress);
+        logger.debug('Found wallet addresses');
+        // Solana address log removed - handled above
 
         const balances: any[] = [];
 
@@ -96,7 +99,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             try {
                 const ethBalance = await baseClient.getBalance({ address: evmAddress });
                 const ethFormatted = formatEther(ethBalance);
-                console.log('[Wallet] Base ETH balance:', ethFormatted);
+                logger.debug('Base ETH balance fetched');
                 balances.push({
                     chain: 'base',
                     asset: 'eth',
@@ -107,7 +110,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                     }
                 });
             } catch (e: any) {
-                console.error('[Wallet] Error fetching Base ETH:', e.message);
+                logger.error('Error fetching Base ETH');
                 balances.push({
                     chain: 'base',
                     asset: 'eth',
@@ -130,7 +133,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                     functionName: 'decimals',
                 });
                 const usdcFormatted = formatUnits(usdcBalance, usdcDecimals);
-                console.log('[Wallet] Base USDC balance:', usdcFormatted);
+                logger.debug('Base USDC balance fetched');
                 balances.push({
                     chain: 'base',
                     asset: 'usdc',
@@ -141,7 +144,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                     }
                 });
             } catch (e: any) {
-                console.error('[Wallet] Error fetching Base USDC:', e.message);
+                logger.error('Error fetching Base USDC');
                 balances.push({
                     chain: 'base',
                     asset: 'usdc',
@@ -151,7 +154,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             }
         } else {
             // No EVM wallet found, return zeros
-            console.log('[Wallet] No EVM wallet found, returning zero balances');
+            logger.debug('No EVM wallet found, returning zero balances');
             balances.push(
                 { chain: 'base', asset: 'eth', raw_value: '0', display_values: { eth: '0', usd: '0.00' } },
                 { chain: 'base', asset: 'usdc', raw_value: '0', display_values: { token: '0', usd: '0' } }
@@ -165,7 +168,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                 const solanaPublicKey = new PublicKey(solanaAddress!);
                 const solBalance = await solanaConnection.getBalance(solanaPublicKey);
                 const solFormatted = (solBalance / LAMPORTS_PER_SOL).toFixed(9);
-                console.log('[Wallet] Solana SOL balance:', solFormatted);
+                logger.debug('Solana SOL balance fetched');
                 balances.push({
                     chain: 'solana',
                     asset: 'sol',
@@ -176,7 +179,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                     }
                 });
             } catch (e: any) {
-                console.error('[Wallet] Error fetching Solana SOL:', e.message);
+                logger.error('Error fetching Solana SOL');
                 balances.push({
                     chain: 'solana',
                     asset: 'sol',
@@ -199,7 +202,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                 // Try to get the token account info
                 const tokenAccount = await getAccount(solanaConnection, tokenAccountAddress);
                 const usdcBalance = Number(tokenAccount.amount) / 1_000_000; // USDC has 6 decimals
-                console.log('[Wallet] Solana USDC balance:', usdcBalance);
+                logger.debug('Solana USDC balance fetched');
 
                 balances.push({
                     chain: 'solana',
@@ -212,7 +215,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                 });
             } catch (e: any) {
                 // Token account may not exist if user hasn't received USDC before
-                console.log('[Wallet] Solana USDC: No token account found or error:', e.message);
+                logger.debug('Solana USDC: No token account found');
                 balances.push({
                     chain: 'solana',
                     asset: 'usdc',
@@ -235,7 +238,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             .single();
 
         const stacksAddress = userData?.stacks_wallet_address as string | undefined;
-        console.log('[Wallet] Found Stacks address:', stacksAddress);
+        logger.debug('Found Stacks address');
 
         if (stacksAddress) {
             // Fetch STX balance from Stacks Testnet API
@@ -256,7 +259,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                         raw_value: stacksData.stx?.balance || '0',
                         display_values: { stx: balanceInSTX.toFixed(6), usd: '0.00' }
                     });
-                    console.log('[Wallet] Stacks STX balance:', balanceInSTX);
+                    logger.debug('Stacks STX balance fetched');
                 } else {
                     balances.push({
                         chain: 'bitcoin_testnet',
@@ -266,7 +269,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                     });
                 }
             } catch (e: any) {
-                console.log('[Wallet] Stacks STX balance error:', e.message);
+                logger.debug('Stacks STX balance error');
                 balances.push({
                     chain: 'bitcoin_testnet',
                     asset: 'stx',
@@ -275,7 +278,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                 });
             }
         } else {
-            console.log('[Wallet] No Stacks wallet found, returning zero balance');
+            logger.debug('No Stacks wallet found, returning zero balance');
             balances.push({
                 chain: 'bitcoin_testnet',
                 asset: 'stx',
@@ -284,7 +287,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             });
         }
 
-        console.log('[Wallet] Total balances fetched:', balances.length);
+        logger.debug('Total balances fetched', { count: balances.length });
 
         res.json({
             success: true,
@@ -292,7 +295,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
         });
 
     } catch (error: any) {
-        console.error('[Wallet] Balance fetch error:', error.message);
+        logger.error('Balance fetch error');
         next(new AppError('Failed to fetch wallet balance', 500));
     }
 });

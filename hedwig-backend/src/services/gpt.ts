@@ -1,5 +1,8 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('GPT');
 
 // GPT service for generating contracts and proposals
 // Primary: OpenAI GPT-4o-mini | Fallback: Gemini 2.5 Flash
@@ -203,7 +206,7 @@ async function generateWithOpenAI(systemPrompt: string, userPrompt: string): Pro
         throw new Error('OpenAI not configured');
     }
     
-    console.log('[GPT] Generating with GPT-4o-mini...');
+    logger.debug('Generating with GPT-4o-mini');
     
     const completion = await openai.chat.completions.create({
         model: OPENAI_MODEL,
@@ -232,7 +235,7 @@ async function generateWithGemini(systemPrompt: string, userPrompt: string): Pro
         throw new Error('Gemini not configured');
     }
     
-    console.log('[Gemini] Generating with Gemini 2.5 Flash Lite...');
+    logger.debug('Generating with Gemini 2.5 Flash Lite');
     
     // Combine system and user prompts for Gemini
     const combinedPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
@@ -259,7 +262,7 @@ export async function generateContractWithGPT(params: ContractGenerationParams):
         try {
             return await generateWithOpenAI(system, user);
         } catch (error) {
-            console.error('[GPT] OpenAI error, falling back to Gemini:', error);
+            logger.error('OpenAI error, falling back to Gemini');
         }
     }
     
@@ -268,7 +271,7 @@ export async function generateContractWithGPT(params: ContractGenerationParams):
         try {
             return await generateWithGemini(system, user);
         } catch (error) {
-            console.error('[Gemini] Gemini error:', error);
+            logger.error('Gemini error generating contract');
             throw error;
         }
     }
@@ -287,7 +290,7 @@ export async function generateProposalWithGPT(params: ProposalGenerationParams):
         try {
             return await generateWithOpenAI(system, user);
         } catch (error) {
-            console.error('[GPT] OpenAI error, falling back to Gemini:', error);
+            logger.error('OpenAI error, falling back to Gemini');
         }
     }
     
@@ -296,7 +299,7 @@ export async function generateProposalWithGPT(params: ProposalGenerationParams):
         try {
             return await generateWithGemini(system, user);
         } catch (error) {
-            console.error('[Gemini] Gemini error:', error);
+            logger.error('Gemini error generating proposal');
             throw error;
         }
     }

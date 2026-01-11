@@ -16,6 +16,7 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
+import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 // Profile color gradient options (consistent with ProfileModal)
 const PROFILE_COLOR_OPTIONS = [
@@ -47,6 +48,9 @@ export default function ContractsScreen() {
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
     const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'approved'>('all');
+
+    // Track page view
+    useAnalyticsScreen('Contracts');
 
     // Filter contracts based on status
     const filteredContracts = useMemo(() => {
