@@ -83,8 +83,24 @@
         "origin": false
       },
       "privyAppId": "",
-      "privyClientId": ""
+      "privyClientId": "",
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "LiveActivity",
+                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
+                  "entitlements": {}
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "5738569d-376f-4e3d-a2bb-b415156003dd"
+      }
     },
-    "owner": "hedwig"
+    "owner": "hedwig-app"
   }
 }
