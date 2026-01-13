@@ -30,6 +30,12 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
+# Build web-client (it has its own package.json)
+WORKDIR /app/web-client
+RUN npm ci --include=dev
+RUN npm run build
+WORKDIR /app
+
 
 # Final stage for app image
 FROM base

@@ -82,12 +82,9 @@
       "router": {
         "origin": false
       },
-      "eas": {
-        "projectId": "ade423ca-7649-400c-9817-21e000b2cde4"
-      },
       "privyAppId": "",
       "privyClientId": ""
     },
-    "owner": "nonsooo"
+    "owner": "hedwig"
   }
 }

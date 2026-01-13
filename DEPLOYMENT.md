@@ -42,21 +42,32 @@ cd hedwig-backend
 gcloud run deploy hedwig-backend \
   --source . \
   --platform managed \
-  --region us-central1 \
+  --region europe-west1 \
   --allow-unauthenticated \
   --port 3000
 ```
 *   `--source .`: Uploads source code and builds remotely.
 *   `--allow-unauthenticated`: Makes the API public (remove this if you want IAM protection, but mobile app needs public access usually).
 
-### 4. Set Environment Variables
-After deployment, go to the [Google Cloud Run Console](https://console.cloud.google.com/run), select `hedwig-backend`, click **"Edit & Deploy New Revision"**, and add your environment variables (from your `.env` file) in the **"Variables & Secrets"** tab.
+### 4. Set Environment Variables (Automated with Secret Manager)
+Since you are using GitHub for deployment, you should upload your secrets to Google Secret Manager and attach them to your running service.
 
-**Critical Variables:**
-*   `DATABASE_URL` (Supabase connection string)
-*   `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`
-*   `OPENAI_API_KEY`, `GEMINI_API_KEY`
-*   `PRIVY_APP_ID`, `PRIVY_APP_SECRET`
+We provided a script to automate this:
+
+1.  Ensure your `hedwig-backend/.env` file contains all necessary secrets, including `DATABASE_URL`.
+2.  Run the setup script:
+    ```bash
+    cd hedwig-backend
+    chmod +x setup_secrets.sh
+    ./setup_secrets.sh
+    ```
+
+This script will:
+*   Read secrets from your local `.env`.
+*   Create/Update them in **Google Secret Manager**.
+*   Run `gcloud run services update` to attach them to your `hedwig-backend` service.
+
+**Note:** If `DATABASE_URL` is missing from your `.env`, you must add it before running the script.
 
 ---
 
@@ -108,6 +119,10 @@ eas submit --platform ios
 
 ## 🛠 Troubleshooting
 
+*   **Cloud Run "Container failed to start":**
+    *   This often means the application crashed on startup.
+    *   **Common Cause:** The app tries to read a secret (like `SUPABASE_SERVICE_ROLE_KEY`) but fails because the Cloud Run Service Account lacks permission to access Google Secret Manager.
+    *   **Fix:** Run `./fix_iam.sh` in `hedwig-backend/` to grant the necessary "Secret Accessor" role. Then redeploy.
 *   **Cloud Run Healthcheck Fails:** ensure your `Dockerfile` has `CMD` that listens on `process.env.PORT`. *We patched this automatically.*
 *   **EAS Build Fails locally:** Try running `npx expo doctor` to check for dependency issues.
 *   **Missing Assets:** Ensure all assets are in `assets/` and referenced correctly in `app.json`.

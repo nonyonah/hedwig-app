@@ -24,6 +24,10 @@
       "autoIncrement": true,
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.0"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://hedwig-backend-848551879930.europe-west1.run.app",
+        "EXPO_PUBLIC_WEB_CLIENT_URL": "https://hedwig-backend-848551879930.europe-west1.run.app"
       }
     }
   },
