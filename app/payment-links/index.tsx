@@ -847,6 +847,7 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 24,
         padding: 24,
         paddingBottom: 40,
+        maxHeight: '80%',
     },
     nudgeButton: {
         flexDirection: 'row',

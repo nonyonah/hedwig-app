@@ -570,7 +570,7 @@ export function SolanaBridgeModal({
     // iOS: Use native SwiftUI BottomSheet
     if (Platform.OS === 'ios') {
         return (
-            <SwiftUIBottomSheet isOpen={visible} onClose={onClose} height={0.6}>
+            <SwiftUIBottomSheet isOpen={visible} onClose={onClose} height={0.60}>
                 {sheetContent}
             </SwiftUIBottomSheet>
         );
