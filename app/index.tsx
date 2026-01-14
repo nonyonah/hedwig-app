@@ -196,6 +196,13 @@ export default function HomeScreen() {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     }, [viewMode]);
 
+    // Redirect unauthenticated users to welcome screen
+    useEffect(() => {
+        if (isReady && !user) {
+            router.replace('/auth/welcome');
+        }
+    }, [isReady, user, router]);
+
     const [conversationId, setConversationId] = useState<string | null>(null);
 
     const [displayedGreeting, setDisplayedGreeting] = useState('');
