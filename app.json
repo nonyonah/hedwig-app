@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "hedwig",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -52,7 +52,7 @@
             "targetSdkVersion": 35,
             "buildToolsVersion": "35.0.0",
             "minSdkVersion": 24,
-            "newArchEnabled": false
+            "newArchEnabled": true
           }
         }
       ],
