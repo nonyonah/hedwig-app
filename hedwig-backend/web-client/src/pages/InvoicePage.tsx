@@ -57,7 +57,7 @@ export default function InvoicePage() {
     const [invoice, setInvoice] = useState<InvoiceData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedChain, setSelectedChain] = useState<ChainId>('baseSepolia');
+    const [selectedChain, setSelectedChain] = useState<ChainId>('base');
     const [selectedToken, setSelectedToken] = useState<TokenSymbol>('USDC');
     const [isPaying, setIsPaying] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
@@ -135,7 +135,7 @@ export default function InvoicePage() {
 
                 // Step 1: Check current allowance
                 const currentAllowance = await tokenContract.allowance(address, hedwigContractAddress);
-                
+
                 console.log('[Payment] Checking allowance:', {
                     current: currentAllowance.toString(),
                     required: amountInUnits.toString(),
@@ -348,11 +348,11 @@ export default function InvoicePage() {
                     <div className="payment-section">
                         <div className="selectors-row">
                             <button
-                                className={`selector-button ${selectedChain === 'baseSepolia' ? 'active' : ''}`}
-                                onClick={() => setSelectedChain('baseSepolia')}
+                                className={`selector-button ${selectedChain === 'base' ? 'active' : ''}`}
+                                onClick={() => setSelectedChain('base')}
                             >
                                 <img src="/assets/icons/networks/base.png" className="selector-icon" alt="Base" />
-                                <span className="selector-text">Base Sepolia</span>
+                                <span className="selector-text">Base (Mainnet)</span>
                             </button>
                             <button
                                 className={`selector-button ${selectedToken === 'USDC' ? 'active' : ''}`}

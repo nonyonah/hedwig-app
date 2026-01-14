@@ -26,7 +26,8 @@
         "image": "macos-sequoia-15.6-xcode-26.0"
       },
       "android": {
-        "image": "latest"
+        "image": "latest",
+        "buildType": "apk"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://hedwig-backend-848551879930.europe-west1.run.app",

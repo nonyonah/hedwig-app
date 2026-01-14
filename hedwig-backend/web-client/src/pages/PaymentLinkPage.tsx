@@ -45,7 +45,7 @@ export default function PaymentLinkPage() {
     const [isPaying, setIsPaying] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
-    const [selectedChain] = useState<ChainId>('baseSepolia');
+    const [selectedChain] = useState<ChainId>('base');
     const [selectedToken] = useState<string>('USDC');
 
     useEffect(() => {
@@ -296,7 +296,7 @@ export default function PaymentLinkPage() {
                         <span className="detail-value">
                             <span className="network-badge">
                                 <img src="/assets/icons/networks/base.png" alt="Base" className="chain-icon" />
-                                Base
+                                Base (Mainnet)
                             </span>
                         </span>
                     </div>
