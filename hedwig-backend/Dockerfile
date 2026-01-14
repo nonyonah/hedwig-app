@@ -33,6 +33,10 @@ RUN npm run build
 # Build web-client (it has its own package.json)
 WORKDIR /app/web-client
 RUN npm ci --include=dev
+# Set Vite environment variables for build (baked into frontend)
+ENV VITE_REOWN_PROJECT_ID=e2fead0a05813697717820eaed0f18ea
+ENV VITE_API_URL=https://pay.hedwigbot.xyz
+ENV VITE_PRIVY_APP_ID=cmby98gd300hxl40mrdr3mkoh
 RUN npm run build
 WORKDIR /app
 
