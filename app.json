@@ -62,13 +62,6 @@
           "enablePushNotifications": true
         }
       ],
-      [
-        "expo-live-updates",
-        {
-          "channelId": "hedwig_withdrawals",
-          "channelName": "Withdrawal Tracking"
-        }
-      ],
       "expo-font",
       "expo-secure-store",
       "expo-localization",

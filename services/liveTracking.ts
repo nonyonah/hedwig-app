@@ -71,12 +71,6 @@ async function initModules(): Promise<void> {
         } catch (e) {
             console.log('[LiveTracking] expo-live-activity not available');
         }
-    } else if (Platform.OS === 'android' && !LiveUpdates) {
-        try {
-            LiveUpdates = await import('expo-live-updates');
-        } catch (e) {
-            console.log('[LiveTracking] expo-live-updates not available');
-        }
     }
 }
 

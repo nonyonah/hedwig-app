@@ -61,7 +61,6 @@
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
     "expo-live-activity": "^0.4.2",
-    "expo-live-updates": "github:software-mansion-labs/expo-live-updates",
     "expo-local-authentication": "~17.0.8",
     "expo-localization": "~17.0.8",
     "expo-notifications": "~0.32.15",
