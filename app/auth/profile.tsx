@@ -13,7 +13,7 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-// Profile color gradient options (Luma Style)
+// Profile color gradient options (10 options)
 const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
     ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
     ['#34D399', '#10B981', '#059669'], // Green
@@ -23,6 +23,8 @@ const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
     ['#F87171', '#EF4444', '#DC2626'], // Red
     ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
     ['#FB923C', '#F97316', '#EA580C'], // Orange
+    ['#64748B', '#475569', '#334155'], // Slate
+    ['#1F2937', '#111827', '#030712'], // Dark
 ] as const;
 
 export default function ProfileScreen() {
@@ -46,26 +48,13 @@ export default function ProfileScreen() {
     const [showImageOptions, setShowImageOptions] = useState(false);
     const [emojiTab, setEmojiTab] = useState<'emoji' | 'color'>('emoji');
 
-    // Comprehensive emoji list
+    // Reduced emoji list (50 options)
     const EMOJI_OPTIONS = [
-        '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😊',
-        '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😋', '😛', '😜',
-        '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐',
-        '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪',
-        '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶',
-        '🥴', '😵', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '😕',
-        '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨',
-        '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩',
-        '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️',
-        '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '🎃', '😺',
-        '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
-        '🦁', '🐮', '🐷', '🐸', '🐵', '🙈', '🙉', '🙊', '🐔', '🐧',
-        '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄',
-        '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🪲', '🪳', '🦗', '🦂',
-        '🌸', '💮', '🏵️', '🌹', '🥀', '🌺', '🌻', '🌼', '🌷', '🌱',
-        '⭐', '🌟', '✨', '💫', '🔥', '💥', '💯', '❤️', '🧡', '💛',
-        '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞',
-        '💓', '💗', '💖', '💘', '💝', '🎈', '🎉', '🎊', '🎁', '🏆',
+        '😀', '😊', '😍', '🤩', '😎', '🤓', '🥳', '🥰', '😇', '🤗',
+        '😋', '🤤', '🤔', '🤐', '🙄', '😴', '😮', '😱', '😤', '🤬',
+        '😈', '👻', '👽', '🤖', '💩', '🤡', '🎃', '💀', '🐶', '🐱',
+        '🐻', '🐼', '🦁', '🐯', '🦊', '🐰', '🐷', '🐵', '🦄', '🐦',
+        '✨', '🔥', '🌟', '❤️', '💜', '💙', '💚', '💯', '🏆', '🎉',
     ];
 
     // Keyboard animation
@@ -237,9 +226,9 @@ export default function ProfileScreen() {
             >
                 {viewMode === 'main' && (
                     <>
-                        {/* Header with back button */}
+                        {/* Settings Edit Mode: Header bar with title */}
                         {edit === 'true' && (
-                            <View style={styles.header}>
+                            <View style={styles.headerBar}>
                                 <TouchableOpacity style={styles.headerBackButton} onPress={() => router.back()}>
                                     <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
                                 </TouchableOpacity>
@@ -248,20 +237,18 @@ export default function ProfileScreen() {
                             </View>
                         )}
 
-                        {/* Back button for signup flow */}
+                        {/* Signup Flow: Back button with title section below */}
                         {edit !== 'true' && (
-                            <View style={styles.header}>
-                                <TouchableOpacity style={styles.headerBackButton} onPress={() => router.back()}>
+                            <>
+                                <TouchableOpacity style={styles.backButtonRow} onPress={() => router.back()}>
                                     <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
                                 </TouchableOpacity>
-                                <View style={{ flex: 1 }} />
-                            </View>
+                                <View style={styles.titleSection}>
+                                    <Text style={[styles.title, { color: themeColors.textPrimary }]}>Your Profile</Text>
+                                    <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Introduce yourself to others.</Text>
+                                </View>
+                            </>
                         )}
-
-                        <View style={styles.titleSection}>
-                            <Text style={[styles.title, { color: themeColors.textPrimary }]}>Your Profile</Text>
-                            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Introduce yourself to others.</Text>
-                        </View>
 
                         {/* PFP Section */}
                         <View style={styles.pfpSection}>
@@ -326,14 +313,29 @@ export default function ProfileScreen() {
 
                 {viewMode === 'emoji' && (
                     <View style={styles.emojiContent}>
-                        {/* Header with back button */}
-                        <View style={styles.header}>
-                            <TouchableOpacity style={styles.headerBackButton} onPress={() => setViewMode('main')}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
-                            </TouchableOpacity>
-                            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Choose Avatar</Text>
-                            <View style={styles.headerSpacer} />
-                        </View>
+                        {/* Settings Edit Mode: Header bar with title */}
+                        {edit === 'true' && (
+                            <View style={styles.headerBar}>
+                                <TouchableOpacity style={styles.headerBackButton} onPress={() => setViewMode('main')}>
+                                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                </TouchableOpacity>
+                                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Choose Avatar</Text>
+                                <View style={styles.headerSpacer} />
+                            </View>
+                        )}
+
+                        {/* Signup Flow: Back button with title section below */}
+                        {edit !== 'true' && (
+                            <>
+                                <TouchableOpacity style={styles.backButtonRow} onPress={() => setViewMode('main')}>
+                                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                </TouchableOpacity>
+                                <View style={styles.titleSection}>
+                                    <Text style={[styles.title, { color: themeColors.textPrimary }]}>Choose Avatar</Text>
+                                    <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Pick an emoji and background color.</Text>
+                                </View>
+                            </>
+                        )}
 
                         {/* Preview */}
                         <View style={styles.emojiInputContainer}>
@@ -394,15 +396,11 @@ export default function ProfileScreen() {
                                 ))}
                             </View>
                         )}
-
-                        <TouchableOpacity style={styles.doneButton} onPress={() => setViewMode('main')}>
-                            <Text style={styles.doneButtonText}>Done</Text>
-                        </TouchableOpacity>
                     </View>
                 )}
             </ScrollView>
 
-            {/* Fixed Button at Bottom */}
+            {/* Fixed Button at Bottom for main view */}
             {viewMode === 'main' && (
                 <Animated.View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 8, transform: [{ translateY: Animated.multiply(keyboardOffset, -1) }], backgroundColor: themeColors.background }]}>
                     <Button
@@ -414,6 +412,18 @@ export default function ProfileScreen() {
                         disabled={!name.trim() || loading}
                     />
                 </Animated.View>
+            )}
+
+            {/* Fixed Done Button for emoji view */}
+            {viewMode === 'emoji' && (
+                <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 8, backgroundColor: themeColors.background }]}>
+                    <Button
+                        title="Done"
+                        onPress={() => setViewMode('main')}
+                        variant="primary"
+                        size="large"
+                    />
+                </View>
             )}
         </View>
     );
@@ -431,9 +441,33 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingBottom: 100,
     },
-    titleSection: {
+    backButtonRow: {
+        paddingVertical: 12,
+        marginLeft: -4,
+        alignSelf: 'flex-start',
+    },
+    // Header bar for settings edit mode
+    headerBar: {
+        flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 40,
+        paddingVertical: 12,
+        marginBottom: 16,
+    },
+    headerBackButton: {
+        padding: 4,
+        marginLeft: -4,
+    },
+    headerTitle: {
+        flex: 1,
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 18,
+        textAlign: 'center',
+    },
+    headerSpacer: {
+        width: 24,
+    },
+    titleSection: {
+        alignItems: 'flex-start',
         marginBottom: 32,
     },
     title: {

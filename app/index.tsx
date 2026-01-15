@@ -493,8 +493,6 @@ export default function HomeScreen() {
     }, [messages.length]);
 
     // Show chat onboarding tip on first visit
-    // Show chat onboarding tip on first visit (Disabled to prevent overlay conflict)
-    /*
     useEffect(() => {
         if (shouldShowTip('hasSeenChatTip') && messages.length === 0) {
             const timer = setTimeout(() => {
@@ -503,7 +501,6 @@ export default function HomeScreen() {
             return () => clearTimeout(timer);
         }
     }, [shouldShowTip, messages.length]);
-    */
 
     // Toggle attachment expansion with animation
     const toggleAttachmentExpand = useCallback(() => {

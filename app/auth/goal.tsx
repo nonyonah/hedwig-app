@@ -64,18 +64,15 @@ export default function GoalScreen() {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
-            {/* Header with back button */}
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.headerBackButton} onPress={() => router.back()}>
-                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
-                </TouchableOpacity>
-                <View style={{ flex: 1 }} />
-            </View>
+            {/* Back button on its own row */}
+            <TouchableOpacity style={styles.backButtonRow} onPress={() => router.back()}>
+                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+            </TouchableOpacity>
 
             {/* Title */}
             <View style={styles.titleContainer}>
                 <Text style={[styles.title, { color: themeColors.textPrimary }]}>
-                    Your Monthly{'\n'}Earnings Goal
+                    Your Monthly Earnings Goal
                 </Text>
                 <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
                     Set a goal based on how much you'd like to earn each month.
@@ -165,23 +162,27 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingHorizontal: 24,
     },
+    backButtonRow: {
+        paddingVertical: 12,
+        marginLeft: -4,
+        alignSelf: 'flex-start',
+    },
     titleContainer: {
-        alignItems: 'center',
+        alignItems: 'flex-start',
         marginBottom: 32,
     },
     title: {
-        fontFamily: 'GoogleSansFlex_700Bold',
-        fontSize: 32,
-        lineHeight: 40,
-        textAlign: 'center',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 28,
+        lineHeight: 36,
+        textAlign: 'left',
         marginBottom: 12,
     },
     subtitle: {
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 16,
         lineHeight: 24,
-        textAlign: 'center',
-        paddingHorizontal: 16,
+        textAlign: 'left',
     },
     presetsContainer: {
         flexDirection: 'row',
@@ -245,16 +246,5 @@ const styles = StyleSheet.create({
     setGoalButtonText: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 17,
-    },
-    // Header styles
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        marginBottom: 20,
-    },
-    headerBackButton: {
-        padding: 8,
-        marginLeft: -8,
     },
 });
