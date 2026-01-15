@@ -16,6 +16,7 @@ import { useThemeColors } from '../theme/colors';
 import * as Sentry from '@sentry/react-native';
 import { isRunningInExpoGo } from 'expo';
 import { initializeAnalytics, trackScreen } from '../services/analytics';
+import Analytics from '../services/analytics';
 import * as SplashScreen from 'expo-splash-screen';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
@@ -33,25 +34,18 @@ const navigationIntegration = Sentry.reactNavigationIntegration({
 // Initialize Sentry
 Sentry.init({
     dsn: SENTRY_DSN,
-    // Adds more context data to events
     sendDefaultPii: true,
-    // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
-    // Adjust this value in production for performance.
     tracesSampleRate: __DEV__ ? 1.0 : 0.2,
-    // Enable native frames tracking (disabled in Expo Go)
     enableNativeFramesTracking: !isRunningInExpoGo(),
-    // Add navigation integration for route tracking
     integrations: [navigationIntegration],
-    // Only send errors in production, log in dev
     enabled: !__DEV__,
-    // Environment tag
     environment: __DEV__ ? 'development' : 'production',
-    // Debug mode in development
     debug: __DEV__,
 });
 
-// Initialize PostHog analytics
+// Initialize PostHog analytics and track app launch
 initializeAnalytics();
+Analytics.appOpened(); // Track app_opened on every launch
 
 // Themed Stack component that uses the theme context
 function ThemedStack() {

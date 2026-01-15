@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { supabase } from '../lib/supabase';
 import AlchemyWebhooksService, { AlchemyActivity, AlchemySolanaAddressActivityEvent } from '../services/alchemyWebhooks';
 import NotificationService from '../services/notifications';
+import BackendAnalytics from '../services/analytics';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Webhook');
@@ -329,6 +330,17 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                         clientName: clientInfo,
                     },
                 });
+
+                // Track payment_received analytics event
+                BackendAnalytics.paymentReceived(
+                    recipientUser.id,
+                    parseFloat(transfer.value.toString()),
+                    transfer.asset,
+                    transfer.txHash,
+                    document?.id,
+                    undefined,
+                    undefined
+                );
 
                 logger.info('User notified of received payment');
             }

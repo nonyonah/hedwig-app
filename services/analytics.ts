@@ -310,83 +310,234 @@ export async function shutdownAnalytics(): Promise<void> {
     }
 }
 
-// Pre-defined Event Helpers
+// Pre-defined Event Helpers with comprehensive tracking properties
 const Analytics = {
-    // App lifecycle
-    appOpened: () => trackEvent('app_opened'),
+    // ==================== APP & USER LIFECYCLE ====================
+    // Fired on every app launch
+    appOpened: () => trackEvent('app_opened', {
+        timestamp: new Date().toISOString(),
+    }),
     appBackgrounded: () => trackEvent('app_backgrounded'),
     appForegrounded: () => trackEvent('app_foregrounded'),
 
-    // User lifecycle
-    userOnboarded: () => trackEvent('user_onboarded'),
+    // Fired when user completes signup
+    signupCompleted: (userId: string, method: 'privy' | 'wallet' | 'email' = 'privy') => 
+        trackEvent('signup_completed', {
+            user_id: userId,
+            signup_method: method,
+            timestamp: new Date().toISOString(),
+        }),
+
+    // Fired when user completes onboarding (profile, goal setup)
+    onboardingCompleted: (userId: string, hasGoal: boolean = false, hasProfile: boolean = false) =>
+        trackEvent('onboarding_completed', {
+            user_id: userId,
+            has_goal: hasGoal,
+            has_profile: hasProfile,
+            timestamp: new Date().toISOString(),
+        }),
+
     userReturned: () => trackEvent('user_returned'),
     userLoggedOut: () => trackEvent('user_logged_out'),
 
-    // AI interactions
-    aiMessageSent: () => trackEvent('ai_message_sent'),
-    aiFunctionTriggered: (fn: string) => trackEvent('ai_function_triggered', { function_name: fn }),
-    aiResponseSuccess: () => trackEvent('ai_response_success'),
-    aiResponseFailed: (error?: string) => trackEvent('ai_response_failed', { error_type: error }),
+    // ==================== CLIENT & PROJECT EVENTS ====================
+    clientCreated: (userId: string, clientId: string) => 
+        trackEvent('client_created', {
+            user_id: userId,
+            client_id: clientId,
+            timestamp: new Date().toISOString(),
+        }),
 
-    // Invoice events
+    projectCreated: (userId: string, projectId: string, clientId?: string) => 
+        trackEvent('project_created', {
+            user_id: userId,
+            project_id: projectId,
+            client_id: clientId,
+            timestamp: new Date().toISOString(),
+        }),
+
+    milestoneCreated: (projectId: string) => 
+        trackEvent('milestone_created', { project_id: projectId }),
+
+    milestoneCompleted: (projectId: string, amount?: number, currency?: string) => 
+        trackEvent('milestone_completed', { 
+            project_id: projectId,
+            amount,
+            currency,
+            timestamp: new Date().toISOString(),
+        }),
+
+    // ==================== INVOICE & PAYMENT EVENTS ====================
     invoiceCreated: (amount: number, currency: string, paymentType: 'crypto' | 'fiat') =>
         trackEvent('invoice_created', { invoice_amount: amount, currency, payment_type: paymentType }),
-    invoiceSent: (amount: number, currency: string) => trackEvent('invoice_sent', { invoice_amount: amount, currency }),
+
+    // Fired when invoice is sent to client
+    invoiceSent: (userId: string, amount: number, currency: string, invoiceId?: string, clientId?: string) => 
+        trackEvent('invoice_sent', { 
+            user_id: userId,
+            invoice_amount: amount, 
+            currency,
+            invoice_id: invoiceId,
+            client_id: clientId,
+            timestamp: new Date().toISOString(),
+        }),
+
+    invoiceViewed: (invoiceId: string) => trackEvent('invoice_viewed', { invoice_id: invoiceId }),
+
     invoicePaid: (amount: number, currency: string, paymentType: 'crypto' | 'fiat') =>
         trackEvent('invoice_paid', { invoice_amount: amount, currency, payment_type: paymentType }),
+
     invoiceDeleted: () => trackEvent('invoice_deleted'),
     invoiceCreationFailed: (errorType?: string) => trackEvent('invoice_creation_failed', { error_type: errorType }),
 
-    // Payment link events
-    paymentLinkCreated: (amount: number, currency: string) => trackEvent('payment_link_created', { amount, currency }),
-    paymentLinkOpened: () => trackEvent('payment_link_opened'),
-    paymentLinkPaid: (amount: number, currency: string) => trackEvent('payment_link_paid', { amount, currency }),
+    // Fired when a payment is received (via webhook or transaction detection)
+    paymentReceived: (userId: string, amount: number, currency: string, txHash?: string, invoiceId?: string, projectId?: string, clientId?: string) =>
+        trackEvent('payment_received', {
+            user_id: userId,
+            amount,
+            currency,
+            tx_hash: txHash,
+            invoice_id: invoiceId,
+            project_id: projectId,
+            client_id: clientId,
+            timestamp: new Date().toISOString(),
+        }),
 
-    // Proposal events
+    // ==================== PAYMENT LINK EVENTS ====================
+    paymentLinkCreated: (amount: number, currency: string) => 
+        trackEvent('payment_link_created', { amount, currency }),
+    paymentLinkOpened: () => trackEvent('payment_link_opened'),
+    paymentLinkPaid: (amount: number, currency: string) => 
+        trackEvent('payment_link_paid', { amount, currency }),
+
+    // ==================== PROPOSAL & CONTRACT EVENTS ====================
     proposalCreated: () => trackEvent('proposal_created'),
     proposalSent: () => trackEvent('proposal_sent'),
     proposalEdited: () => trackEvent('proposal_edited'),
     proposalDeleted: () => trackEvent('proposal_deleted'),
 
-    // Contract events
     contractGenerated: () => trackEvent('contract_generated'),
     contractSentForApproval: () => trackEvent('contract_sent_for_approval'),
     contractApproved: () => trackEvent('contract_approved'),
     contractRejected: () => trackEvent('contract_rejected'),
-    contractGenerationFailed: (errorType?: string) => trackEvent('contract_generation_failed', { error_type: errorType }),
+    contractGenerationFailed: (errorType?: string) => 
+        trackEvent('contract_generation_failed', { error_type: errorType }),
 
-    // Client & project events
-    clientCreated: () => trackEvent('client_created'),
-    projectCreated: () => trackEvent('project_created'),
-    milestoneCreated: () => trackEvent('milestone_created'),
-    milestoneCompleted: (amount?: number) => trackEvent('milestone_completed', amount ? { amount } : undefined),
+    // ==================== ACCOUNT & BANKING EVENTS ====================
+    // Fired when user creates a USD virtual account
+    usdAccountCreated: (userId: string, provider: string = 'bridge') =>
+        trackEvent('usd_account_created', {
+            user_id: userId,
+            provider,
+            currency: 'USD',
+            timestamp: new Date().toISOString(),
+        }),
 
-    // Transaction events
-    transactionInitiated: (network: string, amount: number, token: string) =>
-        trackEvent('transaction_initiated', { network, amount, token }),
-    transactionConfirmed: (network: string, amount: number, token: string) =>
-        trackEvent('transaction_confirmed', { network, amount, token }),
-    transactionFailed: (network: string, errorType?: string) =>
-        trackEvent('transaction_failed', { network, error_type: errorType }),
+    // Fired when user creates an NGN virtual account
+    ngnAccountCreated: (userId: string, provider: string = 'paycrest') =>
+        trackEvent('ngn_account_created', {
+            user_id: userId,
+            provider,
+            currency: 'NGN',
+            timestamp: new Date().toISOString(),
+        }),
 
-    // Offramp events
-    offrampInitiated: (amount: number, currency: string) =>
-        trackEvent('offramp_initiated', { amount, currency }),
+    // Fired when user converts fiat to stablecoin (deposit -> USDC)
+    fiatToStablecoinConverted: (userId: string, fiatAmount: number, fiatCurrency: string, stablecoinAmount: number, stablecoin: string = 'USDC') =>
+        trackEvent('fiat_to_stablecoin_converted', {
+            user_id: userId,
+            fiat_amount: fiatAmount,
+            fiat_currency: fiatCurrency,
+            stablecoin_amount: stablecoinAmount,
+            stablecoin,
+            timestamp: new Date().toISOString(),
+        }),
+
+    // ==================== WITHDRAWAL & OFFRAMP EVENTS ====================
+    offrampInitiated: (userId: string, amount: number, currency: string, fiatCurrency?: string) =>
+        trackEvent('offramp_initiated', { 
+            user_id: userId,
+            amount, 
+            currency,
+            fiat_currency: fiatCurrency,
+            timestamp: new Date().toISOString(),
+        }),
+
+    // Fired when withdrawal completes successfully
+    withdrawalCompleted: (userId: string, amount: number, currency: string, fiatAmount?: number, fiatCurrency?: string, txHash?: string) =>
+        trackEvent('withdrawal_completed', {
+            user_id: userId,
+            amount,
+            currency,
+            fiat_amount: fiatAmount,
+            fiat_currency: fiatCurrency,
+            tx_hash: txHash,
+            timestamp: new Date().toISOString(),
+        }),
+
     offrampCompleted: (amount: number, currency: string) =>
         trackEvent('offramp_completed', { amount, currency }),
+
     offrampFailed: (errorType?: string) =>
         trackEvent('offramp_failed', { error_type: errorType }),
 
-    // Error events
-    paymentFailed: (featureName: string, errorType?: string) =>
-        trackEvent('payment_failed', { feature_name: featureName, error_type: errorType }),
+    // Fired when platform collects a fee
+    platformFeeCollected: (userId: string, feeAmount: number, feeCurrency: string, transactionAmount: number, transactionType: 'invoice' | 'payment_link' | 'offramp' | 'bridge') =>
+        trackEvent('platform_fee_collected', {
+            user_id: userId,
+            fee_amount: feeAmount,
+            fee_currency: feeCurrency,
+            transaction_amount: transactionAmount,
+            transaction_type: transactionType,
+            timestamp: new Date().toISOString(),
+        }),
+
+    // ==================== TRANSACTION EVENTS ====================
+    transactionInitiated: (network: string, amount: number, token: string) =>
+        trackEvent('transaction_initiated', { network, amount, token }),
+
+    transactionConfirmed: (network: string, amount: number, token: string) =>
+        trackEvent('transaction_confirmed', { network, amount, token }),
+
+    transactionFailed: (network: string, errorType?: string) =>
+        trackEvent('transaction_failed', { network, error_type: errorType }),
+
+    // ==================== AI INTERACTION EVENTS ====================
+    aiMessageSent: () => trackEvent('ai_message_sent'),
+    aiFunctionTriggered: (fn: string) => trackEvent('ai_function_triggered', { function_name: fn }),
+    aiResponseSuccess: () => trackEvent('ai_response_success'),
+    aiResponseFailed: (error?: string) => trackEvent('ai_response_failed', { error_type: error }),
+
+    // Fired when user accepts an AI-suggested action (e.g., create invoice, send payment link)
+    aiActionAccepted: (userId: string, actionType: string, actionDetails?: Record<string, any>) =>
+        trackEvent('ai_action_accepted', {
+            user_id: userId,
+            action_type: actionType,
+            ...actionDetails,
+            timestamp: new Date().toISOString(),
+        }),
+
+    // Fired when user rejects/dismisses an AI-suggested action
+    aiActionRejected: (userId: string, actionType: string, reason?: string) =>
+        trackEvent('ai_action_rejected', {
+            user_id: userId,
+            action_type: actionType,
+            rejection_reason: reason,
+            timestamp: new Date().toISOString(),
+        }),
+
     aiFunctionError: (functionName: string, errorType?: string) =>
         trackEvent('ai_function_error', { function_name: functionName, error_type: errorType }),
 
-    // Feature usage
+    // ==================== ERROR & FEATURE EVENTS ====================
+    paymentFailed: (featureName: string, errorType?: string) =>
+        trackEvent('payment_failed', { feature_name: featureName, error_type: errorType }),
+
     featureUsed: (featureName: string) => trackEvent('feature_used', { feature_name: featureName }),
+
     settingsChanged: (setting: string, value: any) =>
         trackEvent('settings_changed', { setting_name: setting, new_value: value }),
 };
 
 export default Analytics;
+

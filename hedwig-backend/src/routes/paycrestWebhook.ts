@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { supabase } from '../lib/supabase';
 import NotificationService from '../services/notifications';
+import BackendAnalytics from '../services/analytics';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('PaycrestWebhook');
@@ -182,6 +183,16 @@ router.post('/', async (req: Request, res: Response) => {
         // Mark completion time
         if (newStatus === 'COMPLETED') {
             updateData.completed_at = new Date().toISOString();
+            
+            // Track withdrawal_completed analytics event
+            BackendAnalytics.withdrawalCompleted(
+                (order as any).users?.id || order.user_id,
+                order.crypto_amount,
+                order.crypto_currency || 'USDC',
+                order.fiat_amount,
+                order.fiat_currency,
+                data.txHash
+            );
         }
 
         // Add error message for failed orders
