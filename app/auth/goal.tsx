@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Minus, Plus } from 'phosphor-react-native';
+import { Minus, Plus, CaretLeft } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
 
@@ -63,7 +63,15 @@ export default function GoalScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top + 60, backgroundColor: themeColors.background }]}>
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
+            {/* Header with back button */}
+            <View style={styles.header}>
+                <TouchableOpacity style={styles.headerBackButton} onPress={() => router.back()}>
+                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }} />
+            </View>
+
             {/* Title */}
             <View style={styles.titleContainer}>
                 <Text style={[styles.title, { color: themeColors.textPrimary }]}>
@@ -237,5 +245,16 @@ const styles = StyleSheet.create({
     setGoalButtonText: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 17,
+    },
+    // Header styles
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        marginBottom: 20,
+    },
+    headerBackButton: {
+        padding: 8,
+        marginLeft: -8,
     },
 });

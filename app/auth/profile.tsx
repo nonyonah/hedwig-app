@@ -44,6 +44,29 @@ export default function ProfileScreen() {
     // View Mode for Emoji Picker
     const [viewMode, setViewMode] = useState<'main' | 'emoji'>('main');
     const [showImageOptions, setShowImageOptions] = useState(false);
+    const [emojiTab, setEmojiTab] = useState<'emoji' | 'color'>('emoji');
+
+    // Comprehensive emoji list
+    const EMOJI_OPTIONS = [
+        '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😊',
+        '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😋', '😛', '😜',
+        '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐',
+        '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪',
+        '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶',
+        '🥴', '😵', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '😕',
+        '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨',
+        '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩',
+        '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️',
+        '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '🎃', '😺',
+        '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+        '🦁', '🐮', '🐷', '🐸', '🐵', '🙈', '🙉', '🙊', '🐔', '🐧',
+        '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄',
+        '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🪲', '🪳', '🦗', '🦂',
+        '🌸', '💮', '🏵️', '🌹', '🥀', '🌺', '🌻', '🌼', '🌷', '🌱',
+        '⭐', '🌟', '✨', '💫', '🔥', '💥', '💯', '❤️', '🧡', '💛',
+        '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞',
+        '💓', '💗', '💖', '💘', '💝', '🎈', '🎉', '🎊', '🎁', '🏆',
+    ];
 
     // Keyboard animation
     const keyboardOffset = useRef(new Animated.Value(0)).current;
@@ -214,6 +237,27 @@ export default function ProfileScreen() {
             >
                 {viewMode === 'main' && (
                     <>
+                        {/* Header with back button */}
+                        {edit === 'true' && (
+                            <View style={styles.header}>
+                                <TouchableOpacity style={styles.headerBackButton} onPress={() => router.back()}>
+                                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                </TouchableOpacity>
+                                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Edit Profile</Text>
+                                <View style={styles.headerSpacer} />
+                            </View>
+                        )}
+
+                        {/* Back button for signup flow */}
+                        {edit !== 'true' && (
+                            <View style={styles.header}>
+                                <TouchableOpacity style={styles.headerBackButton} onPress={() => router.back()}>
+                                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                </TouchableOpacity>
+                                <View style={{ flex: 1 }} />
+                            </View>
+                        )}
+
                         <View style={styles.titleSection}>
                             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Your Profile</Text>
                             <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Introduce yourself to others.</Text>
@@ -282,43 +326,74 @@ export default function ProfileScreen() {
 
                 {viewMode === 'emoji' && (
                     <View style={styles.emojiContent}>
-                        <TouchableOpacity style={styles.backButton} onPress={() => setViewMode('main')}>
-                            <CaretLeft size={20} color={themeColors.textSecondary} />
-                            <Text style={[styles.backButtonText, { color: themeColors.textSecondary }]}>Back</Text>
-                        </TouchableOpacity>
+                        {/* Header with back button */}
+                        <View style={styles.header}>
+                            <TouchableOpacity style={styles.headerBackButton} onPress={() => setViewMode('main')}>
+                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                            </TouchableOpacity>
+                            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Choose Avatar</Text>
+                            <View style={styles.headerSpacer} />
+                        </View>
 
-                        <Text style={[styles.viewTitle, { color: themeColors.textPrimary }]}>Choose Emoji</Text>
-
+                        {/* Preview */}
                         <View style={styles.emojiInputContainer}>
                             <LinearGradient
                                 colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
                                 style={styles.emojiPreviewBg}
                             >
-                                <TextInput
-                                    style={styles.emojiInput}
-                                    value={profileIcon.emoji || ''}
-                                    onChangeText={(text) => {
-                                        if (text.length > 0) setProfileIcon(prev => ({ ...prev, emoji: text.slice(-2) }));
-                                        else setProfileIcon(prev => ({ ...prev, emoji: '' }));
-                                    }}
-                                    placeholder="😀"
-                                    maxLength={2}
-                                />
+                                <Text style={{ fontSize: 50 }}>{profileIcon.emoji || '😀'}</Text>
                             </LinearGradient>
                         </View>
 
-                        <Text style={[styles.label, { marginTop: 24, color: themeColors.textSecondary }]}>Background Color</Text>
-                        <View style={styles.colorGrid}>
-                            {PROFILE_COLOR_OPTIONS.map((colors, idx) => (
-                                <TouchableOpacity
-                                    key={idx}
-                                    style={[styles.colorOption, { backgroundColor: colors[1] }]}
-                                    onPress={() => setProfileIcon(prev => ({ ...prev, colorIndex: idx }))}
-                                >
-                                    {profileIcon.colorIndex === idx && <Check size={16} color="white" weight="bold" />}
-                                </TouchableOpacity>
-                            ))}
+                        {/* Tabs */}
+                        <View style={[styles.tabContainer, { backgroundColor: themeColors.surface }]}>
+                            <TouchableOpacity
+                                style={[styles.tab, emojiTab === 'emoji' && styles.tabActive]}
+                                onPress={() => setEmojiTab('emoji')}
+                            >
+                                <Text style={[styles.tabText, { color: emojiTab === 'emoji' ? Colors.primary : themeColors.textSecondary }]}>Emojis</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.tab, emojiTab === 'color' && styles.tabActive]}
+                                onPress={() => setEmojiTab('color')}
+                            >
+                                <Text style={[styles.tabText, { color: emojiTab === 'color' ? Colors.primary : themeColors.textSecondary }]}>Background</Text>
+                            </TouchableOpacity>
                         </View>
+
+                        {/* Emoji Grid */}
+                        {emojiTab === 'emoji' && (
+                            <View style={styles.emojiGrid}>
+                                {EMOJI_OPTIONS.map((emoji, idx) => (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={[
+                                            styles.emojiOption,
+                                            { backgroundColor: themeColors.surface },
+                                            profileIcon.emoji === emoji && styles.emojiOptionSelected
+                                        ]}
+                                        onPress={() => setProfileIcon(prev => ({ ...prev, emoji }))}
+                                    >
+                                        <Text style={{ fontSize: 28 }}>{emoji}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+
+                        {/* Color Grid */}
+                        {emojiTab === 'color' && (
+                            <View style={styles.colorGrid}>
+                                {PROFILE_COLOR_OPTIONS.map((colors, idx) => (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={[styles.colorOption, { backgroundColor: colors[1] }]}
+                                        onPress={() => setProfileIcon(prev => ({ ...prev, colorIndex: idx }))}
+                                    >
+                                        {profileIcon.colorIndex === idx && <Check size={20} color="white" weight="bold" />}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
 
                         <TouchableOpacity style={styles.doneButton} onPress={() => setViewMode('main')}>
                             <Text style={styles.doneButtonText}>Done</Text>
@@ -533,5 +608,66 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         color: 'white',
         fontSize: 16,
-    }
+    },
+    // Header styles
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        marginBottom: 8,
+    },
+    headerBackButton: {
+        padding: 8,
+        marginLeft: -8,
+    },
+    headerTitle: {
+        flex: 1,
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 18,
+        textAlign: 'center',
+        marginRight: 32,
+    },
+    headerSpacer: {
+        width: 32,
+    },
+    // Tab styles
+    tabContainer: {
+        flexDirection: 'row',
+        borderRadius: 12,
+        padding: 4,
+        marginBottom: 24,
+        width: '100%',
+    },
+    tab: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    tabActive: {
+        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    },
+    tabText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 14,
+    },
+    // Emoji grid styles
+    emojiGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        justifyContent: 'center',
+        paddingHorizontal: 8,
+    },
+    emojiOption: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    emojiOptionSelected: {
+        borderWidth: 2,
+        borderColor: Colors.primary,
+    },
 });
