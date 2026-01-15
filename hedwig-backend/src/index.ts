@@ -200,6 +200,12 @@ app.use(express.static(webClientPath));
 app.get('/contract/:id', serveReactApp);
 app.get('/contracts/:id', serveReactApp);
 
+// Export wallet route - served by React app
+app.get('/export-wallet', serveReactApp);
+
+// Feedback route - served by React app
+app.get('/feedback', serveReactApp);
+
 // Proposal routes - still using legacy HTML for now
 app.get('/proposal/:id', (_req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../public/proposal.html'));
