@@ -155,7 +155,7 @@ router.post('/', async (req: Request, res: Response) => {
         // 1. Find the order in our database
         const { data: order, error: findError } = await supabase
             .from('offramp_orders')
-            .select('*, users!inner(privy_id, email)')
+            .select('*, users!inner(id, privy_id, email)')
             .eq('paycrest_order_id', paycrestOrderId)
             .single();
 
@@ -199,17 +199,18 @@ router.post('/', async (req: Request, res: Response) => {
         }
 
         // 3. Send push notification
-        const userId = (order as any).users?.privy_id;
+        // Use internal user ID (UUID) for device_tokens lookup, not email or privy_id
+        const internalUserId = (order as any).users?.id;
         const userEmail = (order as any).users?.email;
 
-        if (userId || userEmail) {
+        if (internalUserId) {
             const notification = getStatusMessage(event, order.fiat_amount, order.fiat_currency);
 
-            // Create in-app notification
+            // Create in-app notification (uses internal user ID)
             await supabase
                 .from('notifications')
                 .insert({
-                    user_id: userEmail || userId, // Use email as user_id for notifications
+                    user_id: internalUserId,
                     title: notification.title,
                     message: notification.body,
                     type: 'offramp',
@@ -226,7 +227,7 @@ router.post('/', async (req: Request, res: Response) => {
 
             // Send push notification with full data for Live Activities/Updates
             try {
-                await NotificationService.notifyUser(userEmail || userId, {
+                await NotificationService.notifyUser(internalUserId, {
                     title: notification.title,
                     body: notification.body,
                     data: {
