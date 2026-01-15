@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
@@ -28,9 +28,9 @@
         "backgroundColor": "#000000"
       },
       "splash": {
-        "image": "./assets/adaptive-icon.png",
+        "image": "./assets/splash-icon.png",
         "resizeMode": "contain",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#FFFFFF"
       },
       "package": "com.hedwig.app",
       "edgeToEdgeEnabled": true,
