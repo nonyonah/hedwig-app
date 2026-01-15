@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { usePrivy } from '@privy-io/react-auth';
-// Solana export temporarily disabled to fix build
-// import { useExportWallet } from '@privy-io/react-auth/solana';
+import { usePrivy, type WalletWithMetadata } from '@privy-io/react-auth';
+import { useExportWallet } from '@privy-io/react-auth/solana';
 import { Wallet, ShieldCheck, Warning, SpinnerGap } from '@phosphor-icons/react';
 import './ExportWalletPage.css';
 
@@ -12,14 +11,11 @@ export default function ExportWalletPage() {
     const [searchParams] = useSearchParams();
     const chainParam = searchParams.get('chain') as ChainType | null;
     const [selectedChain, setSelectedChain] = useState<ChainType>(chainParam || 'ethereum');
-    const [isExporting, setIsExporting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [loadingTimeout, setLoadingTimeout] = useState(false);
 
-    // Privy hooks
+    // Privy hooks - using native exportWallet functions
     const { ready, authenticated, user, login, exportWallet: exportEvmWallet } = usePrivy();
-    // Solana export temporarily disabled
-    const exportSolanaWallet = async () => { throw new Error('Solana export temporarily unavailable'); };
+    const { exportWallet: exportSolanaWallet } = useExportWallet();
 
     // Detect loading timeout
     useEffect(() => {
@@ -31,49 +27,26 @@ export default function ExportWalletPage() {
         }
     }, [ready]);
 
-    // Find embedded wallets
+    // Check that user is authenticated
+    const isAuthenticated = ready && authenticated;
+
+    // Find embedded wallets and get their addresses
     const evmWallet = user?.linkedAccounts?.find(
-        (account: any) => account.type === 'wallet' &&
+        (account): account is WalletWithMetadata =>
+            account.type === 'wallet' &&
             account.walletClientType === 'privy' &&
             account.chainType === 'ethereum'
     );
 
     const solanaWallet = user?.linkedAccounts?.find(
-        (account: any) => account.type === 'wallet' &&
+        (account): account is WalletWithMetadata =>
+            account.type === 'wallet' &&
             account.walletClientType === 'privy' &&
             account.chainType === 'solana'
     );
 
-    const formatAddress = (address: string) => {
-        if (!address) return '';
-        return `${address.slice(0, 6)}...${address.slice(-4)}`;
-    };
-
-    const handleExport = async () => {
-        setError(null);
-        setIsExporting(true);
-
-        try {
-            if (selectedChain === 'ethereum') {
-                if (!evmWallet) {
-                    throw new Error('No Ethereum wallet found');
-                }
-                // Pass the wallet address as required by Privy
-                await exportEvmWallet({ address: (evmWallet as any).address });
-            } else {
-                if (!solanaWallet) {
-                    throw new Error('No Solana wallet found');
-                }
-                // Solana export temporarily disabled
-                await exportSolanaWallet();
-            }
-        } catch (err: any) {
-            console.error('Export error:', err);
-            setError(err.message || 'Failed to export wallet');
-        } finally {
-            setIsExporting(false);
-        }
-    };
+    const hasEvmWallet = !!evmWallet;
+    const hasSolanaWallet = !!solanaWallet;
 
     // Show loading while Privy initializes
     if (!ready) {
@@ -125,9 +98,17 @@ export default function ExportWalletPage() {
         );
     }
 
-    // Authenticated view
-    const currentWallet = selectedChain === 'ethereum' ? evmWallet : solanaWallet;
-    const currentAddress = (currentWallet as any)?.address;
+    // Get current wallet status
+    const hasCurrentWallet = selectedChain === 'ethereum' ? hasEvmWallet : hasSolanaWallet;
+
+    // Handle export with proper address parameter
+    const handleExport = () => {
+        if (selectedChain === 'ethereum' && evmWallet?.address) {
+            exportEvmWallet({ address: evmWallet.address });
+        } else if (selectedChain === 'solana' && solanaWallet?.address) {
+            exportSolanaWallet({ address: solanaWallet.address });
+        }
+    };
 
     return (
         <div className="container">
@@ -158,43 +139,27 @@ export default function ExportWalletPage() {
                     </button>
                 </div>
 
-                {/* Wallet Info */}
-                {currentAddress ? (
-                    <div className="wallet-info">
-                        <div className="wallet-label">Wallet Address</div>
-                        <div className="wallet-address">{formatAddress(currentAddress)}</div>
-                    </div>
-                ) : (
-                    <div className="wallet-info">
-                        <div className="wallet-label">No {selectedChain} wallet found</div>
-                    </div>
-                )}
+                {/* Wallet Status */}
+                <div className="wallet-info">
+                    {hasCurrentWallet ? (
+                        <div className="wallet-label" style={{ color: '#10b981' }}>
+                            ✓ {selectedChain === 'ethereum' ? 'Ethereum' : 'Solana'} wallet found
+                        </div>
+                    ) : (
+                        <div className="wallet-label" style={{ color: '#ef4444' }}>
+                            No {selectedChain} wallet found
+                        </div>
+                    )}
+                </div>
 
-                {/* Error */}
-                {error && (
-                    <div className="error-box">
-                        <Warning size={16} />
-                        <span>{error}</span>
-                    </div>
-                )}
-
-                {/* Export Button */}
+                {/* Export Button - Uses native Privy modal */}
                 <button
                     className="primary-button"
                     onClick={handleExport}
-                    disabled={!currentAddress || isExporting}
+                    disabled={!isAuthenticated || !hasCurrentWallet}
                 >
-                    {isExporting ? (
-                        <>
-                            <SpinnerGap size={20} className="spinner" />
-                            <span>Exporting...</span>
-                        </>
-                    ) : (
-                        <>
-                            <Wallet size={20} />
-                            <span>Export Private Key</span>
-                        </>
-                    )}
+                    <Wallet size={20} />
+                    <span>Export Private Key</span>
                 </button>
 
                 {/* Warning */}
