@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
@@ -24,7 +24,13 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "monochromeImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      },
+      "splash": {
+        "image": "./assets/adaptive-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#000000"
       },
       "package": "com.hedwig.app",
       "edgeToEdgeEnabled": true,
@@ -39,6 +45,7 @@
       "bundleIdentifier": "com.hedwig.app"
     },
     "plugins": [
+      "expo-splash-screen",
       "expo-router",
       "expo-web-browser",
       [
