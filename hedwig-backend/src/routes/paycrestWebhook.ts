@@ -201,7 +201,6 @@ router.post('/', async (req: Request, res: Response) => {
         // 3. Send push notification
         // Use internal user ID (UUID) for device_tokens lookup, not email or privy_id
         const internalUserId = (order as any).users?.id;
-        const userEmail = (order as any).users?.email;
 
         if (internalUserId) {
             const notification = getStatusMessage(event, order.fiat_amount, order.fiat_currency);
