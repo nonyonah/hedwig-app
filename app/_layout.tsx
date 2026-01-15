@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Stack, useNavigationContainerRef } from 'expo-router';
 import { PrivyProvider } from '@privy-io/expo';
 import Constants from 'expo-constants';
@@ -9,13 +9,17 @@ import {
     GoogleSansFlex_600SemiBold,
 } from '@expo-google-fonts/google-sans-flex';
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
 import { useThemeColors } from '../theme/colors';
 import * as Sentry from '@sentry/react-native';
 import { isRunningInExpoGo } from 'expo';
 import { initializeAnalytics, trackScreen } from '../services/analytics';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent the splash screen from auto-hiding before asset loading is complete
+SplashScreen.preventAutoHideAsync();
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
@@ -160,19 +164,23 @@ function RootLayout() {
         Merriweather_900Black,
     });
 
+    // Hide splash screen once fonts are loaded
+    const onLayoutRootView = useCallback(async () => {
+        if (fontsLoaded) {
+            await SplashScreen.hideAsync();
+        }
+    }, [fontsLoaded]);
+
+    // Keep splash screen visible until fonts are ready
     if (!fontsLoaded) {
-        return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000000' }}>
-                <ActivityIndicator size="large" color="#2563EB" />
-            </View>
-        );
+        return null;
     }
 
     const isWeb = Platform.OS === 'web';
 
     return (
         <SettingsProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
+            <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
                 {isWeb ? <WebLayout /> : <NativeLayout />}
             </GestureHandlerRootView>
         </SettingsProvider>
