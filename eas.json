@@ -27,7 +27,7 @@
       },
       "android": {
         "image": "latest",
-        "buildType": "apk"
+        "buildType": "aab"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://pay.hedwigbot.xyz",
