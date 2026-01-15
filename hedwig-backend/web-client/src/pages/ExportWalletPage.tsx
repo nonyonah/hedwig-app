@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { usePrivy } from '@privy-io/react-auth';
 // Solana export temporarily disabled to fix build
@@ -14,11 +14,22 @@ export default function ExportWalletPage() {
     const [selectedChain, setSelectedChain] = useState<ChainType>(chainParam || 'ethereum');
     const [isExporting, setIsExporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [loadingTimeout, setLoadingTimeout] = useState(false);
 
     // Privy hooks
     const { ready, authenticated, user, login, exportWallet: exportEvmWallet } = usePrivy();
     // Solana export temporarily disabled
     const exportSolanaWallet = async () => { throw new Error('Solana export temporarily unavailable'); };
+
+    // Detect loading timeout
+    useEffect(() => {
+        if (!ready) {
+            const timer = setTimeout(() => {
+                setLoadingTimeout(true);
+            }, 10000); // 10 second timeout
+            return () => clearTimeout(timer);
+        }
+    }, [ready]);
 
     // Find embedded wallets
     const evmWallet = user?.linkedAccounts?.find(
@@ -70,7 +81,23 @@ export default function ExportWalletPage() {
             <div className="container">
                 <div className="card loading-container">
                     <SpinnerGap size={48} className="spinner" />
-                    <p>Loading...</p>
+                    {loadingTimeout ? (
+                        <>
+                            <p style={{ color: '#ef4444', fontWeight: 600, marginBottom: '8px' }}>Loading is taking too long</p>
+                            <p style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>
+                                There may be a connection issue. Please try refreshing the page.
+                            </p>
+                            <button
+                                className="primary-button"
+                                onClick={() => window.location.reload()}
+                                style={{ maxWidth: '200px' }}
+                            >
+                                Refresh Page
+                            </button>
+                        </>
+                    ) : (
+                        <p>Loading...</p>
+                    )}
                 </div>
             </div>
         );
