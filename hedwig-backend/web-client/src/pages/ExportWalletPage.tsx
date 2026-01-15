@@ -47,11 +47,13 @@ export default function ExportWalletPage() {
                 if (!evmWallet) {
                     throw new Error('No Ethereum wallet found');
                 }
-                await exportEvmWallet();
+                // Pass the wallet address as required by Privy
+                await exportEvmWallet({ address: (evmWallet as any).address });
             } else {
                 if (!solanaWallet) {
                     throw new Error('No Solana wallet found');
                 }
+                // Solana export temporarily disabled
                 await exportSolanaWallet();
             }
         } catch (err: any) {
