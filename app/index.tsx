@@ -1419,7 +1419,7 @@ export default function HomeScreen() {
             {/* Chat Onboarding Tooltip */}
             <OnboardingTooltip
                 visible={showChatTip}
-                title="Welcome to Hedwig! 👋"
+                title="Hi, I'm Hedwig 👋"
                 description="I'm your AI assistant for freelancing. Try asking me to create an invoice, track a project, or send a payment link to a client."
                 onDismiss={() => {
                     setShowChatTip(false);

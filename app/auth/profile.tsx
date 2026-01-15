@@ -643,27 +643,6 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
     },
-    // Header styles
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        marginBottom: 8,
-    },
-    headerBackButton: {
-        padding: 8,
-        marginLeft: -8,
-    },
-    headerTitle: {
-        flex: 1,
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 18,
-        textAlign: 'center',
-        marginRight: 32,
-    },
-    headerSpacer: {
-        width: 32,
-    },
     // Tab styles
     tabContainer: {
         flexDirection: 'row',
