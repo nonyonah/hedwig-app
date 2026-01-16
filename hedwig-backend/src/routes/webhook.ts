@@ -275,13 +275,33 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
             const toAddressLower = transfer.to.toLowerCase();
             const fromAddressLower = transfer.from.toLowerCase();
 
-            // Find user by wallet address (recipient) - using ilike for case-insensitive match
+            // Find user by wallet address (recipient)
+            // Try explicit match first to avoid potentially buggy complex OR queries with ilike strings
             logger.debug('Looking for recipient user', { toAddress: toAddressLower });
-            const { data: recipientUser, error: recipientError } = await supabase
+            
+            // First try evm_address
+            let { data: recipientUser, error: recipientError } = await supabase
                 .from('users')
                 .select('id, privy_id, evm_address, wallet_address')
-                .or(`evm_address.ilike.${toAddressLower},wallet_address.ilike.${toAddressLower}`)
+                .ilike('evm_address', toAddressLower)
                 .single();
+
+            // If not found, try wallet_address
+            if (!recipientUser) {
+                const { data: altRecipient, error: altError } = await supabase
+                    .from('users')
+                    .select('id, privy_id, evm_address, wallet_address')
+                    .ilike('wallet_address', toAddressLower)
+                    .single();
+                
+                if (altRecipient) {
+                    recipientUser = altRecipient;
+                    recipientError = null;
+                } else if (altError) {
+                    // Keep the error from the second attempt if neither succeeded
+                   recipientError = altError; 
+                }
+            }
 
             if (recipientError) {
                 logger.debug('Recipient lookup error or not found', { error: recipientError.message });
@@ -392,11 +412,29 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
 
             // Find user by wallet address (sender)
             logger.debug('Looking for sender user', { fromAddress: fromAddressLower });
-            const { data: senderUser, error: senderError } = await supabase
+            
+            // First try evm_address
+            let { data: senderUser, error: senderError } = await supabase
                 .from('users')
                 .select('id, privy_id')
-                .or(`evm_address.ilike.${fromAddressLower},wallet_address.ilike.${fromAddressLower}`)
+                .ilike('evm_address', fromAddressLower)
                 .single();
+
+            // If not found, try wallet_address
+            if (!senderUser) {
+                const { data: altSender, error: altError } = await supabase
+                    .from('users')
+                    .select('id, privy_id')
+                    .ilike('wallet_address', fromAddressLower)
+                    .single();
+                
+                if (altSender) {
+                    senderUser = altSender;
+                    senderError = null;
+                } else if (altError) {
+                    senderError = altError;
+                }
+            }
 
             if (senderError) {
                 logger.debug('Sender lookup error or not found', { error: senderError.message });
