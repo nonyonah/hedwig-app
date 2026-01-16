@@ -254,24 +254,48 @@ router.post('/alchemy', async (req: Request, res: Response) => {
  * Process Alchemy Address Activity events
  */
 async function processAlchemyActivity(network: string, activities: AlchemyActivity[]) {
+    logger.info('Processing Alchemy activities', { network, count: activities.length });
+
     for (const activity of activities) {
         const transfer = AlchemyWebhooksService.extractTransferInfo(activity);
-        logger.debug('Processing EVM transfer', { network, asset: transfer.asset });
+        logger.info('Processing EVM transfer', { 
+            network, 
+            asset: transfer.asset,
+            from: transfer.from,
+            to: transfer.to,
+            value: transfer.value,
+            txHash: transfer.txHash
+        });
 
         try {
             // Track document for transaction recording
             let document: any = null;
+            
+            // Normalize wallet addresses to lowercase for comparison
+            const toAddressLower = transfer.to.toLowerCase();
+            const fromAddressLower = transfer.from.toLowerCase();
 
-            // Find user by wallet address (recipient)
-            const { data: recipientUser } = await supabase
+            // Find user by wallet address (recipient) - using ilike for case-insensitive match
+            logger.debug('Looking for recipient user', { toAddress: toAddressLower });
+            const { data: recipientUser, error: recipientError } = await supabase
                 .from('users')
-                .select('id, privy_id')
-                .or(`evm_address.ilike.${transfer.to},wallet_address.ilike.${transfer.to}`)
+                .select('id, privy_id, evm_address, wallet_address')
+                .or(`evm_address.ilike.${toAddressLower},wallet_address.ilike.${toAddressLower}`)
                 .single();
 
+            if (recipientError) {
+                logger.debug('Recipient lookup error or not found', { error: recipientError.message });
+            }
+
             if (recipientUser) {
+                logger.info('Found recipient user', { 
+                    userId: recipientUser.id, 
+                    evmAddress: recipientUser.evm_address,
+                    walletAddress: recipientUser.wallet_address
+                });
+
                 // Check if this payment is for an invoice or payment link
-                const { data: foundDoc } = await supabase
+                const { data: foundDoc, error: docError } = await supabase
                     .from('documents')
                     .select('*')
                     .eq('user_id', recipientUser.id)
@@ -281,7 +305,12 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                     .limit(1)
                     .single();
 
+                if (docError) {
+                    logger.debug('Document lookup info', { error: docError.message });
+                }
+
                 document = foundDoc;
+                logger.debug('Document found', { documentId: document?.id, type: document?.type });
 
                 // Build notification message with client/document details
                 const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
@@ -301,21 +330,29 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                     notificationMessage = `${clientInfo} paid ${docNumber} - ${transfer.value} ${transfer.asset} received!`;
 
                     // Update document status to PAID
-                    await supabase
+                    const { error: updateError } = await supabase
                         .from('documents')
                         .update({ status: 'PAID', paid_at: new Date().toISOString(), tx_hash: transfer.txHash })
                         .eq('id', document.id);
+                    
+                    if (updateError) {
+                        logger.error('Failed to update document status', { error: updateError.message });
+                    } else {
+                        logger.info('Document status updated to PAID', { documentId: document.id });
+                    }
                 }
 
                 // Send push notification
-                await NotificationService.notifyUser(recipientUser.id, {
+                logger.info('Sending push notification to user', { userId: recipientUser.id });
+                const notifyResult = await NotificationService.notifyUser(recipientUser.id, {
                     title: notificationTitle,
                     body: notificationMessage,
                     data: { type: 'payment_received', txHash: transfer.txHash, documentId: document?.id },
                 });
+                logger.info('Push notification result', { tickets: notifyResult.length });
 
                 // Create in-app notification
-                await supabase.from('notifications').insert({
+                const { error: notifError } = await supabase.from('notifications').insert({
                     user_id: recipientUser.id,
                     type: document ? 'payment_received' : 'crypto_received',
                     title: notificationTitle,
@@ -331,6 +368,12 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                     },
                 });
 
+                if (notifError) {
+                    logger.error('Failed to create in-app notification', { error: notifError.message });
+                } else {
+                    logger.info('In-app notification created');
+                }
+
                 // Track payment_received analytics event
                 BackendAnalytics.paymentReceived(
                     recipientUser.id,
@@ -343,16 +386,24 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                 );
 
                 logger.info('User notified of received payment');
+            } else {
+                logger.warn('No recipient user found for address', { toAddress: toAddressLower });
             }
 
             // Find user by wallet address (sender)
-            const { data: senderUser } = await supabase
+            logger.debug('Looking for sender user', { fromAddress: fromAddressLower });
+            const { data: senderUser, error: senderError } = await supabase
                 .from('users')
                 .select('id, privy_id')
-                .or(`evm_address.ilike.${transfer.from},wallet_address.ilike.${transfer.from}`)
+                .or(`evm_address.ilike.${fromAddressLower},wallet_address.ilike.${fromAddressLower}`)
                 .single();
 
+            if (senderError) {
+                logger.debug('Sender lookup error or not found', { error: senderError.message });
+            }
+
             if (senderUser) {
+                logger.info('Found sender user, sending notification', { userId: senderUser.id });
                 // Send push notification for sent payment
                 await NotificationService.notifyTransaction(senderUser.id, {
                     type: 'sent',
@@ -368,7 +419,8 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
             // Record the transaction
             const txUserId = recipientUser?.id || senderUser?.id;
             if (txUserId) {
-                await supabase
+                logger.info('Recording transaction to database', { userId: txUserId, txHash: transfer.txHash });
+                const { error: txError } = await supabase
                     .from('transactions')
                     .upsert({
                         user_id: txUserId,
@@ -385,6 +437,14 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                         timestamp: new Date().toISOString(),
                         platform_fee: 0,
                     }, { onConflict: 'tx_hash' });
+
+                if (txError) {
+                    logger.error('Failed to record transaction', { error: txError.message });
+                } else {
+                    logger.info('Transaction recorded successfully');
+                }
+            } else {
+                logger.warn('No user found for transaction, skipping record', { from: transfer.from, to: transfer.to });
             }
 
         } catch (err) {
