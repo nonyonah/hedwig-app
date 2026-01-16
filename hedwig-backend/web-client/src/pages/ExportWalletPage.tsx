@@ -1,4 +1,4 @@
-import { Wallet, ShieldCheck, Warning, Wrench } from '@phosphor-icons/react';
+import { Warning, Wrench } from '@phosphor-icons/react';
 import './ExportWalletPage.css';
 
 export default function ExportWalletPage() {
