@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { CaretLeft, Bell, CheckCircle, CurrencyDollar, ArrowsDownUp, Megaphone, Receipt, Link, Bank, Trash, FileText } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
-import { usePrivy } from '@privy-io/expo';
+import { useAuth } from '../../hooks/useAuth';
 import { format, isToday } from 'date-fns';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
@@ -57,7 +57,7 @@ export default function NotificationsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const themeColors = useThemeColors();
-    const { getAccessToken } = usePrivy();
+    const { getAccessToken } = useAuth();
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);

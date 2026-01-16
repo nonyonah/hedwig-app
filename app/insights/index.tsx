@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Platform, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { usePrivy } from '@privy-io/expo';
+import { useAuth } from '../../hooks/useAuth';
 import { List, Gear, TrendUp, TrendDown, ArrowRight, Sparkle } from 'phosphor-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Colors, useThemeColors } from '../../theme/colors';
@@ -138,7 +138,7 @@ export default function InsightsScreen() {
     const [isTargetModalVisible, setIsTargetModalVisible] = useState(false);
 
     // Profile and Sidebar state
-    const { getAccessToken, user } = usePrivy();
+    const { getAccessToken, user } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
@@ -164,11 +164,16 @@ export default function InsightsScreen() {
 
     // Profile color gradient options
     const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
-        ['#60A5FA', '#3B82F6', '#2563EB'],
-        ['#34D399', '#10B981', '#059669'],
-        ['#F472B6', '#EC4899', '#DB2777'],
-        ['#FBBF24', '#F59E0B', '#D97706'],
-        ['#A78BFA', '#8B5CF6', '#7C3AED'],
+        ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
+        ['#34D399', '#10B981', '#059669'], // Green
+        ['#F472B6', '#EC4899', '#DB2777'], // Pink
+        ['#FBBF24', '#F59E0B', '#D97706'], // Amber
+        ['#A78BFA', '#8B5CF6', '#7C3AED'], // Purple
+        ['#F87171', '#EF4444', '#DC2626'], // Red
+        ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
+        ['#FB923C', '#F97316', '#EA580C'], // Orange
+        ['#64748B', '#475569', '#334155'], // Slate
+        ['#1F2937', '#111827', '#030712'], // Dark
     ];
 
     useEffect(() => {

@@ -203,4 +203,71 @@ router.get('/check-user', async (req: Request, res: Response, next) => {
     }
 });
 
+/**
+ * POST /api/auth/demo-login
+ * Demo login for Apple App Review
+ * Accepts demo email and code 123456
+ */
+router.post('/demo-login', async (req: Request, res: Response, next) => {
+    try {
+        const { email, code } = req.body;
+        
+        const DEMO_EMAIL = process.env.DEMO_ACCOUNT_EMAIL || 'demo@hedwig.app';
+        const DEMO_CODE = process.env.DEMO_ACCOUNT_CODE || '123456';
+        
+        // Only allow demo login for the specific demo email
+        if (email !== DEMO_EMAIL) {
+            throw new AppError('Invalid demo credentials', 401);
+        }
+        
+        // Verify demo code
+        if (code !== DEMO_CODE) {
+            throw new AppError('Invalid verification code', 401);
+        }
+        
+        // Fetch demo user
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', DEMO_EMAIL)
+            .single();
+            
+        if (error || !user) {
+            logger.error('Demo user not found', { error: error?.message });
+            throw new AppError('Demo account not configured', 500);
+        }
+        
+        // Update last login
+        await supabase
+            .from('users')
+            .update({ last_login: new Date().toISOString() })
+            .eq('id', user.id);
+        
+        logger.info('Demo login successful', { email: DEMO_EMAIL });
+        
+        // Return demo user data with a special demo token
+        // The demo token is a simple base64 encoded privy_id for demo purposes
+        const demoToken = Buffer.from(`demo:${user.privy_id}:${Date.now()}`).toString('base64');
+        
+        res.json({
+            success: true,
+            data: {
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    firstName: user.first_name,
+                    lastName: user.last_name,
+                    avatar: user.avatar,
+                    ethereumWalletAddress: user.ethereum_wallet_address,
+                    solanaWalletAddress: user.solana_wallet_address,
+                },
+                demoToken,
+                isDemo: true,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;

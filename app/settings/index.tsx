@@ -8,7 +8,7 @@ import { CaretRight, List, CaretDown, Check, ShieldWarning, Lock, Copy, WarningC
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
-import { usePrivy } from '@privy-io/expo';
+import { useAuth } from '../../hooks/useAuth';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { Sidebar } from '../../components/Sidebar';
@@ -34,7 +34,7 @@ export default function SettingsScreen() {
     const insets = useSafeAreaInsets();
     const { theme, setTheme, hapticsEnabled, setHapticsEnabled, liveTrackingEnabled, setLiveTrackingEnabled } = useSettings();
     const themeColors = useThemeColors();
-    const { user, logout, getAccessToken } = usePrivy();
+    const { user, logout, getAccessToken } = useAuth();
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
@@ -153,10 +153,53 @@ export default function SettingsScreen() {
     const handleDeleteAccount = () => {
         Alert.alert(
             "Delete Account",
-            "Are you sure? This action cannot be undone.",
+            "Are you sure you want to delete your account? Your data will be permanently deleted after 90 days. You can log back in within this period to restore your account.",
             [
                 { text: "Cancel", style: "cancel" },
-                { text: "Delete", style: "destructive", onPress: () => console.log("Delete account") }
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            const token = await getAccessToken();
+                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+                            const response = await fetch(`${apiUrl}/api/users/account`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                },
+                            });
+
+                            const data = await response.json();
+
+                            if (data.success) {
+                                // Track account deletion
+                                Analytics.userLoggedOut();
+
+                                Alert.alert(
+                                    "Account Scheduled for Deletion",
+                                    `Your account will be permanently deleted on ${new Date(data.data.deletionScheduledFor).toLocaleDateString()}. Log back in within 90 days to restore your account.`,
+                                    [
+                                        {
+                                            text: "OK",
+                                            onPress: async () => {
+                                                await logout();
+                                                router.replace('/auth/welcome');
+                                            }
+                                        }
+                                    ]
+                                );
+                            } else {
+                                Alert.alert('Error', data.error?.message || 'Failed to delete account');
+                            }
+                        } catch (error) {
+                            console.error('Delete account error:', error);
+                            Alert.alert('Error', 'Failed to delete account. Please try again.');
+                        }
+                    }
+                }
             ]
         );
     };

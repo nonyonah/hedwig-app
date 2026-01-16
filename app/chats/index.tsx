@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usePrivy } from '@privy-io/expo';
+import { useAuth } from '../../hooks/useAuth';
 import { List, Chat, MagnifyingGlass, Plus, Trash, CheckCircle, X } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -18,7 +18,7 @@ export default function ChatsScreen() {
     useAnalyticsScreen('Chats');
 
     const router = useRouter();
-    const { user, getAccessToken } = usePrivy();
+    const { user, getAccessToken } = useAuth();
     const themeColors = useThemeColors();
     const [conversations, setConversations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);

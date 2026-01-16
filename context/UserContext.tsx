@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { usePrivy } from '@privy-io/expo';
+import { useAuth } from '../hooks/useAuth';
 
 interface UserProfile {
     firstName: string;
@@ -22,25 +22,39 @@ interface UserContextType {
     profileIcon: ProfileIcon;
     walletAddresses: WalletAddresses;
     isLoadingProfile: boolean;
+    isDemo: boolean;
     refreshProfile: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { user, getAccessToken } = usePrivy();
+    // Use our custom useAuth hook which handles demo mode
+    const { user, getAccessToken, isDemo: authIsDemo } = useAuth();
     const [userName, setUserName] = useState<UserProfile>({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<ProfileIcon>({});
     const [walletAddresses, setWalletAddresses] = useState<WalletAddresses>({});
     const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+    const [isDemo, setIsDemo] = useState(false);
+
+    // Sync demo state from useAuth
+    useEffect(() => {
+        setIsDemo(authIsDemo || false);
+    }, [authIsDemo]);
+
+    // Helper to get token (uses our auth hook which handles demo mode)
+    const getToken = useCallback(async (): Promise<string | null> => {
+        return await getAccessToken();
+    }, [getAccessToken]);
 
     const fetchUserProfile = useCallback(async (retryCount = 0) => {
-        if (!user || !user.id) {
+        // user is either a real Privy user or a demo user (from useAuth)
+        if (!user) {
             return;
         }
 
         try {
-            const token = await getAccessToken();
+            const token = await getToken();
             if (!token) {
                 return;
             }
@@ -107,9 +121,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             setIsLoadingProfile(false);
         }
-    }, [user, getAccessToken, userName.firstName]);
+    }, [user, getToken, userName.firstName]);
 
-    // Fetch profile on mount or when user changes
+    // Fetch profile when user changes (either real user or demo user from useAuth)
     useEffect(() => {
         if (user) {
             fetchUserProfile();
@@ -127,6 +141,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profileIcon,
             walletAddresses,
             isLoadingProfile,
+            isDemo,
             refreshProfile: () => fetchUserProfile(0)
         }}>
             {children}

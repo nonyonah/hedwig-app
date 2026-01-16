@@ -17,7 +17,7 @@ import {
     Animated
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { usePrivy } from '@privy-io/expo';
+import { useAuth } from '../../hooks/useAuth';
 import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowsLeftRight } from 'phosphor-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
@@ -74,6 +74,8 @@ const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
     ['#F87171', '#EF4444', '#DC2626'], // Red
     ['#38BDF8', '#0EA5E9', '#0284C7'], // Sky
     ['#4ADE80', '#22C55E', '#16A34A'], // Emerald
+    ['#64748B', '#475569', '#334155'], // Slate
+    ['#1F2937', '#111827', '#030712'], // Dark
 ];
 
 interface Transaction {
@@ -104,7 +106,7 @@ export default function TransactionsScreen() {
     useAnalyticsScreen('Transactions');
 
     const router = useRouter();
-    const { getAccessToken, user } = usePrivy();
+    const { getAccessToken, user } = useAuth();
     const themeColors = useThemeColors();
     const insets = useSafeAreaInsets();
     const settings = useSettings();

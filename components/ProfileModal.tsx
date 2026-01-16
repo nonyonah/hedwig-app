@@ -81,6 +81,8 @@ const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
     ['#F87171', '#EF4444', '#DC2626'], // Red
     ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
     ['#FB923C', '#F97316', '#EA580C'], // Orange
+    ['#64748B', '#475569', '#334155'], // Slate
+    ['#1F2937', '#111827', '#030712'], // Dark
 ] as const;
 
 interface ProfileModalProps {

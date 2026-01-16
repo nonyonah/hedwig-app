@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, SectionList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usePrivy } from '@privy-io/expo';
+import { useAuth } from '../../hooks/useAuth';
 import { List, CalendarBlank, Receipt, Target, Folder, Clock, Trash } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
@@ -22,6 +22,8 @@ const PROFILE_COLOR_OPTIONS = [
     ['#F87171', '#EF4444', '#DC2626'],
     ['#2DD4BF', '#14B8A6', '#0D9488'],
     ['#FB923C', '#F97316', '#EA580C'],
+    ['#64748B', '#475569', '#334155'], // Slate
+    ['#1F2937', '#111827', '#030712'], // Dark
 ] as const;
 
 interface CalendarEvent {
@@ -45,7 +47,7 @@ export default function CalendarScreen() {
     useAnalyticsScreen('Calendar');
 
     const router = useRouter();
-    const { getAccessToken, user } = usePrivy();
+    const { getAccessToken, user } = useAuth();
     const themeColors = useThemeColors();
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);

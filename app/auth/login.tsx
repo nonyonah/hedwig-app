@@ -6,8 +6,11 @@ import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/color
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { Button } from '../../components/Button';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const DEMO_EMAIL = 'demo@hedwig.app';
+const DEMO_CODE = '123456';
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -23,6 +26,7 @@ export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isDemo, setIsDemo] = useState(false);
 
     // Keyboard animation
     const keyboardOffset = useRef(new Animated.Value(0)).current;
@@ -31,6 +35,11 @@ export default function LoginScreen() {
     const { sendCode, loginWithCode } = useLoginWithEmail();
     const { getAccessToken, user, isReady } = usePrivy();
     const inputRef = useRef<TextInput>(null);
+
+    // Detect demo email
+    useEffect(() => {
+        setIsDemo(email.toLowerCase().trim() === DEMO_EMAIL);
+    }, [email]);
 
     // Keyboard listeners for smooth animation matching keyboard speed
     useEffect(() => {
@@ -68,8 +77,15 @@ export default function LoginScreen() {
 
         setLoading(true);
         try {
-            await sendCode({ email });
-            setStep('otp');
+            // For demo account, skip Privy and go directly to OTP step
+            if (isDemo) {
+                setStep('otp');
+                // Auto-fill demo code after a short delay for better UX
+                setTimeout(() => setCode(DEMO_CODE), 300);
+            } else {
+                await sendCode({ email });
+                setStep('otp');
+            }
         } catch (error) {
             console.error('Login failed:', error);
             Alert.alert('Error', 'Failed to send verification code.');
@@ -84,31 +100,56 @@ export default function LoginScreen() {
 
         setLoading(true);
         try {
-            // Only call loginWithCode if not already logged in
-            if (!user) {
-                await loginWithCode({ code, email });
-            }
+            // Demo account flow - use special demo-login endpoint
+            if (isDemo) {
+                const response = await fetch(`${API_URL}/api/auth/demo-login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: DEMO_EMAIL, code }),
+                });
 
-            // Get Access Token
-            const token = await getAccessToken();
+                const data = await response.json();
 
-            // Check if user exists in backend
-            const response = await fetch(`${API_URL}/api/auth/me`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
+                if (data.success && data.data.demoToken) {
+                    // Store demo token for subsequent API calls
+                    await AsyncStorage.setItem('demoToken', data.data.demoToken);
+                    await AsyncStorage.setItem('isDemo', 'true');
+
+                    // Navigate to home
+                    router.replace('/');
+                } else {
+                    throw new Error(data.error?.message || 'Demo login failed');
                 }
-            });
-
-            if (response.ok) {
-                // User exists, go to Home
-                router.replace('/');
-            } else if (response.status === 404) {
-                // User does not exist, go to Profile
-                router.replace({ pathname: '/auth/profile', params: { email } });
             } else {
-                throw new Error('Failed to check user status');
-            }
+                // Normal Privy flow
+                // IMPORTANT: Clear any stale demo mode flags first
+                await AsyncStorage.removeItem('isDemo');
+                await AsyncStorage.removeItem('demoToken');
 
+                if (!user) {
+                    await loginWithCode({ code, email });
+                }
+
+                // Get Access Token
+                const token = await getAccessToken();
+
+                // Check if user exists in backend
+                const response = await fetch(`${API_URL}/api/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    // User exists, go to Home
+                    router.replace('/');
+                } else if (response.status === 404) {
+                    // User does not exist, go to Profile
+                    router.replace({ pathname: '/auth/profile', params: { email } });
+                } else {
+                    throw new Error('Failed to check user status');
+                }
+            }
         } catch (error) {
             console.error('Verification failed:', error);
             Alert.alert('Verification Failed', 'Invalid code or network error.');

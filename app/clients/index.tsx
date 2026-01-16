@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usePrivy } from '@privy-io/expo';
+import { useAuth } from '../../hooks/useAuth';
 import { Users, Plus, User, Envelope, Phone, Trash, PencilSimple, X, List, CurrencyDollar, Clock, Buildings } from 'phosphor-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -29,7 +29,7 @@ interface Client {
 
 export default function ClientsScreen() {
     const router = useRouter();
-    const { getAccessToken, user } = usePrivy();
+    const { getAccessToken, user } = useAuth();
     const themeColors = useThemeColors();
     const [clients, setClients] = useState<Client[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -60,12 +60,17 @@ export default function ClientsScreen() {
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string; bitcoin?: string }>({});
 
     // Profile color gradient options
-    const PROFILE_COLOR_OPTIONS: [string, string][] = [
-        ['#3B82F6', '#8B5CF6'],
-        ['#10B981', '#3B82F6'],
-        ['#F59E0B', '#EF4444'],
-        ['#EC4899', '#8B5CF6'],
-        ['#14B8A6', '#22D3EE'],
+    const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
+        ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
+        ['#34D399', '#10B981', '#059669'], // Green
+        ['#F472B6', '#EC4899', '#DB2777'], // Pink
+        ['#FBBF24', '#F59E0B', '#D97706'], // Amber
+        ['#A78BFA', '#8B5CF6', '#7C3AED'], // Purple
+        ['#F87171', '#EF4444', '#DC2626'], // Red
+        ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
+        ['#FB923C', '#F97316', '#EA580C'], // Orange
+        ['#64748B', '#475569', '#334155'], // Slate
+        ['#1F2937', '#111827', '#030712'], // Dark
     ];
 
     const slideAnim = useRef(new Animated.Value(0)).current;

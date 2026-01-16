@@ -81,8 +81,44 @@ export const authenticate = async (
         }
 
         const token = authHeader.split(' ')[1];
-        if (process.env.DEBUG_AUTH === 'true') {
-            logger.debug('Token received', { tokenLength: token?.length });
+        
+        // Debug logging - always show for now
+        logger.debug('Token analysis', { 
+            tokenLength: token?.length,
+            hasDots: token?.includes('.'),
+            first10Chars: token?.substring(0, 10) 
+        });
+
+        // Check if this is a demo token
+        // Demo tokens are base64 encoded and DON'T contain dots
+        // JWTs always contain two dots (header.payload.signature)
+        const DEMO_EMAIL = process.env.DEMO_ACCOUNT_EMAIL || 'demo@hedwig.app';
+        
+        // Demo tokens don't have dots, JWTs always have dots
+        if (!token.includes('.')) {
+            logger.info('Token has no dots - checking if demo token');
+            try {
+                const decoded = Buffer.from(token, 'base64').toString('utf-8');
+                logger.debug('Decoded token', { decoded: decoded.substring(0, 30) + '...' });
+                
+                if (decoded.startsWith('demo:')) {
+                    // This is a demo token - extract the privy_id
+                    const parts = decoded.split(':');
+                    if (parts.length >= 2) {
+                        const demoPrivyId = parts[1];
+                        logger.info('Demo token detected', { email: DEMO_EMAIL, privyId: demoPrivyId });
+                        
+                        req.user = {
+                            id: DEMO_EMAIL,
+                            privyId: demoPrivyId,
+                        };
+                        next();
+                        return;
+                    }
+                }
+            } catch (decodeError) {
+                logger.debug('Failed to decode potential demo token', { error: decodeError });
+            }
         }
 
         // Verify token with Privy (with retry logic)

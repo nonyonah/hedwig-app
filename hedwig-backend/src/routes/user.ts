@@ -149,4 +149,105 @@ router.patch('/profile', authenticate, async (req: Request, res: Response, next)
     }
 });
 
+/**
+ * DELETE /api/users/account
+ * Request account deletion (soft delete with 90-day grace period)
+ */
+router.delete('/account', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const privyId = req.user!.privyId;
+
+        // Calculate deletion date (90 days from now)
+        const now = new Date();
+        const deletionDate = new Date(now);
+        deletionDate.setDate(deletionDate.getDate() + 90);
+
+        logger.info('Account deletion requested', { privyId, scheduledFor: deletionDate });
+
+        // Update user with deletion timestamps
+        const { data: user, error } = await supabase
+            .from('users')
+            .update({
+                deleted_at: now.toISOString(),
+                deletion_scheduled_for: deletionDate.toISOString(),
+            })
+            .eq('privy_id', privyId)
+            .select('id, email, first_name')
+            .maybeSingle();
+
+        if (error) {
+            throw new Error(`Failed to delete account: ${error.message}`);
+        }
+
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found' },
+            });
+            return;
+        }
+
+        logger.info('Account marked for deletion', { 
+            userId: user.id, 
+            email: user.email,
+            deletionScheduledFor: deletionDate.toISOString() 
+        });
+
+        res.json({
+            success: true,
+            data: {
+                message: 'Account scheduled for deletion',
+                deletionScheduledFor: deletionDate.toISOString(),
+                daysRemaining: 90,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/users/account/restore
+ * Cancel account deletion (if within 90-day grace period)
+ */
+router.post('/account/restore', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const privyId = req.user!.privyId;
+
+        // Clear deletion timestamps
+        const { data: user, error } = await supabase
+            .from('users')
+            .update({
+                deleted_at: null,
+                deletion_scheduled_for: null,
+            })
+            .eq('privy_id', privyId)
+            .select('id, email, first_name')
+            .maybeSingle();
+
+        if (error) {
+            throw new Error(`Failed to restore account: ${error.message}`);
+        }
+
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found' },
+            });
+            return;
+        }
+
+        logger.info('Account deletion cancelled', { userId: user.id, email: user.email });
+
+        res.json({
+            success: true,
+            data: {
+                message: 'Account restored successfully',
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;

@@ -14,7 +14,7 @@ import {
     ScrollView
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { usePrivy } from '@privy-io/expo';
+import { useAuth } from '../../hooks/useAuth';
 import { List, X, Copy, Bank, ArrowDown, CheckCircle, Clock, Warning, ArrowsCounterClockwise } from 'phosphor-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -65,6 +65,10 @@ const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
     ['#FBBF24', '#F59E0B', '#D97706'],
     ['#A78BFA', '#8B5CF6', '#7C3AED'],
     ['#F87171', '#EF4444', '#DC2626'],
+    ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
+    ['#FB923C', '#F97316', '#EA580C'], // Orange
+    ['#64748B', '#475569', '#334155'], // Slate
+    ['#1F2937', '#111827', '#030712'], // Dark
 ];
 
 interface OfframpOrder {
@@ -95,7 +99,7 @@ interface UserData {
 
 export default function OfframpHistoryScreen() {
     const router = useRouter();
-    const { getAccessToken } = usePrivy();
+    const { getAccessToken } = useAuth();
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
 

@@ -6,7 +6,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usePrivy } from '@privy-io/expo';
+import { useAuth } from '../../hooks/useAuth';
 import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThree, Bell } from 'phosphor-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -45,6 +45,8 @@ const PROFILE_COLOR_OPTIONS = [
     ['#F87171', '#EF4444', '#DC2626'], // Red
     ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
     ['#FB923C', '#F97316', '#EA580C'], // Orange
+    ['#64748B', '#475569', '#334155'], // Slate
+    ['#1F2937', '#111827', '#030712'], // Dark
 ] as const;
 
 export default function PaymentLinksScreen() {
@@ -52,7 +54,7 @@ export default function PaymentLinksScreen() {
 
     // Track page view
     useAnalyticsScreen('Payment Links');
-    const { getAccessToken, user } = usePrivy();
+    const { getAccessToken, user } = useAuth();
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
     const themeColors = useThemeColors();
