@@ -307,18 +307,8 @@ export default function PaymentLinksScreen() {
                     <Text style={styles.dateText}>
                         {new Date(item.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </Text>
-                    <View style={[
-                        styles.statusBadge,
-                        item.status === 'PAID'
-                            ? { backgroundColor: '#DCFCE7' } // PAID: Light green (fixed for now, maybe themeColors specific?)
-                            : { backgroundColor: themeColors.surface } // PENDING: Surface/Grey
-                    ]}>
-                        <Text style={[
-                            styles.statusText,
-                            item.status === 'PAID'
-                                ? { color: '#16A34A' }
-                                : { color: themeColors.textSecondary }
-                        ]}>
+                    <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
+                        <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
                             {item.status === 'PAID' ? 'Paid' : 'Pending'}
                         </Text>
                     </View>
