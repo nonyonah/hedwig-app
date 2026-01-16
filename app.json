@@ -75,8 +75,9 @@
       [
         "@sentry/react-native/expo",
         {
-          "organization": "hedwig",
-          "project": "hedwig-app"
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "hedwig-dd"
         }
       ]
     ],

@@ -1,10 +1,11 @@
-// Learn more https://docs.expo.io/guides/customizing-metro
-const { getDefaultConfig } = require('expo/metro-config');
+const {
+    getSentryExpoConfig
+} = require("@sentry/react-native/metro");
 // Temporarily disabled due to build error - TypeError: Cannot read properties of undefined (reading 'match')
 // const { withSentryConfig } = require('@sentry/react-native/metro');
 
 /** @type {import('expo/metro-config').MetroConfig} */
-const config = getDefaultConfig(__dirname);
+const config = getSentryExpoConfig(__dirname);
 
 config.resolver.extraNodeModules = {
     ...config.resolver.extraNodeModules,
@@ -40,4 +41,3 @@ config.transformer = {
 
 // Export without Sentry wrapper for now (Sentry still works, just no automatic source map upload)
 module.exports = config;
-
