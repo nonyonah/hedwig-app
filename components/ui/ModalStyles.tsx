@@ -10,23 +10,40 @@
  */
 
 import React from 'react';
-import { StyleSheet, View, Platform, Animated, ViewStyle } from 'react-native';
+import { StyleSheet, View, Platform, Animated, ViewStyle, TouchableWithoutFeedback } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 
 /**
- * Trigger haptic feedback for modal open/close
- * @param type - 'open' for medium impact, 'close' for light impact
+ * Trigger haptic feedback for modal interactions
+ * @param type - Feedback type: 'open' | 'close' | 'success' | 'warning' | 'error' | 'medium' | 'light' | 'selection'
  * @param enabled - Whether haptics are enabled (defaults to true)
  */
-export const modalHaptic = async (type: 'open' | 'close', enabled: boolean = true) => {
+export const modalHaptic = async (type: 'open' | 'close' | 'success' | 'warning' | 'error' | 'medium' | 'light' | 'selection', enabled: boolean = true) => {
     if (!enabled) return;
 
     try {
-        if (type === 'open') {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        } else {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        switch (type) {
+            case 'open':
+            case 'medium':
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                break;
+            case 'close':
+            case 'light':
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                break;
+            case 'success':
+                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                break;
+            case 'warning':
+                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                break;
+            case 'error':
+                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                break;
+            case 'selection':
+                await Haptics.selectionAsync();
+                break;
         }
     } catch (e) {
         // Haptics not available
@@ -38,32 +55,51 @@ export const modalHaptic = async (type: 'open' | 'close', enabled: boolean = tru
  * Renders blur for iOS, solid scrim for Android
  */
 interface ModalBackdropProps {
-    opacity: Animated.Value;
+    opacity?: Animated.Value;
+    onPress?: () => void;
 }
 
-export const ModalBackdrop: React.FC<ModalBackdropProps> = ({ opacity }) => {
-    if (Platform.OS === 'ios') {
-        return (
-            <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
-                <BlurView
-                    intensity={40}
-                    tint="dark"
-                    style={StyleSheet.absoluteFill}
-                />
-            </Animated.View>
-        );
-    }
+export const ModalBackdrop: React.FC<ModalBackdropProps> = ({ opacity, onPress }) => {
+    const Container = onPress ? TouchableWithoutFeedback : View;
+    const containerStyle = StyleSheet.absoluteFill;
 
-    return (
+    // Default opacity if not provided (assume 1 for static, or use value)
+    const opacityStyle = opacity ? { opacity } : {};
+
+    const content = Platform.OS === 'ios' ? (
+        <Animated.View style={[StyleSheet.absoluteFill, opacityStyle]}>
+            <BlurView
+                intensity={40}
+                tint="dark"
+                style={StyleSheet.absoluteFill}
+            />
+        </Animated.View>
+    ) : (
         <Animated.View
             style={[
                 StyleSheet.absoluteFill,
                 {
                     backgroundColor: 'rgba(0,0,0,0.32)',
-                    opacity
-                }
+                },
+                opacityStyle
             ]}
         />
+    );
+
+    if (onPress) {
+        return (
+            <TouchableWithoutFeedback onPress={onPress}>
+                <View style={StyleSheet.absoluteFill}>
+                    {content}
+                </View>
+            </TouchableWithoutFeedback>
+        );
+    }
+
+    return (
+        <View style={StyleSheet.absoluteFill}>
+            {content}
+        </View>
     );
 };
 

@@ -33,22 +33,32 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
     const modalAnim = useRef(new Animated.Value(height)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
 
+    // Track mounted state to prevent updates after unmount
+    const isMounted = useRef(true);
+    const isApprovedRef = useRef(false);
+
+    useEffect(() => {
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
     // Update modal state based on KYC status
     useEffect(() => {
-        if (visible) {
+        if (visible && isMounted.current) {
             switch (status) {
                 case 'approved':
-                    setModalState('approved');
+                    if (modalState !== 'approved') setModalState('approved');
                     break;
                 case 'pending':
-                    setModalState('pending');
+                    if (modalState !== 'pending') setModalState('pending');
                     break;
                 case 'rejected':
                 case 'retry_required':
-                    setModalState('rejected');
+                    if (modalState !== 'rejected') setModalState('rejected');
                     break;
                 default:
-                    setModalState('explanation');
+                    if (modalState !== 'explanation') setModalState('explanation');
             }
         }
     }, [visible, status]);
@@ -56,6 +66,9 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
     // Animate modal on visibility change
     useEffect(() => {
         if (visible) {
+            // Reset refs on open
+            isApprovedRef.current = status === 'approved';
+
             Animated.parallel([
                 Animated.timing(opacityAnim, {
                     toValue: 1,
@@ -96,7 +109,7 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
             const result = await startKYC();
 
             if (!result) {
-                setError('Failed to start verification. Please try again.');
+                if (isMounted.current) setError('Failed to start verification. Please try again.');
                 return;
             }
 
@@ -113,10 +126,15 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                         .withHandlers({
                             onStatusChanged: (event: { prevStatus: string; newStatus: string }) => {
                                 console.log('Sumsub status changed:', event);
+                                if (!isMounted.current) return;
+
                                 if (event.newStatus === 'Approved') {
-                                    setModalState('approved');
-                                    Analytics.kycApproved?.();
-                                    onVerified?.();
+                                    if (!isApprovedRef.current) {
+                                        isApprovedRef.current = true;
+                                        setModalState('approved');
+                                        Analytics.kycApproved?.();
+                                        onVerified?.();
+                                    }
                                 } else if (event.newStatus === 'FinallyRejected') {
                                     setModalState('rejected');
                                     Analytics.kycRejected?.();
@@ -130,13 +148,17 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                         .withLocale('en');
 
                     // Show pending state while SDK is active
-                    setModalState('pending');
+                    if (isMounted.current) setModalState('pending');
 
                     await snsMobileSDK.build().launch();
 
+                    // If component unmounted or already approved, stop here
+                    if (!isMounted.current || isApprovedRef.current) return;
+
                     // SDK closed - check status one last time
                     const finalStatus = await checkStatus();
-                    if (finalStatus !== 'approved' && finalStatus !== 'pending') {
+
+                    if (isMounted.current && finalStatus !== 'approved' && finalStatus !== 'pending') {
                         // If not approved/pending, reset to explanation so user isn't stuck
                         setModalState('explanation');
                     }
@@ -144,8 +166,10 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                     Analytics.kycCompleted?.();
                 } catch (err) {
                     console.error('Sumsub SDK error:', err);
-                    setError('Verification failed. Please try again.');
-                    setModalState('explanation');
+                    if (isMounted.current) {
+                        setError('Verification failed. Please try again.');
+                        setModalState('explanation');
+                    }
                 }
             };
 
@@ -153,10 +177,12 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
 
         } catch (err) {
             console.error('Start verification error:', err);
-            setError('Failed to start verification. Please try again.');
-            setModalState('explanation');
+            if (isMounted.current) {
+                setError('Failed to start verification. Please try again.');
+                setModalState('explanation');
+            }
         } finally {
-            setIsStarting(false);
+            if (isMounted.current) setIsStarting(false);
         }
     };
 
@@ -400,7 +426,7 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
             animationType="none"
             onRequestClose={handleClose}
         >
-            <ModalBackdrop onPress={handleClose} />
+            <ModalBackdrop onPress={handleClose} opacity={opacityAnim} />
 
             <Animated.View
                 style={[
