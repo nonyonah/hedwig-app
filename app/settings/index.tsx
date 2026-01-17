@@ -17,6 +17,8 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import Analytics from '../../services/analytics';
+import { useKYC } from '../../hooks/useKYC';
+import KYCVerificationModal from '../../components/KYCVerificationModal';
 
 
 
@@ -49,6 +51,10 @@ export default function SettingsScreen() {
     // Security state
     const [biometricsEnabled, setBiometricsEnabled] = useState(false);
     const [isBiometricExporting, setIsBiometricExporting] = useState(false);
+    const [showKYCModal, setShowKYCModal] = useState(false);
+
+    // KYC status
+    const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
 
     // Animation for bottom sheet
     const slideAnim = useRef(new Animated.Value(0)).current;
@@ -537,6 +543,30 @@ export default function SettingsScreen() {
                             onValueChange={toggleBiometrics}
                         />
                     </View>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <TouchableOpacity style={styles.settingRow} onPress={() => setShowKYCModal(true)}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Identity Verification</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <View style={[
+                                styles.kycBadge,
+                                kycStatus === 'approved' && styles.kycBadgeApproved,
+                                kycStatus === 'pending' && styles.kycBadgePending,
+                                (kycStatus === 'not_started' || kycStatus === 'rejected' || kycStatus === 'retry_required') && styles.kycBadgeUnverified,
+                            ]}>
+                                <Text style={[
+                                    styles.kycBadgeText,
+                                    kycStatus === 'approved' && styles.kycBadgeTextApproved,
+                                    kycStatus === 'pending' && styles.kycBadgeTextPending,
+                                    (kycStatus === 'not_started' || kycStatus === 'rejected' || kycStatus === 'retry_required') && styles.kycBadgeTextUnverified,
+                                ]}>
+                                    {kycStatus === 'approved' ? 'Verified' : kycStatus === 'pending' ? 'Pending' : 'Unverified'}
+                                </Text>
+                            </View>
+                            <CaretRight size={20} color={themeColors.textSecondary} />
+                        </View>
+                    </TouchableOpacity>
                 </View>
 
                 <View style={styles.spacer} />
@@ -588,6 +618,16 @@ export default function SettingsScreen() {
 
             {/* Recovery Warning Modal */}
             {renderRecoveryWarningModal()}
+
+            {/* KYC Verification Modal */}
+            <KYCVerificationModal
+                visible={showKYCModal}
+                onClose={() => setShowKYCModal(false)}
+                onVerified={() => {
+                    setShowKYCModal(false);
+                    fetchKYCStatus();
+                }}
+            />
 
         </View>
     );
@@ -854,5 +894,33 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         alignSelf: 'center',
         marginBottom: 20,
+    },
+    // KYC Badge Styles
+    kycBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    kycBadgeApproved: {
+        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    },
+    kycBadgePending: {
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    },
+    kycBadgeUnverified: {
+        backgroundColor: 'rgba(107, 114, 128, 0.15)',
+    },
+    kycBadgeText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    kycBadgeTextApproved: {
+        color: '#10B981',
+    },
+    kycBadgeTextPending: {
+        color: '#F59E0B',
+    },
+    kycBadgeTextUnverified: {
+        color: '#6B7280',
     },
 });
