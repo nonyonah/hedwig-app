@@ -72,13 +72,31 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
         // Look up the actual user.id from privy_id (users.id has format user_xxx)
         const { data: userRecord, error: userError } = await supabase
             .from('users')
-            .select('id')
+            .select('id, kyc_status')
             .eq('privy_id', privyId)
             .single();
 
         if (userError || !userRecord) {
             logger.warn('User not found for order creation');
             res.status(404).json({ success: false, error: 'User not found' });
+            return;
+        }
+
+        // Check KYC status - must be approved to offramp
+        if (userRecord.kyc_status !== 'approved') {
+            logger.info('Offramp blocked - KYC not approved', { 
+                userId: userRecord.id, 
+                kycStatus: userRecord.kyc_status 
+            });
+            res.status(403).json({
+                success: false,
+                error: {
+                    message: 'KYC verification required',
+                    code: 'KYC_REQUIRED',
+                },
+                kyc_required: true,
+                kyc_status: userRecord.kyc_status || 'not_started',
+            });
             return;
         }
 

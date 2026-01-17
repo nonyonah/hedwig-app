@@ -29,6 +29,8 @@ import walletRoutes from './routes/wallet';
 import notificationRoutes from './routes/notifications';
 import beneficiaryRoutes from './routes/beneficiaries';
 import calendarRoutes from './routes/calendar';
+import kycRoutes from './routes/kyc';
+import sumsubWebhookRoutes from './routes/sumsubWebhook';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -172,6 +174,8 @@ app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/beneficiaries', beneficiaryRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/kyc', kycRoutes);
+app.use('/api/webhooks/sumsub', sumsubWebhookRoutes);
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));

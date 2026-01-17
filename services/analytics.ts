@@ -537,6 +537,22 @@ const Analytics = {
 
     settingsChanged: (setting: string, value: any) =>
         trackEvent('settings_changed', { setting_name: setting, new_value: value }),
+
+    // ==================== KYC EVENTS ====================
+    kycStarted: () => trackEvent('kyc_started', { timestamp: new Date().toISOString() }),
+    
+    kycCompleted: () => trackEvent('kyc_completed', { timestamp: new Date().toISOString() }),
+    
+    kycApproved: () => trackEvent('kyc_approved', { timestamp: new Date().toISOString() }),
+    
+    kycRejected: (reason?: string) => trackEvent('kyc_rejected', { 
+        reason,
+        timestamp: new Date().toISOString() 
+    }),
+
+    offrampBlockedKyc: () => trackEvent('offramp_blocked_kyc', { 
+        timestamp: new Date().toISOString() 
+    }),
 };
 
 export default Analytics;

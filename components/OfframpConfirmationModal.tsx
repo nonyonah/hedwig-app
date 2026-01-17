@@ -14,6 +14,9 @@ import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
 import { useLiveTracking } from '../hooks/useLiveTracking';
 import { SwiftUIBottomSheet } from './ios/SwiftUIBottomSheet';
+import { useKYC } from '../hooks/useKYC';
+import KYCVerificationModal from './KYCVerificationModal';
+import Analytics from '../services/analytics';
 
 const { height } = Dimensions.get('window');
 
@@ -90,6 +93,10 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
     const [estimatedFiat, setEstimatedFiat] = useState<string>('');
     const [isLoadingRate, setIsLoadingRate] = useState(false);
     const [tokensSent, setTokensSent] = useState(false); // Track if tokens were sent to Paycrest
+    const [showKYCModal, setShowKYCModal] = useState(false);
+
+    // KYC hook
+    const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
 
     const modalAnim = useRef(new Animated.Value(height)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -178,6 +185,13 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
 
     const handleConfirm = async () => {
         if (!data) return;
+
+        // 0. Check KYC status first
+        if (!isKYCApproved) {
+            Analytics.offrampBlockedKyc();
+            setShowKYCModal(true);
+            return;
+        }
 
         // 1. Biometric Auth
         try {
@@ -568,39 +582,59 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
     // iOS: Use native SwiftUI BottomSheet
     if (Platform.OS === 'ios') {
         return (
-            <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.60}>
-                <View style={[styles.iosContent, { backgroundColor: themeColors.background }]}>
-                    {renderContent()}
-                </View>
-            </SwiftUIBottomSheet>
+            <>
+                <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.60}>
+                    <View style={[styles.iosContent, { backgroundColor: themeColors.background }]}>
+                        {renderContent()}
+                    </View>
+                </SwiftUIBottomSheet>
+                <KYCVerificationModal
+                    visible={showKYCModal}
+                    onClose={() => setShowKYCModal(false)}
+                    onVerified={() => {
+                        setShowKYCModal(false);
+                        fetchKYCStatus(); // Refresh status after verification
+                    }}
+                />
+            </>
         );
     }
 
     // Android: Use existing Modal
     return (
-        <Modal
-            visible={isRendered}
-            transparent={true}
-            animationType="none"
-            onRequestClose={onClose}
-        >
-            <View style={styles.overlay}>
-                <ModalBackdrop opacity={opacityAnim} />
-                <TouchableOpacity
-                    style={StyleSheet.absoluteFill}
-                    activeOpacity={1}
-                    onPress={onClose}
-                />
-                <Animated.View
-                    style={[
-                        styles.modalContent,
-                        { transform: [{ translateY: modalAnim }] }
-                    ]}
-                >
-                    {renderContent()}
-                </Animated.View>
-            </View>
-        </Modal>
+        <>
+            <Modal
+                visible={isRendered}
+                transparent={true}
+                animationType="none"
+                onRequestClose={onClose}
+            >
+                <View style={styles.overlay}>
+                    <ModalBackdrop opacity={opacityAnim} />
+                    <TouchableOpacity
+                        style={StyleSheet.absoluteFill}
+                        activeOpacity={1}
+                        onPress={onClose}
+                    />
+                    <Animated.View
+                        style={[
+                            styles.modalContent,
+                            { transform: [{ translateY: modalAnim }] }
+                        ]}
+                    >
+                        {renderContent()}
+                    </Animated.View>
+                </View>
+            </Modal>
+            <KYCVerificationModal
+                visible={showKYCModal}
+                onClose={() => setShowKYCModal(false)}
+                onVerified={() => {
+                    setShowKYCModal(false);
+                    fetchKYCStatus(); // Refresh status after verification
+                }}
+            />
+        </>
     );
 };
 
