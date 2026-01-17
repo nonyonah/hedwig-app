@@ -86,7 +86,8 @@
           "project": "react-native",
           "organization": "hedwig-dd"
         }
-      ]
+      ],
+      "./plugins/withSumsubPodfile.js"
     ],
     "extra": {
       "router": {
