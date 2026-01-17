@@ -17,22 +17,34 @@ const withSumsubMaven = (config) => {
 
                 // Check if Sumsub Maven repository is already added
                 if (!buildGradleContent.includes('maven.sumsub.com')) {
-                    // Add Sumsub Maven repository to allprojects.repositories
-                    const sumsubMaven = "maven { url 'https://maven.sumsub.com/repository/maven-public/' }";
+                    // Find the jitpack line in allprojects and add after it
+                    const jitpackLine = "maven { url 'https://www.jitpack.io' }";
+                    const sumsubMaven = "        maven { url 'https://maven.sumsub.com/repository/maven-public/' }";
 
-                    // Find allprojects { repositories { ... } } and add Sumsub Maven
-                    const allProjectsRegex = /(allprojects\s*\{\s*repositories\s*\{[^}]*)(})/;
-
-                    if (allProjectsRegex.test(buildGradleContent)) {
+                    if (buildGradleContent.includes(jitpackLine)) {
+                        // Add Sumsub Maven after jitpack
                         buildGradleContent = buildGradleContent.replace(
-                            allProjectsRegex,
-                            `$1    ${sumsubMaven}\n  $2`
+                            jitpackLine,
+                            `${jitpackLine}\n${sumsubMaven}`
                         );
                         fs.writeFileSync(buildGradlePath, buildGradleContent);
                         console.log('[Sumsub] Added Sumsub Maven repository to build.gradle');
                     } else {
-                        console.warn('[Sumsub] Could not find allprojects.repositories in build.gradle');
+                        // Fallback: add after mavenCentral() in allprojects
+                        const mavenCentralInAllprojects = /allprojects\s*\{[\s\S]*?mavenCentral\(\)/;
+                        if (mavenCentralInAllprojects.test(buildGradleContent)) {
+                            buildGradleContent = buildGradleContent.replace(
+                                /(allprojects\s*\{[\s\S]*?)(mavenCentral\(\))/,
+                                `$1$2\n${sumsubMaven}`
+                            );
+                            fs.writeFileSync(buildGradlePath, buildGradleContent);
+                            console.log('[Sumsub] Added Sumsub Maven repository after mavenCentral()');
+                        } else {
+                            console.warn('[Sumsub] Could not find suitable location in build.gradle');
+                        }
                     }
+                } else {
+                    console.log('[Sumsub] Sumsub Maven repository already present in build.gradle');
                 }
             }
 
