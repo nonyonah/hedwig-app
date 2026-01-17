@@ -18,7 +18,11 @@
       "bundleIdentifier": "com.hedwig.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSSupportsLiveActivities": true
+        "NSSupportsLiveActivities": true,
+        "NSCameraUsageDescription": "Allow Hedwig to access your camera for identity verification",
+        "NSMicrophoneUsageDescription": "Allow Hedwig to access your microphone for verification",
+        "NSPhotoLibraryUsageDescription": "Allow Hedwig to access your photos for document upload",
+        "NSLocationWhenInUseUsageDescription": "Allow Hedwig to access your location for identity verification"
       }
     },
     "android": {
@@ -37,7 +41,10 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.POST_PROMOTED_NOTIFICATIONS"
+        "android.permission.POST_PROMOTED_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
