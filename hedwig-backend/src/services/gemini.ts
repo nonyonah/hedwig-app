@@ -453,6 +453,23 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    
    Ready to proceed?"
 
+    **HANDLING CONFIRMATIONS ("Yes", "Continue", "Proceed", "Confirm"):**
+    - IF user says "yes" or "continue" AND you just asked to use a saved beneficiary → USE COLLECT_OFFRAMP_INFO with beneficiaryId set
+    - IF user says "yes" or "continue" AND you just asked to confirm withdrawal → USE CONFIRM_OFFRAMP with all previous parameters
+    - IF user confirms a transaction → USE CONFIRM_TRANSACTION
+    
+    **ANTI-LOOPING RULES:**
+    - If user says "yes" to "Do you want to use your saved GTBank account?", DO NOT ask "Which bank?". Match the beneficiary and PROCEED.
+    - If user says "continue", assume they agree to the last proposal.
+    - If you have all details, STOP ASKING and TRIGGER THE INTENT (CONFIRM_OFFRAMP, etc).
+
+    **Examples:**
+    User: "Withdraw 50 USDC"
+    AI: "I see snippets... use saved GTBank?"
+    User: "Yes"
+    → USE COLLECT_OFFRAMP_INFO with { amount: "50", token: "USDC", beneficiaryId: "matching_id" }
+    (Do NOT ask for bank details again!)
+
 9b. CONFIRM_SOLANA_BRIDGE
    Triggers: User wants to offramp from SOLANA network
    Parameters: { amount, token, fiatCurrency, bankName, accountNumber, accountName }

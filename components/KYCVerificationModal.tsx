@@ -127,16 +127,25 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                             },
                         })
                         .withDebug(__DEV__)
-                        .withLocale('en')
-                        .build()
-                        .launch();
+                        .withLocale('en');
 
                     // Show pending state while SDK is active
                     setModalState('pending');
+
+                    await snsMobileSDK.build().launch();
+
+                    // SDK closed - check status one last time
+                    const finalStatus = await checkStatus();
+                    if (finalStatus !== 'approved' && finalStatus !== 'pending') {
+                        // If not approved/pending, reset to explanation so user isn't stuck
+                        setModalState('explanation');
+                    }
+
                     Analytics.kycCompleted?.();
                 } catch (err) {
                     console.error('Sumsub SDK error:', err);
                     setError('Verification failed. Please try again.');
+                    setModalState('explanation');
                 }
             };
 
@@ -145,6 +154,7 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
         } catch (err) {
             console.error('Start verification error:', err);
             setError('Failed to start verification. Please try again.');
+            setModalState('explanation');
         } finally {
             setIsStarting(false);
         }
@@ -155,6 +165,14 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
         if (newStatus === 'approved') {
             setModalState('approved');
             onVerified?.();
+        } else {
+            // Provide feedback if status didn't change to approved
+            modalHaptic('error');
+            // Assuming checkStatus updates internal state, but we want to show it's still pending/rejected
+            if (newStatus === 'pending') {
+                // Keep pending state, maybe show a toast or alert if possible (omitted for now to keep clean UI)
+                console.log('Status is still pending');
+            }
         }
     };
 
@@ -170,8 +188,44 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
         handleClose();
     };
 
+    const renderStatusBadge = () => {
+        switch (modalState) {
+            case 'approved':
+                return (
+                    <View style={[styles.statusBadge, styles.statusBadgeApproved]}>
+                        <CheckCircle size={14} color="#10B981" weight="fill" />
+                        <Text style={[styles.statusBadgeText, styles.statusBadgeTextApproved]}>Verified</Text>
+                    </View>
+                );
+            case 'pending':
+            case 'verifying':
+                return (
+                    <View style={[styles.statusBadge, styles.statusBadgePending]}>
+                        <ActivityIndicator size="small" color="#F59E0B" style={{ transform: [{ scale: 0.7 }] }} />
+                        <Text style={[styles.statusBadgeText, styles.statusBadgeTextPending]}>Pending Review</Text>
+                    </View>
+                );
+            case 'rejected':
+                return (
+                    <View style={[styles.statusBadge, styles.statusBadgeRejected]}>
+                        <Warning size={14} color="#EF4444" weight="fill" />
+                        <Text style={[styles.statusBadgeText, styles.statusBadgeTextRejected]}>Unverified</Text>
+                    </View>
+                );
+            default:
+                return (
+                    <View style={[styles.statusBadge, styles.statusBadgeUnverified]}>
+                        <View style={styles.unverifiedDot} />
+                        <Text style={[styles.statusBadgeText, styles.statusBadgeTextUnverified]}>Unverified</Text>
+                    </View>
+                );
+        }
+    };
+
     const renderExplanation = () => (
         <>
+            {renderStatusBadge()}
+
             <View style={styles.iconContainer}>
                 <ShieldCheck size={80} color={Colors.primary} weight="duotone" />
             </View>
@@ -231,6 +285,8 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
 
     const renderPending = () => (
         <>
+            {renderStatusBadge()}
+
             <View style={styles.iconContainer}>
                 <ActivityIndicator size="large" color={Colors.primary} />
             </View>
@@ -265,6 +321,8 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
 
     const renderApproved = () => (
         <>
+            {renderStatusBadge()}
+
             <View style={[styles.iconContainer, styles.approvedIcon]}>
                 <CheckCircle size={80} color="#10B981" weight="fill" />
             </View>
@@ -289,6 +347,8 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
 
     const renderRejected = () => (
         <>
+            {renderStatusBadge()}
+
             <View style={styles.iconContainer}>
                 <Warning size={80} color="#F59E0B" weight="duotone" />
             </View>
@@ -425,6 +485,51 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(16, 185, 129, 0.05)',
         borderRadius: 12,
         marginBottom: 8,
+    },
+    // Status Badges
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 6,
+        marginBottom: 20,
+        alignSelf: 'center',
+    },
+    statusBadgeApproved: {
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    },
+    statusBadgePending: {
+        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    },
+    statusBadgeRejected: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    },
+    statusBadgeUnverified: {
+        backgroundColor: 'rgba(107, 114, 128, 0.1)',
+    },
+    statusBadgeText: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    statusBadgeTextApproved: {
+        color: '#10B981',
+    },
+    statusBadgeTextPending: {
+        color: '#F59E0B',
+    },
+    statusBadgeTextRejected: {
+        color: '#EF4444',
+    },
+    statusBadgeTextUnverified: {
+        color: '#6B7280',
+    },
+    unverifiedDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#6B7280',
     },
     infoText: {
         ...Typography.body,
