@@ -6,7 +6,13 @@ import { Typography } from '../styles/typography';
 import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
 import { useKYC, KYCStatus } from '../hooks/useKYC';
 import Analytics from '../services/analytics';
-import SNSMobileSDK from '@sumsub/react-native-mobilesdk-module';
+import { SumsubWebView } from './SumsubWebView';
+
+// Conditionally import native SDK only for iOS
+let SNSMobileSDK: any = null;
+if (Platform.OS === 'ios') {
+    SNSMobileSDK = require('@sumsub/react-native-mobilesdk-module').default;
+}
 
 const { height } = Dimensions.get('window');
 
@@ -29,6 +35,8 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
     const [modalState, setModalState] = useState<ModalState>('explanation');
     const [isStarting, setIsStarting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showWebView, setShowWebView] = useState(false);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
 
     const modalAnim = useRef(new Animated.Value(height)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -113,67 +121,18 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                 return;
             }
 
-            // Launch Sumsub SDK
-            const launchSdk = async () => {
-                try {
-                    const snsMobileSDK = SNSMobileSDK.init(result.accessToken, async () => {
-                        // Handle token expiration
-                        const newToken = await refreshToken();
-                        return newToken || '';
-                    });
-
-                    snsMobileSDK
-                        .withHandlers({
-                            onStatusChanged: (event: { prevStatus: string; newStatus: string }) => {
-                                console.log('Sumsub status changed:', event);
-                                if (!isMounted.current) return;
-
-                                if (event.newStatus === 'Approved') {
-                                    if (!isApprovedRef.current) {
-                                        isApprovedRef.current = true;
-                                        setModalState('approved');
-                                        Analytics.kycApproved?.();
-                                        onVerified?.();
-                                    }
-                                } else if (event.newStatus === 'FinallyRejected') {
-                                    setModalState('rejected');
-                                    Analytics.kycRejected?.();
-                                }
-                            },
-                            onLog: (event: { message: string }) => {
-                                console.log('Sumsub log:', event.message);
-                            },
-                        })
-                        .withDebug(__DEV__)
-                        .withLocale('en');
-
-                    // Show pending state while SDK is active
-                    if (isMounted.current) setModalState('pending');
-
-                    await snsMobileSDK.build().launch();
-
-                    // If component unmounted or already approved, stop here
-                    if (!isMounted.current || isApprovedRef.current) return;
-
-                    // SDK closed - check status one last time
-                    const finalStatus = await checkStatus();
-
-                    if (isMounted.current && finalStatus !== 'approved' && finalStatus !== 'pending') {
-                        // If not approved/pending, reset to explanation so user isn't stuck
-                        setModalState('explanation');
-                    }
-
-                    Analytics.kycCompleted?.();
-                } catch (err) {
-                    console.error('Sumsub SDK error:', err);
-                    if (isMounted.current) {
-                        setError('Verification failed. Please try again.');
-                        setModalState('explanation');
-                    }
+            // Platform-specific SDK launch
+            if (Platform.OS === 'android') {
+                // Use WebView for Android
+                if (isMounted.current) {
+                    setAccessToken(result.accessToken);
+                    setShowWebView(true);
+                    setModalState('verifying');
                 }
-            };
-
-            await launchSdk();
+            } else {
+                // Use native SDK for iOS
+                await launchNativeSDK(result.accessToken);
+            }
 
         } catch (err) {
             console.error('Start verification error:', err);
@@ -184,6 +143,87 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
         } finally {
             if (isMounted.current) setIsStarting(false);
         }
+    };
+
+    // Native SDK launch for iOS
+    const launchNativeSDK = async (token: string) => {
+        if (!SNSMobileSDK) return;
+
+        try {
+            const snsMobileSDK = SNSMobileSDK.init(token, async () => {
+                const newToken = await refreshToken();
+                return newToken || '';
+            });
+
+            snsMobileSDK
+                .withHandlers({
+                    onStatusChanged: (event: { prevStatus: string; newStatus: string }) => {
+                        console.log('Sumsub status changed:', event);
+                        if (!isMounted.current) return;
+
+                        if (event.newStatus === 'Approved') {
+                            if (!isApprovedRef.current) {
+                                isApprovedRef.current = true;
+                                setModalState('approved');
+                                Analytics.kycApproved?.();
+                                onVerified?.();
+                            }
+                        } else if (event.newStatus === 'FinallyRejected') {
+                            setModalState('rejected');
+                            Analytics.kycRejected?.();
+                        }
+                    },
+                    onLog: (event: { message: string }) => {
+                        console.log('Sumsub log:', event.message);
+                    },
+                })
+                .withDebug(__DEV__)
+                .withLocale('en');
+
+            if (isMounted.current) setModalState('pending');
+
+            await snsMobileSDK.build().launch();
+
+            if (!isMounted.current || isApprovedRef.current) return;
+
+            const finalStatus = await checkStatus();
+
+            if (isMounted.current && finalStatus !== 'approved' && finalStatus !== 'pending') {
+                setModalState('explanation');
+            }
+
+            Analytics.kycCompleted?.();
+        } catch (err) {
+            console.error('Sumsub SDK error:', err);
+            if (isMounted.current) {
+                setError('Verification failed. Please try again.');
+                setModalState('explanation');
+            }
+        }
+    };
+
+    // WebView completion handler for Android
+    const handleWebViewComplete = async (status: 'approved' | 'pending' | 'rejected') => {
+        setShowWebView(false);
+        Analytics.kycCompleted?.();
+
+        if (status === 'approved') {
+            isApprovedRef.current = true;
+            setModalState('approved');
+            Analytics.kycApproved?.();
+            onVerified?.();
+        } else if (status === 'rejected') {
+            setModalState('rejected');
+            Analytics.kycRejected?.();
+        } else {
+            setModalState('pending');
+        }
+    };
+
+    const handleWebViewError = (errorMessage: string) => {
+        setShowWebView(false);
+        setError(errorMessage);
+        setModalState('explanation');
     };
 
     const handleCheckStatus = async () => {
@@ -405,7 +445,25 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
         </>
     );
 
+    const renderVerifying = () => (
+        <View style={styles.webViewContainer}>
+            {accessToken && (
+                <SumsubWebView
+                    accessToken={accessToken}
+                    onComplete={handleWebViewComplete}
+                    onError={handleWebViewError}
+                    onTokenRefresh={refreshToken}
+                />
+            )}
+        </View>
+    );
+
     const renderContent = () => {
+        // Show WebView for Android verification
+        if (showWebView && Platform.OS === 'android' && modalState === 'verifying') {
+            return renderVerifying();
+        }
+
         switch (modalState) {
             case 'pending':
             case 'verifying':
@@ -618,6 +676,13 @@ const styles = StyleSheet.create({
     textButtonText: {
         ...Typography.body,
         fontSize: 14,
+    },
+    webViewContainer: {
+        flex: 1,
+        width: '100%',
+        minHeight: 500,
+        borderRadius: 16,
+        overflow: 'hidden',
     },
 });
 

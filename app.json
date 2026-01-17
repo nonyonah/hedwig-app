@@ -90,8 +90,7 @@
           "organization": "hedwig-dd"
         }
       ],
-      "./plugins/withSumsubPodfile.js",
-      "./plugins/withSumsubMaven.js"
+      "./plugins/withSumsubPodfile.js"
     ],
     "extra": {
       "router": {
