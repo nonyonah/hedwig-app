@@ -107,14 +107,23 @@
                   "targetName": "LiveActivity",
                   "bundleIdentifier": "com.hedwig.app.LiveActivity",
                   "entitlements": {}
+                },
+                {
+                  "targetName": "LiveActivity",
+                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
+                  "entitlements": {}
+                },
+                {
+                  "targetName": "LiveActivity",
+                  "bundleIdentifier": "com.hedwig.app.LiveActivity"
                 }
               ]
             }
           }
         },
-        "projectId": "5738569d-376f-4e3d-a2bb-b415156003dd"
+        "projectId": "ade423ca-7649-400c-9817-21e000b2cde4"
       }
     },
-    "owner": "hedwig-app"
+    "owner": "nonsooo"
   }
 }
