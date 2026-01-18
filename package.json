@@ -119,5 +119,14 @@
     "typescript": "~5.9.2",
     "util": "^0.12.5"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "autolinking": {
+      "android": {
+        "exclude": [
+          "@sumsub/react-native-mobilesdk-module"
+        ]
+      }
+    }
+  }
 }
