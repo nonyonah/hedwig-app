@@ -115,7 +115,23 @@
                 },
                 {
                   "targetName": "LiveActivity",
-                  "bundleIdentifier": "com.hedwig.app.LiveActivity"
+                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
+                  "entitlements": {}
+                },
+                {
+                  "targetName": "LiveActivity",
+                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
+                  "entitlements": {}
+                },
+                {
+                  "targetName": "LiveActivity",
+                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
+                  "entitlements": {}
+                },
+                {
+                  "targetName": "LiveActivity",
+                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
+                  "entitlements": {}
                 }
               ]
             }
