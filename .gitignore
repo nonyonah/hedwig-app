@@ -48,3 +48,5 @@ yarn-error.*
 *.backup
 
 .env.local
+
+credentials.json

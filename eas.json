@@ -23,11 +23,13 @@
     "production": {
       "autoIncrement": true,
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.0"
+        "image": "macos-sequoia-15.6-xcode-26.0",
+        "credentialsSource": "local"
       },
       "android": {
         "image": "latest",
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "credentialsSource": "local"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://pay.hedwigbot.xyz",
