@@ -583,7 +583,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
     if (Platform.OS === 'ios') {
         return (
             <>
-                <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.70}>
+                <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.72}>
                     <View style={[styles.iosContent, { backgroundColor: themeColors.background }]}>
                         {renderContent()}
                     </View>
