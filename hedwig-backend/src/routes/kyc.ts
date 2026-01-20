@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
-import SumsubService from '../services/sumsub';
+import DiditService from '../services/didit';
 
 const logger = createLogger('KYC');
 const router = Router();
@@ -18,7 +18,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next) =>
         // Get user with KYC fields
         const { data: user, error } = await supabase
             .from('users')
-            .select('id, kyc_status, kyc_applicant_id, kyc_level, kyc_reviewed_at')
+            .select('id, kyc_status, kyc_session_id, kyc_reviewed_at')
             .eq('privy_id', privyId)
             .single();
 
@@ -32,8 +32,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next) =>
             success: true,
             data: {
                 status: user.kyc_status || 'not_started',
-                applicantId: user.kyc_applicant_id,
-                level: user.kyc_level,
+                sessionId: user.kyc_session_id,
                 reviewedAt: user.kyc_reviewed_at,
                 isApproved: user.kyc_status === 'approved',
             },
@@ -45,7 +44,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next) =>
 
 /**
  * POST /api/kyc/start
- * Create applicant in Sumsub and return access token for SDK
+ * Create verification session in Didit and return URL
  */
 router.post('/start', authenticate, async (req: Request, res: Response, next) => {
     try {
@@ -54,7 +53,7 @@ router.post('/start', authenticate, async (req: Request, res: Response, next) =>
         // Get user
         const { data: user, error: userError } = await supabase
             .from('users')
-            .select('id, email, kyc_status, kyc_applicant_id')
+            .select('id, email, kyc_status, kyc_session_id')
             .eq('privy_id', privyId)
             .single();
 
@@ -76,39 +75,30 @@ router.post('/start', authenticate, async (req: Request, res: Response, next) =>
             return;
         }
 
-        let applicantId = user.kyc_applicant_id;
+        // Create session
+        logger.info('Creating new Didit session', { userId: user.id });
+        
+        const session = await DiditService.createSession({
+            userId: user.id, // Use internal user ID as vendor data
+            email: user.email
+        });
 
-        // Create applicant if not exists
-        if (!applicantId) {
-            logger.info('Creating new Sumsub applicant', { userId: user.id });
-            
-            const applicant = await SumsubService.createApplicant(
-                user.id, // Use internal user ID as external ID
-                user.email
-            );
+        // Update user with session ID
+        await supabase
+            .from('users')
+            .update({
+                kyc_session_id: session.id,
+                kyc_status: 'pending',
+            })
+            .eq('id', user.id);
 
-            applicantId = applicant.id;
-
-            // Update user with applicant ID
-            await supabase
-                .from('users')
-                .update({
-                    kyc_applicant_id: applicantId,
-                    kyc_status: 'pending',
-                })
-                .eq('id', user.id);
-
-            logger.info('Updated user with applicant ID', { userId: user.id, applicantId });
-        }
-
-        // Generate access token for SDK
-        const tokenResult = await SumsubService.generateAccessToken(applicantId, user.id);
+        logger.info('Updated user with Didit session ID', { userId: user.id, sessionId: session.id });
 
         res.json({
             success: true,
             data: {
-                accessToken: tokenResult.token,
-                applicantId,
+                url: session.url,
+                sessionId: session.id,
                 status: 'pending',
             },
         });
@@ -119,59 +109,17 @@ router.post('/start', authenticate, async (req: Request, res: Response, next) =>
 });
 
 /**
- * POST /api/kyc/refresh-token
- * Refresh access token for SDK (tokens expire after some time)
- */
-router.post('/refresh-token', authenticate, async (req: Request, res: Response, next) => {
-    try {
-        const privyId = req.user!.id;
-
-        // Get user with applicant ID
-        const { data: user, error } = await supabase
-            .from('users')
-            .select('id, kyc_applicant_id')
-            .eq('privy_id', privyId)
-            .single();
-
-        if (error || !user) {
-            res.status(404).json({ success: false, error: 'User not found' });
-            return;
-        }
-
-        if (!user.kyc_applicant_id) {
-            res.status(400).json({ success: false, error: 'KYC not started' });
-            return;
-        }
-
-        // Generate new access token
-        const tokenResult = await SumsubService.generateAccessToken(
-            user.kyc_applicant_id,
-            user.id
-        );
-
-        res.json({
-            success: true,
-            data: {
-                accessToken: tokenResult.token,
-            },
-        });
-    } catch (error) {
-        next(error);
-    }
-});
-
-/**
  * POST /api/kyc/check
- * Manually check and sync KYC status from Sumsub
+ * Manually check and sync KYC status from Didit
  */
 router.post('/check', authenticate, async (req: Request, res: Response, next) => {
     try {
         const privyId = req.user!.id;
 
-        // Get user with applicant ID
+        // Get user with session ID
         const { data: user, error } = await supabase
             .from('users')
-            .select('id, kyc_applicant_id, kyc_status')
+            .select('id, kyc_session_id, kyc_status')
             .eq('privy_id', privyId)
             .single();
 
@@ -180,7 +128,7 @@ router.post('/check', authenticate, async (req: Request, res: Response, next) =>
             return;
         }
 
-        if (!user.kyc_applicant_id) {
+        if (!user.kyc_session_id) {
             res.json({
                 success: true,
                 data: { status: 'not_started' },
@@ -188,13 +136,20 @@ router.post('/check', authenticate, async (req: Request, res: Response, next) =>
             return;
         }
 
-        // Get status from Sumsub
-        const applicant = await SumsubService.getApplicantStatus(user.kyc_applicant_id);
+        // Get status from Didit
+        const sessionData = await DiditService.getSessionStatus(user.kyc_session_id);
         
-        const newStatus = SumsubService.mapReviewToKycStatus(
-            applicant.review?.reviewStatus || '',
-            applicant.review?.reviewResult?.reviewAnswer
-        );
+        let newStatus = user.kyc_status;
+        const decision = sessionData.decision || sessionData.status;
+
+        // Map status
+        if (decision === 'approved' || decision === 'verified') {
+            newStatus = 'approved';
+        } else if (decision === 'declined' || decision === 'rejected') {
+            newStatus = 'rejected';
+        } else if (decision === 'resubmission_requested') {
+            newStatus = 'retry_required';
+        }
 
         // Update if changed
         if (newStatus !== user.kyc_status) {
@@ -206,7 +161,7 @@ router.post('/check', authenticate, async (req: Request, res: Response, next) =>
                 })
                 .eq('id', user.id);
 
-            logger.info('KYC status updated', { userId: user.id, status: newStatus });
+            logger.info('KYC status updated manually', { userId: user.id, status: newStatus });
         }
 
         res.json({

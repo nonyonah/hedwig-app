@@ -120,6 +120,17 @@ export function SolanaBridgeModal({
     onBridgeComplete,
     getAccessToken,
 }: SolanaBridgeModalProps) {
+    // TEMPORARILY DISABLED - Base only mode
+    // Solana bridge will be re-enabled when multi-chain support is added
+    useEffect(() => {
+        if (visible) {
+            console.log('[SolanaBridgeModal] Solana bridge is temporarily disabled. Closing modal.');
+            onClose();
+        }
+    }, [visible, onClose]);
+
+    // Return null to render nothing
+    return null;
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;

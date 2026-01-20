@@ -76,9 +76,9 @@ export const useKYC = () => {
     }, [getAccessToken]);
 
     /**
-     * Start KYC verification flow - creates applicant and returns SDK token
+     * Start KYC verification flow - creates session and returns URL
      */
-    const startKYC = useCallback(async (): Promise<StartKYCResult | null> => {
+    const startKYC = useCallback(async (): Promise<{ url: string; sessionId: string } | null> => {
         try {
             setState(prev => ({ ...prev, isLoading: true, error: null }));
             
@@ -102,17 +102,17 @@ export const useKYC = () => {
             const data = await response.json();
             
             if (data.success) {
+                // If status is already pending or we got a new session
                 setState(prev => ({
                     ...prev,
                     status: data.data.status,
-                    applicantId: data.data.applicantId,
+                    applicantId: data.data.sessionId, // reusing field name locally or rename to sessionId
                     isLoading: false,
                 }));
 
                 return {
-                    accessToken: data.data.accessToken,
-                    applicantId: data.data.applicantId,
-                    status: data.data.status,
+                    url: data.data.url,
+                    sessionId: data.data.sessionId,
                 };
             }
 
@@ -129,38 +129,14 @@ export const useKYC = () => {
     }, [getAccessToken]);
 
     /**
-     * Refresh SDK access token (for long sessions)
-     */
-    const refreshToken = useCallback(async (): Promise<string | null> => {
-        try {
-            const token = await getAccessToken();
-            if (!token) return null;
-
-            const response = await fetch(`${API_URL}/api/kyc/refresh-token`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
-
-            if (!response.ok) return null;
-
-            const data = await response.json();
-            return data.success ? data.data.accessToken : null;
-        } catch (error) {
-            console.error('Error refreshing KYC token:', error);
-            return null;
-        }
-    }, [getAccessToken]);
-
-    /**
-     * Check and sync KYC status from Sumsub
+     * Check and sync KYC status
      */
     const checkStatus = useCallback(async (): Promise<KYCStatus> => {
         try {
             const token = await getAccessToken();
             if (!token) return state.status;
 
-            const response = await fetch(`${API_URL}/api/kyc/check`, {
-                method: 'POST',
+            const response = await fetch(`${API_URL}/api/kyc/status`, { // using status endpoint which is cleaner
                 headers: { 'Authorization': `Bearer ${token}` },
             });
 
@@ -203,7 +179,6 @@ export const useKYC = () => {
         ...state,
         fetchStatus,
         startKYC,
-        refreshToken,
         checkStatus,
         requiresKYC,
     };

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import PaycrestService from '../services/paycrest';
+import BlockradarService from '../services/blockradar';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 
@@ -67,13 +68,13 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
     try {
         const { amount, token, network, bankName, accountNumber, accountName, returnAddress, currency, memo, saveBeneficiary } =
             req.body;
-        const privyId = req.user!.id;
+        const userId = req.user!.id;
 
-        // Look up the actual user.id from privy_id (users.id has format user_xxx)
+        // Look up the actual user.id from supabase_id or privy_id
         const { data: userRecord, error: userError } = await supabase
             .from('users')
-            .select('id, kyc_status')
-            .eq('privy_id', privyId)
+            .select('id, kyc_status, blockradar_address_id')
+            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
             .single();
 
         if (userError || !userRecord) {
@@ -162,6 +163,55 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
             throw new Error(`Failed to save offramp order: ${error.message}`);
         }
 
+        // 4. Withdraw from Blockradar master wallet to Paycrest receive address
+        try {
+            logger.info('Initiating Blockradar withdrawal for offramp', {
+                orderId: dbOrder.id,
+                amount: amountNum,
+                toAddress: order.receiveAddress
+            });
+
+            // Get USDC asset ID (you may need to fetch this from Blockradar assets API)
+            const assetId = process.env.BLOCKRADAR_USDC_ASSET_ID || 'USDC';
+
+            await BlockradarService.withdraw({
+                toAddress: order.receiveAddress,
+                amount: amountNum.toString(),
+                assetId: assetId,
+                metadata: {
+                    offrampOrderId: dbOrder.id,
+                    paycrestOrderId: order.id,
+                    userId: userRecord.id
+                }
+            });
+
+            // Update order status to processing
+            await supabase
+                .from('offramp_orders')
+                .update({ status: 'PROCESSING' })
+                .eq('id', dbOrder.id);
+
+            dbOrder.status = 'PROCESSING';
+            logger.info('Blockradar withdrawal initiated', { orderId: dbOrder.id });
+        } catch (withdrawError: any) {
+            logger.error('Blockradar withdrawal failed', {
+                orderId: dbOrder.id,
+                error: withdrawError.message
+            });
+            // Update order with error but don't fail the request
+            // The user needs to know the order was created but withdrawal failed
+            await supabase
+                .from('offramp_orders')
+                .update({ 
+                    status: 'FAILED',
+                    error_message: `Withdrawal failed: ${withdrawError.message}`
+                })
+                .eq('id', dbOrder.id);
+            
+            dbOrder.status = 'FAILED';
+            dbOrder.error_message = `Withdrawal failed: ${withdrawError.message}`;
+        }
+
         // 4. Save beneficiary if requested
         if (saveBeneficiary) {
             // Check if beneficiary already exists
@@ -226,13 +276,13 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
  */
 router.get('/orders', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const privyId = req.user!.id;
+        const userId = req.user!.id;
 
-        // Look up the actual user.id from privy_id
+        // Look up the actual user.id
         const { data: userRecord, error: userError } = await supabase
             .from('users')
             .select('id')
-            .eq('privy_id', privyId)
+            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
             .single();
 
         if (userError || !userRecord) {
@@ -290,13 +340,13 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
 router.get('/orders/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.id;
+        const userId = req.user!.id;
 
-        // Look up the actual user.id from privy_id
+        // Look up the actual user.id
         const { data: userRecord, error: userError } = await supabase
             .from('users')
             .select('id')
-            .eq('privy_id', privyId)
+            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
             .single();
 
         if (userError || !userRecord) {
@@ -385,13 +435,13 @@ router.patch('/orders/:id', authenticate, async (req: Request, res: Response, ne
     try {
         const { id } = req.params;
         const { txHash } = req.body;
-        const privyId = req.user!.id;
+        const userId = req.user!.id;
 
-        // Look up the actual user.id from privy_id
+        // Look up the actual user.id
         const { data: userRecord, error: userError } = await supabase
             .from('users')
             .select('id')
-            .eq('privy_id', privyId)
+            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
             .single();
 
         if (userError || !userRecord) {

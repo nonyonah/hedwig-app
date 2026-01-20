@@ -50,3 +50,5 @@ yarn-error.*
 .env.local
 
 credentials.json
+
+setup_eas_secrets.sh

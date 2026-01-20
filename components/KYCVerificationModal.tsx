@@ -1,20 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Dimensions, ActivityIndicator, Platform, Image } from 'react-native';
-import { X, ShieldCheck, Warning, ArrowRight, CheckCircle } from 'phosphor-react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Colors, useThemeColors } from '../theme/colors';
-import { Typography } from '../styles/typography';
-import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
-import { useKYC, KYCStatus } from '../hooks/useKYC';
-import Analytics from '../services/analytics';
-import { SumsubWebView } from './SumsubWebView';
-
-// Conditionally import native SDK only for iOS
-let SNSMobileSDK: any = null;
-if (Platform.OS === 'ios') {
-    SNSMobileSDK = require('@sumsub/react-native-mobilesdk-module').default;
-}
-
-const { height } = Dimensions.get('window');
+import { X, ShieldCheck, CheckCircle } from 'phosphor-react-native';
+import { useKYC } from '../hooks/useKYC';
 
 interface KYCVerificationModalProps {
     visible: boolean;
@@ -22,667 +11,219 @@ interface KYCVerificationModalProps {
     onVerified?: () => void;
 }
 
-type ModalState = 'explanation' | 'verifying' | 'pending' | 'approved' | 'rejected';
-
-export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
-    visible,
-    onClose,
-    onVerified
-}) => {
+const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({ visible, onClose, onVerified }) => {
     const themeColors = useThemeColors();
-    const { status, startKYC, checkStatus, refreshToken, isLoading } = useKYC();
+    const { startKYC, checkStatus, isApproved } = useKYC();
 
-    const [modalState, setModalState] = useState<ModalState>('explanation');
-    const [isStarting, setIsStarting] = useState(false);
+    // State
+    const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [viewState, setViewState] = useState<'intro' | 'webview' | 'success'>('intro');
     const [error, setError] = useState<string | null>(null);
-    const [showWebView, setShowWebView] = useState(false);
-    const [accessToken, setAccessToken] = useState<string | null>(null);
 
-    const modalAnim = useRef(new Animated.Value(height)).current;
-    const opacityAnim = useRef(new Animated.Value(0)).current;
-
-    // Track mounted state to prevent updates after unmount
-    const isMounted = useRef(true);
-    const isApprovedRef = useRef(false);
-
-    useEffect(() => {
-        return () => {
-            isMounted.current = false;
-        };
-    }, []);
-
-    // Update modal state based on KYC status
-    useEffect(() => {
-        if (visible && isMounted.current) {
-            switch (status) {
-                case 'approved':
-                    if (modalState !== 'approved') setModalState('approved');
-                    break;
-                case 'pending':
-                    if (modalState !== 'pending') setModalState('pending');
-                    break;
-                case 'rejected':
-                case 'retry_required':
-                    if (modalState !== 'rejected') setModalState('rejected');
-                    break;
-                default:
-                    if (modalState !== 'explanation') setModalState('explanation');
-            }
-        }
-    }, [visible, status]);
-
-    // Animate modal on visibility change
+    // Reset when modal opens
     useEffect(() => {
         if (visible) {
-            // Reset refs on open
-            isApprovedRef.current = status === 'approved';
-
-            Animated.parallel([
-                Animated.timing(opacityAnim, {
-                    toValue: 1,
-                    duration: 200,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(modalAnim, {
-                    toValue: 0,
-                    damping: 25,
-                    stiffness: 300,
-                    useNativeDriver: true,
-                }),
-            ]).start();
-        } else {
-            Animated.parallel([
-                Animated.timing(opacityAnim, {
-                    toValue: 0,
-                    duration: 150,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(modalAnim, {
-                    toValue: height,
-                    duration: 200,
-                    useNativeDriver: true,
-                }),
-            ]).start();
+            setViewState(isApproved ? 'success' : 'intro');
+            setError(null);
+            setVerificationUrl(null);
         }
-    }, [visible]);
+    }, [visible, isApproved]);
 
     const handleStartVerification = async () => {
-        setIsStarting(true);
+        setLoading(true);
         setError(null);
-        modalHaptic('medium');
-
         try {
-            Analytics.kycStarted?.();
-
             const result = await startKYC();
-
-            if (!result) {
-                if (isMounted.current) setError('Failed to start verification. Please try again.');
-                return;
-            }
-
-            // Platform-specific SDK launch
-            if (Platform.OS === 'android') {
-                // Use WebView for Android
-                if (isMounted.current) {
-                    setAccessToken(result.accessToken);
-                    setShowWebView(true);
-                    setModalState('verifying');
-                }
+            if (result && result.url) {
+                setVerificationUrl(result.url);
+                setViewState('webview');
             } else {
-                // Use native SDK for iOS
-                await launchNativeSDK(result.accessToken);
-            }
-
-        } catch (err) {
-            console.error('Start verification error:', err);
-            if (isMounted.current) {
                 setError('Failed to start verification. Please try again.');
-                setModalState('explanation');
             }
-        } finally {
-            if (isMounted.current) setIsStarting(false);
-        }
-    };
-
-    // Native SDK launch for iOS
-    const launchNativeSDK = async (token: string) => {
-        if (!SNSMobileSDK) return;
-
-        try {
-            const snsMobileSDK = SNSMobileSDK.init(token, async () => {
-                const newToken = await refreshToken();
-                return newToken || '';
-            });
-
-            snsMobileSDK
-                .withHandlers({
-                    onStatusChanged: (event: { prevStatus: string; newStatus: string }) => {
-                        console.log('Sumsub status changed:', event);
-                        if (!isMounted.current) return;
-
-                        if (event.newStatus === 'Approved') {
-                            if (!isApprovedRef.current) {
-                                isApprovedRef.current = true;
-                                setModalState('approved');
-                                Analytics.kycApproved?.();
-                                onVerified?.();
-                            }
-                        } else if (event.newStatus === 'FinallyRejected') {
-                            setModalState('rejected');
-                            Analytics.kycRejected?.();
-                        }
-                    },
-                    onLog: (event: { message: string }) => {
-                        console.log('Sumsub log:', event.message);
-                    },
-                })
-                .withDebug(__DEV__)
-                .withLocale('en');
-
-            if (isMounted.current) setModalState('pending');
-
-            await snsMobileSDK.build().launch();
-
-            if (!isMounted.current || isApprovedRef.current) return;
-
-            const finalStatus = await checkStatus();
-
-            if (isMounted.current && finalStatus !== 'approved' && finalStatus !== 'pending') {
-                setModalState('explanation');
-            }
-
-            Analytics.kycCompleted?.();
         } catch (err) {
-            console.error('Sumsub SDK error:', err);
-            if (isMounted.current) {
-                setError('Verification failed. Please try again.');
-                setModalState('explanation');
-            }
+            console.error('KYC Start Error:', err);
+            setError('An error occurred. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
-    // WebView completion handler for Android
-    const handleWebViewComplete = async (status: 'approved' | 'pending' | 'rejected') => {
-        setShowWebView(false);
-        Analytics.kycCompleted?.();
-
-        if (status === 'approved') {
-            isApprovedRef.current = true;
-            setModalState('approved');
-            Analytics.kycApproved?.();
-            onVerified?.();
-        } else if (status === 'rejected') {
-            setModalState('rejected');
-            Analytics.kycRejected?.();
-        } else {
-            setModalState('pending');
+    const handleWebViewNavigation = (navState: any) => {
+        const { url } = navState;
+        // Check for success/completion based on URL redirects
+        if (url.includes('/verification/success') || url.includes('/callback') || url.includes('success=true')) {
+            // Poll for status update
+            checkStatus().then((newStatus) => {
+                if (newStatus === 'approved' || newStatus === 'pending') {
+                    setViewState('success');
+                    if (onVerified && newStatus === 'approved') {
+                        onVerified();
+                    }
+                }
+            });
         }
     };
 
-    const handleWebViewError = (errorMessage: string) => {
-        setShowWebView(false);
-        setError(errorMessage);
-        setModalState('explanation');
-    };
-
-    const handleCheckStatus = async () => {
-        const newStatus = await checkStatus();
-        if (newStatus === 'approved') {
-            setModalState('approved');
-            onVerified?.();
-        } else {
-            // Provide feedback if status didn't change to approved
-            modalHaptic('error');
-            // Assuming checkStatus updates internal state, but we want to show it's still pending/rejected
-            if (newStatus === 'pending') {
-                // Keep pending state, maybe show a toast or alert if possible (omitted for now to keep clean UI)
-                console.log('Status is still pending');
-            }
-        }
-    };
-
-    const handleClose = () => {
-        modalHaptic('light');
-        onClose();
-    };
-
-    const handleContinue = () => {
-        if (modalState === 'approved') {
-            onVerified?.();
-        }
-        handleClose();
-    };
-
-    const renderStatusBadge = () => {
-        switch (modalState) {
-            case 'approved':
-                return (
-                    <View style={[styles.statusBadge, styles.statusBadgeApproved]}>
-                        <CheckCircle size={14} color="#10B981" weight="fill" />
-                        <Text style={[styles.statusBadgeText, styles.statusBadgeTextApproved]}>Verified</Text>
-                    </View>
-                );
-            case 'pending':
-            case 'verifying':
-                return (
-                    <View style={[styles.statusBadge, styles.statusBadgePending]}>
-                        <ActivityIndicator size="small" color="#F59E0B" style={{ transform: [{ scale: 0.7 }] }} />
-                        <Text style={[styles.statusBadgeText, styles.statusBadgeTextPending]}>Pending Review</Text>
-                    </View>
-                );
-            case 'rejected':
-                return (
-                    <View style={[styles.statusBadge, styles.statusBadgeRejected]}>
-                        <Warning size={14} color="#EF4444" weight="fill" />
-                        <Text style={[styles.statusBadgeText, styles.statusBadgeTextRejected]}>Unverified</Text>
-                    </View>
-                );
-            default:
-                return (
-                    <View style={[styles.statusBadge, styles.statusBadgeUnverified]}>
-                        <View style={styles.unverifiedDot} />
-                        <Text style={[styles.statusBadgeText, styles.statusBadgeTextUnverified]}>Unverified</Text>
-                    </View>
-                );
-        }
-    };
-
-    const renderExplanation = () => (
-        <>
-            {renderStatusBadge()}
-
+    const renderIntro = () => (
+        <View style={[styles.content, { backgroundColor: themeColors.surface }]}>
             <View style={styles.iconContainer}>
-                <ShieldCheck size={80} color={Colors.primary} weight="duotone" />
+                <ShieldCheck size={64} color={Colors.primary} weight="fill" />
             </View>
-
-            <Text style={[styles.title, { color: themeColors.textPrimary }]}>
-                Let's get to know you.
+            <Text style={[styles.title, { color: themeColors.textPrimary }]}>Identity Verification</Text>
+            <Text style={[styles.description, { color: themeColors.textSecondary }]}>
+                To process withdrawals and off-ramps, we need to verify your identity. This helps keep your account secure and complies with regulations.
             </Text>
 
-            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
-                We'll use this info to verify your identity and enable bank withdrawals.
-            </Text>
-
-            <View style={styles.infoList}>
-                <View style={styles.infoItem}>
-                    <CheckCircle size={20} color="#10B981" weight="fill" />
-                    <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
-                        Government-issued ID
-                    </Text>
-                </View>
-                <View style={styles.infoItem}>
-                    <CheckCircle size={20} color="#10B981" weight="fill" />
-                    <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
-                        Quick selfie verification
-                    </Text>
-                </View>
-                <View style={styles.infoItem}>
-                    <CheckCircle size={20} color="#10B981" weight="fill" />
-                    <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
-                        Takes about 2-3 minutes
-                    </Text>
-                </View>
-            </View>
-
-            {error && (
-                <View style={styles.errorContainer}>
-                    <Warning size={16} color="#EF4444" weight="bold" />
-                    <Text style={styles.errorText}>{error}</Text>
-                </View>
-            )}
+            {error && <Text style={styles.errorText}>{error}</Text>}
 
             <TouchableOpacity
-                style={[styles.primaryButton, isStarting && styles.buttonDisabled]}
+                style={[styles.button, { backgroundColor: Colors.primary }]}
                 onPress={handleStartVerification}
-                disabled={isStarting}
+                disabled={loading}
             >
-                {isStarting ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                {loading ? (
+                    <ActivityIndicator color="#fff" />
                 ) : (
-                    <>
-                        <Text style={styles.primaryButtonText}>Continue</Text>
-                        <ArrowRight size={20} color="#FFFFFF" weight="bold" />
-                    </>
+                    <Text style={styles.buttonText}>Start Verification</Text>
                 )}
             </TouchableOpacity>
-        </>
-    );
 
-    const renderPending = () => (
-        <>
-            {renderStatusBadge()}
-
-            <View style={styles.iconContainer}>
-                <ActivityIndicator size="large" color={Colors.primary} />
-            </View>
-
-            <Text style={[styles.title, { color: themeColors.textPrimary }]}>
-                Verification in progress
-            </Text>
-
-            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
-                We're reviewing your documents. This usually takes a few minutes.
-            </Text>
-
-            <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={handleCheckStatus}
-            >
-                <Text style={[styles.secondaryButtonText, { color: Colors.primary }]}>
-                    Check Status
-                </Text>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <Text style={[styles.closeText, { color: themeColors.textSecondary }]}>Do this later</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-                style={styles.textButton}
-                onPress={handleClose}
-            >
-                <Text style={[styles.textButtonText, { color: themeColors.textSecondary }]}>
-                    I'll come back later
-                </Text>
-            </TouchableOpacity>
-        </>
-    );
-
-    const renderApproved = () => (
-        <>
-            {renderStatusBadge()}
-
-            <View style={[styles.iconContainer, styles.approvedIcon]}>
-                <CheckCircle size={80} color="#10B981" weight="fill" />
-            </View>
-
-            <Text style={[styles.title, { color: themeColors.textPrimary }]}>
-                You're verified!
-            </Text>
-
-            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
-                Your identity has been verified. You can now withdraw funds to your bank account.
-            </Text>
-
-            <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={handleContinue}
-            >
-                <Text style={styles.primaryButtonText}>Continue</Text>
-                <ArrowRight size={20} color="#FFFFFF" weight="bold" />
-            </TouchableOpacity>
-        </>
-    );
-
-    const renderRejected = () => (
-        <>
-            {renderStatusBadge()}
-
-            <View style={styles.iconContainer}>
-                <Warning size={80} color="#F59E0B" weight="duotone" />
-            </View>
-
-            <Text style={[styles.title, { color: themeColors.textPrimary }]}>
-                Verification unsuccessful
-            </Text>
-
-            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
-                We couldn't verify your identity. Please try again with clearer photos of your documents.
-            </Text>
-
-            <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={handleStartVerification}
-            >
-                <Text style={styles.primaryButtonText}>Try Again</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-                style={styles.textButton}
-                onPress={handleClose}
-            >
-                <Text style={[styles.textButtonText, { color: themeColors.textSecondary }]}>
-                    Cancel
-                </Text>
-            </TouchableOpacity>
-        </>
-    );
-
-    const renderVerifying = () => (
-        <View style={styles.webViewContainer}>
-            {accessToken && (
-                <SumsubWebView
-                    accessToken={accessToken}
-                    onComplete={handleWebViewComplete}
-                    onError={handleWebViewError}
-                    onTokenRefresh={refreshToken}
-                />
-            )}
         </View>
     );
 
-    const renderContent = () => {
-        // Show WebView for Android verification
-        if (showWebView && Platform.OS === 'android' && modalState === 'verifying') {
-            return renderVerifying();
-        }
+    const renderSuccess = () => (
+        <View style={[styles.content, { backgroundColor: themeColors.surface }]}>
+            <View style={styles.iconContainer}>
+                <CheckCircle size={64} color={Colors.success} weight="fill" />
+            </View>
+            <Text style={[styles.title, { color: themeColors.textPrimary }]}>Verification Submitted</Text>
+            <Text style={[styles.description, { color: themeColors.textSecondary }]}>
+                Your documents are being reviewed. We'll notify you once verification is complete (usually within minutes).
+            </Text>
 
-        switch (modalState) {
-            case 'pending':
-            case 'verifying':
-                return renderPending();
-            case 'approved':
-                return renderApproved();
-            case 'rejected':
-                return renderRejected();
-            default:
-                return renderExplanation();
-        }
-    };
+            <TouchableOpacity
+                style={[styles.button, { backgroundColor: Colors.primary }]}
+                onPress={() => {
+                    if (onVerified) onVerified();
+                    onClose();
+                }}
+            >
+                <Text style={styles.buttonText}>Done</Text>
+            </TouchableOpacity>
+        </View>
+    );
 
     return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="none"
-            onRequestClose={handleClose}
-        >
-            <ModalBackdrop onPress={handleClose} opacity={opacityAnim} />
+        <Modal visible={visible} animationType="slide" transparent>
+            <View style={styles.container}>
+                <View style={styles.backdrop} onTouchEnd={onClose} />
 
-            <Animated.View
-                style={[
-                    styles.container,
-                    {
-                        backgroundColor: themeColors.background,
-                        transform: [{ translateY: modalAnim }],
-                        opacity: opacityAnim,
-                    },
-                ]}
-            >
-                <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-                    <X size={24} color={themeColors.textSecondary} weight="bold" />
-                </TouchableOpacity>
-
-                <View style={styles.content}>
-                    {renderContent()}
-                </View>
-            </Animated.View>
+                {viewState === 'webview' && verificationUrl ? (
+                    <View style={[styles.webviewContainer, { backgroundColor: themeColors.background }]}>
+                        <View style={styles.webviewHeader}>
+                            <TouchableOpacity onPress={() => setViewState('intro')}>
+                                <X size={24} color={themeColors.textPrimary} />
+                            </TouchableOpacity>
+                            <Text style={[styles.webviewTitle, { color: themeColors.textPrimary }]}>Verify Identity</Text>
+                            <View style={{ width: 24 }} />
+                        </View>
+                        <WebView
+                            source={{ uri: verificationUrl }}
+                            style={{ flex: 1 }}
+                            onNavigationStateChange={handleWebViewNavigation}
+                            startInLoadingState
+                            renderLoading={() => <ActivityIndicator style={StyleSheet.absoluteFill} color={Colors.primary} />}
+                        />
+                    </View>
+                ) : viewState === 'success' ? (
+                    renderSuccess()
+                ) : (
+                    renderIntro()
+                )}
+            </View>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        paddingTop: 16,
-        paddingHorizontal: 24,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-        maxHeight: height * 0.85,
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
     },
-    closeButton: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        padding: 8,
-        zIndex: 10,
+    backdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.5)',
     },
     content: {
+        width: '100%',
+        maxWidth: 400,
+        padding: 24,
+        borderRadius: 20,
         alignItems: 'center',
-        paddingTop: 32,
-        paddingBottom: 16,
     },
     iconContainer: {
-        marginBottom: 24,
-    },
-    approvedIcon: {
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        padding: 20,
-        borderRadius: 50,
+        marginBottom: 20,
     },
     title: {
-        ...Typography.h1,
         fontSize: 24,
-        fontWeight: '600',
-        textAlign: 'center',
+        fontWeight: 'bold',
         marginBottom: 12,
+        textAlign: 'center',
     },
-    subtitle: {
-        ...Typography.body,
+    description: {
         fontSize: 16,
         textAlign: 'center',
+        marginBottom: 30,
         lineHeight: 24,
-        marginBottom: 24,
-        paddingHorizontal: 16,
     },
-    infoList: {
+    button: {
         width: '100%',
-        marginBottom: 24,
-    },
-    infoItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+        height: 50,
         borderRadius: 12,
-        marginBottom: 8,
-    },
-    // Status Badges
-    statusBadge: {
-        flexDirection: 'row',
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        gap: 6,
-        marginBottom: 20,
-        alignSelf: 'center',
+        marginBottom: 16,
     },
-    statusBadgeApproved: {
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    },
-    statusBadgePending: {
-        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    },
-    statusBadgeRejected: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    },
-    statusBadgeUnverified: {
-        backgroundColor: 'rgba(107, 114, 128, 0.1)',
-    },
-    statusBadgeText: {
-        fontSize: 13,
+    buttonText: {
+        color: '#fff',
+        fontSize: 16,
         fontWeight: '600',
     },
-    statusBadgeTextApproved: {
-        color: '#10B981',
+    closeButton: {
+        padding: 8,
     },
-    statusBadgeTextPending: {
-        color: '#F59E0B',
-    },
-    statusBadgeTextRejected: {
-        color: '#EF4444',
-    },
-    statusBadgeTextUnverified: {
-        color: '#6B7280',
-    },
-    unverifiedDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#6B7280',
-    },
-    infoText: {
-        ...Typography.body,
-        fontSize: 15,
-    },
-    errorContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 16,
-        width: '100%',
+    closeText: {
+        fontSize: 14,
+        fontWeight: '500',
     },
     errorText: {
-        color: '#EF4444',
-        fontSize: 14,
-        flex: 1,
+        color: '#ff4444',
+        marginBottom: 16,
+        textAlign: 'center',
     },
-    primaryButton: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 16,
-        paddingHorizontal: 32,
-        borderRadius: 30,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
+    webviewContainer: {
         width: '100%',
-        marginBottom: 12,
-    },
-    buttonDisabled: {
-        opacity: 0.6,
-    },
-    primaryButtonText: {
-        ...Typography.button,
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    secondaryButton: {
-        paddingVertical: 16,
-        paddingHorizontal: 32,
-        borderRadius: 30,
-        borderWidth: 1,
-        borderColor: Colors.primary,
-        width: '100%',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    secondaryButtonText: {
-        ...Typography.button,
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    textButton: {
-        paddingVertical: 12,
-    },
-    textButtonText: {
-        ...Typography.body,
-        fontSize: 14,
-    },
-    webViewContainer: {
-        flex: 1,
-        width: '100%',
-        minHeight: 500,
-        borderRadius: 16,
+        height: '90%',
+        borderRadius: 20,
         overflow: 'hidden',
+    },
+    webviewHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0,0,0,0.1)',
+    },
+    webviewTitle: {
+        fontSize: 18,
+        fontWeight: '600',
     },
 });
 

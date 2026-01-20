@@ -66,10 +66,7 @@
             "targetSdkVersion": 35,
             "buildToolsVersion": "35.0.0",
             "minSdkVersion": 24,
-            "newArchEnabled": true,
-            "extraMavenRepos": [
-              "https://maven.sumsub.com/repository/maven-public/"
-            ]
+            "newArchEnabled": true
           }
         }
       ],
@@ -89,8 +86,7 @@
           "project": "react-native",
           "organization": "hedwig-dd"
         }
-      ],
-      "./plugins/withSumsubPodfile.js"
+      ]
     ],
     "extra": {
       "router": {
@@ -103,31 +99,6 @@
           "experimental": {
             "ios": {
               "appExtensions": [
-                {
-                  "targetName": "LiveActivity",
-                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
-                  "entitlements": {}
-                },
-                {
-                  "targetName": "LiveActivity",
-                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
-                  "entitlements": {}
-                },
-                {
-                  "targetName": "LiveActivity",
-                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
-                  "entitlements": {}
-                },
-                {
-                  "targetName": "LiveActivity",
-                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
-                  "entitlements": {}
-                },
-                {
-                  "targetName": "LiveActivity",
-                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
-                  "entitlements": {}
-                },
                 {
                   "targetName": "LiveActivity",
                   "bundleIdentifier": "com.hedwig.app.LiveActivity",

@@ -1,19 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Dimensions, ScrollView, Platform, Alert, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { usePrivy, useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
+import { useAuth } from '@/hooks/useAuth';
+import { useWallet } from '@/hooks/useWallet';
 import * as Clipboard from 'expo-clipboard';
 import { SignOut, Copy, Wallet, CaretRight, CaretLeft, X, UserCircle } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
-import { ethers } from 'ethers';
 
 import {
-    NetworkBase, NetworkSolana,
-    TokenETH, TokenUSDC, TokenUSDT, TokenSOL
+    NetworkBase,
+    TokenETH, TokenUSDC
 } from './CryptoIcons';
 import { getUserGradient } from '../utils/gradientUtils';
-import { getOrCreateStacksWallet, getSTXBalance } from '../services/stacksWallet';
 import { ModalBackdrop, modalHaptic, getModalAnimationConfig } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
 
@@ -58,17 +57,7 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
             { symbol: 'USDC', icon: TokenUSDC }
         ]
     },
-    {
-        name: 'Solana',
-        id: 0, // Solana uses cluster names not chain IDs
-        icon: NetworkSolana,
-        color: '#9945FF',
-        addressType: 'solana',
-        tokens: [
-            { symbol: 'SOL', icon: TokenSOL },
-            { symbol: 'USDC', icon: TokenUSDC }
-        ]
-    },
+    // Solana temporarily disabled - Base only for now
 ];
 
 // Profile color gradient options (same as in profile.tsx)
@@ -95,12 +84,10 @@ interface ProfileModalProps {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, userName, walletAddresses, profileIcon }) => {
-    const { currency, hapticsEnabled } = useSettings(); // Use currency and haptics from context
-    const { user, logout, getAccessToken } = usePrivy();
+    const { currency, hapticsEnabled } = useSettings();
+    const { user, logout, getAccessToken } = useAuth();
+    const { address: blockradarAddress, balances: walletBalances, fetchBalances } = useWallet();
     const themeColors = useThemeColors();
-    const ethereumWallet = useEmbeddedEthereumWallet();
-    const solanaWallet = useEmbeddedSolanaWallet();
-    // Stacks wallet is managed by stacksWallet service, not Privy
 
     // Debug: Log profileIcon when modal opens
     useEffect(() => {
@@ -193,58 +180,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     const logoutAnim = useRef(new Animated.Value(0)).current;
     const viewContentAnim = useRef(new Animated.Value(1)).current; // For view transitions
 
-    // Create wallets if they don't exist
+    // Blockradar address is now managed by backend
     useEffect(() => {
-        const setupWallets = async () => {
-            const ethWalletAny = ethereumWallet as any;
-            const solWalletAny = solanaWallet as any;
-            const userAny = user as any;
-
-            // Check if user already has an embedded wallet
-            const hasEmbeddedWallet = userAny?.linkedAccounts?.some(
-                (account: any) => account.type === 'wallet' && account.connectorType === 'embedded'
-            );
-
-            // Only try to create if we don't see an embedded wallet in linked accounts
-            // and the hook doesn't have an account
-            if (user && ethWalletAny && !ethWalletAny.account && !hasEmbeddedWallet) {
-                try {
-                    await ethWalletAny.create();
-                } catch (error: any) {
-                    // Ignore "already exists" errors
-                    if (!error.message?.includes('already exists')) {
-                        console.log('Ethereum wallet creation error:', error);
-                    }
-                }
-            }
-
-            // Similar check for Solana
-            if (user && solWalletAny && !solWalletAny.account && !hasEmbeddedWallet) {
-                try {
-                    await solWalletAny.create();
-                } catch (error: any) {
-                    if (!error.message?.includes('already exists')) {
-                        console.log('Solana wallet creation error:', error);
-                    }
-                }
-            }
-
-            // Stacks wallet generation is TEMPORARILY DISABLED
-            // The Stacks SDK's generateWallet uses PBKDF2 which hangs on React Native.
-            // TODO: Move Stacks wallet generation to backend or use a lighter library.
-            // try {
-            //     const stacksWallet = await getOrCreateStacksWallet();
-            //     if (stacksWallet) {
-            //         setBtcAddress(stacksWallet.address);
-            //         console.log('Stacks wallet ready:', stacksWallet.address);
-            //     }
-            // } catch (error: any) {
-            //     console.log('Stacks wallet error:', error);
-            // }
-            console.log('[ProfileModal] Stacks wallet generation skipped (performance issue)');
-        };
-        setupWallets();
-    }, [user]);
+        if (blockradarAddress) {
+            setEthAddress(blockradarAddress);
+        }
+    }, [blockradarAddress]);
 
     // Fetch Balances via Backend API with periodic refresh
     useEffect(() => {

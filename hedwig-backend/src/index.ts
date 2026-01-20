@@ -30,7 +30,8 @@ import notificationRoutes from './routes/notifications';
 import beneficiaryRoutes from './routes/beneficiaries';
 import calendarRoutes from './routes/calendar';
 import kycRoutes from './routes/kyc';
-import sumsubWebhookRoutes from './routes/sumsubWebhook';
+import diditWebhookRoutes from './routes/diditWebhook';
+import blockradarWebhookRoutes from './routes/blockradarWebhook';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -175,7 +176,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/beneficiaries', beneficiaryRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/kyc', kycRoutes);
-app.use('/api/webhooks/sumsub', sumsubWebhookRoutes);
+app.use('/api/webhooks/didit', diditWebhookRoutes);
+app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));

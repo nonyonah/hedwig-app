@@ -1,304 +1,301 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
-import { PrivyClient } from '@privy-io/node';
 import { AppError } from '../middleware/errorHandler';
 import { supabase } from '../lib/supabase';
-import { createPublicClient, http, formatEther, formatUnits } from 'viem';
-import { base } from 'viem/chains';
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
+import BlockradarService from '../services/blockradar';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Wallet');
 
 const router = Router();
 
-// Initialize Privy Node SDK
-const privy = new PrivyClient({
-    appId: process.env.PRIVY_APP_ID!,
-    appSecret: process.env.PRIVY_APP_SECRET!
-});
-
-// ERC20 ABI for balance fetching
-const erc20Abi = [
-    {
-        name: 'balanceOf',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'owner', type: 'address' }],
-        outputs: [{ type: 'uint256' }],
-    },
-    {
-        name: 'decimals',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [],
-        outputs: [{ type: 'uint8' }],
-    },
-] as const;
-
-// Mainnet Token Addresses
-const TOKEN_ADDRESSES = {
-    base: {
-        USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as `0x${string}`, // Base Mainnet USDC
-    },
-    solana: {
-        // Mainnet USDC SPL token address for Solana
-        USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    },
-};
-
-// Create viem clients for RPC balance fetching
-const baseClient = createPublicClient({
-    chain: base,
-    transport: http(),
-});
-
-// Create Solana Mainnet connection - use env var or default mainnet RPC
-const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-const solanaConnection = new Connection(SOLANA_RPC_URL, 'confirmed');
-
 /**
  * GET /api/wallet/balance
- * Fetch balances for the user's embedded wallet
- * Uses direct RPC calls via viem for reliability on testnets
+ * Fetch balances for the user from Blockradar (custodial wallet)
+ * Returns cached balance from database (updated via webhooks)
  */
 router.get('/balance', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.privyId;
-        logger.debug('Fetching balances');
+        const userId = req.user!.id;
+        logger.debug('Fetching balances', { userId });
 
-        // 1. Get User to find Wallet Addresses
-        const user = await privy.users()._get(userId);
-
-        // Find the embedded EVM wallet
-        const embeddedEvmWallet = user.linked_accounts.find(
-            (account: any) => account.type === 'wallet' &&
-                account.connector_type === 'embedded' &&
-                account.address.startsWith('0x')
-        ) as any;
-
-        // Find the embedded Solana wallet
-        const embeddedSolanaWallet = user.linked_accounts.find(
-            (account: any) => account.type === 'wallet' &&
-                account.connector_type === 'embedded' &&
-                !account.address.startsWith('0x')
-        ) as any;
-
-        const evmAddress = embeddedEvmWallet?.address as `0x${string}` | undefined;
-        const solanaAddress = embeddedSolanaWallet?.address as string | undefined;
-
-        logger.debug('Found wallet addresses');
-        // Solana address log removed - handled above
-
-        const balances: any[] = [];
-
-        // ========== BASE MAINNET ==========
-        if (evmAddress) {
-            // Base Mainnet - ETH (native)
-            try {
-                const ethBalance = await baseClient.getBalance({ address: evmAddress });
-                const ethFormatted = formatEther(ethBalance);
-                logger.debug('Base ETH balance fetched');
-                balances.push({
-                    chain: 'base',
-                    asset: 'eth',
-                    raw_value: ethBalance.toString(),
-                    display_values: {
-                        eth: ethFormatted,
-                        usd: (parseFloat(ethFormatted) * 3500).toFixed(2)
-                    }
-                });
-            } catch (e: any) {
-                logger.error('Error fetching Base ETH');
-                balances.push({
-                    chain: 'base',
-                    asset: 'eth',
-                    raw_value: '0',
-                    display_values: { eth: '0', usd: '0.00' }
-                });
-            }
-
-            // Base Mainnet - USDC
-            try {
-                const usdcBalance = await baseClient.readContract({
-                    address: TOKEN_ADDRESSES.base.USDC,
-                    abi: erc20Abi,
-                    functionName: 'balanceOf',
-                    args: [evmAddress],
-                });
-                const usdcDecimals = await baseClient.readContract({
-                    address: TOKEN_ADDRESSES.base.USDC,
-                    abi: erc20Abi,
-                    functionName: 'decimals',
-                });
-                const usdcFormatted = formatUnits(usdcBalance, usdcDecimals);
-                logger.debug('Base USDC balance fetched');
-                balances.push({
-                    chain: 'base',
-                    asset: 'usdc',
-                    raw_value: usdcBalance.toString(),
-                    display_values: {
-                        token: usdcFormatted,
-                        usd: usdcFormatted // USDC = $1
-                    }
-                });
-            } catch (e: any) {
-                logger.error('Error fetching Base USDC');
-                balances.push({
-                    chain: 'base',
-                    asset: 'usdc',
-                    raw_value: '0',
-                    display_values: { token: '0', usd: '0' }
-                });
-            }
-        } else {
-            // No EVM wallet found, return zeros
-            logger.debug('No EVM wallet found, returning zero balances');
-            balances.push(
-                { chain: 'base', asset: 'eth', raw_value: '0', display_values: { eth: '0', usd: '0.00' } },
-                { chain: 'base', asset: 'usdc', raw_value: '0', display_values: { token: '0', usd: '0' } }
-            );
-        }
-
-        // ========== SOLANA MAINNET ==========
-        if (solanaAddress) {
-            // Native SOL
-            try {
-                const solanaPublicKey = new PublicKey(solanaAddress!);
-                const solBalance = await solanaConnection.getBalance(solanaPublicKey);
-                const solFormatted = (solBalance / LAMPORTS_PER_SOL).toFixed(9);
-                logger.debug('Solana SOL balance fetched');
-                balances.push({
-                    chain: 'solana',
-                    asset: 'sol',
-                    raw_value: solBalance.toString(),
-                    display_values: {
-                        sol: solFormatted,
-                        usd: (parseFloat(solFormatted) * 180).toFixed(2) // Approx SOL price
-                    }
-                });
-            } catch (e: any) {
-                logger.error('Error fetching Solana SOL');
-                balances.push({
-                    chain: 'solana',
-                    asset: 'sol',
-                    raw_value: '0',
-                    display_values: { sol: '0', usd: '0.00' }
-                });
-            }
-
-            // Solana USDC (SPL Token)
-            try {
-                const walletPublicKey = new PublicKey(solanaAddress!);
-                const usdcMintAddress = new PublicKey(TOKEN_ADDRESSES.solana.USDC);
-
-                // Get the Associated Token Account for this wallet and USDC mint
-                const tokenAccountAddress = await getAssociatedTokenAddress(
-                    usdcMintAddress,
-                    walletPublicKey
-                );
-
-                // Try to get the token account info
-                const tokenAccount = await getAccount(solanaConnection, tokenAccountAddress);
-                const usdcBalance = Number(tokenAccount.amount) / 1_000_000; // USDC has 6 decimals
-                logger.debug('Solana USDC balance fetched');
-
-                balances.push({
-                    chain: 'solana',
-                    asset: 'usdc',
-                    raw_value: tokenAccount.amount.toString(),
-                    display_values: {
-                        token: usdcBalance.toFixed(2),
-                        usd: usdcBalance.toFixed(2) // USDC = $1
-                    }
-                });
-            } catch (e: any) {
-                // Token account may not exist if user hasn't received USDC before
-                logger.debug('Solana USDC: No token account found');
-                balances.push({
-                    chain: 'solana',
-                    asset: 'usdc',
-                    raw_value: '0',
-                    display_values: { token: '0', usd: '0' }
-                });
-            }
-        }
-
-
-        // ========== STACKS TESTNET (Bitcoin L2) ==========
-        // Stacks wallet is generated client-side using Stacks.js
-        // Look up the address from our database (stored by client after generation)
-
-        // Get user from database to check for stacks address
-        const { data: userData } = await supabase
+        // Get user's Blockradar address from database
+        const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('stacks_wallet_address')
-            .eq('privy_id', userId)
+            .select('id, blockradar_address_id, blockradar_address')
+            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
             .single();
 
-        const stacksAddress = userData?.stacks_wallet_address as string | undefined;
-        logger.debug('Found Stacks address');
-
-        if (stacksAddress) {
-            // Fetch STX balance from Stacks Testnet API
-            try {
-                const stacksResponse = await fetch(
-                    `https://stacks-node-api.testnet.stacks.co/extended/v1/address/${stacksAddress}/balances`
-                );
-
-                if (stacksResponse.ok) {
-                    const stacksData = await stacksResponse.json() as { stx?: { balance?: string } };
-                    // Balance is in microSTX, convert to STX
-                    const balanceInMicroSTX = BigInt(stacksData.stx?.balance || '0');
-                    const balanceInSTX = Number(balanceInMicroSTX) / 1_000_000;
-
-                    balances.push({
-                        chain: 'bitcoin_testnet',
-                        asset: 'stx',
-                        raw_value: stacksData.stx?.balance || '0',
-                        display_values: { stx: balanceInSTX.toFixed(6), usd: '0.00' }
-                    });
-                    logger.debug('Stacks STX balance fetched');
-                } else {
-                    balances.push({
-                        chain: 'bitcoin_testnet',
-                        asset: 'stx',
+        if (userError || !userData) {
+            logger.warn('User not found', { userId });
+            return res.json({
+                success: true,
+                data: {
+                    balances: [{
+                        chain: 'base',
+                        asset: 'usdc',
                         raw_value: '0',
-                        display_values: { stx: '0', usd: '0.00' }
-                    });
+                        display_values: { token: '0', usd: '0' }
+                    }],
+                    address: null
                 }
-            } catch (e: any) {
-                logger.debug('Stacks STX balance error');
-                balances.push({
-                    chain: 'bitcoin_testnet',
-                    asset: 'stx',
-                    raw_value: '0',
-                    display_values: { stx: '0', usd: '0.00' }
-                });
-            }
-        } else {
-            logger.debug('No Stacks wallet found, returning zero balance');
-            balances.push({
-                chain: 'bitcoin_testnet',
-                asset: 'stx',
-                raw_value: '0',
-                display_values: { stx: '0', usd: '0.00' }
             });
         }
 
-        logger.debug('Total balances fetched', { count: balances.length });
+        // If user doesn't have a Blockradar address yet, return zero balance
+        if (!userData.blockradar_address_id) {
+            logger.debug('User has no Blockradar address yet', { userId: userData.id });
+            return res.json({
+                success: true,
+                data: {
+                    balances: [{
+                        chain: 'base',
+                        asset: 'usdc',
+                        raw_value: '0',
+                        display_values: { token: '0', usd: '0' }
+                    }],
+                    address: null
+                }
+            });
+        }
+
+        // Try to get balance from Blockradar API (real-time)
+        let balances: any[] = [];
+        try {
+            const blockradarBalances = await BlockradarService.getAddressBalance(userData.blockradar_address_id);
+            
+            if (blockradarBalances && blockradarBalances.length > 0) {
+                balances = blockradarBalances.map((bal: any) => ({
+                    chain: 'base',
+                    asset: bal.asset?.symbol?.toLowerCase() || 'usdc',
+                    raw_value: bal.balance || '0',
+                    display_values: {
+                        token: bal.balanceFormatted || bal.balance || '0',
+                        usd: bal.balanceFormatted || bal.balance || '0' // USDC = $1
+                    }
+                }));
+            }
+        } catch (blockradarError) {
+            logger.warn('Failed to fetch from Blockradar, using cached balance', { 
+                error: blockradarError instanceof Error ? blockradarError.message : 'Unknown' 
+            });
+            
+            // Fall back to cached balance from database
+            const { data: cachedBalances } = await supabase
+                .from('user_balances')
+                .select('*')
+                .eq('user_id', userData.id);
+
+            if (cachedBalances && cachedBalances.length > 0) {
+                balances = cachedBalances.map((bal: any) => ({
+                    chain: bal.chain,
+                    asset: bal.asset,
+                    raw_value: bal.amount?.toString() || '0',
+                    display_values: {
+                        token: bal.amount?.toString() || '0',
+                        usd: bal.amount?.toString() || '0'
+                    }
+                }));
+            }
+        }
+
+        // Ensure at least one balance entry for Base USDC
+        if (balances.length === 0) {
+            balances.push({
+                chain: 'base',
+                asset: 'usdc',
+                raw_value: '0',
+                display_values: { token: '0', usd: '0' }
+            });
+        }
+
+        logger.debug('Balances fetched', { count: balances.length });
 
         res.json({
             success: true,
-            data: { balances }
+            data: {
+                balances,
+                address: userData.blockradar_address
+            }
         });
 
     } catch (error: any) {
-        logger.error('Balance fetch error');
+        logger.error('Balance fetch error', { error: error.message });
         next(new AppError('Failed to fetch wallet balance', 500));
     }
 });
 
-export default router;
+/**
+ * POST /api/wallet/create-address
+ * Create a Blockradar deposit address for the user
+ * Called after user registration or on first wallet access
+ */
+router.post('/create-address', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const userId = req.user!.id;
+        logger.info('Creating Blockradar address', { userId });
 
+        // Get user from database
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, blockradar_address_id, first_name, last_name')
+            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
+            .single();
+
+        if (userError || !userData) {
+            throw new AppError('User not found', 404);
+        }
+
+        // Check if user already has an address
+        if (userData.blockradar_address_id) {
+            const existingAddress = await BlockradarService.getAddress(userData.blockradar_address_id);
+            return res.json({
+                success: true,
+                data: {
+                    address: existingAddress.address,
+                    addressId: existingAddress.id,
+                    isNew: false
+                }
+            });
+        }
+
+        // Create new Blockradar address
+        const userName = [userData.first_name, userData.last_name].filter(Boolean).join(' ') || undefined;
+        const newAddress = await BlockradarService.createAddress(userData.id, userName);
+
+        // Save to database
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({
+                blockradar_address_id: newAddress.id,
+                blockradar_address: newAddress.address
+            })
+            .eq('id', userData.id);
+
+        if (updateError) {
+            logger.error('Failed to save Blockradar address to DB', { error: updateError });
+            // Don't throw - address was created, just log the error
+        }
+
+        logger.info('Blockradar address created', { 
+            userId: userData.id, 
+            address: newAddress.address 
+        });
+
+        res.json({
+            success: true,
+            data: {
+                address: newAddress.address,
+                addressId: newAddress.id,
+                isNew: true
+            }
+        });
+
+    } catch (error: any) {
+        logger.error('Create address error', { error: error.message });
+        next(new AppError('Failed to create wallet address', 500));
+    }
+});
+
+/**
+ * GET /api/wallet/address
+ * Get user's deposit address (creates one if doesn't exist)
+ */
+router.get('/address', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const userId = req.user!.id;
+
+        // Get user from database
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, blockradar_address_id, blockradar_address, first_name, last_name')
+            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
+            .single();
+
+        if (userError || !userData) {
+            throw new AppError('User not found', 404);
+        }
+
+        // Return existing address
+        if (userData.blockradar_address) {
+            return res.json({
+                success: true,
+                data: {
+                    address: userData.blockradar_address,
+                    addressId: userData.blockradar_address_id,
+                    chain: 'base'
+                }
+            });
+        }
+
+        // Create new address if none exists
+        const userName = [userData.first_name, userData.last_name].filter(Boolean).join(' ') || undefined;
+        const newAddress = await BlockradarService.createAddress(userData.id, userName);
+
+        // Save to database
+        await supabase
+            .from('users')
+            .update({
+                blockradar_address_id: newAddress.id,
+                blockradar_address: newAddress.address
+            })
+            .eq('id', userData.id);
+
+        res.json({
+            success: true,
+            data: {
+                address: newAddress.address,
+                addressId: newAddress.id,
+                chain: 'base'
+            }
+        });
+
+    } catch (error: any) {
+        logger.error('Get address error', { error: error.message });
+        next(new AppError('Failed to get wallet address', 500));
+    }
+});
+
+/**
+ * GET /api/wallet/transactions
+ * Get transaction history for user's address
+ */
+router.get('/transactions', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const userId = req.user!.id;
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
+
+        // Get user from database
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('blockradar_address_id')
+            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
+            .single();
+
+        if (userError || !userData?.blockradar_address_id) {
+            return res.json({
+                success: true,
+                data: { transactions: [] }
+            });
+        }
+
+        // Get transactions from Blockradar
+        const transactions = await BlockradarService.getAddressTransactions(
+            userData.blockradar_address_id,
+            page,
+            limit
+        );
+
+        res.json({
+            success: true,
+            data: { transactions }
+        });
+
+    } catch (error: any) {
+        logger.error('Get transactions error', { error: error.message });
+        next(new AppError('Failed to get transactions', 500));
+    }
+});
+
+export default router;
