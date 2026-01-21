@@ -159,8 +159,8 @@ export const useAuth = () => {
         }
 
         try {
-            // Get the OAuth URL from Supabase
-            const redirectUrl = Linking.createURL('auth/callback');
+            // Use hardcoded scheme URL - Linking.createURL returns localhost in dev
+            const redirectUrl = 'hedwig://auth/callback';
             console.log('OAuth redirect URL:', redirectUrl);
 
             const { data, error } = await supabase.auth.signInWithOAuth({
