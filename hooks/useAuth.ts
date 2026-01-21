@@ -2,9 +2,13 @@ import { Platform } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
+
+// Required for expo-web-browser to work with auth session
+WebBrowser.maybeCompleteAuthSession();
 
 // Demo user object for when in demo mode
 const DEMO_USER = {
@@ -27,7 +31,6 @@ const WEB_MOCK_RETURN = {
 
 export const useAuth = () => {
     // Check if we're on web - return static mock immediately
-    // This avoids conditional hook calls
     const isWeb = Platform.OS === 'web';
 
     const [user, setUser] = useState<User | typeof DEMO_USER | null>(isWeb ? null : null);
@@ -36,7 +39,6 @@ export const useAuth = () => {
     const [isDemo, setIsDemo] = useState(false);
 
     useEffect(() => {
-        // Skip initialization on web
         if (isWeb) return;
 
         let mounted = true;
@@ -106,10 +108,8 @@ export const useAuth = () => {
             const url = event.url;
             console.log('Deep link received:', url);
 
-            // Extract access_token and refresh_token from URL fragment
             if (url.includes('access_token=') || url.includes('#access_token=')) {
                 try {
-                    // Parse the URL fragment
                     const hashPart = url.split('#')[1];
                     if (hashPart) {
                         const params = new URLSearchParams(hashPart);
@@ -117,7 +117,6 @@ export const useAuth = () => {
                         const refreshToken = params.get('refresh_token');
 
                         if (accessToken && refreshToken) {
-                            // Set the session in Supabase
                             const { error } = await supabase.auth.setSession({
                                 access_token: accessToken,
                                 refresh_token: refreshToken,
@@ -136,10 +135,8 @@ export const useAuth = () => {
             }
         };
 
-        // Listen for deep links
         const subscription = Linking.addEventListener('url', handleDeepLink);
 
-        // Check if app was opened via deep link
         Linking.getInitialURL().then((url) => {
             if (url) {
                 handleDeepLink({ url });
@@ -159,8 +156,11 @@ export const useAuth = () => {
         }
 
         try {
-            // Use hardcoded scheme URL - Linking.createURL returns localhost in dev
-            const redirectUrl = 'hedwig://auth/callback';
+            // Use makeRedirectUri which properly handles dev and production builds
+            const redirectUrl = makeRedirectUri({
+                scheme: 'hedwig',
+                path: 'auth/callback',
+            });
             console.log('OAuth redirect URL:', redirectUrl);
 
             const { data, error } = await supabase.auth.signInWithOAuth({
@@ -177,16 +177,19 @@ export const useAuth = () => {
             }
 
             if (data?.url) {
-                // Open the OAuth URL in a browser
+                // Open the OAuth URL in an auth session
                 const result = await WebBrowser.openAuthSessionAsync(
                     data.url,
-                    redirectUrl
+                    redirectUrl,
+                    {
+                        showInRecents: true,
+                        preferEphemeralSession: false,
+                    }
                 );
 
                 console.log('OAuth browser result:', result);
 
                 if (result.type === 'success' && result.url) {
-                    // Handle the callback URL
                     const url = result.url;
                     
                     // Parse access_token from URL fragment
@@ -208,6 +211,8 @@ export const useAuth = () => {
                             }
                         }
                     }
+                } else if (result.type === 'cancel') {
+                    console.log('User cancelled OAuth flow');
                 }
             }
         } catch (err) {
@@ -217,8 +222,6 @@ export const useAuth = () => {
     }, [isWeb]);
 
     // Sign in with email OTP
-    // Note: For 6-digit OTP code (instead of magic link), configure in Supabase dashboard:
-    // Authentication -> Email Templates -> Enable "Confirm signup" with OTP type
     const loginWithEmail = useCallback(async (email: string) => {
         if (isWeb) {
             console.log('Login not supported on web viewer');
@@ -227,7 +230,6 @@ export const useAuth = () => {
         const { error } = await supabase.auth.signInWithOtp({
             email,
             options: {
-                // Don't redirect - we want user to enter OTP code manually
                 shouldCreateUser: true,
             },
         });
@@ -262,7 +264,6 @@ export const useAuth = () => {
             return;
         }
         
-        // Check if we're in demo mode
         const demoFlag = await AsyncStorage.getItem('isDemo');
         if (demoFlag === 'true') {
             await AsyncStorage.removeItem('isDemo');
@@ -272,14 +273,12 @@ export const useAuth = () => {
             return;
         }
 
-        // Supabase logout
         const { error } = await supabase.auth.signOut();
         if (error) {
             console.error('Logout error:', error);
             throw error;
         }
         
-        // Clear user state
         setUser(null);
         setSession(null);
     }, [isWeb]);
@@ -288,7 +287,6 @@ export const useAuth = () => {
     const getAccessToken = useCallback(async (): Promise<string | null> => {
         if (isWeb) return null;
         
-        // Check demo mode first (always check AsyncStorage, not React state)
         const demoFlag = await AsyncStorage.getItem('isDemo');
         if (demoFlag === 'true') {
             const demoToken = await AsyncStorage.getItem('demoToken');
@@ -297,7 +295,6 @@ export const useAuth = () => {
             }
         }
 
-        // Get Supabase session token
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         return currentSession?.access_token ?? null;
     }, [isWeb]);
