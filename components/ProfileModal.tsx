@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Modal, Dimensions, ScrollView, Platform, Alert, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '@/hooks/useAuth';
-import { useWallet } from '@/hooks/useWallet';
+import { useAuth } from '../hooks/useAuth';
+import { useWallet } from '../hooks/useWallet';
 import * as Clipboard from 'expo-clipboard';
 import { SignOut, Copy, Wallet, CaretRight, CaretLeft, X, UserCircle } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
@@ -270,103 +270,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     }, [visible, user]);
 
     // Update addresses when wallets change
-    // Update addresses from multiple sources
-    // Update addresses from multiple sources
+    // Now using Blockradar address from useWallet hook (Base only)
     useEffect(() => {
-        const ethWalletAny = ethereumWallet as any;
-        const solWalletAny = solanaWallet as any;
-        // Note: Stacks address is set in setupWallets useEffect via getOrCreateStacksWallet()
-
-        // Try to get address from embedded wallet hooks first
-        if (ethWalletAny?.account?.address) {
-            setEthAddress(ethWalletAny.account.address);
-        }
-        if (solWalletAny?.account?.address) {
-            setSolAddress(solWalletAny.account.address);
+        // Use Blockradar address from the wallet hook
+        if (blockradarAddress && !ethAddress) {
+            console.log('[ProfileModal] Setting ethAddress from Blockradar:', blockradarAddress);
+            setEthAddress(blockradarAddress);
         }
 
-        // Check walletAddresses prop from backend
+        // Check walletAddresses prop from backend (fallback)
         if (walletAddresses) {
             console.log('[ProfileModal] walletAddresses prop received:', walletAddresses);
             if (walletAddresses.evm && !ethAddress) {
                 console.log('[ProfileModal] Setting ethAddress from prop:', walletAddresses.evm);
                 setEthAddress(walletAddresses.evm);
             }
-            if (walletAddresses.solana && !solAddress) {
-                console.log('[ProfileModal] Setting solAddress from prop:', walletAddresses.solana);
-                setSolAddress(walletAddresses.solana);
-            }
         }
 
-        // Fallback to user object if hooks are empty
-        if (user) {
-            const userAny = user as any;
-            console.log('[ProfileModal] user object:', {
-                wallet: userAny.wallet,
-                linkedAccounts: userAny.linkedAccounts
-            });
-
-            // Check primary wallet
-            if (userAny.wallet?.address) {
-                const address = userAny.wallet.address;
-                console.log('[ProfileModal] Primary wallet address:', address);
-                if (address.startsWith('0x') && !ethAddress) {
-                    console.log('[ProfileModal] Setting ethAddress from user.wallet');
-                    setEthAddress(address);
-                } else if (!address.startsWith('0x') && !solAddress) {
-                    console.log('[ProfileModal] Setting solAddress from user.wallet');
-                    setSolAddress(address);
-                }
-            }
-
-            // Check linked accounts - Prioritize embedded wallets
-            if (userAny.linkedAccounts) {
-                console.log('[ProfileModal] Checking linkedAccounts for wallets...');
-                // Find embedded EVM wallet
-                const embeddedEvm = userAny.linkedAccounts.find(
-                    (account: any) => account.type === 'wallet' &&
-                        account.connectorType === 'embedded' &&
-                        account.address.startsWith('0x')
-                );
-
-                // Find embedded Solana wallet
-                const embeddedSol = userAny.linkedAccounts.find(
-                    (account: any) => account.type === 'wallet' &&
-                        account.connectorType === 'embedded' &&
-                        !account.address.startsWith('0x')
-                );
-
-                console.log('[ProfileModal] Found embedded EVM wallet:', embeddedEvm?.address);
-                console.log('[ProfileModal] Found embedded Solana wallet:', embeddedSol?.address);
-
-                if (embeddedEvm && !ethAddress) {
-                    console.log('[ProfileModal] Setting ethAddress from embedded wallet');
-                    setEthAddress(embeddedEvm.address);
-                } else if (!ethAddress) {
-                    // Fallback to any EVM wallet
-                    const anyEvm = userAny.linkedAccounts.find(
-                        (account: any) => account.type === 'wallet' && account.address.startsWith('0x')
-                    );
-                    if (anyEvm) {
-                        console.log('[ProfileModal] Setting ethAddress from any EVM wallet:', anyEvm.address);
-                        setEthAddress(anyEvm.address);
-                    }
-                }
-
-                if (embeddedSol && !solAddress) {
-                    setEthAddress(embeddedSol.address);
-                } else if (!solAddress) {
-                    // Fallback to any Solana wallet
-                    const anySol = userAny.linkedAccounts.find(
-                        (account: any) => account.type === 'wallet' && !account.address.startsWith('0x')
-                    );
-                    if (anySol) setSolAddress(anySol.address);
-                }
-            }
-        }
-
-        console.log('[ProfileModal] Final state - ethAddress:', ethAddress, 'solAddress:', solAddress, 'btcAddress:', btcAddress);
-    }, [ethereumWallet, solanaWallet, user, ethAddress, solAddress, btcAddress, walletAddresses]);
+        console.log('[ProfileModal] Final state - ethAddress:', ethAddress);
+    }, [blockradarAddress, user, ethAddress, walletAddresses]);
 
     useEffect(() => {
         if (visible) {
