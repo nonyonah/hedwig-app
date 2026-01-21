@@ -40,7 +40,7 @@ interface TransactionItem {
 router.get('/', authenticate, async (req: Request, res: Response) => {
     try {
         logger.debug('Transactions route hit');
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
         const userId = req.user!.id;
         logger.debug('Processing user request');
 

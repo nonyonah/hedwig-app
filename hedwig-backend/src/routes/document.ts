@@ -21,7 +21,7 @@ const WEB_CLIENT_URL = process.env.WEB_CLIENT_URL || 'https://web-client-eight-a
 router.post('/invoice', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Validate required fields
         if (!dueDate) {
@@ -98,7 +98,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
 router.post('/payment-link', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { amount, currency, description, remindersEnabled, recipientEmail, clientName, dueDate } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Validate required fields
         if (!clientName || clientName.trim() === '') {
@@ -182,7 +182,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
  */
 router.get('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
         const { type } = req.query;
 
         // Get internal user ID
@@ -439,7 +439,7 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
 router.post('/:id/complete', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Get user ID first
         const { data: userData, error: userError } = await supabase
@@ -558,7 +558,7 @@ router.post('/:id/complete', authenticate, async (req: Request, res: Response, n
 router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Get user ID first
         const { data: userData, error: userError } = await supabase
@@ -624,7 +624,7 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next) =>
 router.post('/:id/remind', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Get user ID first
         const { data: userData, error: userError } = await supabase
@@ -686,7 +686,7 @@ router.post('/:id/toggle-reminders', authenticate, async (req: Request, res: Res
     try {
         const { id } = req.params;
         const { enabled } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Get user ID first
         const { data: userData, error: userError } = await supabase
@@ -755,7 +755,7 @@ router.post('/:id/toggle-reminders', authenticate, async (req: Request, res: Res
 router.post('/:id/send', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Get user
         const { data: userData, error: userError } = await supabase

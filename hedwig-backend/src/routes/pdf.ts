@@ -151,7 +151,7 @@ router.get('/:id/download-pdf', async (req: Request, res: Response, next) => {
 router.post('/:id/sign', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         logger.debug('User signing document');
 

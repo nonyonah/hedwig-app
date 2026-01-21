@@ -111,7 +111,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
 
         logger.debug('Balances fetched', { count: balances.length });
 
-        res.json({
+        return res.json({
             success: true,
             data: {
                 balances,
@@ -121,7 +121,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
 
     } catch (error: any) {
         logger.error('Balance fetch error', { error: error.message });
-        next(new AppError('Failed to fetch wallet balance', 500));
+        return next(new AppError('Failed to fetch wallet balance', 500));
     }
 });
 
@@ -182,7 +182,7 @@ router.post('/create-address', authenticate, async (req: Request, res: Response,
             address: newAddress.address 
         });
 
-        res.json({
+        return res.json({
             success: true,
             data: {
                 address: newAddress.address,
@@ -193,7 +193,7 @@ router.post('/create-address', authenticate, async (req: Request, res: Response,
 
     } catch (error: any) {
         logger.error('Create address error', { error: error.message });
-        next(new AppError('Failed to create wallet address', 500));
+        return next(new AppError('Failed to create wallet address', 500));
     }
 });
 
@@ -241,7 +241,7 @@ router.get('/address', authenticate, async (req: Request, res: Response, next) =
             })
             .eq('id', userData.id);
 
-        res.json({
+        return res.json({
             success: true,
             data: {
                 address: newAddress.address,
@@ -252,7 +252,7 @@ router.get('/address', authenticate, async (req: Request, res: Response, next) =
 
     } catch (error: any) {
         logger.error('Get address error', { error: error.message });
-        next(new AppError('Failed to get wallet address', 500));
+        return next(new AppError('Failed to get wallet address', 500));
     }
 });
 
@@ -287,14 +287,14 @@ router.get('/transactions', authenticate, async (req: Request, res: Response, ne
             limit
         );
 
-        res.json({
+        return res.json({
             success: true,
             data: { transactions }
         });
 
     } catch (error: any) {
         logger.error('Get transactions error', { error: error.message });
-        next(new AppError('Failed to get transactions', 500));
+        return next(new AppError('Failed to get transactions', 500));
     }
 });
 

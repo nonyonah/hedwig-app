@@ -68,13 +68,13 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
     try {
         const { amount, token, network, bankName, accountNumber, accountName, returnAddress, currency, memo, saveBeneficiary } =
             req.body;
-        const userId = req.user!.id;
+        const authUserId = req.user!.id;
 
         // Look up the actual user.id from supabase_id or privy_id
         const { data: userRecord, error: userError } = await supabase
             .from('users')
             .select('id, kyc_status, blockradar_address_id')
-            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
+            .or(`supabase_id.eq.${authUserId},privy_id.eq.${authUserId}`)
             .single();
 
         if (userError || !userRecord) {
@@ -276,13 +276,13 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
  */
 router.get('/orders', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const authUserId = req.user!.id;
 
         // Look up the actual user.id
         const { data: userRecord, error: userError } = await supabase
             .from('users')
             .select('id')
-            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
+            .or(`supabase_id.eq.${authUserId},privy_id.eq.${authUserId}`)
             .single();
 
         if (userError || !userRecord) {
@@ -340,13 +340,13 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
 router.get('/orders/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const userId = req.user!.id;
+        const authUserId = req.user!.id;
 
         // Look up the actual user.id
         const { data: userRecord, error: userError } = await supabase
             .from('users')
             .select('id')
-            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
+            .or(`supabase_id.eq.${authUserId},privy_id.eq.${authUserId}`)
             .single();
 
         if (userError || !userRecord) {
@@ -435,13 +435,13 @@ router.patch('/orders/:id', authenticate, async (req: Request, res: Response, ne
     try {
         const { id } = req.params;
         const { txHash } = req.body;
-        const userId = req.user!.id;
+        const authUserId = req.user!.id;
 
         // Look up the actual user.id
         const { data: userRecord, error: userError } = await supabase
             .from('users')
             .select('id')
-            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
+            .or(`supabase_id.eq.${authUserId},privy_id.eq.${authUserId}`)
             .single();
 
         if (userError || !userRecord) {

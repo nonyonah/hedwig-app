@@ -11,7 +11,7 @@ const router = Router();
  */
 router.get('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Get internal user ID
         const user = await getOrCreateUser(privyId);
@@ -63,7 +63,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Get internal user ID
         const user = await getOrCreateUser(privyId);
@@ -119,7 +119,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { name, email, phone, company, address, walletAddress } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Get internal user ID
         const user = await getOrCreateUser(privyId);
@@ -184,7 +184,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
         const { name, email, phone, company, address, walletAddress } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Get internal user ID
         const user = await getOrCreateUser(privyId);
@@ -248,7 +248,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
 router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Get internal user ID
         const user = await getOrCreateUser(privyId);

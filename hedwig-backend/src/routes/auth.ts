@@ -16,7 +16,7 @@ const router = Router();
 router.post('/register', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { email, firstName, lastName, walletAddresses, avatar } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         logger.info('Registration request received', { firstName, lastName, hasWallets: !!walletAddresses });
 
@@ -141,7 +141,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                 created_at,
                 updated_at
             `)
-            .eq('privy_id', req.user!.privyId)
+            .eq('privy_id', req.user!.id)
             .single();
 
         if (error || !user) {

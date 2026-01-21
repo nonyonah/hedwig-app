@@ -13,7 +13,7 @@ const router = Router();
  */
 router.get('/profile', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Fetch user profile
         const { data: user, error } = await supabase
@@ -86,7 +86,7 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
 router.patch('/profile', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { firstName, lastName, email, avatar, monthlyTarget } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         const updateData: any = {};
         if (firstName !== undefined) updateData.first_name = firstName;
@@ -155,7 +155,7 @@ router.patch('/profile', authenticate, async (req: Request, res: Response, next)
  */
 router.delete('/account', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Calculate deletion date (90 days from now)
         const now = new Date();
@@ -212,7 +212,7 @@ router.delete('/account', authenticate, async (req: Request, res: Response, next
  */
 router.post('/account/restore', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         // Clear deletion timestamps
         const { data: user, error } = await supabase

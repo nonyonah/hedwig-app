@@ -14,7 +14,7 @@ const router = Router();
  */
 router.post('/register', authenticate, async (req: Request, res: Response) => {
     try {
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
         const { expoPushToken, platform } = req.body;
 
         logger.debug('Register request received');

@@ -14,7 +14,7 @@ const router = Router();
  */
 router.get('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
         const { status, from, to, limit = '50' } = req.query;
 
         const user = await getOrCreateUser(privyId);
@@ -82,7 +82,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
         if (!user) {
@@ -131,7 +131,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { title, description, eventDate, eventType = 'custom' } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         if (!title || !eventDate) {
             res.status(400).json({
@@ -194,7 +194,7 @@ router.patch('/:id', authenticate, async (req: Request, res: Response, next) => 
     try {
         const { id } = req.params;
         const { title, description, eventDate, status } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
         if (!user) {
@@ -256,7 +256,7 @@ router.patch('/:id', authenticate, async (req: Request, res: Response, next) => 
 router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
         if (!user) {

@@ -79,13 +79,13 @@ router.post('/', async (req: Request, res: Response) => {
         logger.info('Unhandled webhook event type', { type: eventType });
     }
 
-    res.status(200).json({ received: true });
+    return res.status(200).json({ received: true });
   } catch (error) {
     logger.error('Blockradar webhook processing error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
     // Return 200 to prevent webhook retries for processing errors
-    res.status(200).json({ received: true, error: 'Processing error' });
+    return res.status(200).json({ received: true, error: 'Processing error' });
   }
 });
 

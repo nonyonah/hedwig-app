@@ -16,7 +16,7 @@ const router = Router();
  */
 router.get('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
         const { projectId } = req.query;
 
         const user = await getOrCreateUser(privyId);
@@ -81,7 +81,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
         if (!user) {
@@ -137,7 +137,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { projectId, title, amount, dueDate } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
         if (!user) {
@@ -236,7 +236,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
         const { title, amount, dueDate, status } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
         if (!user) {
@@ -310,7 +310,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
 router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
         if (!user) {
@@ -364,7 +364,7 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
     try {
         const { id } = req.params;
         const { network, token } = req.body;
-        const privyId = req.user!.privyId;
+        const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
         if (!user) {
