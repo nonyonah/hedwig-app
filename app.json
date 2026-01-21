@@ -18,7 +18,6 @@
       "bundleIdentifier": "com.hedwig.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSSupportsLiveActivities": true,
         "NSCameraUsageDescription": "Allow Hedwig to access your camera for identity verification",
         "NSMicrophoneUsageDescription": "Allow Hedwig to access your microphone for verification",
         "NSPhotoLibraryUsageDescription": "Allow Hedwig to access your photos for document upload",
@@ -70,12 +69,6 @@
           }
         }
       ],
-      [
-        "expo-live-activity",
-        {
-          "enablePushNotifications": true
-        }
-      ],
       "expo-font",
       "expo-secure-store",
       "expo-localization",
@@ -95,19 +88,6 @@
       "privyAppId": "",
       "privyClientId": "",
       "eas": {
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "targetName": "LiveActivity",
-                  "bundleIdentifier": "com.hedwig.app.LiveActivity",
-                  "entitlements": {}
-                }
-              ]
-            }
-          }
-        },
         "projectId": "ade423ca-7649-400c-9817-21e000b2cde4"
       }
     },

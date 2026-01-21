@@ -63,15 +63,11 @@ interface WithdrawalDetails {
 
 /**
  * Initialize platform-specific modules
+ * NOTE: LiveActivity is disabled - expo-live-activity plugin removed
  */
 async function initModules(): Promise<void> {
-    if (Platform.OS === 'ios' && !LiveActivity) {
-        try {
-            LiveActivity = await import('expo-live-activity');
-        } catch (e) {
-            console.log('[LiveTracking] expo-live-activity not available');
-        }
-    }
+    // LiveActivity disabled - plugin removed from app.json
+    // Will be re-enabled when credentials are properly configured
 }
 
 /**
