@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 const logger = createLogger('DiditService');
 
-const DIDIT_API_URL = 'https://api.didit.me/v1'; // Verify valid URL
+const DIDIT_API_URL = 'https://api.didit.me/v2'; // Updated to v2
 
 interface CreateSessionParams {
   userId: string;
@@ -18,14 +18,13 @@ interface DiditSession {
 }
 
 class DiditService {
-  private clientId: string;
-  private clientSecret: string;
+  private apiKey: string;
   private workflowId: string;
   private webhookSecret: string;
 
   constructor() {
-    this.clientId = process.env.DIDIT_CLIENT_ID || 'placeholder_client_id';
-    this.clientSecret = process.env.DIDIT_CLIENT_SECRET || 'placeholder_client_secret';
+    // For Didit V2, we need the API Key instead of client ID/secret
+    this.apiKey = process.env.DIDIT_API_KEY || process.env.DIDIT_CLIENT_SECRET || 'placeholder_api_key';
     this.workflowId = process.env.DIDIT_WORKFLOW_ID || 'placeholder_workflow_id';
     this.webhookSecret = process.env.DIDIT_WEBHOOK_SECRET || 'placeholder_webhook_secret';
   }
@@ -35,35 +34,56 @@ class DiditService {
    */
   async createSession(params: CreateSessionParams): Promise<DiditSession> {
     try {
-      // Authenticate (Basic Auth or Bearer - assuming Bearer for now based on typical modern APIs)
-      // Didit often uses Basic Auth with Client ID/Secret.
-      const authHeader = 'Basic ' + Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+      // Try different authentication methods for Didit V2
+      const authMethods = [
+        { name: 'Bearer', getHeaders: () => ({ 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' }) },
+        { name: 'X-API-Key', getHeaders: () => ({ 'X-API-Key': this.apiKey, 'Content-Type': 'application/json' }) },
+        { name: 'Api-Key', getHeaders: () => ({ 'Api-Key': this.apiKey, 'Content-Type': 'application/json' }) },
+      ];
 
-      const response = await fetch(`${DIDIT_API_URL}/sessions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workflow_id: this.workflowId,
-          vendor_data: params.userId,
-          callback_url: `${process.env.EXPO_PUBLIC_API_URL}/api/webhooks/didit`, // Corrected webhook path
-          email: params.email
-        }),
-      });
+      let lastError: Error | null = null;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Didit API error: ${response.status} ${errorText}`);
+      for (const method of authMethods) {
+        try {
+          logger.info(`Trying authentication method: ${method.name}`);
+          
+          const response = await fetch(`${DIDIT_API_URL}/session/`, {
+            method: 'POST',
+            headers: method.getHeaders(),
+            body: JSON.stringify({
+              workflow_id: this.workflowId,
+              vendor_data: params.userId,
+              callback_url: `${process.env.EXPO_PUBLIC_API_URL}/api/webhooks/didit`,
+              email: params.email
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            logger.info(`Didit session created successfully with ${method.name}`, { sessionId: data.session_id });
+            
+            return {
+              id: data.session_id,
+              url: data.redirect_url || data.url,
+              status: data.status,
+            };
+          } else {
+            const errorText = await response.text();
+            logger.warn(`Authentication method ${method.name} failed`, { 
+              status: response.status, 
+              body: errorText 
+            });
+            lastError = new Error(`${method.name}: ${response.status} ${errorText}`);
+          }
+        } catch (error) {
+          logger.warn(`Authentication method ${method.name} threw error`, { error });
+          lastError = error as Error;
+        }
       }
 
-      const data = await response.json();
-      return {
-        id: data.session_id,
-        url: data.redirect_url || data.url,
-        status: data.status,
-      };
+      // If all methods failed, throw the last error
+      throw lastError || new Error('All authentication methods failed');
+      
     } catch (error) {
       logger.error('Failed to create Didit session', { error });
       throw error;
@@ -75,26 +95,38 @@ class DiditService {
    */
   async getSessionStatus(sessionId: string): Promise<{ status: string; decision?: string }> {
       try {
-        const authHeader = 'Basic ' + Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
-  
-        const response = await fetch(`${DIDIT_API_URL}/sessions/${sessionId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json',
-          },
-        });
-  
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Didit API error: ${response.status} ${errorText}`);
+        // Try the same authentication methods
+        const authMethods = [
+          { name: 'Bearer', getHeaders: () => ({ 'Authorization': `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' }) },
+          { name: 'X-API-Key', getHeaders: () => ({ 'X-API-Key': this.apiKey, 'Content-Type': 'application/json' }) },
+          { name: 'Api-Key', getHeaders: () => ({ 'Api-Key': this.apiKey, 'Content-Type': 'application/json' }) },
+        ];
+
+        let lastError: Error | null = null;
+
+        for (const method of authMethods) {
+          try {
+            const response = await fetch(`${DIDIT_API_URL}/session/${sessionId}`, {
+              method: 'GET',
+              headers: method.getHeaders(),
+            });
+      
+            if (response.ok) {
+              const data = await response.json();
+              return {
+                status: data.status,
+                decision: data.decision
+              };
+            } else {
+              const errorText = await response.text();
+              lastError = new Error(`${method.name}: ${response.status} ${errorText}`);
+            }
+          } catch (error) {
+            lastError = error as Error;
+          }
         }
-  
-        const data = await response.json();
-        return {
-          status: data.status,
-          decision: data.decision
-        };
+
+        throw lastError || new Error('All authentication methods failed');
       } catch (error) {
         logger.error('Failed to get Didit session status', { error });
         throw error;
