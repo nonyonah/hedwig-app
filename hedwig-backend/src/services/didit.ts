@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 const logger = createLogger('DiditService');
 
-const DIDIT_API_URL = 'https://api.didit.me/v2'; // Updated to v2
+const DIDIT_API_URL = 'https://api.didit.me/v3'; // Updated to v3
 
 interface CreateSessionParams {
   userId: string;
