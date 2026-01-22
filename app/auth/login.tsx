@@ -1,11 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Animated, Keyboard } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    KeyboardAvoidingView,
+    Platform,
+    Alert,
+    Keyboard,
+    ScrollView,
+    Image,
+    Linking
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CaretLeft } from 'phosphor-react-native';
 import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/colors';
-import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { Button } from '../../components/Button';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import { useLoginWithEmail, usePrivy, useOAuthFlow } from '@privy-io/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -18,245 +33,315 @@ export default function LoginScreen() {
     const themeColors = useThemeColors();
     const keyboardAppearance = useKeyboardAppearance();
 
-    // Track page view
     useAnalyticsScreen('Login');
 
     // State
-    const [step, setStep] = useState<'email' | 'otp'>('email');
+    const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
     const [email, setEmail] = useState('');
-    const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [emailFocused, setEmailFocused] = useState(false);
     const [isDemo, setIsDemo] = useState(false);
 
-    // Keyboard animation
-    const keyboardOffset = useRef(new Animated.Value(0)).current;
+    // Refs
+    const otpInputRef = useRef<TextInput>(null);
 
-    // Hooks
+    // Privy Hooks
     const { sendCode, loginWithCode } = useLoginWithEmail();
     const { getAccessToken, user, isReady } = usePrivy();
-    const inputRef = useRef<TextInput>(null);
+    const { start: oauthLogin } = useOAuthFlow();
 
     // Detect demo email
     useEffect(() => {
         setIsDemo(email.toLowerCase().trim() === DEMO_EMAIL);
     }, [email]);
 
-    // Keyboard listeners for smooth animation matching keyboard speed
-    useEffect(() => {
-        const keyboardWillShow = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-            (e) => {
-                Animated.timing(keyboardOffset, {
-                    toValue: e.endCoordinates.height - insets.bottom,
-                    duration: e.duration || 250,
-                    useNativeDriver: false,
-                }).start();
-            }
-        );
+    // Dismiss keyboard when tapping outside
+    const dismissKeyboard = () => {
+        Keyboard.dismiss();
+    };
 
-        const keyboardWillHide = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-            (e) => {
-                Animated.timing(keyboardOffset, {
-                    toValue: 0,
-                    duration: e.duration || 250,
-                    useNativeDriver: false,
-                }).start();
-            }
-        );
+    // Handle email sign up
+    const handleContinue = async () => {
+        Keyboard.dismiss();
+        if (!email || !email.includes('@')) {
+            Alert.alert('Invalid Email', 'Please enter a valid email address.');
+            return;
+        }
 
-        return () => {
-            keyboardWillShow.remove();
-            keyboardWillHide.remove();
-        };
-    }, [insets.bottom]);
-
-    // Handle sending email code
-    const handleSendCode = async () => {
-        if (!email || !email.includes('@')) return;
+        // Handle demo mode
+        if (isDemo) {
+            setStep('otp');
+            return;
+        }
 
         setLoading(true);
         try {
-            // For demo account, skip Privy and go directly to OTP step
-            if (isDemo) {
-                setStep('otp');
-                // Auto-fill demo code after a short delay for better UX
-                setTimeout(() => setCode(DEMO_CODE), 300);
-            } else {
-                await sendCode({ email });
-                setStep('otp');
-            }
+            await sendCode({ email });
+            setStep('otp');
         } catch (error) {
-            console.error('Login failed:', error);
-            Alert.alert('Error', 'Failed to send verification code.');
+            console.error('Sign up error:', error);
+            Alert.alert('Error', 'Failed to send verification code. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
-    // Handle verifying code
-    const handleVerify = async () => {
-        if (code.length !== 6) return;
+    // Handle OTP verification
+    const handleVerifyOtp = async () => {
+        if (otp.length !== 6) return;
 
+        Keyboard.dismiss();
         setLoading(true);
         try {
-            // Demo account flow - use special demo-login endpoint
-            if (isDemo) {
-                const response = await fetch(`${API_URL}/api/auth/demo-login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: DEMO_EMAIL, code }),
-                });
+            // Handle demo mode
+            if (isDemo && otp === DEMO_CODE) {
+                const demoToken = `demo_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+                await AsyncStorage.setItem('isDemo', 'true');
+                await AsyncStorage.setItem('demoToken', demoToken);
+                router.replace('/');
+                return;
+            }
 
-                const data = await response.json();
+            await loginWithCode({ code: otp, email });
 
-                if (data.success && data.data.demoToken) {
-                    // Store demo token for subsequent API calls
-                    await AsyncStorage.setItem('demoToken', data.data.demoToken);
-                    await AsyncStorage.setItem('isDemo', 'true');
+            const token = await getAccessToken();
+            const response = await fetch(`${API_URL}/api/auth/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-                    // Navigate to home
-                    router.replace('/');
-                } else {
-                    throw new Error(data.error?.message || 'Demo login failed');
-                }
+            if (response.ok) {
+                router.replace('/');
+            } else if (response.status === 404) {
+                router.replace({ pathname: '/auth/profile', params: { email } });
             } else {
-                // Normal Privy flow
-                // IMPORTANT: Clear any stale demo mode flags first
-                await AsyncStorage.removeItem('isDemo');
-                await AsyncStorage.removeItem('demoToken');
-
-                if (!user) {
-                    await loginWithCode({ code, email });
-                }
-
-                // Get Access Token
-                const token = await getAccessToken();
-
-                // Check if user exists in backend
-                const response = await fetch(`${API_URL}/api/auth/me`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (response.ok) {
-                    // User exists, go to Home
-                    router.replace('/');
-                } else if (response.status === 404) {
-                    // User does not exist, go to Profile
-                    router.replace({ pathname: '/auth/profile', params: { email } });
-                } else {
-                    throw new Error('Failed to check user status');
-                }
+                throw new Error('Failed to check user status');
             }
         } catch (error) {
             console.error('Verification failed:', error);
-            Alert.alert('Verification Failed', 'Invalid code or network error.');
+            Alert.alert('Verification Failed', 'Invalid code. Please try again.');
+            setOtp('');
         } finally {
             setLoading(false);
         }
     };
 
-    // Auto-submit code when 6 digits entered
+    // Auto-submit OTP when 6 digits entered
     useEffect(() => {
-        if (step === 'otp' && code.length === 6) {
-            handleVerify();
+        if (step === 'otp' && otp.length === 6) {
+            handleVerifyOtp();
         }
-    }, [code, step]);
+    }, [otp, step]);
+
+    // Handle OAuth sign up
+    const handleOAuthSignUp = async (provider: 'google' | 'apple') => {
+        Keyboard.dismiss();
+        setLoading(true);
+        try {
+            await oauthLogin({ provider });
+
+            // After OAuth, check if user exists
+            const token = await getAccessToken();
+            if (token) {
+                const response = await fetch(`${API_URL}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    router.replace('/');
+                } else if (response.status === 404) {
+                    router.replace('/auth/profile');
+                }
+            }
+        } catch (error) {
+            console.error('OAuth error:', error);
+            Alert.alert('Error', `Failed to sign in with ${provider}. Please try again.`);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleBack = () => {
         if (step === 'otp') {
-            setStep('email');
-            setCode('');
+            setStep('credentials');
+            setOtp('');
         } else {
             router.back();
         }
     };
 
+    const openTerms = () => {
+        Linking.openURL('https://hedwig.app/terms');
+    };
+
+    const openPrivacy = () => {
+        Linking.openURL('https://hedwig.app/privacy');
+    };
+
     return (
-        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                    {/* Back button placeholder */}
-                </TouchableOpacity>
-            </View>
+        <TouchableWithoutFeedback onPress={dismissKeyboard}>
+            <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                        <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                            <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                        </View>
+                    </TouchableOpacity>
+                </View>
 
-            <View style={styles.content}>
-                {step === 'email' ? (
-                    <>
-                        <Text style={[styles.title, { color: themeColors.textPrimary }]}>Continue with Email</Text>
-                        <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Sign in or sign up with your email.</Text>
+                <KeyboardAvoidingView
+                    style={styles.keyboardView}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+                >
+                    <ScrollView
+                        style={styles.scrollView}
+                        contentContainerStyle={styles.scrollContent}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {step === 'credentials' ? (
+                            <>
+                                {/* Credentials Step */}
+                                <Text style={[styles.title, { color: themeColors.textPrimary }]}>Let's sign you in</Text>
 
-                        <TextInput
-                            style={[styles.input, { backgroundColor: themeColors.surface, color: themeColors.textPrimary }]}
-                            placeholder="Email Address"
-                            placeholderTextColor="#9CA3AF"
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            keyboardAppearance={keyboardAppearance}
-                            autoFocus
-                        />
-                    </>
-                ) : (
-                    <>
-                        <Text style={[styles.title, { color: themeColors.textPrimary }]}>Enter Code</Text>
-                        <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
-                            We sent a verification code to your email <Text style={{ fontWeight: '600', color: themeColors.textPrimary }}>{email}</Text>.
-                        </Text>
+                                <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}>
+                                    <TextInput
+                                        style={[styles.input, { color: themeColors.textPrimary }]}
+                                        placeholder="Enter your email"
+                                        placeholderTextColor={themeColors.textSecondary}
+                                        value={email}
+                                        onChangeText={setEmail}
+                                        keyboardType="email-address"
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        keyboardAppearance={keyboardAppearance}
+                                        onFocus={() => setEmailFocused(true)}
+                                        onBlur={() => setEmailFocused(false)}
+                                    />
+                                </View>
 
-                        <View style={styles.codeContainer}>
-                            {[0, 1, 2, 3, 4, 5].map((index) => (
-                                <View key={index} style={[
-                                    styles.codeBox,
-                                    { backgroundColor: themeColors.surface },
-                                    code.length === index && { borderColor: themeColors.textPrimary, backgroundColor: themeColors.background }
-                                ]}>
-                                    <Text style={[styles.codeText, { color: themeColors.textPrimary }]}>
-                                        {code[index] || ''}
+                                <Button
+                                    title="Continue"
+                                    onPress={handleContinue}
+                                    variant="primary"
+                                    size="large"
+                                    loading={loading}
+                                    disabled={!email || loading}
+                                />
+
+                                <View style={styles.termsContainer}>
+                                    <Text style={[styles.termsText, { color: themeColors.textSecondary }]}>
+                                        By continuing, you agree to our{' '}
+                                        <Text style={styles.termsLink} onPress={openTerms}>Terms of Service</Text>
+                                        {' '}and{' '}
+                                        <Text style={styles.termsLink} onPress={openPrivacy}>Privacy Policy</Text>
                                     </Text>
                                 </View>
-                            ))}
-                        </View>
 
-                        <TextInput
-                            ref={inputRef}
-                            style={styles.hiddenInput}
-                            value={code}
-                            onChangeText={(text) => {
-                                if (text.length <= 6 && /^\d*$/.test(text)) {
-                                    setCode(text);
-                                }
-                            }}
-                            keyboardType="number-pad"
-                            keyboardAppearance={keyboardAppearance}
-                            autoFocus
-                            maxLength={6}
-                        />
+                                {/* Divider */}
+                                <View style={styles.divider}>
+                                    <View style={[styles.dividerLine, { backgroundColor: themeColors.border }]} />
+                                    <Text style={[styles.dividerText, { color: themeColors.textSecondary }]}>or</Text>
+                                    <View style={[styles.dividerLine, { backgroundColor: themeColors.border }]} />
+                                </View>
 
-                        <TouchableOpacity onPress={() => inputRef.current?.focus()} style={styles.overlay} />
-                    </>
-                )}
+                                {/* OAuth Buttons */}
+                                <TouchableOpacity
+                                    style={[styles.oauthButton, { backgroundColor: themeColors.surface }]}
+                                    onPress={() => handleOAuthSignUp('google')}
+                                    disabled={loading}
+                                    activeOpacity={0.7}
+                                >
+                                    <Image
+                                        source={require('../../assets/icons/google.png')}
+                                        style={styles.oauthIcon}
+                                        resizeMode="contain"
+                                    />
+                                    <Text style={[styles.oauthText, { color: themeColors.textPrimary }]}>
+                                        Continue with Google
+                                    </Text>
+                                </TouchableOpacity>
 
-                <View style={{ flex: 1 }} />
+                                <TouchableOpacity
+                                    style={[styles.oauthButton, { backgroundColor: themeColors.surface }]}
+                                    onPress={() => handleOAuthSignUp('apple')}
+                                    disabled={loading}
+                                    activeOpacity={0.7}
+                                >
+                                    <Image
+                                        source={require('../../assets/icons/apple.png')}
+                                        style={[styles.oauthIcon, { tintColor: themeColors.textPrimary }]}
+                                        resizeMode="contain"
+                                    />
+                                    <Text style={[styles.oauthText, { color: themeColors.textPrimary }]}>
+                                        Continue with Apple
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                {/* OTP Step */}
+                                <Text style={[styles.title, { color: themeColors.textPrimary }]}>Enter Code</Text>
+                                <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
+                                    We sent a verification code to{' '}
+                                    <Text style={{ fontWeight: '600', color: themeColors.textPrimary }}>{email}</Text>
+                                </Text>
 
-                {/* Animated Button Container */}
-                <Animated.View style={[styles.buttonContainer, { marginBottom: keyboardOffset }]}>
-                    <Button
-                        title="Next"
-                        onPress={step === 'email' ? handleSendCode : handleVerify}
-                        variant="primary"
-                        size="large"
-                        loading={loading}
-                        disabled={step === 'email' ? !email || loading : code.length !== 6 || loading}
-                    />
-                    <View style={{ height: insets.bottom + 8 }} />
-                </Animated.View>
+                                <TouchableOpacity
+                                    activeOpacity={1}
+                                    onPress={() => otpInputRef.current?.focus()}
+                                    style={styles.otpContainer}
+                                >
+                                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                                        <View
+                                            key={index}
+                                            style={[
+                                                styles.otpBox,
+                                                {
+                                                    backgroundColor: themeColors.surface,
+                                                    borderColor: otp.length === index ? Colors.primary : 'transparent',
+                                                    borderWidth: otp.length === index ? 2 : 0
+                                                }
+                                            ]}
+                                        >
+                                            <Text style={[styles.otpText, { color: themeColors.textPrimary }]}>
+                                                {otp[index] || ''}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </TouchableOpacity>
+
+                                <TextInput
+                                    ref={otpInputRef}
+                                    style={styles.hiddenInput}
+                                    value={otp}
+                                    onChangeText={(text) => {
+                                        if (text.length <= 6 && /^\d*$/.test(text)) {
+                                            setOtp(text);
+                                        }
+                                    }}
+                                    keyboardType="number-pad"
+                                    keyboardAppearance={keyboardAppearance}
+                                    autoFocus
+                                    maxLength={6}
+                                />
+
+                                <Button
+                                    title="Verify"
+                                    onPress={handleVerifyOtp}
+                                    variant="primary"
+                                    size="large"
+                                    loading={loading}
+                                    disabled={otp.length !== 6 || loading}
+                                />
+                            </>
+                        )}
+                    </ScrollView>
+                </KeyboardAvoidingView>
             </View>
-        </View>
+        </TouchableWithoutFeedback>
     );
 }
 
@@ -266,77 +351,141 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
     },
     header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingBottom: 20,
+        paddingVertical: 12,
     },
     backButton: {
-        padding: 8,
-        marginLeft: -8,
+        padding: 4,
     },
-    content: {
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F3F4F6',
+    },
+    headerTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 17,
+    },
+    headerSpacer: {
+        width: 40,
+    },
+    keyboardView: {
         flex: 1,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
         paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: 40,
     },
     title: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
-        color: Colors.textPrimary,
-        marginBottom: 8,
+        fontSize: 26,
+        marginBottom: 24,
+        lineHeight: 34,
     },
     subtitle: {
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 16,
-        color: Colors.textSecondary,
-        marginBottom: 32,
+        marginBottom: 24,
         lineHeight: 24,
     },
-    input: {
-        backgroundColor: '#F3F4F6',
+    inputContainer: {
         borderRadius: 16,
+        marginBottom: 16,
         paddingHorizontal: 16,
-        paddingVertical: 16,
-        fontSize: 16,
-        fontFamily: 'GoogleSansFlex_400Regular',
-        color: Colors.textPrimary,
+        paddingVertical: 4,
     },
-    codeContainer: {
+    input: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 16,
+        paddingVertical: 14,
+    },
+    termsContainer: {
+        marginTop: 16,
+        marginBottom: 24,
+    },
+    termsText: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    termsLink: {
+        color: Colors.textPrimary,
+        textDecorationLine: 'underline',
+    },
+    secondaryButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 16,
+        paddingVertical: 16,
+        marginTop: 12,
+    },
+    secondaryButtonText: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 16,
+    },
+    divider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 20,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+    },
+    dividerText: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        marginHorizontal: 16,
+    },
+    oauthButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 16,
+        paddingVertical: 16,
+        marginBottom: 12,
+    },
+    oauthIcon: {
+        width: 20,
+        height: 20,
+        marginRight: 12,
+    },
+    oauthText: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 16,
+    },
+    otpContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 32,
     },
-    codeBox: {
+    otpBox: {
         width: 48,
         height: 56,
-        backgroundColor: '#F3F4F6',
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'transparent',
     },
-    codeBoxActive: {
-        borderColor: Colors.textPrimary,
-        backgroundColor: '#FFFFFF',
-    },
-    codeText: {
+    otpText: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 24,
-        color: Colors.textPrimary,
     },
     hiddenInput: {
         position: 'absolute',
         width: 1,
         height: 1,
         opacity: 0,
-    },
-    overlay: {
-        position: 'absolute',
-        top: 160,
-        left: 24,
-        right: 24,
-        height: 60,
-    },
-    buttonContainer: {
-        width: '100%',
     },
 });

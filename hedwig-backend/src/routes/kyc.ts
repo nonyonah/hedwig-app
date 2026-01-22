@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import DiditService from '../services/didit';
+import { getOrCreateUser } from '../utils/userHelper';
 
 const logger = createLogger('KYC');
 const router = Router();
@@ -15,14 +16,11 @@ router.get('/status', authenticate, async (req: Request, res: Response, next) =>
     try {
         const privyId = req.user!.id;
 
-        // Get user with KYC fields
-        const { data: user, error } = await supabase
-            .from('users')
-            .select('id, kyc_status, kyc_session_id, kyc_reviewed_at')
-            .eq('privy_id', privyId)
-            .single();
-
-        if (error || !user) {
+        // Use getOrCreateUser to handle privy_id changes
+        let user;
+        try {
+            user = await getOrCreateUser(privyId);
+        } catch (syncError) {
             logger.warn('User not found for KYC status', { privyId });
             res.status(404).json({ success: false, error: 'User not found' });
             return;
@@ -50,14 +48,11 @@ router.post('/start', authenticate, async (req: Request, res: Response, next) =>
     try {
         const privyId = req.user!.id;
 
-        // Get user
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('id, email, kyc_status, kyc_session_id')
-            .eq('privy_id', privyId)
-            .single();
-
-        if (userError || !user) {
+        // Use getOrCreateUser to handle privy_id changes
+        let user;
+        try {
+            user = await getOrCreateUser(privyId);
+        } catch (syncError) {
             logger.warn('User not found for KYC start', { privyId });
             res.status(404).json({ success: false, error: 'User not found' });
             return;
@@ -116,14 +111,11 @@ router.post('/check', authenticate, async (req: Request, res: Response, next) =>
     try {
         const privyId = req.user!.id;
 
-        // Get user with session ID
-        const { data: user, error } = await supabase
-            .from('users')
-            .select('id, kyc_session_id, kyc_status')
-            .eq('privy_id', privyId)
-            .single();
-
-        if (error || !user) {
+        // Use getOrCreateUser to handle privy_id changes
+        let user;
+        try {
+            user = await getOrCreateUser(privyId);
+        } catch (syncError) {
             res.status(404).json({ success: false, error: 'User not found' });
             return;
         }

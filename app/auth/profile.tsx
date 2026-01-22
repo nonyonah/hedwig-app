@@ -241,7 +241,9 @@ export default function ProfileScreen() {
                         {edit !== 'true' && (
                             <>
                                 <TouchableOpacity style={styles.backButtonRow} onPress={() => router.back()}>
-                                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                                        <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                                    </View>
                                 </TouchableOpacity>
                                 <View style={styles.titleSection}>
                                     <Text style={[styles.title, { color: themeColors.textPrimary }]}>Your Profile</Text>
@@ -328,7 +330,9 @@ export default function ProfileScreen() {
                         {edit !== 'true' && (
                             <>
                                 <TouchableOpacity style={styles.backButtonRow} onPress={() => setViewMode('main')}>
-                                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                                        <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                                    </View>
                                 </TouchableOpacity>
                                 <View style={styles.titleSection}>
                                     <Text style={[styles.title, { color: themeColors.textPrimary }]}>Choose Avatar</Text>
@@ -445,6 +449,13 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         marginLeft: -4,
         alignSelf: 'flex-start',
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     // Header bar for settings edit mode
     headerBar: {

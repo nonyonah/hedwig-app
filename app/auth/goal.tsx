@@ -66,7 +66,9 @@ export default function GoalScreen() {
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Back button on its own row */}
             <TouchableOpacity style={styles.backButtonRow} onPress={() => router.back()}>
-                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                    <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                </View>
             </TouchableOpacity>
 
             {/* Title */}
@@ -166,6 +168,13 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         marginLeft: -4,
         alignSelf: 'flex-start',
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     titleContainer: {
         alignItems: 'flex-start',

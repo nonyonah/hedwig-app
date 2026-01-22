@@ -4,10 +4,17 @@ import { supabase } from '../lib/supabase';
 import { AppError } from '../middleware/errorHandler';
 import AlchemyAddressService from '../services/alchemyAddress';
 import { createLogger } from '../utils/logger';
+import { PrivyClient } from '@privy-io/server-auth';
 
 const logger = createLogger('Auth');
 
 const router = Router();
+
+// Initialize Privy client for fetching user details
+const privy = new PrivyClient(
+    process.env.PRIVY_APP_ID!,
+    process.env.PRIVY_APP_SECRET!
+);
 
 /**
  * POST /api/auth/register
@@ -127,7 +134,8 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
  */
 router.get('/me', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { data: user, error } = await supabase
+        // First try to find by privy_id
+        let { data: user, error } = await supabase
             .from('users')
             .select(`
                 id,
@@ -139,10 +147,59 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                 solana_wallet_address,
                 stacks_wallet_address,
                 created_at,
-                updated_at
+                updated_at,
+                privy_id
             `)
             .eq('privy_id', req.user!.id)
             .single();
+
+        // If not found by privy_id, try to find by email (for returning users)
+        if (error || !user) {
+            logger.debug('User not found by privy_id, trying to fetch email from Privy', { privyId: req.user!.privyId });
+            
+            try {
+                // Fetch user details from Privy to get their email
+                const privyUser = await privy.getUser(req.user!.privyId);
+                const email = privyUser?.email?.address || privyUser?.google?.email || privyUser?.apple?.email;
+                
+                if (email) {
+                    logger.debug('Found email from Privy, searching by email', { email });
+                    const result = await supabase
+                        .from('users')
+                        .select(`
+                            id,
+                            email,
+                            first_name,
+                            last_name,
+                            avatar,
+                            ethereum_wallet_address,
+                            solana_wallet_address,
+                            stacks_wallet_address,
+                            created_at,
+                            updated_at,
+                            privy_id
+                        `)
+                        .eq('email', email)
+                        .single();
+                    
+                    user = result.data;
+                    error = result.error;
+                    
+                    // If found by email, update the privy_id to keep them in sync
+                    if (user && user.privy_id !== req.user!.privyId) {
+                        logger.info('Updating privy_id for existing user', { email, oldPrivyId: user.privy_id, newPrivyId: req.user!.privyId });
+                        await supabase
+                            .from('users')
+                            .update({ privy_id: req.user!.privyId, last_login: new Date().toISOString() })
+                            .eq('id', user.id);
+                    }
+                } else {
+                    logger.debug('No email found in Privy user object');
+                }
+            } catch (privyError: any) {
+                logger.warn('Failed to fetch user from Privy', { error: privyError.message });
+            }
+        }
 
         if (error || !user) {
             logger.warn('User not found', { error: error?.message || 'User not found in DB' });
