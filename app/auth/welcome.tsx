@@ -95,7 +95,7 @@ export default function WelcomeScreen() {
             <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 8, backgroundColor: themeColors.background }]}>
                 <Button
                     title="Get Started"
-                    onPress={() => router.push('/auth/signup')}
+                    onPress={() => router.push('/auth/login')}
                     variant="primary"
                     size="large"
                 />

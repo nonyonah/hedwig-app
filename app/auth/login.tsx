@@ -103,7 +103,15 @@ export default function LoginScreen() {
                 return;
             }
 
-            await loginWithCode({ code: otp, email });
+            try {
+                await loginWithCode({ code: otp, email });
+            } catch (err: any) {
+                if (err?.message?.includes('Already logged in')) {
+                    console.log('User already logged in, proceeding...');
+                } else {
+                    throw err;
+                }
+            }
 
             const token = await getAccessToken();
             const response = await fetch(`${API_URL}/api/auth/me`, {
@@ -175,7 +183,7 @@ export default function LoginScreen() {
     };
 
     const openPrivacy = () => {
-        Linking.openURL('https://hedwig.app/privacy');
+        Linking.openURL('https://www.hedwigbot.xyz/privacy');
     };
 
     return (

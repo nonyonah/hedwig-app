@@ -159,7 +159,8 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
             
             try {
                 // Fetch user details from Privy to get their email
-                const privyUser = await privy.getUser(req.user!.privyId);
+                const privyUserId = req.user!.privyId || req.user!.id;
+                const privyUser = await privy.getUser(privyUserId);
                 const email = privyUser?.email?.address || privyUser?.google?.email || privyUser?.apple?.email;
                 
                 if (email) {

@@ -27,7 +27,7 @@ export async function getOrCreateUser(privyId: string) {
         }
 
         // 2. If not found by privy_id, fetch user details from Privy
-        logger.debug('User not found by privy_id, fetching from Privy');
+        logger.debug('User not found by privy_id, fetching from Privy', { privyId });
         const privyUser = await privy.getUser(privyId);
 
         if (!privyUser) {
