@@ -23,7 +23,6 @@ router.post('/', async (req: Request, res: Response) => {
         // Handle 'verification_completed'
         if (event.type === 'verification_completed' || event.status) {
             // Map Didit status to our status
-            // Assuming Didit sends approved/rejected/review_needed
             let kycStatus = 'pending';
             const decision = event.decision || event.status; // Adjust based on actual payload
 
@@ -33,10 +32,12 @@ router.post('/', async (req: Request, res: Response) => {
                 kycStatus = 'rejected';
             } else if (decision === 'resubmission_requested') {
                 kycStatus = 'retry_required';
+            } else if (decision === 'review_needed' || decision === 'review') {
+                kycStatus = 'pending'; // Treat review as pending internal review/completion
             }
 
             // Find user by session_id or vendor_data
-            const userId = event.vendor_data; // We passed userId here
+            const userId = event.vendor_data; 
 
             if (userId) {
                 await supabase

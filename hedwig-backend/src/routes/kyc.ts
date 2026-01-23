@@ -74,7 +74,7 @@ router.post('/start', authenticate, async (req: Request, res: Response, next) =>
         logger.info('Creating new Didit session', { userId: user.id });
         
         const session = await DiditService.createSession({
-            userId: user.id, // Use internal user ID as vendor data
+            userId: user.id, // Will be passed as vendor_data
             email: user.email
         });
 
