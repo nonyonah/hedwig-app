@@ -73,27 +73,28 @@ router.post('/start', authenticate, async (req: Request, res: Response, next) =>
         // Create session
         logger.info('Creating new Didit session', { userId: user.id });
         
-        const session = await DiditService.createSession({
-            userId: user.id, // Will be passed as vendor_data
-            email: user.email
-        });
+        // Define callback URL for redirect after verification
+        const appUrl = process.env.APP_URL || process.env.EXPO_PUBLIC_API_URL || 'https://pay.hedwigbot.xyz';
+        const callbackUrl = `${appUrl}/kyc/callback`;
+
+        const session = await DiditService.createSession(user.id, callbackUrl);
 
         // Update user with session ID
         await supabase
             .from('users')
             .update({
-                kyc_session_id: session.id,
+                kyc_session_id: session.session_id, // Note: V2 returns session_id
                 kyc_status: 'pending',
             })
             .eq('id', user.id);
 
-        logger.info('Updated user with Didit session ID', { userId: user.id, sessionId: session.id });
+        logger.info('Updated user with Didit session ID', { userId: user.id, sessionId: session.session_id });
 
         res.json({
             success: true,
             data: {
                 url: session.url,
-                sessionId: session.id,
+                sessionId: session.session_id,
                 status: 'pending',
             },
         });
@@ -129,18 +130,25 @@ router.post('/check', authenticate, async (req: Request, res: Response, next) =>
         }
 
         // Get status from Didit
-        const sessionData = await DiditService.getSessionStatus(user.kyc_session_id);
+        const sessionData = await DiditService.getSession(user.kyc_session_id);
         
+        logger.info('Didit manual check response', { 
+            sessionId: user.kyc_session_id, 
+            data: sessionData 
+        });
+
         let newStatus = user.kyc_status;
-        const decision = sessionData.decision || sessionData.status;
+        const decision = (sessionData.decision || sessionData.status || '').toLowerCase();
 
         // Map status
-        if (decision === 'approved' || decision === 'verified') {
+        if (decision === 'approved' || decision === 'verified' || decision === 'completed') {
             newStatus = 'approved';
-        } else if (decision === 'declined' || decision === 'rejected') {
+        } else if (decision === 'declined' || decision === 'rejected' || decision === 'failed') {
             newStatus = 'rejected';
-        } else if (decision === 'resubmission_requested') {
+        } else if (decision === 'resubmission_requested' || decision === 'retry') {
             newStatus = 'retry_required';
+        } else if (decision === 'review_needed' || decision === 'review' || decision === 'pending') {
+            // Keep pending
         }
 
         // Update if changed

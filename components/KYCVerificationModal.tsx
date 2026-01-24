@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Dimensions, ActivityIndicator, Platform } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { X, ShieldCheck, Warning, ArrowRight, CheckCircle, ClockCountdown } from 'phosphor-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Dimensions, ActivityIndicator, Platform, Linking } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { ShieldCheck, Warning, ArrowRight, CheckCircle, ClockCountdown } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
-import { useKYC, KYCStatus } from '../hooks/useKYC';
+import { useKYC } from '../hooks/useKYC';
 import Analytics from '../services/analytics';
+import Button from './Button';
 
 const { height } = Dimensions.get('window');
 
@@ -14,7 +15,7 @@ interface KYCVerificationModalProps {
     onVerified?: () => void;
 }
 
-type ModalState = 'explanation' | 'webview' | 'pending' | 'approved' | 'rejected';
+type ModalState = 'explanation' | 'pending' | 'approved' | 'rejected';
 
 export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
     visible,
@@ -25,7 +26,6 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
     const { status, startKYC, checkStatus, isLoading } = useKYC();
 
     const [modalState, setModalState] = useState<ModalState>('explanation');
-    const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
     const [isStarting, setIsStarting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +47,7 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                     setModalState('approved');
                     break;
                 case 'pending':
-                    setModalState('pending');
+                    setModalState(prev => prev === 'pending' ? 'pending' : 'pending'); // Force pending check if status is pending
                     break;
                 case 'rejected':
                 case 'retry_required':
@@ -55,7 +55,6 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                     break;
                 default:
                     setModalState('explanation');
-                    setVerificationUrl(null);
             }
         }
     }, [visible, status]);
@@ -107,9 +106,15 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                 return;
             }
 
-            // Open WebView with Didit verification URL
-            setVerificationUrl(result.url);
-            setModalState('webview');
+            // Open Native Browser (SFSafariViewController / Chrome Custom Tabs)
+            // This ensures camera permissions and cookies are handled correctly for liveness checks
+            await WebBrowser.openBrowserAsync(result.url);
+
+            // When browser closes, check status
+            if (isMounted.current) {
+                setModalState('pending');
+                handleCheckStatus();
+            }
 
         } catch (err) {
             console.error('Start verification error:', err);
@@ -121,45 +126,21 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
         }
     };
 
-    const handleWebViewNavigation = async (navState: any) => {
-        const { url } = navState;
-        // Check for success/completion based on URL redirects
-        if (url.includes('/success') || url.includes('/callback') || url.includes('status=complete') || url.includes('verified=true')) {
-            // Check status
-            const newStatus = await checkStatus();
-            if (newStatus === 'approved') {
-                setModalState('approved');
-                Analytics.kycApproved?.();
-                onVerified?.();
-            } else if (newStatus === 'pending') {
-                setModalState('pending');
-            }
-        }
-    };
-
     const handleCheckStatus = async () => {
         const newStatus = await checkStatus();
         if (newStatus === 'approved') {
             setModalState('approved');
+            Analytics.kycApproved?.();
             onVerified?.();
+        } else if (newStatus === 'pending') {
+            setModalState('pending');
+        } else if (newStatus === 'rejected') {
+            setModalState('rejected');
         }
     };
 
     const handleClose = () => {
-        // Check status one more time before closing if in webview
-        if (modalState === 'webview') {
-            checkStatus().then((newStatus) => {
-                if (newStatus === 'approved') {
-                    onVerified?.();
-                } else if (newStatus === 'pending') {
-                    setModalState('pending');
-                    return; // Don't close, show pending state
-                }
-                onClose();
-            });
-        } else {
-            onClose();
-        }
+        onClose();
     };
 
     const renderExplanation = () => (
@@ -197,53 +178,22 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
 
             {error && <Text style={styles.errorText}>{error}</Text>}
 
-            <TouchableOpacity
-                style={[styles.primaryButton, { backgroundColor: Colors.primary }]}
+            <Button
+                title="Start Verification"
                 onPress={handleStartVerification}
-                disabled={isStarting}
-            >
-                {isStarting ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <>
-                        <Text style={styles.primaryButtonText}>Start Verification</Text>
-                        <ArrowRight size={20} color="#fff" weight="bold" />
-                    </>
-                )}
-            </TouchableOpacity>
+                loading={isStarting}
+                size="large"
+                style={{ marginBottom: 12 }}
+                icon={<ArrowRight size={20} color="#fff" weight="bold" />}
+                iconPosition="right"
+            />
 
-            <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
-                <Text style={[styles.secondaryButtonText, { color: themeColors.textSecondary }]}>
-                    Do this later
-                </Text>
-            </TouchableOpacity>
-        </View>
-    );
-
-    const renderWebView = () => (
-        <View style={[styles.webviewContainer, { backgroundColor: themeColors.background }]}>
-            <View style={[styles.webviewHeader, { borderBottomColor: themeColors.border }]}>
-                <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                    <X size={24} color={themeColors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={[styles.webviewTitle, { color: themeColors.textPrimary }]}>
-                    Verify Identity
-                </Text>
-                <View style={{ width: 40 }} />
-            </View>
-            {verificationUrl && (
-                <WebView
-                    source={{ uri: verificationUrl }}
-                    style={{ flex: 1 }}
-                    onNavigationStateChange={handleWebViewNavigation}
-                    startInLoadingState
-                    renderLoading={() => (
-                        <View style={styles.webviewLoading}>
-                            <ActivityIndicator size="large" color={Colors.primary} />
-                        </View>
-                    )}
-                />
-            )}
+            <Button
+                title="Do this later"
+                onPress={onClose}
+                variant="ghost"
+                size="medium"
+            />
         </View>
     );
 
@@ -259,18 +209,28 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                 Your documents are being reviewed. This usually takes just a few minutes. We'll notify you once it's complete.
             </Text>
 
-            <TouchableOpacity
-                style={[styles.primaryButton, { backgroundColor: Colors.primary }]}
+            <Button
+                title="Check Status"
                 onPress={handleCheckStatus}
-            >
-                <Text style={styles.primaryButtonText}>Check Status</Text>
-            </TouchableOpacity>
+                size="large"
+                style={{ marginBottom: 12 }}
+            />
 
-            <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
-                <Text style={[styles.secondaryButtonText, { color: themeColors.textSecondary }]}>
-                    Close
-                </Text>
-            </TouchableOpacity>
+            <Button
+                title={isStarting ? 'Starting...' : 'Restart Verification'}
+                onPress={handleStartVerification}
+                disabled={isStarting}
+                variant="ghost"
+                size="medium"
+                textStyle={{ color: Colors.primary }}
+            />
+
+            <Button
+                title="Close"
+                onPress={onClose}
+                variant="ghost"
+                size="medium"
+            />
         </View>
     );
 
@@ -286,15 +246,15 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                 Your identity has been verified. You can now use all features including withdrawals and off-ramps.
             </Text>
 
-            <TouchableOpacity
-                style={[styles.primaryButton, { backgroundColor: Colors.success }]}
+            <Button
+                title="Continue"
                 onPress={() => {
                     onVerified?.();
                     onClose();
                 }}
-            >
-                <Text style={styles.primaryButtonText}>Continue</Text>
-            </TouchableOpacity>
+                size="large"
+                style={{ backgroundColor: Colors.success }}
+            />
         </View>
     );
 
@@ -310,30 +270,25 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                 We couldn't verify your identity. Please try again with clear photos of your documents.
             </Text>
 
-            <TouchableOpacity
-                style={[styles.primaryButton, { backgroundColor: Colors.primary }]}
+            <Button
+                title="Try Again"
                 onPress={handleStartVerification}
-                disabled={isStarting}
-            >
-                {isStarting ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <Text style={styles.primaryButtonText}>Try Again</Text>
-                )}
-            </TouchableOpacity>
+                loading={isStarting}
+                size="large"
+                style={{ marginBottom: 12 }}
+            />
 
-            <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
-                <Text style={[styles.secondaryButtonText, { color: themeColors.textSecondary }]}>
-                    Close
-                </Text>
-            </TouchableOpacity>
+            <Button
+                title="Close"
+                onPress={onClose}
+                variant="ghost"
+                size="medium"
+            />
         </View>
     );
 
     const renderContent = () => {
         switch (modalState) {
-            case 'webview':
-                return renderWebView();
             case 'pending':
                 return renderPending();
             case 'approved':
@@ -351,11 +306,11 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                 <TouchableOpacity
                     style={styles.backdrop}
                     activeOpacity={1}
-                    onPress={modalState === 'webview' ? undefined : handleClose}
+                    onPress={handleClose}
                 />
                 <Animated.View
                     style={[
-                        modalState === 'webview' ? styles.fullScreenModal : styles.modalContainer,
+                        styles.modalContainer,
                         { transform: [{ translateY: modalAnim }] }
                     ]}
                 >
@@ -378,10 +333,6 @@ const styles = StyleSheet.create({
     modalContainer: {
         paddingHorizontal: 16,
         paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-    },
-    fullScreenModal: {
-        flex: 1,
-        marginTop: Platform.OS === 'ios' ? 50 : 30,
     },
     contentCard: {
         borderRadius: 24,
@@ -423,63 +374,11 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 15,
     },
-    primaryButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
-        height: 56,
-        borderRadius: 16,
-        marginBottom: 12,
-        gap: 8,
-    },
-    primaryButtonText: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        color: '#fff',
-        fontSize: 17,
-    },
-    secondaryButton: {
-        padding: 12,
-    },
-    secondaryButtonText: {
-        fontFamily: 'GoogleSansFlex_500Medium',
-        fontSize: 15,
-    },
     errorText: {
         fontFamily: 'GoogleSansFlex_400Regular',
         color: '#ff4444',
         marginBottom: 16,
         textAlign: 'center',
-    },
-    webviewContainer: {
-        flex: 1,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        overflow: 'hidden',
-    },
-    webviewHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-        borderBottomWidth: 1,
-    },
-    webviewTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 18,
-    },
-    closeButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    webviewLoading: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'white',
     },
 });
 

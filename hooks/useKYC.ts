@@ -136,8 +136,12 @@ export const useKYC = () => {
             const token = await getAccessToken();
             if (!token) return state.status;
 
-            const response = await fetch(`${API_URL}/api/kyc/status`, { // using status endpoint which is cleaner
-                headers: { 'Authorization': `Bearer ${token}` },
+            const response = await fetch(`${API_URL}/api/kyc/check`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
             });
 
             if (!response.ok) return state.status;
