@@ -73,28 +73,27 @@ router.post('/start', authenticate, async (req: Request, res: Response, next) =>
         // Create session
         logger.info('Creating new Didit session', { userId: user.id });
         
-        // Define callback URL for redirect after verification
-        const appUrl = process.env.APP_URL || process.env.EXPO_PUBLIC_API_URL || 'https://pay.hedwigbot.xyz';
-        const callbackUrl = `${appUrl}/kyc/callback`;
-
-        const session = await DiditService.createSession(user.id, callbackUrl);
+        const session = await DiditService.createSession({
+            userId: user.id,
+            email: user.email || `user-${user.id}@hedwig.app`
+        });
 
         // Update user with session ID
         await supabase
             .from('users')
             .update({
-                kyc_session_id: session.session_id, // Note: V2 returns session_id
+                kyc_session_id: session.id,
                 kyc_status: 'pending',
             })
             .eq('id', user.id);
 
-        logger.info('Updated user with Didit session ID', { userId: user.id, sessionId: session.session_id });
+        logger.info('Updated user with Didit session ID', { userId: user.id, sessionId: session.id });
 
         res.json({
             success: true,
             data: {
                 url: session.url,
-                sessionId: session.session_id,
+                sessionId: session.id,
                 status: 'pending',
             },
         });
@@ -130,7 +129,7 @@ router.post('/check', authenticate, async (req: Request, res: Response, next) =>
         }
 
         // Get status from Didit
-        const sessionData = await DiditService.getSession(user.kyc_session_id);
+        const sessionData = await DiditService.getSessionStatus(user.kyc_session_id);
         
         logger.info('Didit manual check response', { 
             sessionId: user.kyc_session_id, 

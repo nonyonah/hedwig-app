@@ -58,7 +58,7 @@ function ThemedStack() {
                 contentStyle: { backgroundColor: colors.background },
             }}
         >
-            <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="auth/welcome" />
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/profile" />
@@ -86,7 +86,7 @@ function WebLayout() {
                 contentStyle: { backgroundColor: colors.background },
             }}
         >
-            <Stack.Screen name="index" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="auth/welcome" />
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/profile" />
