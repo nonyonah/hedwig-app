@@ -12,9 +12,11 @@ import {
     Keyboard,
     Dimensions,
     ActivityIndicator,
+    Alert,
+    LayoutAnimation
 } from 'react-native';
 import { useThemeColors } from '../theme/colors';
-import { CalendarBlank, Flag, Signpost, DotsThree, PaperPlaneRight, MagicWand, Check } from 'phosphor-react-native';
+import { CalendarBlank, Flag, Signpost, DotsThree, Tray, CaretDown, Check } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 
@@ -68,12 +70,12 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
     const [selectedPriority, setSelectedPriority] = useState<'low' | 'medium' | 'high' | null>(null);
 
     // UI state
-    const [showDatePicker, setShowDatePicker] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
 
     // Animations
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
+    const dateShakeAnim = useRef(new Animated.Value(0)).current;
 
     // Input ref
     const inputRef = useRef<TextInput>(null);
@@ -98,16 +100,18 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             setIsLoading(false);
             setIsCreating(false);
 
-            // Animate In
+            // Spring Animate In
             Animated.parallel([
-                Animated.timing(slideAnim, {
+                Animated.spring(slideAnim, {
                     toValue: 0,
-                    duration: 300,
                     useNativeDriver: true,
+                    damping: 20,
+                    stiffness: 90,
+                    mass: 0.5,
                 }),
                 Animated.timing(fadeAnim, {
                     toValue: 1,
-                    duration: 300,
+                    duration: 200,
                     useNativeDriver: true,
                 })
             ]).start(() => {
@@ -119,11 +123,11 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                 Animated.timing(slideAnim, {
                     toValue: SCREEN_HEIGHT,
                     duration: 250,
-                    useNativeDriver: true,
+                    useNativeDriver: true, // Spring out is less natural on close usually, timing feels snappier for exit
                 }),
                 Animated.timing(fadeAnim, {
                     toValue: 0,
-                    duration: 250,
+                    duration: 200,
                     useNativeDriver: true,
                 })
             ]).start();
@@ -134,6 +138,7 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
     const parseInput = useCallback(async (text: string) => {
         if (text.length < 5) {
             setParsedData(null);
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             return;
         }
 
@@ -153,6 +158,7 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
 
             const result = await response.json();
             if (result.success && result.data) {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                 setParsedData(result.data);
 
                 // Auto-update date if AI detected one and user hasn't manually set
@@ -182,7 +188,7 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
 
         parseTimer.current = setTimeout(() => {
             parseInput(text);
-        }, 800); // 800ms debounce
+        }, 800);
     };
 
     // Cycle through priorities
@@ -190,17 +196,20 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
         const priorities: ('low' | 'medium' | 'high')[] = ['low', 'medium', 'high'];
         const currentIndex = effectivePriority ? priorities.indexOf(effectivePriority) : -1;
         const nextIndex = (currentIndex + 1) % priorities.length;
+
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setSelectedPriority(priorities[nextIndex]);
     };
 
-    // Handle date selection - simple increment for now
+    // Handle date selection - cycle through refined options
     const handleDateTap = () => {
-        // For simplicity, cycle through: Today, Tomorrow, Next Week, +2 weeks
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // Feedback for tap
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
         if (!effectiveDate) {
-            // Set to tomorrow
             const tomorrow = new Date(today);
             tomorrow.setDate(today.getDate() + 1);
             setSelectedDate(tomorrow);
@@ -208,20 +217,27 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             const daysDiff = Math.floor((effectiveDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
             if (daysDiff <= 1) {
-                // Go to next week
                 const nextWeek = new Date(today);
                 nextWeek.setDate(today.getDate() + 7);
                 setSelectedDate(nextWeek);
             } else if (daysDiff <= 7) {
-                // Go to 2 weeks
                 const twoWeeks = new Date(today);
                 twoWeeks.setDate(today.getDate() + 14);
                 setSelectedDate(twoWeeks);
             } else {
-                // Reset to no date
                 setSelectedDate(null);
             }
         }
+    };
+
+    // Trigger shake animation for Date pill
+    const shakeDate = () => {
+        Animated.sequence([
+            Animated.timing(dateShakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+            Animated.timing(dateShakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+            Animated.timing(dateShakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+            Animated.timing(dateShakeAnim, { toValue: 0, duration: 50, useNativeDriver: true })
+        ]).start();
     };
 
     // Format date for display
@@ -245,13 +261,14 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
     const handleCreate = async () => {
         if (!inputText.trim()) return;
 
-        // Validate date requirement for invoice/payment_link
-        if ((detectedIntent === 'invoice' || detectedIntent === 'payment_link') && !effectiveDate) {
-            // Auto-set to 7 days from now as default
-            const defaultDate = new Date();
-            defaultDate.setDate(defaultDate.getDate() + 7);
-            setSelectedDate(defaultDate);
-            return; // Let user see the date and tap create again
+        // Mandatory Date Check for Payment Links and Invoices
+        // Intent "unknown" defaults to invoice, so also check that if amount/client suggests it
+        const requiresDate = detectedIntent === 'payment_link' || detectedIntent === 'invoice' || detectedIntent === 'unknown';
+
+        if (requiresDate && !effectiveDate) {
+            shakeDate();
+            Alert.alert("Date Required", "Please set a due date or expiry date for this item.");
+            return;
         }
 
         setIsCreating(true);
@@ -260,12 +277,10 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-            // Determine document type
             let documentType = 'INVOICE';
             if (detectedIntent === 'payment_link') documentType = 'PAYMENT_LINK';
             else if (detectedIntent === 'contract') documentType = 'CONTRACT';
 
-            // Build content
             const content: any = {
                 title: parsedData?.title || inputText.substring(0, 50),
                 clientName: parsedData?.clientName,
@@ -297,7 +312,6 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             if (result.success && result.data) {
                 onClose();
 
-                // Navigate to the detail/edit screen
                 switch (detectedIntent) {
                     case 'invoice':
                         router.push(`/invoice/${result.data.id}`);
@@ -318,29 +332,6 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             setIsCreating(false);
         }
     };
-
-    const renderIntentBadge = () => {
-        if (!detectedIntent || detectedIntent === 'unknown') return null;
-
-        let label = '';
-        let color = themeColors.primary;
-
-        switch (detectedIntent) {
-            case 'invoice': label = 'Invoice'; color = '#10B981'; break;
-            case 'payment_link': label = 'Payment Link'; color = '#3B82F6'; break;
-            case 'contract': label = 'Contract'; color = '#8B5CF6'; break;
-        }
-
-        return (
-            <View style={[styles.intentBadge, { backgroundColor: color + '20' }]}>
-                <MagicWand size={14} color={color} weight="fill" />
-                <Text style={[styles.intentText, { color: color }]}>{label}</Text>
-            </View>
-        );
-    };
-
-    // Dynamic label for third pill
-    const thirdPillLabel = detectedIntent === 'contract' ? 'Milestones' : 'Reminder';
 
     if (!visible) return null;
 
@@ -371,20 +362,11 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                         }
                     ]}
                 >
-                    {/* Header with Intent Badge */}
-                    <View style={styles.sheetHeader}>
-                        {renderIntentBadge()}
-                        {isLoading && <ActivityIndicator size="small" color={themeColors.textSecondary} />}
-                    </View>
-
-                    {/* Main Input */}
-                    <View style={styles.inputContainer}>
+                    {/* Input Section - Simplified (No Description) */}
+                    <View style={styles.inputSection}>
                         <TextInput
                             ref={inputRef}
-                            style={[
-                                styles.mainInput,
-                                { color: themeColors.textPrimary }
-                            ]}
+                            style={[styles.mainInput, { color: themeColors.textPrimary }]}
                             placeholder="e.g., Invoice for Acme $500 due Friday"
                             placeholderTextColor={themeColors.textPlaceholder}
                             multiline
@@ -394,26 +376,25 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                     </View>
 
                     {/* Action Pills Row */}
-                    <View style={styles.actionsRow}>
-                        {/* Date Pill */}
-                        <TouchableOpacity
-                            style={[
-                                styles.actionPill,
-                                {
-                                    borderColor: effectiveDate ? themeColors.primary : themeColors.border,
-                                    backgroundColor: effectiveDate ? themeColors.primaryLight : 'transparent',
-                                }
-                            ]}
-                            onPress={handleDateTap}
-                        >
-                            <CalendarBlank size={18} color={effectiveDate ? themeColors.primary : themeColors.textSecondary} />
-                            <Text style={[
-                                styles.actionText,
-                                { color: effectiveDate ? themeColors.primary : themeColors.textSecondary }
-                            ]}>
-                                {formatDateDisplay(effectiveDate)}
-                            </Text>
-                        </TouchableOpacity>
+                    <View style={[styles.actionsRow, { borderTopColor: themeColors.border }]}>
+                        {/* Date Pill (Shakeable) */}
+                        <Animated.View style={{ transform: [{ translateX: dateShakeAnim }] }}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.actionPill,
+                                    {
+                                        borderColor: effectiveDate ? themeColors.primary : themeColors.border,
+                                        backgroundColor: effectiveDate ? themeColors.primaryLight : 'transparent',
+                                    }
+                                ]}
+                                onPress={handleDateTap}
+                            >
+                                <CalendarBlank size={16} color={effectiveDate ? themeColors.primary : themeColors.textSecondary} weight="bold" />
+                                <Text style={[styles.actionText, { color: effectiveDate ? themeColors.primary : themeColors.textSecondary }]}>
+                                    {formatDateDisplay(effectiveDate)}
+                                </Text>
+                            </TouchableOpacity>
+                        </Animated.View>
 
                         {/* Priority Pill */}
                         <TouchableOpacity
@@ -427,35 +408,49 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                             onPress={cyclePriority}
                         >
                             <Flag
-                                size={18}
+                                size={16}
                                 color={effectivePriority ? PRIORITY_COLORS[effectivePriority] : themeColors.textSecondary}
-                                weight={effectivePriority ? 'fill' : 'regular'}
+                                weight={effectivePriority ? 'fill' : 'regular'} // Keep fill for active, but make icon heavier if intended
                             />
-                            <Text style={[
-                                styles.actionText,
-                                { color: effectivePriority ? PRIORITY_COLORS[effectivePriority] : themeColors.textSecondary }
-                            ]}>
+                            <Text style={[styles.actionText, { color: effectivePriority ? PRIORITY_COLORS[effectivePriority] : themeColors.textSecondary }]}>
                                 {effectivePriority ? PRIORITY_LABELS[effectivePriority] : 'Priority'}
                             </Text>
                         </TouchableOpacity>
 
-                        {/* Reminders/Milestones Pill */}
-                        <TouchableOpacity style={[styles.actionPill, { borderColor: themeColors.border }]}>
-                            <Signpost size={18} color={themeColors.textSecondary} />
-                            <Text style={[styles.actionText, { color: themeColors.textSecondary }]}>{thirdPillLabel}</Text>
-                        </TouchableOpacity>
+                        {/* Milestones Pill (Exclusive for Contracts) */}
+                        {(detectedIntent === 'contract' || detectedIntent === 'unknown') && (
+                            <TouchableOpacity style={[styles.actionPill, { borderColor: themeColors.border }]}>
+                                <Signpost size={16} color={themeColors.textSecondary} weight="bold" />
+                                <Text style={[styles.actionText, { color: themeColors.textSecondary }]}>Milestones</Text>
+                            </TouchableOpacity>
+                        )}
 
                         {/* More Pill */}
                         <TouchableOpacity style={[styles.iconOnlyPill, { borderColor: themeColors.border }]}>
-                            <DotsThree size={24} color={themeColors.textSecondary} />
+                            <DotsThree size={20} color={themeColors.textSecondary} weight="bold" />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Context Selector Row */}
+                    <View style={styles.contextRow}>
+                        {/* Inbox Selector */}
+                        <TouchableOpacity style={styles.contextSelector}>
+                            <Tray size={18} color={themeColors.textSecondary} weight="bold" />
+                            <Text style={[styles.contextText, { color: themeColors.textSecondary }]}>Inbox</Text>
+                            <CaretDown size={14} color={themeColors.textSecondary} weight="bold" />
                         </TouchableOpacity>
 
                         <View style={{ flex: 1 }} />
 
+                        {/* Loading Indicator */}
+                        {isLoading && (
+                            <ActivityIndicator size="small" color={themeColors.textSecondary} style={{ marginRight: 12 }} />
+                        )}
+
                         {/* Create Button */}
                         <TouchableOpacity
                             style={[
-                                styles.sendButton,
+                                styles.createButton,
                                 { backgroundColor: inputText.trim() ? themeColors.primary : themeColors.surfaceHighlight }
                             ]}
                             disabled={!inputText.trim() || isCreating}
@@ -498,77 +493,72 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.4)',
     },
     sheet: {
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingHorizontal: 16,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
         paddingTop: 16,
-        paddingBottom: 8,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.1,
         shadowRadius: 10,
         elevation: 10,
     },
-    sheetHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-        minHeight: 24,
-    },
-    intentBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 12,
-    },
-    intentText: {
-        fontSize: 13,
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-    },
-    inputContainer: {
-        marginBottom: 16,
+    inputSection: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
     mainInput: {
-        fontSize: 18,
+        fontSize: 17,
         fontFamily: 'GoogleSansFlex_500Medium',
-        minHeight: 28,
+        minHeight: 24,
         padding: 0,
+        marginBottom: 8,
     },
     actionsRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        paddingBottom: Platform.OS === 'ios' ? 0 : 8,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderTopWidth: 1,
     },
     actionPill: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        gap: 4,
         paddingHorizontal: 10,
         paddingVertical: 6,
-        borderRadius: 8,
+        borderRadius: 6,
         borderWidth: 1,
     },
     iconOnlyPill: {
-        padding: 4,
-        borderRadius: 8,
+        padding: 6,
+        borderRadius: 6,
         borderWidth: 1,
-        width: 34,
-        height: 34,
-        justifyContent: 'center',
-        alignItems: 'center',
     },
     actionText: {
         fontSize: 13,
         fontFamily: 'GoogleSansFlex_500Medium',
     },
-    sendButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+    contextRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: Platform.OS === 'ios' ? 8 : 16,
+    },
+    contextSelector: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    contextText: {
+        fontSize: 14,
+        fontFamily: 'GoogleSansFlex_500Medium',
+    },
+    createButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
     }
