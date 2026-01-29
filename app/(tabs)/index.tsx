@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useRouter } from 'expo-router';
 import { ProfileModal } from '../../components/ProfileModal';
 import { UniversalCreationBox } from '../../components/UniversalCreationBox';
+import { AnimatedListItem } from '../../components/AnimatedListItem';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -157,23 +158,21 @@ export default function HomeDashboard() {
         if (count === 0 && !badgeText) return null;
 
         return (
-            <TouchableOpacity
-                style={[styles.row, { backgroundColor: themeColors.surface }]}
-                onPress={onPress}
-                activeOpacity={0.7}
-            >
-                <Text style={[styles.rowLabel, { color: themeColors.textPrimary }]}>{label}</Text>
-                <View style={styles.rowRight}>
-                    {badgeText && (
-                        <View style={[styles.badge, { backgroundColor: '#F1F5F9' }]}>
-                            <Text style={styles.badgeText}>{badgeText}</Text>
+            <AnimatedListItem onPress={onPress}>
+                <View style={[styles.row, { backgroundColor: themeColors.surface }]}>
+                    <Text style={[styles.rowLabel, { color: themeColors.textPrimary }]}>{label}</Text>
+                    <View style={styles.rowRight}>
+                        {badgeText && (
+                            <View style={[styles.badge, { backgroundColor: '#F1F5F9' }]}>
+                                <Text style={styles.badgeText}>{badgeText}</Text>
+                            </View>
+                        )}
+                        <View style={[styles.countBadge, { backgroundColor: '#F1F5F9' }]}>
+                            <Text style={styles.countText}>{count}</Text>
                         </View>
-                    )}
-                    <View style={[styles.countBadge, { backgroundColor: '#F1F5F9' }]}>
-                        <Text style={styles.countText}>{count}</Text>
                     </View>
                 </View>
-            </TouchableOpacity>
+            </AnimatedListItem>
         );
     };
 

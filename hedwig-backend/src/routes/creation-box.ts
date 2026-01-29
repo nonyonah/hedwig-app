@@ -9,6 +9,7 @@ const router = Router();
 /**
  * POST /api/creation-box/parse
  * Parse natural language input to extract intent and structured data
+ * Uses Gemini's full system instructions for better intent recognition
  */
 router.post('/parse', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -22,50 +23,14 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             return;
         }
 
-        logger.debug('Parsing creation box input', { textLength: text.length });
+        logger.debug('[CreationBox] Parsing input', { textLength: text.length, text });
 
-        // Use Gemini to parse the input
-        const prompt = `
-You are a structured data extractor for a freelancer financial platform. 
-Analyze the following text and extract relevant information for creating invoices, payment links, or contracts.
-
-User input: "${text}"
-
-Extract all of the following and respond ONLY with valid JSON (no markdown, no explanation):
-{
-    "intent": "invoice" | "payment_link" | "contract" | "unknown",
-    "clientName": "string or null",
-    "amount": number or null,
-    "currency": "USD" | "NGN" | "EUR" | "GBP" | null,
-    "dueDate": "ISO 8601 date string or null",
-    "priority": "low" | "medium" | "high" | null,
-    "title": "string or null",
-    "confidence": 0.0-1.0
-}
-
-Date parsing rules:
-- "tomorrow" = today + 1 day
-- "next week" = today + 7 days
-- "Friday" = the coming Friday
-- "in X days" = today + X days
-- If no date mentioned, set to null
-
-Priority parsing rules:
-- "p1", "high priority", "urgent", "asap" = "high"
-- "p2", "normal", "regular" = "medium"  
-- "p3", "low", "whenever" = "low"
-- If not mentioned, set to null
-
-Currency rules:
-- "$", "dollars", "usd" = "USD"
-- "₦", "naira", "ngn" = "NGN"
-- "€", "euro", "eur" = "EUR"
-- "£", "pounds", "gbp" = "GBP"
-- Default to null if unclear
-`;
-
-        const result = await GeminiService.generateChatResponse(prompt, [], undefined, {});
+        // Use Gemini's chat response which includes system instructions for intent recognition
+        // This will properly detect intents like invoice, payment_link, contract, etc.
+        const result = await GeminiService.generateChatResponse(text, [], undefined, {});
         
+        logger.debug('[CreationBox] Gemini raw response', { result });
+
         // Extract JSON from the response
         let parsedData: {
             intent: string;
@@ -76,6 +41,7 @@ Currency rules:
             priority: string | null;
             title: string | null;
             confidence: number;
+            parameters?: any;
         } = {
             intent: 'unknown',
             clientName: null,
@@ -92,13 +58,89 @@ Currency rules:
             const responseText = typeof result === 'string' ? result : 
                 (result.textResponse || result.response || JSON.stringify(result));
             
+            logger.debug('[CreationBox] Processing response text', { responseText: responseText.substring(0, 200) });
+
+            // Try to extract JSON object from response
             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 const extracted = JSON.parse(jsonMatch[0]);
-                parsedData = { ...parsedData, ...extracted };
+                logger.debug('[CreationBox] Extracted JSON', { extracted });
+
+                // Map Gemini response to our format
+                parsedData.intent = extracted.intent || parsedData.intent;
+                
+                // Extract parameters if available
+                if (extracted.parameters) {
+                    const params = extracted.parameters;
+                    
+                    // Client name
+                    parsedData.clientName = params.clientName || params.client_name || null;
+                    
+                    // Amount - handle various formats
+                    if (params.amount) {
+                        const amountStr = typeof params.amount === 'string' 
+                            ? params.amount.replace(/[^0-9.]/g, '') 
+                            : params.amount.toString();
+                        parsedData.amount = parseFloat(amountStr);
+                    }
+                    
+                    // Currency
+                    parsedData.currency = params.currency || 'USD';
+                    
+                    // Due date
+                    if (params.dueDate || params.due_date) {
+                        parsedData.dueDate = params.dueDate || params.due_date;
+                    }
+                    
+                    // Priority
+                    if (params.priority) {
+                        const priorityStr = params.priority.toLowerCase();
+                        if (priorityStr.includes('high') || priorityStr === 'p1') {
+                            parsedData.priority = 'high';
+                        } else if (priorityStr.includes('medium') || priorityStr === 'p2') {
+                            parsedData.priority = 'medium';
+                        } else if (priorityStr.includes('low') || priorityStr === 'p3') {
+                            parsedData.priority = 'low';
+                        }
+                    }
+                    
+                    // Title
+                    parsedData.title = params.title || params.description || text.substring(0, 50);
+                } else {
+                    // Fallback: try to extract from top-level fields
+                    parsedData.clientName = extracted.clientName || extracted.client_name || null;
+                    parsedData.amount = extracted.amount || null;
+                    parsedData.currency = extracted.currency || 'USD';
+                    parsedData.dueDate = extracted.dueDate || extracted.due_date || null;
+                    parsedData.priority = extracted.priority || null;
+                    parsedData.title = extracted.title || text.substring(0, 50);
+                }
+                
+                parsedData.confidence = extracted.confidence || 0.7;
+            } else {
+                logger.warn('[CreationBox] No JSON found in response, using defaults');
+                // Try to extract basic info from text
+                parsedData.title = text.substring(0, 50);
+                
+                // Simple intent detection
+                const lowerText = text.toLowerCase();
+                if (lowerText.includes('invoice')) {
+                    parsedData.intent = 'invoice';
+                } else if (lowerText.includes('payment link') || lowerText.includes('pay link')) {
+                    parsedData.intent = 'payment_link';
+                } else if (lowerText.includes('contract')) {
+                    parsedData.intent = 'contract';
+                }
+                
+                // Extract amount if present
+                const amountMatch = text.match(/\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)|(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:dollars|usd)/i);
+                if (amountMatch) {
+                    const amountStr = (amountMatch[1] || amountMatch[2]).replace(/,/g, '');
+                    parsedData.amount = parseFloat(amountStr);
+                }
             }
         } catch (parseError) {
-            logger.warn('Failed to parse Gemini response as JSON', { error: parseError });
+            logger.error('[CreationBox] Failed to parse Gemini response', { error: parseError, result });
         }
 
         // Normalize the date to ISO string if it's a relative date
@@ -110,13 +152,16 @@ Currency rules:
                 }
             } catch {
                 // Keep original value if parsing fails
+                logger.warn('[CreationBox] Failed to parse date', { dueDate: parsedData.dueDate });
             }
         }
 
-        logger.debug('Parsed creation box data', { 
+        logger.info('[CreationBox] Parsed data successfully', { 
             intent: parsedData.intent, 
             hasClient: !!parsedData.clientName,
-            hasAmount: !!parsedData.amount 
+            hasAmount: !!parsedData.amount,
+            hasDueDate: !!parsedData.dueDate,
+            priority: parsedData.priority
         });
 
         res.json({
@@ -125,7 +170,7 @@ Currency rules:
         });
 
     } catch (error) {
-        logger.error('Creation box parsing error', { error });
+        logger.error('[CreationBox] Parsing error', { error });
         next(error);
     }
 });

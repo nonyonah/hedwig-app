@@ -1,3 +1,7 @@
+// Crypto polyfills - MUST be first before any other imports
+import 'react-native-get-random-values';
+import 'fast-text-encoding';
+
 import React, { useCallback } from 'react';
 import { Stack, useNavigationContainerRef } from 'expo-router';
 import { PrivyProvider } from '@privy-io/expo';

@@ -13,6 +13,7 @@ import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
+import { ContractIcon } from '../../components/ui/ContractIcon';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
@@ -306,7 +307,7 @@ export default function ContractsScreen() {
                         <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
                     </View>
                     <View style={[styles.iconContainer, { backgroundColor: themeColors.background }]}>
-                        <FileText size={24} color={themeColors.textSecondary} weight="duotone" />
+                        <ContractIcon status={item.status} size={40} />
                     </View>
                 </View>
 

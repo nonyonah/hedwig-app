@@ -8,7 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "image": "macos-sequoia-15.6-xcode-26.0"
+        "image": "macos-sequoia-15.6-xcode-26.0",
+        "credentialsSource": "remote"
       },
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",

@@ -79,7 +79,8 @@
           "project": "react-native",
           "organization": "hedwig-dd"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "extra": {
       "router": {

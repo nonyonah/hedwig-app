@@ -9,8 +9,8 @@ import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 
 import {
-    NetworkBase,
-    TokenETH, TokenUSDC
+    NetworkBase, NetworkSolana,
+    TokenETH, TokenUSDC, TokenSOL
 } from './CryptoIcons';
 import { getUserGradient } from '../utils/gradientUtils';
 import { ModalBackdrop, modalHaptic, getModalAnimationConfig } from './ui/ModalStyles';
@@ -57,7 +57,17 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
             { symbol: 'USDC', icon: TokenUSDC }
         ]
     },
-    // Solana temporarily disabled - Base only for now
+    {
+        name: 'Solana',
+        id: 900,
+        icon: NetworkSolana,
+        color: '#14F195',
+        addressType: 'solana',
+        tokens: [
+            { symbol: 'SOL', icon: TokenSOL },
+            { symbol: 'USDC', icon: TokenUSDC }
+        ]
+    }
 ];
 
 // Profile color gradient options (same as in profile.tsx)

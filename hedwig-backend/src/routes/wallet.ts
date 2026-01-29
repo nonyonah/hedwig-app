@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, privy } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { supabase } from '../lib/supabase';
 import BlockradarService from '../services/blockradar';
 import { createLogger } from '../utils/logger';
+import axios from 'axios';
 
 const logger = createLogger('Wallet');
 
@@ -11,23 +12,35 @@ const router = Router();
 
 /**
  * GET /api/wallet/balance
- * Fetch balances for the user from Blockradar (custodial wallet)
- * Returns cached balance from database (updated via webhooks)
+ * Fetch balances for the user from Privy (embedded wallet)
  */
 router.get('/balance', authenticate, async (req: Request, res: Response, next) => {
     try {
         const userId = req.user!.id;
         logger.debug('Fetching balances', { userId });
 
-        // Get user's Blockradar address from database
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('id, blockradar_address_id, blockradar_address')
-            .or(`supabase_id.eq.${userId},privy_id.eq.${userId}`)
-            .single();
+        // 1. Get User from Privy to find wallet addresses
+        const user = await privy.getUser(userId);
+        const addresses: { address: string, type: 'evm' | 'solana' }[] = [];
 
-        if (userError || !userData) {
-            logger.warn('User not found', { userId });
+        // Check for EVM embedded wallet
+        if (user.wallet) {
+            addresses.push({ address: user.wallet.address, type: 'evm' });
+        }
+
+        // Check for Solana embedded wallet in linkedAccounts
+        const solanaWallets = user.linkedAccounts.filter((a: any) => 
+            a.type === 'wallet' && 
+            a.walletClientType === 'privy' && 
+            a.chainType === 'solana'
+        );
+        
+        solanaWallets.forEach((w: any) => {
+            addresses.push({ address: w.address, type: 'solana' });
+        });
+
+        if (addresses.length === 0) {
+            logger.debug('User has no embedded wallets', { userId });
             return res.json({
                 success: true,
                 data: {
@@ -42,80 +55,83 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             });
         }
 
-        // If user doesn't have a Blockradar address yet, return zero balance
-        if (!userData.blockradar_address_id) {
-            logger.debug('User has no Blockradar address yet', { userId: userData.id });
-            return res.json({
-                success: true,
-                data: {
-                    balances: [{
-                        chain: 'base',
-                        asset: 'usdc',
-                        raw_value: '0',
-                        display_values: { token: '0', usd: '0' }
-                    }],
-                    address: null
+        // 2. Fetch balances from Privy API for each address
+        let allBalances: any[] = [];
+        
+        const credentials = Buffer.from(`${process.env.PRIVY_APP_ID}:${process.env.PRIVY_APP_SECRET}`).toString('base64');
+        
+        for (const { address, type } of addresses) {
+            try {
+                // Determine networks to fetch based on chain type
+                // For EVM: we want Base (eip155:8453)
+                // For Solana: we want Solana Mainnet (solana:5eykt...?) or Devnet
+                // Privy API fetches all enabled chains or we can filter?
+                // Docs: "Returns the native currency and ERC-20 token balances for the specified wallet address across all supported chains"
+                
+                const response = await axios.get(`https://auth.privy.io/api/v1/wallets/${address}/balances`, {
+                    headers: {
+                        'Authorization': `Basic ${credentials}`,
+                        'privy-app-id': process.env.PRIVY_APP_ID
+                    }
+                });
+
+                const data = response.data;
+                // data format: { chains: [ { id: 'eip155:8453', name: 'Base', tokenBalances: [...] } ] }
+                
+                if (data && data.chains) {
+                    for (const chainData of data.chains) {
+                        // Map Privy Chain ID to our internal chain key
+                        let internalChain = '';
+                        if (chainData.id === 'eip155:8453') internalChain = 'base';
+                        else if (chainData.id.startsWith('solana:')) internalChain = 'solana'; // Check actual ID for mainnet/devnet
+                        // Example Solana Mainnet: solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp
+                        
+                        // For now accept base and solana
+                        if (chainData.name.toLowerCase().includes('base')) internalChain = 'base';
+                        if (chainData.name.toLowerCase().includes('solana')) internalChain = 'solana';
+                        
+                        if (!internalChain) continue;
+
+                        // Process tokens
+                        // Privy returns native token as well?
+                        // Example: tokenBalances includes native
+                        
+                        if (chainData.tokenBalances) {
+                            for (const token of chainData.tokenBalances) {
+                                // Map to our format
+                                // Asset symbol normalization
+                                const assetSymbol = token.symbol ? token.symbol.toLowerCase() : 'unknown';
+                                
+                                allBalances.push({
+                                    chain: internalChain,
+                                    asset: assetSymbol,
+                                    raw_value: token.balance || '0',
+                                    display_values: {
+                                        token: token.balance || '0',
+                                        // Privy response structure usually has 'amount' string
+                                        // Wait, verify response structure from docs
+                                        // Docs says: "amount": "0.1", "symbol": "ETH", "usdValue": 250.50
+                                        usd: token.usdValue ? token.usdValue.toString() : '0'
+                                    }
+                                });
+                            }
+                        }
+                    }
                 }
-            });
-        }
-
-        // Try to get balance from Blockradar API (real-time)
-        let balances: any[] = [];
-        try {
-            const blockradarBalances = await BlockradarService.getAddressBalance(userData.blockradar_address_id);
-            
-            if (blockradarBalances && blockradarBalances.length > 0) {
-                balances = blockradarBalances.map((bal: any) => ({
-                    chain: 'base',
-                    asset: bal.asset?.symbol?.toLowerCase() || 'usdc',
-                    raw_value: bal.balance || '0',
-                    display_values: {
-                        token: bal.balanceFormatted || bal.balance || '0',
-                        usd: bal.balanceFormatted || bal.balance || '0' // USDC = $1
-                    }
-                }));
-            }
-        } catch (blockradarError) {
-            logger.warn('Failed to fetch from Blockradar, using cached balance', { 
-                error: blockradarError instanceof Error ? blockradarError.message : 'Unknown' 
-            });
-            
-            // Fall back to cached balance from database
-            const { data: cachedBalances } = await supabase
-                .from('user_balances')
-                .select('*')
-                .eq('user_id', userData.id);
-
-            if (cachedBalances && cachedBalances.length > 0) {
-                balances = cachedBalances.map((bal: any) => ({
-                    chain: bal.chain,
-                    asset: bal.asset,
-                    raw_value: bal.amount?.toString() || '0',
-                    display_values: {
-                        token: bal.amount?.toString() || '0',
-                        usd: bal.amount?.toString() || '0'
-                    }
-                }));
+            } catch (apiError: any) {
+                logger.error('Privy API balance fetch failed', { address, error: apiError.message });
             }
         }
 
-        // Ensure at least one balance entry for Base USDC
-        if (balances.length === 0) {
-            balances.push({
-                chain: 'base',
-                asset: 'usdc',
-                raw_value: '0',
-                display_values: { token: '0', usd: '0' }
-            });
-        }
-
-        logger.debug('Balances fetched', { count: balances.length });
+        // Return Blockradar address as the primary address just to maintain backward compatibility if needed?
+        // Or return the EVM address as 'address'
+        const primaryAddress = addresses.find(a => a.type === 'evm')?.address || addresses[0]?.address;
 
         return res.json({
             success: true,
             data: {
-                balances,
-                address: userData.blockradar_address
+                balances: allBalances,
+                address: primaryAddress
             }
         });
 

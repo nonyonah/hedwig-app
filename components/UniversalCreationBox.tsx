@@ -19,6 +19,8 @@ import { useThemeColors } from '../theme/colors';
 import { CalendarBlank, Flag, Signpost, DotsThree, Tray, CaretDown, Check } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
+import { SwiftUICreationBox } from './ios/SwiftUICreationBox';
+import { MaterialCreationBox } from './android/MaterialCreationBox';
 
 // Screen dimensions
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -72,12 +74,12 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
     // UI state
     const [isCreating, setIsCreating] = useState(false);
 
-    // Animations
+    // Animations (for fallback web view)
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const dateShakeAnim = useRef(new Animated.Value(0)).current;
 
-    // Input ref
+    // Input ref (for fallback web view)
     const inputRef = useRef<TextInput>(null);
 
     // Debounce timer
@@ -100,37 +102,41 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             setIsLoading(false);
             setIsCreating(false);
 
-            // Spring Animate In
-            Animated.parallel([
-                Animated.spring(slideAnim, {
-                    toValue: 0,
-                    useNativeDriver: true,
-                    damping: 20,
-                    stiffness: 90,
-                    mass: 0.5,
-                }),
-                Animated.timing(fadeAnim, {
-                    toValue: 1,
-                    duration: 200,
-                    useNativeDriver: true,
-                })
-            ]).start(() => {
-                inputRef.current?.focus();
-            });
+            // Only animate for web fallback
+            if (Platform.OS === 'web') {
+                Animated.parallel([
+                    Animated.spring(slideAnim, {
+                        toValue: 0,
+                        useNativeDriver: true,
+                        damping: 20,
+                        stiffness: 90,
+                        mass: 0.5,
+                    }),
+                    Animated.timing(fadeAnim, {
+                        toValue: 1,
+                        duration: 200,
+                        useNativeDriver: true,
+                    })
+                ]).start(() => {
+                    inputRef.current?.focus();
+                });
+            }
         } else {
             Keyboard.dismiss();
-            Animated.parallel([
-                Animated.timing(slideAnim, {
-                    toValue: SCREEN_HEIGHT,
-                    duration: 250,
-                    useNativeDriver: true, // Spring out is less natural on close usually, timing feels snappier for exit
-                }),
-                Animated.timing(fadeAnim, {
-                    toValue: 0,
-                    duration: 200,
-                    useNativeDriver: true,
-                })
-            ]).start();
+            if (Platform.OS === 'web') {
+                Animated.parallel([
+                    Animated.timing(slideAnim, {
+                        toValue: SCREEN_HEIGHT,
+                        duration: 250,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(fadeAnim, {
+                        toValue: 0,
+                        duration: 200,
+                        useNativeDriver: true,
+                    })
+                ]).start();
+            }
         }
     }, [visible]);
 
@@ -147,6 +153,7 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
+            console.log('[UniversalCreationBox] Parsing text:', text);
             const response = await fetch(`${apiUrl}/api/creation-box/parse`, {
                 method: 'POST',
                 headers: {
@@ -157,6 +164,8 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             });
 
             const result = await response.json();
+            console.log('[UniversalCreationBox] Parse result:', result);
+
             if (result.success && result.data) {
                 LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                 setParsedData(result.data);
@@ -172,7 +181,8 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                 }
             }
         } catch (error) {
-            console.error('Parse error:', error);
+            console.error('[UniversalCreationBox] Parse error:', error);
+            Alert.alert('Error', 'Failed to parse input. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -262,7 +272,6 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
         if (!inputText.trim()) return;
 
         // Mandatory Date Check for Payment Links and Invoices
-        // Intent "unknown" defaults to invoice, so also check that if amount/client suggests it
         const requiresDate = detectedIntent === 'payment_link' || detectedIntent === 'invoice' || detectedIntent === 'unknown';
 
         if (requiresDate && !effectiveDate) {
@@ -293,6 +302,8 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                 content.dueDate = effectiveDate.toISOString();
             }
 
+            console.log('[UniversalCreationBox] Creating document:', { type: documentType, content });
+
             const response = await fetch(`${apiUrl}/api/documents`, {
                 method: 'POST',
                 headers: {
@@ -308,6 +319,7 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             });
 
             const result = await response.json();
+            console.log('[UniversalCreationBox] Create result:', result);
 
             if (result.success && result.data) {
                 onClose();
@@ -320,19 +332,69 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                         router.push(`/payment-link/${result.data.id}`);
                         break;
                     case 'contract':
-                        router.push(`/contracts/${result.data.id}`);
+                        router.push(`/contracts`);
                         break;
                     default:
                         router.push(`/invoice/${result.data.id}`);
                 }
+            } else {
+                throw new Error(result.error?.message || 'Failed to create document');
             }
-        } catch (error) {
-            console.error('Create error:', error);
+        } catch (error: any) {
+            console.error('[UniversalCreationBox] Create error:', error);
+            Alert.alert('Error', error?.message || 'Failed to create document. Please try again.');
         } finally {
             setIsCreating(false);
         }
     };
 
+    // Render platform-specific implementation
+    // iOS: Uses native Modal with BlurView and Haptics
+    // Android: Uses Material Design bottom sheet
+    // Web: Uses fallback Modal
+
+    // iOS specific implementation
+    if (Platform.OS === 'ios') {
+        return (
+            <SwiftUICreationBox
+                visible={visible}
+                onClose={onClose}
+                inputText={inputText}
+                onInputChange={handleTextChange}
+                onCreate={handleCreate}
+                isLoading={isLoading}
+                isCreating={isCreating}
+                effectiveDate={effectiveDate}
+                effectivePriority={effectivePriority}
+                onDateTap={handleDateTap}
+                onPriorityTap={cyclePriority}
+                formatDateDisplay={formatDateDisplay}
+            />
+        );
+    }
+
+    // Android specific implementation
+    if (Platform.OS === 'android') {
+        return (
+            <MaterialCreationBox
+                visible={visible}
+                onClose={onClose}
+                inputText={inputText}
+                onInputChange={handleTextChange}
+                onCreate={handleCreate}
+                isLoading={isLoading}
+                isCreating={isCreating}
+                effectiveDate={effectiveDate}
+                effectivePriority={effectivePriority}
+                detectedIntent={detectedIntent}
+                onDateTap={handleDateTap}
+                onPriorityTap={cyclePriority}
+                formatDateDisplay={formatDateDisplay}
+            />
+        );
+    }
+
+    // Web fallback (also used for iOS when @expo/ui not available)
     if (!visible) return null;
 
     return (
@@ -343,7 +405,6 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             animationType="none"
         >
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 style={styles.container}
                 keyboardVerticalOffset={0}
             >
@@ -362,7 +423,7 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                         }
                     ]}
                 >
-                    {/* Input Section - Simplified (No Description) */}
+                    {/* Input Section */}
                     <View style={styles.inputSection}>
                         <TextInput
                             ref={inputRef}
@@ -410,7 +471,7 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                             <Flag
                                 size={16}
                                 color={effectivePriority ? PRIORITY_COLORS[effectivePriority] : themeColors.textSecondary}
-                                weight={effectivePriority ? 'fill' : 'regular'} // Keep fill for active, but make icon heavier if intended
+                                weight={effectivePriority ? 'fill' : 'regular'}
                             />
                             <Text style={[styles.actionText, { color: effectivePriority ? PRIORITY_COLORS[effectivePriority] : themeColors.textSecondary }]}>
                                 {effectivePriority ? PRIORITY_LABELS[effectivePriority] : 'Priority'}
@@ -544,7 +605,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 16,
         paddingTop: 8,
-        paddingBottom: Platform.OS === 'ios' ? 8 : 16,
+        paddingBottom: 16,
     },
     contextSelector: {
         flexDirection: 'row',

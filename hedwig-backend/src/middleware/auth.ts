@@ -6,7 +6,7 @@ import { createLogger } from '../utils/logger';
 const logger = createLogger('AuthMiddleware');
 
 // Initialize Privy client
-const privy = new PrivyClient(
+export const privy = new PrivyClient(
     process.env.PRIVY_APP_ID!,
     process.env.PRIVY_APP_SECRET!
 );
