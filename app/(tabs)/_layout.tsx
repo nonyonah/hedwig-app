@@ -3,14 +3,19 @@ import { Tabs, useRouter } from 'expo-router';
 import { View, Platform, StyleSheet } from 'react-native';
 import { useEffect } from 'react';
 import { House, Receipt, Link, Scroll, DotsThreeCircle } from 'phosphor-react-native';
+import { BlurView } from 'expo-blur';
 
 import { useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
+
+import { useSettings } from '../../context/SettingsContext';
 
 export default function TabLayout() {
     const themeColors = useThemeColors();
     const router = useRouter();
     const { user, isReady } = useAuth();
+    const { currentTheme } = useSettings();
+    const isDark = currentTheme === 'dark';
 
     useEffect(() => {
         if (isReady && !user) {
@@ -35,13 +40,17 @@ export default function TabLayout() {
                 },
                 tabBarBackground: () => (
                     Platform.OS === 'ios' ? (
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: themeColors.surface }]} />
+                        <BlurView
+                            intensity={80}
+                            tint={isDark ? 'dark' : 'light'}
+                            style={StyleSheet.absoluteFill}
+                        />
                     ) : (
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: themeColors.surface }]} />
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]} />
                     )
                 ),
                 tabBarActiveTintColor: themeColors.primary,
-                tabBarInactiveTintColor: themeColors.textSecondary,
+                tabBarInactiveTintColor: isDark ? '#6B7280' : '#9CA3AF', // Softer gray
                 tabBarLabelStyle: {
                     fontFamily: 'GoogleSansFlex_500Medium',
                     fontSize: 12,

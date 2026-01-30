@@ -115,7 +115,6 @@ export default function TransactionsScreen() {
 
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
 
     // Profile Modal
@@ -362,26 +361,25 @@ export default function TransactionsScreen() {
         <View style={{ flex: 1, backgroundColor: themeColors.background }}>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={themeColors.textPrimary} weight="bold" />
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Transactions</Text>
-                    <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                        {profileIcon.imageUri ? (
-                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                        ) : profileIcon.emoji ? (
-                            <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                            </View>
-                        ) : (
-                            <LinearGradient
-                                colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.profileIcon}
-                            />
-                        )}
-                    </TouchableOpacity>
+                    <View style={styles.headerTop}>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Transactions</Text>
+                        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
+                            {profileIcon.imageUri ? (
+                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                            ) : profileIcon.emoji ? (
+                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                                </View>
+                            ) : (
+                                <LinearGradient
+                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.profileIcon}
+                                />
+                            )}
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {isLoading ? (
@@ -411,14 +409,7 @@ export default function TransactionsScreen() {
                 )}
             </SafeAreaView>
 
-            <Sidebar
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-                userName={userData ? { firstName: userData.firstName, lastName: userData.lastName } : undefined}
-                conversations={conversations}
-                onHomeClick={() => router.push('/')}
-                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
-            />
+
 
             {/* Profile Modal */}
             <ProfileModal
@@ -554,15 +545,24 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
     },
     header: {
+        backgroundColor: Colors.background,
+    },
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
         justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        height: 60,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: 28,
         color: Colors.textPrimary,
     },
     profileIcon: {

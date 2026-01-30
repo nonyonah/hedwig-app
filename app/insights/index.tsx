@@ -139,7 +139,6 @@ export default function InsightsScreen() {
 
     // Profile and Sidebar state
     const { getAccessToken, user } = useAuth();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
@@ -375,30 +374,25 @@ export default function InsightsScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             {/* Header */}
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                <TouchableOpacity
-                    onPress={() => setIsSidebarOpen(true)}
-                    style={styles.menuButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    <List size={24} color={themeColors.textPrimary} weight="bold" />
-                </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Insights</Text>
-                <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                    {profileIcon.imageUri ? (
-                        <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                    ) : profileIcon.emoji ? (
-                        <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                            <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                        </View>
-                    ) : (
-                        <LinearGradient
-                            colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.profileIcon}
-                        />
-                    )}
-                </TouchableOpacity>
+                <View style={styles.headerTop}>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Insights</Text>
+                    <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
+                        {profileIcon.imageUri ? (
+                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                        ) : profileIcon.emoji ? (
+                            <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                            </View>
+                        ) : (
+                            <LinearGradient
+                                colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.profileIcon}
+                            />
+                        )}
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <ScrollView
@@ -519,14 +513,7 @@ export default function InsightsScreen() {
             </ScrollView>
 
             {/* Sidebar */}
-            <Sidebar
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-                userName={userName}
-                conversations={conversations}
-                onHomeClick={() => router.push('/')}
-                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
-            />
+
 
             {/* Profile Modal */}
             <ProfileModal
@@ -553,11 +540,20 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
+        backgroundColor: Colors.background,
+    },
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        height: 60,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     menuButton: {
         width: 40,
@@ -573,7 +569,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: 28,
     },
     content: {
         flex: 1,

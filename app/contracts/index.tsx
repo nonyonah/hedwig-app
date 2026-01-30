@@ -11,7 +11,7 @@ import { List, CheckCircle, FileText, X, UserCircle, Trash, DotsThree, PaperPlan
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
-import { Sidebar } from '../../components/Sidebar';
+
 import { ProfileModal } from '../../components/ProfileModal';
 import { ContractIcon } from '../../components/ui/ContractIcon';
 import { getUserGradient } from '../../utils/gradientUtils';
@@ -43,13 +43,12 @@ export default function ContractsScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedContract, setSelectedContract] = useState<any>(null);
     const [showModal, setShowModal] = useState(false);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
     const [showActionMenu, setShowActionMenu] = useState(false);
-    const [conversations, setConversations] = useState<any[]>([]);
+
     const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'approved'>('all');
 
     // Track page view
@@ -113,14 +112,7 @@ export default function ContractsScreen() {
                     });
                 }
 
-                // Fetch recent conversations for sidebar
-                const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-                const conversationsData = await conversationsResponse.json();
-                if (conversationsData.success && conversationsData.data) {
-                    setConversations(conversationsData.data.slice(0, 10));
-                }
+
             } catch (error) {
                 console.error('Failed to fetch user data:', error);
             }
@@ -307,7 +299,10 @@ export default function ContractsScreen() {
                         <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
                     </View>
                     <View style={[styles.iconContainer, { backgroundColor: themeColors.background }]}>
-                        <ContractIcon status={item.status} size={40} />
+                        <Image
+                            source={require('../../assets/icons/colored/contract.png')}
+                            style={{ width: 40, height: 40, resizeMode: 'contain' }}
+                        />
                     </View>
                 </View>
 
@@ -327,49 +322,53 @@ export default function ContractsScreen() {
         );
     };
 
+    const isDark = settings.currentTheme === 'dark';
+
+    // ... (existing code)
+
     return (
         <View style={{ flex: 1 }}>
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={themeColors.textPrimary} weight="bold" />
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Contracts</Text>
-                    <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                        {profileIcon.imageUri ? (
-                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                        ) : profileIcon.emoji ? (
-                            <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                            </View>
-                        ) : (
-                            <LinearGradient
-                                colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.profileIcon}
-                            />
-                        )}
-                    </TouchableOpacity>
-                </View>
+                    <View style={styles.headerTop}>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Contracts</Text>
+                        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
+                            {profileIcon.imageUri ? (
+                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                            ) : profileIcon.emoji ? (
+                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                                </View>
+                            ) : (
+                                <LinearGradient
+                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.profileIcon}
+                                />
+                            )}
+                        </TouchableOpacity>
+                    </View>
 
-                {/* Filter Chips */}
-                <View style={styles.filterContainer}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+                    {/* Filter Chips inside Header */}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.filterContent}
+                        style={styles.filterScrollView}
+                    >
                         {(['all', 'draft', 'sent', 'approved'] as const).map(filter => (
                             <TouchableOpacity
                                 key={filter}
                                 style={[
                                     styles.filterChip,
-                                    { backgroundColor: themeColors.surface },
-                                    statusFilter === filter && { backgroundColor: Colors.primary }
+                                    { backgroundColor: statusFilter === filter ? Colors.primary : themeColors.surfaceHighlight }
                                 ]}
                                 onPress={() => setStatusFilter(filter)}
                             >
                                 <Text style={[
                                     styles.filterText,
-                                    { color: themeColors.textSecondary },
-                                    statusFilter === filter && styles.filterTextActive
+                                    { color: statusFilter === filter ? '#FFFFFF' : themeColors.textSecondary },
                                 ]}>
                                     {filter.charAt(0).toUpperCase() + filter.slice(1)}
                                 </Text>
@@ -409,14 +408,7 @@ export default function ContractsScreen() {
                 profileIcon={profileIcon}
             />
 
-            <Sidebar
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-                userName={userName}
-                conversations={conversations}
-                onHomeClick={() => router.push('/')}
-                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
-            />
+
 
             {/* Details Modal */}
             <Modal
@@ -589,31 +581,39 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
+        paddingBottom: 12,
+    },
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingVertical: 12,
         height: 60,
     },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: 28,
     },
     profileIcon: {
         width: 32,
         height: 32,
         borderRadius: 16,
     },
-    filterContainer: {
-        marginBottom: 16,
+    filterScrollView: {
+        marginTop: 4,
     },
     filterContent: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         gap: 8,
     },
     filterChip: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 20, // Increased from 16 to match card padding (20) for text alignment
         paddingVertical: 8,
         borderRadius: 20,
     },
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
     },
     listContent: {
         padding: 16,
-        paddingBottom: 32,
+        paddingBottom: 120,
     },
     card: {
         borderRadius: 24,

@@ -50,7 +50,6 @@ export default function ClientsScreen() {
     const [isSaving, setIsSaving] = useState(false);
 
     // Sidebar state
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
 
@@ -322,7 +321,7 @@ export default function ClientsScreen() {
                 } else {
                     setClients(prev => [data.data.client, ...prev]);
                     // Track client created
-                    Analytics.clientCreated();
+                    Analytics.clientCreated(user?.id || 'unknown', data.data.client.id);
                 }
                 closeFormModal();
                 setShowDetailModal(false);
@@ -415,21 +414,12 @@ export default function ClientsScreen() {
     };
 
     // Sidebar component (always rendered)
-    const sidebarElement = (
-        <Sidebar
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
-            userName={userName}
-            conversations={conversations}
-            onHomeClick={() => router.push('/')}
-            onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
-        />
-    );
+
 
     if (isLoading) {
         return (
             <>
-                {sidebarElement}
+
                 <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color={Colors.primary} />
@@ -442,34 +432,33 @@ export default function ClientsScreen() {
 
     return (
         <>
-            {sidebarElement}
+
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setIsSidebarOpen(true); }}>
-                        <List size={24} color={themeColors.textPrimary} weight="bold" />
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Clients</Text>
-                    <View style={styles.headerRight}>
-                        <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openFormModal(); }}>
-                            <Plus size={24} color={themeColors.textPrimary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                            {profileIcon.imageUri ? (
-                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                            ) : profileIcon.emoji ? (
-                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                                </View>
-                            ) : (
-                                <LinearGradient
-                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.profileIcon}
-                                />
-                            )}
-                        </TouchableOpacity>
+                    <View style={styles.headerTop}>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Clients</Text>
+                        <View style={styles.headerRight}>
+                            <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openFormModal(); }}>
+                                <Plus size={24} color={themeColors.textPrimary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setShowProfileModal(true)}>
+                                {profileIcon.imageUri ? (
+                                    <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                                ) : profileIcon.emoji ? (
+                                    <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                        <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                                    </View>
+                                ) : (
+                                    <LinearGradient
+                                        colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.profileIcon}
+                                    />
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
 
@@ -720,17 +709,24 @@ const styles = StyleSheet.create({
         marginTop: 12,
     },
     header: {
+        backgroundColor: Colors.background,
+    },
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: Colors.background,
         height: 60,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: 28,
         color: Colors.textPrimary,
     },
     headerRight: {

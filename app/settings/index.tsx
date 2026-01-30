@@ -38,7 +38,7 @@ export default function SettingsScreen() {
     const themeColors = useThemeColors();
     const { user, logout, getAccessToken } = useAuth();
 
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
     const [conversations, setConversations] = useState<any[]>([]);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
@@ -435,14 +435,10 @@ export default function SettingsScreen() {
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Header */}
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                <TouchableOpacity
-                    style={styles.headerButton}
-                    onPress={() => setIsSidebarOpen(true)}
-                >
-                    <List size={24} color={themeColors.textPrimary} weight="bold" />
-                </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Settings</Text>
-                <View style={styles.headerSpacer} />
+                <View style={styles.headerTop}>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Settings</Text>
+                    <View style={styles.headerSpacer} />
+                </View>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -597,14 +593,7 @@ export default function SettingsScreen() {
 
             </ScrollView>
 
-            <Sidebar
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-                userName={userName}
-                conversations={conversations}
-                onHomeClick={() => router.push('/')}
-                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
-            />
+
 
             {/* Theme Modal */}
             {renderSelectionModal(
@@ -639,14 +628,20 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
     },
     header: {
+        backgroundColor: Colors.background,
+    },
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingVertical: 12,
-        // backgroundColor: '#FFFFFF', // Overridden
-        // Removed border bottom
         height: 60,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     headerButton: {
         width: 40,
@@ -654,7 +649,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22, // Increased from 18
+        fontSize: 28,
         color: Colors.textPrimary,
     },
     headerSpacer: {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, View, StyleSheet, TextInput, TouchableOpacity, Text } from 'react-native';
+import { Platform, View, StyleSheet, TextInput, TouchableOpacity, Text, KeyboardAvoidingView } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 
@@ -25,6 +25,7 @@ interface SwiftUICreationBoxProps {
  * - Blur background effect
  * - Haptic feedback
  * - iOS-native styling
+ * - Keyboard avoidance (slides up with keyboard)
  */
 export function SwiftUICreationBox({
     visible,
@@ -65,73 +66,79 @@ export function SwiftUICreationBox({
     return (
         <View style={styles.overlay}>
             <TouchableOpacity style={styles.backdrop} onPress={handleClose} activeOpacity={1} />
-            <View style={styles.sheetContainer}>
-                <BlurView intensity={90} tint="light" style={styles.blurView}>
-                    <View style={styles.content}>
-                        {/* Handle bar */}
-                        <View style={styles.handleBar} />
+            <KeyboardAvoidingView
+                behavior="padding"
+                style={styles.keyboardAvoidingContainer}
+                keyboardVerticalOffset={0}
+            >
+                <View style={styles.sheetContainer}>
+                    <BlurView intensity={90} tint="light" style={styles.blurView}>
+                        <View style={styles.content}>
+                            {/* Handle bar */}
+                            <View style={styles.handleBar} />
 
-                        {/* Input Field */}
-                        <TextInput
-                            value={inputText}
-                            onChangeText={onInputChange}
-                            placeholder="e.g., Invoice for Acme $500 due Friday"
-                            placeholderTextColor="#8E8E93"
-                            multiline
-                            autoFocus
-                            style={styles.textInput}
-                        />
+                            {/* Input Field */}
+                            <TextInput
+                                value={inputText}
+                                onChangeText={onInputChange}
+                                placeholder="e.g., Invoice for Acme $500 due Friday"
+                                placeholderTextColor="#8E8E93"
+                                multiline
+                                autoFocus
+                                style={styles.textInput}
+                            />
 
-                        {/* Action Pills Row */}
-                        <View style={styles.pillsRow}>
-                            {/* Date Pill */}
+                            {/* Action Pills Row */}
+                            <View style={styles.pillsRow}>
+                                {/* Date Pill */}
+                                <TouchableOpacity
+                                    style={[styles.pill, effectiveDate && styles.pillActive]}
+                                    onPress={handleDateTapWithHaptics}
+                                >
+                                    <Text style={[styles.pillText, effectiveDate && styles.pillTextActive]}>
+                                        📅 {formatDateDisplay(effectiveDate)}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {/* Priority Pill */}
+                                <TouchableOpacity
+                                    style={[styles.pill, effectivePriority && styles.pillActive]}
+                                    onPress={handlePriorityTapWithHaptics}
+                                >
+                                    <Text style={[styles.pillText, effectivePriority && styles.pillTextActive]}>
+                                        🚩 {effectivePriority
+                                            ? effectivePriority === 'high'
+                                                ? 'P1'
+                                                : effectivePriority === 'medium'
+                                                    ? 'P2'
+                                                    : 'P3'
+                                            : 'Priority'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Create Button */}
                             <TouchableOpacity
-                                style={[styles.pill, effectiveDate && styles.pillActive]}
-                                onPress={handleDateTapWithHaptics}
+                                style={[
+                                    styles.createButton,
+                                    (!inputText.trim() || isCreating) && styles.createButtonDisabled
+                                ]}
+                                onPress={handleCreateWithHaptics}
+                                disabled={!inputText.trim() || isCreating}
                             >
-                                <Text style={[styles.pillText, effectiveDate && styles.pillTextActive]}>
-                                    📅 {formatDateDisplay(effectiveDate)}
+                                <Text style={styles.createButtonText}>
+                                    {isCreating ? 'Creating...' : '✓ Create'}
                                 </Text>
                             </TouchableOpacity>
 
-                            {/* Priority Pill */}
-                            <TouchableOpacity
-                                style={[styles.pill, effectivePriority && styles.pillActive]}
-                                onPress={handlePriorityTapWithHaptics}
-                            >
-                                <Text style={[styles.pillText, effectivePriority && styles.pillTextActive]}>
-                                    🚩 {effectivePriority
-                                        ? effectivePriority === 'high'
-                                            ? 'P1'
-                                            : effectivePriority === 'medium'
-                                                ? 'P2'
-                                                : 'P3'
-                                        : 'Priority'}
-                                </Text>
-                            </TouchableOpacity>
+                            {/* Loading Indicator */}
+                            {isLoading && (
+                                <Text style={styles.loadingText}>Analyzing...</Text>
+                            )}
                         </View>
-
-                        {/* Create Button */}
-                        <TouchableOpacity
-                            style={[
-                                styles.createButton,
-                                (!inputText.trim() || isCreating) && styles.createButtonDisabled
-                            ]}
-                            onPress={handleCreateWithHaptics}
-                            disabled={!inputText.trim() || isCreating}
-                        >
-                            <Text style={styles.createButtonText}>
-                                {isCreating ? 'Creating...' : '✓ Create'}
-                            </Text>
-                        </TouchableOpacity>
-
-                        {/* Loading Indicator */}
-                        {isLoading && (
-                            <Text style={styles.loadingText}>Analyzing...</Text>
-                        )}
-                    </View>
-                </BlurView>
-            </View>
+                    </BlurView>
+                </View>
+            </KeyboardAvoidingView>
         </View>
     );
 }
@@ -149,6 +156,10 @@ const styles = StyleSheet.create({
     backdrop: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    },
+    keyboardAvoidingContainer: {
+        width: '100%',
+        justifyContent: 'flex-end',
     },
     sheetContainer: {
         borderTopLeftRadius: 20,

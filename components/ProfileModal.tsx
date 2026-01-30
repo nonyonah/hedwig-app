@@ -234,28 +234,41 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                 let totalUsd = 0;
 
                 balanceData.forEach((bal: any) => {
+                    // Privy API returns display_values with keys matching the asset name (e.g., eth, usdc, sol)
                     if (bal.chain === 'base') {
                         if (bal.asset === 'eth') {
-                            newBalances['Base_ETH'] = parseFloat(bal.display_values?.eth || '0').toFixed(6);
+                            newBalances['Base_ETH'] = parseFloat(bal.display_values?.eth || bal.raw_value || '0') / (bal.raw_value_decimals ? Math.pow(10, bal.raw_value_decimals) : 1e18);
+                            newBalances['Base_ETH'] = newBalances['Base_ETH'].toFixed(6);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         } else if (bal.asset === 'usdc') {
-                            newBalances['Base_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
+                            newBalances['Base_USDC'] = parseFloat(bal.display_values?.usdc || bal.raw_value || '0') / (bal.raw_value_decimals ? Math.pow(10, bal.raw_value_decimals) : 1e6);
+                            newBalances['Base_USDC'] = newBalances['Base_USDC'].toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
                     } else if (bal.chain === 'solana') {
                         if (bal.asset === 'sol') {
-                            newBalances['Solana_SOL'] = parseFloat(bal.display_values?.sol || '0').toFixed(6);
+                            newBalances['Solana_SOL'] = parseFloat(bal.display_values?.sol || bal.raw_value || '0') / (bal.raw_value_decimals ? Math.pow(10, bal.raw_value_decimals) : 1e9);
+                            newBalances['Solana_SOL'] = newBalances['Solana_SOL'].toFixed(6);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         } else if (bal.asset === 'usdc') {
-                            newBalances['Solana_USDC'] = parseFloat(bal.display_values?.token || '0').toFixed(2);
+                            newBalances['Solana_USDC'] = parseFloat(bal.display_values?.usdc || bal.raw_value || '0') / (bal.raw_value_decimals ? Math.pow(10, bal.raw_value_decimals) : 1e6);
+                            newBalances['Solana_USDC'] = newBalances['Solana_USDC'].toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
                     }
+                    console.log('[ProfileModal] Processed balance:', bal.chain, bal.asset, 'display_values:', bal.display_values, 'stored as:', newBalances);
                 });
 
                 console.log('[ProfileModal] Parsed balances:', newBalances, 'Total USD:', totalUsd);
                 setBalances(newBalances);
                 setTotalBalance(totalUsd.toFixed(2));
+
+                // Update Solana Address from API response if present
+                if (data.data?.solanaAddress && !solAddress) {
+                    console.log('[ProfileModal] Setting Solana address from API:', data.data.solanaAddress);
+                    setSolAddress(data.data.solanaAddress);
+                }
+
 
             } catch (error) {
                 console.log('[ProfileModal] Error fetching balances:', error);
@@ -280,9 +293,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     }, [visible, user]);
 
     // Update addresses when wallets change
-    // Now using Blockradar address from useWallet hook (Base only)
+    // Now using Blockradar address for EVM and API-returned address for Solana
     useEffect(() => {
-        // Use Blockradar address from the wallet hook
+        // Use Blockradar address from the wallet hook (EVM)
         if (blockradarAddress && !ethAddress) {
             console.log('[ProfileModal] Setting ethAddress from Blockradar:', blockradarAddress);
             setEthAddress(blockradarAddress);
@@ -290,15 +303,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
 
         // Check walletAddresses prop from backend (fallback)
         if (walletAddresses) {
-            console.log('[ProfileModal] walletAddresses prop received:', walletAddresses);
             if (walletAddresses.evm && !ethAddress) {
-                console.log('[ProfileModal] Setting ethAddress from prop:', walletAddresses.evm);
                 setEthAddress(walletAddresses.evm);
             }
+            if (walletAddresses.solana && !solAddress) {
+                setSolAddress(walletAddresses.solana);
+            }
         }
-
-        console.log('[ProfileModal] Final state - ethAddress:', ethAddress);
     }, [blockradarAddress, user, ethAddress, walletAddresses]);
+
+    // Separate effect to update addresses from the Balance API response
+    // This is needed because the balance API now returns the Solana address found in Privy
+    useEffect(() => {
+        // We can't easily access the API response data here since it's local to the effect above
+        // But we can update state when we parse the balances in the fetchBalances function
+    }, []);
 
     useEffect(() => {
         if (visible) {

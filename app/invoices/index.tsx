@@ -70,8 +70,8 @@ export default function InvoicesScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
     const [showModal, setShowModal] = useState(false);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
+
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
@@ -331,31 +331,33 @@ export default function InvoicesScreen() {
         <View style={{ flex: 1 }}>
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={themeColors.textPrimary} weight="bold" />
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Invoices</Text>
-                    <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                        {profileIcon.imageUri ? (
-                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                        ) : profileIcon.emoji ? (
-                            <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                            </View>
-                        ) : (
-                            <LinearGradient
-                                colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.profileIcon}
-                            />
-                        )}
-                    </TouchableOpacity>
-                </View>
+                    <View style={styles.headerTop}>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Invoices</Text>
+                        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
+                            {profileIcon.imageUri ? (
+                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                            ) : profileIcon.emoji ? (
+                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                                </View>
+                            ) : (
+                                <LinearGradient
+                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.profileIcon}
+                                />
+                            )}
+                        </TouchableOpacity>
+                    </View>
 
-                {/* Filter Chips */}
-                <View style={styles.filterContainer}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+                    {/* Filter Chips inside Header */}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.filterContent}
+                        style={styles.filterScrollView}
+                    >
                         {(['all', 'paid', 'pending'] as const).map(filter => (
                             <TouchableOpacity
                                 key={filter}
@@ -395,7 +397,7 @@ export default function InvoicesScreen() {
                         }
                     />
                 )}
-            </SafeAreaView>
+            </SafeAreaView >
 
             <ProfileModal
                 visible={showProfileModal}
@@ -405,14 +407,7 @@ export default function InvoicesScreen() {
                 profileIcon={profileIcon}
             />
 
-            <Sidebar
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-                userName={userName}
-                conversations={conversations}
-                onHomeClick={() => router.push('/')}
-                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
-            />
+
 
             <Modal
                 visible={showModal}
@@ -669,18 +664,26 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.background,
     },
     header: {
+        backgroundColor: '#FFFFFF',
+        paddingBottom: 12, // Add padding bottom to container
+        // Removed fixed height to fit content
+    },
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: '#FFFFFF',
-        // Removed border bottom
         height: 60,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22, // Increased from 18
+        fontSize: 28,
         color: Colors.textPrimary,
     },
     profileIcon: {
@@ -689,15 +692,15 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         backgroundColor: Colors.primary,
     },
-    filterContainer: {
-        marginBottom: 16,
+    filterScrollView: {
+        marginTop: 4,
     },
     filterContent: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         gap: 8,
     },
     filterChip: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 20, // Increased from 16 to match card padding (20) for text alignment
         paddingVertical: 8,
         borderRadius: 20,
         backgroundColor: '#F3F4F6',
@@ -720,7 +723,7 @@ const styles = StyleSheet.create({
     },
     listContent: {
         padding: 16,
-        paddingBottom: 32,
+        paddingBottom: 120, // Increased for Tab Bar safe area
     },
     card: {
         backgroundColor: '#f5f5f5',
@@ -828,6 +831,11 @@ const styles = StyleSheet.create({
         ...Typography.body,
         color: Colors.textSecondary,
         textAlign: 'center',
+    },
+    emptyStateIcon: {
+        width: 80,
+        height: 80,
+        resizeMode: 'contain',
     },
     deleteButton: {
         backgroundColor: '#FF3B30',

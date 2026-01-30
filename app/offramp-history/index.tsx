@@ -108,7 +108,6 @@ export default function OfframpHistoryScreen() {
 
     const [orders, setOrders] = useState<OfframpOrder[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
     const [userData, setUserData] = useState<UserData | null>(null);
     const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
@@ -374,31 +373,33 @@ export default function OfframpHistoryScreen() {
         <View style={{ flex: 1, backgroundColor: themeColors.background }}>
             <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                        <List size={24} color={themeColors.textPrimary} weight="bold" />
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
-                    <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                        {profileIcon.imageUri ? (
-                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                        ) : profileIcon.emoji ? (
-                            <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                            </View>
-                        ) : (
-                            <LinearGradient
-                                colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.profileIcon}
-                            />
-                        )}
-                    </TouchableOpacity>
-                </View>
+                    <View style={styles.headerTop}>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
+                        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
+                            {profileIcon.imageUri ? (
+                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                            ) : profileIcon.emoji ? (
+                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                                </View>
+                            ) : (
+                                <LinearGradient
+                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.profileIcon}
+                                />
+                            )}
+                        </TouchableOpacity>
+                    </View>
 
-                {/* Filter Chips */}
-                <View style={styles.filterContainer}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+                    {/* Filter Chips inside Header */}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.filterContent}
+                        style={styles.filterScrollView}
+                    >
                         {(['all', 'processing', 'completed', 'failed'] as const).map(filter => (
                             <TouchableOpacity
                                 key={filter}
@@ -448,14 +449,7 @@ export default function OfframpHistoryScreen() {
                 )}
             </SafeAreaView>
 
-            <Sidebar
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-                userName={userData ? { firstName: userData.firstName, lastName: userData.lastName } : undefined}
-                conversations={conversations}
-                onHomeClick={() => router.push('/')}
-                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
-            />
+
 
             <ProfileModal
                 visible={isProfileModalVisible}
@@ -588,15 +582,25 @@ const styles = StyleSheet.create({
         // backgroundColor: '#FFFFFF', // Overridden
     },
     header: {
+        backgroundColor: Colors.background,
+        paddingBottom: 12,
+    },
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
         justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        height: 60,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: 28,
         color: Colors.textPrimary,
     },
     profileIcon: {
@@ -605,11 +609,11 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: 'hidden',
     },
-    filterContainer: {
-        marginBottom: 16,
+    filterScrollView: {
+        marginTop: 4,
     },
     filterContent: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         gap: 8,
     },
     filterChip: {

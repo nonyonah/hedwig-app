@@ -52,8 +52,8 @@ export default function CalendarScreen() {
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
+    const [showEventModal, setShowEventModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
@@ -295,29 +295,25 @@ export default function CalendarScreen() {
         <View style={{ flex: 1 }}>
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setIsSidebarOpen(true);
-                    }}>
-                        <List size={24} color={themeColors.textPrimary} weight="bold" />
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
-                    <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                        {profileIcon.imageUri ? (
-                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                        ) : profileIcon.emoji ? (
-                            <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                            </View>
-                        ) : (
-                            <LinearGradient
-                                colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.profileIcon}
-                            />
-                        )}
-                    </TouchableOpacity>
+                    <View style={styles.headerTop}>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
+                        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
+                            {profileIcon.imageUri ? (
+                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                            ) : profileIcon.emoji ? (
+                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
+                                </View>
+                            ) : (
+                                <LinearGradient
+                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.profileIcon}
+                                />
+                            )}
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {isLoading ? (
@@ -357,14 +353,7 @@ export default function CalendarScreen() {
                 profileIcon={profileIcon}
             />
 
-            <Sidebar
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-                userName={userName}
-                conversations={conversations}
-                onHomeClick={() => router.push('/')}
-                onLoadConversation={(id) => router.push(`/?conversationId=${id}`)}
-            />
+
         </View>
     );
 }
@@ -374,16 +363,24 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
+        backgroundColor: Colors.background,
+    },
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingVertical: 12,
         height: 60,
     },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: 28,
     },
     profileIcon: {
         width: 32,
