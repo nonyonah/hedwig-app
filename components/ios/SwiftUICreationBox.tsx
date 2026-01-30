@@ -1,5 +1,6 @@
+import { useThemeColors } from '../../theme/colors';
 import React from 'react';
-import { Platform, View, StyleSheet, TextInput, TouchableOpacity, Text, KeyboardAvoidingView } from 'react-native';
+import { Platform, View, StyleSheet, TextInput, TouchableOpacity, Text, KeyboardAvoidingView, useColorScheme } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 
@@ -41,6 +42,10 @@ export function SwiftUICreationBox({
     onPriorityTap,
     formatDateDisplay,
 }: SwiftUICreationBoxProps) {
+    const themeColors = useThemeColors();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
+
     if (Platform.OS !== 'ios' || !visible) return null;
 
     const handleDateTapWithHaptics = () => {
@@ -72,7 +77,11 @@ export function SwiftUICreationBox({
                 keyboardVerticalOffset={0}
             >
                 <View style={styles.sheetContainer}>
-                    <BlurView intensity={90} tint="light" style={styles.blurView}>
+                    <BlurView
+                        intensity={100}
+                        tint={isDark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'}
+                        style={styles.blurView}
+                    >
                         <View style={styles.content}>
                             {/* Handle bar */}
                             <View style={styles.handleBar} />
@@ -85,7 +94,15 @@ export function SwiftUICreationBox({
                                 placeholderTextColor="#8E8E93"
                                 multiline
                                 autoFocus
-                                style={styles.textInput}
+                                style={[
+                                    styles.textInput,
+                                    {
+                                        color: themeColors.textPrimary,
+                                        backgroundColor: isDark ? 'rgba(120,120,128,0.36)' : 'rgba(118,118,128,0.12)', // iOS system gray inputs
+                                        fontSize: 19, // Slightly larger for better readability
+                                        fontWeight: '500'
+                                    }
+                                ]}
                             />
 
                             {/* Action Pills Row */}
@@ -100,21 +117,6 @@ export function SwiftUICreationBox({
                                     </Text>
                                 </TouchableOpacity>
 
-                                {/* Priority Pill */}
-                                <TouchableOpacity
-                                    style={[styles.pill, effectivePriority && styles.pillActive]}
-                                    onPress={handlePriorityTapWithHaptics}
-                                >
-                                    <Text style={[styles.pillText, effectivePriority && styles.pillTextActive]}>
-                                        🚩 {effectivePriority
-                                            ? effectivePriority === 'high'
-                                                ? 'P1'
-                                                : effectivePriority === 'medium'
-                                                    ? 'P2'
-                                                    : 'P3'
-                                            : 'Priority'}
-                                    </Text>
-                                </TouchableOpacity>
                             </View>
 
                             {/* Create Button */}
@@ -137,6 +139,16 @@ export function SwiftUICreationBox({
                             )}
                         </View>
                     </BlurView>
+
+                    {/* Skirt to cover keyboard gap */}
+                    <View style={{
+                        position: 'absolute',
+                        bottom: -50,
+                        left: 0,
+                        right: 0,
+                        height: 50,
+                        backgroundColor: isDark ? '#1C1C1E' : '#F9F9F9'
+                    }} />
                 </View>
             </KeyboardAvoidingView>
         </View>
@@ -168,7 +180,7 @@ const styles = StyleSheet.create({
     },
     blurView: {
         paddingTop: 12,
-        paddingBottom: 40,
+        paddingBottom: 0, // Removed padding to sit flush
         paddingHorizontal: 20,
     },
     content: {

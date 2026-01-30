@@ -13,7 +13,7 @@ const router = Router();
  */
 router.post('/parse', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { text } = req.body;
+        const { text, currentDate } = req.body;
 
         if (!text || typeof text !== 'string') {
             res.status(400).json({
@@ -23,11 +23,18 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             return;
         }
 
-        logger.debug('[CreationBox] Parsing input', { textLength: text.length, text });
+        // Use provided currentDate or fallback to server time
+        const referenceDate = currentDate ? new Date(currentDate) : new Date();
+        
+        logger.debug('[CreationBox] Parsing input', { textLength: text.length, text, referenceDate: referenceDate.toISOString() });
 
+        // Build prompt with date context for accurate relative date parsing
+        const dateContext = `Today is ${referenceDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Current time: ${referenceDate.toLocaleTimeString('en-US')}.`;
+        const enrichedText = `${dateContext}\n\nUser input: ${text}`;
+        
         // Use Gemini's chat response which includes system instructions for intent recognition
         // This will properly detect intents like invoice, payment_link, contract, etc.
-        const result = await GeminiService.generateChatResponse(text, [], undefined, {});
+        const result = await GeminiService.generateChatResponse(enrichedText, [], undefined, {});
         
         logger.debug('[CreationBox] Gemini raw response', { result });
 
@@ -143,16 +150,68 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             logger.error('[CreationBox] Failed to parse Gemini response', { error: parseError, result });
         }
 
-        // Normalize the date to ISO string if it's a relative date
+        // Smart date parsing - handle relative dates like "Friday", "next Monday", etc.
         if (parsedData.dueDate) {
             try {
-                const date = new Date(parsedData.dueDate);
-                if (!isNaN(date.getTime())) {
+                let date: Date | null = null;
+                const dueDateStr = parsedData.dueDate.toLowerCase().trim();
+                
+                // Try parsing as ISO date first
+                const isoDate = new Date(parsedData.dueDate);
+                if (!isNaN(isoDate.getTime()) && parsedData.dueDate.includes('-')) {
+                    date = isoDate;
+                } else {
+                    // Parse relative dates
+                    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                    const today = new Date(referenceDate);
+                    today.setHours(0, 0, 0, 0);
+                    
+                    // Check for day names (e.g., "Friday", "next Monday")
+                    const isNextWeek = dueDateStr.includes('next');
+                    const dayMatch = dayNames.find(day => dueDateStr.includes(day));
+                    
+                    if (dayMatch) {
+                        const targetDayIndex = dayNames.indexOf(dayMatch);
+                        const currentDayIndex = today.getDay();
+                        let daysToAdd = targetDayIndex - currentDayIndex;
+                        
+                        if (daysToAdd <= 0 || isNextWeek) {
+                            daysToAdd += 7; // Move to next week
+                        }
+                        if (isNextWeek && daysToAdd <= 7) {
+                            daysToAdd += 7; // "next Friday" when today is Thursday
+                        }
+                        
+                        date = new Date(today);
+                        date.setDate(today.getDate() + daysToAdd);
+                    } else if (dueDateStr.includes('today')) {
+                        date = today;
+                    } else if (dueDateStr.includes('tomorrow')) {
+                        date = new Date(today);
+                        date.setDate(today.getDate() + 1);
+                    } else if (dueDateStr.includes('next week')) {
+                        date = new Date(today);
+                        date.setDate(today.getDate() + 7);
+                    } else if (dueDateStr.includes('end of week') || dueDateStr.includes('this week')) {
+                        // Find next Friday
+                        const daysUntilFriday = (5 - today.getDay() + 7) % 7 || 7;
+                        date = new Date(today);
+                        date.setDate(today.getDate() + daysUntilFriday);
+                    } else if (dueDateStr.includes('end of month')) {
+                        date = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    }
+                }
+                
+                if (date && !isNaN(date.getTime())) {
                     parsedData.dueDate = date.toISOString();
+                } else {
+                    // If we couldn't parse, set to null instead of Invalid Date
+                    logger.warn('[CreationBox] Could not parse date, setting to null', { dueDate: parsedData.dueDate });
+                    parsedData.dueDate = null;
                 }
             } catch {
-                // Keep original value if parsing fails
                 logger.warn('[CreationBox] Failed to parse date', { dueDate: parsedData.dueDate });
+                parsedData.dueDate = null;
             }
         }
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Platform, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, Gear, TrendUp, TrendDown, ArrowRight, Sparkle } from 'phosphor-react-native';
+import { List, Gear, TrendUp, TrendDown, ArrowRight, Sparkle, CaretLeft } from 'phosphor-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -139,21 +139,14 @@ export default function InsightsScreen() {
 
     // Profile and Sidebar state
     const { getAccessToken, user } = useAuth();
-    const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
-    const [conversations, setConversations] = useState<any[]>([]);
-    const [userName, setUserName] = useState({ firstName: '', lastName: '' });
-    const [profileIcon, setProfileIcon] = useState<{ type: 'emoji' | 'image'; emoji?: string; imageUri?: string; colorIndex?: number }>({
-        type: 'emoji',
-        colorIndex: 0
-    });
-    const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
+    // Profile state removed
 
     // Stats data from backend
     const [statsData, setStatsData] = useState({
         clientsCount: 0,
         projectsCount: 0,
         paymentLinksCount: 0,
-        topClient: null as { name: string; totalEarnings: number } | null,
+        topClient: null as { name: string, totalEarnings: number } | null,
         pendingInvoicesCount: 0,
         pendingInvoicesTotal: 0,
         paymentRate: 0,
@@ -161,21 +154,8 @@ export default function InsightsScreen() {
         paidDocuments: 0,
     });
 
-    // Profile color gradient options
-    const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
-        ['#60A5FA', '#3B82F6', '#2563EB'], // Blue
-        ['#34D399', '#10B981', '#059669'], // Green
-        ['#F472B6', '#EC4899', '#DB2777'], // Pink
-        ['#FBBF24', '#F59E0B', '#D97706'], // Amber
-        ['#A78BFA', '#8B5CF6', '#7C3AED'], // Purple
-        ['#F87171', '#EF4444', '#DC2626'], // Red
-        ['#2DD4BF', '#14B8A6', '#0D9488'], // Teal
-        ['#FB923C', '#F97316', '#EA580C'], // Orange
-        ['#64748B', '#475569', '#334155'], // Slate
-        ['#1F2937', '#111827', '#030712'], // Dark
-    ];
-
     useEffect(() => {
+        // Fetch user data removed as profile modal is removed
         const fetchUserData = async () => {
             if (!user) return;
             try {
@@ -189,28 +169,28 @@ export default function InsightsScreen() {
 
                 if (profileData.success && profileData.data) {
                     const userData = profileData.data.user || profileData.data;
-                    setUserName({
-                        firstName: userData.firstName || '',
-                        lastName: userData.lastName || ''
-                    });
+                    // setUserName({ // Removed as profile modal is removed
+                    //     firstName: userData.firstName || '',
+                    //     lastName: userData.lastName || ''
+                    // });
 
-                    if (userData.avatar) {
-                        try {
-                            if (userData.avatar.trim().startsWith('{')) {
-                                const parsed = JSON.parse(userData.avatar);
-                                setProfileIcon(parsed);
-                            } else {
-                                setProfileIcon({ type: 'image', imageUri: userData.avatar });
-                            }
-                        } catch (e) {
-                            setProfileIcon({ type: 'image', imageUri: userData.avatar });
-                        }
-                    }
+                    // if (userData.avatar) { // Removed as profile modal is removed
+                    //     try {
+                    //         if (userData.avatar.trim().startsWith('{')) {
+                    //             const parsed = JSON.parse(userData.avatar);
+                    //             setProfileIcon(parsed);
+                    //         } else {
+                    //             setProfileIcon({ type: 'image', imageUri: userData.avatar });
+                    //         }
+                    //     } catch (e) {
+                    //         setProfileIcon({ type: 'image', imageUri: userData.avatar });
+                    //     }
+                    // }
 
-                    setWalletAddresses({
-                        evm: userData.ethereumWalletAddress,
-                        solana: userData.solanaWalletAddress
-                    });
+                    // setWalletAddresses({ // Removed as profile modal is removed
+                    //     evm: userData.ethereumWalletAddress,
+                    //     solana: userData.solanaWalletAddress
+                    // });
 
                     // Load monthly target from backend
                     if (userData.monthlyTarget) {
@@ -224,7 +204,7 @@ export default function InsightsScreen() {
                 if (conversationsResponse.ok) {
                     const conversationsData = await conversationsResponse.json();
                     if (conversationsData.success && conversationsData.data) {
-                        setConversations(conversationsData.data.slice(0, 10));
+                        // setConversations(conversationsData.data.slice(0, 10)); // Removed as sidebar state is removed
                     }
                 }
 
@@ -373,25 +353,14 @@ export default function InsightsScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             {/* Header */}
+            {/* Header */}
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerTop}>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Insights</Text>
-                    <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                        {profileIcon.imageUri ? (
-                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                        ) : profileIcon.emoji ? (
-                            <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                            </View>
-                        ) : (
-                            <LinearGradient
-                                colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.profileIcon}
-                            />
-                        )}
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <CaretLeft size={24} color={themeColors.textPrimary} />
                     </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Insights</Text>
+                    <View style={styles.headerRightPlaceholder} />
                 </View>
             </View>
 
@@ -516,12 +485,7 @@ export default function InsightsScreen() {
 
 
             {/* Profile Modal */}
-            <ProfileModal
-                visible={isProfileModalVisible}
-                onClose={() => setIsProfileModalVisible(false)}
-                userName={userName}
-                walletAddresses={walletAddresses}
-            />
+
 
             <TargetGoalModal
                 visible={isTargetModalVisible}
@@ -545,31 +509,28 @@ const styles = StyleSheet.create({
     headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
         height: 60,
     },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    menuButton: {
+    backButton: {
         width: 40,
         height: 40,
         justifyContent: 'center',
         alignItems: 'flex-start',
+        zIndex: 10,
     },
-    profileIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        overflow: 'hidden',
+    headerRightPlaceholder: {
+        width: 40,
     },
+    // menuButton removed
+    // profileIcon removed
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
+        fontSize: 22,
+        textAlign: 'center',
+        color: Colors.textPrimary,
+        flex: 1,
     },
     content: {
         flex: 1,

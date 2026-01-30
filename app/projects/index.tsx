@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur'
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { Briefcase, List, Calendar, User, CurrencyDollar, CheckCircle, Clock, Receipt, CaretRight, X, DotsThree, Trash, Check, FileText } from 'phosphor-react-native';
+import { Briefcase, List, Calendar, User, CurrencyDollar, CheckCircle, Clock, Receipt, CaretRight, X, DotsThree, Trash, Check, FileText, CaretLeft } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -103,64 +103,10 @@ export default function ProjectsScreen() {
     }, [user]);
 
     useEffect(() => {
-        const fetchUserData = async () => {
-            if (!user) return;
-            try {
-                const token = await getAccessToken();
-                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-                const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-                const profileData = await profileResponse.json();
-
-                if (profileData.success && profileData.data) {
-                    const userData = profileData.data.user || profileData.data;
-                    setUserName({
-                        firstName: userData.firstName || userData.displayName?.split(' ')[0] || '',
-                        lastName: userData.lastName || userData.displayName?.split(' ').slice(1).join(' ') || ''
-                    });
-
-                    // Set profile icon
-                    if (userData.avatar) {
-                        try {
-                            if (userData.avatar.trim().startsWith('{')) {
-                                const parsed = JSON.parse(userData.avatar);
-                                setProfileIcon(parsed);
-                            } else {
-                                setProfileIcon({ type: 'image', imageUri: userData.avatar });
-                            }
-                        } catch (e) {
-                            setProfileIcon({ type: 'image', imageUri: userData.avatar });
-                        }
-                    } else if (userData.profileEmoji) {
-                        setProfileIcon({ type: 'emoji', emoji: userData.profileEmoji });
-                    } else if (userData.profileColorIndex !== undefined) {
-                        setProfileIcon({ type: 'gradient', colorIndex: userData.profileColorIndex });
-                    }
-
-                    // Set wallet addresses
-                    setWalletAddresses({
-                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
-                        solana: userData.solanaWalletAddress
-                    });
-                }
-
-                const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-                if (conversationsResponse.ok) {
-                    const conversationsData = await conversationsResponse.json();
-                    if (conversationsData.success && conversationsData.data) {
-                        setConversations(conversationsData.data.slice(0, 10));
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to fetch user data:', error);
-            }
-        };
-        fetchUserData();
+        fetchProjects();
     }, [user]);
+
+    // fetchUserData removed
 
     const fetchProjects = async () => {
         try {
@@ -458,25 +404,12 @@ export default function ProjectsScreen() {
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Projects</Text>
-                        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                            {profileIcon.imageUri ? (
-                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                            ) : profileIcon.emoji ? (
-                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                                </View>
-                            ) : (
-                                <LinearGradient
-                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.profileIcon}
-                                />
-                            )}
+                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                            <CaretLeft size={24} color={themeColors.textPrimary} />
                         </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Projects</Text>
+                        <View style={styles.headerRightPlaceholder} />
                     </View>
-
                     {/* Filter Chips inside Header */}
                     <ScrollView
                         horizontal
@@ -777,15 +710,6 @@ export default function ProjectsScreen() {
                         </Animated.View>
                     </View>
                 </Modal>
-
-                {/* Profile Modal */}
-                <ProfileModal
-                    visible={showProfileModal}
-                    onClose={() => setShowProfileModal(false)}
-                    userName={userName}
-                    walletAddresses={walletAddresses}
-                    profileIcon={profileIcon}
-                />
             </SafeAreaView >
         </>
     );
@@ -813,26 +737,26 @@ const styles = StyleSheet.create({
     headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
         height: 60,
     },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
+    backButton: {
+        width: 48,
+        height: 48,
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        zIndex: 10,
     },
-    profileIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: Colors.primary,
+    headerRightPlaceholder: {
+        width: 48,
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
+        fontSize: 22,
+        textAlign: 'center',
         color: Colors.textPrimary,
+        flex: 1,
     },
     filterScrollView: {
         marginTop: 4,

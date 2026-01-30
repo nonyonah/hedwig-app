@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, X, Copy, Bank, ArrowDown, CheckCircle, Clock, Warning, ArrowsCounterClockwise } from 'phosphor-react-native';
+import { List, X, Copy, Bank, ArrowDown, CheckCircle, Clock, Warning, ArrowsCounterClockwise, CaretLeft } from 'phosphor-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -135,51 +135,10 @@ export default function OfframpHistoryScreen() {
 
     useEffect(() => {
         fetchOrders();
-        fetchUserData();
         fetchConversations();
     }, []);
 
-    const fetchUserData = async () => {
-        try {
-            const token = await getAccessToken();
-            if (!token) return;
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const response = await fetch(`${apiUrl}/api/users/profile`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (response.ok) {
-                const responseData = await response.json();
-                const user = responseData.data?.user || responseData.user;
-                setUserData(user);
-
-                if (user?.avatar) {
-                    try {
-                        if (typeof user.avatar === 'string' && user.avatar.trim().startsWith('{')) {
-                            const avatarData = JSON.parse(user.avatar);
-                            if (avatarData.imageUri) {
-                                setProfileIcon({ type: 'image', imageUri: avatarData.imageUri, colorIndex: avatarData.colorIndex || 0 });
-                            } else if (avatarData.emoji) {
-                                setProfileIcon({ type: 'emoji', emoji: avatarData.emoji, colorIndex: avatarData.colorIndex || 0 });
-                            } else if (avatarData.colorIndex !== undefined) {
-                                setProfileIcon({ type: 'emoji', colorIndex: avatarData.colorIndex });
-                            }
-                        } else if (typeof user.avatar === 'string' && user.avatar.startsWith('data:')) {
-                            setProfileIcon({ type: 'image', imageUri: user.avatar, colorIndex: 0 });
-                        }
-                    } catch (parseError) {
-                        console.error('Error parsing avatar:', parseError);
-                        // Fallback: treat as direct image URI
-                        if (typeof user.avatar === 'string') {
-                            setProfileIcon({ type: 'image', imageUri: user.avatar, colorIndex: 0 });
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching user:', error);
-        }
-    };
+    // fetchUserData removed
 
     const fetchConversations = async () => {
         try {
@@ -374,23 +333,11 @@ export default function OfframpHistoryScreen() {
             <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
-                        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                            {profileIcon.imageUri ? (
-                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                            ) : profileIcon.emoji ? (
-                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                                </View>
-                            ) : (
-                                <LinearGradient
-                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.profileIcon}
-                                />
-                            )}
+                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                            <CaretLeft size={24} color={themeColors.textPrimary} />
                         </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
+                        <View style={styles.headerRightPlaceholder} />
                     </View>
 
                     {/* Filter Chips inside Header */}
@@ -447,131 +394,118 @@ export default function OfframpHistoryScreen() {
                         stickySectionHeadersEnabled={true}
                     />
                 )}
-            </SafeAreaView>
 
 
-
-            <ProfileModal
-                visible={isProfileModalVisible}
-                onClose={() => setIsProfileModalVisible(false)}
-                userName={userData ? { firstName: userData.firstName, lastName: userData.lastName } : undefined}
-                walletAddresses={{
-                    evm: userData?.ethereumWalletAddress,
-                    solana: userData?.solanaWalletAddress
-                }}
-                profileIcon={profileIcon}
-                onProfileUpdate={fetchUserData}
-            />
-
-            {/* Order Detail Modal */}
-            <Modal
-                visible={isDetailModalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={closeModal}
-            >
-                <View style={styles.modalOverlay}>
-                    <ModalBackdrop opacity={modalOpacity} />
-                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
-                    <Animated.View
-                        style={[
-                            styles.modalContent,
-                            { backgroundColor: themeColors.background },
-                            {
-                                transform: [{
-                                    translateY: slideAnim.interpolate({
-                                        inputRange: [0, 1],
-                                        outputRange: [600, 0]
-                                    })
-                                }]
-                            }
-                        ]}
-                    >
-                        {/* Header */}
-                        <View style={styles.modalHeader}>
-                            <View style={styles.modalHeaderLeft}>
-                                <View style={styles.iconContainer}>
-                                    <Image source={selectedOrder ? (TOKENS[selectedOrder.token] || ICONS.usdc) : ICONS.usdc} style={styles.tokenIcon} />
+                {/* Order Detail Modal */}
+                <Modal
+                    visible={isDetailModalVisible}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={closeModal}
+                >
+                    <View style={styles.modalOverlay}>
+                        <ModalBackdrop opacity={modalOpacity} />
+                        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
+                        <Animated.View
+                            style={[
+                                styles.modalContent,
+                                { backgroundColor: themeColors.background },
+                                {
+                                    transform: [{
+                                        translateY: slideAnim.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: [600, 0]
+                                        })
+                                    }]
+                                }
+                            ]}
+                        >
+                            {/* Header */}
+                            <View style={styles.modalHeader}>
+                                <View style={styles.modalHeaderLeft}>
+                                    <View style={styles.iconContainer}>
+                                        <Image source={selectedOrder ? (TOKENS[selectedOrder.token] || ICONS.usdc) : ICONS.usdc} style={styles.tokenIcon} />
+                                    </View>
+                                    <View>
+                                        <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                                            {selectedOrder?.status ? (selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1).toLowerCase()) : ''}
+                                        </Text>
+                                        <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                            {selectedOrder?.createdAt ? format(new Date(selectedOrder.createdAt), 'MMM d, h:mm a') : ''}
+                                        </Text>
+                                    </View>
                                 </View>
-                                <View>
-                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
-                                        {selectedOrder?.status ? (selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1).toLowerCase()) : ''}
-                                    </Text>
-                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                        {selectedOrder?.createdAt ? format(new Date(selectedOrder.createdAt), 'MMM d, h:mm a') : ''}
-                                    </Text>
-                                </View>
+                                <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
+                                    <X size={20} color={themeColors.textSecondary} />
+                                </TouchableOpacity>
                             </View>
-                            <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                                <X size={20} color={themeColors.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
 
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            {selectedOrder && (
-                                <>
-                                    {/* Progress Steps */}
-                                    <View style={[styles.progressSection, { backgroundColor: themeColors.surface }]}>
-                                        <ProgressSteps status={selectedOrder.status} />
-                                    </View>
+                            <ScrollView showsVerticalScrollIndicator={false}>
+                                {selectedOrder && (
+                                    <>
+                                        {/* Progress Steps */}
+                                        <View style={[styles.progressSection, { backgroundColor: themeColors.surface }]}>
+                                            <ProgressSteps status={selectedOrder.status} />
+                                        </View>
 
-                                    {/* Amount Card */}
-                                    <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
-                                        <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>Amount Sent</Text>
-                                        <Text style={[styles.amountValue, { color: themeColors.textPrimary }]}>
-                                            {selectedOrder.fiatCurrency} {selectedOrder.fiatAmount?.toLocaleString()}
-                                        </Text>
-                                        <Text style={[styles.amountCrypto, { color: themeColors.textSecondary }]}>
-                                            {selectedOrder.cryptoAmount} {selectedOrder.token}
-                                        </Text>
-                                    </View>
+                                        {/* Amount Card */}
+                                        <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                                            <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>Amount Sent</Text>
+                                            <Text style={[styles.amountValue, { color: themeColors.textPrimary }]}>
+                                                {selectedOrder.fiatCurrency} {selectedOrder.fiatAmount?.toLocaleString()}
+                                            </Text>
+                                            <Text style={[styles.amountCrypto, { color: themeColors.textSecondary }]}>
+                                                {selectedOrder.cryptoAmount} {selectedOrder.token}
+                                            </Text>
+                                        </View>
 
-                                    {/* Details Card */}
-                                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
-                                        <View style={styles.detailRow}>
-                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Status</Text>
-                                            <View style={[styles.statusBadge, { backgroundColor: STATUS_CONFIG[selectedOrder.status].color + '20' }]}>
-                                                <Text style={[styles.statusText, { color: STATUS_CONFIG[selectedOrder.status].color }]}>
-                                                    {STATUS_CONFIG[selectedOrder.status].label}
-                                                </Text>
+                                        {/* Details Card */}
+                                        <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                                            <View style={styles.detailRow}>
+                                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Status</Text>
+                                                <View style={[styles.statusBadge, { backgroundColor: STATUS_CONFIG[selectedOrder.status].color + '20' }]}>
+                                                    <Text style={[styles.statusText, { color: STATUS_CONFIG[selectedOrder.status].color }]}>
+                                                        {STATUS_CONFIG[selectedOrder.status].label}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+
+                                            <View style={styles.detailRow}>
+                                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Bank</Text>
+                                                <View style={{ alignItems: 'flex-end' }}>
+                                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedOrder.bankName}</Text>
+                                                    <Text style={[styles.detailSubValue, { color: themeColors.textSecondary, fontSize: 12 }]}>{selectedOrder.accountNumber}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+
+                                            <View style={styles.detailRow}>
+                                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
+                                                <View style={styles.chainValue}>
+                                                    <Image
+                                                        source={CHAINS[selectedOrder.chain]?.icon || ICONS.base}
+                                                        style={styles.smallIcon}
+                                                    />
+                                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                                        {CHAINS[selectedOrder.chain]?.name || 'Base'}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+
+                                            <View style={styles.detailRow}>
+                                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Platform Fee</Text>
+                                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>1% ({(selectedOrder.cryptoAmount * 0.01).toFixed(2)} {selectedOrder.token})</Text>
                                             </View>
                                         </View>
-                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-
-                                        <View style={styles.detailRow}>
-                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Bank</Text>
-                                            <View style={{ alignItems: 'flex-end' }}>
-                                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedOrder.bankName}</Text>
-                                                <Text style={[styles.detailSubValue, { color: themeColors.textSecondary, fontSize: 12 }]}>{selectedOrder.accountNumber}</Text>
-                                            </View>
-                                        </View>
-                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-
-                                        <View style={styles.detailRow}>
-                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
-                                            <View style={styles.chainValue}>
-                                                <Image
-                                                    source={CHAINS[selectedOrder.chain]?.icon || ICONS.base}
-                                                    style={styles.smallIcon}
-                                                />
-                                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
-                                                    {CHAINS[selectedOrder.chain]?.name || 'Base'}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-
-                                        <View style={styles.detailRow}>
-                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Platform Fee</Text>
-                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>1% ({(selectedOrder.cryptoAmount * 0.01).toFixed(2)} {selectedOrder.token})</Text>
-                                        </View>
-                                    </View>
-                                </>
-                            )}
-                        </ScrollView>
-                    </Animated.View>
-                </View>
-            </Modal>
+                                    </>
+                                )}
+                            </ScrollView>
+                        </Animated.View>
+                    </View>
+                </Modal>
+            </SafeAreaView>
         </View>
     );
 }
@@ -588,26 +522,31 @@ const styles = StyleSheet.create({
     headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
         height: 60,
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        zIndex: 10,
+    },
+    headerRightPlaceholder: {
+        width: 40,
+    },
+    headerTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 22,
+        textAlign: 'center',
+        color: Colors.textPrimary,
+        flex: 1,
     },
     headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-    },
-    headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
-        color: Colors.textPrimary,
-    },
-    profileIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        overflow: 'hidden',
     },
     filterScrollView: {
         marginTop: 4,

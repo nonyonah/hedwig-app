@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowsLeftRight } from 'phosphor-react-native';
+import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowsLeftRight, CaretLeft } from 'phosphor-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
@@ -133,60 +133,10 @@ export default function TransactionsScreen() {
 
     useEffect(() => {
         fetchTransactions();
-        fetchUserData();
         fetchConversations();
     }, []);
 
-    const fetchUserData = async () => {
-        try {
-            const token = await getAccessToken();
-            if (!token) return;
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const response = await fetch(`${apiUrl}/api/users/profile`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (response.ok) {
-                const responseData = await response.json();
-                const user = responseData.data?.user || responseData.user;
-                setUserData(user);
-
-                // Parse avatar from API response (stored as JSON string in database or as data URI)
-                if (user?.avatar) {
-                    try {
-                        // Check if it's a JSON string (starts with {) or direct image URI
-                        if (typeof user.avatar === 'string' && user.avatar.trim().startsWith('{')) {
-                            const avatarData = JSON.parse(user.avatar);
-                            if (avatarData.imageUri) {
-                                setProfileIcon({
-                                    type: 'image',
-                                    imageUri: avatarData.imageUri,
-                                    colorIndex: avatarData.colorIndex || 0
-                                });
-                            } else if (avatarData.emoji) {
-                                setProfileIcon({
-                                    type: 'emoji',
-                                    emoji: avatarData.emoji,
-                                    colorIndex: avatarData.colorIndex || 0
-                                });
-                            }
-                        } else if (typeof user.avatar === 'string' && user.avatar.startsWith('data:')) {
-                            // Direct data URI
-                            setProfileIcon({
-                                type: 'image',
-                                imageUri: user.avatar,
-                                colorIndex: 0
-                            });
-                        }
-                    } catch (parseError) {
-                        console.error('Error parsing avatar:', parseError);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching user:', error);
-        }
-    };
+    // fetchUserData removed
 
     const fetchConversations = async () => {
         try {
@@ -362,23 +312,11 @@ export default function TransactionsScreen() {
             <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Transactions</Text>
-                        <TouchableOpacity onPress={() => setIsProfileModalVisible(true)}>
-                            {profileIcon.imageUri ? (
-                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                            ) : profileIcon.emoji ? (
-                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                                </View>
-                            ) : (
-                                <LinearGradient
-                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.profileIcon}
-                                />
-                            )}
+                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                            <CaretLeft size={24} color={themeColors.textPrimary} />
                         </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Transactions</Text>
+                        <View style={styles.headerRightPlaceholder} />
                     </View>
                 </View>
 
@@ -412,17 +350,7 @@ export default function TransactionsScreen() {
 
 
             {/* Profile Modal */}
-            <ProfileModal
-                visible={isProfileModalVisible}
-                onClose={() => setIsProfileModalVisible(false)}
-                userName={userData ? { firstName: userData.firstName, lastName: userData.lastName } : undefined}
-                walletAddresses={{
-                    evm: userData?.ethereumWalletAddress,
-                    solana: userData?.solanaWalletAddress
-                }}
-                profileIcon={profileIcon}
-                onProfileUpdate={fetchUserData}
-            />
+
 
             {/* Transaction Detail Modal */}
             <Modal
@@ -550,29 +478,29 @@ const styles = StyleSheet.create({
     headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
         height: 60,
     },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
+    backButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        zIndex: 10,
     },
+    headerRightPlaceholder: {
+        width: 40,
+    },
+    // headerLeft removed
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
+        fontSize: 22,
+        textAlign: 'center',
         color: Colors.textPrimary,
+        flex: 1,
     },
-    profileIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        overflow: 'hidden',
-    },
+    // profileIcon removed
     centered: {
         flex: 1,
         justifyContent: 'center',

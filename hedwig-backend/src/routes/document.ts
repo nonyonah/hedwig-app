@@ -177,6 +177,192 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
 });
 
 /**
+ * POST /api/documents
+ * Universal create endpoint - dispatches to specific handlers based on type
+ */
+router.post('/', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { type } = req.body;
+
+        logger.debug('Universal create request', { type });
+
+        if (!type) {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Document type is required' }
+            });
+            return;
+        }
+
+        // Normalize type
+        const docType = type.toUpperCase();
+
+        if (docType === 'INVOICE') {
+            // Forward to invoice handler logic
+            // We can't easily call the route handler directly without mocking req/res, 
+            // so we'll redirect the request internally or duplicate the logic for now (safest for quick fix)
+            // Ideally we'd refactor to controllers.
+            
+            // Re-using logic from /invoice route
+            const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled, title } = req.body;
+            const privyId = req.user!.id;
+            
+            // Validate required fields
+            if (!dueDate) {
+                res.status(400).json({ success: false, error: { message: 'Due date is required for invoices' } });
+                return;
+            }
+
+            const user = await getOrCreateUser(privyId);
+            if (!user) {
+                res.status(404).json({ success: false, error: { message: 'User not found' } });
+                return;
+            }
+
+            const { data: doc, error } = await supabase
+                .from('documents')
+                .insert({
+                    user_id: user.id,
+                    type: 'INVOICE',
+                    title: title || `Invoice for ${clientName || description || 'Services'}`,
+                    amount: parseFloat(amount),
+                    description: description,
+                    status: 'DRAFT',
+                    content: {
+                        recipient_email: recipientEmail,
+                        client_name: clientName,
+                        due_date: dueDate,
+                        items: items || [],
+                        reminders_enabled: remindersEnabled !== false
+                    }
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            if (dueDate && doc) {
+                await createCalendarEventFromSource(
+                    user.id,
+                    `Invoice due: ${clientName || description || 'Invoice'}`,
+                    dueDate,
+                    'invoice_due',
+                    'invoice',
+                    doc.id,
+                    `Invoice for ${doc.amount} - ${clientName || 'Client'}`
+                );
+            }
+
+            const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
+            res.json({ success: true, data: { document: doc, shareableUrl } });
+            return;
+
+        } else if (docType === 'PAYMENT_LINK' || docType === 'PAYMENT-LINK') {
+            // Re-using logic from /payment-link route
+            const { amount, currency, description, remindersEnabled, recipientEmail, clientName, dueDate, title } = req.body;
+            const privyId = req.user!.id;
+
+            if (!clientName || clientName.trim() === '') {
+                res.status(400).json({ success: false, error: { message: 'Client name is required' } });
+                return;
+            }
+            if (!dueDate) {
+                res.status(400).json({ success: false, error: { message: 'Due date is required' } });
+                return;
+            }
+
+            const user = await getOrCreateUser(privyId);
+            if (!user) {
+                res.status(404).json({ success: false, error: { message: 'User not found' } });
+                return;
+            }
+
+            const { data: doc, error } = await supabase
+                .from('documents')
+                .insert({
+                    user_id: user.id,
+                    type: 'PAYMENT_LINK',
+                    title: title || description || 'Payment Link',
+                    amount: parseFloat(amount),
+                    currency: currency || 'USDC',
+                    status: 'DRAFT',
+                    content: {
+                        recipient_email: recipientEmail,
+                        client_name: clientName,
+                        due_date: dueDate,
+                        reminders_enabled: remindersEnabled !== false
+                    }
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            const shareableUrl = `${WEB_CLIENT_URL}/pay/${doc.id}`;
+            await supabase.from('documents').update({ payment_link_url: shareableUrl }).eq('id', doc.id);
+
+            await createCalendarEventFromSource(
+                user.id,
+                `Payment due: ${clientName}`,
+                dueDate,
+                'invoice_due',
+                'payment_link',
+                doc.id,
+                `Payment link for ${doc.amount} ${currency || 'USDC'}`
+            );
+
+            res.json({ success: true, data: { document: { ...doc, payment_link_url: shareableUrl } } });
+            return;
+
+        } else if (docType === 'CONTRACT') {
+            // Basic contract creation support
+            const { title, description, clientName, recipientEmail, content, amount } = req.body;
+            const privyId = req.user!.id;
+
+            const user = await getOrCreateUser(privyId);
+            if (!user) {
+                res.status(404).json({ success: false, error: { message: 'User not found' } });
+                return;
+            }
+
+            const { data: doc, error } = await supabase
+                .from('documents')
+                .insert({
+                    user_id: user.id,
+                    type: 'CONTRACT',
+                    title: title || 'Contract',
+                    amount: amount ? parseFloat(amount) : 0,
+                    description: description,
+                    status: 'DRAFT',
+                    content: {
+                        ...content,
+                        client_name: clientName,
+                        recipient_email: recipientEmail,
+                        html_content: content?.html_content || ''
+                    }
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            res.json({ success: true, data: { document: doc } });
+            return;
+
+        } else {
+            res.status(400).json({
+                success: false,
+                error: { message: `Unsupported document type: ${type}` }
+            });
+            return;
+        }
+
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * GET /api/documents
  * List documents for the authenticated user
  */

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { List, CalendarBlank, Receipt, Target, Folder, Clock, Trash } from 'phosphor-react-native';
+import { List, CalendarBlank, Receipt, Target, Folder, Clock, Trash, CaretLeft } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Sidebar } from '../../components/Sidebar';
@@ -89,47 +89,14 @@ export default function CalendarScreen() {
 
     useEffect(() => {
         fetchEvents();
-        fetchUserData();
+        fetchConversations();
     }, [user]);
 
-    const fetchUserData = async () => {
+    const fetchConversations = async () => {
         if (!user) return;
         try {
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-            const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-            });
-            const profileData = await profileResponse.json();
-
-            if (profileData.success && profileData.data) {
-                const userData = profileData.data.user || profileData.data;
-                setUserName({
-                    firstName: userData.firstName || '',
-                    lastName: userData.lastName || ''
-                });
-
-                if (userData.avatar) {
-                    try {
-                        if (userData.avatar.trim().startsWith('{')) {
-                            const parsed = JSON.parse(userData.avatar);
-                            setProfileIcon(parsed);
-                        } else {
-                            setProfileIcon({ imageUri: userData.avatar });
-                        }
-                    } catch {
-                        setProfileIcon({ imageUri: userData.avatar });
-                    }
-                } else if (userData.profileColorIndex !== undefined) {
-                    setProfileIcon({ colorIndex: userData.profileColorIndex });
-                }
-
-                setWalletAddresses({
-                    evm: userData.ethereumWalletAddress,
-                    solana: userData.solanaWalletAddress
-                });
-            }
 
             const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -139,7 +106,7 @@ export default function CalendarScreen() {
                 setConversations(conversationsData.data.slice(0, 10));
             }
         } catch (error) {
-            console.error('Failed to fetch user data:', error);
+            console.error('Failed to fetch conversations:', error);
         }
     };
 
@@ -296,23 +263,11 @@ export default function CalendarScreen() {
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
-                        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                            {profileIcon.imageUri ? (
-                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                            ) : profileIcon.emoji ? (
-                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                                </View>
-                            ) : (
-                                <LinearGradient
-                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.profileIcon}
-                                />
-                            )}
+                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                            <CaretLeft size={24} color={themeColors.textPrimary} />
                         </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
+                        <View style={styles.headerRightPlaceholder} />
                     </View>
                 </View>
 
@@ -345,13 +300,7 @@ export default function CalendarScreen() {
                 )}
             </SafeAreaView>
 
-            <ProfileModal
-                visible={showProfileModal}
-                onClose={() => setShowProfileModal(false)}
-                userName={userName}
-                walletAddresses={walletAddresses}
-                profileIcon={profileIcon}
-            />
+
 
 
         </View>
@@ -368,25 +317,29 @@ const styles = StyleSheet.create({
     headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
         height: 60,
     },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
+    backButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        zIndex: 10,
     },
+    headerRightPlaceholder: {
+        width: 40,
+    },
+    // headerLeft removed
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
+        fontSize: 22,
+        textAlign: 'center',
+        color: Colors.textPrimary,
+        flex: 1,
     },
-    profileIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-    },
+    // profileIcon removed
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
