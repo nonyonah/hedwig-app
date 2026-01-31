@@ -15,6 +15,7 @@ import {
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
 import { View, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
 import { useThemeColors } from '../theme/colors';
 import * as Sentry from '@sentry/react-native';
@@ -179,7 +180,9 @@ function RootLayout() {
     return (
         <SettingsProvider>
             <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-                {isWeb ? <WebLayout /> : <NativeLayout />}
+                <BottomSheetModalProvider>
+                    {isWeb ? <WebLayout /> : <NativeLayout />}
+                </BottomSheetModalProvider>
             </GestureHandlerRootView>
         </SettingsProvider>
     );

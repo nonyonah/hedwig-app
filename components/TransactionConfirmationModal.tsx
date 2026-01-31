@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Dimensions, ActivityIndicator, Alert, Platform, Image, Linking } from 'react-native';
+import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Alert, Platform, Image, Linking } from 'react-native';
 import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { ethers } from 'ethers';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { X, CheckCircle, Warning, Fingerprint, ArrowSquareOut, XCircle } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
+import { modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../hooks/useAuth';
-import { SwiftUIBottomSheet } from './ios/SwiftUIBottomSheet';
 import {
     Connection,
     PublicKey,
@@ -144,7 +144,7 @@ const parseErrorMessage = (error: any): string => {
     return cleanMessage;
 };
 
-export const TransactionConfirmationModal: React.FC<TransactionConfirmationModalProps> = ({ visible, onClose, data, onSuccess }) => {
+export const TransactionConfirmationModal = forwardRef<BottomSheetModal, TransactionConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
     const { getAccessToken } = useAuth();
@@ -157,12 +157,8 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
     const [modalState, setModalState] = useState<ModalState>('confirm');
     const [txHash, setTxHash] = useState<string | null>(null);
     const [statusMessage, setStatusMessage] = useState('');
-    const [isRendered, setIsRendered] = useState(false);
     const [estimatedGas, setEstimatedGas] = useState<string | null>(null);
     const [gasError, setGasError] = useState<string | null>(null);
-
-    const modalAnim = useRef(new Animated.Value(height)).current;
-    const opacityAnim = useRef(new Animated.Value(0)).current;
 
     // Helper to normalize network name
     const normalizeNetwork = (network: string): string => {
@@ -179,121 +175,94 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
         return n === 'solana' || n === 'solana_devnet' || n === 'solanadevnet' || n === 'solana devnet' || n === 'solana mainnet';
     };
 
-    // Estimate gas when modal becomes visible (EVM only)
-    useEffect(() => {
-        const estimateGasFee = async () => {
-            if (!visible || !data || modalState !== 'confirm') return;
+    const estimateGasFee = useCallback(async () => {
+        if (!data || modalState !== 'confirm') return;
 
-            const network = data.network.toLowerCase();
+        const network = data.network.toLowerCase();
 
-            // Skip gas estimation for Solana
-            if (isSolanaNetwork(network)) {
-                setEstimatedGas('~0.000005 SOL');
-                return;
-            }
-
-            try {
-                setGasError(null);
-                const rpcUrl = RPC_URLS[network];
-                if (!rpcUrl) return;
-
-                const rpcProvider = new ethers.JsonRpcProvider(rpcUrl);
-                const tokenSymbol = data.token.toUpperCase();
-
-                const isNative =
-                    (network === 'base' && tokenSymbol === 'ETH') ||
-                    (network === 'celo' && tokenSymbol === 'CELO');
-
-                // Get wallet address
-                if (!evmWallets || evmWallets.length === 0) return;
-                const provider = await evmWallets[0].getProvider();
-                const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
-                const fromAddress = accounts[0];
-                if (!fromAddress) return;
-
-                const feeData = await rpcProvider.getFeeData();
-                const gasPrice = feeData.gasPrice || 1000000000n;
-
-                let gasEstimate: bigint;
-                if (isNative) {
-                    const value = ethers.parseEther(data.amount);
-                    gasEstimate = await rpcProvider.estimateGas({
-                        from: fromAddress,
-                        to: data.recipient,
-                        value: value
-                    });
-                } else {
-                    const chainTokens = TOKEN_ADDRESSES[network as keyof typeof TOKEN_ADDRESSES];
-                    const tokenAddress = chainTokens ? (chainTokens as any)[tokenSymbol] : null;
-                    if (!tokenAddress) return;
-
-                    const decimals = 6;
-                    const amountWei = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, decimals)));
-                    const recipientPadded = data.recipient.slice(2).toLowerCase().padStart(64, '0');
-                    const amountPadded = amountWei.toString(16).padStart(64, '0');
-                    const txData = '0xa9059cbb' + recipientPadded + amountPadded;
-
-                    gasEstimate = await rpcProvider.estimateGas({
-                        from: fromAddress,
-                        to: tokenAddress,
-                        data: txData
-                    });
-                }
-
-                const gasCost = gasEstimate * gasPrice;
-                const gasCostEth = ethers.formatEther(gasCost);
-                const gasCostFloat = parseFloat(gasCostEth);
-                const symbol = network === 'celo' ? 'CELO' : 'ETH';
-                setEstimatedGas(`~${gasCostFloat.toFixed(6)} ${symbol}`);
-            } catch (error: any) {
-                console.log('Gas estimation error:', error.message);
-                setGasError('Unable to estimate');
-            }
-        };
-
-        estimateGasFee();
-    }, [visible, data, evmWallets, modalState]);
-
-    useEffect(() => {
-        if (visible) {
-            setIsRendered(true);
-            setModalState('confirm'); // Reset state on open
-            setTxHash(null);
-            modalHaptic('open', hapticsEnabled); // Haptic feedback
-            Animated.parallel([
-                Animated.timing(opacityAnim, {
-                    toValue: 1,
-                    duration: 120,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(modalAnim, {
-                    toValue: 0,
-                    damping: 28,
-                    stiffness: 350,
-                    useNativeDriver: true,
-                })
-            ]).start();
-        } else {
-            modalHaptic('close', hapticsEnabled); // Haptic feedback
-            Animated.parallel([
-                Animated.timing(opacityAnim, {
-                    toValue: 0,
-                    duration: 80,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(modalAnim, {
-                    toValue: height,
-                    damping: 28,
-                    stiffness: 350,
-                    useNativeDriver: true,
-                })
-            ]).start(() => {
-                setIsRendered(false);
-                setStatusMessage('');
-                setModalState('confirm');
-            });
+        // Skip gas estimation for Solana
+        if (isSolanaNetwork(network)) {
+            setEstimatedGas('~0.000005 SOL');
+            return;
         }
-    }, [visible]);
+
+        try {
+            setGasError(null);
+            const rpcUrl = RPC_URLS[network];
+            if (!rpcUrl) return;
+
+            const rpcProvider = new ethers.JsonRpcProvider(rpcUrl);
+            const tokenSymbol = data.token.toUpperCase();
+
+            const isNative =
+                (network === 'base' && tokenSymbol === 'ETH') ||
+                (network === 'celo' && tokenSymbol === 'CELO');
+
+            // Get wallet address
+            if (!evmWallets || evmWallets.length === 0) return;
+            const provider = await evmWallets[0].getProvider();
+            const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
+            const fromAddress = accounts[0];
+            if (!fromAddress) return;
+
+            const feeData = await rpcProvider.getFeeData();
+            const gasPrice = feeData.gasPrice || 1000000000n;
+
+            let gasEstimate: bigint;
+            if (isNative) {
+                const value = ethers.parseEther(data.amount);
+                gasEstimate = await rpcProvider.estimateGas({
+                    from: fromAddress,
+                    to: data.recipient,
+                    value: value
+                });
+            } else {
+                const chainTokens = TOKEN_ADDRESSES[network as keyof typeof TOKEN_ADDRESSES];
+                const tokenAddress = chainTokens ? (chainTokens as any)[tokenSymbol] : null;
+                if (!tokenAddress) return;
+
+                const decimals = 6;
+                const amountWei = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, decimals)));
+                const recipientPadded = data.recipient.slice(2).toLowerCase().padStart(64, '0');
+                const amountPadded = amountWei.toString(16).padStart(64, '0');
+                const txData = '0xa9059cbb' + recipientPadded + amountPadded;
+
+                gasEstimate = await rpcProvider.estimateGas({
+                    from: fromAddress,
+                    to: tokenAddress,
+                    data: txData
+                });
+            }
+
+            const gasCost = gasEstimate * gasPrice;
+            const gasCostEth = ethers.formatEther(gasCost);
+            const gasCostFloat = parseFloat(gasCostEth);
+            const symbol = network === 'celo' ? 'CELO' : 'ETH';
+            setEstimatedGas(`~${gasCostFloat.toFixed(6)} ${symbol}`);
+        } catch (error: any) {
+            console.log('Gas estimation error:', error.message);
+            setGasError('Unable to estimate');
+        }
+    }, [data, modalState, evmWallets]);
+
+    // Handle sheet changes
+    const handleSheetChanges = useCallback((index: number) => {
+        if (index >= 0) {
+            modalHaptic('open', hapticsEnabled);
+            setModalState('confirm');
+            setTxHash(null);
+            estimateGasFee();
+        } else {
+            modalHaptic('close', hapticsEnabled);
+            setStatusMessage('');
+            setModalState('confirm');
+        }
+    }, [hapticsEnabled, estimateGasFee]);
+
+    const handleDismiss = useCallback(() => {
+        // @ts-ignore
+        ref?.current?.dismiss();
+    }, []);
 
     // Handle Solana transaction
     const handleSolanaTransaction = async () => {
@@ -783,7 +752,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
         }
     };
 
-    if (!isRendered || !data) return null;
+    if (!data) return null;
 
     const network = normalizeNetwork(data.network);
     const chain = CHAINS[network] || CHAINS['solana'];
@@ -819,7 +788,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                                 <ArrowSquareOut size={20} color={Colors.primary} />
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.closeButtonMain} onPress={onClose}>
+                            <TouchableOpacity style={styles.closeButtonMain} onPress={handleDismiss}>
                                 <Text style={styles.closeButtonText}>Close Page</Text>
                             </TouchableOpacity>
                         </View>
@@ -832,7 +801,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                         <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>Transaction failed. Don't worry your funds are safe.</Text>
                         <Text style={styles.errorMessage}>{statusMessage}</Text>
                         <View style={styles.actionButtonsContainer}>
-                            <TouchableOpacity style={styles.closeButtonMain} onPress={onClose}>
+                            <TouchableOpacity style={styles.closeButtonMain} onPress={handleDismiss}>
                                 <Text style={styles.closeButtonText}>Close</Text>
                             </TouchableOpacity>
                         </View>
@@ -844,7 +813,7 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
                         {/* Header */}
                         <View style={styles.header}>
                             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Confirm Transaction</Text>
-                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={onClose}>
+                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={handleDismiss}>
                                 <X size={20} color={themeColors.textSecondary} weight="bold" />
                             </TouchableOpacity>
                         </View>
@@ -895,45 +864,36 @@ export const TransactionConfirmationModal: React.FC<TransactionConfirmationModal
         }
     };
 
-    // iOS: Use native SwiftUI BottomSheet
-    if (Platform.OS === 'ios') {
-        return (
-            <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.60}>
-                <View style={[styles.iosContent, { backgroundColor: themeColors.background }]}>
-                    {renderContent()}
-                </View>
-            </SwiftUIBottomSheet>
-        );
-    }
-
-    // Android: Use existing Modal
-    return (
-        <Modal
-            visible={isRendered}
-            transparent={true}
-            animationType="none"
-            onRequestClose={onClose}
-        >
-            <View style={styles.overlay}>
-                <ModalBackdrop opacity={opacityAnim} />
-                <TouchableOpacity
-                    style={StyleSheet.absoluteFill}
-                    activeOpacity={1}
-                    onPress={onClose}
-                />
-                <Animated.View
-                    style={[
-                        styles.modalContent,
-                        { backgroundColor: themeColors.background },
-                        { transform: [{ translateY: modalAnim }] }
-                    ]}
-                >
-                    {renderContent()}
-                </Animated.View>
-            </View>
-        </Modal>
+    const renderBackdrop = useCallback(
+        (props: any) => (
+            <BottomSheetBackdrop
+                {...props}
+                disappearsOnIndex={-1}
+                appearsOnIndex={0}
+                opacity={0.5}
+            />
+        ),
+        []
     );
-};
+
+    return (
+        <BottomSheetModal
+            ref={ref}
+            index={0}
+            enableDynamicSizing={true}
+            enablePanDownToClose={modalState !== 'processing'}
+            backdropComponent={renderBackdrop}
+            backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+            handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+            onDismiss={onClose}
+            onChange={handleSheetChanges}
+        >
+            <BottomSheetView style={{ flex: 1, padding: 24, paddingBottom: 40 }}>
+                {renderContent()}
+            </BottomSheetView>
+        </BottomSheetModal>
+    );
+});
 
 const styles = StyleSheet.create({
     overlay: {

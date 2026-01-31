@@ -5,27 +5,25 @@
  * for offramping via Paycrest.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
-    Modal,
-    Animated,
     Dimensions,
     ActivityIndicator,
     Image,
     Platform,
 } from 'react-native';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { X, CheckCircle, Clock, Wallet, ArrowDown } from 'phosphor-react-native';
 import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { Connection, Transaction, clusterApiUrl } from '@solana/web3.js';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Button } from './Button';
-import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
+import { modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
-import { SwiftUIBottomSheet } from './ios/SwiftUIBottomSheet';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -110,8 +108,7 @@ const parseErrorMessage = (error: any): string => {
     return cleanMessage;
 };
 
-export function SolanaBridgeModal({
-    visible,
+export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalProps>(({
     onClose,
     token,
     amount,
@@ -119,21 +116,9 @@ export function SolanaBridgeModal({
     baseAddress,
     onBridgeComplete,
     getAccessToken,
-}: SolanaBridgeModalProps) {
-    // TEMPORARILY DISABLED - Base only mode
-    // Solana bridge will be re-enabled when multi-chain support is added
-    useEffect(() => {
-        if (visible) {
-            console.log('[SolanaBridgeModal] Solana bridge is temporarily disabled. Closing modal.');
-            onClose();
-        }
-    }, [visible, onClose]);
-
-    // Return null to render nothing
-    return null;
+}, ref) => {
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
-    const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     // Privy Solana wallet
     const solanaWallet = useEmbeddedSolanaWallet();
@@ -147,48 +132,6 @@ export function SolanaBridgeModal({
     const [error, setError] = useState<string | null>(null);
     const [bridgeStatus, setBridgeStatus] = useState<string>('');
     const [txSignature, setTxSignature] = useState<string | null>(null);
-    const backdropOpacity = useRef(new Animated.Value(0)).current;
-
-    // Animation effects
-    useEffect(() => {
-        if (visible) {
-            modalHaptic('open', hapticsEnabled); // Haptic feedback
-            Animated.parallel([
-                Animated.spring(slideAnim, {
-                    toValue: 0,
-                    useNativeDriver: true,
-                    tension: 65,
-                    friction: 11,
-                }),
-                Animated.timing(backdropOpacity, {
-                    toValue: 1,
-                    duration: 250,
-                    useNativeDriver: true,
-                }),
-            ]).start();
-            fetchQuote();
-        } else {
-            modalHaptic('close', hapticsEnabled); // Haptic feedback
-            Animated.parallel([
-                Animated.timing(slideAnim, {
-                    toValue: SCREEN_HEIGHT,
-                    duration: 200,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(backdropOpacity, {
-                    toValue: 0,
-                    duration: 200,
-                    useNativeDriver: true,
-                }),
-            ]).start();
-            // Reset state when closing
-            setStep('quote');
-            setQuote(null);
-            setBridgeTx(null);
-            setError(null);
-            setTxSignature(null);
-        }
-    }, [visible]);
 
     // Fetch bridge quote
     const fetchQuote = async () => {
@@ -219,6 +162,28 @@ export function SolanaBridgeModal({
             setLoading(false);
         }
     };
+
+    // Handle sheet changes
+    const handleSheetChanges = useCallback((index: number) => {
+        if (index >= 0) {
+            modalHaptic('open', hapticsEnabled);
+            fetchQuote();
+        } else {
+            modalHaptic('close', hapticsEnabled);
+            // Reset state when closing
+            setStep('quote');
+            setQuote(null);
+            setBridgeTx(null);
+            setError(null);
+            setTxSignature(null);
+        }
+    }, [hapticsEnabled, token, amount, getAccessToken]);
+
+    const handleDismiss = useCallback(() => {
+        // @ts-ignore
+        ref?.current?.dismiss();
+        onClose();
+    }, [onClose]);
 
     // Build and initiate bridge transaction
     const handleConfirmBridge = async () => {
@@ -344,7 +309,7 @@ export function SolanaBridgeModal({
         if (quote && onBridgeComplete) {
             onBridgeComplete(baseAddress, 'USDC', quote.estimatedReceiveAmount);
         }
-        onClose();
+        handleDismiss();
     };
 
     // Get token icon
@@ -365,8 +330,6 @@ export function SolanaBridgeModal({
     // Render quote step
     const renderQuoteStep = () => (
         <>
-            {/* Title moved to header */}
-
             {loading && !quote ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={Colors.primary} />
@@ -530,7 +493,7 @@ export function SolanaBridgeModal({
                     variant="primary"
                     size="large"
                 />
-                <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
+                <TouchableOpacity onPress={handleDismiss} style={styles.cancelButton}>
                     <Text style={[styles.cancelText, { color: themeColors.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
             </View>
@@ -555,82 +518,52 @@ export function SolanaBridgeModal({
         }
     };
 
-    // Shared content wrapper
-    const sheetContent = (
-        <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-            {/* Header */}
-            {(step === 'quote' || step === 'error') && (
-                <View style={styles.headerTitleRow}>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Bridge to Base</Text>
-                    <TouchableOpacity
-                        style={styles.closeButton}
-                        onPress={onClose}
-                    >
-                        <X size={24} color={themeColors.textSecondary} />
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            {/* Content */}
-            <View style={styles.content}>
-                {renderContent()}
-            </View>
-        </View>
+    const renderBackdrop = useCallback(
+        (props: any) => (
+            <BottomSheetBackdrop
+                {...props}
+                disappearsOnIndex={-1}
+                appearsOnIndex={0}
+                opacity={0.5}
+            />
+        ),
+        []
     );
 
-    // iOS: Use native SwiftUI BottomSheet
-    if (Platform.OS === 'ios') {
-        return (
-            <SwiftUIBottomSheet isOpen={visible} onClose={onClose} height={0.60}>
-                {sheetContent}
-            </SwiftUIBottomSheet>
-        );
-    }
-
-    // Android: Use existing Modal
     return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="none"
-            onRequestClose={onClose}
+        <BottomSheetModal
+            ref={ref}
+            index={0}
+            enableDynamicSizing={true}
+            enablePanDownToClose={step === 'quote' || step === 'error'}
+            backdropComponent={renderBackdrop}
+            backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+            handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+            onDismiss={handleDismiss}
+            onChange={handleSheetChanges}
         >
-            <View style={styles.overlay}>
-                <ModalBackdrop opacity={backdropOpacity} />
-                <TouchableOpacity
-                    style={StyleSheet.absoluteFill}
-                    activeOpacity={1}
-                    onPress={step === 'quote' || step === 'error' ? onClose : undefined}
-                />
-                <Animated.View
-                    style={[
-                        styles.container,
-                        { backgroundColor: themeColors.background },
-                        { transform: [{ translateY: slideAnim }] },
-                    ]}
-                >
-                    {/* Header */}
-                    {(step === 'quote' || step === 'error') && (
-                        <View style={styles.headerTitleRow}>
-                            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Bridge to Base</Text>
-                            <TouchableOpacity
-                                style={styles.closeButton}
-                                onPress={onClose}
-                            >
-                                <X size={24} color={themeColors.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    {/* Content */}
-                    <View style={styles.content}>
-                        {renderContent()}
+            <BottomSheetView style={[styles.container, { backgroundColor: themeColors.background }]}>
+                {/* Header */}
+                {(step === 'quote' || step === 'error') && (
+                    <View style={styles.headerTitleRow}>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Bridge to Base</Text>
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={handleDismiss}
+                        >
+                            <X size={24} color={themeColors.textSecondary} />
+                        </TouchableOpacity>
                     </View>
-                </Animated.View>
-            </View>
-        </Modal>
+                )}
+
+                {/* Content */}
+                <View style={styles.content}>
+                    {renderContent()}
+                </View>
+            </BottomSheetView>
+        </BottomSheetModal>
     );
-}
+});
 
 const styles = StyleSheet.create({
     overlay: {

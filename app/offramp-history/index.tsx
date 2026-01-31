@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import {
     View,
     Text,
@@ -118,9 +119,8 @@ export default function OfframpHistoryScreen() {
 
     // Detail Modal
     const [selectedOrder, setSelectedOrder] = useState<OfframpOrder | null>(null);
-    const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
-    const slideAnim = useRef(new Animated.Value(0)).current;
-    const modalOpacity = useRef(new Animated.Value(0)).current;
+    const bottomSheetRef = useRef<BottomSheetModal>(null);
+    // Removed unused animation refs
 
     // Filter state
     const [statusFilter, setStatusFilter] = useState<'all' | 'processing' | 'completed' | 'failed'>('all');
@@ -180,38 +180,14 @@ export default function OfframpHistoryScreen() {
     };
 
     const openModal = (order: OfframpOrder) => {
-        setSelectedOrder(order);
-        setIsDetailModalVisible(true);
         modalHaptic('open', hapticsEnabled);
-        Animated.parallel([
-            Animated.spring(slideAnim, {
-                toValue: 1,
-                useNativeDriver: true,
-                damping: 25,
-                stiffness: 300,
-            }),
-            Animated.timing(modalOpacity, {
-                toValue: 1,
-                duration: 200,
-                useNativeDriver: true,
-            }),
-        ]).start();
+        setSelectedOrder(order);
+        bottomSheetRef.current?.present();
     };
 
     const closeModal = () => {
         modalHaptic('close', hapticsEnabled);
-        Animated.parallel([
-            Animated.timing(slideAnim, {
-                toValue: 0,
-                duration: 150,
-                useNativeDriver: true,
-            }),
-            Animated.timing(modalOpacity, {
-                toValue: 0,
-                duration: 150,
-                useNativeDriver: true,
-            }),
-        ]).start(() => setIsDetailModalVisible(false));
+        bottomSheetRef.current?.dismiss();
     };
 
     const copyToClipboard = async (text: string) => {
@@ -397,114 +373,107 @@ export default function OfframpHistoryScreen() {
 
 
                 {/* Order Detail Modal */}
-                <Modal
-                    visible={isDetailModalVisible}
-                    transparent
-                    animationType="fade"
-                    onRequestClose={closeModal}
+                <BottomSheetModal
+                    ref={bottomSheetRef}
+                    index={0}
+                    enableDynamicSizing={true}
+                    enablePanDownToClose={true}
+                    backdropComponent={(props) => (
+                        <BottomSheetBackdrop
+                            {...props}
+                            disappearsOnIndex={-1}
+                            appearsOnIndex={0}
+                            opacity={0.5}
+                        />
+                    )}
+                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
                 >
-                    <View style={styles.modalOverlay}>
-                        <ModalBackdrop opacity={modalOpacity} />
-                        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
-                        <Animated.View
-                            style={[
-                                styles.modalContent,
-                                { backgroundColor: themeColors.background },
-                                {
-                                    transform: [{
-                                        translateY: slideAnim.interpolate({
-                                            inputRange: [0, 1],
-                                            outputRange: [600, 0]
-                                        })
-                                    }]
-                                }
-                            ]}
-                        >
-                            {/* Header */}
-                            <View style={styles.modalHeader}>
-                                <View style={styles.modalHeaderLeft}>
-                                    <View style={styles.iconContainer}>
-                                        <Image source={selectedOrder ? (TOKENS[selectedOrder.token] || ICONS.usdc) : ICONS.usdc} style={styles.tokenIcon} />
-                                    </View>
-                                    <View>
-                                        <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
-                                            {selectedOrder?.status ? (selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1).toLowerCase()) : ''}
-                                        </Text>
-                                        <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                            {selectedOrder?.createdAt ? format(new Date(selectedOrder.createdAt), 'MMM d, h:mm a') : ''}
-                                        </Text>
-                                    </View>
+                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 20 }}>
+                        {/* Header */}
+                        <View style={styles.modalHeader}>
+                            <View style={styles.modalHeaderLeft}>
+                                <View style={styles.iconContainer}>
+                                    <Image source={selectedOrder ? (TOKENS[selectedOrder.token] || ICONS.usdc) : ICONS.usdc} style={styles.tokenIcon} />
                                 </View>
-                                <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                                    <X size={20} color={themeColors.textSecondary} />
-                                </TouchableOpacity>
+                                <View>
+                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                                        {selectedOrder?.status ? (selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1).toLowerCase()) : ''}
+                                    </Text>
+                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                        {selectedOrder?.createdAt ? format(new Date(selectedOrder.createdAt), 'MMM d, h:mm a') : ''}
+                                    </Text>
+                                </View>
                             </View>
+                            <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
+                                <X size={20} color={themeColors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
 
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                                {selectedOrder && (
-                                    <>
-                                        {/* Progress Steps */}
-                                        <View style={[styles.progressSection, { backgroundColor: themeColors.surface }]}>
-                                            <ProgressSteps status={selectedOrder.status} />
-                                        </View>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {selectedOrder && (
+                                <>
+                                    {/* Progress Steps */}
+                                    <View style={[styles.progressSection, { backgroundColor: themeColors.surface }]}>
+                                        <ProgressSteps status={selectedOrder.status} />
+                                    </View>
 
-                                        {/* Amount Card */}
-                                        <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
-                                            <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>Amount Sent</Text>
-                                            <Text style={[styles.amountValue, { color: themeColors.textPrimary }]}>
-                                                {selectedOrder.fiatCurrency} {selectedOrder.fiatAmount?.toLocaleString()}
-                                            </Text>
-                                            <Text style={[styles.amountCrypto, { color: themeColors.textSecondary }]}>
-                                                {selectedOrder.cryptoAmount} {selectedOrder.token}
-                                            </Text>
-                                        </View>
+                                    {/* Amount Card */}
+                                    <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                                        <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>Amount Sent</Text>
+                                        <Text style={[styles.amountValue, { color: themeColors.textPrimary }]}>
+                                            {selectedOrder.fiatCurrency} {selectedOrder.fiatAmount?.toLocaleString()}
+                                        </Text>
+                                        <Text style={[styles.amountCrypto, { color: themeColors.textSecondary }]}>
+                                            {selectedOrder.cryptoAmount} {selectedOrder.token}
+                                        </Text>
+                                    </View>
 
-                                        {/* Details Card */}
-                                        <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
-                                            <View style={styles.detailRow}>
-                                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Status</Text>
-                                                <View style={[styles.statusBadge, { backgroundColor: STATUS_CONFIG[selectedOrder.status].color + '20' }]}>
-                                                    <Text style={[styles.statusText, { color: STATUS_CONFIG[selectedOrder.status].color }]}>
-                                                        {STATUS_CONFIG[selectedOrder.status].label}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-
-                                            <View style={styles.detailRow}>
-                                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Bank</Text>
-                                                <View style={{ alignItems: 'flex-end' }}>
-                                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedOrder.bankName}</Text>
-                                                    <Text style={[styles.detailSubValue, { color: themeColors.textSecondary, fontSize: 12 }]}>{selectedOrder.accountNumber}</Text>
-                                                </View>
-                                            </View>
-                                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-
-                                            <View style={styles.detailRow}>
-                                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
-                                                <View style={styles.chainValue}>
-                                                    <Image
-                                                        source={CHAINS[selectedOrder.chain]?.icon || ICONS.base}
-                                                        style={styles.smallIcon}
-                                                    />
-                                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
-                                                        {CHAINS[selectedOrder.chain]?.name || 'Base'}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-
-                                            <View style={styles.detailRow}>
-                                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Platform Fee</Text>
-                                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>1% ({(selectedOrder.cryptoAmount * 0.01).toFixed(2)} {selectedOrder.token})</Text>
+                                    {/* Details Card */}
+                                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Status</Text>
+                                            <View style={[styles.statusBadge, { backgroundColor: STATUS_CONFIG[selectedOrder.status].color + '20' }]}>
+                                                <Text style={[styles.statusText, { color: STATUS_CONFIG[selectedOrder.status].color }]}>
+                                                    {STATUS_CONFIG[selectedOrder.status].label}
+                                                </Text>
                                             </View>
                                         </View>
-                                    </>
-                                )}
-                            </ScrollView>
-                        </Animated.View>
-                    </View>
-                </Modal>
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Bank</Text>
+                                            <View style={{ alignItems: 'flex-end' }}>
+                                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedOrder.bankName}</Text>
+                                                <Text style={[styles.detailSubValue, { color: themeColors.textSecondary, fontSize: 12 }]}>{selectedOrder.accountNumber}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
+                                            <View style={styles.chainValue}>
+                                                <Image
+                                                    source={CHAINS[selectedOrder.chain]?.icon || ICONS.base}
+                                                    style={styles.smallIcon}
+                                                />
+                                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                                    {CHAINS[selectedOrder.chain]?.name || 'Base'}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Platform Fee</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>1% ({(selectedOrder.cryptoAmount * 0.01).toFixed(2)} {selectedOrder.token})</Text>
+                                        </View>
+                                    </View>
+                                </>
+                            )}
+                        </ScrollView>
+                    </BottomSheetView>
+                </BottomSheetModal>
             </SafeAreaView>
         </View>
     );

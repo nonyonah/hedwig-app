@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Dimensions, ActivityIndicator, Platform, Linking } from 'react-native';
+import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Platform, Linking } from 'react-native';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import * as WebBrowser from 'expo-web-browser';
 import { ShieldCheck, Warning, ArrowRight, CheckCircle, ClockCountdown } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
@@ -10,18 +11,16 @@ import Button from './Button';
 const { height } = Dimensions.get('window');
 
 interface KYCVerificationModalProps {
-    visible: boolean;
-    onClose: () => void;
+    onClose?: () => void;
     onVerified?: () => void;
 }
 
 type ModalState = 'explanation' | 'pending' | 'approved' | 'rejected';
 
-export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
-    visible,
+export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerificationModalProps>(({
     onClose,
     onVerified
-}) => {
+}, ref) => {
     const themeColors = useThemeColors();
     const { status, startKYC, checkStatus, isLoading } = useKYC();
 
@@ -29,8 +28,6 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
     const [isStarting, setIsStarting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const modalAnim = useRef(new Animated.Value(height)).current;
-    const opacityAnim = useRef(new Animated.Value(0)).current;
     const isMounted = useRef(true);
 
     useEffect(() => {
@@ -39,15 +36,16 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
         };
     }, []);
 
-    // Update modal state based on KYC status when modal opens
-    useEffect(() => {
-        if (visible && isMounted.current) {
+    // Handle sheet changes to update state
+    const handleSheetChanges = useCallback((index: number) => {
+        if (index >= 0) {
+            // Sheet opened, check status
             switch (status) {
                 case 'approved':
                     setModalState('approved');
                     break;
                 case 'pending':
-                    setModalState(prev => prev === 'pending' ? 'pending' : 'pending'); // Force pending check if status is pending
+                    setModalState('pending');
                     break;
                 case 'rejected':
                 case 'retry_required':
@@ -57,40 +55,7 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
                     setModalState('explanation');
             }
         }
-    }, [visible, status]);
-
-    // Animate modal on visibility change
-    useEffect(() => {
-        if (visible) {
-            Animated.parallel([
-                Animated.timing(opacityAnim, {
-                    toValue: 1,
-                    duration: 120,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(modalAnim, {
-                    toValue: 0,
-                    damping: 28,
-                    stiffness: 350,
-                    useNativeDriver: true,
-                }),
-            ]).start();
-        } else {
-            Animated.parallel([
-                Animated.timing(opacityAnim, {
-                    toValue: 0,
-                    duration: 80,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(modalAnim, {
-                    toValue: height,
-                    damping: 28,
-                    stiffness: 350,
-                    useNativeDriver: true,
-                }),
-            ]).start();
-        }
-    }, [visible]);
+    }, [status]);
 
     const handleStartVerification = async () => {
         setIsStarting(true);
@@ -140,7 +105,9 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
     };
 
     const handleClose = () => {
-        onClose();
+        // @ts-ignore
+        ref?.current?.dismiss();
+        onClose?.();
     };
 
     const renderExplanation = () => (
@@ -300,40 +267,39 @@ export const KYCVerificationModal: React.FC<KYCVerificationModalProps> = ({
         }
     };
 
-    return (
-        <Modal visible={visible} animationType="none" transparent>
-            <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
-                <TouchableOpacity
-                    style={styles.backdrop}
-                    activeOpacity={1}
-                    onPress={handleClose}
-                />
-                <Animated.View
-                    style={[
-                        styles.modalContainer,
-                        { transform: [{ translateY: modalAnim }] }
-                    ]}
-                >
-                    {renderContent()}
-                </Animated.View>
-            </Animated.View>
-        </Modal>
+    const renderBackdrop = useCallback(
+        (props: any) => (
+            <BottomSheetBackdrop
+                {...props}
+                disappearsOnIndex={-1}
+                appearsOnIndex={0}
+                opacity={0.5}
+            />
+        ),
+        []
     );
-};
+
+    return (
+        <BottomSheetModal
+            ref={ref}
+            index={0}
+            enableDynamicSizing={true}
+            onChange={handleSheetChanges}
+            enablePanDownToClose={true}
+            backdropComponent={renderBackdrop}
+            backgroundStyle={{ backgroundColor: themeColors.surface, borderRadius: 24 }}
+            handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+        >
+            <BottomSheetView style={{ paddingBottom: 40 }}>
+                {renderContent()}
+            </BottomSheetView>
+        </BottomSheetModal>
+    );
+});
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
-    },
-    backdrop: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    modalContainer: {
-        paddingHorizontal: 16,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-    },
+    // Removed overlay and backdrop styles
+    // modalContainer removed in favor of BottomSheetView style
     contentCard: {
         borderRadius: 24,
         padding: 24,

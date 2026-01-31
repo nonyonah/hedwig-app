@@ -40,6 +40,26 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             return;
         }
 
+        // Auto-create client if email is provided and client doesn't exist
+        if (recipientEmail) {
+            const { data: existingClient } = await supabase
+                .from('clients')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('email', recipientEmail)
+                .single();
+
+            if (!existingClient) {
+                logger.info('[Documents] Auto-creating client', { email: recipientEmail, name: clientName });
+                await supabase.from('clients').insert({
+                    user_id: user.id,
+                    name: clientName || recipientEmail.split('@')[0],
+                    email: recipientEmail,
+                    created_from: 'invoice_creation' // Optional: track source
+                });
+            }
+        }
+
         // Create invoice record
         const { data: doc, error } = await supabase
             .from('documents')
@@ -123,6 +143,26 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
         if (!user) {
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
+        }
+
+        // Auto-create client if email is provided and client doesn't exist
+        if (recipientEmail) {
+            const { data: existingClient } = await supabase
+                .from('clients')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('email', recipientEmail)
+                .single();
+
+            if (!existingClient) {
+                logger.info('[Documents] Auto-creating client', { email: recipientEmail, name: clientName });
+                await supabase.from('clients').insert({
+                    user_id: user.id,
+                    name: clientName || recipientEmail.split('@')[0],
+                    email: recipientEmail,
+                    created_from: 'payment_link_creation'
+                });
+            }
         }
 
         // Create payment link record (payment_link_url will be updated after we have the ID)

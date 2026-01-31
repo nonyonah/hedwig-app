@@ -163,7 +163,7 @@ function InvoiceContent() {
 
     const content = invoice.content || {};
     const items = content.items || [];
-    const subtotal = invoice.amount;
+    const subtotal = invoice.amount ?? 0;
     const platformFee = 2.00; // Example fixed fee
     const total = subtotal; // Assuming fee is included or handled separately
 
@@ -201,7 +201,7 @@ function InvoiceContent() {
                     {/* Amount */}
                     <View style={[styles.amountContainer, { backgroundColor: themeColors.background }]}>
                         <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>Amount Due</Text>
-                        <Text style={[styles.amountValue, { color: themeColors.textPrimary }]}>${invoice.amount.toFixed(2)}</Text>
+                        <Text style={[styles.amountValue, { color: themeColors.textPrimary }]}>${(invoice.amount ?? 0).toFixed(2)}</Text>
                         {content.due_date && (
                             <Text style={[styles.dueDate, { color: themeColors.textSecondary }]}>Due {content.due_date}</Text>
                         )}
@@ -217,13 +217,13 @@ function InvoiceContent() {
                             items.map((item: any, index: number) => (
                                 <View key={index} style={styles.itemRow}>
                                     <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>{item.description}</Text>
-                                    <Text style={[styles.itemPrice, { color: themeColors.textPrimary }]}>${item.amount.toFixed(2)}</Text>
+                                    <Text style={[styles.itemPrice, { color: themeColors.textPrimary }]}>${(item.amount ?? 0).toFixed(2)}</Text>
                                 </View>
                             ))
                         ) : (
                             <View style={styles.itemRow}>
                                 <Text style={[styles.itemName, { color: themeColors.textPrimary }]}>{invoice.description}</Text>
-                                <Text style={[styles.itemPrice, { color: themeColors.textPrimary }]}>${invoice.amount.toFixed(2)}</Text>
+                                <Text style={[styles.itemPrice, { color: themeColors.textPrimary }]}>${(invoice.amount ?? 0).toFixed(2)}</Text>
                             </View>
                         )}
                     </View>

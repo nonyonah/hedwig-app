@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Platform, Dimensions, Image } from 'react-native';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
 import { List, Gear, TrendUp, TrendDown, ArrowRight, Sparkle, CaretLeft } from 'phosphor-react-native';
@@ -135,7 +136,7 @@ export default function InsightsScreen() {
     const earningsTrend = earningsInsight?.trend || 'neutral';
 
     // Target goal modal state
-    const [isTargetModalVisible, setIsTargetModalVisible] = useState(false);
+    const targetGoalSheetRef = useRef<BottomSheetModal>(null);
 
     // Profile and Sidebar state
     const { getAccessToken, user } = useAuth();
@@ -383,7 +384,7 @@ export default function InsightsScreen() {
                         <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Monthly Progress</Text>
                         <TouchableOpacity
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            onPress={() => setIsTargetModalVisible(true)}
+                            onPress={() => targetGoalSheetRef.current?.present()}
                         >
                             <Gear size={18} color={themeColors.textSecondary} />
                         </TouchableOpacity>
@@ -488,9 +489,9 @@ export default function InsightsScreen() {
 
 
             <TargetGoalModal
-                visible={isTargetModalVisible}
+                ref={targetGoalSheetRef}
                 currentTarget={monthlyTarget}
-                onClose={() => setIsTargetModalVisible(false)}
+                onClose={() => targetGoalSheetRef.current?.dismiss()}
                 onSave={(newTarget) => setMonthlyTarget(newTarget)}
                 user={user}
                 getAccessToken={getAccessToken}

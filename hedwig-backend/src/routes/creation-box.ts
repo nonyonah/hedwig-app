@@ -48,10 +48,12 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             priority: string | null;
             title: string | null;
             confidence: number;
+            clientEmail: string | null;
             parameters?: any;
         } = {
             intent: 'unknown',
             clientName: null,
+            clientEmail: null,
             amount: null,
             currency: null,
             dueDate: null,
@@ -83,12 +85,23 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
                     // Client name
                     parsedData.clientName = params.clientName || params.client_name || null;
                     
+                    // Client email
+                    parsedData.clientEmail = params.clientEmail || params.client_email || params.email || null;
+                    
                     // Amount - handle various formats
+                    // Amount - handle various formats including nested items
                     if (params.amount) {
                         const amountStr = typeof params.amount === 'string' 
                             ? params.amount.replace(/[^0-9.]/g, '') 
                             : params.amount.toString();
                         parsedData.amount = parseFloat(amountStr);
+                    } else if (params.items && Array.isArray(params.items) && params.items.length > 0) {
+                        // Sum up items if available
+                        const total = params.items.reduce((sum: number, item: any) => {
+                            const val = item.amount ? parseFloat(item.amount.toString().replace(/[^0-9.]/g, '')) : 0;
+                            return sum + (isNaN(val) ? 0 : val);
+                        }, 0);
+                        if (total > 0) parsedData.amount = total;
                     }
                     
                     // Currency
@@ -116,6 +129,7 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
                 } else {
                     // Fallback: try to extract from top-level fields
                     parsedData.clientName = extracted.clientName || extracted.client_name || null;
+                    parsedData.clientEmail = extracted.clientEmail || extracted.client_email || extracted.email || null;
                     parsedData.amount = extracted.amount || null;
                     parsedData.currency = extracted.currency || 'USD';
                     parsedData.dueDate = extracted.dueDate || extracted.due_date || null;

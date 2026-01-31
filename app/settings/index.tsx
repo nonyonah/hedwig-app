@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, Modal, TouchableWithoutFeedback, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, TouchableWithoutFeedback, Platform, Animated } from 'react-native';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
-import { CaretRight, List, CaretDown, Check, ShieldWarning, Lock, Copy, WarningCircle, CheckSquare, Square } from 'phosphor-react-native';
+import { CaretRight, List, CaretDown, Check, ShieldWarning, Lock, Copy, WarningCircle, CheckSquare, Square, CaretLeft } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
@@ -43,15 +44,15 @@ export default function SettingsScreen() {
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
 
-    // Modals state
-    const [showThemeModal, setShowThemeModal] = useState(false);
-    const [showRecoveryWarning, setShowRecoveryWarning] = useState(false);
+    // Modals refs
+    const themeSheetRef = useRef<BottomSheetModal>(null);
+    const recoverySheetRef = useRef<BottomSheetModal>(null);
     const [recoveryAcknowledged, setRecoveryAcknowledged] = useState(false);
 
     // Security state
     const [biometricsEnabled, setBiometricsEnabled] = useState(false);
     const [isBiometricExporting, setIsBiometricExporting] = useState(false);
-    const [showKYCModal, setShowKYCModal] = useState(false);
+    const kycSheetRef = useRef<BottomSheetModal>(null);
 
     // KYC status
     const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
@@ -240,86 +241,228 @@ export default function SettingsScreen() {
         }
     };
 
-    const renderSelectionModal = (
-        visible: boolean,
-        onClose: () => void,
-        title: string,
-        options: any[],
-        selectedValue: string,
-        onSelect: (val: any) => void
-    ) => (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="fade"
-            onRequestClose={onClose}
-        >
-            <View style={styles.modalOverlay}>
-                {/* iOS blur / Android scrim */}
-                {Platform.OS === 'ios' ? (
-                    <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                ) : (
-                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.32)' }]} />
-                )}
-                <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => {
-                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onClose();
-                }} />
-                <TouchableWithoutFeedback>
-                    <View style={[styles.modalContent, { backgroundColor: themeColors.surface }]}>
-                        <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>{title}</Text>
-                        {options.map((opt) => (
-                            <TouchableOpacity
-                                key={opt.code}
-                                style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
-                                onPress={() => {
-                                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                    onSelect(opt.code);
-                                    onClose();
-                                }}
-                            >
-                                <Text style={[
-                                    styles.modalItemText,
-                                    { color: themeColors.textPrimary },
-                                    selectedValue === opt.code && styles.modalItemTextSelected
-                                ]}>
-                                    {opt.label}
-                                </Text>
-                                {selectedValue === opt.code && (
-                                    <Check size={20} color={Colors.primary} weight="bold" />
-                                )}
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </TouchableWithoutFeedback>
+
+
+    return (
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
+            {/* Header */}
+            <View style={[styles.header, { backgroundColor: themeColors.background }]}>
+                <View style={styles.headerTop}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+                        <CaretLeft size={24} color={themeColors.textPrimary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Settings</Text>
+                    <View style={styles.headerSpacer} />
+                </View>
             </View>
-        </Modal>
-    );
 
-    const renderRecoveryWarningModal = () => (
-        <Modal
-            visible={showRecoveryWarning}
-            transparent
-            animationType="slide"
-            onRequestClose={() => {
-                setShowRecoveryWarning(false);
-                setRecoveryAcknowledged(false);
-            }}
-        >
-            <View style={styles.bottomSheetOverlay}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+                {/* Profile Settings */}
+                <View style={styles.sectionHeaderContainer}>
+                    {/* Could add a title here if needed, but per design it seems cleaner without or integrated */}
+                </View>
                 <TouchableOpacity
-                    style={StyleSheet.absoluteFill}
-                    activeOpacity={1}
-                    onPress={() => {
-                        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setShowRecoveryWarning(false);
-                        setRecoveryAcknowledged(false);
-                    }}
-                />
-                <View style={[styles.bottomSheetContent, { backgroundColor: themeColors.surface }]}>
-                    {/* Handle Bar */}
-                    <View style={styles.handleBar} />
+                    style={styles.profileCard}
+                    onPress={() => router.push({ pathname: '/auth/profile', params: { email: email, edit: 'true' } })}
+                >
+                    {profileIcon.imageUri ? (
+                        <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
+                    ) : profileIcon.emoji ? (
+                        <View style={[styles.avatar, { backgroundColor: themeColors.surface, justifyContent: 'center', alignItems: 'center' }]}>
+                            <Text style={{ fontSize: 20 }}>{profileIcon.emoji}</Text>
+                        </View>
+                    ) : (
+                        <LinearGradient
+                            colors={getUserGradient(user?.id)}
+                            style={styles.avatar}
+                        >
+                            <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 }}>
+                                {userName.firstName?.[0]?.toUpperCase() || 'U'}
+                            </Text>
+                        </LinearGradient>
+                    )}
+                    <View style={styles.profileInfo}>
+                        <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>
+                            {userName.firstName ? `${userName.firstName} ${userName.lastName}`.trim() : 'Edit Profile'}
+                        </Text>
+                        <Text style={[styles.profileSubtitle, { color: themeColors.textSecondary }]}>Update name and photo</Text>
+                    </View>
+                    <CaretRight size={20} color={themeColors.textSecondary} />
+                </TouchableOpacity>
 
+                <View style={styles.spacer} />
+
+                {/* General Settings */}
+                <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>General Settings</Text>
+                <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
+                    <TouchableOpacity style={styles.settingRow} onPress={() => themeSheetRef.current?.present()}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Theme</Text>
+                        <View style={styles.settingValueContainer}>
+                            <Text style={[styles.settingValue, { color: themeColors.textSecondary }]}>
+                                {THEMES.find(t => t.code === theme)?.label || 'System'}
+                            </Text>
+                            {/* <CaretDown size={16} color={themeColors.textSecondary} /> */}
+                        </View>
+                    </TouchableOpacity>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <View style={styles.settingRow}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Haptic Feedback</Text>
+                        <Switch
+                            trackColor={{ false: themeColors.border, true: Colors.success }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor={themeColors.border}
+                            value={hapticsEnabled}
+                            onValueChange={setHapticsEnabled}
+                        />
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <View style={styles.settingRow}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>{Platform.OS === 'ios' ? 'Live Activities' : 'Live Updates'}</Text>
+                        <Switch
+                            trackColor={{ false: themeColors.border, true: Colors.success }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor={themeColors.border}
+                            value={liveTrackingEnabled}
+                            onValueChange={setLiveTrackingEnabled}
+                        />
+                    </View>
+                </View>
+
+                <View style={styles.spacer} />
+
+                {/* Security */}
+                <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Security</Text>
+                <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
+                    <TouchableOpacity style={styles.settingRow} onPress={() => recoverySheetRef.current?.present()}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Recovery Phrase</Text>
+                        <CaretRight size={20} color={themeColors.textSecondary} />
+                    </TouchableOpacity>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <View style={styles.settingRow}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Biometrics</Text>
+                        <Switch
+                            trackColor={{ false: themeColors.border, true: Colors.success }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor={themeColors.border}
+                            value={biometricsEnabled}
+                            onValueChange={toggleBiometrics}
+                        />
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <TouchableOpacity style={styles.settingRow} onPress={() => kycSheetRef.current?.present()}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Identity Verification</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <View style={[
+                                styles.kycBadge,
+                                kycStatus === 'approved' && styles.kycBadgeApproved,
+                                kycStatus === 'pending' && styles.kycBadgePending,
+                                (kycStatus === 'not_started' || kycStatus === 'rejected' || kycStatus === 'retry_required') && styles.kycBadgeUnverified,
+                            ]}>
+                                <Text style={[
+                                    styles.kycBadgeText,
+                                    kycStatus === 'approved' && styles.kycBadgeTextApproved,
+                                    kycStatus === 'pending' && styles.kycBadgeTextPending,
+                                    (kycStatus === 'not_started' || kycStatus === 'rejected' || kycStatus === 'retry_required') && styles.kycBadgeTextUnverified,
+                                ]}>
+                                    {kycStatus === 'approved' ? 'Verified' : kycStatus === 'pending' ? 'Pending' : 'Unverified'}
+                                </Text>
+                            </View>
+                            <CaretRight size={20} color={themeColors.textSecondary} />
+                        </View>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.spacer} />
+
+                <View style={styles.spacer} />
+
+                {/* Delete Account */}
+                <Button
+                    title="Delete Account"
+                    onPress={handleDeleteAccount}
+                    style={{ backgroundColor: '#EF4444' }}
+                    textStyle={{ color: '#FFFFFF' }}
+                    size="large"
+                />
+
+                {/* Log Out */}
+                <Button
+                    title="Log Out"
+                    onPress={handleLogout}
+                    style={{ backgroundColor: themeColors.surface, marginTop: 12 }}
+                    textStyle={{ color: themeColors.textPrimary }}
+                    size="large"
+                />
+
+                <View style={styles.footer}>
+                    <Text style={styles.versionText}>Version 1.0.0</Text>
+                </View>
+
+            </ScrollView>
+
+
+
+            {/* Theme Modal */}
+            <BottomSheetModal
+                ref={themeSheetRef}
+                index={0}
+                enableDynamicSizing={true}
+                enablePanDownToClose={true}
+                backdropComponent={(props) => (
+                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                )}
+                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+            >
+                <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
+                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Select Theme</Text>
+                    {THEMES.map((opt) => (
+                        <TouchableOpacity
+                            key={opt.code}
+                            style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
+                            onPress={() => {
+                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                setTheme(opt.code);
+                                themeSheetRef.current?.dismiss();
+                            }}
+                        >
+                            <Text style={[
+                                styles.modalItemText,
+                                { color: themeColors.textPrimary },
+                                theme === opt.code && styles.modalItemTextSelected
+                            ]}>
+                                {opt.label}
+                            </Text>
+                            {theme === opt.code && (
+                                <Check size={20} color={Colors.primary} weight="bold" />
+                            )}
+                        </TouchableOpacity>
+                    ))}
+                </BottomSheetView>
+            </BottomSheetModal>
+
+            {/* Recovery Warning Modal */}
+            <BottomSheetModal
+                ref={recoverySheetRef}
+                index={0}
+                enableDynamicSizing={true}
+                enablePanDownToClose={true}
+                backdropComponent={(props) => (
+                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                )}
+                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                onDismiss={() => setRecoveryAcknowledged(false)}
+            >
+                <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
                     {/* Shield Icon */}
                     <View style={styles.shieldIconContainer}>
                         <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
@@ -413,7 +556,7 @@ export default function SettingsScreen() {
                                     });
 
                                     // Close modal after browser is dismissed
-                                    setShowRecoveryWarning(false);
+                                    recoverySheetRef.current?.dismiss();
                                     setRecoveryAcknowledged(false);
                                 } else {
                                     setIsBiometricExporting(false);
@@ -426,194 +569,15 @@ export default function SettingsScreen() {
                             }
                         }}
                     />
-                </View>
-            </View>
-        </Modal>
-    );
-
-    return (
-        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
-            {/* Header */}
-            <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                <View style={styles.headerTop}>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Settings</Text>
-                    <View style={styles.headerSpacer} />
-                </View>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-                {/* Profile Settings */}
-                <View style={styles.sectionHeaderContainer}>
-                    {/* Could add a title here if needed, but per design it seems cleaner without or integrated */}
-                </View>
-                <TouchableOpacity
-                    style={styles.profileCard}
-                    onPress={() => router.push({ pathname: '/auth/profile', params: { email: email, edit: 'true' } })}
-                >
-                    {profileIcon.imageUri ? (
-                        <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
-                    ) : profileIcon.emoji ? (
-                        <View style={[styles.avatar, { backgroundColor: themeColors.surface, justifyContent: 'center', alignItems: 'center' }]}>
-                            <Text style={{ fontSize: 20 }}>{profileIcon.emoji}</Text>
-                        </View>
-                    ) : (
-                        <LinearGradient
-                            colors={getUserGradient(user?.id)}
-                            style={styles.avatar}
-                        >
-                            <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 }}>
-                                {userName.firstName?.[0]?.toUpperCase() || 'U'}
-                            </Text>
-                        </LinearGradient>
-                    )}
-                    <View style={styles.profileInfo}>
-                        <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>
-                            {userName.firstName ? `${userName.firstName} ${userName.lastName}`.trim() : 'Edit Profile'}
-                        </Text>
-                        <Text style={[styles.profileSubtitle, { color: themeColors.textSecondary }]}>Update name and photo</Text>
-                    </View>
-                    <CaretRight size={20} color={themeColors.textSecondary} />
-                </TouchableOpacity>
-
-                <View style={styles.spacer} />
-
-                {/* General Settings */}
-                <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>General Settings</Text>
-                <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
-                    <TouchableOpacity style={styles.settingRow} onPress={() => setShowThemeModal(true)}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Theme</Text>
-                        <View style={styles.settingValueContainer}>
-                            <Text style={[styles.settingValue, { color: themeColors.textSecondary }]}>
-                                {THEMES.find(t => t.code === theme)?.label || 'System'}
-                            </Text>
-                            {/* <CaretDown size={16} color={themeColors.textSecondary} /> */}
-                        </View>
-                    </TouchableOpacity>
-
-                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-
-                    <View style={styles.settingRow}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Haptic Feedback</Text>
-                        <Switch
-                            trackColor={{ false: themeColors.border, true: Colors.success }}
-                            thumbColor={"#FFFFFF"}
-                            ios_backgroundColor={themeColors.border}
-                            value={hapticsEnabled}
-                            onValueChange={setHapticsEnabled}
-                        />
-                    </View>
-
-                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-
-                    <View style={styles.settingRow}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>{Platform.OS === 'ios' ? 'Live Activities' : 'Live Updates'}</Text>
-                        <Switch
-                            trackColor={{ false: themeColors.border, true: Colors.success }}
-                            thumbColor={"#FFFFFF"}
-                            ios_backgroundColor={themeColors.border}
-                            value={liveTrackingEnabled}
-                            onValueChange={setLiveTrackingEnabled}
-                        />
-                    </View>
-                </View>
-
-                <View style={styles.spacer} />
-
-                {/* Security */}
-                <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Security</Text>
-                <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
-                    <TouchableOpacity style={styles.settingRow} onPress={() => setShowRecoveryWarning(true)}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Recovery Phrase</Text>
-                        <CaretRight size={20} color={themeColors.textSecondary} />
-                    </TouchableOpacity>
-
-                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-
-                    <View style={styles.settingRow}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Biometrics</Text>
-                        <Switch
-                            trackColor={{ false: themeColors.border, true: Colors.success }}
-                            thumbColor={"#FFFFFF"}
-                            ios_backgroundColor={themeColors.border}
-                            value={biometricsEnabled}
-                            onValueChange={toggleBiometrics}
-                        />
-                    </View>
-
-                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-
-                    <TouchableOpacity style={styles.settingRow} onPress={() => setShowKYCModal(true)}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Identity Verification</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <View style={[
-                                styles.kycBadge,
-                                kycStatus === 'approved' && styles.kycBadgeApproved,
-                                kycStatus === 'pending' && styles.kycBadgePending,
-                                (kycStatus === 'not_started' || kycStatus === 'rejected' || kycStatus === 'retry_required') && styles.kycBadgeUnverified,
-                            ]}>
-                                <Text style={[
-                                    styles.kycBadgeText,
-                                    kycStatus === 'approved' && styles.kycBadgeTextApproved,
-                                    kycStatus === 'pending' && styles.kycBadgeTextPending,
-                                    (kycStatus === 'not_started' || kycStatus === 'rejected' || kycStatus === 'retry_required') && styles.kycBadgeTextUnverified,
-                                ]}>
-                                    {kycStatus === 'approved' ? 'Verified' : kycStatus === 'pending' ? 'Pending' : 'Unverified'}
-                                </Text>
-                            </View>
-                            <CaretRight size={20} color={themeColors.textSecondary} />
-                        </View>
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.spacer} />
-
-                <View style={styles.spacer} />
-
-                {/* Delete Account */}
-                <Button
-                    title="Delete Account"
-                    onPress={handleDeleteAccount}
-                    style={{ backgroundColor: '#EF4444' }}
-                    textStyle={{ color: '#FFFFFF' }}
-                    size="large"
-                />
-
-                {/* Log Out */}
-                <Button
-                    title="Log Out"
-                    onPress={handleLogout}
-                    style={{ backgroundColor: themeColors.surface, marginTop: 12 }}
-                    textStyle={{ color: themeColors.textPrimary }}
-                    size="large"
-                />
-
-                <View style={styles.footer}>
-                    <Text style={styles.versionText}>Version 1.0.0</Text>
-                </View>
-
-            </ScrollView>
-
-
-
-            {/* Theme Modal */}
-            {renderSelectionModal(
-                showThemeModal,
-                () => setShowThemeModal(false),
-                "Select Theme",
-                THEMES,
-                theme,
-                setTheme
-            )}
-
-            {/* Recovery Warning Modal */}
-            {renderRecoveryWarningModal()}
+                </BottomSheetView>
+            </BottomSheetModal>
 
             {/* KYC Verification Modal */}
             <KYCVerificationModal
-                visible={showKYCModal}
-                onClose={() => setShowKYCModal(false)}
+                ref={kycSheetRef}
+                onClose={() => kycSheetRef.current?.dismiss()}
                 onVerified={() => {
-                    setShowKYCModal(false);
+                    kycSheetRef.current?.dismiss();
                     fetchKYCStatus();
                 }}
             />

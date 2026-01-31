@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -58,6 +59,7 @@ export default function PaymentLinksScreen() {
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
     const themeColors = useThemeColors();
+    const bottomSheetRef = React.useRef<BottomSheetModal>(null);
     const [links, setLinks] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedLink, setSelectedLink] = useState<any>(null);
@@ -96,8 +98,6 @@ export default function PaymentLinksScreen() {
         if (c.includes('optimism')) return 'Optimism';
         return 'Base';
     };
-
-    // Animation value for modal
     const slideAnim = React.useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -235,22 +235,11 @@ export default function PaymentLinksScreen() {
     const openModal = (link: any) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedLink(link);
-        setShowModal(true);
-        Animated.spring(slideAnim, {
-            toValue: 1,
-            useNativeDriver: true,
-            damping: 25,
-            stiffness: 300,
-        }).start();
+        bottomSheetRef.current?.present();
     };
 
     const closeModal = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 250,
-            useNativeDriver: true,
-        }).start(() => setShowModal(false));
+        bottomSheetRef.current?.dismiss();
     };
 
     const handleLinkPress = (link: any) => {
@@ -395,250 +384,238 @@ export default function PaymentLinksScreen() {
 
 
             {/* Details Modal */}
-            <Modal
-                visible={showModal}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={closeModal}
+            <BottomSheetModal
+                ref={bottomSheetRef}
+                index={0}
+                enableDynamicSizing={true}
+                enablePanDownToClose={true}
+                backdropComponent={(props) => (
+                    <BottomSheetBackdrop
+                        {...props}
+                        disappearsOnIndex={-1}
+                        appearsOnIndex={0}
+                        opacity={0.5}
+                    />
+                )}
+                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
             >
-                <View style={styles.modalOverlay}>
-                    {/* iOS blur / Android scrim */}
-                    {Platform.OS === 'ios' ? (
-                        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                    ) : (
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.32)' }]} />
-                    )}
-                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
-                    <Animated.View
-                        style={[
-                            styles.modalContent,
-                            { backgroundColor: themeColors.background },
-                            {
-                                transform: [{
-                                    translateY: slideAnim.interpolate({
-                                        inputRange: [0, 1],
-                                        outputRange: [600, 0]
-                                    })
-                                }]
-                            }
-                        ]}
-                    >
-                        <View style={styles.modalHeader}>
-                            <View style={styles.modalHeaderLeft}>
-                                {/* Token icon with status badge */}
-                                <View style={styles.modalIconContainer}>
-                                    <Image
-                                        source={ICONS.usdc}
-                                        style={styles.modalTokenIcon}
-                                    />
-                                    <Image
-                                        source={selectedLink?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
-                                        style={styles.modalStatusBadge}
-                                    />
-                                </View>
-                                <View>
-                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
-                                        {selectedLink?.status === 'PAID' ? 'Paid' : 'Pending'}
-                                    </Text>
-                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                        {selectedLink?.created_at ? `${new Date(selectedLink.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')} ${new Date(selectedLink.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                                    </Text>
-                                </View>
+                <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 20 }}>
+                    <View style={styles.modalHeader}>
+                        <View style={styles.modalHeaderLeft}>
+                            {/* Token icon with status badge */}
+                            <View style={styles.modalIconContainer}>
+                                <Image
+                                    source={ICONS.usdc}
+                                    style={styles.modalTokenIcon}
+                                />
+                                <Image
+                                    source={selectedLink?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
+                                    style={styles.modalStatusBadge}
+                                />
                             </View>
-                            <View style={styles.modalHeaderRight}>
-                                {selectedLink?.status !== 'PAID' && (
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            LayoutAnimation.configureNext(LayoutAnimation.create(
-                                                200,
-                                                LayoutAnimation.Types.easeInEaseOut,
-                                                LayoutAnimation.Properties.opacity
-                                            ));
-                                            setShowActionMenu(!showActionMenu);
-                                        }}
-                                        style={styles.menuButton}
-                                    >
-                                        <DotsThree size={24} color={Colors.textSecondary} weight="bold" />
-                                    </TouchableOpacity>
-                                )}
-                                <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                                    <X size={20} color={themeColors.textSecondary} weight="bold" />
-                                </TouchableOpacity>
+                            <View>
+                                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                                    {selectedLink?.status === 'PAID' ? 'Paid' : 'Pending'}
+                                </Text>
+                                <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                    {selectedLink?.created_at ? `${new Date(selectedLink.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')} ${new Date(selectedLink.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                </Text>
                             </View>
                         </View>
-
-                        {/* iOS Pull-Down Style Menu */}
-                        {showActionMenu && selectedLink?.status !== 'PAID' && (
-                            <>
-                                {/* Backdrop to dismiss menu */}
+                        <View style={styles.modalHeaderRight}>
+                            {selectedLink?.status !== 'PAID' && (
                                 <TouchableOpacity
-                                    style={styles.menuBackdrop}
-                                    activeOpacity={1}
                                     onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         LayoutAnimation.configureNext(LayoutAnimation.create(
-                                            150,
+                                            200,
                                             LayoutAnimation.Types.easeInEaseOut,
                                             LayoutAnimation.Properties.opacity
                                         ));
-                                        setShowActionMenu(false);
+                                        setShowActionMenu(!showActionMenu);
                                     }}
-                                />
-                                <Animated.View
-                                    style={[
-                                        styles.pullDownMenu,
-                                        { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-                                        {
-                                            opacity: 1,
-                                            transform: [{ scale: 1 }]
-                                        }
-                                    ]}
+                                    style={styles.menuButton}
                                 >
-                                    <TouchableOpacity
-                                        style={styles.pullDownMenuItem}
-                                        onPress={async () => {
-                                            setShowActionMenu(false);
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                            try {
-                                                const token = await getAccessToken();
-                                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                                const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/remind`, {
-                                                    method: 'POST',
-                                                    headers: { 'Authorization': `Bearer ${token}` }
-                                                });
-                                                const data = await response.json();
-                                                if (data.success) {
-                                                    Alert.alert('Success', 'Reminder sent successfully!');
-                                                } else {
-                                                    Alert.alert('Error', data.error?.message || 'Failed to send reminder');
-                                                }
-                                            } catch (error) {
-                                                Alert.alert('Error', 'Failed to send reminder');
+                                    <DotsThree size={24} color={Colors.textSecondary} weight="bold" />
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
+                                <X size={20} color={themeColors.textSecondary} weight="bold" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* iOS Pull-Down Style Menu */}
+                    {showActionMenu && selectedLink?.status !== 'PAID' && (
+                        <>
+                            {/* Backdrop to dismiss menu */}
+                            <TouchableOpacity
+                                style={styles.menuBackdrop}
+                                activeOpacity={1}
+                                onPress={() => {
+                                    LayoutAnimation.configureNext(LayoutAnimation.create(
+                                        150,
+                                        LayoutAnimation.Types.easeInEaseOut,
+                                        LayoutAnimation.Properties.opacity
+                                    ));
+                                    setShowActionMenu(false);
+                                }}
+                            />
+                            <Animated.View
+                                style={[
+                                    styles.pullDownMenu,
+                                    { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                                    {
+                                        opacity: 1,
+                                        transform: [{ scale: 1 }]
+                                    }
+                                ]}
+                            >
+                                <TouchableOpacity
+                                    style={styles.pullDownMenuItem}
+                                    onPress={async () => {
+                                        setShowActionMenu(false);
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        try {
+                                            const token = await getAccessToken();
+                                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                            const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/remind`, {
+                                                method: 'POST',
+                                                headers: { 'Authorization': `Bearer ${token}` }
+                                            });
+                                            const data = await response.json();
+                                            if (data.success) {
+                                                Alert.alert('Success', 'Reminder sent successfully!');
+                                            } else {
+                                                Alert.alert('Error', data.error?.message || 'Failed to send reminder');
                                             }
-                                        }}
-                                    >
-                                        <Bell size={18} color={Colors.primary} weight="fill" />
-                                        <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>Send Reminder</Text>
-                                    </TouchableOpacity>
+                                        } catch (error) {
+                                            Alert.alert('Error', 'Failed to send reminder');
+                                        }
+                                    }}
+                                >
+                                    <Bell size={18} color={Colors.primary} weight="fill" />
+                                    <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>Send Reminder</Text>
+                                </TouchableOpacity>
 
-                                    <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
+                                <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
 
-                                    <TouchableOpacity
-                                        style={styles.pullDownMenuItem}
-                                        onPress={async () => {
-                                            setShowActionMenu(false);
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                            const remindersEnabled = selectedLink?.content?.reminders_enabled !== false;
-                                            const newState = !remindersEnabled;
-                                            try {
-                                                const token = await getAccessToken();
-                                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                                const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/toggle-reminders`, {
-                                                    method: 'POST',
-                                                    headers: {
-                                                        'Authorization': `Bearer ${token}`,
-                                                        'Content-Type': 'application/json'
-                                                    },
-                                                    body: JSON.stringify({ enabled: newState })
+                                <TouchableOpacity
+                                    style={styles.pullDownMenuItem}
+                                    onPress={async () => {
+                                        setShowActionMenu(false);
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        const remindersEnabled = selectedLink?.content?.reminders_enabled !== false;
+                                        const newState = !remindersEnabled;
+                                        try {
+                                            const token = await getAccessToken();
+                                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                            const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/toggle-reminders`, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Authorization': `Bearer ${token}`,
+                                                    'Content-Type': 'application/json'
+                                                },
+                                                body: JSON.stringify({ enabled: newState })
+                                            });
+                                            const data = await response.json();
+                                            if (data.success) {
+                                                Alert.alert('Success', `Automatic reminders ${newState ? 'enabled' : 'disabled'}`);
+                                                setSelectedLink({
+                                                    ...selectedLink,
+                                                    content: { ...selectedLink.content, reminders_enabled: newState }
                                                 });
-                                                const data = await response.json();
-                                                if (data.success) {
-                                                    Alert.alert('Success', `Automatic reminders ${newState ? 'enabled' : 'disabled'}`);
-                                                    setSelectedLink({
-                                                        ...selectedLink,
-                                                        content: { ...selectedLink.content, reminders_enabled: newState }
-                                                    });
-                                                } else {
-                                                    Alert.alert('Error', data.error?.message || 'Failed to toggle reminders');
-                                                }
-                                            } catch (error) {
-                                                Alert.alert('Error', 'Failed to toggle reminders');
+                                            } else {
+                                                Alert.alert('Error', data.error?.message || 'Failed to toggle reminders');
                                             }
-                                        }}
-                                    >
-                                        <Bell size={18} color={selectedLink?.content?.reminders_enabled !== false ? Colors.textSecondary : Colors.primary} weight={selectedLink?.content?.reminders_enabled !== false ? 'regular' : 'fill'} />
-                                        <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>
-                                            {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
-                                        </Text>
-                                    </TouchableOpacity>
+                                        } catch (error) {
+                                            Alert.alert('Error', 'Failed to toggle reminders');
+                                        }
+                                    }}
+                                >
+                                    <Bell size={18} color={selectedLink?.content?.reminders_enabled !== false ? Colors.textSecondary : Colors.primary} weight={selectedLink?.content?.reminders_enabled !== false ? 'regular' : 'fill'} />
+                                    <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>
+                                        {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
+                                    </Text>
+                                </TouchableOpacity>
 
-                                    <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
+                                <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
 
-                                    <TouchableOpacity
-                                        style={styles.pullDownMenuItem}
-                                        onPress={() => {
-                                            setShowActionMenu(false);
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                            handleDelete(selectedLink.id);
-                                            closeModal();
-                                        }}
-                                    >
-                                        <Trash size={18} color="#EF4444" weight="fill" />
-                                        <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete</Text>
-                                    </TouchableOpacity>
-                                </Animated.View>
-                            </>
-                        )}
+                                <TouchableOpacity
+                                    style={styles.pullDownMenuItem}
+                                    onPress={() => {
+                                        setShowActionMenu(false);
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                        handleDelete(selectedLink.id);
+                                        closeModal();
+                                    }}
+                                >
+                                    <Trash size={18} color="#EF4444" weight="fill" />
+                                    <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete</Text>
+                                </TouchableOpacity>
+                            </Animated.View>
+                        </>
+                    )}
 
-                        <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
-                            <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
-                                {formatCurrency((selectedLink?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
-                            </Text>
-                            <View style={styles.amountCardSub}>
-                                <Image source={ICONS.usdc} style={styles.smallIcon} />
-                                <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedLink?.amount} USDC</Text>
+                    <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                        <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                            {formatCurrency((selectedLink?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
+                        </Text>
+                        <View style={styles.amountCardSub}>
+                            <Image source={ICONS.usdc} style={styles.smallIcon} />
+                            <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedLink?.amount} USDC</Text>
+                        </View>
+                    </View>
+
+                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Link ID</Text>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>LINK-{selectedLink?.id?.substring(0, 8).toUpperCase()}</Text>
+                        </View>
+                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.title}</Text>
+                        </View>
+                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.content?.clientName || selectedLink?.content?.client_name || 'N/A'}</Text>
+                        </View>
+                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
+                            <View style={styles.chainValue}>
+                                <Image
+                                    source={getChainIcon(selectedLink?.chain)}
+                                    style={styles.smallIcon}
+                                />
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{getChainName(selectedLink?.chain)}</Text>
                             </View>
                         </View>
+                    </View>
 
-                        <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Link ID</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>LINK-{selectedLink?.id?.substring(0, 8).toUpperCase()}</Text>
-                            </View>
-                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.title}</Text>
-                            </View>
-                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.content?.clientName || selectedLink?.content?.client_name || 'N/A'}</Text>
-                            </View>
-                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
-                                <View style={styles.chainValue}>
-                                    <Image
-                                        source={getChainIcon(selectedLink?.chain)}
-                                        style={styles.smallIcon}
-                                    />
-                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{getChainName(selectedLink?.chain)}</Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.viewButton}
-                            onPress={async () => {
-                                try {
-                                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                    const url = `${apiUrl}/pay/${selectedLink.id}`;
-                                    await WebBrowser.openBrowserAsync(url, {
-                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-                                        controlsColor: Colors.primary,
-                                    });
-                                } catch (error: any) {
-                                    Alert.alert('Error', `Failed to open: ${error?.message}`);
-                                }
-                            }}
-                        >
-                            <Text style={styles.viewButtonText}>View Payment Link</Text>
-                        </TouchableOpacity>
-                    </Animated.View>
-                </View>
-            </Modal>
-        </View>
+                    <TouchableOpacity
+                        style={styles.viewButton}
+                        onPress={async () => {
+                            try {
+                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                const url = `${apiUrl}/pay/${selectedLink.id}`;
+                                await WebBrowser.openBrowserAsync(url, {
+                                    presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+                                    controlsColor: Colors.primary,
+                                });
+                            } catch (error: any) {
+                                Alert.alert('Error', `Failed to open: ${error?.message}`);
+                            }
+                        }}
+                    >
+                        <Text style={styles.viewButtonText}>View Payment Link</Text>
+                    </TouchableOpacity>
+                </BottomSheetView>
+            </BottomSheetModal>
+        </View >
     );
 }
 

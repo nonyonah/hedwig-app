@@ -5,7 +5,6 @@ import {
     Text,
     StyleSheet,
     TouchableOpacity,
-    Modal,
     Dimensions,
     Alert,
     SafeAreaView,
@@ -13,9 +12,9 @@ import {
     SectionList,
     Platform,
     Image,
-    LayoutAnimation,
-    Animated
+    LayoutAnimation
 } from 'react-native';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
 import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowsLeftRight, CaretLeft } from 'phosphor-react-native';
@@ -125,11 +124,9 @@ export default function TransactionsScreen() {
         colorIndex: 0 // Start with gradient, no emoji (loading state)
     });
 
-    // Detail Modal with slide animation
+    // Detail Modal with BottomSheet
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-    const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
-    const slideAnim = useRef(new Animated.Value(0)).current;
-    const modalOpacity = useRef(new Animated.Value(0)).current;
+    const bottomSheetRef = useRef<BottomSheetModal>(null);
 
     useEffect(() => {
         fetchTransactions();
@@ -181,40 +178,16 @@ export default function TransactionsScreen() {
         }
     };
 
-    // Modal open/close with spring animation (matching payment-links/invoices)
+    // Modal open/close with BottomSheet
     const openModal = (tx: Transaction) => {
         setSelectedTransaction(tx);
-        setIsDetailModalVisible(true);
         modalHaptic('open', hapticsEnabled);
-        Animated.parallel([
-            Animated.spring(slideAnim, {
-                toValue: 1,
-                useNativeDriver: true,
-                damping: 25,
-                stiffness: 300,
-            }),
-            Animated.timing(modalOpacity, {
-                toValue: 1,
-                duration: 200,
-                useNativeDriver: true,
-            }),
-        ]).start();
+        bottomSheetRef.current?.present();
     };
 
     const closeModal = () => {
         modalHaptic('close', hapticsEnabled);
-        Animated.parallel([
-            Animated.timing(slideAnim, {
-                toValue: 0,
-                duration: 150,
-                useNativeDriver: true,
-            }),
-            Animated.timing(modalOpacity, {
-                toValue: 0,
-                duration: 150,
-                useNativeDriver: true,
-            }),
-        ]).start(() => setIsDetailModalVisible(false));
+        bottomSheetRef.current?.dismiss();
     };
 
     const copyToClipboard = async (text: string) => {
@@ -353,116 +326,104 @@ export default function TransactionsScreen() {
 
 
             {/* Transaction Detail Modal */}
-            <Modal
-                visible={isDetailModalVisible}
-                transparent
-                animationType="none"
-                onRequestClose={closeModal}
+            <BottomSheetModal
+                ref={bottomSheetRef}
+                index={0}
+                enableDynamicSizing={true}
+                enablePanDownToClose={true}
+                backdropComponent={(props) => (
+                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                )}
+                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
             >
-                <View style={styles.modalOverlay}>
-                    <ModalBackdrop opacity={modalOpacity} />
-                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
-                    <Animated.View
-                        style={[
-                            styles.modalContent,
-                            { backgroundColor: themeColors.background },
-                            {
-                                transform: [{
-                                    translateY: slideAnim.interpolate({
-                                        inputRange: [0, 1],
-                                        outputRange: [600, 0]
-                                    })
-                                }]
-                            }
-                        ]}
-                    >
-                        <View style={styles.modalHeader}>
-                            <View style={styles.modalHeaderLeft}>
-                                {/* Token icon with send/receive badge */}
-                                <View style={styles.modalIconContainer}>
-                                    <Image
-                                        source={TOKENS[selectedTransaction?.token?.toUpperCase() || 'USDC'] || ICONS.usdc}
-                                        style={styles.modalTokenIcon}
-                                    />
-                                    <Image
-                                        source={selectedTransaction?.type === 'IN' ? ICONS.receive : ICONS.send}
-                                        style={styles.modalStatusBadge}
-                                    />
-                                </View>
-                                <View>
-                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
-                                        {selectedTransaction?.type === 'IN' ? 'Received' : 'Sent'}
-                                    </Text>
-                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                        {selectedTransaction?.date ? format(new Date(selectedTransaction.date), 'MMM d, yyyy • h:mm a') : ''}
-                                    </Text>
+                <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                    <View style={styles.modalHeader}>
+                        <View style={styles.modalHeaderLeft}>
+                            {/* Token icon with send/receive badge */}
+                            <View style={styles.modalIconContainer}>
+                                <Image
+                                    source={TOKENS[selectedTransaction?.token?.toUpperCase() || 'USDC'] || ICONS.usdc}
+                                    style={styles.modalTokenIcon}
+                                />
+                                <Image
+                                    source={selectedTransaction?.type === 'IN' ? ICONS.receive : ICONS.send}
+                                    style={styles.modalStatusBadge}
+                                />
+                            </View>
+                            <View>
+                                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                                    {selectedTransaction?.type === 'IN' ? 'Received' : 'Sent'}
+                                </Text>
+                                <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                    {selectedTransaction?.date ? format(new Date(selectedTransaction.date), 'MMM d, yyyy • h:mm a') : ''}
+                                </Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
+                            <X size={20} color={themeColors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {selectedTransaction && (
+                        <>
+                            {/* Amount Card */}
+                            <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                                <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                                    {selectedTransaction.type === 'IN' ? '+' : '-'}${selectedTransaction.amount}
+                                </Text>
+                                <View style={styles.amountCardSub}>
+                                    <Image source={TOKENS[selectedTransaction.token.toUpperCase()] || ICONS.usdc} style={styles.smallIcon} />
+                                    <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedTransaction.amount} {selectedTransaction.token}</Text>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                                <X size={20} color={themeColors.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
 
-                        {selectedTransaction && (
-                            <>
-                                {/* Amount Card */}
-                                <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
-                                    <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
-                                        {selectedTransaction.type === 'IN' ? '+' : '-'}${selectedTransaction.amount}
-                                    </Text>
-                                    <View style={styles.amountCardSub}>
-                                        <Image source={TOKENS[selectedTransaction.token.toUpperCase()] || ICONS.usdc} style={styles.smallIcon} />
-                                        <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedTransaction.amount} {selectedTransaction.token}</Text>
-                                    </View>
+                            {/* Details Card */}
+                            <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Transaction ID</Text>
+                                    <TouchableOpacity onPress={() => copyToClipboard(selectedTransaction.hash)} style={styles.detailValueRow}>
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1} ellipsizeMode="middle">
+                                            {selectedTransaction.hash.slice(0, 10)}...{selectedTransaction.hash.slice(-8)}
+                                        </Text>
+                                        <Copy size={14} color={themeColors.textTertiary} style={{ marginLeft: 6 }} />
+                                    </TouchableOpacity>
                                 </View>
-
-                                {/* Details Card */}
-                                <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
-                                    <View style={styles.detailRow}>
-                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Transaction ID</Text>
-                                        <TouchableOpacity onPress={() => copyToClipboard(selectedTransaction.hash)} style={styles.detailValueRow}>
-                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1} ellipsizeMode="middle">
-                                                {selectedTransaction.hash.slice(0, 10)}...{selectedTransaction.hash.slice(-8)}
-                                            </Text>
-                                            <Copy size={14} color={themeColors.textTertiary} style={{ marginLeft: 6 }} />
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                                    <View style={styles.detailRow}>
-                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{selectedTransaction.type === 'IN' ? 'From' : 'To'}</Text>
+                                <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{selectedTransaction.type === 'IN' ? 'From' : 'To'}</Text>
+                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                        {selectedTransaction.type === 'IN'
+                                            ? `${selectedTransaction.from.slice(0, 6)}...${selectedTransaction.from.slice(-4)}`
+                                            : `${selectedTransaction.to.slice(0, 6)}...${selectedTransaction.to.slice(-4)}`
+                                        }
+                                    </Text>
+                                </View>
+                                <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
+                                    <View style={styles.chainValue}>
+                                        <Image
+                                            source={CHAINS[selectedTransaction.network]?.icon || ICONS.base}
+                                            style={styles.smallIcon}
+                                        />
                                         <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
-                                            {selectedTransaction.type === 'IN'
-                                                ? `${selectedTransaction.from.slice(0, 6)}...${selectedTransaction.from.slice(-4)}`
-                                                : `${selectedTransaction.to.slice(0, 6)}...${selectedTransaction.to.slice(-4)}`
-                                            }
+                                            {CHAINS[selectedTransaction.network]?.name || 'Base'}
                                         </Text>
                                     </View>
-                                    <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                                    <View style={styles.detailRow}>
-                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
-                                        <View style={styles.chainValue}>
-                                            <Image
-                                                source={CHAINS[selectedTransaction.network]?.icon || ICONS.base}
-                                                style={styles.smallIcon}
-                                            />
-                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
-                                                {CHAINS[selectedTransaction.network]?.name || 'Base'}
-                                            </Text>
-                                        </View>
-                                    </View>
                                 </View>
+                            </View>
 
-                                <TouchableOpacity
-                                    style={styles.viewButton}
-                                    onPress={() => openExplorer(selectedTransaction)}
-                                >
-                                    <Text style={styles.viewButtonText}>View on Explorer</Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
-                    </Animated.View>
-                </View>
-            </Modal>
+                            <TouchableOpacity
+                                style={styles.viewButton}
+                                onPress={() => openExplorer(selectedTransaction)}
+                            >
+                                <Text style={styles.viewButtonText}>View on Explorer</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </BottomSheetView>
+            </BottomSheetModal>
         </View>
     );
 }

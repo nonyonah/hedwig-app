@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Dimensions, Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
+import React, { useState, useEffect, forwardRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { X, Minus, Plus } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 
 const { height } = Dimensions.get('window');
 
 interface TargetGoalModalProps {
-    visible: boolean;
     currentTarget: number;
     onClose: () => void;
     onSave: (newTarget: number) => void;
@@ -15,61 +14,20 @@ interface TargetGoalModalProps {
     getAccessToken?: () => Promise<string | null>;
 }
 
-export const TargetGoalModal: React.FC<TargetGoalModalProps> = ({
-    visible,
+export const TargetGoalModal = forwardRef<BottomSheetModal, TargetGoalModalProps>(({
     currentTarget,
     onClose,
     onSave,
     user,
     getAccessToken
-}) => {
+}, ref) => {
     const themeColors = useThemeColors();
     const [target, setTarget] = useState(currentTarget);
-    const [isRendered, setIsRendered] = useState(false);
-
-    const modalAnim = useRef(new Animated.Value(height)).current;
-    const opacityAnim = useRef(new Animated.Value(0)).current;
 
     // Update target when currentTarget prop changes
     useEffect(() => {
         setTarget(currentTarget);
     }, [currentTarget]);
-
-    // Animate modal open/close with spring
-    useEffect(() => {
-        if (visible) {
-            setIsRendered(true);
-            Animated.parallel([
-                Animated.timing(opacityAnim, {
-                    toValue: 1,
-                    duration: 150,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(modalAnim, {
-                    toValue: 0,
-                    damping: 28,
-                    stiffness: 350,
-                    useNativeDriver: true,
-                }),
-            ]).start();
-        } else {
-            Animated.parallel([
-                Animated.timing(opacityAnim, {
-                    toValue: 0,
-                    duration: 100,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(modalAnim, {
-                    toValue: height,
-                    damping: 28,
-                    stiffness: 350,
-                    useNativeDriver: true,
-                }),
-            ]).start(() => {
-                setIsRendered(false);
-            });
-        }
-    }, [visible]);
 
     const adjustTarget = (amount: number) => {
         setTarget(prev => Math.max(0, prev + amount));
@@ -102,6 +60,14 @@ export const TargetGoalModal: React.FC<TargetGoalModalProps> = ({
 
         // Call the onSave callback (updates local state)
         onSave(target);
+        // @ts-ignore
+        ref?.current?.dismiss();
+        onClose();
+    };
+
+    const handleClose = () => {
+        // @ts-ignore
+        ref?.current?.dismiss();
         onClose();
     };
 
@@ -109,128 +75,117 @@ export const TargetGoalModal: React.FC<TargetGoalModalProps> = ({
         return num.toLocaleString('en-US');
     };
 
-    if (!isRendered) return null;
+    const renderBackdrop = useCallback(
+        (props: any) => (
+            <BottomSheetBackdrop
+                {...props}
+                disappearsOnIndex={-1}
+                appearsOnIndex={0}
+                opacity={0.5}
+            />
+        ),
+        []
+    );
 
     return (
-        <Modal
-            visible={isRendered}
-            transparent
-            animationType="none"
-            onRequestClose={onClose}
+        <BottomSheetModal
+            ref={ref}
+            index={0}
+            enableDynamicSizing={true}
+            enablePanDownToClose={true}
+            backdropComponent={renderBackdrop}
+            backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+            handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+            onDismiss={onClose}
         >
-            <View style={styles.modalOverlay}>
-                {/* Backdrop with blur on iOS, solid on Android */}
-                {Platform.OS === 'ios' ? (
-                    <Animated.View style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}>
-                        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                    </Animated.View>
-                ) : (
-                    <Animated.View
-                        style={[
-                            StyleSheet.absoluteFill,
-                            { backgroundColor: 'rgba(0,0,0,0.5)', opacity: opacityAnim }
-                        ]}
-                    />
-                )}
+            <BottomSheetView style={styles.contentContainer}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity
+                        onPress={handleClose}
+                        style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                    >
+                        <X size={20} color={themeColors.textSecondary} weight="bold" />
+                    </TouchableOpacity>
+                </View>
 
-                <TouchableOpacity
-                    style={StyleSheet.absoluteFill}
-                    activeOpacity={1}
-                    onPress={onClose}
-                />
+                {/* Title and Description */}
+                <View style={styles.content}>
+                    <Text style={[styles.title, { color: themeColors.textPrimary }]}>
+                        Monthly Earnings Goal
+                    </Text>
+                    <Text style={[styles.description, { color: themeColors.textSecondary }]}>
+                        Set a goal based on how much you want to earn each month.
+                    </Text>
 
-                <Animated.View
-                    style={[
-                        styles.container,
-                        { backgroundColor: themeColors.background },
-                        { transform: [{ translateY: modalAnim }] }
-                    ]}
-                >
-                    {/* Header */}
-                    <View style={styles.header}>
+                    {/* Target Adjuster */}
+                    <View style={styles.targetContainer}>
                         <TouchableOpacity
-                            onPress={onClose}
-                            style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                            onPress={() => adjustTarget(-100)}
+                            onLongPress={() => adjustTarget(-1000)}
+                            style={[styles.adjustButton, { backgroundColor: Colors.primary }]}
                         >
-                            <X size={20} color={themeColors.textSecondary} weight="bold" />
+                            <Minus size={32} color="#FFFFFF" weight="bold" />
+                        </TouchableOpacity>
+
+                        <View style={styles.valueContainer}>
+                            <Text style={[styles.value, { color: themeColors.textPrimary }]}>
+                                {formatNumber(target)}
+                            </Text>
+                            <Text style={[styles.unit, { color: themeColors.textSecondary }]}>
+                                USD/MONTH
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity
+                            onPress={() => adjustTarget(100)}
+                            onLongPress={() => adjustTarget(1000)}
+                            style={[styles.adjustButton, { backgroundColor: Colors.primary }]}
+                        >
+                            <Plus size={32} color="#FFFFFF" weight="bold" />
                         </TouchableOpacity>
                     </View>
 
-                    {/* Title and Description */}
-                    <View style={styles.content}>
-                        <Text style={[styles.title, { color: themeColors.textPrimary }]}>
-                            Monthly Earnings Goal
-                        </Text>
-                        <Text style={[styles.description, { color: themeColors.textSecondary }]}>
-                            Set a goal based on how much you want to earn each month.
-                        </Text>
-
-                        {/* Target Adjuster */}
-                        <View style={styles.targetContainer}>
+                    {/* Quick Presets - Centered */}
+                    <View style={styles.presetsContainer}>
+                        {[1000, 2500, 5000, 10000].map((preset) => (
                             <TouchableOpacity
-                                onPress={() => adjustTarget(-100)}
-                                onLongPress={() => adjustTarget(-1000)}
-                                style={[styles.adjustButton, { backgroundColor: Colors.primary }]}
+                                key={preset}
+                                onPress={() => setTarget(preset)}
+                                style={[
+                                    styles.presetButton,
+                                    { backgroundColor: themeColors.surface },
+                                    target === preset && { backgroundColor: Colors.primary }
+                                ]}
                             >
-                                <Minus size={32} color="#FFFFFF" weight="bold" />
-                            </TouchableOpacity>
-
-                            <View style={styles.valueContainer}>
-                                <Text style={[styles.value, { color: themeColors.textPrimary }]}>
-                                    {formatNumber(target)}
+                                <Text style={[
+                                    styles.presetText,
+                                    { color: themeColors.textSecondary },
+                                    target === preset && { color: '#FFFFFF', fontFamily: 'GoogleSansFlex_600SemiBold' }
+                                ]}>
+                                    ${formatNumber(preset)}
                                 </Text>
-                                <Text style={[styles.unit, { color: themeColors.textSecondary }]}>
-                                    USD/MONTH
-                                </Text>
-                            </View>
-
-                            <TouchableOpacity
-                                onPress={() => adjustTarget(100)}
-                                onLongPress={() => adjustTarget(1000)}
-                                style={[styles.adjustButton, { backgroundColor: Colors.primary }]}
-                            >
-                                <Plus size={32} color="#FFFFFF" weight="bold" />
                             </TouchableOpacity>
-                        </View>
-
-                        {/* Quick Presets - Centered */}
-                        <View style={styles.presetsContainer}>
-                            {[1000, 2500, 5000, 10000].map((preset) => (
-                                <TouchableOpacity
-                                    key={preset}
-                                    onPress={() => setTarget(preset)}
-                                    style={[
-                                        styles.presetButton,
-                                        { backgroundColor: themeColors.surface },
-                                        target === preset && { backgroundColor: Colors.primary }
-                                    ]}
-                                >
-                                    <Text style={[
-                                        styles.presetText,
-                                        { color: themeColors.textSecondary },
-                                        target === preset && { color: '#FFFFFF', fontFamily: 'GoogleSansFlex_600SemiBold' }
-                                    ]}>
-                                        ${formatNumber(preset)}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* Save Button - Consistent with app style */}
-                        <TouchableOpacity
-                            onPress={handleSave}
-                            style={[styles.saveButton, { backgroundColor: Colors.primary }]}
-                        >
-                            <Text style={styles.saveButtonText}>Change Earnings Goal</Text>
-                        </TouchableOpacity>
+                        ))}
                     </View>
-                </Animated.View>
-            </View>
-        </Modal>
+
+                    {/* Save Button - Consistent with app style */}
+                    <TouchableOpacity
+                        onPress={handleSave}
+                        style={[styles.saveButton, { backgroundColor: Colors.primary }]}
+                    >
+                        <Text style={styles.saveButtonText}>Change Earnings Goal</Text>
+                    </TouchableOpacity>
+                </View>
+            </BottomSheetView>
+        </BottomSheetModal>
     );
-};
+});
 
 const styles = StyleSheet.create({
+    contentContainer: {
+        paddingBottom: 40,
+    },
     modalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
@@ -327,4 +282,3 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
     },
 });
-

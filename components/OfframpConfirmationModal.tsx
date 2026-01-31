@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Dimensions, ActivityIndicator, Alert, Platform, Image } from 'react-native';
+import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert, Platform, Image } from 'react-native';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { ethers } from 'ethers';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -8,12 +9,10 @@ import { X, CheckCircle, Warning, Fingerprint, ArrowSquareOut, XCircle, Bank, Co
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
-import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../hooks/useAuth';
-import { ModalBackdrop, modalHaptic } from './ui/ModalStyles';
+import { modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
 import { useLiveTracking } from '../hooks/useLiveTracking';
-import { SwiftUIBottomSheet } from './ios/SwiftUIBottomSheet';
 import { useKYC } from '../hooks/useKYC';
 import KYCVerificationModal from './KYCVerificationModal';
 import Analytics from '../services/analytics';
@@ -76,7 +75,7 @@ interface OfframpConfirmationModalProps {
 
 type ModalState = 'confirm' | 'processing' | 'awaiting_transfer' | 'success' | 'failed';
 
-export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> = ({ visible, onClose, data, onSuccess }) => {
+export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
     const ethereumWallet = useEmbeddedEthereumWallet();
@@ -88,23 +87,20 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
     const [orderId, setOrderId] = useState<string | null>(null);
     const [receiveAddress, setReceiveAddress] = useState<string | null>(null);
     const [statusMessage, setStatusMessage] = useState('');
-    const [isRendered, setIsRendered] = useState(false);
     const [currentRate, setCurrentRate] = useState<string>('');
     const [estimatedFiat, setEstimatedFiat] = useState<string>('');
     const [isLoadingRate, setIsLoadingRate] = useState(false);
     const [tokensSent, setTokensSent] = useState(false); // Track if tokens were sent to Paycrest
-    const [showKYCModal, setShowKYCModal] = useState(false);
+
+    const kycSheetRef = useRef<BottomSheetModal>(null);
 
     // KYC hook
     const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
 
-    const modalAnim = useRef(new Animated.Value(height)).current;
-    const opacityAnim = useRef(new Animated.Value(0)).current;
-
-    // Fetch exchange rate when modal becomes visible
+    // Fetch exchange rate when data changes
     useEffect(() => {
         const fetchRate = async () => {
-            if (!visible || !data || modalState !== 'confirm') return;
+            if (!data || modalState !== 'confirm') return;
 
             // Use provided rate if available
             if (data.rate && data.estimatedFiat) {
@@ -138,50 +134,16 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
         };
 
         fetchRate();
-    }, [visible, data, modalState]);
+    }, [data, modalState]);
 
-    useEffect(() => {
-        if (visible) {
-            setIsRendered(true);
-            setModalState('confirm');
-            setOrderId(null);
-            setReceiveAddress(null);
-            modalHaptic('open', hapticsEnabled); // Haptic feedback
-            Animated.parallel([
-                Animated.timing(opacityAnim, {
-                    toValue: 1,
-                    duration: 120,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(modalAnim, {
-                    toValue: 0,
-                    damping: 28,
-                    stiffness: 350,
-                    useNativeDriver: true,
-                })
-            ]).start();
-        } else {
-            modalHaptic('close', hapticsEnabled); // Haptic feedback
-            Animated.parallel([
-                Animated.timing(opacityAnim, {
-                    toValue: 0,
-                    duration: 80,
-                    useNativeDriver: true,
-                }),
-                Animated.spring(modalAnim, {
-                    toValue: height,
-                    damping: 28,
-                    stiffness: 350,
-                    useNativeDriver: true,
-                })
-            ]).start(() => {
-                setIsRendered(false);
-                setStatusMessage('');
-                setModalState('confirm');
-                setTokensSent(false);
-            });
-        }
-    }, [visible]);
+    const handleDismiss = useCallback(() => {
+        setModalState('confirm');
+        setOrderId(null);
+        setReceiveAddress(null);
+        setStatusMessage('');
+        setTokensSent(false);
+        onClose();
+    }, [onClose]);
 
     const handleConfirm = async () => {
         if (!data) return;
@@ -189,7 +151,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
         // 0. Check KYC status first
         if (!isKYCApproved) {
             Analytics.offrampBlockedKyc();
-            setShowKYCModal(true);
+            kycSheetRef.current?.present();
             return;
         }
 
@@ -410,7 +372,25 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
         }
     };
 
-    if (!isRendered || !data) return null;
+    const handleClose = () => {
+        // @ts-ignore
+        ref?.current?.dismiss();
+        handleDismiss();
+    };
+
+    const renderBackdrop = useCallback(
+        (props: any) => (
+            <BottomSheetBackdrop
+                {...props}
+                disappearsOnIndex={-1}
+                appearsOnIndex={0}
+                opacity={0.5}
+            />
+        ),
+        []
+    );
+
+    if (!data) return null;
 
     const network = data.network.toLowerCase();
     const chain = CHAINS[network] || CHAINS['base'];
@@ -478,7 +458,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
                         </Text>
 
                         <View style={styles.actionButtonsContainer}>
-                            <TouchableOpacity style={styles.closeButtonMain} onPress={onClose}>
+                            <TouchableOpacity style={styles.closeButtonMain} onPress={handleClose}>
                                 <Text style={styles.closeButtonText}>Close</Text>
                             </TouchableOpacity>
                         </View>
@@ -502,7 +482,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
                             <Text style={styles.errorMessage}>{statusMessage}</Text>
                         ) : null}
                         <View style={styles.actionButtonsContainer}>
-                            <TouchableOpacity style={styles.closeButtonMain} onPress={onClose}>
+                            <TouchableOpacity style={styles.closeButtonMain} onPress={handleClose}>
                                 <Text style={styles.closeButtonText}>Close</Text>
                             </TouchableOpacity>
                         </View>
@@ -515,7 +495,7 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
                         {/* Header */}
                         <View style={styles.header}>
                             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Confirm Offramp</Text>
-                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={onClose}>
+                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={handleClose}>
                                 <X size={20} color={themeColors.textSecondary} weight="bold" />
                             </TouchableOpacity>
                         </View>
@@ -579,70 +559,44 @@ export const OfframpConfirmationModal: React.FC<OfframpConfirmationModalProps> =
         }
     };
 
-    // iOS: Use native SwiftUI BottomSheet
-    if (Platform.OS === 'ios') {
-        return (
-            <>
-                <SwiftUIBottomSheet isOpen={isRendered} onClose={onClose} height={0.72}>
-                    <View style={[styles.iosContent, { backgroundColor: themeColors.background }]}>
-                        {renderContent()}
-                    </View>
-                </SwiftUIBottomSheet>
-                <KYCVerificationModal
-                    visible={showKYCModal}
-                    onClose={() => setShowKYCModal(false)}
-                    onVerified={() => {
-                        setShowKYCModal(false);
-                        fetchKYCStatus(); // Refresh status after verification
-                    }}
-                />
-            </>
-        );
-    }
-
-    // Android: Use existing Modal
     return (
         <>
-            <Modal
-                visible={isRendered}
-                transparent={true}
-                animationType="none"
-                onRequestClose={onClose}
+            <BottomSheetModal
+                ref={ref}
+                index={0}
+                enableDynamicSizing={true}
+                enablePanDownToClose={true}
+                backdropComponent={renderBackdrop}
+                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                onDismiss={handleDismiss}
             >
-                <View style={styles.overlay}>
-                    <ModalBackdrop opacity={opacityAnim} />
-                    <TouchableOpacity
-                        style={StyleSheet.absoluteFill}
-                        activeOpacity={1}
-                        onPress={onClose}
-                    />
-                    <Animated.View
-                        style={[
-                            styles.modalContent,
-                            { transform: [{ translateY: modalAnim }] }
-                        ]}
-                    >
-                        {renderContent()}
-                    </Animated.View>
-                </View>
-            </Modal>
+                <BottomSheetView style={styles.contentContainer}>
+                    {renderContent()}
+                </BottomSheetView>
+            </BottomSheetModal>
+
             <KYCVerificationModal
-                visible={showKYCModal}
-                onClose={() => setShowKYCModal(false)}
+                ref={kycSheetRef}
+                onClose={() => kycSheetRef.current?.dismiss()}
                 onVerified={() => {
-                    setShowKYCModal(false);
+                    kycSheetRef.current?.dismiss();
                     fetchKYCStatus(); // Refresh status after verification
                 }}
             />
         </>
     );
-};
+});
 
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         justifyContent: 'flex-end',
         backgroundColor: 'transparent',
+    },
+    contentContainer: {
+        paddingHorizontal: 24,
+        paddingBottom: 40,
     },
     modalContent: {
         backgroundColor: '#FFFFFF',

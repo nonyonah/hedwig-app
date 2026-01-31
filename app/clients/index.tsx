@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Alert, Animated, RefreshControl, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,8 +36,8 @@ export default function ClientsScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-    const [showDetailModal, setShowDetailModal] = useState(false);
-    const [showFormModal, setShowFormModal] = useState(false);
+    const detailSheetRef = useRef<BottomSheetModal>(null);
+    const formSheetRef = useRef<BottomSheetModal>(null);
     const [isEditing, setIsEditing] = useState(false);
 
     // Track page view
@@ -71,9 +72,6 @@ export default function ClientsScreen() {
         ['#64748B', '#475569', '#334155'], // Slate
         ['#1F2937', '#111827', '#030712'], // Dark
     ];
-
-    const slideAnim = useRef(new Animated.Value(0)).current;
-    const formSlideAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         fetchClients();
@@ -145,7 +143,7 @@ export default function ClientsScreen() {
 
                             if (data.success) {
                                 setClients(prev => prev.filter(c => c.id !== clientId));
-                                setShowDetailModal(false);
+                                detailSheetRef.current?.dismiss();
                                 Alert.alert('Success', 'Client deleted successfully');
                             } else {
                                 Alert.alert('Error', data.error?.message || 'Failed to delete client');
@@ -163,22 +161,12 @@ export default function ClientsScreen() {
     const openDetailModal = (client: Client) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedClient(client);
-        setShowDetailModal(true);
-        Animated.spring(slideAnim, {
-            toValue: 1,
-            useNativeDriver: true,
-            damping: 25,
-            stiffness: 300,
-        }).start();
+        detailSheetRef.current?.present();
     };
 
     const closeDetailModal = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 250,
-            useNativeDriver: true,
-        }).start(() => setShowDetailModal(false));
+        detailSheetRef.current?.dismiss();
     };
 
     const openFormModal = (client?: Client) => {
@@ -197,27 +185,15 @@ export default function ClientsScreen() {
             setFormPhone('');
             setFormCompany('');
         }
-        setShowFormModal(true);
-        Animated.spring(formSlideAnim, {
-            toValue: 1,
-            useNativeDriver: true,
-            damping: 25,
-            stiffness: 300,
-        }).start();
+        formSheetRef.current?.present();
     };
 
     const closeFormModal = () => {
-        Animated.timing(formSlideAnim, {
-            toValue: 0,
-            duration: 250,
-            useNativeDriver: true,
-        }).start(() => {
-            setShowFormModal(false);
-            setFormName('');
-            setFormEmail('');
-            setFormPhone('');
-            setFormCompany('');
-        });
+        formSheetRef.current?.dismiss();
+        setFormName('');
+        setFormEmail('');
+        setFormPhone('');
+        setFormCompany('');
     };
     const handleSaveClient = async () => {
         if (!formName.trim()) {
@@ -419,196 +395,185 @@ export default function ClientsScreen() {
                 )}
 
                 {/* Detail Modal */}
-                <Modal visible={showDetailModal} transparent animationType="fade" onRequestClose={closeDetailModal}>
-                    <View style={styles.modalOverlay}>
-                        {/* iOS blur / Android scrim */}
-                        {Platform.OS === 'ios' ? (
-                            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                        ) : (
-                            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.32)' }]} />
-                        )}
-                        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeDetailModal} />
-                        <Animated.View
-                            style={[
-                                styles.detailModalContent,
-                                { backgroundColor: themeColors.background },
-                                { transform: [{ translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] }
-                            ]}
-                        >
-                            {/* Centered Title */}
-                            <Text style={[styles.detailModalTitle, { color: themeColors.textPrimary }]}>{selectedClient?.name || 'Client Details'}</Text>
+                <BottomSheetModal
+                    ref={detailSheetRef}
+                    index={0}
+                    enableDynamicSizing={true}
+                    enablePanDownToClose={true}
+                    backdropComponent={(props) => (
+                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                    )}
+                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                >
+                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                        {/* Centered Title */}
+                        <Text style={[styles.detailModalTitle, { color: themeColors.textPrimary }]}>{selectedClient?.name || 'Client Details'}</Text>
 
-                            {selectedClient && (
-                                <ScrollView showsVerticalScrollIndicator={false} style={styles.detailModalBody} contentContainerStyle={{ paddingBottom: 16 }}>
-                                    {/* Company Badge */}
-                                    {selectedClient.company && (
-                                        <View style={styles.companyBadge}>
-                                            <Buildings size={16} color={themeColors.textSecondary} weight="fill" />
-                                            <Text style={[styles.companyBadgeText, { color: themeColors.textSecondary }]}>{selectedClient.company}</Text>
+                        {selectedClient && (
+                            <ScrollView showsVerticalScrollIndicator={false} style={styles.detailModalBody} contentContainerStyle={{ paddingBottom: 16 }}>
+                                {/* Company Badge */}
+                                {selectedClient.company && (
+                                    <View style={styles.companyBadge}>
+                                        <Buildings size={16} color={themeColors.textSecondary} weight="fill" />
+                                        <Text style={[styles.companyBadgeText, { color: themeColors.textSecondary }]}>{selectedClient.company}</Text>
+                                    </View>
+                                )}
+
+                                {/* Earnings Summary Card */}
+                                <View style={styles.summaryCard}>
+                                    <Text style={styles.summaryCardLabel}>Total Earnings</Text>
+                                    <Text style={styles.summaryCardValue}>${selectedClient.totalEarnings.toFixed(2)}</Text>
+                                    {selectedClient.outstandingBalance > 0 && (
+                                        <View style={styles.summaryCardSub}>
+                                            <Clock size={14} color="#F59E0B" />
+                                            <Text style={styles.summaryCardSubText}>${selectedClient.outstandingBalance.toFixed(2)} outstanding</Text>
                                         </View>
                                     )}
+                                </View>
 
-                                    {/* Earnings Summary Card */}
-                                    <View style={styles.summaryCard}>
-                                        <Text style={styles.summaryCardLabel}>Total Earnings</Text>
-                                        <Text style={styles.summaryCardValue}>${selectedClient.totalEarnings.toFixed(2)}</Text>
-                                        {selectedClient.outstandingBalance > 0 && (
-                                            <View style={styles.summaryCardSub}>
-                                                <Clock size={14} color="#F59E0B" />
-                                                <Text style={styles.summaryCardSubText}>${selectedClient.outstandingBalance.toFixed(2)} outstanding</Text>
-                                            </View>
-                                        )}
-                                    </View>
-
-                                    {/* Contact Details Card */}
-                                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
-                                        {selectedClient.email && (
-                                            <>
-                                                <View style={styles.detailCardRow}>
-                                                    <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Email</Text>
-                                                    <Text style={[styles.detailCardValue, { color: themeColors.textPrimary }]}>{selectedClient.email}</Text>
-                                                </View>
-                                                {selectedClient.phone && <View style={[styles.detailCardDivider, { backgroundColor: themeColors.border }]} />}
-                                            </>
-                                        )}
-                                        {selectedClient.phone && (
+                                {/* Contact Details Card */}
+                                <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                                    {selectedClient.email && (
+                                        <>
                                             <View style={styles.detailCardRow}>
-                                                <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Phone</Text>
-                                                <Text style={[styles.detailCardValue, { color: themeColors.textPrimary }]}>{selectedClient.phone}</Text>
+                                                <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Email</Text>
+                                                <Text style={[styles.detailCardValue, { color: themeColors.textPrimary }]}>{selectedClient.email}</Text>
                                             </View>
-                                        )}
-                                        {!selectedClient.email && !selectedClient.phone && (
-                                            <View style={styles.detailCardRow}>
-                                                <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Contact</Text>
-                                                <Text style={[styles.detailCardValue, { color: themeColors.textSecondary }]}>No contact info</Text>
-                                            </View>
-                                        )}
-                                    </View>
-
-                                    {/* Client Since */}
-                                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                                            {selectedClient.phone && <View style={[styles.detailCardDivider, { backgroundColor: themeColors.border }]} />}
+                                        </>
+                                    )}
+                                    {selectedClient.phone && (
                                         <View style={styles.detailCardRow}>
-                                            <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Client Since</Text>
-                                            <Text style={[styles.detailCardValue, { color: themeColors.textPrimary }]}>
-                                                {new Date(selectedClient.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                            </Text>
+                                            <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Phone</Text>
+                                            <Text style={[styles.detailCardValue, { color: themeColors.textPrimary }]}>{selectedClient.phone}</Text>
                                         </View>
+                                    )}
+                                    {!selectedClient.email && !selectedClient.phone && (
+                                        <View style={styles.detailCardRow}>
+                                            <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Contact</Text>
+                                            <Text style={[styles.detailCardValue, { color: themeColors.textSecondary }]}>No contact info</Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Client Since */}
+                                <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                                    <View style={styles.detailCardRow}>
+                                        <Text style={[styles.detailCardLabel, { color: themeColors.textSecondary }]}>Client Since</Text>
+                                        <Text style={[styles.detailCardValue, { color: themeColors.textPrimary }]}>
+                                            {new Date(selectedClient.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </Text>
                                     </View>
-                                </ScrollView>
-                            )}
-
-                            {/* Action Buttons - Gojek Style */}
-                            <View style={styles.detailModalActions}>
-                                <TouchableOpacity
-                                    style={styles.outlineButton}
-                                    onPress={() => { closeDetailModal(); setTimeout(() => openFormModal(selectedClient!), 300); }}
-                                >
-                                    <Text style={styles.outlineButtonText}>Edit</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.dangerButton}
-                                    onPress={() => handleDelete(selectedClient!.id)}
-                                >
-                                    <Text style={styles.dangerButtonText}>Delete</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </Animated.View>
-                    </View>
-                </Modal>
-
-                {/* Form Modal */}
-                <Modal visible={showFormModal} transparent animationType="fade" onRequestClose={closeFormModal}>
-                    <KeyboardAvoidingView
-                        style={styles.modalOverlay}
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    >
-                        {/* iOS blur / Android scrim */}
-                        {Platform.OS === 'ios' ? (
-                            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                        ) : (
-                            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.32)' }]} />
-                        )}
-                        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeFormModal} />
-                        <Animated.View
-                            style={[
-                                styles.formModalContent,
-                                { backgroundColor: themeColors.background },
-                                { transform: [{ translateY: formSlideAnim.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }) }] }
-                            ]}
-                        >
-                            <View style={styles.modalHeader}>
-                                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>{isEditing ? 'Edit Client' : 'New Client'}</Text>
-                                <TouchableOpacity
-                                    style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
-                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); closeFormModal(); }}
-                                >
-                                    <X size={20} color={themeColors.textSecondary} weight="bold" />
-                                </TouchableOpacity>
-                            </View>
-
-                            <ScrollView style={styles.formBody}>
-                                <View style={styles.inputGroup}>
-                                    <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Name *</Text>
-                                    <TextInput
-                                        style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
-                                        value={formName}
-                                        onChangeText={setFormName}
-                                        placeholder="Client name"
-                                        placeholderTextColor={themeColors.textTertiary}
-                                    />
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email</Text>
-                                    <TextInput
-                                        style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
-                                        value={formEmail}
-                                        onChangeText={setFormEmail}
-                                        placeholder="client@example.com"
-                                        placeholderTextColor={themeColors.textTertiary}
-                                        keyboardType="email-address"
-                                        autoCapitalize="none"
-                                    />
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Phone</Text>
-                                    <TextInput
-                                        style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
-                                        value={formPhone}
-                                        onChangeText={setFormPhone}
-                                        placeholder="+1 234 567 8900"
-                                        placeholderTextColor={themeColors.textTertiary}
-                                        keyboardType="phone-pad"
-                                    />
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Company</Text>
-                                    <TextInput
-                                        style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
-                                        value={formCompany}
-                                        onChangeText={setFormCompany}
-                                        placeholder="Company name (optional)"
-                                        placeholderTextColor={themeColors.textTertiary}
-                                    />
                                 </View>
                             </ScrollView>
+                        )}
 
+                        {/* Action Buttons - Gojek Style */}
+                        <View style={styles.detailModalActions}>
                             <TouchableOpacity
-                                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-                                onPress={handleSaveClient}
-                                disabled={isSaving}
+                                style={styles.outlineButton}
+                                onPress={() => { closeDetailModal(); setTimeout(() => openFormModal(selectedClient!), 300); }}
                             >
-                                {isSaving ? (
-                                    <ActivityIndicator color="#FFF" />
-                                ) : (
-                                    <Text style={styles.saveButtonText}>{isEditing ? 'Save Changes' : 'Create Client'}</Text>
-                                )}
+                                <Text style={styles.outlineButtonText}>Edit</Text>
                             </TouchableOpacity>
-                        </Animated.View>
-                    </KeyboardAvoidingView>
-                </Modal>
+                            <TouchableOpacity
+                                style={styles.dangerButton}
+                                onPress={() => handleDelete(selectedClient!.id)}
+                            >
+                                <Text style={styles.dangerButtonText}>Delete</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </BottomSheetView>
+                </BottomSheetModal>
+
+                {/* Form Modal */}
+                <BottomSheetModal
+                    ref={formSheetRef}
+                    index={0}
+                    enableDynamicSizing={true}
+                    enablePanDownToClose={true}
+                    backdropComponent={(props) => (
+                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                    )}
+                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                    keyboardBehavior="interactive"
+                    keyboardBlurBehavior="restore"
+                >
+                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>{isEditing ? 'Edit Client' : 'New Client'}</Text>
+                            <TouchableOpacity
+                                style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); closeFormModal(); }}
+                            >
+                                <X size={20} color={themeColors.textSecondary} weight="bold" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.formBody}>
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Name *</Text>
+                                <TextInput
+                                    style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
+                                    value={formName}
+                                    onChangeText={setFormName}
+                                    placeholder="Client name"
+                                    placeholderTextColor={themeColors.textTertiary}
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email</Text>
+                                <TextInput
+                                    style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
+                                    value={formEmail}
+                                    onChangeText={setFormEmail}
+                                    placeholder="client@example.com"
+                                    placeholderTextColor={themeColors.textTertiary}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Phone</Text>
+                                <TextInput
+                                    style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
+                                    value={formPhone}
+                                    onChangeText={setFormPhone}
+                                    placeholder="+1 234 567 8900"
+                                    placeholderTextColor={themeColors.textTertiary}
+                                    keyboardType="phone-pad"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Company</Text>
+                                <TextInput
+                                    style={[styles.input, { backgroundColor: themeColors.background, borderColor: themeColors.border, color: themeColors.textPrimary }]}
+                                    value={formCompany}
+                                    onChangeText={setFormCompany}
+                                    placeholder="Company name (optional)"
+                                    placeholderTextColor={themeColors.textTertiary}
+                                />
+                            </View>
+                        </ScrollView>
+
+                        <TouchableOpacity
+                            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                            onPress={handleSaveClient}
+                            disabled={isSaving}
+                        >
+                            {isSaving ? (
+                                <ActivityIndicator color="#FFF" />
+                            ) : (
+                                <Text style={styles.saveButtonText}>{isEditing ? 'Save Changes' : 'Create Client'}</Text>
+                            )}
+                        </TouchableOpacity>
+                    </BottomSheetView>
+                </BottomSheetModal>
 
                 {/* Profile Modal */}
                 {/* <ProfileModal /> Removed */}

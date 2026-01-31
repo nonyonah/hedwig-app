@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Linking } from 'react-native';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Linking } from 'react-native';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
@@ -42,7 +43,7 @@ export default function ContractsScreen() {
     const [contracts, setContracts] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedContract, setSelectedContract] = useState<any>(null);
-    const [showModal, setShowModal] = useState(false);
+    const bottomSheetRef = useRef<BottomSheetModal>(null);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
@@ -62,9 +63,6 @@ export default function ContractsScreen() {
         if (statusFilter === 'approved') return contracts.filter(c => c.status === 'APPROVED' || c.status === 'SIGNED' || c.status === 'PAID' || c.status === 'COMPLETED');
         return contracts;
     }, [contracts, statusFilter]);
-
-    // Animation value for modal
-    const slideAnim = React.useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         fetchContracts();
@@ -208,7 +206,7 @@ export default function ContractsScreen() {
 
                             if (data.success) {
                                 await fetchContracts();
-                                setShowModal(false);
+                                bottomSheetRef.current?.dismiss();
                                 Alert.alert('Success', `Contract sent to ${data.data.clientEmail}!`);
                             } else {
                                 Alert.alert('Error', data.error?.message || 'Failed to send contract');
@@ -226,22 +224,12 @@ export default function ContractsScreen() {
     const openModal = (contract: any) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedContract(contract);
-        setShowModal(true);
-        Animated.spring(slideAnim, {
-            toValue: 1,
-            useNativeDriver: true,
-            damping: 25,
-            stiffness: 300,
-        }).start();
+        bottomSheetRef.current?.present();
     };
 
     const closeModal = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 250,
-            useNativeDriver: true,
-        }).start(() => setShowModal(false));
+        bottomSheetRef.current?.dismiss();
     };
 
     const getStatusStyle = (status: string) => {
@@ -411,167 +399,151 @@ export default function ContractsScreen() {
 
 
             {/* Details Modal */}
-            <Modal
-                visible={showModal}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={closeModal}
+            <BottomSheetModal
+                ref={bottomSheetRef}
+                index={0}
+                enableDynamicSizing={true}
+                enablePanDownToClose={true}
+                backdropComponent={(props) => (
+                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                )}
+                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
             >
-                <View style={styles.modalOverlay}>
-                    {Platform.OS === 'ios' ? (
-                        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                    ) : (
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.32)' }]} />
-                    )}
-                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} />
-                    <Animated.View
-                        style={[
-                            styles.modalContent,
-                            { backgroundColor: themeColors.background },
-                            {
-                                transform: [{
-                                    translateY: slideAnim.interpolate({
-                                        inputRange: [0, 1],
-                                        outputRange: [600, 0]
-                                    })
-                                }]
-                            }
-                        ]}
-                    >
-                        <View style={styles.modalHeader}>
-                            <View style={styles.modalHeaderLeft}>
-                                <View style={[styles.modalIconContainer, { backgroundColor: themeColors.surface }]}>
-                                    <FileText size={28} color={Colors.primary} weight="duotone" />
-                                </View>
-                                <View>
-                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
-                                        {getStatusStyle(selectedContract?.status).label}
-                                    </Text>
-                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                        {selectedContract?.created_at ? new Date(selectedContract.created_at).toLocaleDateString('en-GB') : ''}
-                                    </Text>
-                                </View>
+                <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                    <View style={styles.modalHeader}>
+                        <View style={styles.modalHeaderLeft}>
+                            <View style={[styles.modalIconContainer, { backgroundColor: themeColors.surface }]}>
+                                <FileText size={28} color={Colors.primary} weight="duotone" />
                             </View>
-                            <View style={styles.modalHeaderRight}>
-                                {selectedContract?.status === 'DRAFT' && (
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                            setShowActionMenu(!showActionMenu);
-                                        }}
-                                        style={styles.menuButton}
-                                    >
-                                        <DotsThree size={24} color={themeColors.textSecondary} weight="bold" />
-                                    </TouchableOpacity>
-                                )}
-                                <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                                    <X size={20} color={themeColors.textSecondary} weight="bold" />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        {/* Action Menu */}
-                        {showActionMenu && selectedContract?.status === 'DRAFT' && (
-                            <>
-                                <TouchableOpacity
-                                    style={styles.menuBackdrop}
-                                    activeOpacity={1}
-                                    onPress={() => {
-                                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                        setShowActionMenu(false);
-                                    }}
-                                />
-                                <Animated.View style={[styles.pullDownMenu, { backgroundColor: themeColors.surface }]}>
-                                    <TouchableOpacity
-                                        style={styles.pullDownMenuItem}
-                                        onPress={() => {
-                                            setShowActionMenu(false);
-                                            handleDelete(selectedContract.id);
-                                            closeModal();
-                                        }}
-                                    >
-                                        <Trash size={18} color="#EF4444" weight="fill" />
-                                        <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete</Text>
-                                    </TouchableOpacity>
-                                </Animated.View>
-                            </>
-                        )}
-
-                        {/* Amount Card */}
-                        {(selectedContract?.content?.payment_amount || selectedContract?.amount) && (
-                            <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
-                                <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
-                                    {formatCurrency((selectedContract?.content?.payment_amount || selectedContract?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
+                            <View>
+                                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                                    {getStatusStyle(selectedContract?.status).label}
+                                </Text>
+                                <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                    {selectedContract?.created_at ? new Date(selectedContract.created_at).toLocaleDateString('en-GB') : ''}
                                 </Text>
                             </View>
-                        )}
-
-                        {/* Details Card */}
-                        <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Contract ID</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>CONTRACT-{selectedContract?.id?.substring(0, 8).toUpperCase()}</Text>
-                            </View>
-                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Title</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1}>{selectedContract?.title}</Text>
-                            </View>
-                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedContract?.content?.client_name || 'N/A'}</Text>
-                            </View>
-                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client Email</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedContract?.content?.client_email || 'N/A'}</Text>
-                            </View>
-                            {selectedContract?.content?.milestones?.length > 0 && (
-                                <>
-                                    <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                                    <View style={styles.detailRow}>
-                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Milestones</Text>
-                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedContract.content.milestones.length}</Text>
-                                    </View>
-                                </>
-                            )}
                         </View>
-
-                        {/* Send to Client Button (for DRAFT) */}
-                        {selectedContract?.status === 'DRAFT' && (
-                            <TouchableOpacity
-                                style={[styles.viewButton, { backgroundColor: '#059669' }]}
-                                onPress={() => handleSendContract(selectedContract.id)}
-                            >
-                                <PaperPlaneTilt size={20} color="#FFFFFF" weight="fill" style={{ marginRight: 8 }} />
-                                <Text style={styles.viewButtonText}>Send to Client</Text>
+                        <View style={styles.modalHeaderRight}>
+                            {selectedContract?.status === 'DRAFT' && (
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                        setShowActionMenu(!showActionMenu);
+                                    }}
+                                    style={styles.menuButton}
+                                >
+                                    <DotsThree size={24} color={themeColors.textSecondary} weight="bold" />
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
+                                <X size={20} color={themeColors.textSecondary} weight="bold" />
                             </TouchableOpacity>
-                        )}
+                        </View>
+                    </View>
 
-                        {/* View Contract Button */}
+                    {/* Action Menu */}
+                    {showActionMenu && selectedContract?.status === 'DRAFT' && (
+                        <>
+                            <TouchableOpacity
+                                style={styles.menuBackdrop}
+                                activeOpacity={1}
+                                onPress={() => {
+                                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                    setShowActionMenu(false);
+                                }}
+                            />
+                            <Animated.View style={[styles.pullDownMenu, { backgroundColor: themeColors.surface }]}>
+                                <TouchableOpacity
+                                    style={styles.pullDownMenuItem}
+                                    onPress={() => {
+                                        setShowActionMenu(false);
+                                        handleDelete(selectedContract.id);
+                                        closeModal();
+                                    }}
+                                >
+                                    <Trash size={18} color="#EF4444" weight="fill" />
+                                    <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete</Text>
+                                </TouchableOpacity>
+                            </Animated.View>
+                        </>
+                    )}
+
+                    {/* Amount Card */}
+                    {(selectedContract?.content?.payment_amount || selectedContract?.amount) && (
+                        <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                            <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                                {formatCurrency((selectedContract?.content?.payment_amount || selectedContract?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* Details Card */}
+                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Contract ID</Text>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>CONTRACT-{selectedContract?.id?.substring(0, 8).toUpperCase()}</Text>
+                        </View>
+                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Title</Text>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1}>{selectedContract?.title}</Text>
+                        </View>
+                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedContract?.content?.client_name || 'N/A'}</Text>
+                        </View>
+                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client Email</Text>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedContract?.content?.client_email || 'N/A'}</Text>
+                        </View>
+                        {selectedContract?.content?.milestones?.length > 0 && (
+                            <>
+                                <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Milestones</Text>
+                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedContract.content.milestones.length}</Text>
+                                </View>
+                            </>
+                        )}
+                    </View>
+
+                    {/* Send to Client Button (for DRAFT) */}
+                    {selectedContract?.status === 'DRAFT' && (
                         <TouchableOpacity
-                            style={[styles.viewButton, selectedContract?.status === 'DRAFT' && { marginTop: 12 }]}
-                            onPress={async () => {
-                                try {
-                                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                    const url = `${apiUrl}/contract/${selectedContract.id}`;
-                                    await WebBrowser.openBrowserAsync(url, {
-                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-                                        controlsColor: Colors.primary,
-                                    });
-                                } catch (error: any) {
-                                    Alert.alert('Error', `Failed to open: ${error?.message}`);
-                                }
-                            }}
+                            style={[styles.viewButton, { backgroundColor: '#059669' }]}
+                            onPress={() => handleSendContract(selectedContract.id)}
                         >
-                            <Eye size={20} color="#FFFFFF" weight="fill" style={{ marginRight: 8 }} />
-                            <Text style={styles.viewButtonText}>View Contract</Text>
+                            <PaperPlaneTilt size={20} color="#FFFFFF" weight="fill" style={{ marginRight: 8 }} />
+                            <Text style={styles.viewButtonText}>Send to Client</Text>
                         </TouchableOpacity>
-                    </Animated.View>
-                </View>
-            </Modal>
+                    )}
+
+                    {/* View Contract Button */}
+                    <TouchableOpacity
+                        style={[styles.viewButton, selectedContract?.status === 'DRAFT' && { marginTop: 12 }]}
+                        onPress={async () => {
+                            try {
+                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                const url = `${apiUrl}/contract/${selectedContract.id}`;
+                                await WebBrowser.openBrowserAsync(url, {
+                                    presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+                                    controlsColor: Colors.primary,
+                                });
+                            } catch (error: any) {
+                                Alert.alert('Error', `Failed to open: ${error?.message}`);
+                            }
+                        }}
+                    >
+                        <Eye size={20} color="#FFFFFF" weight="fill" style={{ marginRight: 8 }} />
+                        <Text style={styles.viewButtonText}>View Contract</Text>
+                    </TouchableOpacity>
+                </BottomSheetView>
+            </BottomSheetModal>
         </View>
     );
 }
