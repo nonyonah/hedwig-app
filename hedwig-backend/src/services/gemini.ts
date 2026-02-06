@@ -11,7 +11,7 @@ if (!process.env.GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Use Gemini 2.0 Flash model
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 export class GeminiService {
   /**
@@ -64,7 +64,7 @@ JSON Format:
 
       throw new Error("Failed to parse AI response");
     } catch (error) {
-      logger.error('Error generating reminder');
+      logger.error('Error generating reminder', { error: error instanceof Error ? error.message : 'Unknown' });
       // Fallback
       return {
         subject: `Reminder: Payment for ${documentTitle}`,
@@ -131,32 +131,34 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
 
 1. CREATE_PAYMENT_LINK
    ⚠️ CRITICAL: Use ONLY when user provides amount, network, client_name AND due_date
-   Parameters: { amount, token, network, for, description, recipient_email, client_name, due_date }
+   Parameters: { amount, token, network, title, description, recipient_email, client_name, due_date }
    
    **INSTRUCTIONS:**
+   - Extract 'title' as a SHORT, DESCRIPTIVE name for what the payment is for (e.g., "Logo Design", "Consulting Fee", "Website Development")
+     ⚠️ DO NOT use the user's raw prompt as the title! Extract the SERVICE or PRODUCT being paid for.
+     Example: User says "create payment link for $500 for website design for John" → title: "Website Design" (NOT "create payment link for...")
    - Extract 'recipient_email' if provided (e.g., "send to bob@email.com")
    - 'due_date' is REQUIRED - ask "When is this payment due?" if not provided
-   - 'recipient_email' is OPTIONAL but recommended for auto-sending.
+   - 'client_name' is REQUIRED - extract from "for [Name]" or inferred from email/context.
    
    **STRICT REQUIREMENTS TO USE THIS INTENT:**
    ✅ MUST have amount (e.g., "50", "100")
-   ✅ MUST have network ("base")
-   ✅ MUST have client_name
+   ✅ MUST have network ("base" or "solana")
+   ✅ MUST have client_name (if not explicitly stated, ask for it!)
    ✅ MUST have due_date (e.g., "January 15", "next week", "in 7 days")
-   ❌ If ANY is missing → DO NOT USE THIS INTENT
    
    **Decision Tree with conversation awareness:**
    - NO amount & first mention of payment link → COLLECT_PAYMENT_INFO
-   - Has amount (from THIS message or previous collection) + NO network → COLLECT_NETWORK_INFO  
-   - Has BOTH amount AND network → CREATE_PAYMENT_LINK
+   - Has amount but NO network → COLLECT_NETWORK_INFO  
+   - Has amount + network but NO client_name → COLLECT_CLIENT_NAME
+   - Has ALL fields → CREATE_PAYMENT_LINK
    
    **Examples:**
-   ✅ "Create payment link for $50 on base" → CREATE_PAYMENT_LINK
-   ✅ "Payment link for 100 USDC on base" → CREATE_PAYMENT_LINK
+   ✅ "Create payment link for $50 on base for John for logo design" → CREATE_PAYMENT_LINK { title: "Logo Design", client_name: "John" }
+   ✅ "Payment link for 100 USDC on base to bob@gmail.com for consulting" → CREATE_PAYMENT_LINK { title: "Consulting", client_name: "Bob", recipient_email: "bob@gmail.com" }
+   ❌ "Create payment link for $50 on Base" → COLLECT_CLIENT_NAME (missing who it is for)
    ❌ "Create payment link for $50" → COLLECT_NETWORK_INFO (missing network)
    ❌ "I want to create a payment link" → COLLECT_PAYMENT_INFO (missing everything)
-   ❌ "Create a payment link" → COLLECT_PAYMENT_INFO (missing everything)
-   ❌ "Payment link" → COLLECT_PAYMENT_INFO (missing everything)
 
 2. CREATE_INVOICE
    Triggers: "invoice", "bill", "create invoice", "send invoice", "invoice for"
@@ -176,8 +178,15 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    Look for:
    - Client name (who is it for?)
    - Client email (email address)
-   - Items with amounts (services/products and their prices)
+   - Items: Array of objects { description: string, amount: number }
    - Network/chain (base)
+   - Currency (USD, NGN, GHS, KES) - default to USD if symbol is $
+
+   **CRITICAL: MULTIPLE ITEMS EXTRACTION**
+   If the user lists multiple services or products, you MUST extract them as an array of items.
+   Example: "Invoice for $500 web design and $200 logo"
+   Result: items: [{ description: "web design", amount: 500 }, { description: "logo", amount: 200 }]
+   Do NOT just sum them up. Keep them separate.
    - Currency (USD, NGN, GHS, KES) - default to USD if symbol is $
    
    **Parsing Examples:**
@@ -348,6 +357,12 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    Use when: User wants payment link but hasn't specified Base or Solana
    Response: Ask "Which network would you like - Base or Solana?"
 
+
+4a. COLLECT_CLIENT_NAME
+   Triggers: When creating payment link but missing client name
+   Parameters: { amount, token, network, description }
+   Use when: User provided amount and network but didn't say who it is for
+   Response: Ask "Who is this payment link for?" or "What's the client's name?"
 
 5. CONFIRM_TRANSACTION
    Triggers: "send", "pay", "transfer", "send money"

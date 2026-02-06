@@ -226,7 +226,8 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
  */
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { clientId, title, description, startDate, deadline, budget, currency } = req.body;
+        let { clientId } = req.body;
+        const { title, description, startDate, deadline, budget, currency, milestones } = req.body;
         const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
@@ -235,9 +236,49 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
+        // If no clientId, try to find or create client
         if (!clientId) {
-            res.status(400).json({ success: false, error: { message: 'Client ID is required' } });
-            return;
+            if (!req.body.clientName) {
+                res.status(400).json({ success: false, error: { message: 'Client ID or Client Name is required' } });
+                return;
+            }
+
+            const clientName = req.body.clientName;
+            const clientEmail = req.body.clientEmail;
+
+            // Try to find existing client by email or name
+            let query = supabase
+                .from('clients')
+                .select('id')
+                .eq('user_id', user.id);
+
+            if (clientEmail) {
+                query = query.eq('email', clientEmail);
+            } else {
+                query = query.eq('name', clientName);
+            }
+
+            const { data: existingClient } = await query.maybeSingle();
+
+            if (existingClient) {
+                clientId = existingClient.id;
+            } else {
+                // Create new client
+                const { data: newClient, error: createError } = await supabase
+                    .from('clients')
+                    .insert({
+                        user_id: user.id,
+                        name: clientName,
+                        email: clientEmail || null
+                    })
+                    .select('id')
+                    .single();
+
+                if (createError || !newClient) {
+                    throw new Error(`Failed to create client: ${createError?.message}`);
+                }
+                clientId = newClient.id;
+            }
         }
 
         if (!title) {
@@ -250,7 +291,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
-        // Verify client belongs to user
+        // Verify client belongs to user (implicit if we just found/created it, but good check if passed externally)
         const { data: client, error: clientError } = await supabase
             .from('clients')
             .select('id')
@@ -284,6 +325,31 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             throw new Error(`Failed to create project: ${error.message}`);
         }
 
+        // Create milestones if provided
+        let createdMilestones: any[] = [];
+        if (milestones && Array.isArray(milestones) && milestones.length > 0) {
+            const milestonesData = milestones.map((m: any) => ({
+                project_id: project.id,
+                title: m.title,
+                amount: parseFloat(m.amount) || 0,
+                status: 'pending',
+                due_date: m.dueDate || null, // Optional now
+                user_id: user.id
+            }));
+
+            const { data: newMilestones, error: milestoneError } = await supabase
+                .from('milestones')
+                .insert(milestonesData)
+                .select();
+
+            if (milestoneError) {
+                logger.error('Failed to create milestones', { error: milestoneError.message });
+                // We don't fail the whole request, but we log it
+            } else {
+                createdMilestones = newMilestones || [];
+            }
+        }
+
         res.json({
             success: true,
             data: {
@@ -300,6 +366,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     createdAt: project.created_at,
                     updatedAt: project.updated_at,
                 },
+                milestones: createdMilestones
             },
         });
     } catch (error) {

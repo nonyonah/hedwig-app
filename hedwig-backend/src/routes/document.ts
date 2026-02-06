@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { AppError } from '../middleware/errorHandler';
@@ -40,23 +41,35 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             return;
         }
 
-        // Auto-create client if email is provided and client doesn't exist
-        if (recipientEmail) {
-            const { data: existingClient } = await supabase
+        // Unique Client Check: Lookup by Email OR Name
+        let clientId = null;
+        if (recipientEmail || clientName) {
+            let query = supabase
                 .from('clients')
                 .select('id')
-                .eq('user_id', user.id)
-                .eq('email', recipientEmail)
-                .single();
-
-            if (!existingClient) {
-                logger.info('[Documents] Auto-creating client', { email: recipientEmail, name: clientName });
-                await supabase.from('clients').insert({
-                    user_id: user.id,
-                    name: clientName || recipientEmail.split('@')[0],
-                    email: recipientEmail,
-                    created_from: 'invoice_creation' // Optional: track source
-                });
+                .eq('user_id', user.id);
+            
+            // Build OR query safely
+            const conditions = [];
+            if (recipientEmail) conditions.push(`email.eq.${recipientEmail}`);
+            if (clientName) conditions.push(`name.eq.${clientName}`);
+            
+            if (conditions.length > 0) {
+                const { data: existingClient } = await query.or(conditions.join(',')).maybeSingle();
+                
+                if (existingClient) {
+                    clientId = existingClient.id;
+                    logger.debug('[Documents] Found existing client', { id: clientId });
+                } else if (recipientEmail) {
+                    logger.info('[Documents] Auto-creating client', { email: recipientEmail, name: clientName });
+                    const { data: newClient } = await supabase.from('clients').insert({
+                        user_id: user.id,
+                        name: clientName || recipientEmail.split('@')[0],
+                        email: recipientEmail,
+                        created_from: 'invoice_creation'
+                    }).select('id').single();
+                    if (newClient) clientId = newClient.id;
+                }
             }
         }
 
@@ -98,6 +111,35 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
 
         // Generate shareable Vercel URL for the invoice
         const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
+
+        // Send email if recipient provided
+        if (doc && recipientEmail) {
+            // Fetch user name for email sender
+            const { data: senderProfile } = await supabase
+                .from('users')
+                .select('first_name, last_name')
+                .eq('id', user.id)
+                .single();
+                
+            const senderName = senderProfile ? 
+                `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User' 
+                : 'Hedwig User';
+
+            const emailSent = await import('../services/email').then(m => m.EmailService.sendInvoiceEmail({
+                to: recipientEmail,
+                senderName,
+                amount: amount.toString(),
+                currency: 'USD',
+                description: description || 'Invoice for services',
+                linkId: doc.id
+            }));
+
+            if (emailSent) {
+                // Update status to SENT
+                await supabase.from('documents').update({ status: 'SENT' }).eq('id', doc.id);
+                doc.status = 'SENT';
+            }
+        }
 
         res.json({
             success: true,
@@ -205,6 +247,36 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             `Payment link for ${doc.amount} ${currency || 'USDC'}`
         );
 
+        // Send email if recipient provided
+        if (doc && recipientEmail) {
+            // Fetch user name for email sender
+            const { data: senderProfile } = await supabase
+                .from('users')
+                .select('first_name, last_name')
+                .eq('id', user.id)
+                .single();
+                
+            const senderName = senderProfile ? 
+                `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User' 
+                : 'Hedwig User';
+
+            const emailSent = await import('../services/email').then(m => m.EmailService.sendPaymentLinkEmail({
+                to: recipientEmail,
+                senderName,
+                amount: amount.toString(),
+                currency: currency || 'USDC',
+                description: description || 'Payment Request',
+                linkId: doc.id,
+                network: 'Base' // defaulting to Base since we mostly support valid tokens there for now, or could extract from currency
+            }));
+
+            if (emailSent) {
+                // Update status to SENT
+                await supabase.from('documents').update({ status: 'SENT' }).eq('id', doc.id);
+                doc.status = 'SENT';
+            }
+        }
+
         res.json({
             success: true,
             data: { 
@@ -259,6 +331,32 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
+            // Unique Client Check: Lookup by Email OR Name
+            if (recipientEmail || clientName) {
+                let query = supabase
+                    .from('clients')
+                    .select('id')
+                    .eq('user_id', user.id);
+                
+                const conditions = [];
+                if (recipientEmail) conditions.push(`email.eq.${recipientEmail}`);
+                if (clientName) conditions.push(`name.eq.${clientName}`);
+                
+                if (conditions.length > 0) {
+                    const { data: existingClient } = await query.or(conditions.join(',')).maybeSingle();
+                    
+                    if (!existingClient && recipientEmail) {
+                        logger.info('[Documents] Auto-creating client', { email: recipientEmail, name: clientName });
+                        await supabase.from('clients').insert({
+                            user_id: user.id,
+                            name: clientName || recipientEmail.split('@')[0],
+                            email: recipientEmail,
+                            created_from: 'invoice_creation'
+                        });
+                    }
+                }
+            }
+
             const { data: doc, error } = await supabase
                 .from('documents')
                 .insert({
@@ -291,6 +389,33 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     doc.id,
                     `Invoice for ${doc.amount} - ${clientName || 'Client'}`
                 );
+            }
+
+            // Send email if recipient provided
+            if (doc && recipientEmail) {
+                const { data: senderProfile } = await supabase
+                    .from('users')
+                    .select('first_name, last_name')
+                    .eq('id', user.id)
+                    .single();
+                    
+                const senderName = senderProfile ? 
+                    `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User' 
+                    : 'Hedwig User';
+
+                const emailSent = await import('../services/email').then(m => m.EmailService.sendInvoiceEmail({
+                    to: recipientEmail,
+                    senderName,
+                    amount: amount.toString(),
+                    currency: 'USD',
+                    description: description || 'Invoice for services',
+                    linkId: doc.id
+                }));
+
+                if (emailSent) {
+                    await supabase.from('documents').update({ status: 'SENT' }).eq('id', doc.id);
+                    doc.status = 'SENT';
+                }
             }
 
             const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
@@ -365,6 +490,8 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
+            const approvalToken = crypto.randomBytes(32).toString('hex');
+            
             const { data: doc, error } = await supabase
                 .from('documents')
                 .insert({
@@ -378,13 +505,47 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                         ...content,
                         client_name: clientName,
                         recipient_email: recipientEmail,
-                        html_content: content?.html_content || ''
+                        html_content: content?.html_content || '',
+                        approval_token: approvalToken
                     }
                 })
                 .select()
                 .single();
 
             if (error) throw error;
+
+            // Send contract email if recipient provided
+            if (doc && recipientEmail) {
+                // Fetch user name for email sender
+                const { data: senderProfile } = await supabase
+                    .from('users')
+                    .select('first_name, last_name')
+                    .eq('id', user.id)
+                    .single();
+                    
+                const senderName = senderProfile ? 
+                    `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User' 
+                    : 'Hedwig User';
+
+                // Calculate total amount from items if available
+                const totalAmount = content?.items 
+                    ? content.items.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0)
+                    : amount;
+
+                await import('../services/email').then(m => m.EmailService.sendContractEmail({
+                    to: recipientEmail,
+                    senderName,
+                    contractTitle: doc.title,
+                    contractId: doc.id,
+                    approvalToken: approvalToken,
+                    totalAmount: totalAmount ? totalAmount.toString() : undefined,
+                    milestoneCount: content?.items?.length
+                }));
+                
+                // Update status to SENT
+                await supabase.from('documents').update({ status: 'SENT' }).eq('id', doc.id);
+                doc.status = 'SENT';
+            }
 
             res.json({ success: true, data: { document: doc } });
             return;
@@ -892,13 +1053,20 @@ router.post('/:id/remind', authenticate, async (req: Request, res: Response, nex
         // Import dynamically to avoid circular dependencies if any, though importing at top is better
         const { SchedulerService } = require('../services/scheduler');
 
-        // Trigger the reminder process for this single document
-        await SchedulerService.processDocumentReminder(doc);
+        // Trigger the reminder process for this single document - Force manual mode
+        const result = await SchedulerService.processDocumentReminder(doc, true);
 
-        res.json({
-            success: true,
-            data: { message: 'Reminder process initiated' }
-        });
+        if (result.sent) {
+            res.json({
+                success: true,
+                data: { message: 'Reminder sent successfully' }
+            });
+        } else {
+            res.status(400).json({
+                success: false,
+                error: { message: `Failed to send reminder: ${result.reason || 'Unknown error'}` }
+            });
+        }
     } catch (error) {
         next(error);
     }
@@ -1314,6 +1482,73 @@ router.post('/:id/accept', async (req: Request, res: Response, next) => {
                 message: 'Proposal accepted successfully',
                 documentId: id
             }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+
+/**
+ * PUT /api/documents/:id
+ * Update a document
+ */
+router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+        const privyId = req.user!.id;
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        // Verify ownership and get existing content
+        const { data: existingDoc, error: fetchError } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('id', id)
+            .eq('user_id', user.id)
+            .single();
+
+        if (fetchError || !existingDoc) {
+            res.status(404).json({ success: false, error: { message: 'Document not found' } });
+            return;
+        }
+
+        // Prepare update payload
+        const updatePayload: any = {};
+        
+        // Handle content updates merge
+        if (updates.content) {
+            updatePayload.content = {
+                ...existingDoc.content,
+                ...updates.content
+            };
+        }
+
+        // Allow updating specific top-level fields if needed
+        if (updates.title) updatePayload.title = updates.title;
+        if (updates.status) updatePayload.status = updates.status;
+        if (updates.amount) updatePayload.amount = updates.amount;
+        if (updates.description) updatePayload.description = updates.description;
+
+        const { data: updatedDoc, error: updateError } = await supabase
+            .from('documents')
+            .update(updatePayload)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw new Error(`Failed to update document: ${updateError.message}`);
+        }
+
+        res.json({
+            success: true,
+            data: { document: updatedDoc }
         });
     } catch (error) {
         next(error);

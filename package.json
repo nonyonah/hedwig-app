@@ -25,6 +25,7 @@
     "@gorhom/bottom-sheet": "^5.2.8",
     "@privy-io/expo": "^0.60.3",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "^8.6.0",
     "@react-native-community/netinfo": "11.4.1",
     "@reown/appkit-ethers-react-native": "^2.0.1",
     "@reown/appkit-react-native": "^2.0.1",

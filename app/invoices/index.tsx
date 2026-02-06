@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Animated } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { List, Receipt, Clock, CheckCircle, WarningCircle, X, UserCircle, ShareNetwork, Wallet, Trash, Bell, DotsThree } from 'phosphor-react-native';
@@ -62,6 +62,7 @@ export default function InvoicesScreen() {
     useAnalyticsScreen('Invoices');
 
     const router = useRouter();
+    const params = useLocalSearchParams();
     const { getAccessToken, user } = useAuth();
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
@@ -78,12 +79,25 @@ export default function InvoicesScreen() {
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
-    const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'due_soon'>((useLocalSearchParams().filter as any) || 'all');
 
     // Filter invoices based on status
     const filteredInvoices = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const nextWeek = new Date(today);
+        nextWeek.setDate(today.getDate() + 7);
+
         if (statusFilter === 'all') return invoices;
         if (statusFilter === 'paid') return invoices.filter(inv => inv.status === 'PAID');
+        if (statusFilter === 'due_soon') {
+            return invoices.filter(inv => {
+                if (inv.status === 'PAID') return false;
+                if (!inv.content?.due_date) return false;
+                const due = new Date(inv.content.due_date);
+                return due >= today && due <= nextWeek;
+            });
+        }
         return invoices.filter(inv => inv.status !== 'PAID');
     }, [invoices, statusFilter]);
 
@@ -304,7 +318,9 @@ export default function InvoicesScreen() {
 
                 <View style={styles.cardFooter}>
                     <Text style={styles.dateText}>
-                        {new Date(item.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {item.content?.due_date
+                            ? `Due: ${new Date(item.content.due_date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}`
+                            : new Date(item.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </Text>
                     <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
                         <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
@@ -347,14 +363,14 @@ export default function InvoicesScreen() {
                         contentContainerStyle={styles.filterContent}
                         style={styles.filterScrollView}
                     >
-                        {(['all', 'paid', 'pending'] as const).map(filter => (
+                        {(['all', 'paid', 'pending', 'due_soon'] as const).map(filter => (
                             <TouchableOpacity
                                 key={filter}
                                 style={[styles.filterChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
                                 onPress={() => setStatusFilter(filter)}
                             >
                                 <Text style={[styles.filterText, { color: themeColors.textSecondary }, statusFilter === filter && styles.filterTextActive]}>
-                                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                    {filter === 'due_soon' ? 'Due Soon' : filter.charAt(0).toUpperCase() + filter.slice(1)}
                                 </Text>
                             </TouchableOpacity>
                         ))}
@@ -372,6 +388,7 @@ export default function InvoicesScreen() {
                         keyExtractor={(item) => item.id}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        alwaysBounceVertical={true}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                         }
@@ -486,21 +503,78 @@ export default function InvoicesScreen() {
                                     onPress={async () => {
                                         setShowActionMenu(false);
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                        try {
-                                            const token = await getAccessToken();
-                                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                            const response = await fetch(`${apiUrl}/api/documents/${selectedInvoice.id}/remind`, {
-                                                method: 'POST',
-                                                headers: { 'Authorization': `Bearer ${token}` }
-                                            });
-                                            const data = await response.json();
-                                            if (data.success) {
-                                                Alert.alert('Success', 'Reminder sent successfully!');
-                                            } else {
-                                                Alert.alert('Error', data.error?.message || 'Failed to send reminder');
+
+                                        const sendReminder = async () => {
+                                            try {
+                                                const token = await getAccessToken();
+                                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                                const response = await fetch(`${apiUrl}/api/documents/${selectedInvoice.id}/remind`, {
+                                                    method: 'POST',
+                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                });
+                                                const data = await response.json();
+                                                if (data.success) {
+                                                    Alert.alert('Success', 'Reminder sent successfully!');
+                                                } else {
+                                                    Alert.alert('Error', data.error?.message || 'Failed to send reminder');
+                                                }
+                                            } catch (error) {
+                                                Alert.alert('Error', 'Failed to send reminder');
                                             }
-                                        } catch (error) {
-                                            Alert.alert('Error', 'Failed to send reminder');
+                                        };
+
+                                        if (!selectedInvoice.content?.recipient_email) {
+                                            Alert.prompt(
+                                                'Missing Email',
+                                                'Please enter the recipient\'s email address to send the reminder.',
+                                                [
+                                                    { text: 'Cancel', style: 'cancel' },
+                                                    {
+                                                        text: 'Send',
+                                                        onPress: async (email) => {
+                                                            if (!email || !email.includes('@')) {
+                                                                Alert.alert('Error', 'Please enter a valid email address');
+                                                                return;
+                                                            }
+                                                            try {
+                                                                const token = await getAccessToken();
+                                                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+                                                                // Update document with email
+                                                                const updateRes = await fetch(`${apiUrl}/api/documents/${selectedInvoice.id}`, {
+                                                                    method: 'PUT',
+                                                                    headers: {
+                                                                        'Authorization': `Bearer ${token}`,
+                                                                        'Content-Type': 'application/json'
+                                                                    },
+                                                                    body: JSON.stringify({
+                                                                        content: { recipient_email: email }
+                                                                    })
+                                                                });
+
+                                                                if (updateRes.ok) {
+                                                                    // Update local state
+                                                                    setSelectedInvoice({
+                                                                        ...selectedInvoice,
+                                                                        content: { ...selectedInvoice.content, recipient_email: email }
+                                                                    });
+                                                                    // Proceed to send reminder
+                                                                    await sendReminder();
+                                                                } else {
+                                                                    Alert.alert('Error', 'Failed to update email');
+                                                                }
+                                                            } catch (err) {
+                                                                Alert.alert('Error', 'Failed to save email');
+                                                            }
+                                                        }
+                                                    }
+                                                ],
+                                                'plain-text',
+                                                '',
+                                                'email-address'
+                                            );
+                                        } else {
+                                            sendReminder();
                                         }
                                     }}
                                 >

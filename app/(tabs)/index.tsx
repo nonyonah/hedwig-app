@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { ProfileModal } from '../../components/ProfileModal';
 import { UniversalCreationBox } from '../../components/UniversalCreationBox';
 import { AnimatedListItem } from '../../components/AnimatedListItem';
+import { TransactionConfirmationModal } from '../../components/TransactionConfirmationModal';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -29,13 +30,18 @@ export default function HomeDashboard() {
     const [counts, setCounts] = useState({
         reminders: { invoices: 0, contracts: 0, links: 0 },
         inProgress: { projects: 0, milestones: 0 },
-        dueSoon: { invoices: 0, milestones: 0 }
+        dueSoon: { invoices: 0, milestones: 0, projects: 0, links: 0 }
     });
 
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [showCreationBox, setShowCreationBox] = useState(false);
+
+    // Transaction Modal State
+    const [showTransactionModal, setShowTransactionModal] = useState(false);
+    const [transactionData, setTransactionData] = useState<any>(null);
+    const transactionModalRef = React.useRef<any>(null);
 
     useEffect(() => {
         if (isReady && user) {
@@ -70,10 +76,11 @@ export default function HomeDashboard() {
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
             const headers = { 'Authorization': `Bearer ${t}` };
 
-            const [invoicesRes, contractsRes, linksRes] = await Promise.all([
+            const [invoicesRes, contractsRes, linksRes, projectsRes] = await Promise.all([
                 fetch(`${apiUrl}/api/documents?type=INVOICE`, { headers }).then(r => r.json()).catch(() => ({})),
                 fetch(`${apiUrl}/api/documents?type=CONTRACT`, { headers }).then(r => r.json()).catch(() => ({})),
                 fetch(`${apiUrl}/api/documents?type=PAYMENT_LINK`, { headers }).then(r => r.json()).catch(() => ({})),
+                fetch(`${apiUrl}/api/projects`, { headers }).then(r => r.json()).catch(() => ({})),
             ]);
 
             const today = new Date();
@@ -83,45 +90,24 @@ export default function HomeDashboard() {
 
             const newCounts = {
                 reminders: { invoices: 0, contracts: 0, links: 0 },
-                inProgress: { projects: 4, milestones: 3 }, // Mocked active work
-                dueSoon: { invoices: 0, milestones: 0 }
+                inProgress: { projects: 0, milestones: 0 },
+                dueSoon: { invoices: 0, milestones: 0, projects: 0, links: 0 }
             };
 
             // Process Invoices
             if (invoicesRes.success && invoicesRes.data.documents) {
                 invoicesRes.data.documents.forEach((inv: any) => {
-                    if (inv.status === 'PAID') return; // Ignore completed
+                    if (inv.status === 'PAID') return;
 
-                    let isDueToday = false;
-                    let isDueSoon = false;
-
-                    if (inv.content?.dueDate) {
-                        const due = new Date(inv.content.dueDate);
-                        // Normalize due date to start of day for accurate comparison if time isn't set, 
-                        // or just compare timestamps. User input is often just date.
-                        // If due < today (overdue) or due == today
-                        const dueTime = due.getTime();
-                        const todayTime = today.getTime();
-                        const nextWeekTime = nextWeek.getTime();
-
-                        // Check if due today or earlier (overdue)
-                        // Note: If due date has time, we need to be careful.
-                        // Assuming due date is end of day or just date.
-                        // If due date is earlier than tomorrow 00:00:00 -> Due Today/Overdue.
-                        const tomorrow = new Date(today);
-                        tomorrow.setDate(today.getDate() + 1);
-
-                        if (due < tomorrow) {
-                            newCounts.reminders.invoices++;
-                            isDueToday = true;
+                    if (inv.content?.due_date) {
+                        const due = new Date(inv.content.due_date);
+                        if (due < today) {
+                            newCounts.reminders.invoices++; // Overdue
                         } else if (due <= nextWeek) {
                             newCounts.dueSoon.invoices++;
-                            isDueSoon = true;
                         }
                     } else {
-                        // No date = Reminders (Immediate Attention usually for drafts/pending?)
-                        // Or maybe In Progress? 
-                        // Let's count them as Reminders for now as "Pending Invoices"
+                        // No date = Reminders (Immediate Attention)
                         newCounts.reminders.invoices++;
                     }
                 });
@@ -130,7 +116,6 @@ export default function HomeDashboard() {
             // Process Contracts
             if (contractsRes.success && contractsRes.data.documents) {
                 contractsRes.data.documents.forEach((con: any) => {
-                    // Contracts awaiting signature (SENT, VIEWED, ACTIVE)
                     if (['SENT', 'VIEWED', 'ACTIVE'].includes(con.status)) {
                         newCounts.reminders.contracts++;
                     }
@@ -139,9 +124,51 @@ export default function HomeDashboard() {
 
             // Process Links
             if (linksRes.success && linksRes.data.documents) {
-                // Active links roughly map to reminders if they expire today? 
-                // Mock logic: 1 link expiring today
-                newCounts.reminders.links = 0;
+                linksRes.data.documents.forEach((link: any) => {
+                    if (link.status === 'PAID') return;
+                    if (link.content?.due_date) {
+                        const due = new Date(link.content.due_date);
+                        if (due <= nextWeek && due >= today) {
+                            newCounts.dueSoon.links++;
+                        } else if (due < today) {
+                            newCounts.reminders.links++;
+                        }
+                    }
+                });
+            }
+
+            // Process Projects & Milestones
+            if (projectsRes.success && projectsRes.data.projects) {
+                projectsRes.data.projects.forEach((proj: any) => {
+                    // Active Projects
+                    if (['ongoing', 'active'].includes(proj.status?.toLowerCase())) {
+                        newCounts.inProgress.projects++;
+
+                        // Check Project Deadline
+                        if (proj.deadline) {
+                            const deadline = new Date(proj.deadline);
+                            if (deadline <= nextWeek && deadline >= today) {
+                                newCounts.dueSoon.projects++;
+                            }
+                        }
+                    }
+
+                    // Milestones
+                    if (proj.milestones) {
+                        proj.milestones.forEach((m: any) => {
+                            if (['pending', 'in_progress'].includes(m.status)) {
+                                newCounts.inProgress.milestones++;
+
+                                if (m.dueDate) {
+                                    const due = new Date(m.dueDate);
+                                    if (due <= nextWeek && due >= today) {
+                                        newCounts.dueSoon.milestones++;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
             }
 
             setCounts(newCounts);
@@ -174,6 +201,21 @@ export default function HomeDashboard() {
                 </View>
             </AnimatedListItem>
         );
+    };
+
+    const handleTransfer = (data: any) => {
+        console.log('[Home] Initiating transfer:', data);
+        setTransactionData({
+            amount: data.amount?.toString() || '0',
+            token: data.token || 'USDC',
+            recipient: data.recipient || '',
+            network: data.network || 'base'
+        });
+        setShowTransactionModal(true);
+        // Small delay to allow modal to mount before presenting if it uses imperative present
+        setTimeout(() => {
+            transactionModalRef.current?.present();
+        }, 100);
     };
 
     return (
@@ -238,7 +280,9 @@ export default function HomeDashboard() {
                 <View style={styles.sectionContainer}>
                     <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Due Soon</Text>
                     <View style={styles.cardContainer}>
-                        {renderSummaryRow('Invoices due this week', counts.dueSoon.invoices, null, () => router.push('/(tabs)/invoices?filter=due_week'))}
+                        {renderSummaryRow('Invoices due this week', counts.dueSoon.invoices, null, () => router.push('/(tabs)/invoices?filter=due_soon'))}
+                        {renderSummaryRow('Projects due soon', counts.dueSoon.projects, null, () => router.push('/(tabs)/projects?filter=due_soon'))}
+                        {renderSummaryRow('Payment links due soon', counts.dueSoon.links, null, () => router.push('/(tabs)/links?filter=due_soon'))}
                         {renderSummaryRow('Milestones due soon', counts.dueSoon.milestones, null, () => { })}
                     </View>
                 </View>
@@ -248,7 +292,21 @@ export default function HomeDashboard() {
             <TouchableOpacity style={[styles.fab, { backgroundColor: '#2563EB' }]} onPress={() => setShowCreationBox(true)}><Plus size={32} color="#FFFFFF" weight="bold" /></TouchableOpacity>
 
             <ProfileModal visible={showProfileModal} onClose={() => setShowProfileModal(false)} userName={userName} walletAddresses={walletAddresses} profileIcon={profileIcon} />
-            <UniversalCreationBox visible={showCreationBox} onClose={() => setShowCreationBox(false)} />
+            <UniversalCreationBox
+                visible={showCreationBox}
+                onClose={() => setShowCreationBox(false)}
+                onTransfer={handleTransfer}
+            />
+            <TransactionConfirmationModal
+                ref={transactionModalRef}
+                visible={showTransactionModal}
+                onClose={() => setShowTransactionModal(false)}
+                data={transactionData}
+                onSuccess={(hash) => {
+                    console.log('Transaction successful:', hash);
+                    // Optionally refresh data or show success toast
+                }}
+            />
         </SafeAreaView>
     );
 }

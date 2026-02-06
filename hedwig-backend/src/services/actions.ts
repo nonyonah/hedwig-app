@@ -258,7 +258,9 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         const dueDate = params.due_date || params.dueDate;
         const clientName = params.client_name;
         logger.debug('Creating payment link', { network });
-        const description = params.for || params.description || 'Payment';
+        // Prioritize title (new AI-extracted field), then description, then for
+        const title = params.title || params.description || params.for || 'Payment';
+        const description = params.description || params.for || title;
 
         // Require due date - if not provided, let Gemini ask for it
         if (!dueDate) {
@@ -290,7 +292,8 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
             .insert({
                 user_id: userData.id,
                 type: 'PAYMENT_LINK',
-                title: description,
+                title: title,
+                description: description,
                 amount: amount,
                 currency: token,
                 chain: chain,
@@ -333,7 +336,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         }
 
         return {
-            text: `Done! I've created a payment link for ${amount} ${token}${description && description !== 'Payment' ? ` for ${description}` : ''}. Here's the link: /payment-link/${doc.id}\n\nYou can share this with your client to collect payment.${emailSent ? `\n\n✅ I also sent the link to ${recipientEmail}.` : ''}\n\n💡 Note: A 1% platform fee will be deducted when payment is received.`,
+            text: `Done! I've created a payment link for ${amount} ${token}${description && description !== 'Payment' ? ` for ${description}` : ''}. Here's the link: /payment-link/${doc.id}\n\nYou can share this with your client to collect payment.${emailSent ? `\n\n✅ I also sent the link to ${recipientEmail}.` : ''}\n\n💡 Note: A 0.5-1% platform fee will be deducted when payment is received.`,
             data: { documentId: doc.id, type: 'PAYMENT_LINK' }
         };
     } catch (error) {
@@ -448,7 +451,7 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
             : `\n\n📄 ${items[0].description}: $${totalAmount}`;
 
         return {
-            text: `Perfect! I've created an invoice for ${clientName}.${itemsText}\n\nView invoice: /invoice/${doc.id}\n\nYou can send this to ${clientEmail || clientName} to request payment.${emailSent ? `\n\n✅ I also sent the invoice to ${clientEmail}.` : ''}\n\n💡 Note: A 1% platform fee will be deducted when payment is received.`,
+            text: `Perfect! I've created an invoice for ${clientName}.${itemsText}\n\nView invoice: /invoice/${doc.id}\n\nYou can send this to ${clientEmail || clientName} to request payment.${emailSent ? `\n\n✅ I also sent the invoice to ${clientEmail}.` : ''}\n\n💡 Note: A 0.5-1% platform fee will be deducted when payment is received.`,
             data: { documentId: doc.id, type: 'INVOICE' }
         };
     } catch (error) {

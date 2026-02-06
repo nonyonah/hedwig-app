@@ -3,7 +3,19 @@ import { useParams } from 'react-router-dom';
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
 import { Wallet, CheckCircle, ArrowSquareOut, CurrencyCircleDollar } from '@phosphor-icons/react';
+import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { TOKENS, HEDWIG_PAYMENT_ABI, HEDWIG_CONTRACTS } from '../lib/appkit';
+import {
+    SOLANA_RPC,
+    SOLANA_PLATFORM_WALLET,
+    SOLANA_USDC_MINT,
+    USDC_DECIMALS,
+    calculateFeePercent,
+    getAssociatedTokenAddress,
+    createAssociatedTokenAccountInstruction,
+    createTokenTransferInstruction,
+    accountExists,
+} from '../lib/solana';
 import './PaymentLinkPage.css';
 
 // ERC20 ABI for transfers and approvals
@@ -28,10 +40,11 @@ interface PaymentLinkData {
         first_name?: string;
         last_name?: string;
         ethereum_wallet_address?: string;
+        solana_wallet_address?: string;
     };
 }
 
-type ChainId = 'base' | 'baseSepolia' | 'celo';
+type ChainId = 'base' | 'baseSepolia' | 'celo' | 'solana';
 
 export default function PaymentLinkPage() {
     const { id } = useParams<{ id: string }>();
@@ -45,8 +58,8 @@ export default function PaymentLinkPage() {
     const [isPaying, setIsPaying] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
-    const [selectedChain] = useState<ChainId>('base');
-    const [selectedToken] = useState<string>('USDC');
+    const [selectedChain, setSelectedChain] = useState<ChainId>('baseSepolia');
+    const [selectedToken, setSelectedToken] = useState<string>('USDC');
 
     useEffect(() => {
         const fetchPaymentLink = async () => {
@@ -65,6 +78,20 @@ export default function PaymentLinkPage() {
                 // Backend returns { success: true, data: { document: {...} } }
                 const doc = data.data?.document || data.data || data;
                 setPaymentLink(doc);
+
+                // Initialize chain and token from document data if available
+                if (doc.chain) {
+                    const normalizedChain = doc.chain.toLowerCase();
+                    if (normalizedChain.includes('solana')) setSelectedChain('solana' as any); // cast for now if type update needed
+                    else if (normalizedChain.includes('celo')) setSelectedChain('celo');
+                    else setSelectedChain('baseSepolia');
+                }
+
+                if (doc.currency) {
+                    // Map USD to USDC for crypto payments
+                    const token = doc.currency === 'USD' ? 'USDC' : doc.currency;
+                    setSelectedToken(token);
+                }
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load payment link');
             } finally {
@@ -75,12 +102,154 @@ export default function PaymentLinkPage() {
         fetchPaymentLink();
     }, [id]);
 
+    // Solana payment handler using Phantom wallet
+    const handleSolanaPayment = async () => {
+        if (!paymentLink) return;
+
+        const merchantAddress = paymentLink.user?.solana_wallet_address;
+        if (!merchantAddress) {
+            alert('Merchant does not have a Solana wallet address configured.');
+            setIsPaying(false);
+            return;
+        }
+
+        // Check for Phantom wallet - prioritize window.phantom.solana
+        const phantomProvider = (window as any).phantom?.solana || (window as any).solana;
+        if (!phantomProvider?.isPhantom) {
+            // If provider exists but isn't Phantom, might be another wallet interfering
+            console.warn('Solana provider found but isPhantom flag missing or false');
+        }
+
+        if (!phantomProvider) {
+            alert('Please install Phantom wallet to pay with Solana!');
+            setIsPaying(false);
+            return;
+        }
+
+        try {
+            // Connect to Phantom
+            const response = await phantomProvider.connect();
+            const senderPubkey = response.publicKey;
+
+            // Initialize Solana connection
+            const connection = new Connection(SOLANA_RPC, 'confirmed');
+
+            const merchantPubkey = new PublicKey(merchantAddress);
+            const platformPubkey = new PublicKey(SOLANA_PLATFORM_WALLET);
+            const mintPubkey = new PublicKey(SOLANA_USDC_MINT);
+
+            const amount = paymentLink.amount;
+            // Use selectedToken which handles the USD->USDC normalization
+            const currency = selectedToken || paymentLink.currency || 'USDC';
+
+            const transaction = new Transaction();
+
+            if (currency === 'USDC') {
+                // Calculate split amounts with dynamic fee
+                const feePercent = calculateFeePercent(amount);
+                const totalTokenAmount = BigInt(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
+                const platformFee = BigInt(Math.floor(Number(totalTokenAmount) * feePercent));
+                const merchantAmount = totalTokenAmount - platformFee;
+
+                console.log(`[Solana USDC] Total: ${totalTokenAmount}, Merchant: ${merchantAmount}, Platform: ${platformFee} (${feePercent * 100}%)`);
+
+                // Get Associated Token Accounts
+                const senderATA = await getAssociatedTokenAddress(senderPubkey, mintPubkey);
+                const merchantATA = await getAssociatedTokenAddress(merchantPubkey, mintPubkey);
+                const platformATA = await getAssociatedTokenAddress(platformPubkey, mintPubkey);
+
+                // Check if merchant ATA exists, create if not
+                if (!(await accountExists(connection, merchantATA))) {
+                    transaction.add(
+                        createAssociatedTokenAccountInstruction(senderPubkey, merchantATA, merchantPubkey, mintPubkey)
+                    );
+                }
+
+                // Check if platform ATA exists, create if not
+                if (!(await accountExists(connection, platformATA))) {
+                    transaction.add(
+                        createAssociatedTokenAccountInstruction(senderPubkey, platformATA, platformPubkey, mintPubkey)
+                    );
+                }
+
+                // Add USDC transfer to merchant
+                transaction.add(createTokenTransferInstruction(senderATA, merchantATA, senderPubkey, merchantAmount));
+
+                // Add USDC transfer to platform
+                transaction.add(createTokenTransferInstruction(senderATA, platformATA, senderPubkey, platformFee));
+            } else {
+                throw new Error(`${currency} is not supported on Solana. Please use USDC.`);
+            }
+
+            // Get recent blockhash
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = senderPubkey;
+
+            // Sign and send transaction
+            const { signature } = await phantomProvider.signAndSendTransaction(transaction);
+            console.log('[Solana] Transaction sent:', signature);
+
+            // Wait for confirmation
+            let confirmed = false;
+            let attempts = 0;
+            while (!confirmed && attempts < 30) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                attempts++;
+                const status = await connection.getSignatureStatuses([signature]);
+                if (status.value[0]?.confirmationStatus === 'confirmed' || status.value[0]?.confirmationStatus === 'finalized') {
+                    confirmed = true;
+                }
+            }
+
+            if (!confirmed) {
+                throw new Error('Transaction confirmation timed out.');
+            }
+
+            setTxHash(signature);
+
+            // Update backend
+            const apiUrl = import.meta.env.VITE_API_URL || '';
+            await fetch(`${apiUrl}/api/documents/${id}/pay`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    txHash: signature,
+                    payer: senderPubkey.toString(),
+                    chain: 'solana',
+                    token: 'USDC',
+                    amount: paymentLink.amount,
+                }),
+            });
+
+            setShowSuccess(true);
+        } catch (err) {
+            console.error('[Solana] Payment failed:', err);
+            alert(err instanceof Error ? err.message : 'Solana payment failed');
+        } finally {
+            setIsPaying(false);
+        }
+    };
+
     const handleConnectWallet = () => {
         open();
     };
 
     const handlePayment = async () => {
-        if (!paymentLink || !walletProvider || !address) return;
+        if (!paymentLink) return;
+
+        // Solana payments use Phantom wallet - no EVM wallet needed
+        if (selectedChain === 'solana') {
+            setIsPaying(true);
+            await handleSolanaPayment();
+            return;
+        }
+
+        // EVM payments require wallet connection
+        if (!walletProvider || !address) {
+            alert('Please connect your wallet first.');
+            return;
+        }
 
         const recipientAddress = paymentLink.user?.ethereum_wallet_address;
         if (!recipientAddress) {
@@ -92,11 +261,13 @@ export default function PaymentLinkPage() {
         let finalTxHash = '';
 
         try {
+
             const provider = new BrowserProvider(walletProvider as import('ethers').Eip1193Provider);
             const signer = await provider.getSigner();
 
-            const tokenAddress = TOKENS[selectedChain]?.[selectedToken as keyof (typeof TOKENS)[typeof selectedChain]];
-            const hedwigContractAddress = HEDWIG_CONTRACTS[selectedChain as keyof typeof HEDWIG_CONTRACTS];
+            const evmChain = selectedChain as Exclude<ChainId, 'solana'>;
+            const tokenAddress = TOKENS[evmChain]?.[selectedToken as keyof (typeof TOKENS)[typeof evmChain]];
+            const hedwigContractAddress = HEDWIG_CONTRACTS[evmChain as keyof typeof HEDWIG_CONTRACTS];
 
             if (selectedToken === 'ETH') {
                 const amountWei = parseUnits(paymentLink.amount.toString(), 18);
@@ -173,6 +344,7 @@ export default function PaymentLinkPage() {
             base: 'https://basescan.org/tx/',
             baseSepolia: 'https://sepolia.basescan.org/tx/',
             celo: 'https://celoscan.io/tx/',
+            solana: 'https://solscan.io/tx/',
         };
         return `${explorers[selectedChain]}${hash}`;
     };
@@ -293,24 +465,39 @@ export default function PaymentLinkPage() {
 
                     <div className="detail-row">
                         <span className="detail-label">Network</span>
-                        <span className="detail-value">
-                            <span className="network-badge">
+                        <div className="chain-selector">
+                            <button
+                                className={`chain-option ${selectedChain === 'baseSepolia' ? 'active' : ''}`}
+                                onClick={() => setSelectedChain('baseSepolia')}
+                            >
                                 <img src="/assets/icons/networks/base.png" alt="Base" className="chain-icon" />
-                                Base (Mainnet)
-                            </span>
-                        </span>
+                                Base Sepolia
+                            </button>
+                            <button
+                                className={`chain-option ${selectedChain === 'solana' ? 'active' : ''}`}
+                                onClick={() => setSelectedChain('solana')}
+                            >
+                                <img src="/assets/icons/networks/solana.png" alt="Solana" className="chain-icon" />
+                                Solana
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <button
                     className={`pay-button ${isPaying ? 'loading' : ''}`}
-                    onClick={isConnected ? handlePayment : handleConnectWallet}
+                    onClick={selectedChain === 'solana' || isConnected ? handlePayment : handleConnectWallet}
                     disabled={isPaying}
                 >
                     {isPaying ? (
                         <>
                             <div className="button-spinner"></div>
                             <span>Processing...</span>
+                        </>
+                    ) : selectedChain === 'solana' ? (
+                        <>
+                            <Wallet size={20} weight="bold" />
+                            <span>Pay with Phantom</span>
                         </>
                     ) : isConnected ? (
                         <>

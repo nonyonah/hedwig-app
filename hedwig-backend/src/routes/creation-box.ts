@@ -44,11 +44,14 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             clientName: string | null;
             amount: number | null;
             currency: string | null;
+            chain: string | null;
             dueDate: string | null;
             priority: string | null;
             title: string | null;
             confidence: number;
             clientEmail: string | null;
+            items: Array<{ description: string; amount: number }> | null;
+            recipient?: string | null;
             parameters?: any;
         } = {
             intent: 'unknown',
@@ -56,9 +59,12 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             clientEmail: null,
             amount: null,
             currency: null,
+            chain: null,
             dueDate: null,
             priority: null,
             title: null,
+            items: null,
+            recipient: null,
             confidence: 0.5
         };
 
@@ -96,16 +102,35 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
                             : params.amount.toString();
                         parsedData.amount = parseFloat(amountStr);
                     } else if (params.items && Array.isArray(params.items) && params.items.length > 0) {
-                        // Sum up items if available
+                        // Sum up items if available and map them
+                        const items: any[] = [];
                         const total = params.items.reduce((sum: number, item: any) => {
                             const val = item.amount ? parseFloat(item.amount.toString().replace(/[^0-9.]/g, '')) : 0;
+                            if (item.description || item.amount) {
+                                items.push({
+                                    description: item.description || 'Item',
+                                    amount: val
+                                });
+                            }
                             return sum + (isNaN(val) ? 0 : val);
                         }, 0);
+                        
                         if (total > 0) parsedData.amount = total;
+                        if (items.length > 0) parsedData.items = items;
                     }
                     
-                    // Currency
-                    parsedData.currency = params.currency || 'USD';
+                    // Currency/Token
+                    parsedData.currency = params.currency || params.token || 'USDC';
+
+                    // Chain/Network
+                    if (params.chain || params.network) {
+                         parsedData.chain = params.chain || params.network;
+                    }
+
+                    // Recipient for Transfers
+                    if (params.recipient || params.to_address || params.toAddress) {
+                        parsedData.recipient = params.recipient || params.to_address || params.toAddress;
+                    }
                     
                     // Due date
                     if (params.dueDate || params.due_date) {
@@ -124,33 +149,39 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
                         }
                     }
                     
-                    // Title
-                    parsedData.title = params.title || params.description || text.substring(0, 50);
+                    // Title - Do NOT default to text
+                    parsedData.title = params.title || params.description || null;
                 } else {
                     // Fallback: try to extract from top-level fields
                     parsedData.clientName = extracted.clientName || extracted.client_name || null;
                     parsedData.clientEmail = extracted.clientEmail || extracted.client_email || extracted.email || null;
                     parsedData.amount = extracted.amount || null;
-                    parsedData.currency = extracted.currency || 'USD';
+                    parsedData.currency = extracted.currency || extracted.token || 'USDC';
+                    parsedData.chain = extracted.chain || extracted.network || null;
+                    parsedData.recipient = extracted.recipient || extracted.to_address || extracted.toAddress || null;
                     parsedData.dueDate = extracted.dueDate || extracted.due_date || null;
                     parsedData.priority = extracted.priority || null;
-                    parsedData.title = extracted.title || text.substring(0, 50);
+                    parsedData.title = extracted.title || null;
                 }
                 
                 parsedData.confidence = extracted.confidence || 0.7;
             } else {
                 logger.warn('[CreationBox] No JSON found in response, using defaults');
                 // Try to extract basic info from text
-                parsedData.title = text.substring(0, 50);
+                parsedData.title = null;
                 
                 // Simple intent detection
                 const lowerText = text.toLowerCase();
-                if (lowerText.includes('invoice')) {
-                    parsedData.intent = 'invoice';
-                } else if (lowerText.includes('payment link') || lowerText.includes('pay link')) {
+                if (lowerText.includes('payment link') || lowerText.includes('pay link')) {
                     parsedData.intent = 'payment_link';
-                } else if (lowerText.includes('contract')) {
-                    parsedData.intent = 'contract';
+                    parsedData.title = 'Payment Link'; // Default title instead of null/prompt
+                } else if (lowerText.includes('invoice')) {
+                    parsedData.intent = 'invoice'; 
+                    parsedData.title = 'Invoice'; // Default title instead of null/prompt
+                } else if (lowerText.includes('send') || lowerText.includes('transfer') || lowerText.includes('pay')) {
+                    // Primitive fallback for transfer if AI fails entirely
+                    parsedData.intent = 'transfer';
+                    parsedData.title = 'Transfer';
                 }
                 
                 // Extract amount if present
@@ -162,6 +193,99 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             }
         } catch (parseError) {
             logger.error('[CreationBox] Failed to parse Gemini response', { error: parseError, result });
+        }
+
+        // FORCE OVERRIDES
+        const lowerText = text.toLowerCase();
+        
+        // 1. Force Payment Link if keyword present (Highest Priority)
+        if (lowerText.includes('payment link') || lowerText.includes('pay link')) {
+            parsedData.intent = 'payment_link';
+        }
+        
+        // 2. Disable Contracts (Strict)
+        if (parsedData.intent === 'contract' || lowerText.includes('contract')) {
+             // User requested contract via prompt - this is now disabled.
+             // We set intent to 'unknown' or a specific flag to let UI handle it (or just ignore)
+             parsedData.intent = 'contract_disabled'; 
+             parsedData.items = []; // Clear items to prevent accidental invoice creation
+             parsedData.amount = null;
+        }
+
+        // Fallback: If no date extracted by AI, try regex on the original text
+        if (!parsedData.dueDate) {
+            const datePatterns = [
+                /\bdue\s+(?:on\s+)?(today|tomorrow|next\s+\w+|this\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i,
+                /\bdue\s+(?:in\s+)?(\d+)\s+days?/i,
+                /\bdue\s+(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i
+            ];
+
+            for (const pattern of datePatterns) {
+                const match = text.match(pattern);
+                if (match) {
+                    parsedData.dueDate = match[1];
+                    logger.info('[CreationBox] Extracted due date via regex fallback', { extracted: match[1] });
+                    break;
+                }
+            }
+        }
+
+        // Fallback: If no email extracted, try regex
+        if (!parsedData.clientEmail) {
+            const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            if (emailMatch) {
+                parsedData.clientEmail = emailMatch[0];
+                logger.info('[CreationBox] Extracted email via regex fallback', { extracted: emailMatch[0] });
+                
+                // If no client name, try to derive from email
+                if (!parsedData.clientName) {
+                    const namePart = parsedData.clientEmail.split('@')[0];
+                    // Capitalize first letter
+                    parsedData.clientName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+                }
+            }
+        }
+
+        // Fallback: If no amount, try regex again (strict)
+        if (!parsedData.amount) {
+            const amountMatch = text.match(/(?:\$|USD\s?)\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/i);
+            if (amountMatch) {
+                 parsedData.amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+                 logger.info('[CreationBox] Extracted amount via regex fallback', { extracted: parsedData.amount });
+            }
+        }
+
+        // Fallback: Improve title if it's missing or valid
+        if (!parsedData.title) {
+            if (parsedData.clientName) {
+                parsedData.title = `Invoice for ${parsedData.clientName}`;
+            } else if (parsedData.intent === 'invoice') {
+                // Try to find "for [Something]"
+                const forMatch = text.match(/invoice\s+for\s+(.+?)(\s+(?:\$|due|at)|$)/i);
+                if (forMatch) {
+                    const extractedName = forMatch[1].trim();
+                    parsedData.title = `Invoice for ${extractedName}`;
+                    // Also set client name if missing
+                    if (!parsedData.clientName) {
+                        parsedData.clientName = extractedName;
+                        logger.info('[CreationBox] Extracted client name via regex fallback (invoice)', { extracted: extractedName });
+                    }
+                }
+            }
+        }
+
+        // Fallback: Generic client name extraction if still missing (works for payment links too)
+        if (!parsedData.clientName) {
+             // Look for "for [Name]" pattern, stopping at keywords like $, due, at, on, with
+             const forMatch = text.match(/\bfor\s+([A-Z][a-zA-Z0-9\s]+?)(?:\s+(?:\$|due|at|on|with|and)|$)/);
+             if (forMatch) {
+                 const extractedName = forMatch[1].trim();
+                 // Avoid capturing common words if they happen to run in
+                 if (extractedName.length > 2 && !['invoice', 'payment', 'link'].includes(extractedName.toLowerCase())) {
+                     parsedData.clientName = extractedName;
+                     logger.info('[CreationBox] Extracted client name via regex fallback (generic)', { extracted: extractedName });
+                 }
+             }
         }
 
         // Smart date parsing - handle relative dates like "Friday", "next Monday", etc.

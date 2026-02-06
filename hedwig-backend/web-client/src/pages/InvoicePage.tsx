@@ -3,7 +3,20 @@ import { useParams } from 'react-router-dom';
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
 import { Wallet, DownloadSimple, CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
+import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { TOKENS, HEDWIG_PAYMENT_ABI, HEDWIG_CONTRACTS } from '../lib/appkit';
+import {
+    SOLANA_RPC,
+    SOLANA_PLATFORM_WALLET,
+    SOLANA_USDC_MINT,
+    USDC_DECIMALS,
+    calculateFeePercent,
+    getFeeDisplayText,
+    getAssociatedTokenAddress,
+    createAssociatedTokenAccountInstruction,
+    createTokenTransferInstruction,
+    accountExists,
+} from '../lib/solana';
 
 // ERC20 ABI for transfers and approvals
 const ERC20_ABI = [
@@ -41,10 +54,11 @@ interface InvoiceData {
         last_name?: string;
         email?: string;
         ethereum_wallet_address?: string;
+        solana_wallet_address?: string;
     };
 }
 
-type ChainId = 'base' | 'baseSepolia' | 'celo';
+type ChainId = 'base' | 'baseSepolia' | 'celo' | 'solana';
 type TokenSymbol = 'USDC' | 'USDT' | 'cUSD' | 'ETH';
 
 
@@ -57,7 +71,7 @@ export default function InvoicePage() {
     const [invoice, setInvoice] = useState<InvoiceData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedChain, setSelectedChain] = useState<ChainId>('base');
+    const [selectedChain, setSelectedChain] = useState<ChainId>('baseSepolia');
     const [selectedToken, setSelectedToken] = useState<TokenSymbol>('USDC');
     const [isPaying, setIsPaying] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
@@ -81,7 +95,21 @@ export default function InvoicePage() {
                 const data = await response.json();
                 // Backend returns { success: true, data: { document: {...} } }
                 const doc = data.data?.document || data.data || data;
+
+                // Map USD to USDC for crypto payments
+                if (doc.currency === 'USD') {
+                    doc.currency = 'USDC';
+                }
+
                 setInvoice(doc);
+
+                // Initialize chain from document data if available
+                if (doc.chain) {
+                    const normalizedChain = doc.chain.toLowerCase();
+                    if (normalizedChain.includes('solana')) setSelectedChain('solana' as any);
+                    else if (normalizedChain.includes('celo')) setSelectedChain('celo');
+                    else setSelectedChain('baseSepolia');
+                }
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load invoice');
             } finally {
@@ -92,12 +120,120 @@ export default function InvoicePage() {
         fetchInvoice();
     }, [id]);
 
+    // Solana payment handler using Phantom wallet
+    const handleSolanaPayment = async () => {
+        if (!invoice) return;
+
+        const merchantAddress = invoice.user?.solana_wallet_address;
+        if (!merchantAddress) {
+            alert('Merchant does not have a Solana wallet address configured.');
+            setIsPaying(false);
+            return;
+        }
+
+        // Check for Phantom wallet - prioritize window.phantom.solana
+        const phantomProvider = (window as any).phantom?.solana || (window as any).solana;
+
+        if (!phantomProvider) {
+            alert('Please install Phantom wallet to pay with Solana!');
+            setIsPaying(false);
+            return;
+        }
+
+        try {
+            const response = await phantomProvider.connect();
+            const senderPubkey = response.publicKey;
+            const connection = new Connection(SOLANA_RPC, 'confirmed');
+
+            const merchantPubkey = new PublicKey(merchantAddress);
+            const platformPubkey = new PublicKey(SOLANA_PLATFORM_WALLET);
+            const mintPubkey = new PublicKey(SOLANA_USDC_MINT);
+
+            const amount = invoice.amount;
+            const transaction = new Transaction();
+
+            // Calculate split with dynamic fee
+            const currency = selectedToken || 'USDC';
+            if (currency === 'USDC' || selectedToken === 'USDC') {
+                const feePercent = calculateFeePercent(amount);
+                const totalTokenAmount = BigInt(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
+                const platformFee = BigInt(Math.floor(Number(totalTokenAmount) * feePercent));
+                const merchantAmount = totalTokenAmount - platformFee;
+
+                const senderATA = await getAssociatedTokenAddress(senderPubkey, mintPubkey);
+                const merchantATA = await getAssociatedTokenAddress(merchantPubkey, mintPubkey);
+                const platformATA = await getAssociatedTokenAddress(platformPubkey, mintPubkey);
+
+                if (!(await accountExists(connection, merchantATA))) {
+                    transaction.add(createAssociatedTokenAccountInstruction(senderPubkey, merchantATA, merchantPubkey, mintPubkey));
+                }
+                if (!(await accountExists(connection, platformATA))) {
+                    transaction.add(createAssociatedTokenAccountInstruction(senderPubkey, platformATA, platformPubkey, mintPubkey));
+                }
+
+                transaction.add(createTokenTransferInstruction(senderATA, merchantATA, senderPubkey, merchantAmount));
+                transaction.add(createTokenTransferInstruction(senderATA, platformATA, senderPubkey, platformFee));
+
+            } else {
+                throw new Error(`${currency} is not supported on Solana. Please use USDC.`);
+            }
+
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = senderPubkey;
+
+            const { signature } = await phantomProvider.signAndSendTransaction(transaction);
+
+            let confirmed = false;
+            let attempts = 0;
+            while (!confirmed && attempts < 30) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                attempts++;
+                const status = await connection.getSignatureStatuses([signature]);
+                if (status.value[0]?.confirmationStatus === 'confirmed' || status.value[0]?.confirmationStatus === 'finalized') {
+                    confirmed = true;
+                }
+            }
+
+            if (!confirmed) throw new Error('Transaction confirmation timed out.');
+
+            setTxHash(signature);
+
+            const apiUrl = import.meta.env.VITE_API_URL || '';
+            await fetch(`${apiUrl}/api/documents/${id}/pay`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ txHash: signature, payer: senderPubkey.toString(), chain: 'solana', token: 'USDC', amount }),
+            });
+
+            setShowSuccess(true);
+        } catch (err) {
+            console.error('[Solana] Payment failed:', err);
+            alert(err instanceof Error ? err.message : 'Solana payment failed');
+        } finally {
+            setIsPaying(false);
+        }
+    };
+
     const handleConnectWallet = () => {
         open();
     };
 
     const handlePayment = async () => {
-        if (!invoice || !walletProvider || !address) return;
+        if (!invoice) return;
+
+        // Solana payments use Phantom wallet - no EVM wallet needed
+        if (selectedChain === 'solana') {
+            setIsPaying(true);
+            await handleSolanaPayment();
+            return;
+        }
+
+        // EVM payments require wallet connection
+        if (!walletProvider || !address) {
+            alert('Please connect your wallet first.');
+            return;
+        }
 
         const recipientAddress = invoice.user?.ethereum_wallet_address;
         if (!recipientAddress) {
@@ -109,12 +245,14 @@ export default function InvoicePage() {
         let finalTxHash = '';
 
         try {
+
             const provider = new BrowserProvider(walletProvider as import('ethers').Eip1193Provider);
             const signer = await provider.getSigner();
 
             // Get token address and HedwigPayment contract address
-            const tokenAddress = TOKENS[selectedChain]?.[selectedToken as keyof (typeof TOKENS)[typeof selectedChain]];
-            const hedwigContractAddress = HEDWIG_CONTRACTS[selectedChain as keyof typeof HEDWIG_CONTRACTS];
+            const evmChain = selectedChain as Exclude<ChainId, 'solana'>;
+            const tokenAddress = TOKENS[evmChain]?.[selectedToken as keyof (typeof TOKENS)[typeof evmChain]];
+            const hedwigContractAddress = HEDWIG_CONTRACTS[evmChain as keyof typeof HEDWIG_CONTRACTS];
 
             if (selectedToken === 'ETH') {
                 // Native ETH transfer (no smart contract, direct transfer)
@@ -197,6 +335,7 @@ export default function InvoicePage() {
             base: 'https://basescan.org/tx/',
             baseSepolia: 'https://sepolia.basescan.org/tx/',
             celo: 'https://celoscan.io/tx/',
+            solana: 'https://solscan.io/tx/',
         };
         return `${explorers[selectedChain]}${hash}`;
     };
@@ -255,7 +394,8 @@ export default function InvoicePage() {
 
     const items = invoice.content?.items || [];
     const subtotal = items.reduce((sum, item) => sum + item.amount, 0) || invoice.amount;
-    const platformFee = subtotal * 0.01; // 1% fee
+    const feePercent = calculateFeePercent(subtotal);
+    const platformFee = subtotal * feePercent;
     const freelancerReceives = subtotal - platformFee;
 
     return (
@@ -330,7 +470,7 @@ export default function InvoicePage() {
                         <span className="summary-value">{formatCurrency(subtotal)}</span>
                     </div>
                     <div className="summary-row">
-                        <span className="summary-label">Platform fee (1%)</span>
+                        <span className="summary-label">Platform fee ({getFeeDisplayText(subtotal)})</span>
                         <span className="summary-value">-{formatCurrency(platformFee)}</span>
                     </div>
                     <div className="summary-row">
@@ -348,11 +488,18 @@ export default function InvoicePage() {
                     <div className="payment-section">
                         <div className="selectors-row">
                             <button
-                                className={`selector-button ${selectedChain === 'base' ? 'active' : ''}`}
-                                onClick={() => setSelectedChain('base')}
+                                className={`selector-button ${selectedChain === 'baseSepolia' ? 'active' : ''}`}
+                                onClick={() => setSelectedChain('baseSepolia')}
                             >
                                 <img src="/assets/icons/networks/base.png" className="selector-icon" alt="Base" />
-                                <span className="selector-text">Base (Mainnet)</span>
+                                <span className="selector-text">Base Sepolia</span>
+                            </button>
+                            <button
+                                className={`selector-button ${selectedChain === 'solana' ? 'active' : ''}`}
+                                onClick={() => setSelectedChain('solana')}
+                            >
+                                <img src="/assets/icons/networks/solana.png" className="selector-icon" alt="Solana" />
+                                <span className="selector-text">Solana</span>
                             </button>
                             <button
                                 className={`selector-button ${selectedToken === 'USDC' ? 'active' : ''}`}
@@ -365,16 +512,18 @@ export default function InvoicePage() {
 
                         <button
                             className="pay-button"
-                            onClick={isConnected ? handlePayment : handleConnectWallet}
+                            onClick={selectedChain === 'solana' || isConnected ? handlePayment : handleConnectWallet}
                             disabled={isPaying}
                         >
                             <Wallet size={20} />
                             <span>
                                 {isPaying
                                     ? 'Processing...'
-                                    : isConnected
-                                        ? `Pay ${formatCurrency(invoice.amount)}`
-                                        : 'Connect Wallet'}
+                                    : selectedChain === 'solana'
+                                        ? 'Pay with Phantom'
+                                        : isConnected
+                                            ? `Pay ${formatCurrency(invoice.amount)}`
+                                            : 'Connect Wallet'}
                             </span>
                         </button>
 

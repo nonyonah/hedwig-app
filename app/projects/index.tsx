@@ -2,10 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, ScrollView, Alert, LayoutAnimation, UIManager, Image } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { BlurView } from 'expo-blur'
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { Briefcase, List, Calendar, User, CurrencyDollar, CheckCircle, Clock, Receipt, CaretRight, X, DotsThree, Trash, Check, FileText, CaretLeft } from 'phosphor-react-native';
+import { Briefcase, List, Calendar, User, CurrencyDollar, CheckCircle, Clock, Receipt, CaretRight, X, DotsThree, Trash, Check, FileText, CaretLeft, Plus } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -55,7 +55,7 @@ interface Project {
     };
 }
 
-type StatusFilter = 'all' | 'ongoing' | 'completed' | 'paid';
+type StatusFilter = 'all' | 'ongoing' | 'completed' | 'paid' | 'due_soon';
 
 export default function ProjectsScreen() {
     const router = useRouter();
@@ -66,7 +66,8 @@ export default function ProjectsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const bottomSheetRef = useRef<BottomSheetModal>(null);
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const params = useLocalSearchParams();
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>((params.filter as any) || 'all');
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [completingMilestone, setCompletingMilestone] = useState<string | null>(null);
 
@@ -315,7 +316,26 @@ export default function ProjectsScreen() {
     };
 
     const filteredProjects = projects.filter(project => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const nextWeek = new Date(today);
+        nextWeek.setDate(today.getDate() + 7);
+
         if (statusFilter === 'all') return true;
+        if (statusFilter === 'due_soon') {
+            // Check project deadline
+            if (project.deadline) {
+                const deadline = new Date(project.deadline);
+                if (deadline >= today && deadline <= nextWeek) return true;
+            }
+            // Check active milestones
+            return project.milestones.some(m => {
+                if (!m.dueDate) return false;
+                if (['invoiced', 'paid'].includes(m.status)) return false;
+                const due = new Date(m.dueDate);
+                return due >= today && due <= nextWeek;
+            });
+        }
         return project.status.toLowerCase() === statusFilter;
     });
 
@@ -380,7 +400,12 @@ export default function ProjectsScreen() {
                             <CaretLeft size={24} color={themeColors.textPrimary} />
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Projects</Text>
-                        <View style={styles.headerRightPlaceholder} />
+                        <TouchableOpacity
+                            onPress={() => router.push('/projects/create')}
+                            style={[styles.backButton, { alignItems: 'flex-end' }]}
+                        >
+                            <Plus size={24} color={themeColors.textPrimary} weight="bold" />
+                        </TouchableOpacity>
                     </View>
                     {/* Filter Chips inside Header */}
                     <ScrollView
@@ -389,7 +414,7 @@ export default function ProjectsScreen() {
                         contentContainerStyle={styles.filterContent}
                         style={styles.filterScrollView}
                     >
-                        {(['all', 'ongoing', 'completed', 'paid'] as StatusFilter[]).map(filter => (
+                        {(['all', 'ongoing', 'completed', 'paid', 'due_soon'] as StatusFilter[]).map(filter => (
                             <TouchableOpacity
                                 key={filter}
                                 style={[
@@ -404,7 +429,7 @@ export default function ProjectsScreen() {
                                     { color: themeColors.textSecondary },
                                     statusFilter === filter && styles.filterTextActive
                                 ]}>
-                                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                    {filter === 'due_soon' ? 'Due Soon' : filter.charAt(0).toUpperCase() + filter.slice(1)}
                                 </Text>
                             </TouchableOpacity>
                         ))}

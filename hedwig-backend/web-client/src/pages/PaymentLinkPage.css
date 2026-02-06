@@ -284,3 +284,35 @@
     font-size: 12px;
     font-weight: 500;
 }
+
+/* Chain Selector */
+.chain-selector {
+    display: flex;
+    gap: 8px;
+}
+
+.chain-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #f3f4f6;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Rethink Sans', sans-serif;
+}
+
+.chain-option:hover {
+    background: #e5e7eb;
+}
+
+.chain-option.active {
+    background: #ede9fe;
+    border-color: #7C3AED;
+    color: #7C3AED;
+}

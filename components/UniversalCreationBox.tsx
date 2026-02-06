@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { BottomSheetTextInput, BottomSheetBackdrop, BottomSheetView, BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useThemeColors } from '../theme/colors';
-import { CalendarBlank, ArrowUp, Paperclip } from 'phosphor-react-native';
+import { CalendarBlank, ArrowUp, Paperclip, ListPlus, XCircle, Check, Trash } from 'phosphor-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 import * as DocumentPicker from 'expo-document-picker';
@@ -22,17 +22,21 @@ import * as DocumentPicker from 'expo-document-picker';
 interface UniversalCreationBoxProps {
     visible: boolean;
     onClose: () => void;
+    onTransfer?: (data: any) => void;
 }
 
 interface ParsedData {
-    intent: 'invoice' | 'payment_link' | 'contract' | 'unknown';
+    intent: 'invoice' | 'payment_link' | 'contract' | 'transfer' | 'unknown';
     clientName: string | null;
     clientEmail: string | null;
     amount: number | null;
-    currency: string | null;
+    currency: string | null; // Token for transfers
+    chain: string | null;    // Network for transfers
     dueDate: string | null;
     priority: 'low' | 'medium' | 'high' | null;
     title: string | null;
+    items?: Array<{ description: string; amount: number }>;
+    recipient?: string | null;
     confidence: number;
 }
 
@@ -46,7 +50,17 @@ const SUGGESTIONS = [
     "Contract for Sarah for Mobile App Design"
 ];
 
-export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxProps) {
+// Suggestion examples
+const SUGGESTIONS = [
+    "Invoice for Acme for $500 web design and $200 logo",
+    "Create contract for Project X with 3 milestones",
+    "Payment link for 50 USDC on Base",
+    "Send 10 USDC to bob.eth",
+    "Invoice John at john@email.com for $1200",
+    "Contract for Sarah for Mobile App Design"
+];
+
+export function UniversalCreationBox({ visible, onClose, onTransfer }: UniversalCreationBoxProps) {
     const themeColors = useThemeColors();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
@@ -67,6 +81,12 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
     // Manually selected date override
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+
+    // Manual items state
+    const [manualItems, setManualItems] = useState<Array<{ description: string; amount: number }>>([]);
+    const [isAddingItem, setIsAddingItem] = useState(false);
+    const [newItemDesc, setNewItemDesc] = useState('');
+    const [newItemAmount, setNewItemAmount] = useState('');
 
     // UI state
     const [isCreating, setIsCreating] = useState(false);
@@ -102,6 +122,10 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             setParsedData(null);
             setSelectedDate(null);
             setSelectedFile(null);
+            setManualItems([]);
+            setIsAddingItem(false);
+            setNewItemDesc('');
+            setNewItemAmount('');
             setIsLoading(false);
             setIsCreating(false);
 
@@ -179,9 +203,7 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                 LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                 setParsedData(result.data);
 
-                if (result.data.dueDate && !selectedDate) {
-                    setSelectedDate(new Date(result.data.dueDate));
-                }
+
             }
         } catch (error) {
             console.error('[UniversalCreationBox] Gemini parse error:', error);
@@ -233,6 +255,20 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
         }
     };
 
+    // Handle disabled contract intent
+    useEffect(() => {
+        if (parsedData?.intent === 'contract_disabled' as any) {
+            Alert.alert(
+                'Projects Only',
+                'Contracts must now be created from the Projects page to ensure proper milestone setup.',
+                [
+                    { text: 'Go to Projects', onPress: () => router.push('/(tabs)/projects') },
+                    { text: 'Cancel', style: 'cancel', onPress: () => setParsedData(null) }
+                ]
+            );
+        }
+    }, [parsedData]);
+
     // Trigger shake animation for Date chip
     const shakeDate = () => {
         Animated.sequence([
@@ -261,6 +297,24 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
         }
     };
 
+    const handleAddItem = () => {
+        if (!newItemDesc.trim() || !newItemAmount.trim()) return;
+
+        const amount = parseFloat(newItemAmount.replace(/[^0-9.]/g, ''));
+        if (isNaN(amount) || amount <= 0) return;
+
+        setManualItems(prev => [...prev, { description: newItemDesc.trim(), amount }]);
+        setNewItemDesc('');
+        setNewItemAmount('');
+        setIsAddingItem(false);
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    };
+
+    const removeManualItem = (index: number) => {
+        setManualItems(prev => prev.filter((_, i) => i !== index));
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    };
+
     // Format date for display
     const formatDateDisplay = (date: Date | null): string => {
         if (!date) return 'Date';
@@ -282,6 +336,23 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
     const handleCreate = async () => {
         if (!inputText.trim()) return;
 
+        // Special handling for transfer intent
+        if (detectedIntent === 'transfer') {
+            if (onTransfer) {
+                onTransfer({
+                    amount: parsedData?.amount,
+                    token: parsedData?.currency || 'USDC',
+                    recipient: parsedData?.recipient,
+                    network: parsedData?.chain || 'base',
+                    description: inputText // Use full text as fallback description if needed
+                });
+                onClose();
+            } else {
+                Alert.alert("Feature Not Available", "Transfer functionality is not yet connected.");
+            }
+            return;
+        }
+
         const requiresDate = detectedIntent === 'payment_link' || detectedIntent === 'invoice' || detectedIntent === 'unknown';
 
         if (requiresDate && !effectiveDate) {
@@ -301,18 +372,72 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             if (detectedIntent === 'payment_link') {
                 endpoint = '/api/documents/payment-link';
             } else if (detectedIntent === 'contract') {
-                endpoint = '/api/documents/invoice';
+                endpoint = '/api/documents';
+            }
+
+            let calculatedAmount = parsedData?.amount || 0;
+            let finalItems = parsedData?.items || [];
+
+            // Helper to clean text for description
+            const getCleanDescription = (text: string, clientName?: string) => {
+                let clean = text;
+                // Remove command prefixes
+                clean = clean.replace(/^(?:create\s+)?(?:invoice|bill)\s+(?:for\s+)?/i, '');
+                // Remove date/amount suffixes if possible (simple heuristic)
+                clean = clean.replace(/\s+(?:due|at)\s+.*$/i, '');
+                clean = clean.replace(/\s+(?:\$|USD).*$/i, '');
+
+                clean = clean.trim();
+
+                // If clean text is just the client name, return generic
+                if (clientName && clean.toLowerCase().includes(clientName.toLowerCase())) {
+                    return 'Professional Services';
+                }
+
+                return clean.length > 0 ? clean : 'Professional Services';
+            };
+
+            const cleanDesc = getCleanDescription(inputText, parsedData?.clientName || undefined);
+
+            // Prioritize manual items if present
+            if (manualItems.length > 0) {
+                finalItems = manualItems;
+                calculatedAmount = manualItems.reduce((sum, item) => sum + item.amount, 0);
+            } else if (parsedData?.amount && (!parsedData.items || parsedData.items.length === 0)) {
+                // Determine implicit item using CLEAN description
+                finalItems = [{ description: cleanDesc, amount: parsedData.amount }];
+            }
+
+            // Improve title fallback - STRICT SANITIZATION
+            let finalTitle = parsedData?.title;
+            // If title is missing, matches input, or is just too long/messy
+            const isTitleBad = !finalTitle ||
+                finalTitle.trim() === inputText.trim() ||
+                (finalTitle.length > 20 && inputText.includes(finalTitle)) ||
+                finalTitle.length > 50;
+
+            if (isTitleBad) {
+                if (parsedData?.clientName) {
+                    finalTitle = `Invoice for ${parsedData.clientName}`;
+                } else if (parsedData?.clientEmail) {
+                    const nameFromEmail = parsedData.clientEmail.split('@')[0];
+                    finalTitle = `Invoice for ${nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1)}`;
+                } else {
+                    // Use the clean description for title if no client
+                    finalTitle = cleanDesc === 'Professional Services' ? 'Service Invoice' : cleanDesc;
+                }
             }
 
             const content: any = {
-                title: parsedData?.title || inputText.substring(0, 50),
-                description: inputText,
+                title: finalTitle,
+                description: cleanDesc, // User requested clean description, not full prompt
                 clientName: parsedData?.clientName,
-                amount: parsedData?.amount,
+                amount: calculatedAmount,
                 currency: parsedData?.currency || 'USD',
                 recipientEmail: parsedData?.clientEmail,
-                items: parsedData?.amount ? [{ description: inputText, amount: parsedData.amount }] : [],
-                remindersEnabled: true
+                items: finalItems,
+                remindersEnabled: true,
+                type: detectedIntent === 'contract' ? 'CONTRACT' : undefined
             };
 
             if (effectiveDate) {
@@ -420,6 +545,56 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                     multiline
                 />
 
+                {/* Manual Items List */}
+                {manualItems.length > 0 && !isAddingItem && (
+                    <View style={styles.itemsList}>
+                        {manualItems.map((item, index) => (
+                            <View key={index} style={[styles.itemChip, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]}>
+                                <Text style={[styles.itemText, { color: textColor }]}>
+                                    {item.description} (${item.amount})
+                                </Text>
+                                <TouchableOpacity onPress={() => removeManualItem(index)}>
+                                    <XCircle size={16} color={secondaryText} weight="fill" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
+                {/* Add Item Form */}
+                {isAddingItem ? (
+                    <View style={styles.addItemForm}>
+                        <TextInput
+                            value={newItemDesc}
+                            onChangeText={setNewItemDesc}
+                            placeholder="Item description (e.g. Web Design)"
+                            placeholderTextColor={secondaryText}
+                            style={[styles.miniInput, { color: textColor, flex: 2 }]}
+                            autoFocus
+                        />
+                        <TextInput
+                            value={newItemAmount}
+                            onChangeText={setNewItemAmount}
+                            placeholder="$0.00"
+                            placeholderTextColor={secondaryText}
+                            keyboardType="numeric"
+                            style={[styles.miniInput, { color: textColor, flex: 1 }]}
+                        />
+                        <TouchableOpacity
+                            style={[styles.miniButton, { backgroundColor: brandColor }]}
+                            onPress={handleAddItem}
+                        >
+                            <Check size={16} color="#FFFFFF" weight="bold" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.miniButton, { backgroundColor: isDark ? '#3A3A3C' : '#E5E5EA' }]}
+                            onPress={() => setIsAddingItem(false)}
+                        >
+                            <XCircle size={16} color={secondaryText} weight="bold" />
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
+
                 {/* Rotating AI Suggestions (Ghost Text) */}
                 {!inputText && (
                     <TouchableOpacity
@@ -471,6 +646,34 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                             </Text>
                         </TouchableOpacity>
                     </Animated.View>
+
+                    {/* Add Item Pill */}
+                    <TouchableOpacity
+                        style={[
+                            styles.datePill,
+                            {
+                                backgroundColor: isAddingItem ? `${brandColor}15` : (isDark ? '#2C2C2E' : '#F2F2F7'),
+                                borderColor: isAddingItem ? brandColor : (isDark ? '#3A3A3C' : '#E5E5EA'),
+                                marginLeft: 8
+                            }
+                        ]}
+                        onPress={() => {
+                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                            setIsAddingItem(true);
+                        }}
+                    >
+                        <ListPlus
+                            size={16}
+                            color={isAddingItem ? brandColor : secondaryText}
+                            weight="bold"
+                        />
+                        <Text style={[
+                            styles.datePillText,
+                            { color: isAddingItem ? brandColor : secondaryText }
+                        ]}>
+                            Add Item
+                        </Text>
+                    </TouchableOpacity>
 
                     {/* File Upload Chip */}
                     <TouchableOpacity
@@ -584,6 +787,45 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    itemsList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 16,
+    },
+    itemChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+        gap: 6,
+    },
+    itemText: {
+        fontSize: 13,
+        fontFamily: 'GoogleSansFlex_500Medium',
+    },
+    addItemForm: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 16,
+    },
+    miniInput: {
+        height: 36,
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        backgroundColor: 'rgba(120, 120, 128, 0.12)',
+        fontSize: 14,
+        fontFamily: 'GoogleSansFlex_400Regular',
+    },
+    miniButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
     },

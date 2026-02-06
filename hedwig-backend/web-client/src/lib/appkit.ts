@@ -100,6 +100,15 @@ export const TOKENS = {
     },
 } as const;
 
+// Solana token addresses (mints)
+export const SOLANA_TOKENS = {
+    USDC: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', // Devnet USDC
+    USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT SPL token mint (Keep mainnet for now or find devnet if needed)
+} as const;
+
+// Solana RPC endpoint
+export const SOLANA_RPC = 'https://api.devnet.solana.com';
+
 // HedwigPayment contract ABI (handles 99%/1% fee split atomically)
 export const HEDWIG_PAYMENT_ABI = [
     'function pay(address token, uint256 amount, address freelancer, string calldata invoiceId) external',

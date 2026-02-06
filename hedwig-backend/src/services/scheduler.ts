@@ -266,7 +266,7 @@ export const SchedulerService = {
         }
     },
 
-    async processDocumentReminder(doc: any) {
+    async processDocumentReminder(doc: any, isManual: boolean = false): Promise<{ sent: boolean; reason?: string }> {
         try {
             const content = doc.content || {};
             const recipientEmail = content.recipient_email || content.client_email;
@@ -274,24 +274,28 @@ export const SchedulerService = {
 
             // Check if reminders are enabled for this document (default: true for backwards compatibility)
             const remindersEnabled = content.reminders_enabled !== false;
-            if (!remindersEnabled) {
+            // If manual, we ignore the enabled flag (user explicitly requested it)
+            if (!remindersEnabled && !isManual) {
                 logger.debug('Skipping: Reminders disabled');
-                return;
+                return { sent: false, reason: 'Reminders disabled' };
             }
 
             // If no recipient email, we can't send a reminder
             if (!recipientEmail) {
                 logger.debug('Skipping: No recipient email');
-                return;
+                return { sent: false, reason: 'No recipient email' };
             }
 
             // Check if we already sent a reminder recently (every 7 days)
-            const lastReminded = content.last_reminder_sent_at;
-            if (lastReminded) {
-                const daysSinceReminder = differenceInDays(new Date(), parseISO(lastReminded));
-                if (daysSinceReminder < 7) {
-                    logger.debug('Skipping: Recently reminded');
-                    return;
+            // Skip this check for manual reminders
+            if (!isManual) {
+                const lastReminded = content.last_reminder_sent_at;
+                if (lastReminded) {
+                    const daysSinceReminder = differenceInDays(new Date(), parseISO(lastReminded));
+                    if (daysSinceReminder < 7) {
+                        logger.debug('Skipping: Recently reminded');
+                        return { sent: false, reason: 'Recently reminded' };
+                    }
                 }
             }
 
@@ -299,12 +303,13 @@ export const SchedulerService = {
             const createdDate = parseISO(doc.created_at);
             const daysSinceCreation = differenceInDays(new Date(), createdDate);
 
-            if (daysSinceCreation < 7) {
+            // Skip age check for manual reminders
+            if (!isManual && daysSinceCreation < 7) {
                 // Not old enough for a reminder
-                return;
+                return { sent: false, reason: 'Document too new' };
             }
 
-            logger.debug('Generating reminder', { daysSinceCreation });
+            logger.debug('Generating reminder', { daysSinceCreation, isManual });
 
             const senderName = `${doc.user?.first_name || 'Hedwig'} ${doc.user?.last_name || ''}`.trim();
 
@@ -345,10 +350,14 @@ export const SchedulerService = {
                     .eq('id', doc.id);
 
                 logger.info('Reminder sent and recorded');
+                return { sent: true };
+            } else {
+                return { sent: false, reason: 'Email service failed' };
             }
 
         } catch (error) {
-            logger.error('Failed to process document');
+            logger.error('Failed to process document', { error: error instanceof Error ? error.message : 'Unknown' });
+            return { sent: false, reason: 'Internal error' };
         }
     }
 };

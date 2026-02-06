@@ -199,11 +199,35 @@ function PaymentLinkContent() {
                             </Text>
                         </View>
                         <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                        {/* Added "To" Section */}
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>To</Text>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                {document.content?.client_name || 'Client'}
+                            </Text>
+                        </View>
+                        <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
                         <View style={styles.detailRow}>
                             <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>For</Text>
                             <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{document.title || 'Services'}</Text>
                         </View>
                         <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                        {/* Added Due Date */}
+                        {document.content?.due_date && (
+                            <>
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Due</Text>
+                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                        {new Date(document.content.due_date).toLocaleDateString()}
+                                    </Text>
+                                </View>
+                                <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+                            </>
+                        )}
+
                         <View style={styles.detailRow}>
                             <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Network</Text>
                             <View style={[styles.networkBadge, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
