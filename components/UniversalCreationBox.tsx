@@ -50,15 +50,7 @@ const SUGGESTIONS = [
     "Contract for Sarah for Mobile App Design"
 ];
 
-// Suggestion examples
-const SUGGESTIONS = [
-    "Invoice for Acme for $500 web design and $200 logo",
-    "Create contract for Project X with 3 milestones",
-    "Payment link for 50 USDC on Base",
-    "Send 10 USDC to bob.eth",
-    "Invoice John at john@email.com for $1200",
-    "Contract for Sarah for Mobile App Design"
-];
+
 
 export function UniversalCreationBox({ visible, onClose, onTransfer }: UniversalCreationBoxProps) {
     const themeColors = useThemeColors();

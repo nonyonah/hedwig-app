@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
 import { Wallet, DownloadSimple, CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
@@ -17,6 +17,7 @@ import {
     createTokenTransferInstruction,
     accountExists,
 } from '../lib/solana';
+
 
 // ERC20 ABI for transfers and approvals
 const ERC20_ABI = [
@@ -41,6 +42,7 @@ interface InvoiceData {
     amount: number;
     status: string;
     due_date?: string;
+    currency?: string;
     content?: {
         from?: { name: string; email?: string };
         to?: { name: string; email?: string };
@@ -48,6 +50,7 @@ interface InvoiceData {
         recipient_email?: string;
         items?: InvoiceItem[];
         notes?: string;
+        blockradar_url?: string;
     };
     user?: {
         first_name?: string;
@@ -61,9 +64,9 @@ interface InvoiceData {
 type ChainId = 'base' | 'baseSepolia' | 'celo' | 'solana';
 type TokenSymbol = 'USDC' | 'USDT' | 'cUSD' | 'ETH';
 
-
 export default function InvoicePage() {
     const { id } = useParams<{ id: string }>();
+    const [searchParams] = useSearchParams();
     const { open } = useAppKit();
     const { address, isConnected } = useAppKitAccount();
     const { walletProvider } = useAppKitProvider('eip155');
@@ -75,7 +78,7 @@ export default function InvoicePage() {
     const [selectedToken, setSelectedToken] = useState<TokenSymbol>('USDC');
     const [isPaying, setIsPaying] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
-    const [showSuccess, setShowSuccess] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(searchParams.get('status') === 'success');
 
     // Fetch invoice data
     useEffect(() => {
@@ -395,7 +398,7 @@ export default function InvoicePage() {
         );
     }
 
-    if (showSuccess && txHash) {
+    if (showSuccess) {
         return (
             <div className="container">
                 <div className="card success-container">
@@ -404,14 +407,16 @@ export default function InvoicePage() {
                     <p className="success-message">
                         Your payment of {formatCurrency(invoice.amount)} has been sent successfully.
                     </p>
-                    <a
-                        href={getExplorerUrl(txHash)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="tx-link"
-                    >
-                        View Transaction <ArrowSquareOut size={16} />
-                    </a>
+                    {txHash && (
+                        <a
+                            href={getExplorerUrl(txHash)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="tx-link"
+                        >
+                            View Transaction <ArrowSquareOut size={16} />
+                        </a>
+                    )}
                 </div>
                 <div className="footer">Secured by Hedwig</div>
             </div>
@@ -512,54 +517,64 @@ export default function InvoicePage() {
                 {/* Payment */}
                 {invoice.status.toLowerCase() !== 'paid' && (
                     <div className="payment-section">
-                        <div className="selectors-row">
-                            <button
-                                className={`selector-button ${selectedChain === 'baseSepolia' ? 'active' : ''}`}
-                                onClick={() => setSelectedChain('baseSepolia')}
-                            >
-                                <img src="/assets/icons/networks/base.png" className="selector-icon" alt="Base" />
-                                <span className="selector-text">Base Sepolia</span>
-                            </button>
-                            <button
-                                className={`selector-button ${selectedChain === 'solana' ? 'active' : ''}`}
-                                onClick={() => setSelectedChain('solana')}
-                            >
-                                <img src="/assets/icons/networks/solana.png" className="selector-icon" alt="Solana" />
-                                <span className="selector-text">Solana</span>
-                            </button>
-                            <button
-                                className={`selector-button ${selectedToken === 'USDC' ? 'active' : ''}`}
-                                onClick={() => setSelectedToken('USDC')}
-                            >
-                                <img src="/assets/icons/tokens/usdc.png" className="selector-icon" alt="USDC" />
-                                <span className="selector-text">USDC</span>
-                            </button>
-                        </div>
+                        {!invoice.content?.blockradar_url && (
+                            <div className="selectors-row">
+                                <button
+                                    className={`selector-button ${selectedChain === 'baseSepolia' ? 'active' : ''}`}
+                                    onClick={() => setSelectedChain('baseSepolia')}
+                                >
+                                    <img src="/assets/icons/networks/base.png" className="selector-icon" alt="Base" />
+                                    <span className="selector-text">Base Sepolia</span>
+                                </button>
+                                <button
+                                    className={`selector-button ${selectedChain === 'solana' ? 'active' : ''}`}
+                                    onClick={() => setSelectedChain('solana')}
+                                >
+                                    <img src="/assets/icons/networks/solana.png" className="selector-icon" alt="Solana" />
+                                    <span className="selector-text">Solana</span>
+                                </button>
+                                <button
+                                    className={`selector-button ${selectedToken === 'USDC' ? 'active' : ''}`}
+                                    onClick={() => setSelectedToken('USDC')}
+                                >
+                                    <img src="/assets/icons/tokens/usdc.png" className="selector-icon" alt="USDC" />
+                                    <span className="selector-text">USDC</span>
+                                </button>
+                            </div>
+                        )}
 
-                        <button
-                            className="pay-button"
-                            onClick={selectedChain === 'solana' || isConnected ? handlePayment : handleConnectWallet}
-                            disabled={isPaying}
-                        >
-                            <Wallet size={20} />
-                            <span>
-                                {isPaying
-                                    ? 'Processing...'
-                                    : selectedChain === 'solana'
-                                        ? 'Pay with Phantom'
-                                        : isConnected
-                                            ? `Pay ${formatCurrency(invoice.amount)}`
-                                            : 'Connect Wallet'}
-                            </span>
-                        </button>
+                        {invoice.content?.blockradar_url ? (
+                            <button
+                                className="pay-button"
+                                onClick={() => window.location.href = invoice!.content!.blockradar_url!}
+                            >
+                                <Wallet size={20} />
+                                <span>Pay with Crypto</span>
+                            </button>
+                        ) : (
+                            <button
+                                className="pay-button"
+                                onClick={selectedChain === 'solana' || isConnected ? handlePayment : handleConnectWallet}
+                                disabled={isPaying}
+                            >
+                                <Wallet size={20} />
+                                <span>
+                                    {isPaying
+                                        ? 'Processing...'
+                                        : selectedChain === 'solana'
+                                            ? 'Pay with Phantom'
+                                            : isConnected
+                                                ? `Pay ${formatCurrency(invoice.amount)}`
+                                                : 'Connect Wallet'}
+                                </span>
+                            </button>
+                        )}
 
-                        {isConnected && address && (
+                        {isConnected && address && !invoice.content?.blockradar_url && (
                             <div style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginTop: '12px' }}>
                                 Connected: {address.slice(0, 6)}...{address.slice(-4)}
                             </div>
                         )}
-
-
                     </div>
                 )}
             </div>

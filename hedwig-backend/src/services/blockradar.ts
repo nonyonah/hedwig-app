@@ -212,24 +212,26 @@ class BlockradarService {
   }
 
   /**
-   * Verify webhook signature
+   * Create a payment link
    */
-  verifyWebhookSignature(payload: string, signature: string): boolean {
-    const crypto = require('crypto');
-    const secret = process.env.BLOCKRADAR_WEBHOOK_SECRET;
-
-    if (!secret) {
-      logger.warn('BLOCKRADAR_WEBHOOK_SECRET is not set');
-      return false;
-    }
-
-    const hash = crypto
-      .createHmac('sha256', secret)
-      .update(payload)
-      .digest('hex');
-
-    return hash === signature;
+  async createPaymentLink(params: {
+    name: string;
+    amount?: string;
+    currency?: string;
+    memo?: string;
+    metadata?: Record<string, any>;
+    redirectUrl?: string;
+  }): Promise<any> {
+    logger.info('Creating Blockradar payment link', { name: params.name, amount: params.amount });
+    const payload = {
+        ...params,
+        metadata: params.metadata ? JSON.stringify(params.metadata) : undefined
+    };
+    const response = await this.api.post('/payment_links', payload);
+    return response.data.data;
   }
+
+
 }
 
 export default new BlockradarService();

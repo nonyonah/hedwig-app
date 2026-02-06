@@ -1,14 +1,13 @@
+import 'dotenv/config';
 import express, { Application, Request, Response } from 'express';
 import path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 // fs was used for legacy contract.html, now using React app
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables (loaded via import 'dotenv/config')
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -126,7 +125,12 @@ app.use(
 );
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ 
+    limit: '10mb',
+    verify: (req: any, _res, buf) => {
+        req.rawBody = buf.toString();
+    }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting - increased to handle multiple API calls per page load

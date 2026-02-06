@@ -25,7 +25,14 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
         const { email, firstName, lastName, walletAddresses, avatar } = req.body;
         const privyId = req.user!.id;
 
-        logger.info('Registration request received', { firstName, lastName, hasWallets: !!walletAddresses });
+        logger.info('Registration request received', { 
+            firstName, 
+            lastName, 
+            hasWallets: !!walletAddresses,
+            ethereumWallet: walletAddresses?.ethereum || 'none',
+            solanaWallet: walletAddresses?.solana || 'none',
+            stacksWallet: walletAddresses?.stacks || 'none'
+        });
 
         // Check if user already exists by privy_id or email
         const { data: existingUsers, error: findError } = await supabase
@@ -44,7 +51,12 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
             // Use email as the ID as requested
             const userId = email;
 
-            logger.info('Creating new user', { hasEthWallet: !!walletAddresses?.ethereum, hasSolWallet: !!walletAddresses?.solana });
+            logger.info('Creating new user', { 
+                hasEthWallet: !!walletAddresses?.ethereum, 
+                hasSolWallet: !!walletAddresses?.solana,
+                ethAddress: walletAddresses?.ethereum || 'none',
+                solAddress: walletAddresses?.solana || 'none'
+            });
 
             const { data: newUser, error: createError } = await supabase
                 .from('users')
@@ -66,10 +78,22 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
             if (createError) {
                 throw new AppError(`Failed to create user: ${createError.message}`, 500);
             }
+            
+            logger.info('User created successfully', {
+                userId: newUser.id,
+                ethereumWallet: newUser.ethereum_wallet_address || 'none',
+                solanaWallet: newUser.solana_wallet_address || 'none'
+            });
+            
             user = newUser;
         } else {
             // Update last login and wallet addresses if changed
-            logger.debug('Updating existing user', { hasNewEthWallet: !!walletAddresses?.ethereum, hasNewSolWallet: !!walletAddresses?.solana });
+            logger.debug('Updating existing user', { 
+                hasNewEthWallet: !!walletAddresses?.ethereum, 
+                hasNewSolWallet: !!walletAddresses?.solana,
+                currentEthWallet: user.ethereum_wallet_address || 'none',
+                newEthWallet: walletAddresses?.ethereum || 'none'
+            });
 
             const { data: updatedUser, error: updateError } = await supabase
                 .from('users')
@@ -91,7 +115,11 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                 throw new AppError(`Failed to update user: ${updateError.message}`, 500);
             }
 
-            logger.info('User updated successfully');
+            logger.info('User updated successfully', {
+                userId: updatedUser.id,
+                ethereumWallet: updatedUser.ethereum_wallet_address || 'none',
+                solanaWallet: updatedUser.solana_wallet_address || 'none'
+            });
             user = updatedUser;
         }
 
@@ -255,6 +283,133 @@ router.get('/check-user', async (req: Request, res: Response, next) => {
         res.json({
             success: true,
             data: { exists: !!user },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * GET /api/auth/user-wallets?email=<email>
+ * Get wallet addresses for a user by email (for debugging)
+ */
+router.get('/user-wallets', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { email } = req.query;
+
+        if (!email || typeof email !== 'string') {
+            throw new AppError('Email is required', 400);
+        }
+
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('id, email, ethereum_wallet_address, solana_wallet_address, stacks_wallet_address, created_at')
+            .eq('email', email)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') {
+                throw new AppError('User not found', 404);
+            }
+            throw new AppError(`Database error: ${error.message}`, 500);
+        }
+
+        logger.info('Wallet lookup', {
+            email: user.email,
+            ethereumWallet: user.ethereum_wallet_address || 'NOT SET',
+            solanaWallet: user.solana_wallet_address || 'NOT SET',
+            stacksWallet: user.stacks_wallet_address || 'NOT SET'
+        });
+
+        res.json({
+            success: true,
+            data: {
+                userId: user.id,
+                email: user.email,
+                wallets: {
+                    ethereum: user.ethereum_wallet_address || null,
+                    solana: user.solana_wallet_address || null,
+                    stacks: user.stacks_wallet_address || null,
+                },
+                createdAt: user.created_at
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/auth/test-auto-withdrawal
+ * Test endpoint to verify auto-withdrawal flow would work for a user
+ * This simulates what happens when a payment link deposit is received
+ */
+router.post('/test-auto-withdrawal', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { userId, amount } = req.body;
+
+        if (!userId) {
+            throw new AppError('userId is required', 400);
+        }
+
+        const testAmount = parseFloat(amount) || 100;
+        const PLATFORM_FEE_PERCENT = 0.005; // 0.5%
+        const platformFee = testAmount * PLATFORM_FEE_PERCENT;
+        const freelancerAmount = testAmount - platformFee;
+
+        logger.info('Testing auto-withdrawal flow', { userId, testAmount });
+
+        // Get user wallet info (same query as auto-withdrawal)
+        const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('id, email, ethereum_wallet_address, solana_wallet_address')
+            .eq('id', userId)
+            .single();
+
+        if (userError) {
+            throw new AppError(`Database error: ${userError.message}`, 500);
+        }
+
+        if (!user) {
+            throw new AppError('User not found', 404);
+        }
+
+        const result: any = {
+            userId: user.id,
+            email: user.email,
+            testAmount,
+            platformFee,
+            freelancerAmount,
+            wallets: {
+                ethereum: user.ethereum_wallet_address || null,
+                solana: user.solana_wallet_address || null,
+            },
+            autoWithdrawalReady: false,
+            issues: []
+        };
+
+        // Check if auto-withdrawal would work
+        if (!user.ethereum_wallet_address) {
+            result.issues.push('No Ethereum wallet address found - user needs to complete biometrics setup');
+        } else {
+            result.autoWithdrawalReady = true;
+            result.withdrawalDetails = {
+                toAddress: user.ethereum_wallet_address,
+                amount: freelancerAmount,
+                chain: 'BASE',
+                asset: 'USDC'
+            };
+        }
+
+        logger.info('Auto-withdrawal test result', {
+            userId: user.id,
+            ready: result.autoWithdrawalReady,
+            hasEthWallet: !!user.ethereum_wallet_address
+        });
+
+        res.json({
+            success: true,
+            data: result
         });
     } catch (error) {
         next(error);

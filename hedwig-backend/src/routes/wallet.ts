@@ -348,4 +348,47 @@ router.get('/transactions', authenticate, async (req: Request, res: Response, ne
     }
 });
 
+/**
+ * GET /api/wallet/blockradar-assets
+ * Get available assets in Blockradar wallet (for debugging)
+ */
+router.get('/blockradar-assets', authenticate, async (_req: Request, res: Response, next) => {
+    try {
+        logger.info('Fetching Blockradar wallet assets');
+
+        const assets = await BlockradarService.getAssets();
+        const balance = await BlockradarService.getMasterWalletBalance();
+
+        logger.info('Blockradar assets fetched', { 
+            assetCount: assets.length,
+            balanceCount: balance.length,
+            rawAssets: assets // Log full structure
+        });
+
+        return res.json({
+            success: true,
+            data: {
+                assets: assets.map(a => ({
+                    id: a.id,
+                    symbol: a.symbol || a.asset?.symbol,
+                    name: a.name || a.asset?.name,
+                    decimals: a.decimals || a.asset?.decimals,
+                    blockchain: a.blockchain || a.asset?.blockchain,
+                    raw: a // Include full object for debugging
+                })),
+                balances: balance.map(b => ({
+                    assetId: b.assetId,
+                    symbol: b.asset.symbol,
+                    balance: b.balanceFormatted,
+                    rawBalance: b.balance
+                }))
+            }
+        });
+
+    } catch (error: any) {
+        logger.error('Get Blockradar assets error', { error: error.message });
+        return next(new AppError('Failed to get Blockradar assets', 500));
+    }
+});
+
 export default router;

@@ -142,7 +142,7 @@ router.get('/status/:bridgeId', authenticate, async (req: Request, res: Response
         }
 
         const status = await solanaBridgeService.getBridgeStatus(
-            bridgeId,
+            bridgeId as string,
             signature as string | undefined
         );
 

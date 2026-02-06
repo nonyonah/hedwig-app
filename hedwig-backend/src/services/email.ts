@@ -153,6 +153,76 @@ export const EmailService = {
         }
     },
 
+    async sendPaymentReceivedEmail(data: {
+        to: string;
+        recipientName: string;
+        senderName?: string;
+        amount: string;
+        currency: string;
+        txHash: string;
+        documentTitle?: string;
+        linkId: string;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const receiptUrl = `https://hedwig.app/receipt/${data.linkId}`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <span class="logo">Hedwig</span>
+                </div>
+                <div class="content">
+                    <p class="description">Hi <strong>${data.recipientName}</strong>,</p>
+                    <p class="description">You've successfully received a payment${data.senderName ? ` from <strong>${data.senderName}</strong>` : ''}.</p>
+                    
+                    <div class="card">
+                        <p class="amount-label">Payment Received</p>
+                        <h1 class="amount-value">${data.amount} ${data.currency}</h1>
+                        ${data.documentTitle ? `<p style="margin-top: 8px; color: #6b7280; font-size: 14px;">For: ${data.documentTitle}</p>` : ''}
+                    </div>
+
+                    <p class="description" style="font-size: 14px; text-align: center;">Transaction Hash: <a href="https://basescan.org/tx/${data.txHash}" style="color: #4F46E5;">${data.txHash.substring(0, 8)}...${data.txHash.substring(data.txHash.length - 6)}</a></p>
+                    
+                    <div class="btn-container">
+                        <a href="${receiptUrl}" class="btn">View Receipt</a>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <noreply@resend.dev>',
+                to: [data.to],
+                subject: `Payment Received: ${data.amount} ${data.currency}`,
+                html: html,
+            });
+            logger.info('Payment received email sent');
+            return true;
+        } catch (error) {
+            logger.error('Payment received email failed', { error: error instanceof Error ? error.message : 'Unknown' });
+            return false;
+        }
+    },
+
     async sendSmartReminder(to: string, subject: string, htmlContent: string, actionLink?: string, actionText?: string): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
             logger.warn('RESEND_API_KEY is not set. Skipping email sending.');

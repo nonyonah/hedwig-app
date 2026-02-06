@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import BlockradarService from '../services/blockradar';
@@ -12,14 +13,43 @@ const logger = createLogger('BlockradarWebhook');
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const signature = req.headers['x-blockradar-signature'] as string;
-    const payload = JSON.stringify(req.body);
-
     // Verify webhook signature
-    if (signature && !BlockradarService.verifyWebhookSignature(payload, signature)) {
-      logger.warn('Invalid Blockradar webhook signature');
-      return res.status(401).json({ error: 'Invalid signature' });
+    // Documentation: https://docs.blockradar.co/en/essentials/webhooks#signature-validation
+    // IMPORTANT: Blockradar uses the API KEY (not a separate webhook secret) to sign webhooks
+    const signature = req.headers['x-blockradar-signature'] as string;
+    const apiKey = process.env.BLOCKRADAR_API_KEY;
+
+    if (!apiKey) {
+        logger.error('BLOCKRADAR_API_KEY is not configured');
+        return res.status(500).json({ error: 'Server configuration error' });
     }
+
+    if (!signature) {
+        logger.warn('Missing x-blockradar-signature header');
+        return res.status(401).json({ error: 'Missing signature' });
+    }
+
+    // CRITICAL: Use rawBody from the verify middleware
+    // Blockradar signs the exact raw bytes of the request body using HMAC-SHA512 with the API KEY
+    const rawBody = (req as any).rawBody;
+    
+    if (!rawBody) {
+        logger.error('rawBody not available - body parser middleware issue');
+        return res.status(500).json({ error: 'Server configuration error' });
+    }
+
+    // Compute HMAC-SHA512 signature using the API KEY as the secret
+    const computedSignature = crypto
+        .createHmac('sha512', apiKey)
+        .update(rawBody, 'utf8')
+        .digest('hex');
+
+    if (signature !== computedSignature) {
+        logger.warn('Invalid webhook signature');
+        return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    logger.info('Webhook signature verified successfully');
 
     const event = req.body;
     const eventType = event.event || event.type;
@@ -42,7 +72,12 @@ router.post('/', async (req: Request, res: Response) => {
     switch (eventType) {
       case 'deposit.success':
       case 'deposit.confirmed':
-        await handleDeposit(event.data);
+        // Check if this is a payment link deposit
+        if (event.data?.metadata?.documentId) {
+            await handlePaymentLinkDeposit(event.data);
+        } else {
+            await handleDeposit(event.data);
+        }
         break;
 
       case 'deposit.pending':
@@ -52,47 +87,11 @@ router.post('/', async (req: Request, res: Response) => {
         });
         break;
 
-      case 'withdrawal.success':
-      case 'withdrawal.confirmed':
-        await handleWithdrawal(event.data);
-        break;
-
-      case 'withdrawal.failed':
-        await handleWithdrawalFailed(event.data);
-        break;
-
-      case 'sweep.success':
-        logger.info('Auto-sweep completed', {
-          txHash: event.data?.txHash,
-          amount: event.data?.amount,
-        });
-        break;
-
-      case 'sweep.failed':
-        logger.error('Auto-sweep failed', {
-          addressId: event.data?.addressId,
-          error: event.data?.error,
-        });
-        break;
-
-      default:
-        logger.info('Unhandled webhook event type', { type: eventType });
-    }
-
-    return res.status(200).json({ received: true });
-  } catch (error) {
-    logger.error('Blockradar webhook processing error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    // Return 200 to prevent webhook retries for processing errors
-    return res.status(200).json({ received: true, error: 'Processing error' });
-  }
-});
-
 /**
  * Handle successful deposit to a user's address
  */
 async function handleDeposit(data: any) {
+  // ... (existing implementation)
   const addressId = data.addressId || data.address?.id;
   const amount = data.amount || data.value;
   const asset = data.asset?.symbol?.toLowerCase() || 'usdc';
@@ -153,9 +152,297 @@ async function handleDeposit(data: any) {
     data: { txHash, amount, asset },
   });
 
-  // TODO: Send push notification via APNs/FCM
   logger.info('Deposit processed successfully', { userId: user.id, amount, asset });
 }
+
+/**
+ * Handle Payment Link Deposit (Auto-Withdrawal flow)
+ */
+async function handlePaymentLinkDeposit(data: any) {
+    const { documentId, userId } = data.metadata;
+    const amount = parseFloat(data.amount || data.value);
+    const asset = data.asset?.symbol?.toUpperCase() || 'USDC';
+    const txHash = data.txHash || data.hash;
+
+    logger.info('Processing Payment Link Deposit', { 
+        documentId, 
+        userId,
+        amount, 
+        asset,
+        txHash,
+        assetInfo: {
+            id: data.asset?.id || data.assetId,
+            symbol: data.asset?.symbol,
+            name: data.asset?.name,
+            decimals: data.asset?.decimals
+        }
+    });
+
+    // 1. Mark Document as PAID
+    const { data: currentDoc } = await supabase.from('documents').select('*').eq('id', documentId).single();
+    if (currentDoc) {
+        await supabase.from('documents').update({
+            status: 'PAID',
+            content: {
+                ...currentDoc.content,
+                paid_at: new Date().toISOString(),
+                tx_hash: txHash,
+                payment_token: asset,
+                paid_amount: amount,
+                blockradar_tx_id: data.id
+            }
+        }).eq('id', documentId);
+        logger.info('Document marked as PAID', { documentId });
+    }
+
+    // 2. Calculate Fees
+    const PLATFORM_FEE_PERCENT = 0.005; // 0.5%
+    const platformFee = amount * PLATFORM_FEE_PERCENT;
+    const freelancerAmount = amount - platformFee;
+
+    logger.info('Fee calculation', {
+        totalAmount: amount,
+        platformFee,
+        freelancerAmount,
+        feePercent: '0.5%'
+    });
+
+    // 3. Get Freelancer Wallet (Privy)
+    const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id, email, ethereum_wallet_address, solana_wallet_address')
+        .eq('id', userId)
+        .single();
+
+    if (userError) {
+        logger.error('Database error fetching user', { userId, error: userError.message });
+        return;
+    }
+
+    if (!user) {
+        logger.error('User not found for auto-withdrawal', { userId });
+        return;
+    }
+
+    logger.info('User wallet info', {
+        userId: user.id,
+        email: user.email,
+        ethereumWallet: user.ethereum_wallet_address || 'NOT SET',
+        solanaWallet: user.solana_wallet_address || 'NOT SET'
+    });
+
+    if (!user.ethereum_wallet_address) {
+        logger.error('Freelancer Ethereum wallet not found - cannot process auto-withdrawal', { 
+            userId,
+            email: user.email,
+            message: 'User needs to complete wallet setup in biometrics screen'
+        });
+        
+        // Create notification for user to complete wallet setup
+        await supabase.from('notifications').insert({
+            user_id: userId,
+            type: 'PAYMENT_RECEIVED',
+            title: 'Payment Received - Action Required',
+            message: `You received ${amount} ${asset} but your wallet is not set up. Please complete your profile setup to receive funds.`,
+            data: { documentId, amount, asset, txHash }
+        });
+        
+        return;
+    }
+
+    // 4. Get correct asset ID from Blockradar wallet
+    let assetId = data.asset?.id || data.assetId;
+    
+    logger.info('Asset ID from webhook', { assetId, symbol: data.asset?.symbol });
+    
+    // Always fetch and validate asset ID from wallet to ensure it's correct
+    try {
+        const assets = await BlockradarService.getAssets();
+        logger.info('Available assets in wallet', { 
+            count: assets.length,
+            assets: assets.map(a => ({ 
+                id: a.id, 
+                symbol: a.symbol, 
+                name: a.name,
+                fullAsset: a // Log full asset object to see structure
+            }))
+        });
+        
+        // Try to find USDC by symbol or name
+        let usdcAsset = assets.find(a => 
+            a.symbol?.toLowerCase() === 'usdc' || 
+            a.name?.toLowerCase().includes('usd coin')
+        );
+        
+        // If not found by symbol/name, check if there's an asset property
+        if (!usdcAsset && assets.length > 0) {
+            logger.info('Checking asset.asset property', {
+                firstAsset: assets[0]
+            });
+            
+            usdcAsset = assets.find(a => 
+                a.asset?.symbol?.toLowerCase() === 'usdc' || 
+                a.asset?.name?.toLowerCase().includes('usd coin')
+            );
+        }
+        
+        // If still not found, use the first asset as fallback (assuming it's USDC)
+        if (!usdcAsset && assets.length > 0) {
+            logger.warn('USDC not found by symbol/name, using first asset as fallback', {
+                assetId: assets[0].id
+            });
+            usdcAsset = assets[0];
+        }
+        
+        if (usdcAsset) {
+            if (assetId !== usdcAsset.id) {
+                logger.warn('Asset ID mismatch - using correct ID from wallet', {
+                    webhookAssetId: assetId,
+                    correctAssetId: usdcAsset.id
+                });
+            }
+            assetId = usdcAsset.id;
+            logger.info('Using asset ID from wallet', { 
+                assetId, 
+                symbol: usdcAsset.symbol || usdcAsset.asset?.symbol || 'unknown'
+            });
+        } else {
+            logger.error('No assets found in wallet');
+        }
+    } catch (assetError: any) {
+        logger.error('Failed to fetch assets from wallet', { error: assetError.message });
+    }
+    
+    if (!assetId) {
+        logger.error('Cannot determine asset ID for withdrawal');
+        await supabase.from('notifications').insert({
+            user_id: userId,
+            type: 'PAYMENT_FAILED',
+            title: 'Payment Processing Error',
+            message: `Received ${amount} ${asset} but cannot process withdrawal. Please contact support.`,
+            data: { documentId, amount, asset, error: 'Invalid asset ID' }
+        });
+        return;
+    }
+
+    // 5. Initiate Withdrawal to Freelancer
+    try {
+        const withdraw = await BlockradarService.withdraw({
+            toAddress: user.ethereum_wallet_address,
+            amount: freelancerAmount.toString(),
+            assetId: assetId,
+            metadata: {
+                documentId,
+                userId,
+                type: 'PAYMENT_SETTLEMENT'
+            }
+        });
+        
+        logger.info('Auto-withdrawal initiated successfully', { 
+            withdrawId: withdraw.id, 
+            amount: freelancerAmount,
+            toAddress: user.ethereum_wallet_address,
+            status: withdraw.status
+        });
+        
+        // Log transaction (Payout)
+        await supabase.from('transactions').insert({
+            user_id: userId,
+            type: 'PAYMENT_RECEIVED',
+            status: 'PROCESSING',
+            chain: 'BASE',
+            tx_hash: withdraw.txHash || 'pending',
+            to_address: user.ethereum_wallet_address,
+            amount: freelancerAmount,
+            token: asset,
+            platform_fee: platformFee,
+            timestamp: new Date().toISOString(),
+            metadata: {
+                blockradar_withdrawal_id: withdraw.id,
+                source_document_id: documentId
+            }
+        });
+        
+        // Create success notification
+        await supabase.from('notifications').insert({
+            user_id: userId,
+            type: 'PAYMENT_RECEIVED',
+            title: 'Payment Received',
+            message: `${freelancerAmount.toFixed(2)} ${asset} is being sent to your wallet`,
+            data: { 
+                documentId, 
+                amount: freelancerAmount, 
+                asset, 
+                txHash: withdraw.txHash,
+                withdrawalId: withdraw.id
+            }
+        });
+
+    } catch (error: any) {
+        logger.error('Failed to initiate auto-withdrawal', { 
+            error: error.message,
+            userId,
+            amount: freelancerAmount,
+            toAddress: user.ethereum_wallet_address
+        });
+        
+        // Create error notification
+        await supabase.from('notifications').insert({
+            user_id: userId,
+            type: 'PAYMENT_FAILED',
+            title: 'Payment Processing Error',
+            message: `Failed to send ${freelancerAmount.toFixed(2)} ${asset} to your wallet. Please contact support.`,
+            data: { documentId, amount, asset, error: error.message }
+        });
+    }
+}
+
+      case 'deposit.pending':
+        logger.info('Deposit pending', { 
+          addressId: event.data?.addressId,
+          amount: event.data?.amount 
+        });
+        break;
+
+      case 'withdrawal.success':
+      case 'withdrawal.confirmed':
+        await handleWithdrawal(event.data);
+        break;
+
+      case 'withdrawal.failed':
+        await handleWithdrawalFailed(event.data);
+        break;
+
+      case 'sweep.success':
+        logger.info('Auto-sweep completed', {
+          txHash: event.data?.txHash,
+          amount: event.data?.amount,
+        });
+        break;
+
+      case 'sweep.failed':
+        logger.error('Auto-sweep failed', {
+          addressId: event.data?.addressId,
+          error: event.data?.error,
+        });
+        break;
+
+      default:
+        logger.info('Unhandled webhook event type', { type: eventType });
+    }
+
+    return res.status(200).json({ received: true });
+  } catch (error) {
+    logger.error('Blockradar webhook processing error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    // Return 200 to prevent webhook retries for processing errors
+    return res.status(200).json({ received: true, error: 'Processing error' });
+  }
+});
+
+
+
 
 /**
  * Handle successful withdrawal
@@ -224,4 +511,8 @@ async function handleWithdrawalFailed(data: any) {
   }
 }
 
+
+/**
+ * Handle Payment Link Deposit (Auto-Withdrawal flow)
+ */
 export default router;

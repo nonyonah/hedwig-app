@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
 import { Wallet, CheckCircle, ArrowSquareOut, CurrencyCircleDollar } from '@phosphor-icons/react';
@@ -42,9 +43,15 @@ interface PaymentLinkData {
         ethereum_wallet_address?: string;
         solana_wallet_address?: string;
     };
+    content?: {
+        blockradar_url?: string;
+        [key: string]: any;
+    };
 }
 
 type ChainId = 'base' | 'baseSepolia' | 'celo' | 'solana';
+
+
 
 export default function PaymentLinkPage() {
     const { id } = useParams<{ id: string }>();
@@ -68,14 +75,14 @@ export default function PaymentLinkPage() {
             try {
                 setLoading(true);
                 const apiUrl = import.meta.env.VITE_API_URL || '';
-                const response = await fetch(`${apiUrl}/api/documents/${id}`);
+                const response = await fetch(`${apiUrl} /api/documents / ${id} `);
 
                 if (!response.ok) {
                     throw new Error('Payment link not found');
                 }
 
                 const data = await response.json();
-                // Backend returns { success: true, data: { document: {...} } }
+                // Backend returns {success: true, data: {document: {...} } }
                 const doc = data.data?.document || data.data || data;
                 setPaymentLink(doc);
 
@@ -151,7 +158,7 @@ export default function PaymentLinkPage() {
                 const platformFee = BigInt(Math.floor(Number(totalTokenAmount) * feePercent));
                 const merchantAmount = totalTokenAmount - platformFee;
 
-                console.log(`[Solana USDC] Total: ${totalTokenAmount}, Merchant: ${merchantAmount}, Platform: ${platformFee} (${feePercent * 100}%)`);
+                console.log(`[Solana USDC]Total: ${totalTokenAmount}, Merchant: ${merchantAmount}, Platform: ${platformFee} (${feePercent * 100}%)`);
 
                 // Get Associated Token Accounts
                 const senderATA = await getAssociatedTokenAddress(senderPubkey, mintPubkey);
@@ -178,7 +185,7 @@ export default function PaymentLinkPage() {
                 // Add USDC transfer to platform
                 transaction.add(createTokenTransferInstruction(senderATA, platformATA, senderPubkey, platformFee));
             } else {
-                throw new Error(`${currency} is not supported on Solana. Please use USDC.`);
+                throw new Error(`${currency} is not supported on Solana.Please use USDC.`);
             }
 
             // Get recent blockhash
@@ -210,7 +217,7 @@ export default function PaymentLinkPage() {
 
             // Update backend
             const apiUrl = import.meta.env.VITE_API_URL || '';
-            await fetch(`${apiUrl}/api/documents/${id}/pay`, {
+            await fetch(`${apiUrl} /api/documents / ${id}/pay`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -425,7 +432,7 @@ export default function PaymentLinkPage() {
     }
 
     // Success state
-    if (showSuccess && txHash) {
+    if (showSuccess) {
         return (
             <div className="page-container">
                 <div className="payment-card success-card">
@@ -435,14 +442,16 @@ export default function PaymentLinkPage() {
                     <p className="success-message">
                         Your payment has been sent to {merchantName}
                     </p>
-                    <a
-                        href={getExplorerUrl(txHash)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="view-tx-button"
-                    >
-                        View Transaction <ArrowSquareOut size={16} />
-                    </a>
+                    {txHash && (
+                        <a
+                            href={getExplorerUrl(txHash)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="view-tx-button"
+                        >
+                            View Transaction <ArrowSquareOut size={16} />
+                        </a>
+                    )}
                 </div>
                 <div className="footer">Secured by Hedwig</div>
             </div>
@@ -492,54 +501,66 @@ export default function PaymentLinkPage() {
                         </span>
                     </div>
 
-                    <div className="detail-row">
-                        <span className="detail-label">Network</span>
-                        <div className="chain-selector">
-                            <button
-                                className={`chain-option ${selectedChain === 'baseSepolia' ? 'active' : ''}`}
-                                onClick={() => setSelectedChain('baseSepolia')}
-                            >
-                                <img src="/assets/icons/networks/base.png" alt="Base" className="chain-icon" />
-                                Base Sepolia
-                            </button>
-                            <button
-                                className={`chain-option ${selectedChain === 'solana' ? 'active' : ''}`}
-                                onClick={() => setSelectedChain('solana')}
-                            >
-                                <img src="/assets/icons/networks/solana.png" alt="Solana" className="chain-icon" />
-                                Solana
-                            </button>
+                    {!paymentLink.content?.blockradar_url && (
+                        <div className="detail-row">
+                            <span className="detail-label">Network</span>
+                            <div className="chain-selector">
+                                <button
+                                    className={`chain-option ${selectedChain === 'baseSepolia' ? 'active' : ''}`}
+                                    onClick={() => setSelectedChain('baseSepolia')}
+                                >
+                                    <img src="/assets/icons/networks/base.png" alt="Base" className="chain-icon" />
+                                    Base Sepolia
+                                </button>
+                                <button
+                                    className={`chain-option ${selectedChain === 'solana' ? 'active' : ''}`}
+                                    onClick={() => setSelectedChain('solana')}
+                                >
+                                    <img src="/assets/icons/networks/solana.png" alt="Solana" className="chain-icon" />
+                                    Solana
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
-                <button
-                    className={`pay-button ${isPaying ? 'loading' : ''}`}
-                    onClick={selectedChain === 'solana' || isConnected ? handlePayment : handleConnectWallet}
-                    disabled={isPaying}
-                >
-                    {isPaying ? (
-                        <>
-                            <div className="button-spinner"></div>
-                            <span>Processing...</span>
-                        </>
-                    ) : selectedChain === 'solana' ? (
-                        <>
-                            <Wallet size={20} weight="bold" />
-                            <span>Pay with Phantom</span>
-                        </>
-                    ) : isConnected ? (
-                        <>
-                            <Wallet size={20} weight="bold" />
-                            <span>Pay with wallet</span>
-                        </>
-                    ) : (
-                        <>
-                            <Wallet size={20} weight="bold" />
-                            <span>Connect Wallet</span>
-                        </>
-                    )}
-                </button>
+                {paymentLink.content?.blockradar_url ? (
+                    <button
+                        className="pay-button"
+                        onClick={() => window.location.href = paymentLink!.content!.blockradar_url!}
+                    >
+                        <Wallet size={20} weight="bold" />
+                        <span>Pay with Crypto</span>
+                    </button>
+                ) : (
+                    <button
+                        className={`pay-button ${isPaying ? 'loading' : ''}`}
+                        onClick={selectedChain === 'solana' || isConnected ? handlePayment : handleConnectWallet}
+                        disabled={isPaying}
+                    >
+                        {isPaying ? (
+                            <>
+                                <div className="button-spinner"></div>
+                                <span>Processing...</span>
+                            </>
+                        ) : selectedChain === 'solana' ? (
+                            <>
+                                <Wallet size={20} weight="bold" />
+                                <span>Pay with Phantom</span>
+                            </>
+                        ) : isConnected ? (
+                            <>
+                                <Wallet size={20} weight="bold" />
+                                <span>Pay with wallet</span>
+                            </>
+                        ) : (
+                            <>
+                                <Wallet size={20} weight="bold" />
+                                <span>Connect Wallet</span>
+                            </>
+                        )}
+                    </button>
+                )}
 
                 {isConnected && address && (
                     <div className="connected-status">

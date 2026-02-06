@@ -7,6 +7,7 @@ import { getOrCreateUser } from '../utils/userHelper';
 import NotificationService from '../services/notifications';
 import { createCalendarEventFromSource, markCalendarEventCompleted } from './calendar';
 import { createLogger } from '../utils/logger';
+import BlockradarService from '../services/blockradar';
 
 const logger = createLogger('Documents');
 
@@ -109,8 +110,46 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             );
         }
 
+        // Generate BlockRadar Payment Link for Invoice
+        let blockradarUrl = '';
+        try {
+            const brLink = await BlockradarService.createPaymentLink({
+                name: `Invoice ${doc.id.substring(0, 8)} for ${clientName || 'Client'}`,
+                amount: amount.toString(),
+                currency: 'USD', // Invoices often in USD, BlockRadar handles conversion or stablecoin payment
+                metadata: {
+                    documentId: doc.id,
+                    userId: user.id,
+                    type: 'INVOICE'
+                }
+            });
+            blockradarUrl = brLink.url;
+            logger.info('Generated BlockRadar link for Invoice', { docId: doc.id, url: blockradarUrl });
+        } catch (brError: any) {
+            logger.error('Failed to create BlockRadar link', { error: brError });
+            console.error('[BlockRadar Debug] Failed to create link:', brError?.response?.data || brError.message);
+        }
+
         // Generate shareable Vercel URL for the invoice
         const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
+        
+        // Update document with BlockRadar URL
+        if (blockradarUrl) {
+            await supabase
+                .from('documents')
+                .update({ 
+                    content: {
+                        ...doc.content,
+                        blockradar_url: blockradarUrl
+                    }
+                })
+                .eq('id', doc.id);
+            
+            // Update local object for response
+            if (doc.content) {
+                (doc.content as any).blockradar_url = blockradarUrl;
+            }
+        }
 
         // Send email if recipient provided
         if (doc && recipientEmail) {
@@ -229,11 +268,37 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
 
         if (error) throw error;
 
+        // Generate BlockRadar Payment Link
+        let blockradarUrl = '';
+        try {
+            const brLink = await BlockradarService.createPaymentLink({
+                name: description || `Payment for ${clientName}`,
+                amount: amount.toString(),
+                currency: currency || 'USDC',
+                metadata: {
+                    documentId: doc.id,
+                    userId: user.id,
+                    type: 'PAYMENT_LINK'
+                }
+            });
+            blockradarUrl = brLink.url;
+            logger.info('Generated BlockRadar link', { docId: doc.id, url: blockradarUrl });
+        } catch (brError: any) {
+            logger.error('Failed to create BlockRadar link', { error: brError });
+            console.error('[BlockRadar Debug] Failed to create payment link:', brError?.response?.data || brError.message);
+        }
+
         // Update with the shareable Vercel URL now that we have the document ID
         const shareableUrl = `${WEB_CLIENT_URL}/pay/${doc.id}`;
         await supabase
             .from('documents')
-            .update({ payment_link_url: shareableUrl })
+            .update({ 
+                payment_link_url: shareableUrl,
+                content: {
+                    ...doc.content,
+                    blockradar_url: blockradarUrl
+                }
+            })
             .eq('id', doc.id);
 
         // Auto-create calendar event for payment link
@@ -807,7 +872,7 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
         }
 
         // Mark associated calendar event as completed
-        await markCalendarEventCompleted('invoice', id);
+        await markCalendarEventCompleted('invoice', id as string);
 
         res.json({
             success: true,

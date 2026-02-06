@@ -7,6 +7,8 @@ const {
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getSentryExpoConfig(__dirname);
 
+
+
 config.resolver.extraNodeModules = {
     ...config.resolver.extraNodeModules,
     crypto: require.resolve('./crypto-shim.js'),
