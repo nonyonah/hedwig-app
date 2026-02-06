@@ -255,13 +255,39 @@ export default function InvoicePage() {
             const hedwigContractAddress = HEDWIG_CONTRACTS[evmChain as keyof typeof HEDWIG_CONTRACTS];
 
             if (selectedToken === 'ETH') {
-                // Native ETH transfer (no smart contract, direct transfer)
+                // Native ETH transfer - Direct (Fee disabled)
                 const amountWei = parseUnits(invoice.amount.toString(), 18);
+
+                console.log('[EVM Native] Direct payment (Fees disabled):', {
+                    to: recipientAddress,
+                    amount: amountWei.toString()
+                });
+
+                console.log('Sending to freelancer...');
                 const tx = await signer.sendTransaction({
                     to: recipientAddress,
                     value: amountWei,
                 });
                 await tx.wait();
+
+                finalTxHash = tx.hash;
+                setTxHash(tx.hash);
+            } else if (tokenAddress) {
+                // ERC20 Transfer - Direct (Fee disabled), skip HedwigPayment contract
+                const tokenContract = new Contract(tokenAddress, ERC20_ABI, signer);
+                const decimals = await tokenContract.decimals();
+                const amountInUnits = parseUnits(invoice.amount.toString(), decimals);
+
+                console.log('[EVM ERC20] Direct payment (Fees disabled):', {
+                    token: tokenAddress,
+                    amount: amountInUnits.toString(),
+                    to: recipientAddress
+                });
+
+                console.log('[Payment] Sending tokens directly to freelancer...');
+                const tx = await tokenContract.transfer(recipientAddress, amountInUnits);
+                await tx.wait();
+
                 finalTxHash = tx.hash;
                 setTxHash(tx.hash);
             } else if (tokenAddress && hedwigContractAddress) {

@@ -270,13 +270,42 @@ export default function PaymentLinkPage() {
             const hedwigContractAddress = HEDWIG_CONTRACTS[evmChain as keyof typeof HEDWIG_CONTRACTS];
 
             if (selectedToken === 'ETH') {
-                const amountWei = parseUnits(paymentLink.amount.toString(), 18);
+                // Native ETH transfer - Manual 0.5% / 99.5% split
+                const EVM_PLATFORM_WALLET = '0x72e9193B11BF60E8E79B346126545f1B98Ff8496';
+                const totalWei = parseUnits(paymentLink.amount.toString(), 18);
+                const platformFee = totalWei * 5n / 1000n; // 0.5% (5/1000)
+                const freelancerAmount = totalWei - platformFee;
+
+                console.log('[EVM Native] Split payment:', {
+                    total: totalWei.toString(),
+                    toFreelancer: freelancerAmount.toString(),
+                    toPlatform: platformFee.toString()
+                });
+
+                // First transfer: 99.5% to freelancer
+                // Update UI to show status
+                const originalText = (document.querySelector('.pay-button span') as HTMLElement)?.innerText;
+                const payButton = document.querySelector('.pay-button') as HTMLButtonElement;
+
+                // We can't easily update React state from here without triggering re-renders, 
+                // but we can proceed with the sequence.
+
+                console.log('Sending to freelancer...');
                 const tx = await signer.sendTransaction({
                     to: recipientAddress,
-                    value: amountWei,
+                    value: freelancerAmount,
                 });
                 await tx.wait();
-                finalTxHash = tx.hash;
+
+                // Second transfer: 0.5% to platform
+                console.log('Sending platform fee...');
+                const platformTx = await signer.sendTransaction({
+                    to: EVM_PLATFORM_WALLET,
+                    value: platformFee
+                });
+                await platformTx.wait();
+
+                finalTxHash = tx.hash; // Use the main transfer hash for record
                 setTxHash(tx.hash);
             } else if (tokenAddress && hedwigContractAddress) {
                 const tokenContract = new Contract(tokenAddress, ERC20_ABI, signer);

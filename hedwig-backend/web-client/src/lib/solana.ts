@@ -2,7 +2,7 @@
  * Solana Payment Utilities
  * 
  * Provides functions for SPL token transfers and atomic split payments on Solana.
- * Platform fee: 0.5% for amounts > $1000, 1% for amounts <= $1000
+ * Platform fee: Currently disabled (0%)
  */
 
 import { Connection, PublicKey, Transaction, TransactionInstruction, SystemProgram } from '@solana/web3.js';
@@ -24,7 +24,7 @@ export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZb
  * @returns Fee percentage (0.005 for >$1000, 0.01 for <=$1000)
  */
 export function calculateFeePercent(amount: number): number {
-    return amount > 1000 ? 0.005 : 0.01;
+    return 0; // Fee disabled temporarily
 }
 
 /**
@@ -42,7 +42,7 @@ export function calculatePlatformFee(amount: number): number {
  * @returns Display string like "0.5%" or "1%"
  */
 export function getFeeDisplayText(amount: number): string {
-    return amount > 1000 ? '0.5%' : '1%';
+    return '0%';
 }
 
 /**
@@ -143,22 +143,17 @@ export async function createSolanaUSDCSplitTransaction(
     merchantPubkey: PublicKey,
     amount: number
 ): Promise<Transaction> {
-    const platformPubkey = new PublicKey(SOLANA_PLATFORM_WALLET);
     const mintPubkey = new PublicKey(SOLANA_USDC_MINT);
     const transaction = new Transaction();
 
-    // Calculate split amounts with dynamic fee
-    const feePercent = calculateFeePercent(amount);
+    // 100% to merchant (Fee disabled)
     const totalTokenAmount = BigInt(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
-    const platformFee = BigInt(Math.floor(Number(totalTokenAmount) * feePercent));
-    const merchantAmount = totalTokenAmount - platformFee;
-
-    console.log(`[Solana USDC Split] Total: ${totalTokenAmount}, Merchant: ${merchantAmount}, Platform: ${platformFee} (${feePercent * 100}%)`);
+    
+    console.log(`[Solana USDC] Total: ${totalTokenAmount} (Fees disabled)`);
 
     // Get Associated Token Accounts
     const senderATA = await getAssociatedTokenAddress(senderPubkey, mintPubkey);
     const merchantATA = await getAssociatedTokenAddress(merchantPubkey, mintPubkey);
-    const platformATA = await getAssociatedTokenAddress(platformPubkey, mintPubkey);
 
     // Check if merchant ATA exists, create if not
     if (!(await accountExists(connection, merchantATA))) {
@@ -172,35 +167,13 @@ export async function createSolanaUSDCSplitTransaction(
         );
     }
 
-    // Check if platform ATA exists, create if not
-    if (!(await accountExists(connection, platformATA))) {
-        transaction.add(
-            createAssociatedTokenAccountInstruction(
-                senderPubkey,
-                platformATA,
-                platformPubkey,
-                mintPubkey
-            )
-        );
-    }
-
-    // Add USDC transfer to merchant
+    // Add USDC transfer to merchant (100%)
     transaction.add(
         createTokenTransferInstruction(
             senderATA,
             merchantATA,
             senderPubkey,
-            merchantAmount
-        )
-    );
-
-    // Add USDC transfer to platform
-    transaction.add(
-        createTokenTransferInstruction(
-            senderATA,
-            platformATA,
-            senderPubkey,
-            platformFee
+            totalTokenAmount
         )
     );
 
@@ -215,32 +188,19 @@ export function createSolanaSOLSplitTransaction(
     merchantPubkey: PublicKey,
     amount: number
 ): Transaction {
-    const platformPubkey = new PublicKey(SOLANA_PLATFORM_WALLET);
     const transaction = new Transaction();
 
-    // Calculate split amounts with dynamic fee
-    const feePercent = calculateFeePercent(amount);
+    // 100% to merchant (Fee disabled)
     const totalLamports = BigInt(Math.floor(amount * LAMPORTS_PER_SOL));
-    const platformFee = BigInt(Math.floor(Number(totalLamports) * feePercent));
-    const merchantAmount = totalLamports - platformFee;
-
-    console.log(`[Solana SOL Split] Total: ${totalLamports}, Merchant: ${merchantAmount}, Platform: ${platformFee} (${feePercent * 100}%)`);
+    
+    console.log(`[Solana SOL] Total: ${totalLamports} (Fees disabled)`);
 
     // Transfer to merchant
     transaction.add(
         SystemProgram.transfer({
             fromPubkey: senderPubkey,
             toPubkey: merchantPubkey,
-            lamports: merchantAmount
-        })
-    );
-
-    // Transfer to platform
-    transaction.add(
-        SystemProgram.transfer({
-            fromPubkey: senderPubkey,
-            toPubkey: platformPubkey,
-            lamports: platformFee
+            lamports: totalLamports
         })
     );
 
