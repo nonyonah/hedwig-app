@@ -198,7 +198,7 @@ async function handlePaymentLinkDeposit(data: any) {
     // 2. Calculate Fees
     const PLATFORM_FEE_PERCENT = 0.005; // 0.5%
     const platformFee = amount * PLATFORM_FEE_PERCENT;
-    const freelancerAmount = amount - platformFee;
+    let freelancerAmount = amount - platformFee;
 
     logger.info('Fee calculation', {
         totalAmount: amount,
