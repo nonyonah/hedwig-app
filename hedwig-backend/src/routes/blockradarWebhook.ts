@@ -231,10 +231,28 @@ async function handlePaymentLinkDeposit(data: any) {
         solanaWallet: user.solana_wallet_address || 'NOT SET'
     });
 
-    if (!user.ethereum_wallet_address) {
-        logger.error('Freelancer Ethereum wallet not found - cannot process auto-withdrawal', { 
+    // Detect Chain from Asset
+    // Blockradar assets usually have a 'blockchain' or 'network' field, or we infer from symbol
+    // data.asset might look like: { id, symbol, name, blockchain: { name: 'Solana', symbol: 'SOL' } }
+    let isSolana = false;
+    
+    // Check asset metadata from webhook first
+    if (data.asset?.blockchain?.name?.toLowerCase() === 'solana' || 
+        data.asset?.blockchain?.symbol?.toLowerCase() === 'sol' ||
+        data.asset?.network?.toLowerCase() === 'solana') {
+        isSolana = true;
+    }
+    // Fallback: Check symbol directly if blockchain info is missing (e.g. USDC on Solana might not be obvious without checking network)
+    // However, usually the webhook provides enough info. If not, we'll verify with the wallet asset fetch below.
+
+    const destinationAddress = isSolana ? user.solana_wallet_address : user.ethereum_wallet_address;
+    const requiredNetwork = isSolana ? 'Solana' : 'Ethereum/Base';
+
+    if (!destinationAddress) {
+        logger.error(`Freelancer ${requiredNetwork} wallet not found - cannot process auto-withdrawal`, { 
             userId,
             email: user.email,
+            isSolana,
             message: 'User needs to complete wallet setup in biometrics screen'
         });
         
@@ -243,8 +261,8 @@ async function handlePaymentLinkDeposit(data: any) {
             user_id: userId,
             type: 'PAYMENT_RECEIVED',
             title: 'Payment Received - Action Required',
-            message: `You received ${amount} ${asset} but your wallet is not set up. Please complete your profile setup to receive funds.`,
-            data: { documentId, amount, asset, txHash }
+            message: `You received ${amount} ${asset} on ${requiredNetwork} but your wallet is not set up. Please complete your profile setup to receive funds.`,
+            data: { documentId, amount, asset, txHash, network: requiredNetwork }
         });
         
         return;
@@ -302,9 +320,23 @@ async function handlePaymentLinkDeposit(data: any) {
                 });
             }
             assetId = usdcAsset.id;
+            
+            // Re-verify network from the fetched asset if we weren't sure before
+            if (usdcAsset.blockchain?.name?.toLowerCase() === 'solana' || 
+                usdcAsset.blockchain?.symbol?.toLowerCase() === 'sol' ||
+                usdcAsset.network?.toLowerCase() === 'solana') {
+                isSolana = true;
+                // Re-check address requirement if network changed (unlikely but safe)
+                if (!user.solana_wallet_address) {
+                     logger.error('Freelancer Solana wallet not found after asset verification', { userId });
+                     return; // Notification already sent or generic error
+                }
+            }
+
             logger.info('Using asset ID from wallet', { 
                 assetId, 
-                symbol: usdcAsset.symbol || usdcAsset.asset?.symbol || 'unknown'
+                symbol: usdcAsset.symbol || usdcAsset.asset?.symbol || 'unknown',
+                isSolana
             });
         } else {
             logger.error('No assets found in wallet');
@@ -325,10 +357,39 @@ async function handlePaymentLinkDeposit(data: any) {
         return;
     }
 
-    // 5. Initiate Withdrawal to Freelancer
+    // 5. Check Wallet Balance & Clamp Amount
+    try {
+        if (data.walletId) {
+            const wallet = await BlockradarService.getWallet(data.walletId);
+            const balanceData = wallet.balances?.find((b: any) => b.assetId === assetId);
+            
+            if (balanceData) {
+                const availableBalance = parseFloat(balanceData.balance);
+                // If available balance is slightly less than calculated amount (due to gas/fees), clamp it
+                // We leave a tiny buffer for gas if needed, but Blockradar usually handles fees
+                if (availableBalance < freelancerAmount && availableBalance > 0) {
+                     logger.warn('Insufficient balance for full withdrawal, clamping amount', { 
+                        calculated: freelancerAmount, 
+                        available: availableBalance,
+                        diff: freelancerAmount - availableBalance
+                     });
+                     freelancerAmount = availableBalance;
+                }
+            }
+        }
+    } catch (balError) {
+        logger.warn('Failed to fetch wallet balance, proceeding with calculated amount', { error: balError });
+    }
+
+    if (freelancerAmount <= 0) {
+        logger.error('Withdrawal amount is zero or negative after clamping', { freelancerAmount });
+        return;
+    }
+
+    // 6. Initiate Withdrawal to Freelancer
     try {
         const withdraw = await BlockradarService.withdraw({
-            toAddress: user.ethereum_wallet_address,
+            toAddress: destinationAddress,
             amount: freelancerAmount.toString(),
             assetId: assetId,
             metadata: {
@@ -341,7 +402,7 @@ async function handlePaymentLinkDeposit(data: any) {
         logger.info('Auto-withdrawal initiated successfully', { 
             withdrawId: withdraw.id, 
             amount: freelancerAmount,
-            toAddress: user.ethereum_wallet_address,
+            toAddress: destinationAddress,
             status: withdraw.status
         });
         
@@ -350,9 +411,9 @@ async function handlePaymentLinkDeposit(data: any) {
             user_id: userId,
             type: 'PAYMENT_RECEIVED',
             status: 'PROCESSING',
-            chain: 'BASE',
+            chain: isSolana ? 'SOLANA' : 'BASE',
             tx_hash: withdraw.txHash || 'pending',
-            to_address: user.ethereum_wallet_address,
+            to_address: destinationAddress,
             amount: freelancerAmount,
             token: asset,
             platform_fee: platformFee,
@@ -383,7 +444,7 @@ async function handlePaymentLinkDeposit(data: any) {
             error: error.message,
             userId,
             amount: freelancerAmount,
-            toAddress: user.ethereum_wallet_address
+            toAddress: destinationAddress
         });
         
         // Create error notification

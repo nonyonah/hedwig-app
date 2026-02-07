@@ -306,7 +306,14 @@ export default function PaymentLinksScreen() {
                     </View>
                     <View style={styles.iconContainer}>
                         <Image source={ICONS.usdc} style={styles.cardTokenIcon} />
-                        <Image source={getChainIcon(item.chain)} style={[styles.cardChainBadge, { borderColor: themeColors.surface }]} />
+                        <View style={styles.cardChainBadge}>
+                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                <View style={{ flexDirection: 'row' }}>
+                                    <Image source={ICONS.base} style={{ width: 14, height: 14, borderRadius: 7, marginRight: -6, zIndex: 1 }} />
+                                    <Image source={ICONS.solana} style={{ width: 14, height: 14, borderRadius: 7 }} />
+                                </View>
+                            </View>
+                        </View>
                     </View>
                 </View>
 
@@ -533,7 +540,7 @@ export default function PaymentLinksScreen() {
                                                     { text: 'Cancel', style: 'cancel' },
                                                     {
                                                         text: 'Send',
-                                                        onPress: async (email) => {
+                                                        onPress: async (email: any) => {
                                                             if (!email || !email.includes('@')) {
                                                                 Alert.alert('Error', 'Please enter a valid email address');
                                                                 return;
@@ -672,11 +679,11 @@ export default function PaymentLinksScreen() {
                         <View style={styles.detailRow}>
                             <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
                             <View style={styles.chainValue}>
-                                <Image
-                                    source={getChainIcon(selectedLink?.chain)}
-                                    style={styles.smallIcon}
-                                />
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{getChainName(selectedLink?.chain)}</Text>
+                                <View style={{ flexDirection: 'row', marginRight: 6 }}>
+                                    <Image source={ICONS.base} style={[styles.smallIcon, { width: 16, height: 16, marginRight: -6, zIndex: 1 }]} />
+                                    <Image source={ICONS.solana} style={[styles.smallIcon, { width: 16, height: 16 }]} />
+                                </View>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>Multichain</Text>
                             </View>
                         </View>
                     </View>
@@ -686,7 +693,11 @@ export default function PaymentLinksScreen() {
                         onPress={async () => {
                             try {
                                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                const url = `${apiUrl}/pay/${selectedLink.id}`;
+                                // Use the stored BlockRadar URL if available, otherwise fallback to local construction
+                                const url = selectedLink.payment_link_url ||
+                                    selectedLink.content?.blockradar_url ||
+                                    `${apiUrl}/pay/${selectedLink.id}`;
+
                                 await WebBrowser.openBrowserAsync(url, {
                                     presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
                                     controlsColor: Colors.primary,
@@ -809,9 +820,7 @@ const styles = StyleSheet.create({
         right: -2,
         width: 18,
         height: 18,
-        borderRadius: 9,
-        borderWidth: 2,
-        // borderColor: '#FFFFFF', // Overridden
+        // No background or border
     },
     badgeIcon: {
         width: 20,

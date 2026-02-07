@@ -255,13 +255,23 @@ function InvoiceContent() {
                 <View style={[styles.paymentSection, { backgroundColor: themeColors.surface }]}>
                     {/* Network & Token Display */}
                     <View style={styles.selectorsRow}>
-                        <View style={[styles.selectorBadge, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
-                            <Image source={selectedChain.icon} style={styles.selectorIcon} />
-                            <Text style={[styles.selectorText, { color: themeColors.textPrimary }]}>{selectedChain.name}</Text>
+                        <View style={[styles.selectorBadge, { backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0 }]}>
+                            <View style={{ flexDirection: 'row', marginRight: 8 }}>
+                                <Image source={require('../../assets/icons/networks/base.png')} style={[styles.selectorIcon, { marginRight: -8, zIndex: 1 }]} />
+                                <Image source={require('../../assets/icons/networks/solana.png')} style={styles.selectorIcon} />
+                            </View>
+                            <Text style={[styles.selectorText, { color: themeColors.textPrimary }]}>Multichain</Text>
                         </View>
                         <View style={[styles.selectorBadge, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
                             <Image source={selectedToken.icon} style={styles.selectorIcon} />
                             <Text style={[styles.selectorText, { color: themeColors.textPrimary }]}>{selectedToken.symbol}</Text>
+                        </View>
+                        <View style={[styles.networkBadge, { backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0 }]}>
+                            <View style={{ flexDirection: 'row', marginRight: 6 }}>
+                                <Image source={require('../../assets/icons/networks/base.png')} style={[styles.networkIcon, { marginRight: -8, zIndex: 1 }]} />
+                                <Image source={require('../../assets/icons/networks/solana.png')} style={styles.networkIcon} />
+                            </View>
+                            <Text style={[styles.networkText, { color: themeColors.textPrimary }]}>Multichain</Text>
                         </View>
                     </View>
                     <Text style={[styles.networkNotice, { color: themeColors.textSecondary }]}>

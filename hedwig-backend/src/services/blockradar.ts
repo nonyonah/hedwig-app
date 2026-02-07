@@ -143,6 +143,14 @@ class BlockradarService {
   }
 
   /**
+   * Get wallet details including balances
+   */
+  async getWallet(walletId: string): Promise<any> {
+    const response = await this.api.get(`/wallets/${walletId}`);
+    return response.data.data;
+  }
+
+  /**
    * Withdraw from master wallet to an external address
    * Used for offramp to Paycrest
    */
@@ -216,17 +224,37 @@ class BlockradarService {
    */
   async createPaymentLink(params: {
     name: string;
+    description?: string;
     amount?: string;
     currency?: string;
-    memo?: string;
     metadata?: Record<string, any>;
     redirectUrl?: string;
+    successMessage?: string;
   }): Promise<any> {
-    logger.info('Creating Blockradar payment link', { name: params.name, amount: params.amount });
-    const payload = {
-        ...params,
-        metadata: params.metadata ? JSON.stringify(params.metadata) : undefined
+    logger.info('Creating Blockradar payment link', { 
+      name: params.name, 
+      amount: params.amount,
+      description: params.description 
+    });
+    
+    const payload: any = {
+      name: params.name,
+      description: params.description,
+      amount: params.amount,
+      redirectUrl: params.redirectUrl,
+      successMessage: params.successMessage,
+      metadata: params.metadata ? JSON.stringify(params.metadata) : undefined
     };
+    
+    // Remove undefined fields
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === undefined) {
+        delete payload[key];
+      }
+    });
+    
+    logger.info('Blockradar payment link payload', payload);
+    
     const response = await this.api.post('/payment_links', payload);
     return response.data.data;
   }

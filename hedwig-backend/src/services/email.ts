@@ -30,6 +30,7 @@ interface EmailData {
     description?: string;
     linkId: string;
     network?: string;
+    paymentUrl?: string;
 }
 
 export const EmailService = {
@@ -40,7 +41,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const invoiceUrl = `https://hedwig.app/invoice/${data.linkId}`;
+        const invoiceUrl = data.paymentUrl || `https://hedwig.app/invoice/${data.linkId}`;
 
         const html = `
         <!DOCTYPE html>
@@ -100,7 +101,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const paymentUrl = `https://hedwig.app/pay/${data.linkId}`;
+        const paymentUrl = data.paymentUrl || `https://hedwig.app/pay/${data.linkId}`;
 
         const html = `
         <!DOCTYPE html>

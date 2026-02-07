@@ -113,14 +113,23 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
         // Generate BlockRadar Payment Link for Invoice
         let blockradarUrl = '';
         try {
+            // Format items into a memo string
+            const itemsMemo = items && Array.isArray(items) && items.length > 0
+                ? items.map((i: any) => `${i.description} ($${i.amount})`).join(', ')
+                : description || `Invoice for ${clientName || 'Client'}`;
+
             const brLink = await BlockradarService.createPaymentLink({
-                name: `Invoice ${doc.id.substring(0, 8)} for ${clientName || 'Client'}`,
+                name: `Invoice ${doc.id.substring(0, 8)} - ${clientName || 'Client'}`,
+                description: itemsMemo,
                 amount: amount.toString(),
-                currency: 'USD', // Invoices often in USD, BlockRadar handles conversion or stablecoin payment
+                redirectUrl: `${WEB_CLIENT_URL}/invoice/${doc.id}?status=success`,
+                successMessage: `Thank you for your payment! Invoice ${doc.id.substring(0, 8)} has been paid.`,
                 metadata: {
                     documentId: doc.id,
                     userId: user.id,
-                    type: 'INVOICE'
+                    type: 'INVOICE',
+                    clientName: clientName || 'Unknown',
+                    itemCount: items?.length || 0
                 }
             });
             blockradarUrl = brLink.url;
@@ -131,13 +140,14 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
         }
 
         // Generate shareable Vercel URL for the invoice
-        const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
+        const shareableUrl = blockradarUrl || `${WEB_CLIENT_URL}/invoice/${doc.id}`;
         
         // Update document with BlockRadar URL
         if (blockradarUrl) {
             await supabase
                 .from('documents')
                 .update({ 
+                    payment_link_url: shareableUrl, // Store BR link as main link
                     content: {
                         ...doc.content,
                         blockradar_url: blockradarUrl
@@ -170,7 +180,8 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                 amount: amount.toString(),
                 currency: 'USD',
                 description: description || 'Invoice for services',
-                linkId: doc.id
+                linkId: doc.id,
+                paymentUrl: blockradarUrl // Prioritize BlockRadar link
             }));
 
             if (emailSent) {
@@ -272,13 +283,16 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
         let blockradarUrl = '';
         try {
             const brLink = await BlockradarService.createPaymentLink({
-                name: description || `Payment for ${clientName}`,
+                name: `Payment from ${clientName}`,
+                description: description || `Payment request for ${clientName}`,
                 amount: amount.toString(),
-                currency: currency || 'USDC',
+                redirectUrl: `${WEB_CLIENT_URL}/pay/${doc.id}?status=success`,
+                successMessage: `Thank you for your payment!`,
                 metadata: {
                     documentId: doc.id,
                     userId: user.id,
-                    type: 'PAYMENT_LINK'
+                    type: 'PAYMENT_LINK',
+                    clientName: clientName || 'Unknown'
                 }
             });
             blockradarUrl = brLink.url;
@@ -289,7 +303,8 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
         }
 
         // Update with the shareable Vercel URL now that we have the document ID
-        const shareableUrl = `${WEB_CLIENT_URL}/pay/${doc.id}`;
+        // Use BlockRadar URL if available, otherwise fallback to Hedwig URL
+        const shareableUrl = blockradarUrl || `${WEB_CLIENT_URL}/pay/${doc.id}`;
         await supabase
             .from('documents')
             .update({ 
@@ -332,7 +347,8 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 currency: currency || 'USDC',
                 description: description || 'Payment Request',
                 linkId: doc.id,
-                network: 'Base' // defaulting to Base since we mostly support valid tokens there for now, or could extract from currency
+                network: 'Base', // defaulting to Base since we mostly support valid tokens there for now, or could extract from currency
+                paymentUrl: blockradarUrl
             }));
 
             if (emailSent) {

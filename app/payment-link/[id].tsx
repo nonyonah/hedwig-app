@@ -230,9 +230,12 @@ function PaymentLinkContent() {
 
                         <View style={styles.detailRow}>
                             <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Network</Text>
-                            <View style={[styles.networkBadge, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-                                <Image source={selectedChain.icon} style={styles.networkIcon} />
-                                <Text style={[styles.networkText, { color: themeColors.textPrimary }]}>{selectedChain.name}</Text>
+                            <View style={[styles.networkBadge, { backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0 }]}>
+                                <View style={{ flexDirection: 'row', marginRight: 6 }}>
+                                    <Image source={require('../../assets/icons/networks/base.png')} style={[styles.networkIcon, { marginRight: -8, zIndex: 1 }]} />
+                                    <Image source={require('../../assets/icons/networks/solana.png')} style={styles.networkIcon} />
+                                </View>
+                                <Text style={[styles.networkText, { color: themeColors.textPrimary }]}>Multichain</Text>
                             </View>
                         </View>
                     </View>

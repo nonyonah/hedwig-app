@@ -389,22 +389,37 @@ router.post('/test-auto-withdrawal', authenticate, async (req: Request, res: Res
         };
 
         // Check if auto-withdrawal would work
-        if (!user.ethereum_wallet_address) {
-            result.issues.push('No Ethereum wallet address found - user needs to complete biometrics setup');
+        if (!user.ethereum_wallet_address && !user.solana_wallet_address) {
+            result.issues.push('No wallet address found (ETH or SOL) - user needs to complete biometrics setup');
         } else {
             result.autoWithdrawalReady = true;
-            result.withdrawalDetails = {
-                toAddress: user.ethereum_wallet_address,
-                amount: freelancerAmount,
-                chain: 'BASE',
-                asset: 'USDC'
-            };
+            
+            // Default to Base/USDC for test if no specific chain requested
+            // In real flow, this depends on the incoming payment
+            if (user.ethereum_wallet_address) {
+                result.withdrawalDetails = {
+                    toAddress: user.ethereum_wallet_address,
+                    amount: freelancerAmount,
+                    chain: 'BASE',
+                    asset: 'USDC',
+                    note: 'Primary ETH wallet available'
+                };
+            } else if (user.solana_wallet_address) {
+                 result.withdrawalDetails = {
+                    toAddress: user.solana_wallet_address,
+                    amount: freelancerAmount,
+                    chain: 'SOLANA',
+                    asset: 'USDC',
+                    note: 'Solana wallet available'
+                };
+            }
         }
 
         logger.info('Auto-withdrawal test result', {
             userId: user.id,
             ready: result.autoWithdrawalReady,
-            hasEthWallet: !!user.ethereum_wallet_address
+            hasEthWallet: !!user.ethereum_wallet_address,
+            hasSolWallet: !!user.solana_wallet_address
         });
 
         res.json({

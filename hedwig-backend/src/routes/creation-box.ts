@@ -13,7 +13,7 @@ const router = Router();
  */
 router.post('/parse', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { text, currentDate } = req.body;
+        const { text, currentDate, mode } = req.body;
 
         if (!text || typeof text !== 'string') {
             res.status(400).json({
@@ -26,11 +26,34 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
         // Use provided currentDate or fallback to server time
         const referenceDate = currentDate ? new Date(currentDate) : new Date();
         
-        logger.debug('[CreationBox] Parsing input', { textLength: text.length, text, referenceDate: referenceDate.toISOString() });
+        logger.debug('[CreationBox] Parsing input', { textLength: text.length, text, referenceDate: referenceDate.toISOString(), mode });
 
         // Build prompt with date context for accurate relative date parsing
         const dateContext = `Today is ${referenceDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Current time: ${referenceDate.toLocaleTimeString('en-US')}.`;
-        const enrichedText = `${dateContext}\n\nUser input: ${text}`;
+        
+        let modeInstruction = '';
+        if (mode === 'payment_link') {
+            modeInstruction = `
+User has explicitly selected PAYMENT LINK mode.
+EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient].
+- Extract 'title' from the text (do not use generic "Payment Link" if a specific title is provided).
+- Extract 'amount' and 'currency'.
+- Extract 'recipient' (email or name).
+- Intent MUST be 'payment_link'.
+`;
+        } else if (mode === 'invoice') {
+            modeInstruction = `
+User has explicitly selected INVOICE mode.
+EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
+- Extract 'title' for the invoice.
+- Extract 'amount' and 'currency'.
+- Extract 'recipient' (email or name).
+- Extract 'items' if listed.
+- Intent MUST be 'invoice'.
+`;
+        }
+
+        const enrichedText = `${dateContext}\n${modeInstruction}\nUser input: ${text}`;
         
         // Use Gemini's chat response which includes system instructions for intent recognition
         // This will properly detect intents like invoice, payment_link, contract, etc.
@@ -54,7 +77,7 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             recipient?: string | null;
             parameters?: any;
         } = {
-            intent: 'unknown',
+            intent: mode || 'unknown', // Default to mode if provided
             clientName: null,
             clientEmail: null,
             amount: null,
@@ -82,7 +105,7 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
                 logger.debug('[CreationBox] Extracted JSON', { extracted });
 
                 // Map Gemini response to our format
-                parsedData.intent = extracted.intent || parsedData.intent;
+                parsedData.intent = mode || extracted.intent || parsedData.intent; // Prioritize explicit mode
                 
                 // Extract parameters if available
                 if (extracted.parameters) {
@@ -168,20 +191,23 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             } else {
                 logger.warn('[CreationBox] No JSON found in response, using defaults');
                 // Try to extract basic info from text
+                // Only use fallbacks if mode isn't set or if we need to fill gaps
+                
                 parsedData.title = null;
                 
-                // Simple intent detection
-                const lowerText = text.toLowerCase();
-                if (lowerText.includes('payment link') || lowerText.includes('pay link')) {
-                    parsedData.intent = 'payment_link';
-                    parsedData.title = 'Payment Link'; // Default title instead of null/prompt
-                } else if (lowerText.includes('invoice')) {
-                    parsedData.intent = 'invoice'; 
-                    parsedData.title = 'Invoice'; // Default title instead of null/prompt
-                } else if (lowerText.includes('send') || lowerText.includes('transfer') || lowerText.includes('pay')) {
-                    // Primitive fallback for transfer if AI fails entirely
-                    parsedData.intent = 'transfer';
-                    parsedData.title = 'Transfer';
+                // Simple intent detection (only if mode not provided)
+                if (!mode) {
+                    const lowerText = text.toLowerCase();
+                    if (lowerText.includes('payment link') || lowerText.includes('pay link')) {
+                        parsedData.intent = 'payment_link';
+                        parsedData.title = 'Payment Link'; 
+                    } else if (lowerText.includes('invoice')) {
+                        parsedData.intent = 'invoice'; 
+                        parsedData.title = 'Invoice'; 
+                    } else if (lowerText.includes('send') || lowerText.includes('transfer') || lowerText.includes('pay')) {
+                        parsedData.intent = 'transfer';
+                        parsedData.title = 'Transfer';
+                    }
                 }
                 
                 // Extract amount if present
@@ -198,17 +224,20 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
         // FORCE OVERRIDES
         const lowerText = text.toLowerCase();
         
-        // 1. Force Payment Link if keyword present (Highest Priority)
-        if (lowerText.includes('payment link') || lowerText.includes('pay link')) {
-            parsedData.intent = 'payment_link';
+        // 1. Force Mode if provided
+        if (mode) {
+            parsedData.intent = mode;
+        } else {
+             // Legacy detection
+            if (lowerText.includes('payment link') || lowerText.includes('pay link')) {
+                parsedData.intent = 'payment_link';
+            }
         }
         
         // 2. Disable Contracts (Strict)
         if (parsedData.intent === 'contract' || lowerText.includes('contract')) {
-             // User requested contract via prompt - this is now disabled.
-             // We set intent to 'unknown' or a specific flag to let UI handle it (or just ignore)
              parsedData.intent = 'contract_disabled'; 
-             parsedData.items = []; // Clear items to prevent accidental invoice creation
+             parsedData.items = []; 
              parsedData.amount = null;
         }
 
