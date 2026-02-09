@@ -246,30 +246,40 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             const clientName = req.body.clientName;
             const clientEmail = req.body.clientEmail;
 
-            // Try to find existing client by email or name
+            // Normalize inputs
+            const safeClientEmail = clientEmail ? clientEmail.trim() : null;
+            const safeClientName = clientName ? clientName.trim() : null;
+
+            // Try to find existing client by email or name (case-insensitive)
             let query = supabase
                 .from('clients')
                 .select('id')
                 .eq('user_id', user.id);
 
-            if (clientEmail) {
-                query = query.eq('email', clientEmail);
-            } else {
-                query = query.eq('name', clientName);
+            const conditions = [];
+            if (safeClientEmail) conditions.push(`email.ilike.${safeClientEmail}`);
+            if (safeClientName) conditions.push(`name.ilike.${safeClientName}`);
+
+            if (conditions.length > 0) {
+                query = query.or(conditions.join(','));
+                
+                const { data: existingClient, error: findError } = await query.maybeSingle();
+
+                if (existingClient) {
+                    clientId = existingClient.id;
+                    logger.info('Found existing client for project creation', { clientId });
+                }
             }
-
-            const { data: existingClient } = await query.maybeSingle();
-
-            if (existingClient) {
-                clientId = existingClient.id;
-            } else {
-                // Create new client
+            
+            if (!clientId) {
+                // Create new client if not found
+                logger.info('Creating new client for project', { name: safeClientName, email: safeClientEmail });
                 const { data: newClient, error: createError } = await supabase
                     .from('clients')
                     .insert({
                         user_id: user.id,
-                        name: clientName,
-                        email: clientEmail || null
+                        name: safeClientName,
+                        email: safeClientEmail
                     })
                     .select('id')
                     .single();
@@ -328,14 +338,17 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
         // Create milestones if provided
         let createdMilestones: any[] = [];
         if (milestones && Array.isArray(milestones) && milestones.length > 0) {
+            logger.info('Creating milestones', { count: milestones.length, projectId: project.id });
+            
             const milestonesData = milestones.map((m: any) => ({
                 project_id: project.id,
                 title: m.title,
                 amount: parseFloat(m.amount) || 0,
                 status: 'pending',
-                due_date: m.dueDate || null, // Optional now
-                user_id: user.id
+                due_date: m.dueDate || null,
             }));
+
+            logger.debug('Milestone data to insert', { milestonesData });
 
             const { data: newMilestones, error: milestoneError } = await supabase
                 .from('milestones')
@@ -343,12 +356,23 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 .select();
 
             if (milestoneError) {
-                logger.error('Failed to create milestones', { error: milestoneError.message });
+                logger.error('Failed to create milestones', { 
+                    error: milestoneError.message,
+                    code: milestoneError.code,
+                    details: milestoneError.details,
+                    hint: milestoneError.hint
+                });
                 // We don't fail the whole request, but we log it
             } else {
                 createdMilestones = newMilestones || [];
+                logger.info('Milestones created successfully', { count: createdMilestones.length });
             }
         }
+
+        logger.info('Project created successfully', { 
+            projectId: project.id,
+            milestonesCreated: createdMilestones.length 
+        });
 
         res.json({
             success: true,
@@ -365,8 +389,14 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     deadline: project.deadline,
                     createdAt: project.created_at,
                     updatedAt: project.updated_at,
+                    milestones: createdMilestones.map((m: any) => ({
+                        id: m.id,
+                        title: m.title,
+                        amount: parseFloat(m.amount),
+                        dueDate: m.due_date,
+                        status: m.status,
+                    })),
                 },
-                milestones: createdMilestones
             },
         });
     } catch (error) {

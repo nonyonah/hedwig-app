@@ -219,9 +219,9 @@ export default function ClientsScreen() {
                 },
                 body: JSON.stringify({
                     name: formName,
-                    email: formEmail || undefined,
-                    phone: formPhone || undefined,
-                    company: formCompany || undefined,
+                    email: formEmail.trim() || undefined,
+                    phone: formPhone.trim() || undefined,
+                    company: formCompany.trim() || undefined,
                 }),
             });
 
@@ -243,7 +243,7 @@ export default function ClientsScreen() {
                     Analytics.clientCreated(user?.id || 'unknown', data.data.client.id);
                 }
                 closeFormModal();
-                setShowDetailModal(false);
+                // detailSheetRef.current?.dismiss(); // Optional: close detail modal on save?
                 Alert.alert('Success', `Client ${isEditing ? 'updated' : 'created'} successfully`);
             } else {
                 Alert.alert('Error', data.error?.message || 'Failed to save client');

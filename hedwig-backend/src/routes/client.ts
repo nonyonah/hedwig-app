@@ -193,16 +193,27 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
+        // Build update object with only provided fields
+        const updateData: any = {};
+        if (name !== undefined) updateData.name = name;
+        if (email !== undefined) updateData.email = email;
+        if (phone !== undefined) updateData.phone = phone;
+        if (company !== undefined) updateData.company = company;
+        if (address !== undefined) updateData.address = address;
+        if (walletAddress !== undefined) updateData.wallet_address = walletAddress;
+
+        // Ensure at least one field is being updated
+        if (Object.keys(updateData).length === 0) {
+            res.status(400).json({
+                success: false,
+                error: { message: 'No fields to update' },
+            });
+            return;
+        }
+
         const { data: client, error } = await supabase
             .from('clients')
-            .update({
-                name,
-                email,
-                phone,
-                company,
-                address,
-                wallet_address: walletAddress,
-            })
+            .update(updateData)
             .eq('id', id)
             .eq('user_id', user.id)
             .select()

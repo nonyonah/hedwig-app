@@ -5,6 +5,7 @@ import { getOrCreateUser } from '../utils/userHelper';
 import { EmailService } from '../services/email';
 import { createCalendarEventFromSource } from './calendar';
 import { createLogger } from '../utils/logger';
+import BlockradarService from '../services/blockradar';
 
 const logger = createLogger('Milestone');
 
@@ -449,6 +450,60 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
             throw new Error(`Failed to create invoice: ${invoiceError?.message}`);
         }
 
+        // Generate BlockRadar payment link if network/token are provided
+        if (network && token) {
+            try {
+                // Import WEB_CLIENT_URL constant
+                const WEB_CLIENT_URL = process.env.WEB_CLIENT_URL || 'https://web-client-eight-alpha.vercel.app';
+                
+                // Create payment link via BlockRadar (matching document.ts implementation)
+                const paymentLink = await BlockradarService.createPaymentLink({
+                    name: `Invoice ${invoice.id.substring(0, 8)} - ${client.name || 'Client'}`,
+                    description: `Milestone: ${milestone.title} - ${milestone.project.name}`,
+                    amount: milestone.amount.toString(),
+                    redirectUrl: `${WEB_CLIENT_URL}/invoice/${invoice.id}?status=success`,
+                    successMessage: `Thank you for your payment! Invoice ${invoice.id.substring(0, 8)} has been paid.`,
+                    metadata: {
+                        documentId: invoice.id,
+                        userId: user.id,
+                        type: 'INVOICE',
+                        clientName: client.name || 'Unknown',
+                        milestoneId: milestone.id
+                    }
+                });
+
+                if (paymentLink && paymentLink.url) {
+                    // Update invoice with payment link details
+                    await supabase
+                        .from('documents')
+                        .update({
+                            payment_link_url: paymentLink.url,
+                            content: {
+                                ...invoice.content,
+                                blockradar_url: paymentLink.url,
+                                blockradar_uuid: paymentLink.uuid
+                            }
+                        })
+                        .eq('id', invoice.id);
+                        
+                    // Update local invoice object for response
+                    invoice.payment_link_url = paymentLink.url;
+                    invoice.content = {
+                        ...invoice.content,
+                        blockradar_url: paymentLink.url,
+                        blockradar_uuid: paymentLink.uuid
+                    };
+                }
+            } catch (brError: any) {
+                logger.error('Failed to generate BlockRadar link for milestone invoice', {
+                    error: brError.message,
+                    invoiceId: invoice.id,
+                    milestoneId: milestone.id
+                });
+                // We don't fail the whole request, as the invoice was created
+            }
+        }
+
         // Update milestone with invoice reference and status
         const { error: updateError } = await supabase
             .from('milestones')
@@ -486,6 +541,7 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
                     description: `${milestone.title} - ${milestone.project.name}`,
                     linkId: invoice.id,
                     network: network || 'base',
+                    paymentUrl: invoice.payment_link_url || invoice.content?.blockradar_url // Pass BlockRadar URL if available
                 });
                 logger.info('Email sent');
             } catch (emailError) {

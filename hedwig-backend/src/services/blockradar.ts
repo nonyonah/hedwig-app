@@ -36,6 +36,7 @@ interface WithdrawParams {
   toAddress: string;
   amount: string;
   assetId: string;
+  isSolana?: boolean;
   metadata?: Record<string, any>;
 }
 
@@ -50,13 +51,23 @@ interface WithdrawResponse {
 class BlockradarService {
   private api: AxiosInstance;
   private baseWalletId: string;
+  private solanaWalletId: string;
 
   constructor() {
     const apiKey = process.env.BLOCKRADAR_API_KEY;
     this.baseWalletId = process.env.BLOCKRADAR_BASE_WALLET_ID || '';
+    this.solanaWalletId = process.env.BLOCKRADAR_SOLANA_WALLET_ID || '';
 
     if (!apiKey) {
       logger.warn('BLOCKRADAR_API_KEY is not set');
+    }
+    
+    if (!this.baseWalletId) {
+      logger.warn('BLOCKRADAR_BASE_WALLET_ID is not set');
+    }
+    
+    if (!this.solanaWalletId) {
+      logger.warn('BLOCKRADAR_SOLANA_WALLET_ID is not set');
     }
 
     this.api = axios.create({
@@ -155,14 +166,19 @@ class BlockradarService {
    * Used for offramp to Paycrest
    */
   async withdraw(params: WithdrawParams): Promise<WithdrawResponse> {
+    const walletId = this.getWalletId(params.isSolana || false);
+    const network = params.isSolana ? 'Solana' : 'Base';
+    
     logger.info('Initiating Blockradar withdrawal', {
       toAddress: params.toAddress,
       amount: params.amount,
       assetId: params.assetId,
+      network,
+      walletId
     });
 
     const response = await this.api.post(
-      `/wallets/${this.baseWalletId}/withdraw`,
+      `/wallets/${walletId}/withdraw`,
       {
         address: params.toAddress,
         amount: params.amount,
@@ -174,6 +190,7 @@ class BlockradarService {
     logger.info('Withdrawal initiated', {
       id: response.data.data.id,
       status: response.data.data.status,
+      network
     });
 
     return response.data.data;
@@ -190,11 +207,35 @@ class BlockradarService {
   }
 
   /**
-   * Get supported assets for the wallet
+   * Get the correct wallet ID based on network type
+   */
+  private getWalletId(isSolana: boolean): string {
+    return isSolana ? this.solanaWalletId : this.baseWalletId;
+  }
+
+  /**
+   * Get supported assets for both Base and Solana wallets
    */
   async getAssets(): Promise<any[]> {
-    const response = await this.api.get(`/wallets/${this.baseWalletId}/assets`);
-    return response.data.data || [];
+    try {
+      const [baseAssets, solanaAssets] = await Promise.all([
+        this.api.get(`/wallets/${this.baseWalletId}/assets`).then(r => r.data.data || []).catch(() => []),
+        this.solanaWalletId 
+          ? this.api.get(`/wallets/${this.solanaWalletId}/assets`).then(r => r.data.data || []).catch(() => [])
+          : Promise.resolve([])
+      ]);
+      
+      logger.info('Fetched assets from wallets', {
+        baseAssetsCount: baseAssets.length,
+        solanaAssetsCount: solanaAssets.length,
+        totalAssets: baseAssets.length + solanaAssets.length
+      });
+      
+      return [...baseAssets, ...solanaAssets];
+    } catch (error) {
+      logger.error('Failed to fetch assets', { error });
+      return [];
+    }
   }
 
   /**

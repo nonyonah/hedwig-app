@@ -1100,6 +1100,20 @@ If certain fields are not mentioned, set them to null or empty array.
   }
 
   /**
+   * Generate text content from a prompt
+   */
+  static async generateText(prompt: string): Promise<string> {
+    try {
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      console.error('Error generating text:', error);
+      return '';
+    }
+  }
+
+  /**
    * Generate follow-up questions to fill missing data
    */
   static async generateFollowUpQuestions(

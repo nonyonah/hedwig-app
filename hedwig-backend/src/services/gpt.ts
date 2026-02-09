@@ -86,10 +86,15 @@ function buildContractPrompt(params: ContractGenerationParams): { system: string
     const systemPrompt = `You are a professional legal document writer specializing in freelance service contracts. 
 Generate clear, professional, and legally sound contracts that protect both parties.
 Always use formal language and include standard contract clauses.
-Format the output in markdown with proper headings and sections.
+Format the output in clean markdown with proper headings and sections.
 Keep the contract comprehensive but concise (around 600-900 words).
 
-IMPORTANT RULES:
+CRITICAL OUTPUT RULES:
+- Return ONLY the contract text in markdown format - NO explanations, NO instructions, NO commentary
+- DO NOT include any text before or after the contract
+- DO NOT explain how to use the contract
+- DO NOT include disclaimers or legal advice warnings
+- DO NOT include phrases like "Here's the contract" or "Key improvements"
 - Use the EXACT date provided (${today}) - NO placeholders like "DATE" or "[Date]"
 - Format all currency amounts properly (e.g., $1,000.00)
 - DO NOT include a "Governing Law" section
@@ -134,7 +139,9 @@ Include ONLY these sections (no Governing Law, no signature blocks):
 7. Confidentiality
 8. Revisions and Changes
 9. Termination
-10. Acceptance (state that by clicking "Approve" the client agrees to terms - NO signature lines)`;
+10. Acceptance (state that by clicking "Approve" the client agrees to terms - NO signature lines)
+
+REMEMBER: Return ONLY the contract in markdown format. No explanations. No instructions. No commentary. Just the contract text.`;
 
     return { system: systemPrompt, user: userPrompt };
 }
@@ -257,26 +264,96 @@ async function generateWithGemini(systemPrompt: string, userPrompt: string): Pro
 export async function generateContractWithGPT(params: ContractGenerationParams): Promise<string> {
     const { system, user } = buildContractPrompt(params);
     
+    let content: string;
+    
     // Try OpenAI first
     if (openai) {
         try {
-            return await generateWithOpenAI(system, user);
+            content = await generateWithOpenAI(system, user);
         } catch (error) {
             logger.error('OpenAI error, falling back to Gemini');
+            // Fallback to Gemini
+            if (geminiModel) {
+                try {
+                    content = await generateWithGemini(system, user);
+                } catch (geminiError) {
+                    logger.error('Gemini error generating contract');
+                    throw geminiError;
+                }
+            } else {
+                throw new Error('No AI service available for contract generation');
+            }
         }
-    }
-    
-    // Fallback to Gemini
-    if (geminiModel) {
+    } else if (geminiModel) {
+        // Use Gemini if OpenAI not available
         try {
-            return await generateWithGemini(system, user);
+            content = await generateWithGemini(system, user);
         } catch (error) {
             logger.error('Gemini error generating contract');
             throw error;
         }
+    } else {
+        throw new Error('No AI service available for contract generation');
     }
     
-    throw new Error('No AI service available for contract generation');
+    // Extract HTML if AI included explanations
+    return extractHTMLFromResponse(content);
+}
+
+/**
+ * Extract clean contract from AI response that may include explanations
+ */
+function extractHTMLFromResponse(content: string): string {
+    // First, try to extract from markdown code blocks
+    const markdownMatch = content.match(/```(?:markdown|md)?\s*([\s\S]*?)\s*```/);
+    if (markdownMatch) {
+        return markdownMatch[1].trim();
+    }
+    
+    // Check if it's HTML (old behavior that we want to avoid)
+    if (content.includes('<!DOCTYPE html>') || content.includes('<html>')) {
+        // Extract just the HTML, removing any explanations after </html>
+        const htmlEndMatch = content.match(/(<!DOCTYPE[\s\S]*?<\/html>)/i);
+        if (htmlEndMatch) {
+            // Return empty string to force regeneration with markdown
+            logger.warn('Contract generated as HTML instead of markdown, returning empty to trigger fallback');
+            return '';
+        }
+    }
+    
+    // Split by lines and remove explanation lines
+    const lines = content.split('\n');
+    const cleanedLines: string[] = [];
+    let inContract = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const lowerLine = line.toLowerCase().trim();
+        
+        // Skip common AI explanation patterns
+        if (lowerLine.startsWith('here') || 
+            lowerLine.startsWith('key improvements') ||
+            lowerLine.startsWith('how to use') ||
+            lowerLine.includes('disclaimer:') ||
+            lowerLine.includes('legal advice') ||
+            lowerLine.includes('consult') ||
+            lowerLine.includes('important considerations') ||
+            lowerLine.includes('this improved') ||
+            lowerLine.includes('remember')) {
+            continue;
+        }
+        
+        // Start of contract (heading)
+        if (line.startsWith('#') && !inContract) {
+            inContract = true;
+        }
+        
+        if (inContract) {
+            cleanedLines.push(line);
+        }
+    }
+    
+    return cleanedLines.join('\n').trim();
 }
 
 /**

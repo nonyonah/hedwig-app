@@ -976,18 +976,40 @@ async function handleCreateProject(params: ActionParams, user: any): Promise<Act
 
         if (!userData) throw new Error('User not found');
 
-        // Find client by name (exact match, case-insensitive)
+        // Find client by name or email (case-insensitive)
         let { data: clients } = await supabase
             .from('clients')
             .select('id, name, email')
-            .eq('user_id', userData.id)
-            .ilike('name', clientName)
-            .limit(1);
+            .eq('user_id', userData.id);
 
-        let client;
+        logger.debug('Client lookup', { 
+            searchName: clientName, 
+            searchEmail: clientEmail,
+            foundClients: clients?.length || 0,
+            clientNames: clients?.map(c => c.name) || []
+        });
+
+        // Filter clients by name or email match
+        let client = clients?.find(c => {
+            const nameMatch = c.name?.toLowerCase().trim() === clientName?.toLowerCase().trim();
+            const emailMatch = clientEmail && c.email?.toLowerCase().trim() === clientEmail?.toLowerCase().trim();
+            
+            logger.debug('Checking client match', {
+                clientName: c.name,
+                clientEmail: c.email,
+                nameMatch,
+                emailMatch,
+                searchName: clientName,
+                searchEmail: clientEmail
+            });
+            
+            return nameMatch || emailMatch;
+        });
+
         let clientCreated = false;
 
-        if (!clients || clients.length === 0) {
+        if (!client) {
+            logger.info('No matching client found, creating new client', { clientName, clientEmail });
             // Auto-create the client with email if provided
             const { data: newClient, error: clientError } = await supabase
                 .from('clients')
@@ -1003,10 +1025,17 @@ async function handleCreateProject(params: ActionParams, user: any): Promise<Act
                 console.error('[Actions] Error creating client:', clientError);
                 return { text: `I couldn't create a client named "${clientName}". Please try again.` };
             }
+            
+            if (!newClient) {
+                console.error('[Actions] Client creation returned null');
+                return { text: `I couldn't create a client named "${clientName}". Please try again.` };
+            }
+            
             client = newClient;
             clientCreated = true;
+            logger.info('Created new client', { clientId: newClient.id, clientName: newClient.name });
         } else {
-            client = clients[0];
+            logger.info('Found existing client', { clientId: client.id, clientName: client.name });
             // If client exists but has no email, and one was provided, update it
             if (!client.email && clientEmail) {
                 await supabase
@@ -1014,7 +1043,13 @@ async function handleCreateProject(params: ActionParams, user: any): Promise<Act
                     .update({ email: clientEmail })
                     .eq('id', client.id);
                 client.email = clientEmail;
+                logger.info('Updated client email', { clientId: client.id, email: clientEmail });
             }
+        }
+
+        // Safety check - should never happen but TypeScript requires it
+        if (!client) {
+            return { text: `I couldn't find or create a client named "${clientName}". Please try again.` };
         }
 
         // Create the project

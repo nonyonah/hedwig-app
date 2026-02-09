@@ -145,6 +145,9 @@ const parseErrorMessage = (error: any): string => {
 };
 
 export const TransactionConfirmationModal = forwardRef<BottomSheetModal, TransactionConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
+    // Early return MUST be before any hooks to follow Rules of Hooks
+    if (!data) return null;
+    
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
     const { getAccessToken } = useAuth();
@@ -177,6 +180,10 @@ export const TransactionConfirmationModal = forwardRef<BottomSheetModal, Transac
 
     const estimateGasFee = useCallback(async () => {
         if (!data || modalState !== 'confirm') return;
+        if (!data.amount || !data.recipient || !data.token) {
+            console.log('[TransactionConfirmationModal] Missing data for gas estimation');
+            return;
+        }
 
         const network = data.network.toLowerCase();
 
@@ -752,8 +759,7 @@ export const TransactionConfirmationModal = forwardRef<BottomSheetModal, Transac
         }
     };
 
-    if (!data) return null;
-
+    // Early return already handled at the top of the component
     const network = normalizeNetwork(data.network);
     const chain = CHAINS[network] || CHAINS['solana'];
 

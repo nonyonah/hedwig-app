@@ -80,7 +80,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <noreply@resend.dev>', // Update this with a verified domain if user has one
+                from: 'Hedwig <team@hedwigbot.xyz>', // Updated to verified domain
                 to: [data.to],
                 subject: `New Invoice from ${data.senderName}`,
                 html: html,
@@ -88,7 +88,7 @@ export const EmailService = {
             logger.info('Invoice email sent');
             return true;
         } catch (error) {
-            logger.error('Invoice email failed', { error: error instanceof Error ? error.message : 'Unknown' });
+            logger.error('Invoice email failed', { error: error instanceof Error ? error.message : 'Unknown', to: data.to });
             return false;
         }
     },
@@ -141,7 +141,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <noreply@resend.dev>',
+                from: 'Hedwig <team@hedwigbot.xyz>',
                 to: [data.to],
                 subject: `Payment Request from ${data.senderName}`,
                 html: html,
@@ -211,7 +211,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <noreply@resend.dev>',
+                from: 'Hedwig <team@hedwigbot.xyz>',
                 to: [data.to],
                 subject: `Payment Received: ${data.amount} ${data.currency}`,
                 html: html,
@@ -219,7 +219,7 @@ export const EmailService = {
             logger.info('Payment received email sent');
             return true;
         } catch (error) {
-            logger.error('Payment received email failed', { error: error instanceof Error ? error.message : 'Unknown' });
+            logger.error('Payment received email failed', { error: error instanceof Error ? error.message : 'Unknown', to: data.to });
             return false;
         }
     },
@@ -264,7 +264,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <noreply@resend.dev>',
+                from: 'Hedwig <team@hedwigbot.xyz>',
                 to: [to],
                 subject: subject,
                 html: html,
@@ -272,7 +272,7 @@ export const EmailService = {
             logger.info('Smart reminder sent');
             return true;
         } catch (error) {
-            logger.error('Smart reminder failed', { error: error instanceof Error ? error.message : 'Unknown' });
+            logger.error('Smart reminder failed', { error: error instanceof Error ? error.message : 'Unknown', to: to });
             return false;
         }
     },
@@ -343,7 +343,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <noreply@resend.dev>',
+                from: 'Hedwig <team@hedwigbot.xyz>',
                 to: [data.to],
                 subject: `Contract for Review: ${data.contractTitle} from ${data.senderName}`,
                 html: html,
@@ -351,7 +351,7 @@ export const EmailService = {
             logger.info('Contract email sent');
             return true;
         } catch (error) {
-            logger.error('Contract email failed', { error: error instanceof Error ? error.message : 'Unknown' });
+            logger.error('Contract email failed', { error: error instanceof Error ? error.message : 'Unknown', to: data.to });
             return false;
         }
     },

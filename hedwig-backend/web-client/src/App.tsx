@@ -5,6 +5,7 @@ import PaymentLinkPage from './pages/PaymentLinkPage';
 import ContractPage from './pages/ContractPage';
 import ExportWalletPage from './pages/ExportWalletPage';
 import FeedbackPage from './pages/FeedbackPage';
+import SuccessPage from './pages/SuccessPage';
 import { PrivyWrapper } from './lib/PrivyWrapper';
 import './index.css';
 
@@ -33,6 +34,9 @@ function App() {
 
         {/* Feedback route - UserJot widget */}
         <Route path="/feedback" element={<FeedbackPage />} />
+
+        {/* Success route */}
+        <Route path="/success" element={<SuccessPage />} />
 
         {/* Fallback */}
         <Route path="*" element={

@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import BlockradarService from '../services/blockradar';
+import NotificationService from '../services/notifications';
 
 const router = Router();
 const logger = createLogger('BlockradarWebhook');
@@ -152,6 +153,17 @@ async function handleDeposit(data: any) {
     data: { txHash, amount, asset },
   });
 
+  // Also send push notification
+  try {
+      await NotificationService.notifyUser(user.id, {
+          title: '💰 Payment Received',
+          body: `You received ${amount} ${asset.toUpperCase()} on Base`,
+          data: { type: 'payment_received', txHash, amount, asset }
+      });
+  } catch (notifyErr) {
+      logger.error('Failed to send push notification', { error: notifyErr });
+  }
+
   logger.info('Deposit processed successfully', { userId: user.id, amount, asset });
 }
 
@@ -179,7 +191,7 @@ async function handlePaymentLinkDeposit(data: any) {
     });
 
     // 1. Mark Document as PAID
-    const { data: currentDoc } = await supabase.from('documents').select('*').eq('id', documentId).single();
+    const { data: currentDoc } = await supabase.from('documents').select('*, client_id').eq('id', documentId).single();
     if (currentDoc) {
         await supabase.from('documents').update({
             status: 'PAID',
@@ -193,6 +205,56 @@ async function handlePaymentLinkDeposit(data: any) {
             }
         }).eq('id', documentId);
         logger.info('Document marked as PAID', { documentId });
+
+        // Update client total_earnings if document has a client
+        if (currentDoc.client_id) {
+            const { data: client } = await supabase
+                .from('clients')
+                .select('total_earnings')
+                .eq('id', currentDoc.client_id)
+                .single();
+            
+            if (client) {
+                const currentEarnings = parseFloat(client.total_earnings || '0');
+                const newEarnings = currentEarnings + amount;
+                
+                await supabase
+                    .from('clients')
+                    .update({ total_earnings: newEarnings.toString() })
+                    .eq('id', currentDoc.client_id);
+                
+                logger.info('Updated client total_earnings', { 
+                    clientId: currentDoc.client_id, 
+                    previousEarnings: currentEarnings,
+                    newEarnings 
+                });
+            }
+        }
+
+        // Update milestone status to 'paid' if this invoice is linked to a milestone
+        if (currentDoc.content?.milestone_id) {
+            const milestoneId = currentDoc.content.milestone_id;
+            
+            await supabase
+                .from('milestones')
+                .update({ status: 'paid' })
+                .eq('id', milestoneId);
+            
+            logger.info('Updated milestone status to paid', { milestoneId, documentId });
+        }
+
+        // Send push notification to user
+        if (currentDoc) {
+            try {
+                await NotificationService.notifyUser(userId, {
+                    title: '💰 Payment Link Paid!',
+                    body: `You received ${amount} ${asset} for ${currentDoc.title}`,
+                    data: { type: 'payment_received', documentId, txHash, amount, asset }
+                });
+            } catch (notifyErr) {
+                logger.error('Failed to send push notification', { error: notifyErr });
+            }
+        }
     }
 
     // 2. Calculate Fees
@@ -237,16 +299,16 @@ async function handlePaymentLinkDeposit(data: any) {
     let isSolana = false;
     
     // Check asset metadata from webhook first
-    if (data.asset?.blockchain?.name?.toLowerCase() === 'solana' || 
+    if (data.asset?.blockchain?.name?.toLowerCase()?.includes('solana') || 
         data.asset?.blockchain?.symbol?.toLowerCase() === 'sol' ||
-        data.asset?.network?.toLowerCase() === 'solana') {
+        data.asset?.network?.toLowerCase()?.includes('solana')) {
         isSolana = true;
+        logger.info('Detected Solana from webhook asset data');
     }
-    // Fallback: Check symbol directly if blockchain info is missing (e.g. USDC on Solana might not be obvious without checking network)
-    // However, usually the webhook provides enough info. If not, we'll verify with the wallet asset fetch below.
-
-    const destinationAddress = isSolana ? user.solana_wallet_address : user.ethereum_wallet_address;
-    const requiredNetwork = isSolana ? 'Solana' : 'Ethereum/Base';
+    
+    // We'll re-verify this when we fetch the asset from the wallet below
+    let destinationAddress = isSolana ? user.solana_wallet_address : user.ethereum_wallet_address;
+    let requiredNetwork = isSolana ? 'Solana' : 'Ethereum/Base';
 
     if (!destinationAddress) {
         logger.error(`Freelancer ${requiredNetwork} wallet not found - cannot process auto-withdrawal`, { 
@@ -271,7 +333,11 @@ async function handlePaymentLinkDeposit(data: any) {
     // 4. Get correct asset ID from Blockradar wallet
     let assetId = data.asset?.id || data.assetId;
     
-    logger.info('Asset ID from webhook', { assetId, symbol: data.asset?.symbol });
+    logger.info('Asset ID from webhook', { 
+        assetId, 
+        symbol: data.asset?.symbol,
+        webhookAssetData: data.asset // Log full webhook asset data
+    });
     
     // Always fetch and validate asset ID from wallet to ensure it's correct
     try {
@@ -282,64 +348,127 @@ async function handlePaymentLinkDeposit(data: any) {
                 id: a.id, 
                 symbol: a.symbol, 
                 name: a.name,
-                fullAsset: a // Log full asset object to see structure
+                blockchain: a.blockchain,
+                network: a.network,
+                asset: a.asset // Include nested asset property
             }))
         });
         
-        // Try to find USDC by symbol or name
-        let usdcAsset = assets.find(a => 
-            a.symbol?.toLowerCase() === 'usdc' || 
-            a.name?.toLowerCase().includes('usd coin')
+        // Find the matching asset by ID from webhook (most reliable)
+        // Check both top-level id and nested asset.id
+        let matchedAsset = assets.find(a => 
+            a.id === assetId || a.asset?.id === assetId
         );
         
-        // If not found by symbol/name, check if there's an asset property
-        if (!usdcAsset && assets.length > 0) {
-            logger.info('Checking asset.asset property', {
-                firstAsset: assets[0]
+        if (!matchedAsset) {
+            logger.error('Asset from webhook not found in wallet assets - Solana asset may not be enabled', { 
+                webhookAssetId: assetId,
+                webhookAssetSymbol: data.asset?.symbol,
+                webhookAssetNetwork: data.asset?.network,
+                availableAssetIds: assets.map(a => a.id),
+                availableNestedAssetIds: assets.map(a => a.asset?.id),
+                availableNetworks: assets.map(a => a.asset?.blockchain?.name || 'unknown')
             });
             
-            usdcAsset = assets.find(a => 
+            // Check if this is a Solana asset that's not in the wallet
+            if (data.asset?.network === 'testnet' && !data.asset?.blockchain) {
+                logger.error('Solana asset detected but not available in wallet - Solana support may not be enabled');
+                
+                await supabase.from('notifications').insert({
+                    user_id: userId,
+                    type: 'PAYMENT_FAILED',
+                    title: 'Solana Payment Received',
+                    message: `You received ${amount} ${asset} on Solana, but Solana withdrawals are not yet configured. Please contact support.`,
+                    data: { documentId, amount, asset, txHash, network: 'Solana', error: 'Solana not enabled in wallet' }
+                });
+                
+                return;
+            }
+            
+            // Try to find by symbol as fallback for other cases
+            matchedAsset = assets.find(a => 
+                a.symbol?.toLowerCase() === 'usdc' || 
+                a.name?.toLowerCase().includes('usd coin') ||
                 a.asset?.symbol?.toLowerCase() === 'usdc' || 
                 a.asset?.name?.toLowerCase().includes('usd coin')
             );
-        }
-        
-        // If still not found, use the first asset as fallback (assuming it's USDC)
-        if (!usdcAsset && assets.length > 0) {
-            logger.warn('USDC not found by symbol/name, using first asset as fallback', {
-                assetId: assets[0].id
-            });
-            usdcAsset = assets[0];
-        }
-        
-        if (usdcAsset) {
-            if (assetId !== usdcAsset.id) {
-                logger.warn('Asset ID mismatch - using correct ID from wallet', {
-                    webhookAssetId: assetId,
-                    correctAssetId: usdcAsset.id
-                });
-            }
-            assetId = usdcAsset.id;
             
-            // Re-verify network from the fetched asset if we weren't sure before
-            if (usdcAsset.blockchain?.name?.toLowerCase() === 'solana' || 
-                usdcAsset.blockchain?.symbol?.toLowerCase() === 'sol' ||
-                usdcAsset.network?.toLowerCase() === 'solana') {
+            if (matchedAsset) {
+                logger.warn('Found asset by symbol instead of ID - using matched asset', {
+                    webhookAssetId: assetId,
+                    matchedAssetId: matchedAsset.id
+                });
+                // Use the matched asset ID since the webhook asset isn't in the wallet
+                assetId = matchedAsset.id;
+            }
+        }
+        
+        if (matchedAsset) {
+            // If we matched by nested asset.id, we need to use the top-level id for withdrawal
+            const walletAssetId = matchedAsset.id;
+            
+            if (assetId !== walletAssetId) {
+                logger.info('Using wallet asset ID instead of webhook asset ID', {
+                    webhookAssetId: assetId,
+                    walletAssetId: walletAssetId,
+                    reason: 'Webhook provides nested asset.id, but withdrawal needs top-level id'
+                });
+                assetId = walletAssetId;
+            }
+            
+            // CRITICAL: Detect network from the matched asset
+            const blockchainName = matchedAsset.blockchain?.name?.toLowerCase() || 
+                                   matchedAsset.asset?.blockchain?.name?.toLowerCase() || 
+                                   matchedAsset.network?.toLowerCase() || '';
+            
+            const blockchainSymbol = matchedAsset.blockchain?.symbol?.toLowerCase() || 
+                                     matchedAsset.asset?.blockchain?.symbol?.toLowerCase() || '';
+            
+            logger.info('Blockchain detection from matched asset', {
+                assetId: matchedAsset.id,
+                blockchainName,
+                blockchainSymbol,
+                fullBlockchainData: matchedAsset.blockchain,
+                fullAssetData: matchedAsset.asset
+            });
+            
+            if (blockchainName.includes('solana') || blockchainSymbol === 'sol') {
                 isSolana = true;
-                // Re-check address requirement if network changed (unlikely but safe)
+                logger.info('Detected Solana network from asset data');
+                
+                // Update destination address to Solana wallet
+                destinationAddress = user.solana_wallet_address;
+                requiredNetwork = 'Solana';
+                
+                // Re-check address requirement if network changed
                 if (!user.solana_wallet_address) {
                      logger.error('Freelancer Solana wallet not found after asset verification', { userId });
-                     return; // Notification already sent or generic error
+                     
+                     await supabase.from('notifications').insert({
+                        user_id: userId,
+                        type: 'PAYMENT_RECEIVED',
+                        title: 'Payment Received - Action Required',
+                        message: `You received ${amount} ${asset} on Solana but your Solana wallet is not set up. Please complete your profile setup to receive funds.`,
+                        data: { documentId, amount, asset, txHash, network: 'Solana' }
+                    });
+                     
+                     return;
                 }
+            } else {
+                logger.info('Detected EVM network from asset data');
+                // Update destination address to EVM wallet
+                destinationAddress = user.ethereum_wallet_address;
+                requiredNetwork = 'Ethereum/Base';
             }
 
-            logger.info('Using asset ID from wallet', { 
+            logger.info('Using asset ID from webhook', { 
                 assetId, 
-                symbol: usdcAsset.symbol || usdcAsset.asset?.symbol || 'unknown',
-                isSolana
+                symbol: matchedAsset.symbol || matchedAsset.asset?.symbol || 'unknown',
+                isSolana,
+                network: requiredNetwork
             });
         } else {
-            logger.error('No assets found in wallet');
+            logger.error('No matching asset found in wallet');
         }
     } catch (assetError: any) {
         logger.error('Failed to fetch assets from wallet', { error: assetError.message });
@@ -356,6 +485,33 @@ async function handlePaymentLinkDeposit(data: any) {
         });
         return;
     }
+    
+    // Final validation: Ensure we have the correct destination address for the detected network
+    if (!destinationAddress) {
+        logger.error(`No ${requiredNetwork} wallet address available for withdrawal`, { 
+            userId,
+            isSolana,
+            requiredNetwork
+        });
+        
+        await supabase.from('notifications').insert({
+            user_id: userId,
+            type: 'PAYMENT_RECEIVED',
+            title: 'Payment Received - Action Required',
+            message: `You received ${amount} ${asset} on ${requiredNetwork} but your wallet is not set up. Please complete your profile setup to receive funds.`,
+            data: { documentId, amount, asset, txHash, network: requiredNetwork }
+        });
+        
+        return;
+    }
+    
+    logger.info('Final withdrawal parameters', {
+        isSolana,
+        network: requiredNetwork,
+        destinationAddress: destinationAddress.substring(0, 6) + '...' + destinationAddress.substring(destinationAddress.length - 4),
+        assetId,
+        amount: freelancerAmount
+    });
 
     // 5. Check Wallet Balance & Clamp Amount
     try {
@@ -392,6 +548,7 @@ async function handlePaymentLinkDeposit(data: any) {
             toAddress: destinationAddress,
             amount: freelancerAmount.toString(),
             assetId: assetId,
+            isSolana: isSolana,
             metadata: {
                 documentId,
                 userId,

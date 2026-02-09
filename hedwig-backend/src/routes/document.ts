@@ -56,7 +56,12 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             if (clientName) conditions.push(`name.eq.${clientName}`);
             
             if (conditions.length > 0) {
-                const { data: existingClient } = await query.or(conditions.join(',')).maybeSingle();
+                // Use ilike for case-insensitive matching
+                const searchConditions = [];
+                if (recipientEmail) searchConditions.push(`email.ilike.${recipientEmail}`);
+                if (clientName) searchConditions.push(`name.ilike.${clientName}`);
+                
+                const { data: existingClient } = await query.or(searchConditions.join(',')).maybeSingle();
                 
                 if (existingClient) {
                     clientId = existingClient.id;
@@ -286,11 +291,11 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 name: `Payment from ${clientName}`,
                 description: description || `Payment request for ${clientName}`,
                 amount: amount.toString(),
-                redirectUrl: `${WEB_CLIENT_URL}/pay/${doc.id}?status=success`,
+                redirectUrl: `${process.env.WEB_CLIENT_URL || 'https://hedwig.money'}/success`,
                 successMessage: `Thank you for your payment!`,
                 metadata: {
+                    clientId: user.id,
                     documentId: doc.id,
-                    userId: user.id,
                     type: 'PAYMENT_LINK',
                     clientName: clientName || 'Unknown'
                 }
@@ -424,7 +429,12 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 if (clientName) conditions.push(`name.eq.${clientName}`);
                 
                 if (conditions.length > 0) {
-                    const { data: existingClient } = await query.or(conditions.join(',')).maybeSingle();
+                    // Use ilike for case-insensitive matching
+                    const searchConditions = [];
+                    if (recipientEmail) searchConditions.push(`email.ilike.${recipientEmail}`);
+                    if (clientName) searchConditions.push(`name.ilike.${clientName}`);
+
+                    const { data: existingClient } = await query.or(searchConditions.join(',')).maybeSingle();
                     
                     if (!existingClient && recipientEmail) {
                         logger.info('[Documents] Auto-creating client', { email: recipientEmail, name: clientName });
@@ -561,8 +571,8 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             return;
 
         } else if (docType === 'CONTRACT') {
-            // Basic contract creation support
-            const { title, description, clientName, recipientEmail, content, amount } = req.body;
+            // Enhanced contract creation with AI-generated content
+            const { title, description, clientName, recipientEmail, content, amount, projectId, items } = req.body;
             const privyId = req.user!.id;
 
             const user = await getOrCreateUser(privyId);
@@ -571,22 +581,108 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
+            // Generate AI contract content if we have enough information
+            let generatedContent = content?.html_content || '';
+            let contractData = content || {};
+            
+            if (clientName && items && items.length > 0) {
+                try {
+                    logger.info('Generating AI contract content', { projectId, clientName });
+                    
+                    // Import Gemini service for contract generation
+                    const { GeminiService } = await import('../services/gemini');
+                    
+                    // Prepare contract details
+                    const scopeOfWork = description || title || 'Project deliverables as outlined';
+                    const milestones = items.map((item: any, index: number) => ({
+                        title: item.description || `Milestone ${index + 1}`,
+                        amount: item.amount || 0,
+                        description: item.description || ''
+                    }));
+                    
+                    const totalAmount = milestones.reduce((sum: number, m: any) => sum + (parseFloat(m.amount) || 0), 0);
+                    
+                    // Generate contract using Gemini
+                    const contractPrompt = `Generate a professional freelance contract with the following details:
+                    
+Client: ${clientName}
+Project: ${title}
+Scope of Work: ${scopeOfWork}
+Total Amount: $${totalAmount}
+Payment Terms: Milestone-based payments
+
+Milestones:
+${milestones.map((m: any, i: number) => `${i + 1}. ${m.title} - $${m.amount}`).join('\n')}
+
+Please generate a complete, professional contract including:
+- Introduction and parties
+- Scope of work
+- Payment terms (milestone-based)
+- Timeline and deliverables
+- Intellectual property rights
+- Confidentiality clause
+- Termination clause
+- Governing law
+
+Format the contract in CLEAN MARKDOWN. 
+CRITICAL RULES:
+1. Do NOT use HTML tags (no <html>, <body>, <div>, etc).
+2. Do NOT include any "reasoning", "thinking", "sure", "here is", or "analysis" sections. 
+3. Start the output DIRECTLY with the contract title (e.g. # Contract Title).
+4. Return ONLY the contract content.`;
+
+                    const aiResponse = await GeminiService.generateText(contractPrompt);
+                    
+                    // Robust cleanup
+                    generatedContent = aiResponse || '';
+                    
+                    // 1. Strip <think> tags
+                    generatedContent = generatedContent.replace(/<think>[\s\S]*?<\/think>/gi, '');
+                    
+                    // 2. Strip JSON code blocks if model wrapped it
+                    generatedContent = generatedContent.replace(/```json\n?|\n?```/g, '');
+                    
+                    // 3. Strip Markdown code blocks if model wrapped it
+                    generatedContent = generatedContent.replace(/```markdown\n?|\n?```/g, ''); 
+                    
+                    // 4. Strip "Here is..." prefixes
+                    generatedContent = generatedContent.replace(/^(Here is|Sure|Certainly).+?\n\n/si, '');
+                    
+                    generatedContent = generatedContent.trim();
+                    
+                    contractData = {
+                        ...contractData,
+                        client_name: clientName,
+                        client_email: recipientEmail,
+                        scope_of_work: scopeOfWork,
+                        milestones,
+                        payment_amount: totalAmount.toString(),
+                        payment_terms: 'Milestone-based payments',
+                        generated_content: generatedContent,
+                        html_content: generatedContent
+                    };
+                    
+                    logger.info('AI contract content generated successfully');
+                } catch (genError) {
+                    logger.error('Failed to generate AI contract content', { error: genError });
+                    // Continue with basic contract if AI generation fails
+                }
+            }
+
             const approvalToken = crypto.randomBytes(32).toString('hex');
             
             const { data: doc, error } = await supabase
                 .from('documents')
                 .insert({
                     user_id: user.id,
+                    project_id: projectId || null,
                     type: 'CONTRACT',
                     title: title || 'Contract',
                     amount: amount ? parseFloat(amount) : 0,
                     description: description,
                     status: 'DRAFT',
                     content: {
-                        ...content,
-                        client_name: clientName,
-                        recipient_email: recipientEmail,
-                        html_content: content?.html_content || '',
+                        ...contractData,
                         approval_token: approvalToken
                     }
                 })
@@ -594,6 +690,45 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 .single();
 
             if (error) throw error;
+
+            // NEW: Create milestones in database if project_id is present
+            if (projectId && contractData.milestones && Array.isArray(contractData.milestones)) {
+                try {
+                    // Fetch existing milestones for this project to avoid duplicates
+                    const { data: existingMilestones } = await supabase
+                        .from('milestones')
+                        .select('title, amount')
+                        .eq('project_id', projectId);
+
+                    const existingSet = new Set(
+                        (existingMilestones || []).map(m => `${m.title}|${parseFloat(m.amount)}`)
+                    );
+
+                    const milestonesToInsert = contractData.milestones
+                        .filter((m: any) => !existingSet.has(`${m.title}|${parseFloat(m.amount) || 0}`))
+                        .map((m: any) => ({
+                            project_id: projectId,
+                            title: m.title,
+                            amount: parseFloat(m.amount) || 0,
+                            status: 'pending',
+                            due_date: m.due_date || null
+                        }));
+                    
+                    if (milestonesToInsert.length > 0) {
+                        const { error: msError } = await supabase
+                            .from('milestones')
+                            .insert(milestonesToInsert);
+                            
+                        if (msError) {
+                            logger.error('Failed to create milestones for contract', { error: msError.message });
+                        } else {
+                            logger.info('Created milestones for contract', { count: milestonesToInsert.length });
+                        }
+                    }
+                } catch (msErr) {
+                    logger.error('Error creating milestones', { error: msErr });
+                }
+            }
 
             // Send contract email if recipient provided
             if (doc && recipientEmail) {
@@ -973,6 +1108,18 @@ router.post('/:id/complete', authenticate, async (req: Request, res: Response, n
 
         if (updateError) {
             throw new AppError(`Failed to update contract: ${updateError.message}`, 500);
+        }
+
+        // Send push notification to freelancer
+        try {
+            await NotificationService.notifyContractApproved(
+                userData.id,
+                updatedContract.id,
+                updatedContract.title,
+                contract.client_name || contract.content?.client_name || 'Client'
+            );
+        } catch (notifyError) {
+            logger.error('Failed to send contract approval notification', { error: notifyError });
         }
 
         // Generate invoice for the completed contract

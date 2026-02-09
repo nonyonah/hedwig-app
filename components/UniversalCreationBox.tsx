@@ -14,11 +14,12 @@ import {
     Platform,
     Linking,
 } from 'react-native';
+import CreationSuccessModal from './CreationSuccessModal';
 import * as WebBrowser from 'expo-web-browser';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BottomSheetTextInput, BottomSheetBackdrop, BottomSheetView, BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useThemeColors } from '../theme/colors';
-import { CalendarBlank, ArrowUp, Paperclip, ListPlus, XCircle, Check, Trash, Tray, CaretDown, Link as LinkIcon, FileText } from 'phosphor-react-native';
+import { CalendarBlank, ArrowUp, Paperclip, ListPlus, XCircle, Check, Trash, Tray, CaretDown, Link as LinkIcon, FileText, PaperPlaneRight } from 'phosphor-react-native';
 
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
@@ -46,13 +47,11 @@ interface ParsedData {
 }
 
 // Suggestion examples
+// Suggestion examples - more instructional for General mode
 const SUGGESTIONS = [
-    "Invoice for Acme for $500 web design and $200 logo",
-    "Create contract for Project X with 3 milestones",
-    "Payment link for 50 USDC on Base",
-    "Withdraw 100 USDC to GTBank",
-    "Invoice John at john@email.com for $1200",
-    "Contract for Sarah for Mobile App Design"
+    "Please select an option from the dropdown to start...",
+    "Choose 'Payment Link' or 'Invoice' from the menu below...",
+    "Tap 'General' to switch modes..."
 ];
 
 
@@ -97,21 +96,30 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
     const parseTimer = useRef<any>(null);
 
     // Mode state
-    const [selectedMode, setSelectedMode] = useState<'auto' | 'payment_link' | 'invoice'>('payment_link');
+    const [selectedMode, setSelectedMode] = useState<'auto' | 'payment_link' | 'invoice' | 'transfer'>('auto');
     const [showModeDropdown, setShowModeDropdown] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
+
+    // State for Success Modal
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [createdItemData, setCreatedItemData] = useState<{
+        type: 'invoice' | 'payment_link' | 'contract';
+        amount?: number;
+        title?: string;
+    } | null>(null);
 
     // Derived placeholder
     const getPlaceholder = () => {
         switch (selectedMode) {
             case 'payment_link': return "E.g., Design Retainer $500 for john@acme.com";
             case 'invoice': return "E.g., Web Design Project $2000 for Sarah (incl. 3 milestones)";
-            default: return "e.g., Invoice for Acme $500 due Friday";
+            case 'transfer': return "E.g., Send 100 USDC to 0x123... or bob.eth";
+            default: return "Select an option from the menu or type natural language...";
         }
     };
-
     // Derived intent
-    const detectedIntent = selectedMode !== 'auto' ? selectedMode : (parsedData?.intent || null);
+    // CRITICAL FIX: If selectedMode is explicit, we MUST use it. parsing should only enrich data, not override intent.
+    const detectedIntent = selectedMode !== 'auto' ? selectedMode : (parsedData?.intent || 'unknown');
 
     // Effective date (manual override > AI parsed)
     const effectiveDate = selectedDate || (parsedData?.dueDate ? new Date(parsedData.dueDate) : null);
@@ -119,6 +127,8 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
     // Handle sheet changes
     const handleSheetChanges = useCallback((index: number) => {
         if (index === -1) {
+            // Dismiss keyboard immediately when sheet closes
+            Keyboard.dismiss();
             onClose();
         }
     }, [onClose]);
@@ -139,19 +149,34 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
             setNewItemAmount('');
             setIsLoading(false);
             setIsCreating(false);
-            setSelectedMode('payment_link');
+            setSelectedMode('auto');
             setShowModeDropdown(false);
 
             bottomSheetRef.current?.present();
-
-            // Slightly delay focus to ensure sheet is ready, triggering keyboard animation
-            setTimeout(() => {
-                inputRef.current?.focus();
-            }, 150);
         } else {
+            // Dismiss keyboard immediately and forcefully before closing sheet
+            Keyboard.dismiss();
             inputRef.current?.blur();
-            bottomSheetRef.current?.dismiss();
+
+            // Add a small delay to ensure keyboard is dismissed before sheet closes
+            setTimeout(() => {
+                bottomSheetRef.current?.dismiss();
+            }, 50);
         }
+    }, [visible]);
+
+    // Add keyboard listener to handle lingering keyboard
+    useEffect(() => {
+        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+            if (!visible) {
+                // Ensure sheet is dismissed if keyboard hides while sheet should be closed
+                bottomSheetRef.current?.dismiss();
+            }
+        });
+
+        return () => {
+            keyboardDidHideListener.remove();
+        };
     }, [visible]);
 
     // Suggestion rotation animation
@@ -214,7 +239,6 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
             });
 
             const result = await response.json();
-            console.log('[UniversalCreationBox] Gemini parse result:', result);
 
             if (result.success && result.data) {
                 LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -305,6 +329,9 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
         setNewItemDesc('');
         setNewItemAmount('');
         setIsAddingItem(false);
+
+        // Dismiss keyboard after adding item
+        Keyboard.dismiss();
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     };
 
@@ -346,12 +373,13 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                 });
                 onClose();
             } else {
+                console.error('[UniversalCreationBox] onTransfer prop missing!');
                 Alert.alert("Feature Not Available", "Transfer functionality is not yet connected.");
             }
             return;
         }
 
-        const requiresDate = detectedIntent === 'payment_link' || detectedIntent === 'invoice' || detectedIntent === 'unknown';
+        const requiresDate = (detectedIntent === 'payment_link' || detectedIntent === 'invoice' || detectedIntent === 'unknown') && selectedMode !== 'transfer';
 
         if (requiresDate && !effectiveDate) {
             shakeDate();
@@ -457,37 +485,28 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
             console.log('[UniversalCreationBox] Create result:', result);
 
             if (result.success && result.data) {
-                onClose();
-
+                // Success Modal Logic
                 const docId = result.data.document?.id || result.data.id;
-
-                if (!docId) {
-                    console.error('[UniversalCreationBox] No document ID returned:', result);
-                    Alert.alert('Error', 'Failed to retrieve document ID');
-                    return;
-                }
-
-                // Check if we have an external payment link (BlockRadar)
                 const paymentUrl = result.data.document?.payment_link_url || result.data.document?.content?.blockradar_url;
 
+                setCreatedItemData({
+                    type: detectedIntent as any,
+                    amount: calculatedAmount,
+                    title: finalTitle || undefined
+                });
+
+                setShowSuccessModal(true);
+
+                // Clear state but don't close sheet yet - modal is above
+                setInputText('');
+                setParsedData(null);
+                setManualItems([]);
+
                 if (paymentUrl && paymentUrl.startsWith('http')) {
-                    // Open external link directly in in-app browser
-                    WebBrowser.openBrowserAsync(paymentUrl);
-                } else {
-                    switch (detectedIntent) {
-                        case 'invoice':
-                            router.push(`/invoice/${docId}`);
-                            break;
-                        case 'payment_link':
-                            router.push(`/payment-link/${docId}`);
-                            break;
-                        case 'contract':
-                            router.push(`/contracts`);
-                            break;
-                        default:
-                            router.push(`/invoice/${docId}`);
-                    }
+                    // Optional: still open browser if it was a direct BlockRadar link creation?
+                    // For now, let's stick to the modal as requested.
                 }
+
             } else {
                 throw new Error(result.error?.message || 'Failed to create document');
             }
@@ -498,6 +517,13 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
             setIsCreating(false);
         }
     };
+
+    const handleSuccessClose = () => {
+        setShowSuccessModal(false);
+        setCreatedItemData(null);
+        onClose(); // Close the main sheet
+    };
+
 
     // Backdrop component
     const renderBackdrop = useCallback(
@@ -519,336 +545,368 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
     const brandColor = themeColors.primary;
 
     return (
-        <BottomSheetModal
-            ref={bottomSheetRef}
-            index={0} // Changed from -1 to 0 (or null if we want to rely on present) but for Modal usually we rely on present()
-            enableDynamicSizing={true}
-            onChange={handleSheetChanges}
-            backdropComponent={renderBackdrop}
-            enablePanDownToClose
-            keyboardBehavior="interactive"
-            keyboardBlurBehavior="restore"
-            android_keyboardInputMode="adjustResize"
-            backgroundStyle={{
-                backgroundColor: sheetBg,
-                borderTopLeftRadius: 16,
-                borderTopRightRadius: 16,
-            }}
-            handleIndicatorStyle={{
-                backgroundColor: isDark ? '#3A3A3C' : '#C7C7CC',
-                width: 40,
-            }}
-        >
-            <BottomSheetView style={styles.contentContainer}>
-                {/* Text Input */}
-                <BottomSheetTextInput
-                    ref={inputRef}
-                    value={inputText}
-                    onChangeText={handleTextChange}
-                    placeholder={getPlaceholder()}
-                    placeholderTextColor={secondaryText}
-                    style={[styles.input, { color: textColor }]}
-                    multiline
-                />
+        <>
+            <BottomSheetModal
+                ref={bottomSheetRef}
+                index={0}
+                onChange={handleSheetChanges}
+                backdropComponent={renderBackdrop}
+                enablePanDownToClose
+                enableDynamicSizing={true}
+                android_keyboardInputMode="adjustResize"
+                keyboardBehavior="interactive"
+                keyboardBlurBehavior="restore"
+                backgroundStyle={{
+                    backgroundColor: sheetBg,
+                    borderTopLeftRadius: 16,
+                    borderTopRightRadius: 16,
+                }}
+                handleIndicatorStyle={{
+                    backgroundColor: isDark ? '#3A3A3C' : '#C7C7CC',
+                    width: 40,
+                }}
+            >
+                <BottomSheetView style={styles.contentContainer}>
+                    {/* Text Input */}
+                    <BottomSheetTextInput
+                        ref={inputRef}
+                        value={inputText}
+                        onChangeText={handleTextChange}
+                        placeholder={getPlaceholder()}
+                        placeholderTextColor={secondaryText}
+                        style={[styles.input, { color: textColor }]}
+                        multiline
+                    />
 
-                {/* Manual Items List */}
-                {manualItems.length > 0 && !isAddingItem && (
-                    <View style={styles.itemsList}>
-                        {manualItems.map((item, index) => (
-                            <View key={index} style={[styles.itemChip, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]}>
-                                <Text style={[styles.itemText, { color: textColor }]}>
-                                    {item.description} (${item.amount})
-                                </Text>
-                                <TouchableOpacity onPress={() => removeManualItem(index)}>
-                                    <XCircle size={16} color={secondaryText} weight="fill" />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
-                    </View>
-                )}
+                    {/* Manual Items List */}
+                    {manualItems.length > 0 && !isAddingItem && (
+                        <View style={styles.itemsList}>
+                            {manualItems.map((item, index) => (
+                                <View key={index} style={[styles.itemChip, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]}>
+                                    <Text style={[styles.itemText, { color: textColor }]}>
+                                        {item.description} (${item.amount})
+                                    </Text>
+                                    <TouchableOpacity onPress={() => removeManualItem(index)}>
+                                        <XCircle size={16} color={secondaryText} weight="fill" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                    )}
 
-                {/* Add Item Form */}
-                {isAddingItem ? (
-                    <View style={styles.addItemForm}>
-                        <TextInput
-                            value={newItemDesc}
-                            onChangeText={setNewItemDesc}
-                            placeholder="Item description (e.g. Web Design)"
-                            placeholderTextColor={secondaryText}
-                            style={[styles.miniInput, { color: textColor, flex: 2 }]}
-                            autoFocus
-                        />
-                        <TextInput
-                            value={newItemAmount}
-                            onChangeText={setNewItemAmount}
-                            placeholder="$0.00"
-                            placeholderTextColor={secondaryText}
-                            keyboardType="numeric"
-                            style={[styles.miniInput, { color: textColor, flex: 1 }]}
-                        />
-                        <TouchableOpacity
-                            style={[styles.miniButton, { backgroundColor: brandColor }]}
-                            onPress={handleAddItem}
-                        >
-                            <Check size={16} color="#FFFFFF" weight="bold" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.miniButton, { backgroundColor: isDark ? '#3A3A3C' : '#E5E5EA' }]}
-                            onPress={() => setIsAddingItem(false)}
-                        >
-                            <XCircle size={16} color={secondaryText} weight="bold" />
-                        </TouchableOpacity>
-                    </View>
-                ) : null}
-
-                {/* Rotating AI Suggestions (Ghost Text) */}
-                {!inputText && (
-                    <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => setInputText(SUGGESTIONS[suggestionIndex])}
-                        style={styles.suggestionContainer}
-                    >
-                        <Text style={[styles.suggestionLabel, { color: brandColor }]}>Try: </Text>
-                        <Animated.Text
-                            style={[
-                                styles.suggestionText,
-                                {
-                                    color: secondaryText,
-                                    opacity: suggestionFadeAnim
-                                }
-                            ]}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                        >
-                            {SUGGESTIONS[suggestionIndex]}
-                        </Animated.Text>
-                    </TouchableOpacity>
-                )}
-
-                {/* Chips Row: Date + Add Item + File */}
-                <View style={[styles.bottomRow, { marginBottom: 12, borderTopWidth: 0, paddingTop: 0 }]}>
-                    {/* Date Chip (Rounded Pill) */}
-                    <Animated.View style={{ transform: [{ translateX: dateShakeAnim }] }}>
-                        <TouchableOpacity
-                            style={[
-                                styles.datePill,
-                                {
-                                    backgroundColor: effectiveDate ? `${brandColor}15` : (isDark ? '#2C2C2E' : '#F2F2F7'),
-                                    borderColor: effectiveDate ? brandColor : (isDark ? '#3A3A3C' : '#E5E5EA'),
-                                }
-                            ]}
-                            onPress={handleDateTap}
-                        >
-                            <CalendarBlank
-                                size={16}
-                                color={effectiveDate ? brandColor : secondaryText}
-                                weight="bold"
+                    {/* Add Item Form */}
+                    {isAddingItem ? (
+                        <View style={styles.addItemForm}>
+                            <BottomSheetTextInput
+                                value={newItemDesc}
+                                onChangeText={setNewItemDesc}
+                                placeholder="Item description (e.g. Web Design)"
+                                placeholderTextColor={secondaryText}
+                                style={[styles.miniInput, { color: textColor, flex: 2 }]}
+                                autoFocus
                             />
-                            <Text style={[
-                                styles.datePillText,
-                                { color: effectiveDate ? brandColor : secondaryText }
-                            ]}>
-                                {formatDateDisplay(effectiveDate)}
-                            </Text>
-                        </TouchableOpacity>
-                    </Animated.View>
-
-                    {/* Add Item Pill - Only for Invoice */}
-                    {selectedMode === 'invoice' && (
-                        <TouchableOpacity
-                            style={[
-                                styles.datePill,
-                                {
-                                    backgroundColor: isAddingItem ? `${brandColor}15` : (isDark ? '#2C2C2E' : '#F2F2F7'),
-                                    borderColor: isAddingItem ? brandColor : (isDark ? '#3A3A3C' : '#E5E5EA'),
-                                    marginLeft: 8
-                                }
-                            ]}
-                            onPress={() => {
-                                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                setIsAddingItem(true);
-                            }}
-                        >
-                            <ListPlus
-                                size={16}
-                                color={isAddingItem ? brandColor : secondaryText}
-                                weight="bold"
+                            <BottomSheetTextInput
+                                value={newItemAmount}
+                                onChangeText={setNewItemAmount}
+                                placeholder="$0.00"
+                                placeholderTextColor={secondaryText}
+                                keyboardType="numeric"
+                                style={[styles.miniInput, { color: textColor, flex: 1 }]}
                             />
-                            <Text style={[
-                                styles.datePillText,
-                                { color: isAddingItem ? brandColor : secondaryText }
-                            ]}>
-                                Add Item
-                            </Text>
+                            <TouchableOpacity
+                                style={[styles.miniButton, { backgroundColor: brandColor }]}
+                                onPress={handleAddItem}
+                            >
+                                <Check size={16} color="#FFFFFF" weight="bold" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.miniButton, { backgroundColor: isDark ? '#3A3A3C' : '#E5E5EA' }]}
+                                onPress={() => {
+                                    Keyboard.dismiss();
+                                    setIsAddingItem(false);
+                                }}
+                            >
+                                <XCircle size={16} color={secondaryText} weight="bold" />
+                            </TouchableOpacity>
+                        </View>
+                    ) : null}
+
+                    {/* Rotating AI Suggestions (Ghost Text) */}
+                    {!inputText && (
+                        <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => setInputText(SUGGESTIONS[suggestionIndex])}
+                            style={styles.suggestionContainer}
+                        >
+                            <Text style={[styles.suggestionLabel, { color: brandColor }]}>Try: </Text>
+                            <Animated.Text
+                                style={[
+                                    styles.suggestionText,
+                                    {
+                                        color: secondaryText,
+                                        opacity: suggestionFadeAnim
+                                    }
+                                ]}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                            >
+                                {SUGGESTIONS[suggestionIndex]}
+                            </Animated.Text>
                         </TouchableOpacity>
                     )}
 
-                    {/* File Upload Chip */}
-                    <TouchableOpacity
-                        style={[
-                            styles.datePill,
-                            {
-                                backgroundColor: selectedFile ? `${brandColor}15` : (isDark ? '#2C2C2E' : '#F2F2F7'),
-                                borderColor: selectedFile ? brandColor : (isDark ? '#3A3A3C' : '#E5E5EA'),
-                                marginLeft: 8
-                            }
-                        ]}
-                        onPress={handleFileSelect}
-                    >
-                        <Paperclip
-                            size={16}
-                            color={selectedFile ? brandColor : secondaryText}
-                            weight="bold"
-                        />
-                        {selectedFile ? (
-                            <Text style={[
-                                styles.datePillText,
-                                { color: brandColor, maxWidth: 100 }
-                            ]} numberOfLines={1} ellipsizeMode="middle">
-                                {selectedFile.name}
-                            </Text>
-                        ) : null}
-                    </TouchableOpacity>
-                </View>
-
-                {/* Bottom Action Row: Inbox Selector (Left) + Submit (Right) */}
-                <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    paddingTop: 12,
-                    borderTopWidth: 1,
-                    borderTopColor: isDark ? '#3A3A3C' : '#E5E5EA',
-                    zIndex: 20
-                }}>
-                    {/* Inbox Selector with Dropdown */}
-                    <View>
-                        <TouchableOpacity
-                            style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 6,
-                                padding: 8,
-                                borderRadius: 8,
-                                backgroundColor: showModeDropdown ? (isDark ? '#2C2C2E' : '#F2F2F7') : 'transparent'
-                            }}
-                            onPress={() => {
-                                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                setShowModeDropdown(!showModeDropdown);
-                            }}
-                            activeOpacity={0.7}
-                        >
-                            {/* Icon for mode - Subtle */}
-                            {selectedMode === 'auto' && <Tray size={18} color={secondaryText} weight="regular" />}
-                            {selectedMode === 'payment_link' && <LinkIcon size={18} color={secondaryText} weight="regular" />}
-                            {selectedMode === 'invoice' && <FileText size={18} color={secondaryText} weight="regular" />}
-
-                            {/* Text - Subtle System Font */}
-                            <Text style={{ fontSize: 16, fontWeight: '500', color: secondaryText }}>
-                                {selectedMode === 'auto' ? 'Inbox' : selectedMode === 'payment_link' ? 'Payment Link' : 'Invoice'}
-                            </Text>
-                            <CaretDown
-                                size={14}
-                                color={secondaryText}
-                                weight="bold"
-                                style={{ transform: [{ rotate: showModeDropdown ? '180deg' : '0deg' }] }}
-                            />
-                        </TouchableOpacity>
-
-                        {/* Mode Dropdown (Opens Upwards) */}
-                        {showModeDropdown && (
-                            <View style={{
-                                position: 'absolute',
-                                bottom: '100%', // Open upwards
-                                left: 0,
-                                marginBottom: 8,
-                                backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
-                                borderRadius: 12,
-                                width: 200,
-                                shadowColor: "#000",
-                                shadowOffset: { width: 0, height: 4 }, // Standard shadow
-                                shadowOpacity: 0.15,
-                                shadowRadius: 12,
-                                elevation: 5,
-                                borderWidth: 1,
-                                borderColor: isDark ? '#3A3A3C' : '#E5E5EA',
-                                padding: 4
-                            }}>
-                                {/* Payment Link Option - Refined */}
+                    {/* Chips Row: Date + Add Item + File */}
+                    <View style={[styles.bottomRow, { marginBottom: 12, borderTopWidth: 0, paddingTop: 0 }]}>
+                        {/* Date Chip (Rounded Pill) - Hide for Transfer */}
+                        {detectedIntent !== 'transfer' && (
+                            <Animated.View style={{ transform: [{ translateX: dateShakeAnim }] }}>
                                 <TouchableOpacity
-                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'payment_link' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
-                                    onPress={() => {
-                                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                        setSelectedMode('payment_link');
-                                        setShowModeDropdown(false);
-                                    }}
+                                    style={[
+                                        styles.datePill,
+                                        {
+                                            backgroundColor: effectiveDate ? `${brandColor}15` : (isDark ? '#2C2C2E' : '#F2F2F7'),
+                                            borderColor: effectiveDate ? brandColor : (isDark ? '#3A3A3C' : '#E5E5EA'),
+                                        }
+                                    ]}
+                                    onPress={handleDateTap}
                                 >
-                                    <LinkIcon size={18} color={textColor} weight="regular" />
-                                    <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Payment Link</Text>
-                                    {selectedMode === 'payment_link' && <Check size={14} color={textColor} weight="bold" style={{ marginLeft: 'auto' }} />}
+                                    <CalendarBlank
+                                        size={16}
+                                        color={effectiveDate ? brandColor : secondaryText}
+                                        weight="bold"
+                                    />
+                                    <Text style={[
+                                        styles.datePillText,
+                                        { color: effectiveDate ? brandColor : secondaryText }
+                                    ]}>
+                                        {formatDateDisplay(effectiveDate)}
+                                    </Text>
                                 </TouchableOpacity>
-
-                                {/* Invoice Option - Refined */}
-                                <TouchableOpacity
-                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'invoice' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
-                                    onPress={() => {
-                                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                        setSelectedMode('invoice');
-                                        setShowModeDropdown(false);
-                                    }}
-                                >
-                                    <FileText size={18} color={textColor} weight="regular" />
-                                    <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Invoice</Text>
-                                    {selectedMode === 'invoice' && <Check size={14} color={textColor} weight="bold" style={{ marginLeft: 'auto' }} />}
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                    </View>
-
-                    {/* Right Side: Loading or Submit */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        {/* Loading Indicator */}
-                        {isLoading && (
-                            <ActivityIndicator size="small" color={brandColor} style={{ marginRight: 12 }} />
+                            </Animated.View>
                         )}
 
-                        {/* Submit Button (Brand Color) */}
-                        <TouchableOpacity
-                            style={[
-                                styles.submitButton,
-                                {
-                                    backgroundColor: inputText.trim() ? brandColor : (isDark ? '#2C2C2E' : '#F2F2F7'),
-                                }
-                            ]}
-                            onPress={handleCreate}
-                            disabled={!inputText.trim() || isCreating}
-                        >
-                            {isCreating ? (
-                                <ActivityIndicator size="small" color="#FFFFFF" />
-                            ) : (
-                                <ArrowUp
-                                    size={20}
-                                    color={inputText.trim() ? '#FFFFFF' : secondaryText}
+                        {/* Add Item Pill - Only for Invoice */}
+                        {selectedMode === 'invoice' && (
+                            <TouchableOpacity
+                                style={[
+                                    styles.datePill,
+                                    {
+                                        backgroundColor: isAddingItem ? `${brandColor}15` : (isDark ? '#2C2C2E' : '#F2F2F7'),
+                                        borderColor: isAddingItem ? brandColor : (isDark ? '#3A3A3C' : '#E5E5EA'),
+                                        marginLeft: 8
+                                    }
+                                ]}
+                                onPress={() => {
+                                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                    setIsAddingItem(true);
+                                }}
+                            >
+                                <ListPlus
+                                    size={16}
+                                    color={isAddingItem ? brandColor : secondaryText}
                                     weight="bold"
                                 />
-                            )}
+                                <Text style={[
+                                    styles.datePillText,
+                                    { color: isAddingItem ? brandColor : secondaryText }
+                                ]}>
+                                    Add Item
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {/* File Upload Chip */}
+                        <TouchableOpacity
+                            style={[
+                                styles.datePill,
+                                {
+                                    backgroundColor: selectedFile ? `${brandColor}15` : (isDark ? '#2C2C2E' : '#F2F2F7'),
+                                    borderColor: selectedFile ? brandColor : (isDark ? '#3A3A3C' : '#E5E5EA'),
+                                    marginLeft: 8
+                                }
+                            ]}
+                            onPress={handleFileSelect}
+                        >
+                            <Paperclip
+                                size={16}
+                                color={selectedFile ? brandColor : secondaryText}
+                                weight="bold"
+                            />
+                            {selectedFile ? (
+                                <Text style={[
+                                    styles.datePillText,
+                                    { color: brandColor, maxWidth: 100 }
+                                ]} numberOfLines={1} ellipsizeMode="middle">
+                                    {selectedFile.name}
+                                </Text>
+                            ) : null}
                         </TouchableOpacity>
                     </View>
-                </View>
 
-                {/* Date Picker */}
-                {showDatePicker && (
-                    <DateTimePicker
-                        value={effectiveDate || new Date()}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={handleDateChange}
-                        textColor={textColor}
-                        themeVariant={isDark ? 'dark' : 'light'}
-                    />
-                )}
-            </BottomSheetView>
-        </BottomSheetModal>
+                    {/* Bottom Action Row: Inbox Selector (Left) + Submit (Right) */}
+                    <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingTop: 12,
+                        borderTopWidth: 1,
+                        borderTopColor: isDark ? '#3A3A3C' : '#E5E5EA',
+                        zIndex: 20
+                    }}>
+                        {/* Inbox Selector with Dropdown */}
+                        <View>
+                            <TouchableOpacity
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    padding: 8,
+                                    borderRadius: 8,
+                                    backgroundColor: showModeDropdown ? (isDark ? '#2C2C2E' : '#F2F2F7') : 'transparent'
+                                }}
+                                onPress={() => {
+                                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                    setShowModeDropdown(!showModeDropdown);
+                                }}
+                                activeOpacity={0.7}
+                            >
+                                {/* Icon for mode - Subtle */}
+                                {selectedMode === 'auto' && <Tray size={18} color={secondaryText} weight="regular" />}
+                                {selectedMode === 'payment_link' && <LinkIcon size={18} color={secondaryText} weight="regular" />}
+                                {selectedMode === 'invoice' && <FileText size={18} color={secondaryText} weight="regular" />}
+
+                                {/* Text - Subtle System Font */}
+                                <Text style={{ fontSize: 16, fontWeight: '500', color: secondaryText }}>
+                                    {selectedMode === 'auto' ? 'General' : selectedMode === 'payment_link' ? 'Payment Link' : selectedMode === 'invoice' ? 'Invoice' : 'Transfer'}
+                                </Text>
+                                <CaretDown
+                                    size={14}
+                                    color={secondaryText}
+                                    weight="bold"
+                                    style={{ transform: [{ rotate: showModeDropdown ? '180deg' : '0deg' }] }}
+                                />
+                            </TouchableOpacity>
+
+                            {/* Mode Dropdown (Opens Upwards) */}
+                            {showModeDropdown && (
+                                <View style={{
+                                    position: 'absolute',
+                                    bottom: '100%', // Open upwards
+                                    left: 0,
+                                    marginBottom: 8,
+                                    backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
+                                    borderRadius: 12,
+                                    width: 200,
+                                    shadowColor: "#000",
+                                    shadowOffset: { width: 0, height: 4 }, // Standard shadow
+                                    shadowOpacity: 0.15,
+                                    shadowRadius: 12,
+                                    elevation: 5,
+                                    borderWidth: 1,
+                                    borderColor: isDark ? '#3A3A3C' : '#E5E5EA',
+                                    padding: 4
+                                }}>
+
+
+                                    {/* Payment Link Option - Refined */}
+                                    <TouchableOpacity
+                                        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'payment_link' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
+                                        onPress={() => {
+                                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                            setSelectedMode('payment_link');
+                                            setShowModeDropdown(false);
+                                        }}
+                                    >
+                                        <LinkIcon size={18} color={textColor} weight="regular" />
+                                        <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Payment Link</Text>
+                                        {selectedMode === 'payment_link' && <Check size={14} color={textColor} weight="bold" style={{ marginLeft: 'auto' }} />}
+                                    </TouchableOpacity>
+
+                                    {/* Invoice Option - Refined */}
+                                    <TouchableOpacity
+                                        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'invoice' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
+                                        onPress={() => {
+                                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                            setSelectedMode('invoice');
+                                            setShowModeDropdown(false);
+                                        }}
+                                    >
+                                        <FileText size={18} color={textColor} weight="regular" />
+                                        <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Invoice</Text>
+                                        {selectedMode === 'invoice' && <Check size={14} color={textColor} weight="bold" style={{ marginLeft: 'auto' }} />}
+                                    </TouchableOpacity>
+
+                                    {/* Transfer Option - Refined */}
+                                    <TouchableOpacity
+                                        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'transfer' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
+                                        onPress={() => {
+                                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                            setSelectedMode('transfer');
+                                            setShowModeDropdown(false);
+                                        }}
+                                    >
+                                        <PaperPlaneRight size={18} color={textColor} weight="regular" />
+                                        <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Transfer</Text>
+                                        {selectedMode === 'transfer' && <Check size={14} color={textColor} weight="bold" style={{ marginLeft: 'auto' }} />}
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Right Side: Loading or Submit */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            {/* Loading Indicator */}
+                            {isLoading && (
+                                <ActivityIndicator size="small" color={brandColor} style={{ marginRight: 12 }} />
+                            )}
+
+                            {/* Submit Button (Brand Color) */}
+                            <TouchableOpacity
+                                style={[
+                                    styles.submitButton,
+                                    {
+                                        backgroundColor: inputText.trim() ? brandColor : (isDark ? '#2C2C2E' : '#F2F2F7'),
+                                    }
+                                ]}
+                                onPress={handleCreate}
+                                disabled={!inputText.trim() || isCreating}
+                            >
+                                {isCreating ? (
+                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                ) : (
+                                    <ArrowUp
+                                        size={20}
+                                        color={inputText.trim() ? '#FFFFFF' : secondaryText}
+                                        weight="bold"
+                                    />
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Date Picker */}
+                    {showDatePicker && (
+                        <DateTimePicker
+                            value={effectiveDate || new Date()}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            onChange={handleDateChange}
+                            textColor={textColor}
+                            themeVariant={isDark ? 'dark' : 'light'}
+                        />
+                    )}
+                </BottomSheetView>
+            </BottomSheetModal>
+
+            {/* Success Modal */}
+            <CreationSuccessModal
+                visible={showSuccessModal}
+                onClose={handleSuccessClose}
+                type={createdItemData?.type || 'invoice'}
+                amount={createdItemData?.amount}
+                title={createdItemData?.title}
+            />
+        </>
     );
 }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, ScrollView, Alert, LayoutAnimation, UIManager, Image } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { BlurView } from 'expo-blur'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -467,7 +467,7 @@ export default function ProjectsScreen() {
                 <BottomSheetModal
                     ref={bottomSheetRef}
                     index={0}
-                    snapPoints={['85%']}
+                    snapPoints={['50%', '90%']}
                     enablePanDownToClose={true}
                     backdropComponent={(props) => (
                         <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
@@ -475,11 +475,11 @@ export default function ProjectsScreen() {
                     backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
                     handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
                 >
-                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24, flex: 1 }}>
+                    <View style={{ flex: 1 }}>
                         {/* Modal Header Row with X and Options */}
                         {selectedProject && (
                             <>
-                                <View style={styles.modalHeaderRow}>
+                                <View style={[styles.modalHeaderRow, { paddingHorizontal: 24 }]}>
                                     <View style={styles.modalHeaderLeft}>
                                         <Text style={[styles.modalHeaderTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{selectedProject.title}</Text>
                                     </View>
@@ -536,176 +536,183 @@ export default function ProjectsScreen() {
                         )}
 
                         {selectedProject && (
-                            <ScrollView showsVerticalScrollIndicator={false} style={styles.detailModalBody} contentContainerStyle={{ paddingBottom: 32 }}>
-                                {/* Status Badge */}
-                                <View style={styles.modalHeader}>
-                                    <View style={[styles.statusBadgeNew, { backgroundColor: getStatusColor(selectedProject.status) + '15' }]}>
-                                        <Text style={[styles.statusTextNew, { color: getStatusColor(selectedProject.status) }]}>
-                                            {selectedProject.status.charAt(0).toUpperCase() + selectedProject.status.slice(1)}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {/* Client Info */}
-                                <View style={styles.clientInfoRow}>
-                                    <User size={16} color={themeColors.textSecondary} />
-                                    <Text style={[styles.clientInfoText, { color: themeColors.textSecondary }]}>{selectedProject.client?.name}</Text>
-                                    {selectedProject.startDate && (
-                                        <Text style={[styles.clientInfoDate, { color: themeColors.textTertiary }]}>Started {new Date(selectedProject.startDate).toLocaleDateString()}</Text>
-                                    )}
-                                </View>
-
-                                {/* Circular Progress */}
-                                {(() => {
-                                    const size = 160;
-                                    const strokeWidth = 10;
-                                    const radius = (size - strokeWidth) / 2;
-                                    const circumference = radius * 2 * Math.PI;
-                                    const progress = selectedProject.progress.percentage / 100;
-                                    const strokeDashoffset = circumference - (progress * circumference);
-
-                                    return (
-                                        <View style={styles.circularProgressContainer}>
-                                            <View style={{ width: size, height: size, position: 'relative' }}>
-                                                <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
-                                                    {/* Background circle */}
-                                                    <Circle
-                                                        cx={size / 2}
-                                                        cy={size / 2}
-                                                        r={radius}
-                                                        stroke={themeColors.border}
-                                                        strokeWidth={strokeWidth}
-                                                        fill="transparent"
-                                                    />
-                                                    {/* Progress circle */}
-                                                    <Circle
-                                                        cx={size / 2}
-                                                        cy={size / 2}
-                                                        r={radius}
-                                                        stroke={Colors.primary}
-                                                        strokeWidth={strokeWidth}
-                                                        fill="transparent"
-                                                        strokeLinecap="round"
-                                                        strokeDasharray={circumference}
-                                                        strokeDashoffset={strokeDashoffset}
-                                                    />
-                                                </Svg>
-                                                {/* Center text */}
-                                                <View style={styles.circularProgressCenter}>
-                                                    <Text style={[styles.circularProgressPercent, { color: themeColors.textPrimary }]}>{selectedProject.progress.percentage}%</Text>
-                                                    <Text style={[styles.circularProgressLabel, { color: themeColors.textSecondary }]}>
-                                                        {(['completed', 'paid'].includes(selectedProject.status.toLowerCase()) || selectedProject.progress.percentage === 100) ? 'Completed' : 'Ongoing'}
-                                                    </Text>
-                                                </View>
+                            <BottomSheetFlatList
+                                data={selectedProject.milestones || []}
+                                keyExtractor={(item) => item.id}
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 24 }}
+                                nestedScrollEnabled={true}
+                                ListHeaderComponent={
+                                    <>
+                                        {/* Status Badge */}
+                                        <View style={styles.modalHeader}>
+                                            <View style={[styles.statusBadgeNew, { backgroundColor: getStatusColor(selectedProject.status) + '15' }]}>
+                                                <Text style={[styles.statusTextNew, { color: getStatusColor(selectedProject.status) }]}>
+                                                    {selectedProject.status.charAt(0).toUpperCase() + selectedProject.status.slice(1)}
+                                                </Text>
                                             </View>
                                         </View>
-                                    );
-                                })()}
 
-                                {/* Info Rows */}
-                                <View style={[styles.infoSection, { backgroundColor: themeColors.surface }]}>
-                                    <View style={styles.infoRow}>
-                                        <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Total Budget</Text>
-                                        <Text style={[styles.infoValue, { color: themeColors.textSecondary }]}>${selectedProject.progress.totalAmount.toLocaleString()}</Text>
+                                        {/* Client Info */}
+                                        <View style={styles.clientInfoRow}>
+                                            <User size={16} color={themeColors.textSecondary} />
+                                            <Text style={[styles.clientInfoText, { color: themeColors.textSecondary }]}>{selectedProject.client?.name}</Text>
+                                            {selectedProject.startDate && (
+                                                <Text style={[styles.clientInfoDate, { color: themeColors.textTertiary }]}>Started {new Date(selectedProject.startDate).toLocaleDateString()}</Text>
+                                            )}
+                                        </View>
+
+                                        {/* Circular Progress */}
+                                        {(() => {
+                                            const size = 160;
+                                            const strokeWidth = 10;
+                                            const radius = (size - strokeWidth) / 2;
+                                            const circumference = radius * 2 * Math.PI;
+                                            const progress = selectedProject.progress.percentage / 100;
+                                            const strokeDashoffset = circumference - (progress * circumference);
+
+                                            return (
+                                                <View style={styles.circularProgressContainer}>
+                                                    <View style={{ width: size, height: size, position: 'relative' }}>
+                                                        <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+                                                            {/* Background circle */}
+                                                            <Circle
+                                                                cx={size / 2}
+                                                                cy={size / 2}
+                                                                r={radius}
+                                                                stroke={themeColors.border}
+                                                                strokeWidth={strokeWidth}
+                                                                fill="transparent"
+                                                            />
+                                                            {/* Progress circle */}
+                                                            <Circle
+                                                                cx={size / 2}
+                                                                cy={size / 2}
+                                                                r={radius}
+                                                                stroke={Colors.primary}
+                                                                strokeWidth={strokeWidth}
+                                                                fill="transparent"
+                                                                strokeLinecap="round"
+                                                                strokeDasharray={circumference}
+                                                                strokeDashoffset={strokeDashoffset}
+                                                            />
+                                                        </Svg>
+                                                        {/* Center text */}
+                                                        <View style={styles.circularProgressCenter}>
+                                                            <Text style={[styles.circularProgressPercent, { color: themeColors.textPrimary }]}>{selectedProject.progress.percentage}%</Text>
+                                                            <Text style={[styles.circularProgressLabel, { color: themeColors.textSecondary }]}>
+                                                                {(['completed', 'paid'].includes(selectedProject.status.toLowerCase()) || selectedProject.progress.percentage === 100) ? 'Completed' : 'Ongoing'}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
+                                                </View>
+                                            );
+                                        })()}
+
+                                        {/* Info Rows */}
+                                        <View style={[styles.infoSection, { backgroundColor: themeColors.surface }]}>
+                                            <View style={styles.infoRow}>
+                                                <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Total Budget</Text>
+                                                <Text style={[styles.infoValue, { color: themeColors.textSecondary }]}>${selectedProject.progress.totalAmount.toLocaleString()}</Text>
+                                            </View>
+                                            <View style={[styles.infoRowDivider, { backgroundColor: themeColors.border }]} />
+
+                                            <View style={styles.infoRow}>
+                                                <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Amount Paid</Text>
+                                                <Text style={styles.infoValueHighlight}>${selectedProject.progress.paidAmount.toLocaleString()}</Text>
+                                            </View>
+                                            <View style={[styles.infoRowDivider, { backgroundColor: themeColors.border }]} />
+
+                                            <View style={styles.infoRow}>
+                                                <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Amount Pending</Text>
+                                                <Text style={[styles.infoValue, { color: themeColors.textSecondary }]}>${(selectedProject.progress.totalAmount - selectedProject.progress.paidAmount).toLocaleString()}</Text>
+                                            </View>
+                                            <View style={[styles.infoRowDivider, { backgroundColor: themeColors.border }]} />
+
+                                            <View style={styles.infoRow}>
+                                                <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Milestones Completed</Text>
+                                                <Text style={[styles.infoValue, { color: themeColors.textSecondary }]}>{selectedProject.progress.completedMilestones} / {selectedProject.progress.totalMilestones}</Text>
+                                            </View>
+                                        </View>
+
+                                        {selectedProject.deadline && (
+                                            <View style={styles.deadlineNote}>
+                                                <Calendar size={16} color={Colors.warning} />
+                                                <Text style={styles.deadlineTextHighlight}>
+                                                    Deadline: {new Date(selectedProject.deadline).toLocaleDateString()}
+                                                </Text>
+                                            </View>
+                                        )}
+
+                                        {/* Milestones Header */}
+                                        <View style={styles.milestonesSection}>
+                                            <View style={styles.milestonesHeaderRow}>
+                                                <Text style={[styles.milestonesTitle, { color: themeColors.textPrimary }]}>Milestones</Text>
+                                                <Text style={[styles.milestonesCount, { color: themeColors.textSecondary }]}>{selectedProject.milestones?.length || 0}</Text>
+                                            </View>
+                                        </View>
+                                    </>
+                                }
+                                ListEmptyComponent={
+                                    <View style={styles.noMilestonesContainer}>
+                                        <Text style={[styles.noMilestones, { color: themeColors.textSecondary }]}>No milestones yet</Text>
+                                        <Text style={[styles.noMilestonesHint, { color: themeColors.textTertiary }]}>Ask Hedwig to add one!</Text>
                                     </View>
-                                    <View style={[styles.infoRowDivider, { backgroundColor: themeColors.border }]} />
-
-                                    <View style={styles.infoRow}>
-                                        <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Amount Paid</Text>
-                                        <Text style={styles.infoValueHighlight}>${selectedProject.progress.paidAmount.toLocaleString()}</Text>
-                                    </View>
-                                    <View style={[styles.infoRowDivider, { backgroundColor: themeColors.border }]} />
-
-                                    <View style={styles.infoRow}>
-                                        <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Amount Pending</Text>
-                                        <Text style={[styles.infoValue, { color: themeColors.textSecondary }]}>${(selectedProject.progress.totalAmount - selectedProject.progress.paidAmount).toLocaleString()}</Text>
-                                    </View>
-                                    <View style={[styles.infoRowDivider, { backgroundColor: themeColors.border }]} />
-
-                                    <View style={styles.infoRow}>
-                                        <Text style={[styles.infoLabel, { color: themeColors.textPrimary }]}>Milestones Completed</Text>
-                                        <Text style={[styles.infoValue, { color: themeColors.textSecondary }]}>{selectedProject.progress.completedMilestones} / {selectedProject.progress.totalMilestones}</Text>
-                                    </View>
-                                </View>
-
-                                {selectedProject.deadline && (
-                                    <View style={styles.deadlineNote}>
-                                        <Calendar size={16} color={Colors.warning} />
-                                        <Text style={styles.deadlineTextHighlight}>
-                                            Deadline: {new Date(selectedProject.deadline).toLocaleDateString()}
-                                        </Text>
+                                }
+                                renderItem={({ item: milestone, index }) => (
+                                    <View style={[
+                                        styles.milestoneCard,
+                                        { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 },
+                                        index === (selectedProject.milestones?.length ?? 0) - 1 && { marginBottom: 0 }
+                                    ]}>
+                                        <View style={styles.milestoneCardHeader}>
+                                            <View style={styles.milestoneCardLeft}>
+                                                {getMilestoneStatusIcon(milestone.status)}
+                                                <Text style={[styles.milestoneCardTitle, { color: themeColors.textPrimary }]}>{milestone.title}</Text>
+                                            </View>
+                                            <Text style={[styles.milestoneCardAmount, { color: themeColors.textPrimary }]}>${milestone.amount.toLocaleString()}</Text>
+                                        </View>
+                                        <View style={styles.milestoneCardFooter}>
+                                            <View style={[
+                                                styles.statusBadge,
+                                                milestone.status === 'paid' && { backgroundColor: '#DCFCE7' }, // Keep light green for paid
+                                                milestone.status === 'invoiced' && { backgroundColor: '#DBEAFE' }, // Keep light blue for invoiced
+                                                milestone.status === 'pending' && { backgroundColor: themeColors.surface }, // Surface for pending
+                                            ]}>
+                                                <Text style={[
+                                                    styles.statusText,
+                                                    milestone.status === 'paid' && { color: '#16A34A' },
+                                                    milestone.status === 'invoiced' && { color: '#2563EB' },
+                                                    milestone.status === 'pending' && { color: themeColors.textSecondary },
+                                                ]}>
+                                                    {milestone.status.charAt(0).toUpperCase() + milestone.status.slice(1)}
+                                                </Text>
+                                            </View>
+                                            {milestone.dueDate && (
+                                                <Text style={[styles.milestoneCardDate, { color: themeColors.textSecondary }]}>Due {new Date(milestone.dueDate).toLocaleDateString()}</Text>
+                                            )}
+                                            {milestone.status === 'pending' && (
+                                                <TouchableOpacity
+                                                    style={styles.completeButton}
+                                                    onPress={() => handleCompleteMilestone(milestone)}
+                                                    disabled={completingMilestone === milestone.id}
+                                                >
+                                                    {completingMilestone === milestone.id ? (
+                                                        <ActivityIndicator size="small" color={Colors.primary} />
+                                                    ) : (
+                                                        <>
+                                                            <Check size={14} color={Colors.primary} weight="bold" />
+                                                            <Text style={styles.completeButtonText}>Invoice</Text>
+                                                        </>
+                                                    )}
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
                                     </View>
                                 )}
-
-                                {/* Milestones Section */}
-                                <View style={styles.milestonesSection}>
-                                    <View style={styles.milestonesHeaderRow}>
-                                        <Text style={[styles.milestonesTitle, { color: themeColors.textPrimary }]}>Milestones</Text>
-                                        <Text style={[styles.milestonesCount, { color: themeColors.textSecondary }]}>{selectedProject.milestones?.length || 0}</Text>
-                                    </View>
-
-                                    {(selectedProject.milestones?.length ?? 0) === 0 ? (
-                                        <View style={styles.noMilestonesContainer}>
-                                            <Text style={[styles.noMilestones, { color: themeColors.textSecondary }]}>No milestones yet</Text>
-                                            <Text style={[styles.noMilestonesHint, { color: themeColors.textTertiary }]}>Ask Hedwig to add one!</Text>
-                                        </View>
-                                    ) : (
-                                        (selectedProject.milestones || []).map((milestone, index) => (
-                                            <View key={milestone.id} style={[
-                                                styles.milestoneCard,
-                                                { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 },
-                                                index === (selectedProject.milestones?.length ?? 0) - 1 && { marginBottom: 0 }
-                                            ]}>
-                                                <View style={styles.milestoneCardHeader}>
-                                                    <View style={styles.milestoneCardLeft}>
-                                                        {getMilestoneStatusIcon(milestone.status)}
-                                                        <Text style={[styles.milestoneCardTitle, { color: themeColors.textPrimary }]}>{milestone.title}</Text>
-                                                    </View>
-                                                    <Text style={[styles.milestoneCardAmount, { color: themeColors.textPrimary }]}>${milestone.amount.toLocaleString()}</Text>
-                                                </View>
-                                                <View style={styles.milestoneCardFooter}>
-                                                    <View style={[
-                                                        styles.statusBadge,
-                                                        milestone.status === 'paid' && { backgroundColor: '#DCFCE7' }, // Keep light green for paid
-                                                        milestone.status === 'invoiced' && { backgroundColor: '#DBEAFE' }, // Keep light blue for invoiced
-                                                        milestone.status === 'pending' && { backgroundColor: themeColors.surface }, // Surface for pending
-                                                    ]}>
-                                                        <Text style={[
-                                                            styles.statusText,
-                                                            milestone.status === 'paid' && { color: '#16A34A' },
-                                                            milestone.status === 'invoiced' && { color: '#2563EB' },
-                                                            milestone.status === 'pending' && { color: themeColors.textSecondary },
-                                                        ]}>
-                                                            {milestone.status.charAt(0).toUpperCase() + milestone.status.slice(1)}
-                                                        </Text>
-                                                    </View>
-                                                    {milestone.dueDate && (
-                                                        <Text style={[styles.milestoneCardDate, { color: themeColors.textSecondary }]}>Due {new Date(milestone.dueDate).toLocaleDateString()}</Text>
-                                                    )}
-                                                    {milestone.status === 'pending' && (
-                                                        <TouchableOpacity
-                                                            style={styles.completeButton}
-                                                            onPress={() => handleCompleteMilestone(milestone)}
-                                                            disabled={completingMilestone === milestone.id}
-                                                        >
-                                                            {completingMilestone === milestone.id ? (
-                                                                <ActivityIndicator size="small" color={Colors.primary} />
-                                                            ) : (
-                                                                <>
-                                                                    <Check size={14} color={Colors.primary} weight="bold" />
-                                                                    <Text style={styles.completeButtonText}>Invoice</Text>
-                                                                </>
-                                                            )}
-                                                        </TouchableOpacity>
-                                                    )}
-                                                </View>
-                                            </View>
-                                        ))
-                                    )}
-                                </View>
-                            </ScrollView>
+                            />
                         )}
-                    </BottomSheetView>
+                    </View>
                 </BottomSheetModal>
             </SafeAreaView >
         </>
@@ -994,6 +1001,7 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     detailModalBody: {
+        flex: 1,
         // No extra padding - handled by detailModalContent
     },
     detailModalTitle: {
