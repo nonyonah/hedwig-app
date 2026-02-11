@@ -208,26 +208,12 @@ async function handlePaymentLinkDeposit(data: any) {
 
         // Update client total_earnings if document has a client
         if (currentDoc.client_id) {
-            const { data: client } = await supabase
-                .from('clients')
-                .select('total_earnings')
-                .eq('id', currentDoc.client_id)
-                .single();
-            
-            if (client) {
-                const currentEarnings = parseFloat(client.total_earnings || '0');
-                const newEarnings = currentEarnings + amount;
-                
-                await supabase
-                    .from('clients')
-                    .update({ total_earnings: newEarnings.toString() })
-                    .eq('id', currentDoc.client_id);
-                
-                logger.info('Updated client total_earnings', { 
-                    clientId: currentDoc.client_id, 
-                    previousEarnings: currentEarnings,
-                    newEarnings 
-                });
+            try {
+                // Use centralized service to update stats
+                const { ClientService } = await import('../services/clientService');
+                await ClientService.updateClientStats(currentDoc.client_id);
+            } catch (err) {
+                 logger.error('Failed to update client stats after payment', { error: err, clientId: currentDoc.client_id });
             }
         }
 

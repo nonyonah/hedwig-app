@@ -4,7 +4,8 @@ import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
@@ -35,6 +36,7 @@ const PROFILE_COLOR_OPTIONS = [
 ] as const;
 
 export default function ContractsScreen() {
+    const navigation = useNavigation();
     const router = useRouter();
     const { getAccessToken, user } = useAuth();
     const settings = useSettings();
@@ -68,55 +70,61 @@ export default function ContractsScreen() {
         fetchContracts();
     }, [user]);
 
-    useEffect(() => {
-        const fetchUserData = async () => {
-            if (!user) return;
-            try {
-                const token = await getAccessToken();
-                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+    const fetchUserData = async () => {
+        if (!user) return;
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-                const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
+            const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            const profileData = await profileResponse.json();
+
+            if (profileData.success && profileData.data) {
+                const userData = profileData.data.user || profileData.data;
+                setUserName({
+                    firstName: userData.firstName || '',
+                    lastName: userData.lastName || ''
                 });
-                const profileData = await profileResponse.json();
 
-                if (profileData.success && profileData.data) {
-                    const userData = profileData.data.user || profileData.data;
-                    setUserName({
-                        firstName: userData.firstName || '',
-                        lastName: userData.lastName || ''
-                    });
-
-                    // Set profile icon
-                    if (userData.avatar) {
+                // Set profile icon - handle data URIs and regular URLs
+                if (userData.avatar) {
+                    if (userData.avatar.startsWith('data:') || userData.avatar.startsWith('http')) {
+                        setProfileIcon({ imageUri: userData.avatar });
+                    } else {
                         try {
-                            if (userData.avatar.trim().startsWith('{')) {
-                                const parsed = JSON.parse(userData.avatar);
-                                setProfileIcon(parsed);
-                            } else {
-                                setProfileIcon({ imageUri: userData.avatar });
+                            const parsed = JSON.parse(userData.avatar);
+                            if (parsed.imageUri) {
+                                setProfileIcon({ imageUri: parsed.imageUri });
                             }
                         } catch (e) {
                             setProfileIcon({ imageUri: userData.avatar });
                         }
-                    } else if (userData.profileEmoji) {
-                        setProfileIcon({ emoji: userData.profileEmoji });
-                    } else if (userData.profileColorIndex !== undefined) {
-                        setProfileIcon({ colorIndex: userData.profileColorIndex });
                     }
-                    setWalletAddresses({
-                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
-                        solana: userData.solanaWalletAddress
-                    });
                 }
-
-
-            } catch (error) {
-                console.error('Failed to fetch user data:', error);
+                setWalletAddresses({
+                    evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
+                    solana: userData.solanaWalletAddress
+                });
             }
-        };
+        } catch (error) {
+            console.error('Failed to fetch user data:', error);
+        }
+    };
+
+    useEffect(() => {
         fetchUserData();
     }, [user]);
+
+    // Refetch profile data when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            if (user) {
+                fetchUserData();
+            }
+        }, [user])
+    );
 
     const fetchContracts = async () => {
         try {
@@ -319,23 +327,25 @@ export default function ContractsScreen() {
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Contracts</Text>
-                        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                            {profileIcon.imageUri ? (
-                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                            ) : profileIcon.emoji ? (
-                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                                </View>
-                            ) : (
-                                <LinearGradient
-                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.profileIcon}
-                                />
-                            )}
-                        </TouchableOpacity>
+                        <View style={styles.headerLeft}>
+                            <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+                                {profileIcon.imageUri ? (
+                                    <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                                ) : (
+                                    <LinearGradient
+                                        colors={getUserGradient(user?.id)}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.profileIcon}
+                                    >
+                                        <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 }}>
+                                            {userName.firstName?.[0] || 'U'}
+                                        </Text>
+                                    </LinearGradient>
+                                )}
+                            </TouchableOpacity>
+                            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Contracts</Text>
+                        </View>
                     </View>
 
                     {/* Filter Chips inside Header */}
@@ -570,12 +580,12 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
+        fontSize: 24,
     },
     profileIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
     },
     filterScrollView: {
         marginTop: 4,

@@ -246,49 +246,16 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             const clientName = req.body.clientName;
             const clientEmail = req.body.clientEmail;
 
-            // Normalize inputs
-            const safeClientEmail = clientEmail ? clientEmail.trim() : null;
-            const safeClientName = clientName ? clientName.trim() : null;
-
-            // Try to find existing client by email or name (case-insensitive)
-            let query = supabase
-                .from('clients')
-                .select('id')
-                .eq('user_id', user.id);
-
-            const conditions = [];
-            if (safeClientEmail) conditions.push(`email.ilike.${safeClientEmail}`);
-            if (safeClientName) conditions.push(`name.ilike.${safeClientName}`);
-
-            if (conditions.length > 0) {
-                query = query.or(conditions.join(','));
-                
-                const { data: existingClient, error: findError } = await query.maybeSingle();
-
-                if (existingClient) {
-                    clientId = existingClient.id;
-                    logger.info('Found existing client for project creation', { clientId });
-                }
-            }
+            // Use centralized ClientService for robust deduplication
+            const { ClientService } = await import('../services/clientService');
+            const { id: foundClientId, isNew } = await ClientService.getOrCreateClient(
+                user.id,
+                clientName,
+                clientEmail
+            );
             
-            if (!clientId) {
-                // Create new client if not found
-                logger.info('Creating new client for project', { name: safeClientName, email: safeClientEmail });
-                const { data: newClient, error: createError } = await supabase
-                    .from('clients')
-                    .insert({
-                        user_id: user.id,
-                        name: safeClientName,
-                        email: safeClientEmail
-                    })
-                    .select('id')
-                    .single();
-
-                if (createError || !newClient) {
-                    throw new Error(`Failed to create client: ${createError?.message}`);
-                }
-                clientId = newClient.id;
-            }
+            clientId = foundClientId;
+            logger.info('Project creation: Client resolved', { clientId, isNew });
         }
 
         if (!title) {

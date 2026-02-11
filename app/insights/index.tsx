@@ -358,7 +358,9 @@ export default function InsightsScreen() {
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerTop}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <CaretLeft size={24} color={themeColors.textPrimary} />
+                        <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                            <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                        </View>
                     </TouchableOpacity>
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Insights</Text>
                     <View style={styles.headerRightPlaceholder} />
@@ -386,7 +388,7 @@ export default function InsightsScreen() {
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             onPress={() => targetGoalSheetRef.current?.present()}
                         >
-                            <Gear size={18} color={themeColors.textSecondary} />
+                            <Gear size={18} color={themeColors.textSecondary} weight="bold" />
                         </TouchableOpacity>
                     </View>
 
@@ -518,8 +520,15 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         justifyContent: 'center',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         zIndex: 10,
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerRightPlaceholder: {
         width: 40,

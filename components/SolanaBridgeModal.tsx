@@ -120,6 +120,14 @@ export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalP
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
 
+    console.log('[SolanaBridgeModal] Component rendered', {
+        token,
+        amount,
+        solanaAddress: solanaAddress?.substring(0, 8) + '...',
+        baseAddress: baseAddress?.substring(0, 8) + '...',
+        hasRef: !!ref
+    });
+
     // Privy Solana wallet
     const solanaWallet = useEmbeddedSolanaWallet();
     const solanaWallets = (solanaWallet as any)?.wallets || [];

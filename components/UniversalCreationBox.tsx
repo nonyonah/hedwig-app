@@ -98,6 +98,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
     // Mode state
     const [selectedMode, setSelectedMode] = useState<'auto' | 'payment_link' | 'invoice' | 'transfer'>('auto');
     const [showModeDropdown, setShowModeDropdown] = useState(false);
+    const modeDropdownAnimation = useRef(new Animated.Value(0)).current;
     const [showDatePicker, setShowDatePicker] = useState(false);
 
     // State for Success Modal
@@ -765,8 +766,21 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                     backgroundColor: showModeDropdown ? (isDark ? '#2C2C2E' : '#F2F2F7') : 'transparent'
                                 }}
                                 onPress={() => {
-                                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                    setShowModeDropdown(!showModeDropdown);
+                                    if (!showModeDropdown) {
+                                        setShowModeDropdown(true);
+                                        Animated.spring(modeDropdownAnimation, {
+                                            toValue: 1,
+                                            damping: 15,
+                                            stiffness: 150,
+                                            useNativeDriver: true,
+                                        }).start();
+                                    } else {
+                                        Animated.timing(modeDropdownAnimation, {
+                                            toValue: 0,
+                                            duration: 200,
+                                            useNativeDriver: true,
+                                        }).start(() => setShowModeDropdown(false));
+                                    }
                                 }}
                                 activeOpacity={0.7}
                             >
@@ -789,7 +803,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
 
                             {/* Mode Dropdown (Opens Upwards) */}
                             {showModeDropdown && (
-                                <View style={{
+                                <Animated.View style={{
                                     position: 'absolute',
                                     bottom: '100%', // Open upwards
                                     left: 0,
@@ -804,7 +818,22 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                     elevation: 5,
                                     borderWidth: 1,
                                     borderColor: isDark ? '#3A3A3C' : '#E5E5EA',
-                                    padding: 4
+                                    padding: 4,
+                                    opacity: modeDropdownAnimation,
+                                    transform: [
+                                        {
+                                            scale: modeDropdownAnimation.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: [0.95, 1],
+                                            }),
+                                        },
+                                        {
+                                            translateY: modeDropdownAnimation.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: [10, 0],
+                                            }),
+                                        },
+                                    ],
                                 }}>
 
 
@@ -812,9 +841,12 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                     <TouchableOpacity
                                         style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'payment_link' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
                                         onPress={() => {
-                                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                                             setSelectedMode('payment_link');
-                                            setShowModeDropdown(false);
+                                            Animated.timing(modeDropdownAnimation, {
+                                                toValue: 0,
+                                                duration: 200,
+                                                useNativeDriver: true,
+                                            }).start(() => setShowModeDropdown(false));
                                         }}
                                     >
                                         <LinkIcon size={18} color={textColor} weight="regular" />
@@ -826,9 +858,12 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                     <TouchableOpacity
                                         style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'invoice' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
                                         onPress={() => {
-                                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                                             setSelectedMode('invoice');
-                                            setShowModeDropdown(false);
+                                            Animated.timing(modeDropdownAnimation, {
+                                                toValue: 0,
+                                                duration: 200,
+                                                useNativeDriver: true,
+                                            }).start(() => setShowModeDropdown(false));
                                         }}
                                     >
                                         <FileText size={18} color={textColor} weight="regular" />
@@ -840,16 +875,19 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                     <TouchableOpacity
                                         style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'transfer' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
                                         onPress={() => {
-                                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                                             setSelectedMode('transfer');
-                                            setShowModeDropdown(false);
+                                            Animated.timing(modeDropdownAnimation, {
+                                                toValue: 0,
+                                                duration: 200,
+                                                useNativeDriver: true,
+                                            }).start(() => setShowModeDropdown(false));
                                         }}
                                     >
                                         <PaperPlaneRight size={18} color={textColor} weight="regular" />
                                         <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Transfer</Text>
                                         {selectedMode === 'transfer' && <Check size={14} color={textColor} weight="bold" style={{ marginLeft: 'auto' }} />}
                                     </TouchableOpacity>
-                                </View>
+                                </Animated.View>
                             )}
                         </View>
 

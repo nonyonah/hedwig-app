@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, X, Copy, Bank, ArrowDown, CheckCircle, Clock, Warning, ArrowsCounterClockwise, CaretLeft } from 'phosphor-react-native';
+import { List, X, Copy, Bank, ArrowDown, CheckCircle, Clock, Warning, ArrowsCounterClockwise, CaretLeft, Plus } from 'phosphor-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -310,10 +310,17 @@ export default function OfframpHistoryScreen() {
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <CaretLeft size={24} color={themeColors.textPrimary} />
+                            <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                            </View>
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
-                        <View style={styles.headerRightPlaceholder} />
+                        <TouchableOpacity
+                            onPress={() => router.push('/offramp-history/create' as any)}
+                            style={styles.backButton}
+                        >
+                            <Plus size={24} color={themeColors.textPrimary} weight="bold" />
+                        </TouchableOpacity>
                     </View>
 
                     {/* Filter Chips inside Header */}
@@ -351,7 +358,7 @@ export default function OfframpHistoryScreen() {
                     </View>
                 ) : orders.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Bank size={48} color={themeColors.textTertiary} weight="thin" />
+                        <Bank size={48} color={themeColors.textTertiary} weight="bold" />
                         <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No withdrawals yet</Text>
                         <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>Your withdrawal history will appear here.</Text>
                     </View>
@@ -406,7 +413,7 @@ export default function OfframpHistoryScreen() {
                                 </View>
                             </View>
                             <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                                <X size={20} color={themeColors.textSecondary} />
+                                <X size={20} color={themeColors.textSecondary} weight="bold" />
                             </TouchableOpacity>
                         </View>
 
@@ -499,8 +506,15 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         justifyContent: 'center',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         zIndex: 10,
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerRightPlaceholder: {
         width: 40,

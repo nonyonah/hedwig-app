@@ -286,7 +286,9 @@ export default function TransactionsScreen() {
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <CaretLeft size={24} color={themeColors.textPrimary} />
+                            <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                            </View>
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Transactions</Text>
                         <View style={styles.headerRightPlaceholder} />
@@ -299,7 +301,7 @@ export default function TransactionsScreen() {
                     </View>
                 ) : transactions.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <ArrowsLeftRight size={48} color={themeColors.textTertiary} weight="thin" />
+                        <ArrowsLeftRight size={48} color={themeColors.textTertiary} weight="bold" />
                         <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No transactions yet</Text>
                         <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>Your transaction history will appear here.</Text>
                     </View>
@@ -361,7 +363,7 @@ export default function TransactionsScreen() {
                             </View>
                         </View>
                         <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                            <X size={20} color={themeColors.textSecondary} />
+                            <X size={20} color={themeColors.textSecondary} weight="bold" />
                         </TouchableOpacity>
                     </View>
 
@@ -386,7 +388,7 @@ export default function TransactionsScreen() {
                                         <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1} ellipsizeMode="middle">
                                             {selectedTransaction.hash.slice(0, 10)}...{selectedTransaction.hash.slice(-8)}
                                         </Text>
-                                        <Copy size={14} color={themeColors.textTertiary} style={{ marginLeft: 6 }} />
+                                        <Copy size={14} color={themeColors.textTertiary} weight="bold" style={{ marginLeft: 6 }} />
                                     </TouchableOpacity>
                                 </View>
                                 <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
@@ -449,6 +451,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'flex-start',
         zIndex: 10,
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerRightPlaceholder: {
         width: 40,

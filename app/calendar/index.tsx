@@ -232,7 +232,7 @@ export default function CalendarScreen() {
                         {item.title}
                     </Text>
                     <View style={styles.eventMeta}>
-                        <Clock size={14} color={themeColors.textSecondary} />
+                        <Clock size={14} color={themeColors.textSecondary} weight="bold" />
                         <Text style={[styles.eventTime, { color: themeColors.textSecondary }]}>{time}</Text>
                         <View style={[styles.eventTypeBadge, { backgroundColor: getEventTypeColor(item.eventType) }]}>
                             <Text style={[styles.eventTypeText, { color: getEventTypeTextColor(item.eventType) }]}>
@@ -246,7 +246,7 @@ export default function CalendarScreen() {
                     onPress={() => handleDelete(item.id)}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                    <Trash size={20} color={themeColors.textSecondary} />
+                    <Trash size={20} color={themeColors.textSecondary} weight="bold" />
                 </TouchableOpacity>
             </TouchableOpacity>
         );
@@ -264,7 +264,9 @@ export default function CalendarScreen() {
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <CaretLeft size={24} color={themeColors.textPrimary} />
+                            <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                            </View>
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
                         <View style={styles.headerRightPlaceholder} />
@@ -289,7 +291,7 @@ export default function CalendarScreen() {
                         }
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <CalendarBlank size={64} color={themeColors.textSecondary} weight="duotone" />
+                                <CalendarBlank size={64} color={themeColors.textSecondary} weight="bold" />
                                 <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Upcoming Events</Text>
                                 <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
                                     Create invoices with due dates or say{'\n'}"remind me to..." to add events
@@ -327,6 +329,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'flex-start',
         zIndex: 10,
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerRightPlaceholder: {
         width: 40,

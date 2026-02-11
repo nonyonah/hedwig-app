@@ -2,14 +2,17 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColors } from '../../theme/colors';
-import { Bell, Gear, MagnifyingGlass, Plus, UserCircle } from 'phosphor-react-native';
-import { useAuth } from '../../hooks/useAuth';
-import { useRouter } from 'expo-router';
-import { ProfileModal } from '../../components/ProfileModal';
-import { UniversalCreationBox } from '../../components/UniversalCreationBox';
-import { AnimatedListItem } from '../../components/AnimatedListItem';
-import { TransactionConfirmationModal } from '../../components/TransactionConfirmationModal';
+import { useThemeColors } from '../../../theme/colors';
+import { Bell, MagnifyingGlass, Plus } from 'phosphor-react-native';
+import { useAuth } from '../../../hooks/useAuth';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { UniversalCreationBox } from '../../../components/UniversalCreationBox';
+import { AnimatedListItem } from '../../../components/AnimatedListItem';
+import { TransactionConfirmationModal } from '../../../components/TransactionConfirmationModal';
+import { useNavigation } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getUserGradient } from '../../../utils/gradientUtils';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -19,6 +22,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export default function HomeDashboard() {
     const themeColors = useThemeColors();
     const router = useRouter();
+    const navigation = useNavigation();
     const { user, getAccessToken, isReady } = useAuth();
 
     // User Data
@@ -35,7 +39,6 @@ export default function HomeDashboard() {
 
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [showProfileModal, setShowProfileModal] = useState(false);
     const [showCreationBox, setShowCreationBox] = useState(false);
 
     // Transaction Modal State
@@ -50,6 +53,15 @@ export default function HomeDashboard() {
         }
     }, [isReady, user]);
 
+    // Refetch profile data when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            if (isReady && user) {
+                fetchUserData();
+            }
+        }, [isReady, user])
+    );
+
     const fetchUserData = async () => {
         if (!user) return;
         try {
@@ -61,9 +73,22 @@ export default function HomeDashboard() {
                 const userData = profileData.data.user || profileData.data;
                 setUserName({ firstName: userData.firstName || '', lastName: userData.lastName || '' });
                 if (userData.avatar) {
-                    try { const parsed = JSON.parse(userData.avatar); setProfileIcon(parsed); } catch { setProfileIcon({ imageUri: userData.avatar }); }
-                } else if (userData.profileEmoji) { setProfileIcon({ emoji: userData.profileEmoji }); }
-                else if (userData.profileColorIndex !== undefined) { setProfileIcon({ colorIndex: userData.profileColorIndex }); }
+                    // Check if it's a data URI (base64 image) or regular URL
+                    if (userData.avatar.startsWith('data:') || userData.avatar.startsWith('http')) {
+                        setProfileIcon({ imageUri: userData.avatar });
+                    } else {
+                        // Try to parse as JSON for legacy emoji/color format
+                        try { 
+                            const parsed = JSON.parse(userData.avatar); 
+                            // Only use imageUri from parsed data, ignore emoji/color
+                            if (parsed.imageUri) {
+                                setProfileIcon({ imageUri: parsed.imageUri });
+                            }
+                        } catch { 
+                            setProfileIcon({ imageUri: userData.avatar }); 
+                        }
+                    }
+                }
                 setWalletAddresses({ evm: userData.ethereumWalletAddress || userData.baseWalletAddress, solana: userData.solanaWalletAddress });
             }
         } catch (e) { console.error(e); }
@@ -221,16 +246,29 @@ export default function HomeDashboard() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Home</Text>
-                <View style={styles.headerRight}>
-                    <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/settings')}><Gear size={24} color={themeColors.textPrimary} /></TouchableOpacity>
-                    <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}><Bell size={24} color={themeColors.textPrimary} /></TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                        {profileIcon?.imageUri ? <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} /> :
-                            <View style={[styles.avatar, { backgroundColor: themeColors.surface, justifyContent: 'center', alignItems: 'center' }]}>
-                                <Text style={{ fontSize: 16 }}>{profileIcon.emoji || userName.firstName?.[0] || 'U'}</Text>
-                            </View>}
+                <View style={styles.headerLeft}>
+                    <TouchableOpacity 
+                        onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                    >
+                        {profileIcon?.imageUri ? (
+                            <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
+                        ) : (
+                            <LinearGradient
+                                colors={getUserGradient(user?.id)}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.avatar}
+                            >
+                                <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 }}>
+                                    {userName.firstName?.[0] || 'U'}
+                                </Text>
+                            </LinearGradient>
+                        )}
                     </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Home</Text>
+                </View>
+                <View style={styles.headerRight}>
+                    <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}><Bell size={24} color={themeColors.textPrimary} /></TouchableOpacity>
                 </View>
             </View>
 
@@ -291,7 +329,6 @@ export default function HomeDashboard() {
 
             <TouchableOpacity style={[styles.fab, { backgroundColor: '#2563EB' }]} onPress={() => setShowCreationBox(true)}><Plus size={32} color="#FFFFFF" weight="bold" /></TouchableOpacity>
 
-            <ProfileModal visible={showProfileModal} onClose={() => setShowProfileModal(false)} userName={userName} walletAddresses={walletAddresses} profileIcon={profileIcon} />
             <UniversalCreationBox
                 visible={showCreationBox}
                 onClose={() => setShowCreationBox(false)}
@@ -323,10 +360,15 @@ const styles = StyleSheet.create({
         paddingBottom: 12,
         paddingTop: 8,
     },
-    headerTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 28 },
+    headerLeft: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        gap: 12 
+    },
+    headerTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24 },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     iconButton: { padding: 4 },
-    avatar: { width: 36, height: 36, borderRadius: 18 },
+    avatar: { width: 40, height: 40, borderRadius: 20 },
     scrollView: { flex: 1, paddingHorizontal: 20 },
     searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48, borderRadius: 12, marginBottom: 24 },
     searchInput: { flex: 1, marginLeft: 12, fontFamily: 'GoogleSansFlex_400Regular', fontSize: 16, height: '100%' },

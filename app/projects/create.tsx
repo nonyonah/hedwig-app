@@ -155,7 +155,9 @@ export default function CreateProjectScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <CaretLeft size={24} color={themeColors.textPrimary} />
+                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                        <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                    </View>
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>New Project</Text>
                 <View style={{ width: 40 }} />
@@ -166,47 +168,55 @@ export default function CreateProjectScreen() {
 
                     {/* Project Info */}
                     <Text style={styles.sectionTitle}>Project Details</Text>
-                    <TextInput
-                        placeholder="Project Title (e.g. Website Redesign)"
-                        style={[styles.input, { color: themeColors.textPrimary, backgroundColor: themeColors.surface }]}
-                        value={title}
-                        onChangeText={setTitle}
-                        placeholderTextColor={themeColors.textSecondary}
-                    />
-                    <TextInput
-                        placeholder="Description"
-                        style={[styles.input, { color: themeColors.textPrimary, backgroundColor: themeColors.surface, height: 80 }]}
-                        multiline
-                        value={description}
-                        onChangeText={setDescription}
-                        placeholderTextColor={themeColors.textSecondary}
-                    />
+                    <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}>
+                        <TextInput
+                            placeholder="Project Title (e.g. Website Redesign)"
+                            style={[styles.input, { color: themeColors.textPrimary }]}
+                            value={title}
+                            onChangeText={setTitle}
+                            placeholderTextColor={themeColors.textSecondary}
+                        />
+                    </View>
+                    <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}>
+                        <TextInput
+                            placeholder="Description"
+                            style={[styles.input, { color: themeColors.textPrimary, height: 80, paddingTop: 14 }]}
+                            multiline
+                            value={description}
+                            onChangeText={setDescription}
+                            placeholderTextColor={themeColors.textSecondary}
+                        />
+                    </View>
 
                     {/* Client Info */}
                     <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Client</Text>
-                    <TextInput
-                        placeholder="Client Name"
-                        style={[styles.input, { color: themeColors.textPrimary, backgroundColor: themeColors.surface }]}
-                        value={clientName}
-                        onChangeText={setClientName}
-                        placeholderTextColor={themeColors.textSecondary}
-                    />
-                    <TextInput
-                        placeholder="Client Email (for auto-sending)"
-                        style={[styles.input, { color: themeColors.textPrimary, backgroundColor: themeColors.surface }]}
-                        value={clientEmail}
-                        onChangeText={setClientEmail} // Fixed typo
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        placeholderTextColor={themeColors.textSecondary}
-                    />
+                    <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}>
+                        <TextInput
+                            placeholder="Client Name"
+                            style={[styles.input, { color: themeColors.textPrimary }]}
+                            value={clientName}
+                            onChangeText={setClientName}
+                            placeholderTextColor={themeColors.textSecondary}
+                        />
+                    </View>
+                    <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}>
+                        <TextInput
+                            placeholder="Client Email (for auto-sending)"
+                            style={[styles.input, { color: themeColors.textPrimary }]}
+                            value={clientEmail}
+                            onChangeText={setClientEmail}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            placeholderTextColor={themeColors.textSecondary}
+                        />
+                    </View>
 
                     <TouchableOpacity onPress={() => {
                         console.log('Opening date picker');
                         setShowDatePicker(true);
                     }}>
-                        <View style={[styles.input, { color: themeColors.textPrimary, backgroundColor: themeColors.surface, justifyContent: 'center' }]}>
-                            <Text style={{ color: deadline ? themeColors.textPrimary : themeColors.textSecondary, fontSize: 16 }}>
+                        <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}>
+                            <Text style={[styles.input, { color: deadline ? themeColors.textPrimary : themeColors.textSecondary }]}>
                                 {deadline || "Deadline (YYYY-MM-DD)"}
                             </Text>
                         </View>
@@ -271,17 +281,19 @@ export default function CreateProjectScreen() {
                                     </TouchableOpacity>
                                 )}
                             </View>
-                            <TextInput
-                                placeholder="Milestone Title"
-                                style={[styles.miniInput, { color: themeColors.textPrimary, borderBottomColor: themeColors.border }]}
-                                value={milestone.title}
-                                onChangeText={(text) => updateMilestone(index, 'title', text)}
-                                placeholderTextColor={themeColors.textSecondary}
-                            />
-                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <View style={[styles.miniInputContainer, { borderBottomColor: themeColors.border }]}>
+                                <TextInput
+                                    placeholder="Milestone Title"
+                                    style={[styles.miniInput, { color: themeColors.textPrimary }]}
+                                    value={milestone.title}
+                                    onChangeText={(text) => updateMilestone(index, 'title', text)}
+                                    placeholderTextColor={themeColors.textSecondary}
+                                />
+                            </View>
+                            <View style={styles.miniInputContainer}>
                                 <TextInput
                                     placeholder="Amount ($)"
-                                    style={[styles.miniInput, { flex: 1, color: themeColors.textPrimary, borderBottomColor: themeColors.border }]}
+                                    style={[styles.miniInput, { flex: 1, color: themeColors.textPrimary }]}
                                     value={milestone.amount}
                                     onChangeText={(text) => updateMilestone(index, 'amount', text)}
                                     keyboardType="numeric"
@@ -327,36 +339,43 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     backButton: {
+        padding: 4,
+    },
+    backButtonCircle: {
         width: 40,
         height: 40,
+        borderRadius: 20,
         justifyContent: 'center',
-        alignItems: 'flex-start',
+        alignItems: 'center',
     },
     headerTitle: {
         ...Typography.h4,
         color: Colors.textPrimary,
     },
     content: {
-        padding: 20,
+        padding: 24,
     },
     sectionTitle: {
         ...Typography.subtitle,
         color: Colors.textSecondary,
         marginBottom: 12,
-        textAlign: 'left', // Subtitle defaults to center
+        textAlign: 'left',
     },
     sectionTitleWithoutMargin: {
         ...Typography.subtitle,
         color: Colors.textSecondary,
         textAlign: 'left',
     },
+    inputContainer: {
+        borderRadius: 16,
+        marginBottom: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 4,
+    },
     input: {
-        ...Typography.input,
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: 'transparent', // Can add focus state later
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 16,
+        paddingVertical: 14,
     },
     addIndicesButton: {
         flexDirection: 'row',
@@ -380,7 +399,7 @@ const styles = StyleSheet.create({
     milestoneHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 12,
+        marginBottom: 8,
     },
     milestoneIndex: {
         ...Typography.caption,
@@ -388,21 +407,24 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textTransform: 'uppercase',
     },
-    miniInput: {
-        ...Typography.input,
-        paddingVertical: 8,
+    miniInputContainer: {
+        paddingVertical: 4,
         borderBottomWidth: 1,
-        marginBottom: 8,
+        borderBottomColor: 'transparent', // Default
+    },
+    miniInput: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 16,
+        paddingVertical: 10,
     },
     footer: {
         paddingHorizontal: 20,
         paddingTop: 20,
-        paddingBottom: 40, // Increased for better spacing
-        borderTopWidth: 1,
+        paddingBottom: 40,
     },
     createButton: {
         backgroundColor: Colors.primary,
-        borderRadius: 30, // Changed to pill shape
+        borderRadius: 30,
         height: 56,
         justifyContent: 'center',
         alignItems: 'center',

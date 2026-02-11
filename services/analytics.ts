@@ -18,10 +18,17 @@ const POSTHOG_HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://eu.i.posth
 // Storage keys
 const DISTINCT_ID_KEY = '@posthog_distinct_id';
 const ANONYMOUS_ID_KEY = '@posthog_anonymous_id';
+const SESSION_ID_KEY = '@posthog_session_id';
+const SESSION_TIMESTAMP_KEY = '@posthog_session_timestamp';
+
+// Session timeout (30 minutes of inactivity)
+const SESSION_TIMEOUT = 30 * 60 * 1000;
 
 // State
 let distinctId: string | null = null;
 let anonymousId: string | null = null;
+let sessionId: string | null = null;
+let lastActivityTime: number = Date.now();
 let isInitialized = false;
 let eventQueue: any[] = [];
 let flushTimer: NodeJS.Timeout | null = null;
@@ -31,11 +38,37 @@ const getCommonProperties = () => ({
     $os: Platform.OS,
     $os_version: Platform.Version,
     $app_version: Application.nativeApplicationVersion || '1.0.0',
+    $app_build: Application.nativeBuildVersion || '1',
     $device_model: Device.modelName || undefined,
     $device_manufacturer: Device.brand || undefined,
+    $session_id: sessionId,
     $lib: 'hedwig-analytics',
     $lib_version: '1.0.0',
 });
+
+/**
+ * Get or create session ID
+ */
+async function getOrCreateSessionId(): Promise<string> {
+    const now = Date.now();
+    
+    // Check if we need a new session (timeout or no session)
+    if (!sessionId || (now - lastActivityTime) > SESSION_TIMEOUT) {
+        sessionId = uuid.v4() as string;
+        try {
+            await AsyncStorage.setItem(SESSION_ID_KEY, sessionId);
+            await AsyncStorage.setItem(SESSION_TIMESTAMP_KEY, now.toString());
+        } catch (e) {
+            console.log('[Analytics] Error storing session ID:', e);
+        }
+        
+        // Track session start
+        console.log('[Analytics] New session started:', sessionId.substring(0, 8) + '...');
+    }
+    
+    lastActivityTime = now;
+    return sessionId;
+}
 
 /**
  * Get or create anonymous ID
@@ -131,7 +164,7 @@ function scheduleFlush(): void {
     flushTimer = setTimeout(() => {
         flushTimer = null;
         flushQueue();
-    }, 30000); // Flush every 30 seconds
+    }, 30000) as any; // Flush every 30 seconds
 }
 
 /**
@@ -228,6 +261,9 @@ export async function trackEvent(eventName: string, properties?: Record<string, 
         return;
     }
 
+    // Ensure we have a session
+    await getOrCreateSessionId();
+    
     const id = await getDistinctId();
 
     const event = {
@@ -254,7 +290,20 @@ export async function trackEvent(eventName: string, properties?: Record<string, 
  * Track a screen view
  */
 export async function trackScreen(screenName: string, properties?: Record<string, any>): Promise<void> {
-    await trackEvent('$screen', { $screen_name: screenName, ...properties });
+    // Track both $screen and $pageview for better PostHog compatibility
+    // $pageview is what PostHog uses for web analytics and some dashboard metrics
+    await trackEvent('$pageview', { 
+        $current_url: `app://hedwig/${screenName.toLowerCase().replace(/\s+/g, '-')}`,
+        $screen_name: screenName,
+        $pathname: `/${screenName.toLowerCase().replace(/\s+/g, '-')}`,
+        ...properties 
+    });
+    
+    // Also track $screen for mobile-specific analytics
+    await trackEvent('$screen', { 
+        $screen_name: screenName, 
+        ...properties 
+    });
 }
 
 /**
@@ -291,9 +340,12 @@ export function flushEvents(): void {
  */
 export async function resetAnalytics(): Promise<void> {
     distinctId = null;
+    sessionId = null;
     eventQueue = [];
     try {
         await AsyncStorage.removeItem(DISTINCT_ID_KEY);
+        await AsyncStorage.removeItem(SESSION_ID_KEY);
+        await AsyncStorage.removeItem(SESSION_TIMESTAMP_KEY);
     } catch (e) {
         console.log('[Analytics] Error resetting:', e);
     }

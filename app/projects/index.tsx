@@ -397,7 +397,9 @@ export default function ProjectsScreen() {
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <CaretLeft size={24} color={themeColors.textPrimary} />
+                            <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                            </View>
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Projects</Text>
                         <TouchableOpacity
@@ -439,7 +441,7 @@ export default function ProjectsScreen() {
                 {/* Project List */}
                 {filteredProjects.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Briefcase size={64} color={themeColors.textSecondary} weight="light" />
+                        <Briefcase size={64} color={themeColors.textSecondary} weight="bold" />
                         <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Projects Yet</Text>
                         <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
                             Projects help you track milestones and invoices for client work.
@@ -474,6 +476,9 @@ export default function ProjectsScreen() {
                     )}
                     backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
                     handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                    keyboardBehavior="interactive"
+                    keyboardBlurBehavior="restore"
+                    android_keyboardInputMode="adjustResize"
                 >
                     <View style={{ flex: 1 }}>
                         {/* Modal Header Row with X and Options */}
@@ -538,10 +543,11 @@ export default function ProjectsScreen() {
                         {selectedProject && (
                             <BottomSheetFlatList
                                 data={selectedProject.milestones || []}
-                                keyExtractor={(item) => item.id}
+                                keyExtractor={(item: Milestone) => item.id}
                                 showsVerticalScrollIndicator={false}
-                                contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 24 }}
+                                contentContainerStyle={{ paddingBottom: 600, paddingHorizontal: 24 }}
                                 nestedScrollEnabled={true}
+                                keyboardShouldPersistTaps="handled"
                                 ListHeaderComponent={
                                     <>
                                         {/* Status Badge */}
@@ -659,7 +665,7 @@ export default function ProjectsScreen() {
                                         <Text style={[styles.noMilestonesHint, { color: themeColors.textTertiary }]}>Ask Hedwig to add one!</Text>
                                     </View>
                                 }
-                                renderItem={({ item: milestone, index }) => (
+                                renderItem={({ item: milestone, index }: { item: Milestone; index: number }) => (
                                     <View style={[
                                         styles.milestoneCard,
                                         { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 },
@@ -751,6 +757,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'flex-start',
         zIndex: 10,
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerRightPlaceholder: {
         width: 48,

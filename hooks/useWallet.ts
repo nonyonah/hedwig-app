@@ -25,6 +25,8 @@ const useWalletWeb = () => ({
     error: null,
     fetchBalances: async () => {},
     createAddress: async () => null,
+    getUsdcBalance: () => '0',
+    getTotalUsd: () => '0',
 });
 
 export const useWallet = () => {

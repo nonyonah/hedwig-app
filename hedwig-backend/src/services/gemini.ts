@@ -44,12 +44,14 @@ Instructions:
 - Write a short, effective email.
 - The goal is to get paid while maintaining a good relationship.
 - Use the "Loss Aversion" or "Presumed Innocence" psychological concepts if appropriate.
+- DO NOT include placeholder text like "[Payment Link Placeholder]" or "Here's the payment link again" - the email will have a "Pay Now" button that contains the payment link.
+- Keep it friendly and professional.
 - Return ONLY valid JSON format.
 
 JSON Format:
 {
   "subject": "Email subject line",
-  "body": "HTML body content (just the inner content, no <html> or <body> tags, use <p>, <br>, <strong>)"
+  "body": "HTML body content (just the inner content, no <html> or <body> tags, use <p>, <br>, <strong>). DO NOT mention 'payment link' or include placeholder text - there will be a Pay Now button."
 }
 `;
 
@@ -68,7 +70,7 @@ JSON Format:
       // Fallback
       return {
         subject: `Reminder: Payment for ${documentTitle}`,
-        body: `<p>Hi ${clientName},</p><p>This is a friendly reminder that the payment of ${amount} for ${documentTitle} is now overdue.</p><p>Please arrange payment at your earliest convenience.</p><p>Best,<br>${senderName}</p>`
+        body: `<p>Hi ${clientName},</p><p>Just a friendly reminder about the ${amount} payment for "${documentTitle}".</p><p>I understand things can get busy! If you've already made the payment, please disregard this message.</p><p>Let me know if you have any questions or need any help.</p><p>Thanks,<br>${senderName}</p>`
       };
     }
   }

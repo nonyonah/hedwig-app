@@ -63,7 +63,7 @@ function ThemedStack() {
                 contentStyle: { backgroundColor: colors.background },
             }}
         >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
             <Stack.Screen name="auth/welcome" />
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/profile" />
@@ -74,8 +74,16 @@ function ThemedStack() {
             <Stack.Screen name="payment-link/[id]" />
             <Stack.Screen name="payment-links/index" />
             <Stack.Screen name="settings/index" />
+
             <Stack.Screen name="notifications/index" />
             <Stack.Screen name="insights/index" />
+            <Stack.Screen
+                name="offramp-history/bank-selection"
+                options={{
+                    presentation: 'modal',
+                    headerShown: false,
+                }}
+            />
         </Stack>
     );
 }
@@ -91,7 +99,7 @@ function WebLayout() {
                 contentStyle: { backgroundColor: colors.background },
             }}
         >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
             <Stack.Screen name="auth/welcome" />
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/profile" />

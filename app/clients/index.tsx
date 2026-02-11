@@ -357,7 +357,9 @@ export default function ClientsScreen() {
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <CaretLeft size={24} color={themeColors.textPrimary} />
+                            <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                            </View>
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Clients</Text>
                         <View style={styles.headerRight}>
@@ -613,6 +615,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'flex-start',
         zIndex: 10,
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerRight: {
         width: 48,

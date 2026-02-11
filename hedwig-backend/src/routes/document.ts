@@ -42,41 +42,17 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             return;
         }
 
-        // Unique Client Check: Lookup by Email OR Name
+        // Unique Client Check & Creation via centralized service
         let clientId = null;
         if (recipientEmail || clientName) {
-            let query = supabase
-                .from('clients')
-                .select('id')
-                .eq('user_id', user.id);
-            
-            // Build OR query safely
-            const conditions = [];
-            if (recipientEmail) conditions.push(`email.eq.${recipientEmail}`);
-            if (clientName) conditions.push(`name.eq.${clientName}`);
-            
-            if (conditions.length > 0) {
-                // Use ilike for case-insensitive matching
-                const searchConditions = [];
-                if (recipientEmail) searchConditions.push(`email.ilike.${recipientEmail}`);
-                if (clientName) searchConditions.push(`name.ilike.${clientName}`);
-                
-                const { data: existingClient } = await query.or(searchConditions.join(',')).maybeSingle();
-                
-                if (existingClient) {
-                    clientId = existingClient.id;
-                    logger.debug('[Documents] Found existing client', { id: clientId });
-                } else if (recipientEmail) {
-                    logger.info('[Documents] Auto-creating client', { email: recipientEmail, name: clientName });
-                    const { data: newClient } = await supabase.from('clients').insert({
-                        user_id: user.id,
-                        name: clientName || recipientEmail.split('@')[0],
-                        email: recipientEmail,
-                        created_from: 'invoice_creation'
-                    }).select('id').single();
-                    if (newClient) clientId = newClient.id;
-                }
-            }
+            const { ClientService } = await import('../services/clientService');
+            const { id } = await ClientService.getOrCreateClient(
+                user.id,
+                clientName,
+                recipientEmail,
+                { createdFrom: 'invoice_creation' }
+            );
+            clientId = id;
         }
 
         // Create invoice record
@@ -84,6 +60,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             .from('documents')
             .insert({
                 user_id: user.id,
+                client_id: clientId, // Use the resolved clientId here
                 type: 'INVOICE',
                 title: `Invoice for ${clientName || description || 'Services'}`,
                 amount: parseFloat(amount),
@@ -417,35 +394,16 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
-            // Unique Client Check: Lookup by Email OR Name
+            // Unique Client Check via Service
             if (recipientEmail || clientName) {
-                let query = supabase
-                    .from('clients')
-                    .select('id')
-                    .eq('user_id', user.id);
-                
-                const conditions = [];
-                if (recipientEmail) conditions.push(`email.eq.${recipientEmail}`);
-                if (clientName) conditions.push(`name.eq.${clientName}`);
-                
-                if (conditions.length > 0) {
-                    // Use ilike for case-insensitive matching
-                    const searchConditions = [];
-                    if (recipientEmail) searchConditions.push(`email.ilike.${recipientEmail}`);
-                    if (clientName) searchConditions.push(`name.ilike.${clientName}`);
-
-                    const { data: existingClient } = await query.or(searchConditions.join(',')).maybeSingle();
-                    
-                    if (!existingClient && recipientEmail) {
-                        logger.info('[Documents] Auto-creating client', { email: recipientEmail, name: clientName });
-                        await supabase.from('clients').insert({
-                            user_id: user.id,
-                            name: clientName || recipientEmail.split('@')[0],
-                            email: recipientEmail,
-                            created_from: 'invoice_creation'
-                        });
-                    }
-                }
+                const { ClientService } = await import('../services/clientService');
+                await ClientService.getOrCreateClient(
+                    user.id,
+                    clientName,
+                    recipientEmail,
+                    { createdFrom: 'invoice_creation' }
+                );
+                // We ensure the client exists and is deduplicated
             }
 
             const { data: doc, error } = await supabase
@@ -591,6 +549,34 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     
                     // Import Gemini service for contract generation
                     const { GeminiService } = await import('../services/gemini');
+                    const { ClientService } = await import('../services/clientService');
+
+                    // 1. Fetch User Details (Freelancer)
+                    const { data: fullUser } = await supabase
+                        .from('users')
+                        .select('first_name, last_name, email')
+                        .eq('id', user.id)
+                        .single();
+
+                    const freelancerName = fullUser ? 
+                        (fullUser.first_name ? `${fullUser.first_name} ${fullUser.last_name || ''}`.trim() : fullUser.email) 
+                        : 'Freelancer';
+                    const freelancerEmail = fullUser?.email || '';
+
+                    // 2. Fetch Client Details
+                    // We already have clientName, but let's see if we have more info in DB if client exists
+                    let clientCompany = '';
+                    let clientEmail = recipientEmail || '';
+                    
+                    try {
+                        const { client } = await ClientService.getOrCreateClient(user.id, clientName, recipientEmail);
+                        if (client) {
+                            clientCompany = client.company || '';
+                            if (!clientEmail && client.email) clientEmail = client.email;
+                        }
+                    } catch (e) {
+                        logger.warn('Could not fetch full client details for contract', { error: e });
+                    }
                     
                     // Prepare contract details
                     const scopeOfWork = description || title || 'Project deliverables as outlined';
@@ -603,35 +589,27 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     const totalAmount = milestones.reduce((sum: number, m: any) => sum + (parseFloat(m.amount) || 0), 0);
                     
                     // Generate contract using Gemini
-                    const contractPrompt = `Generate a professional freelance contract with the following details:
+                    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
                     
-Client: ${clientName}
-Project: ${title}
-Scope of Work: ${scopeOfWork}
-Total Amount: $${totalAmount}
-Payment Terms: Milestone-based payments
+                    const contractPrompt = `You are an expert legal contract generator.
+CRITICAL INSTRUCTIONS:
+1. USE '${today}' as the "Date of Agreement". Do NOT use placeholders like "[Date]" or "[Insert Date]".
+2. Parties:
+   - Client: ${clientName} ${clientCompany ? `(${clientCompany})` : ''}
+   - Freelancer: ${freelancerName} (${freelancerEmail})
+3. ADDRESS RULE: NO addresses are provided. DO NOT invent addresses. DO NOT use placeholders like "[Address]" or "[Insert Address]". SIMPLY STATE THE NAMES and EMAILS.
+4. FORMAT: Markdown ONLY. No HTML. No conversational text.
 
+Project Details:
+Project Name: ${title}
+Scope: ${scopeOfWork}
+Total Value: $${totalAmount}
 Milestones:
-${milestones.map((m: any, i: number) => `${i + 1}. ${m.title} - $${m.amount}`).join('\n')}
+${milestones.map((m: any) => `- ${m.title}: $${m.amount}`).join('\n')}
 
-Please generate a complete, professional contract including:
-- Introduction and parties
-- Scope of work
-- Payment terms (milestone-based)
-- Timeline and deliverables
-- Intellectual property rights
-- Confidentiality clause
-- Termination clause
-- Governing law
+GENERATE THE CONTRACT NOW, starting with the title.`;
 
-Format the contract in CLEAN MARKDOWN. 
-CRITICAL RULES:
-1. Do NOT use HTML tags (no <html>, <body>, <div>, etc).
-2. Do NOT include any "reasoning", "thinking", "sure", "here is", or "analysis" sections. 
-3. Start the output DIRECTLY with the contract title (e.g. # Contract Title).
-4. Return ONLY the contract content.`;
-
-                    const aiResponse = await GeminiService.generateText(contractPrompt);
+                    let aiResponse = await GeminiService.generateText(contractPrompt);
                     
                     // Robust cleanup
                     generatedContent = aiResponse || '';
@@ -639,14 +617,15 @@ CRITICAL RULES:
                     // 1. Strip <think> tags
                     generatedContent = generatedContent.replace(/<think>[\s\S]*?<\/think>/gi, '');
                     
-                    // 2. Strip JSON code blocks if model wrapped it
-                    generatedContent = generatedContent.replace(/```json\n?|\n?```/g, '');
+                    // 2. Strip JSON/Markdown code blocks
+                    generatedContent = generatedContent.replace(/```(json|markdown)?\n?|\n?```/g, '');
                     
-                    // 3. Strip Markdown code blocks if model wrapped it
-                    generatedContent = generatedContent.replace(/```markdown\n?|\n?```/g, ''); 
-                    
-                    // 4. Strip "Here is..." prefixes
+                    // 3. Strip "Here is..." prefixes
                     generatedContent = generatedContent.replace(/^(Here is|Sure|Certainly).+?\n\n/si, '');
+
+                    // 4. Force removale of any lingering address placeholders (aggressive)
+                    generatedContent = generatedContent.replace(/\[.*?(Address|Street|City|State).*?\]/gi, '');
+                    generatedContent = generatedContent.replace(/residing at\s*,?/gi, ''); // Remove "residing at" if it was left dangling
                     
                     generatedContent = generatedContent.trim();
                     
@@ -876,7 +855,6 @@ router.get('/:id', async (req: Request, res: Response, next) => {
                     id,
                     privy_id,
                     email,
-                    first_name,
                     first_name,
                     last_name,
                     ethereum_wallet_address,
@@ -1108,6 +1086,16 @@ router.post('/:id/complete', authenticate, async (req: Request, res: Response, n
 
         if (updateError) {
             throw new AppError(`Failed to update contract: ${updateError.message}`, 500);
+        }
+
+        // Update client stats
+        if (updatedContract.client_id) {
+            try {
+                const { ClientService } = await import('../services/clientService');
+                await ClientService.updateClientStats(updatedContract.client_id);
+            } catch (err) {
+                logger.error('Failed to update client stats after contract completion', { error: err, clientId: updatedContract.client_id });
+            }
         }
 
         // Send push notification to freelancer
@@ -1772,6 +1760,16 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
 
         if (updateError) {
             throw new Error(`Failed to update document: ${updateError.message}`);
+        }
+
+        // Update client stats if status changed
+        if (updates.status && updatedDoc.client_id) {
+             try {
+                const { ClientService } = await import('../services/clientService');
+                await ClientService.updateClientStats(updatedDoc.client_id);
+            } catch (err) {
+                logger.error('Failed to update client stats after document update', { error: err, clientId: updatedDoc.client_id });
+            }
         }
 
         res.json({

@@ -8,13 +8,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, FileText } from 'phosphor-react-native';
-import { Colors } from '../../theme/colors';
+import { CaretLeft, FileText } from 'phosphor-react-native';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 export default function ProposalsScreen() {
     const router = useRouter();
+    const themeColors = useThemeColors();
 
     // Track page view
     useAnalyticsScreen('Proposals');
@@ -23,10 +24,12 @@ export default function ProposalsScreen() {
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft size={24} color={Colors.textPrimary} />
+                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                        <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                    </View>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Proposals</Text>
-                <View style={{ width: 24 }} />
+                <View style={{ width: 40 }} />
             </View>
 
             <View style={styles.content}>
@@ -57,6 +60,13 @@ const styles = StyleSheet.create({
     },
     backButton: {
         padding: 4,
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerTitle: {
         ...Typography.h3,

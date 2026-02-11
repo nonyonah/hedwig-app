@@ -356,7 +356,9 @@ export default function NotificationsScreen() {
                     style={styles.backButton}
                     onPress={() => router.back()}
                 >
-                    <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                        <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                    </View>
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Notifications</Text>
                 <View style={{ width: 100, alignItems: 'flex-end' }}>
@@ -423,6 +425,13 @@ const styles = StyleSheet.create({
         height: 44,
         justifyContent: 'center',
         alignItems: 'flex-start',
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',

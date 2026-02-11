@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { List, Receipt, Clock, CheckCircle, WarningCircle, X, UserCircle, ShareNetwork, Wallet, Trash, Bell, DotsThree } from 'phosphor-react-native';
@@ -58,659 +59,670 @@ const PROFILE_COLOR_OPTIONS = [
 ] as const;
 
 export default function InvoicesScreen() {
+    const navigation = useNavigation();
     // Track screen view
     useAnalyticsScreen('Invoices');
 
     const router = useRouter();
-    const params = useLocalSearchParams();
-    const { getAccessToken, user } = useAuth();
-    const settings = useSettings();
-    const currency = settings?.currency || 'USD';
-    const themeColors = useThemeColors();
-    const [invoices, setInvoices] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-    const bottomSheetRef = useRef<BottomSheetModal>(null);
-    const [showProfileModal, setShowProfileModal] = useState(false);
+const params = useLocalSearchParams();
+const { getAccessToken, user } = useAuth();
+const settings = useSettings();
+const currency = settings?.currency || 'USD';
+const themeColors = useThemeColors();
+const [invoices, setInvoices] = useState<any[]>([]);
+const [isLoading, setIsLoading] = useState(true);
+const [refreshing, setRefreshing] = useState(false);
+const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+const bottomSheetRef = useRef<BottomSheetModal>(null);
+const [showProfileModal, setShowProfileModal] = useState(false);
 
-    const [userName, setUserName] = useState({ firstName: '', lastName: '' });
-    const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
-    const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
-    const [showActionMenu, setShowActionMenu] = useState(false);
-    const [conversations, setConversations] = useState<any[]>([]);
-    const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'due_soon'>((useLocalSearchParams().filter as any) || 'all');
+const [userName, setUserName] = useState({ firstName: '', lastName: '' });
+const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
+const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
+const [showActionMenu, setShowActionMenu] = useState(false);
+const [conversations, setConversations] = useState<any[]>([]);
+const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'due_soon'>((useLocalSearchParams().filter as any) || 'all');
 
-    // Filter invoices based on status
-    const filteredInvoices = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const nextWeek = new Date(today);
-        nextWeek.setDate(today.getDate() + 7);
+// Filter invoices based on status
+const filteredInvoices = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
 
-        if (statusFilter === 'all') return invoices;
-        if (statusFilter === 'paid') return invoices.filter(inv => inv.status === 'PAID');
-        if (statusFilter === 'due_soon') {
-            return invoices.filter(inv => {
-                if (inv.status === 'PAID') return false;
-                if (!inv.content?.due_date) return false;
-                const due = new Date(inv.content.due_date);
-                return due >= today && due <= nextWeek;
-            });
-        }
-        return invoices.filter(inv => inv.status !== 'PAID');
-    }, [invoices, statusFilter]);
-
-    // Helper to get chain icon - handles various formats like 'solana_devnet'
-    const getChainIcon = (chain?: string) => {
-        const c = chain?.toLowerCase() || 'base';
-        if (c.includes('solana')) return ICONS.solana;
-        if (c.includes('celo')) return ICONS.celo;
-        if (c.includes('arbitrum')) return ICONS.arbitrum;
-        if (c.includes('optimism')) return ICONS.optimism;
-        return ICONS.base;
-    };
-
-    // Helper to get display chain name
-    const getChainName = (chain?: string) => {
-        const c = chain?.toLowerCase() || 'base';
-        if (c.includes('solana')) return 'Solana';
-        if (c.includes('celo')) return 'Celo';
-        if (c.includes('arbitrum')) return 'Arbitrum';
-        if (c.includes('optimism')) return 'Optimism';
-        return 'Base';
-    };
-
-    useEffect(() => {
-        fetchInvoices();
-    }, [user]);
-
-    useEffect(() => {
-        const fetchUserData = async () => {
-            if (!user) return;
-            try {
-                const token = await getAccessToken();
-                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-                const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-                const profileData = await profileResponse.json();
-
-                if (profileData.success && profileData.data) {
-                    const userData = profileData.data.user || profileData.data;
-                    setUserName({
-                        firstName: userData.firstName || '',
-                        lastName: userData.lastName || ''
-                    });
-
-                    // Set profile icon
-                    if (userData.avatar) {
-                        try {
-                            if (userData.avatar.trim().startsWith('{')) {
-                                const parsed = JSON.parse(userData.avatar);
-                                setProfileIcon(parsed);
-                            } else {
-                                setProfileIcon({ imageUri: userData.avatar });
-                            }
-                        } catch (e) {
-                            setProfileIcon({ imageUri: userData.avatar });
-                        }
-                    } else if (userData.profileEmoji) {
-                        setProfileIcon({ emoji: userData.profileEmoji });
-                    } else if (userData.profileColorIndex !== undefined) {
-                        setProfileIcon({ colorIndex: userData.profileColorIndex });
-                    }
-                    setWalletAddresses({
-                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
-                        solana: userData.solanaWalletAddress
-                    });
-                }
-
-                // Fetch recent conversations for sidebar
-                const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-                const conversationsData = await conversationsResponse.json();
-                if (conversationsData.success && conversationsData.data) {
-                    setConversations(conversationsData.data.slice(0, 10)); // Get recent 10
-                }
-            } catch (error) {
-                console.error('Failed to fetch user data:', error);
-            }
-        };
-        fetchUserData();
-    }, [user]);
-
-    const fetchInvoices = async () => {
-        try {
-            const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-            console.log('Fetching invoices...');
-            const response = await fetch(`${apiUrl}/api/documents?type=INVOICE`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await response.json();
-            console.log('Invoices response:', data);
-
-            if (data.success) {
-                setInvoices(data.data.documents);
-            } else {
-                console.error('Failed to fetch invoices:', data.error);
-            }
-        } catch (error) {
-            console.error('Error fetching invoices:', error);
-            Alert.alert('Error', 'Failed to load invoices');
-        } finally {
-            setIsLoading(false);
-            setRefreshing(false);
-        }
-    };
-
-    const onRefresh = () => {
-        setRefreshing(true);
-        fetchInvoices();
-    };
-
-    const handleDelete = async (invoiceId: string) => {
-        // Haptic feedback
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-        Alert.alert(
-            'Delete Invoice',
-            'Are you sure you want to delete this invoice? This action cannot be undone.',
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const token = await getAccessToken();
-                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-                            const response = await fetch(`${apiUrl}/api/documents/${invoiceId}`, {
-                                method: 'DELETE',
-                                headers: { 'Authorization': `Bearer ${token}` },
-                            });
-
-                            const data = await response.json();
-
-                            if (data.success) {
-                                setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
-                                Alert.alert('Success', 'Invoice deleted successfully');
-                            } else {
-                                Alert.alert('Error', data.error?.message || 'Failed to delete invoice');
-                            }
-                        } catch (error) {
-                            console.error('Failed to delete invoice:', error);
-                            Alert.alert('Error', 'Failed to delete invoice');
-                        }
-                    }
-                },
-            ]
-        );
-    };
-
-    const openModal = (invoice: any) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        setSelectedInvoice(invoice);
-        bottomSheetRef.current?.present();
-    };
-
-    const closeModal = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        bottomSheetRef.current?.dismiss();
-    };
-
-    const handleInvoicePress = (invoice: any) => {
-        openModal(invoice);
-    };
-
-    const copyToClipboard = async (text: string) => {
-        await Clipboard.setStringAsync(text);
-        Alert.alert('Copied', 'Copied to clipboard');
-    };
-
-    const renderRightActions = (progress: any, dragX: any, item: any) => {
-        const trans = dragX.interpolate({
-            inputRange: [-100, 0],
-            outputRange: [0, 100],
-            extrapolate: 'clamp',
+    if (statusFilter === 'all') return invoices;
+    if (statusFilter === 'paid') return invoices.filter(inv => inv.status === 'PAID');
+    if (statusFilter === 'due_soon') {
+        return invoices.filter(inv => {
+            if (inv.status === 'PAID') return false;
+            if (!inv.content?.due_date) return false;
+            const due = new Date(inv.content.due_date);
+            return due >= today && due <= nextWeek;
         });
+    }
+    return invoices.filter(inv => inv.status !== 'PAID');
+}, [invoices, statusFilter]);
 
-        return (
-            <Animated.View style={{ transform: [{ translateX: trans }] }}>
-                <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDelete(item.id)}
-                >
-                    <Trash size={24} color="#FFFFFF" weight="fill" />
-                </TouchableOpacity>
-            </Animated.View>
-        );
-    };
+// Helper to get chain icon - handles various formats like 'solana_devnet'
+const getChainIcon = (chain?: string) => {
+    const c = chain?.toLowerCase() || 'base';
+    if (c.includes('solana')) return ICONS.solana;
+    if (c.includes('celo')) return ICONS.celo;
+    if (c.includes('arbitrum')) return ICONS.arbitrum;
+    if (c.includes('optimism')) return ICONS.optimism;
+    return ICONS.base;
+};
 
-    const renderItem = ({ item }: { item: any }) => {
-        return (
+// Helper to get display chain name
+const getChainName = (chain?: string) => {
+    const c = chain?.toLowerCase() || 'base';
+    if (c.includes('solana')) return 'Solana';
+    if (c.includes('celo')) return 'Celo';
+    if (c.includes('arbitrum')) return 'Arbitrum';
+    if (c.includes('optimism')) return 'Optimism';
+    return 'Base';
+};
+
+useEffect(() => {
+    fetchInvoices();
+}, [user]);
+
+const fetchUserData = async () => {
+    if (!user) return;
+    try {
+        const token = await getAccessToken();
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+        const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const profileData = await profileResponse.json();
+
+        if (profileData.success && profileData.data) {
+            const userData = profileData.data.user || profileData.data;
+            setUserName({
+                firstName: userData.firstName || '',
+                lastName: userData.lastName || ''
+            });
+
+            // Set profile icon - handle data URIs and regular URLs
+            if (userData.avatar) {
+                if (userData.avatar.startsWith('data:') || userData.avatar.startsWith('http')) {
+                    setProfileIcon({ imageUri: userData.avatar });
+                } else {
+                    try {
+                        const parsed = JSON.parse(userData.avatar);
+                        if (parsed.imageUri) {
+                            setProfileIcon({ imageUri: parsed.imageUri });
+                        }
+                    } catch (e) {
+                        setProfileIcon({ imageUri: userData.avatar });
+                    }
+                }
+            }
+            setWalletAddresses({
+                evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
+                solana: userData.solanaWalletAddress
+            });
+        }
+
+        // Fetch recent conversations for sidebar
+        const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const conversationsData = await conversationsResponse.json();
+        if (conversationsData.success && conversationsData.data) {
+            setConversations(conversationsData.data.slice(0, 10)); // Get recent 10
+        }
+    } catch (error) {
+        console.error('Failed to fetch user data:', error);
+    }
+};
+
+useEffect(() => {
+    fetchUserData();
+}, [user]);
+
+// Refetch profile data when screen comes into focus
+useFocusEffect(
+    React.useCallback(() => {
+        if (user) {
+            fetchUserData();
+        }
+    }, [user])
+);
+
+const fetchInvoices = async () => {
+    try {
+        const token = await getAccessToken();
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+        console.log('Fetching invoices...');
+        const response = await fetch(`${apiUrl}/api/documents?type=INVOICE`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        console.log('Invoices response:', data);
+
+        if (data.success) {
+            setInvoices(data.data.documents);
+        } else {
+            console.error('Failed to fetch invoices:', data.error);
+        }
+    } catch (error) {
+        console.error('Error fetching invoices:', error);
+        Alert.alert('Error', 'Failed to load invoices');
+    } finally {
+        setIsLoading(false);
+        setRefreshing(false);
+    }
+};
+
+const onRefresh = () => {
+    setRefreshing(true);
+    fetchInvoices();
+};
+
+const handleDelete = async (invoiceId: string) => {
+    // Haptic feedback
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+    Alert.alert(
+        'Delete Invoice',
+        'Are you sure you want to delete this invoice? This action cannot be undone.',
+        [
+            {
+                text: 'Cancel',
+                style: 'cancel',
+            },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        const token = await getAccessToken();
+                        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+
+                        const response = await fetch(`${apiUrl}/api/documents/${invoiceId}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${token}` },
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+                            Alert.alert('Success', 'Invoice deleted successfully');
+                        } else {
+                            Alert.alert('Error', data.error?.message || 'Failed to delete invoice');
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete invoice:', error);
+                        Alert.alert('Error', 'Failed to delete invoice');
+                    }
+                }
+            },
+        ]
+    );
+};
+
+const openModal = (invoice: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedInvoice(invoice);
+    bottomSheetRef.current?.present();
+};
+
+const closeModal = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    bottomSheetRef.current?.dismiss();
+};
+
+const handleInvoicePress = (invoice: any) => {
+    openModal(invoice);
+};
+
+const copyToClipboard = async (text: string) => {
+    await Clipboard.setStringAsync(text);
+    Alert.alert('Copied', 'Copied to clipboard');
+};
+
+const renderRightActions = (progress: any, dragX: any, item: any) => {
+    const trans = dragX.interpolate({
+        inputRange: [-100, 0],
+        outputRange: [0, 100],
+        extrapolate: 'clamp',
+    });
+
+    return (
+        <Animated.View style={{ transform: [{ translateX: trans }] }}>
             <TouchableOpacity
-                style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                onPress={() => handleInvoicePress(item)}
-                onLongPress={() => handleDelete(item.id)}
-                delayLongPress={500}
+                style={styles.deleteButton}
+                onPress={() => handleDelete(item.id)}
             >
-                <View style={styles.cardHeader}>
-                    <View>
-                        <Text style={[styles.invoiceId, { color: themeColors.textSecondary }]}>INV-{item.id.substring(0, 8).toUpperCase()}</Text>
-                        <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title || 'Invoice'}</Text>
-                    </View>
-                    <View style={styles.iconContainer}>
-                        <Image source={ICONS.usdc} style={styles.cardTokenIcon} />
-                        <View style={styles.cardChainBadge}>
-                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                                <View style={{ flexDirection: 'row' }}>
-                                    <Image source={ICONS.base} style={{ width: 14, height: 14, borderRadius: 7, marginRight: -6, zIndex: 1 }} />
-                                    <Image source={ICONS.solana} style={{ width: 14, height: 14, borderRadius: 7 }} />
-                                </View>
+                <Trash size={24} color="#FFFFFF" weight="fill" />
+            </TouchableOpacity>
+        </Animated.View>
+    );
+};
+
+const renderItem = ({ item }: { item: any }) => {
+    return (
+        <TouchableOpacity
+            style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+            onPress={() => handleInvoicePress(item)}
+            onLongPress={() => handleDelete(item.id)}
+            delayLongPress={500}
+        >
+            <View style={styles.cardHeader}>
+                <View>
+                    <Text style={[styles.invoiceId, { color: themeColors.textSecondary }]}>INV-{item.id.substring(0, 8).toUpperCase()}</Text>
+                    <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title || 'Invoice'}</Text>
+                </View>
+                <View style={styles.iconContainer}>
+                    <Image source={ICONS.usdc} style={styles.cardTokenIcon} />
+                    <View style={styles.cardChainBadge}>
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            <View style={{ flexDirection: 'row' }}>
+                                <Image source={ICONS.base} style={{ width: 14, height: 14, borderRadius: 7, marginRight: -6, zIndex: 1 }} />
+                                <Image source={ICONS.solana} style={{ width: 14, height: 14, borderRadius: 7 }} />
                             </View>
                         </View>
                     </View>
                 </View>
+            </View>
 
-                <Text style={[styles.amount, { color: themeColors.textPrimary }]}>{formatCurrency((item.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}</Text>
+            <Text style={[styles.amount, { color: themeColors.textPrimary }]}>{formatCurrency((item.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}</Text>
 
-                <View style={styles.cardFooter}>
-                    <Text style={styles.dateText}>
-                        {item.content?.due_date
-                            ? `Due: ${new Date(item.content.due_date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}`
-                            : new Date(item.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })}
+            <View style={styles.cardFooter}>
+                <Text style={styles.dateText}>
+                    {item.content?.due_date
+                        ? `Due: ${new Date(item.content.due_date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}`
+                        : new Date(item.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Text>
+                <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
+                    <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
+                        {item.status === 'PAID' ? 'Paid' : 'Pending'}
                     </Text>
-                    <View style={[styles.statusBadge, item.status === 'PAID' ? styles.statusPaid : styles.statusPending]}>
-                        <Text style={[styles.statusText, item.status === 'PAID' ? styles.statusTextPaid : styles.statusTextPending]}>
-                            {item.status === 'PAID' ? 'Paid' : 'Pending'}
-                        </Text>
-                    </View>
                 </View>
-            </TouchableOpacity>
-        );
-    };
+            </View>
+        </TouchableOpacity>
+    );
+};
 
-    return (
-        <View style={{ flex: 1 }}>
-            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
-                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <View style={styles.headerTop}>
-                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Invoices</Text>
-                        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
+return (
+    <View style={{ flex: 1 }}>
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <View style={[styles.header, { backgroundColor: themeColors.background }]}>
+                <View style={styles.headerTop}>
+                    <View style={styles.headerLeft}>
+                        <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
                             {profileIcon.imageUri ? (
                                 <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                            ) : profileIcon.emoji ? (
-                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                                </View>
                             ) : (
                                 <LinearGradient
-                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
+                                    colors={getUserGradient(user?.id)}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.profileIcon}
-                                />
+                                >
+                                    <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 }}>
+                                        {userName.firstName?.[0] || 'U'}
+                                    </Text>
+                                </LinearGradient>
                             )}
                         </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Invoices</Text>
                     </View>
-
-                    {/* Filter Chips inside Header */}
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.filterContent}
-                        style={styles.filterScrollView}
-                    >
-                        {(['all', 'paid', 'pending', 'due_soon'] as const).map(filter => (
-                            <TouchableOpacity
-                                key={filter}
-                                style={[styles.filterChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
-                                onPress={() => setStatusFilter(filter)}
-                            >
-                                <Text style={[styles.filterText, { color: themeColors.textSecondary }, statusFilter === filter && styles.filterTextActive]}>
-                                    {filter === 'due_soon' ? 'Due Soon' : filter.charAt(0).toUpperCase() + filter.slice(1)}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
                 </View>
 
-                {isLoading ? (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={Colors.primary} />
-                    </View>
-                ) : (
-                    <FlatList
-                        data={filteredInvoices}
-                        renderItem={renderItem}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.listContent}
-                        showsVerticalScrollIndicator={false}
-                        alwaysBounceVertical={true}
-                        refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
-                        }
-                        ListEmptyComponent={
-                            <View style={styles.emptyState}>
-                                <Receipt size={64} color={themeColors.textSecondary} weight="duotone" />
-                                <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Invoices Yet</Text>
-                                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                                    Create your first invoice to get paid
-                                </Text>
-                            </View>
-                        }
-                    />
-                )}
-            </SafeAreaView >
+                {/* Filter Chips inside Header */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filterContent}
+                    style={styles.filterScrollView}
+                >
+                    {(['all', 'paid', 'pending', 'due_soon'] as const).map(filter => (
+                        <TouchableOpacity
+                            key={filter}
+                            style={[styles.filterChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
+                            onPress={() => setStatusFilter(filter)}
+                        >
+                            <Text style={[styles.filterText, { color: themeColors.textSecondary }, statusFilter === filter && styles.filterTextActive]}>
+                                {filter === 'due_soon' ? 'Due Soon' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
 
-            <ProfileModal
-                visible={showProfileModal}
-                onClose={() => setShowProfileModal(false)}
-                userName={userName}
-                walletAddresses={walletAddresses}
-                profileIcon={profileIcon}
-            />
-
-
-
-            <BottomSheetModal
-                ref={bottomSheetRef}
-                index={0}
-                enableDynamicSizing={true}
-                enablePanDownToClose={true}
-                backdropComponent={(props) => (
-                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                )}
-                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-            >
-                <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
-                    <View style={styles.modalHeader}>
-                        <View style={styles.modalHeaderLeft}>
-                            {/* Token icon with status badge */}
-                            <View style={styles.modalIconContainer}>
-                                <Image
-                                    source={ICONS.usdc}
-                                    style={styles.modalTokenIcon}
-                                />
-                                <Image
-                                    source={selectedInvoice?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
-                                    style={styles.modalStatusBadge}
-                                />
-                            </View>
-                            <View>
-                                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
-                                    {selectedInvoice?.status === 'PAID' ? `Paid` : 'Pending'}
-                                </Text>
-                                <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                    {selectedInvoice?.created_at ? `${new Date(selectedInvoice.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })} • ${new Date(selectedInvoice.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}` : ''}
-                                </Text>
-                            </View>
+            {isLoading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                </View>
+            ) : (
+                <FlatList
+                    data={filteredInvoices}
+                    renderItem={renderItem}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    alwaysBounceVertical={true}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+                    }
+                    ListEmptyComponent={
+                        <View style={styles.emptyState}>
+                            <Receipt size={64} color={themeColors.textSecondary} weight="duotone" />
+                            <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Invoices Yet</Text>
+                            <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+                                Create your first invoice to get paid
+                            </Text>
                         </View>
-                        <View style={styles.modalHeaderRight}>
-                            {selectedInvoice?.status !== 'PAID' && (
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        LayoutAnimation.configureNext(LayoutAnimation.create(
-                                            200,
-                                            LayoutAnimation.Types.easeInEaseOut,
-                                            LayoutAnimation.Properties.opacity
-                                        ));
-                                        setShowActionMenu(!showActionMenu);
-                                    }}
-                                    style={styles.menuButton}
-                                >
-                                    <DotsThree size={24} color={themeColors.textSecondary} weight="bold" />
-                                </TouchableOpacity>
-                            )}
-                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                                <X size={20} color={themeColors.textSecondary} weight="bold" />
-                            </TouchableOpacity>
+                    }
+                />
+            )}
+        </SafeAreaView >
+
+        <ProfileModal
+            visible={showProfileModal}
+            onClose={() => setShowProfileModal(false)}
+            userName={userName}
+            walletAddresses={walletAddresses}
+            profileIcon={profileIcon}
+        />
+
+
+
+        <BottomSheetModal
+            ref={bottomSheetRef}
+            index={0}
+            enableDynamicSizing={true}
+            enablePanDownToClose={true}
+            backdropComponent={(props) => (
+                <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+            )}
+            backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+            handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+        >
+            <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                <View style={styles.modalHeader}>
+                    <View style={styles.modalHeaderLeft}>
+                        {/* Token icon with status badge */}
+                        <View style={styles.modalIconContainer}>
+                            <Image
+                                source={ICONS.usdc}
+                                style={styles.modalTokenIcon}
+                            />
+                            <Image
+                                source={selectedInvoice?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
+                                style={styles.modalStatusBadge}
+                            />
+                        </View>
+                        <View>
+                            <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                                {selectedInvoice?.status === 'PAID' ? `Paid` : 'Pending'}
+                            </Text>
+                            <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                {selectedInvoice?.created_at ? `${new Date(selectedInvoice.created_at).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })} • ${new Date(selectedInvoice.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}` : ''}
+                            </Text>
                         </View>
                     </View>
-
-                    {/* iOS Pull-Down Style Menu */}
-                    {showActionMenu && selectedInvoice?.status !== 'PAID' && (
-                        <>
-                            {/* Backdrop to dismiss menu */}
+                    <View style={styles.modalHeaderRight}>
+                        {selectedInvoice?.status !== 'PAID' && (
                             <TouchableOpacity
-                                style={styles.menuBackdrop}
-                                activeOpacity={1}
                                 onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     LayoutAnimation.configureNext(LayoutAnimation.create(
-                                        150,
+                                        200,
                                         LayoutAnimation.Types.easeInEaseOut,
                                         LayoutAnimation.Properties.opacity
                                     ));
-                                    setShowActionMenu(false);
+                                    setShowActionMenu(!showActionMenu);
                                 }}
-                            />
-                            <Animated.View
-                                style={[
-                                    styles.pullDownMenu,
-                                    { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-                                    {
-                                        opacity: 1,
-                                        transform: [{ scale: 1 }]
-                                    }
-                                ]}
+                                style={styles.menuButton}
                             >
-                                <TouchableOpacity
-                                    style={styles.pullDownMenuItem}
-                                    onPress={async () => {
-                                        setShowActionMenu(false);
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                <DotsThree size={24} color={themeColors.textSecondary} weight="bold" />
+                            </TouchableOpacity>
+                        )}
+                        <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
+                            <X size={20} color={themeColors.textSecondary} weight="bold" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
 
-                                        const sendReminder = async () => {
-                                            try {
-                                                const token = await getAccessToken();
-                                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                                const response = await fetch(`${apiUrl}/api/documents/${selectedInvoice.id}/remind`, {
-                                                    method: 'POST',
-                                                    headers: { 'Authorization': `Bearer ${token}` }
-                                                });
-                                                const data = await response.json();
-                                                if (data.success) {
-                                                    Alert.alert('Success', 'Reminder sent successfully!');
-                                                } else {
-                                                    Alert.alert('Error', data.error?.message || 'Failed to send reminder');
-                                                }
-                                            } catch (error) {
-                                                Alert.alert('Error', 'Failed to send reminder');
-                                            }
-                                        };
+                {/* iOS Pull-Down Style Menu */}
+                {showActionMenu && selectedInvoice?.status !== 'PAID' && (
+                    <>
+                        {/* Backdrop to dismiss menu */}
+                        <TouchableOpacity
+                            style={styles.menuBackdrop}
+                            activeOpacity={1}
+                            onPress={() => {
+                                LayoutAnimation.configureNext(LayoutAnimation.create(
+                                    150,
+                                    LayoutAnimation.Types.easeInEaseOut,
+                                    LayoutAnimation.Properties.opacity
+                                ));
+                                setShowActionMenu(false);
+                            }}
+                        />
+                        <Animated.View
+                            style={[
+                                styles.pullDownMenu,
+                                { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                                {
+                                    opacity: 1,
+                                    transform: [{ scale: 1 }]
+                                }
+                            ]}
+                        >
+                            <TouchableOpacity
+                                style={styles.pullDownMenuItem}
+                                onPress={async () => {
+                                    setShowActionMenu(false);
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-                                        if (!selectedInvoice.content?.recipient_email) {
-                                            Alert.prompt(
-                                                'Missing Email',
-                                                'Please enter the recipient\'s email address to send the reminder.',
-                                                [
-                                                    { text: 'Cancel', style: 'cancel' },
-                                                    {
-                                                        text: 'Send',
-                                                        onPress: async (email: any) => {
-                                                            if (!email || !email.includes('@')) {
-                                                                Alert.alert('Error', 'Please enter a valid email address');
-                                                                return;
-                                                            }
-                                                            try {
-                                                                const token = await getAccessToken();
-                                                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-                                                                // Update document with email
-                                                                const updateRes = await fetch(`${apiUrl}/api/documents/${selectedInvoice.id}`, {
-                                                                    method: 'PUT',
-                                                                    headers: {
-                                                                        'Authorization': `Bearer ${token}`,
-                                                                        'Content-Type': 'application/json'
-                                                                    },
-                                                                    body: JSON.stringify({
-                                                                        content: { recipient_email: email }
-                                                                    })
-                                                                });
-
-                                                                if (updateRes.ok) {
-                                                                    // Update local state
-                                                                    setSelectedInvoice({
-                                                                        ...selectedInvoice,
-                                                                        content: { ...selectedInvoice.content, recipient_email: email }
-                                                                    });
-                                                                    // Proceed to send reminder
-                                                                    await sendReminder();
-                                                                } else {
-                                                                    Alert.alert('Error', 'Failed to update email');
-                                                                }
-                                                            } catch (err) {
-                                                                Alert.alert('Error', 'Failed to save email');
-                                                            }
-                                                        }
-                                                    }
-                                                ],
-                                                'plain-text',
-                                                '',
-                                                'email-address'
-                                            );
-                                        } else {
-                                            sendReminder();
-                                        }
-                                    }}
-                                >
-                                    <Bell size={18} color={Colors.primary} weight="fill" />
-                                    <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>Send Reminder</Text>
-                                </TouchableOpacity>
-
-                                <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
-
-                                <TouchableOpacity
-                                    style={styles.pullDownMenuItem}
-                                    onPress={async () => {
-                                        setShowActionMenu(false);
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                        const remindersEnabled = selectedInvoice?.content?.reminders_enabled !== false;
-                                        const newState = !remindersEnabled;
+                                    const sendReminder = async () => {
                                         try {
                                             const token = await getAccessToken();
                                             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                            const response = await fetch(`${apiUrl}/api/documents/${selectedInvoice.id}/toggle-reminders`, {
+                                            const response = await fetch(`${apiUrl}/api/documents/${selectedInvoice.id}/remind`, {
                                                 method: 'POST',
-                                                headers: {
-                                                    'Authorization': `Bearer ${token}`,
-                                                    'Content-Type': 'application/json'
-                                                },
-                                                body: JSON.stringify({ enabled: newState })
+                                                headers: { 'Authorization': `Bearer ${token}` }
                                             });
                                             const data = await response.json();
                                             if (data.success) {
-                                                Alert.alert('Success', `Automatic reminders ${newState ? 'enabled' : 'disabled'}`);
-                                                setSelectedInvoice({
-                                                    ...selectedInvoice,
-                                                    content: { ...selectedInvoice.content, reminders_enabled: newState }
-                                                });
+                                                Alert.alert('Success', 'Reminder sent successfully!');
                                             } else {
-                                                Alert.alert('Error', data.error?.message || 'Failed to toggle reminders');
+                                                Alert.alert('Error', data.error?.message || 'Failed to send reminder');
                                             }
                                         } catch (error) {
-                                            Alert.alert('Error', 'Failed to toggle reminders');
+                                            Alert.alert('Error', 'Failed to send reminder');
                                         }
-                                    }}
-                                >
-                                    <Bell size={18} color={selectedInvoice?.content?.reminders_enabled !== false ? Colors.textSecondary : Colors.primary} weight={selectedInvoice?.content?.reminders_enabled !== false ? 'regular' : 'fill'} />
-                                    <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>
-                                        {selectedInvoice?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
-                                    </Text>
-                                </TouchableOpacity>
+                                    };
 
-                                <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
+                                    if (!selectedInvoice.content?.recipient_email) {
+                                        Alert.prompt(
+                                            'Missing Email',
+                                            'Please enter the recipient\'s email address to send the reminder.',
+                                            [
+                                                { text: 'Cancel', style: 'cancel' },
+                                                {
+                                                    text: 'Send',
+                                                    onPress: async (email: any) => {
+                                                        if (!email || !email.includes('@')) {
+                                                            Alert.alert('Error', 'Please enter a valid email address');
+                                                            return;
+                                                        }
+                                                        try {
+                                                            const token = await getAccessToken();
+                                                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-                                <TouchableOpacity
-                                    style={styles.pullDownMenuItem}
-                                    onPress={() => {
-                                        setShowActionMenu(false);
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                        handleDelete(selectedInvoice.id);
-                                        closeModal();
-                                    }}
-                                >
-                                    <Trash size={18} color="#EF4444" weight="fill" />
-                                    <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete</Text>
-                                </TouchableOpacity>
-                            </Animated.View>
-                        </>
-                    )}
+                                                            // Update document with email
+                                                            const updateRes = await fetch(`${apiUrl}/api/documents/${selectedInvoice.id}`, {
+                                                                method: 'PUT',
+                                                                headers: {
+                                                                    'Authorization': `Bearer ${token}`,
+                                                                    'Content-Type': 'application/json'
+                                                                },
+                                                                body: JSON.stringify({
+                                                                    content: { recipient_email: email }
+                                                                })
+                                                            });
 
-                    <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
-                        <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
-                            {formatCurrency((selectedInvoice?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
-                        </Text>
-                        <View style={styles.amountCardSub}>
-                            <Image source={ICONS.usdc} style={styles.smallIcon} />
-                            <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedInvoice?.amount} USDC</Text>
-                        </View>
+                                                            if (updateRes.ok) {
+                                                                // Update local state
+                                                                setSelectedInvoice({
+                                                                    ...selectedInvoice,
+                                                                    content: { ...selectedInvoice.content, recipient_email: email }
+                                                                });
+                                                                // Proceed to send reminder
+                                                                await sendReminder();
+                                                            } else {
+                                                                Alert.alert('Error', 'Failed to update email');
+                                                            }
+                                                        } catch (err) {
+                                                            Alert.alert('Error', 'Failed to save email');
+                                                        }
+                                                    }
+                                                }
+                                            ],
+                                            'plain-text',
+                                            '',
+                                            'email-address'
+                                        );
+                                    } else {
+                                        sendReminder();
+                                    }
+                                }}
+                            >
+                                <Bell size={18} color={Colors.primary} weight="fill" />
+                                <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>Send Reminder</Text>
+                            </TouchableOpacity>
+
+                            <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
+
+                            <TouchableOpacity
+                                style={styles.pullDownMenuItem}
+                                onPress={async () => {
+                                    setShowActionMenu(false);
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    const remindersEnabled = selectedInvoice?.content?.reminders_enabled !== false;
+                                    const newState = !remindersEnabled;
+                                    try {
+                                        const token = await getAccessToken();
+                                        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                        const response = await fetch(`${apiUrl}/api/documents/${selectedInvoice.id}/toggle-reminders`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Authorization': `Bearer ${token}`,
+                                                'Content-Type': 'application/json'
+                                            },
+                                            body: JSON.stringify({ enabled: newState })
+                                        });
+                                        const data = await response.json();
+                                        if (data.success) {
+                                            Alert.alert('Success', `Automatic reminders ${newState ? 'enabled' : 'disabled'}`);
+                                            setSelectedInvoice({
+                                                ...selectedInvoice,
+                                                content: { ...selectedInvoice.content, reminders_enabled: newState }
+                                            });
+                                        } else {
+                                            Alert.alert('Error', data.error?.message || 'Failed to toggle reminders');
+                                        }
+                                    } catch (error) {
+                                        Alert.alert('Error', 'Failed to toggle reminders');
+                                    }
+                                }}
+                            >
+                                <Bell size={18} color={selectedInvoice?.content?.reminders_enabled !== false ? Colors.textSecondary : Colors.primary} weight={selectedInvoice?.content?.reminders_enabled !== false ? 'regular' : 'fill'} />
+                                <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>
+                                    {selectedInvoice?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
+                                </Text>
+                            </TouchableOpacity>
+
+                            <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
+
+                            <TouchableOpacity
+                                style={styles.pullDownMenuItem}
+                                onPress={() => {
+                                    setShowActionMenu(false);
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                    handleDelete(selectedInvoice.id);
+                                    closeModal();
+                                }}
+                            >
+                                <Trash size={18} color="#EF4444" weight="fill" />
+                                <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </>
+                )}
+
+                <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                    <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                        {formatCurrency((selectedInvoice?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
+                    </Text>
+                    <View style={styles.amountCardSub}>
+                        <Image source={ICONS.usdc} style={styles.smallIcon} />
+                        <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedInvoice?.amount} USDC</Text>
                     </View>
+                </View>
 
-                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
-                        <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Invoice ID</Text>
-                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>INV-{selectedInvoice?.id.slice(0, 8).toUpperCase()}</Text>
-                        </View>
-                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                        <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
-                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedInvoice?.title}</Text>
-                        </View>
-                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                        <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
-                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedInvoice?.content?.clientName || selectedInvoice?.content?.client_name || 'N/A'}</Text>
-                        </View>
-                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                        <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
-                            <View style={styles.chainValue}>
-                                <View style={{ flexDirection: 'row', marginRight: 6 }}>
-                                    <Image source={ICONS.base} style={[styles.smallIcon, { width: 16, height: 16, marginRight: -6, zIndex: 1 }]} />
-                                    <Image source={ICONS.solana} style={[styles.smallIcon, { width: 16, height: 16 }]} />
-                                </View>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>Multichain</Text>
+                <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                    <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Invoice ID</Text>
+                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>INV-{selectedInvoice?.id.slice(0, 8).toUpperCase()}</Text>
+                    </View>
+                    <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                    <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
+                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedInvoice?.title}</Text>
+                    </View>
+                    <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                    <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
+                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedInvoice?.content?.clientName || selectedInvoice?.content?.client_name || 'N/A'}</Text>
+                    </View>
+                    <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                    <View style={styles.detailRow}>
+                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
+                        <View style={styles.chainValue}>
+                            <View style={{ flexDirection: 'row', marginRight: 6 }}>
+                                <Image source={ICONS.base} style={[styles.smallIcon, { width: 16, height: 16, marginRight: -6, zIndex: 1 }]} />
+                                <Image source={ICONS.solana} style={[styles.smallIcon, { width: 16, height: 16 }]} />
                             </View>
+                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>Multichain</Text>
                         </View>
                     </View>
+                </View>
 
-                    <TouchableOpacity
-                        style={styles.viewButton}
-                        onPress={async () => {
-                            try {
-                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                // Use the stored BlockRadar URL if available, otherwise fallback to local construction
-                                const url = selectedInvoice.payment_link_url ||
-                                    selectedInvoice.content?.blockradar_url ||
-                                    `${apiUrl}/invoice/${selectedInvoice.id}`;
+                <TouchableOpacity
+                    style={styles.viewButton}
+                    onPress={async () => {
+                        try {
+                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                            // Use the stored BlockRadar URL if available, otherwise fallback to local construction
+                            const url = selectedInvoice.payment_link_url ||
+                                selectedInvoice.content?.blockradar_url ||
+                                `${apiUrl}/invoice/${selectedInvoice.id}`;
 
-                                await WebBrowser.openBrowserAsync(url, {
-                                    presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-                                    controlsColor: Colors.primary,
-                                });
-                            } catch (error: any) {
-                                Alert.alert('Error', `Failed to open: ${error?.message}`);
-                            }
-                        }}
-                    >
-                        <Text style={styles.viewButtonText}>View Invoice</Text>
-                    </TouchableOpacity>
-                </BottomSheetView>
-            </BottomSheetModal>
-        </View >
-    );
+                            await WebBrowser.openBrowserAsync(url, {
+                                presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+                                controlsColor: Colors.primary,
+                            });
+                        } catch (error: any) {
+                            Alert.alert('Error', `Failed to open: ${error?.message}`);
+                        }
+                    }}
+                >
+                    <Text style={styles.viewButtonText}>View Invoice</Text>
+                </TouchableOpacity>
+            </BottomSheetView>
+        </BottomSheetModal>
+    </View >
+);
 }
 
 const styles = StyleSheet.create({
@@ -738,13 +750,13 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
+        fontSize: 24,
         color: Colors.textPrimary,
     },
     profileIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: Colors.primary,
     },
     filterScrollView: {

@@ -4,7 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import * as Clipboard from 'expo-clipboard';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
@@ -51,6 +52,7 @@ const PROFILE_COLOR_OPTIONS = [
 ] as const;
 
 export default function PaymentLinksScreen() {
+    const navigation = useNavigation();
     const router = useRouter();
     const params = useLocalSearchParams();
 
@@ -119,62 +121,70 @@ export default function PaymentLinksScreen() {
         fetchLinks();
     }, [user]);
 
-    useEffect(() => {
-        const fetchUserData = async () => {
-            if (!user) return;
-            try {
-                const token = await getAccessToken();
-                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+    const fetchUserData = async () => {
+        if (!user) return;
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-                const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
+            const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            const profileData = await profileResponse.json();
+
+            if (profileData.success && profileData.data) {
+                const userData = profileData.data.user || profileData.data;
+                setUserName({
+                    firstName: userData.firstName || '',
+                    lastName: userData.lastName || ''
                 });
-                const profileData = await profileResponse.json();
 
-                if (profileData.success && profileData.data) {
-                    const userData = profileData.data.user || profileData.data;
-                    setUserName({
-                        firstName: userData.firstName || '',
-                        lastName: userData.lastName || ''
-                    });
-
-                    // Set profile icon
-                    if (userData.avatar) {
+                // Set profile icon - handle data URIs and regular URLs
+                if (userData.avatar) {
+                    if (userData.avatar.startsWith('data:') || userData.avatar.startsWith('http')) {
+                        setProfileIcon({ imageUri: userData.avatar });
+                    } else {
                         try {
-                            if (userData.avatar.trim().startsWith('{')) {
-                                const parsed = JSON.parse(userData.avatar);
-                                setProfileIcon(parsed);
-                            } else {
-                                setProfileIcon({ imageUri: userData.avatar });
+                            const parsed = JSON.parse(userData.avatar);
+                            if (parsed.imageUri) {
+                                setProfileIcon({ imageUri: parsed.imageUri });
                             }
                         } catch (e) {
                             setProfileIcon({ imageUri: userData.avatar });
                         }
-                    } else if (userData.profileEmoji) {
-                        setProfileIcon({ emoji: userData.profileEmoji });
-                    } else if (userData.profileColorIndex !== undefined) {
-                        setProfileIcon({ colorIndex: userData.profileColorIndex });
                     }
-                    setWalletAddresses({
-                        evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
-                        solana: userData.solanaWalletAddress
-                    });
                 }
-
-                // Fetch recent conversations for sidebar
-                const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                setWalletAddresses({
+                    evm: userData.ethereumWalletAddress || userData.baseWalletAddress || userData.celoWalletAddress,
+                    solana: userData.solanaWalletAddress
                 });
-                const conversationsData = await conversationsResponse.json();
-                if (conversationsData.success && conversationsData.data) {
-                    setConversations(conversationsData.data.slice(0, 10)); // Get recent 10
-                }
-            } catch (error) {
-                console.error('Failed to fetch user data:', error);
             }
-        };
+
+            // Fetch recent conversations for sidebar
+            const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            const conversationsData = await conversationsResponse.json();
+            if (conversationsData.success && conversationsData.data) {
+                setConversations(conversationsData.data.slice(0, 10)); // Get recent 10
+            }
+        } catch (error) {
+            console.error('Failed to fetch user data:', error);
+        }
+    };
+
+    useEffect(() => {
         fetchUserData();
     }, [user]);
+
+    // Refetch profile data when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            if (user) {
+                fetchUserData();
+            }
+        }, [user])
+    );
 
     const fetchLinks = async () => {
         try {
@@ -340,23 +350,25 @@ export default function PaymentLinksScreen() {
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Payment Links</Text>
-                        <TouchableOpacity onPress={() => setShowProfileModal(true)}>
-                            {profileIcon.imageUri ? (
-                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                            ) : profileIcon.emoji ? (
-                                <View style={[styles.profileIcon, { backgroundColor: PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0][1], justifyContent: 'center', alignItems: 'center' }]}>
-                                    <Text style={{ fontSize: 16 }}>{profileIcon.emoji}</Text>
-                                </View>
-                            ) : (
-                                <LinearGradient
-                                    colors={PROFILE_COLOR_OPTIONS[profileIcon.colorIndex || 0]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.profileIcon}
-                                />
-                            )}
-                        </TouchableOpacity>
+                        <View style={styles.headerLeft}>
+                            <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+                                {profileIcon.imageUri ? (
+                                    <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
+                                ) : (
+                                    <LinearGradient
+                                        colors={getUserGradient(user?.id)}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.profileIcon}
+                                    >
+                                        <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 }}>
+                                            {userName.firstName?.[0] || 'U'}
+                                        </Text>
+                                    </LinearGradient>
+                                )}
+                            </TouchableOpacity>
+                            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Payment Links</Text>
+                        </View>
                     </View>
 
                     {/* Filter Chips inside Header */}
@@ -739,13 +751,13 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28, // Increased from 18
+        fontSize: 24,
         color: Colors.textPrimary,
     },
     profileIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: Colors.primary,
     },
     filterScrollView: {

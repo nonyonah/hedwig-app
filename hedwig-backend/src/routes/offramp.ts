@@ -42,6 +42,24 @@ router.get('/rates', authenticate, async (req: Request, res: Response, next) => 
 });
 
 /**
+ * GET /api/offramp/institutions
+ * Get list of supported banks
+ */
+router.get('/institutions', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { currency = 'NGN' } = req.query;
+        const banks = await PaycrestService.getSupportedInstitutions(currency as string);
+        
+        res.json({
+            success: true,
+            data: { banks }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * POST /api/offramp/verify-account
  * Verify bank account
  */

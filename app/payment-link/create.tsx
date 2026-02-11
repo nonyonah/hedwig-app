@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, CurrencyDollar, FileText, Coins } from 'phosphor-react-native';
+import { CaretLeft, CurrencyDollar, FileText, Coins } from 'phosphor-react-native';
 import { usePrivy } from '@privy-io/expo';
-import { Colors } from '../../theme/colors';
+import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 
 export default function CreatePaymentLinkScreen() {
     const router = useRouter();
     const { getAccessToken } = usePrivy();
     const [isLoading, setIsLoading] = useState(false);
+    const themeColors = useThemeColors();
 
     const [formData, setFormData] = useState({
         amount: '',
@@ -62,10 +63,12 @@ export default function CreatePaymentLinkScreen() {
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft size={24} color={Colors.textPrimary} />
+                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                        <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                    </View>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Create Payment Link</Text>
-                <View style={{ width: 24 }} />
+                <View style={{ width: 40 }} />
             </View>
 
             <KeyboardAvoidingView
@@ -148,6 +151,13 @@ const styles = StyleSheet.create({
     },
     backButton: {
         padding: 4,
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerTitle: {
         ...Typography.h3,

@@ -102,6 +102,14 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
         const fetchRate = async () => {
             if (!data || modalState !== 'confirm') return;
 
+            console.log('[OfframpModal] Fetching rate for network:', data.network);
+
+            // Skip rate fetching for Solana - it should be bridged first
+            if (data.network.toLowerCase() === 'solana') {
+                console.log('[Offramp] Skipping rate fetch for Solana - bridge required first');
+                return;
+            }
+
             // Use provided rate if available
             if (data.rate && data.estimatedFiat) {
                 setCurrentRate(data.rate);
@@ -114,6 +122,13 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                 const token = await getAccessToken();
                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
+                console.log('[OfframpModal] Fetching rate from API:', {
+                    token: data.token,
+                    amount: data.amount,
+                    currency: data.fiatCurrency,
+                    network: data.network
+                });
+
                 const response = await fetch(
                     `${apiUrl}/api/offramp/rates?token=${data.token}&amount=${data.amount}&currency=${data.fiatCurrency}&network=${data.network}`,
                     { headers: { 'Authorization': `Bearer ${token}` } }
@@ -125,9 +140,12 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                     setCurrentRate(rate);
                     const fiat = parseFloat(data.amount) * parseFloat(rate);
                     setEstimatedFiat(fiat.toFixed(2));
+                    console.log('[OfframpModal] Rate fetched successfully:', rate);
+                } else {
+                    console.log('[OfframpModal] Rate fetch failed:', result);
                 }
             } catch (error) {
-                console.error('Failed to fetch rate:', error);
+                console.error('[OfframpModal] Failed to fetch rate:', error);
             } finally {
                 setIsLoadingRate(false);
             }

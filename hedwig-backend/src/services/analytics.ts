@@ -26,12 +26,12 @@ interface PostHogEvent {
  */
 async function sendEvent(event: PostHogEvent): Promise<boolean> {
     if (!POSTHOG_API_KEY) {
-        logger.debug('PostHog not configured, skipping event', { event: event.event });
+        logger.warn('PostHog API key not configured, skipping event', { event: event.event });
         return false;
     }
 
     try {
-        await axios.post(`${POSTHOG_HOST}/capture`, {
+        const payload = {
             api_key: POSTHOG_API_KEY,
             event: event.event,
             distinct_id: event.distinct_id,
@@ -41,12 +41,40 @@ async function sendEvent(event: PostHogEvent): Promise<boolean> {
                 $lib_version: '1.0.0',
             },
             timestamp: event.timestamp || new Date().toISOString(),
+        };
+
+        logger.debug('Sending PostHog event', { 
+            event: event.event, 
+            distinct_id: event.distinct_id,
+            host: POSTHOG_HOST,
+            hasApiKey: !!POSTHOG_API_KEY 
         });
 
-        logger.debug('Analytics event sent', { event: event.event });
+        const response = await axios.post(
+            `${POSTHOG_HOST}/capture/`,
+            payload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                timeout: 5000, // 5 second timeout
+            }
+        );
+
+        logger.info('PostHog event sent successfully', { 
+            event: event.event,
+            status: response.status,
+            distinct_id: event.distinct_id 
+        });
         return true;
     } catch (error: any) {
-        logger.error('Failed to send analytics event', { event: event.event, error: error.message });
+        logger.error('Failed to send PostHog event', { 
+            event: event.event, 
+            error: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            distinct_id: event.distinct_id
+        });
         return false;
     }
 }

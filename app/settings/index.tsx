@@ -4,7 +4,7 @@ import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as WebBrowser from 'expo-web-browser';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { CaretRight, List, CaretDown, Check, ShieldWarning, Lock, Copy, WarningCircle, CheckSquare, Square, CaretLeft } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
@@ -70,6 +70,15 @@ export default function SettingsScreen() {
         loadBiometricsState();
     }, []);
 
+    // Refetch profile data when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            if (user) {
+                fetchUserData();
+            }
+        }, [user])
+    );
+
     const loadBiometricsState = async () => {
         try {
             const enabled = await AsyncStorage.getItem('biometricsEnabled');
@@ -96,16 +105,19 @@ export default function SettingsScreen() {
                         firstName: userData.firstName || '',
                         lastName: userData.lastName || ''
                     });
-                    // Parse avatar
+                    // Parse avatar - handle data URIs and regular URLs
                     if (userData.avatar) {
-                        try {
-                            if (typeof userData.avatar === 'string' && userData.avatar.trim().startsWith('{')) {
-                                setProfileIcon(JSON.parse(userData.avatar));
-                            } else if (typeof userData.avatar === 'string' && userData.avatar.startsWith('data:')) {
+                        if (userData.avatar.startsWith('data:') || userData.avatar.startsWith('http')) {
+                            setProfileIcon({ imageUri: userData.avatar });
+                        } else {
+                            try {
+                                const parsed = JSON.parse(userData.avatar);
+                                if (parsed.imageUri) {
+                                    setProfileIcon({ imageUri: parsed.imageUri });
+                                }
+                            } catch (e) {
                                 setProfileIcon({ imageUri: userData.avatar });
                             }
-                        } catch (e) {
-                            setProfileIcon({ imageUri: userData.avatar });
                         }
                     }
                 }
@@ -249,7 +261,9 @@ export default function SettingsScreen() {
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerTop}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-                        <CaretLeft size={24} color={themeColors.textPrimary} />
+                        <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
+                            <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                        </View>
                     </TouchableOpacity>
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Settings</Text>
                     <View style={styles.headerSpacer} />
@@ -267,13 +281,11 @@ export default function SettingsScreen() {
                 >
                     {profileIcon.imageUri ? (
                         <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
-                    ) : profileIcon.emoji ? (
-                        <View style={[styles.avatar, { backgroundColor: themeColors.surface, justifyContent: 'center', alignItems: 'center' }]}>
-                            <Text style={{ fontSize: 20 }}>{profileIcon.emoji}</Text>
-                        </View>
                     ) : (
                         <LinearGradient
                             colors={getUserGradient(user?.id)}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
                             style={styles.avatar}
                         >
                             <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 }}>
@@ -610,6 +622,13 @@ const styles = StyleSheet.create({
     headerButton: {
         width: 40,
         alignItems: 'flex-start',
+    },
+    backButtonCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
