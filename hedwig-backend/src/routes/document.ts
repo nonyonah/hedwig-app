@@ -1014,6 +1014,90 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
 });
 
 /**
+ * PATCH /api/documents/:id/status
+ * Manually update document status (e.g. mark as PAID)
+ */
+router.patch('/:id/status', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        const privyId = req.user!.id;
+
+        if (!status) {
+            res.status(400).json({ success: false, error: { message: 'Status is required' } });
+            return;
+        }
+
+        // Get user ID first
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('privy_id', privyId)
+            .single();
+
+        if (userError || !userData) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        // Fetch document
+        const { data: doc, error: fetchError } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !doc) {
+            res.status(404).json({ success: false, error: { message: 'Document not found' } });
+            return;
+        }
+
+        // Verify ownership
+        if (doc.user_id !== userData.id) {
+            res.status(403).json({ success: false, error: { message: 'Not authorized' } });
+            return;
+        }
+
+        // Update status
+        const updateData: any = { status };
+        
+        // If marking as paid, add timestamp if not present
+        if (status === 'PAID' && doc.status !== 'PAID') {
+            updateData.content = {
+                ...doc.content,
+                paid_at: new Date().toISOString(),
+                manual_mark_paid: true
+            };
+        }
+
+        const { data: updatedDoc, error: updateError } = await supabase
+            .from('documents')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (updateError) {
+            throw new AppError(`Failed to update document: ${updateError.message}`, 500);
+        }
+        
+        // If marked as PAID, also complete associated calendar event
+        if (status === 'PAID') {
+             await markCalendarEventCompleted('invoice', id);
+             // Also try payment_link just in case (sourceType might vary)
+             await markCalendarEventCompleted('payment_link', id);
+        }
+
+        res.json({
+            success: true,
+            data: { document: updatedDoc }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * POST /api/documents/:id/complete
  * Mark a contract as completed and generate an invoice
  */

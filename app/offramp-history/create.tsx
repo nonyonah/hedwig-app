@@ -28,6 +28,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { BottomSheetModal, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { OfframpConfirmationModal } from '../../components/OfframpConfirmationModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
 import { SolanaBridgeModal } from '../../components/SolanaBridgeModal';
 import { useEmbeddedSolanaWallet, useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { useWallet } from '../../hooks/useWallet';
@@ -72,7 +73,7 @@ export default function CreateWithdrawalScreen() {
     const ethereumWallet = useEmbeddedEthereumWallet();
     const evmWallets = (ethereumWallet as any)?.wallets || [];
     const evmAddress = evmWallets[0]?.address || baseAddress || ''; // Use Privy EVM wallet address first
-    
+
     const solanaWalletHook = useEmbeddedSolanaWallet();
     const solanaAddress = (solanaWalletHook as any)?.wallets?.[0]?.address || '';
 
@@ -201,7 +202,7 @@ export default function CreateWithdrawalScreen() {
             console.log('[CreateWithdrawal] Opening bridge modal...');
             console.log('[CreateWithdrawal] Bridge modal ref exists:', !!bridgeModalRef.current);
             setIsBridgeModalVisible(true);
-            
+
             // Try to present the modal
             try {
                 bridgeModalRef.current?.present();
@@ -299,93 +300,29 @@ export default function CreateWithdrawalScreen() {
                                 placeholderTextColor={themeColors.textSecondary}
                                 keyboardType="decimal-pad"
                             />
-                            {/* Interactive Chain Badge */}
-                            <TouchableOpacity
-                                style={[styles.chainBadge, { backgroundColor: themeColors.background }]}
-                                onPress={handleOpenChainSheet}
-                                activeOpacity={0.7}
-                            >
-                                <View style={styles.chainIconContainer}>
-                                    <Image source={selectedNetwork.icon} style={styles.chainIcon} />
-                                </View>
-                                <Text style={[styles.chainBadgeText, { color: themeColors.textPrimary }]}>
-                                    {selectedNetwork.name}
-                                </Text>
-                                <CaretDown size={14} weight="bold" color={themeColors.textSecondary} style={{ marginLeft: 6 }} />
-                            </TouchableOpacity>
+                            {/* Interactive Chain Badge - Native ContextMenu */}
+                            <Host style={{ height: 36 }} matchContents>
+                                <ContextMenu>
+                                    <ContextMenu.Trigger>
+                                        <ExpoButton variant="bordered">
+                                            {selectedNetwork.name}
+                                        </ExpoButton>
+                                    </ContextMenu.Trigger>
+                                    <ContextMenu.Items>
+                                        {NETWORKS.map((network) => (
+                                            <ExpoButton
+                                                key={network.id}
+                                                onPress={() => setSelectedNetwork(network)}
+                                                systemImage={selectedNetwork.id === network.id ? "checkmark.circle.fill" : "circle"}
+                                            >
+                                                {network.name}
+                                            </ExpoButton>
+                                        ))}
+                                    </ContextMenu.Items>
+                                </ContextMenu>
+                            </Host>
                         </View>
 
-                        {/* Network Selection Action Menu */}
-                        {isNetworkSelectorVisible && (
-                            <>
-                                {/* Backdrop to dismiss menu */}
-                                <TouchableOpacity
-                                    style={styles.menuBackdrop}
-                                    activeOpacity={1}
-                                    onPress={() => {
-                                        Animated.timing(networkDropdownAnimation, {
-                                            toValue: 0,
-                                            duration: 200,
-                                            useNativeDriver: true,
-                                        }).start(() => setIsNetworkSelectorVisible(false));
-                                    }}
-                                />
-                                <Animated.View
-                                    style={[
-                                        styles.pullDownMenu,
-                                        { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-                                        {
-                                            opacity: networkDropdownAnimation,
-                                            transform: [
-                                                {
-                                                    scale: networkDropdownAnimation.interpolate({
-                                                        inputRange: [0, 1],
-                                                        outputRange: [0.95, 1],
-                                                    }),
-                                                },
-                                                {
-                                                    translateY: networkDropdownAnimation.interpolate({
-                                                        inputRange: [0, 1],
-                                                        outputRange: [-10, 0],
-                                                    }),
-                                                },
-                                            ],
-                                        }
-                                    ]}
-                                >
-                                    <Text style={[styles.menuTitle, { color: themeColors.textSecondary }]}>Select Network</Text>
-                                    {NETWORKS.map((network, index) => (
-                                        <React.Fragment key={network.id}>
-                                            {index > 0 && <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />}
-                                            <TouchableOpacity
-                                                style={styles.pullDownMenuItem}
-                                                onPress={() => {
-                                                    setSelectedNetwork(network);
-                                                    Animated.timing(networkDropdownAnimation, {
-                                                        toValue: 0,
-                                                        duration: 200,
-                                                        useNativeDriver: true,
-                                                    }).start(() => setIsNetworkSelectorVisible(false));
-                                                }}
-                                            >
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-
-                                                    <View style={[styles.menuNetworkIconContainer, { backgroundColor: themeColors.background }]}>
-                                                        <Image source={network.icon} style={styles.menuNetworkIcon} />
-                                                    </View>
-                                                    <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>
-                                                        {network.name}
-                                                    </Text>
-                                                </View>
-                                                {selectedNetwork.id === network.id && (
-                                                    <CheckCircle size={18} color={Colors.primary} weight="fill" />
-                                                )}
-                                            </TouchableOpacity>
-                                        </React.Fragment>
-                                    ))}
-                                </Animated.View>
-                            </>
-                        )}
 
                         {/* Solana Bridge Disclaimer */}
                         {selectedNetwork.id === 'solana' && (
@@ -526,25 +463,25 @@ export default function CreateWithdrawalScreen() {
                     // Close bridge modal first
                     setIsBridgeModalVisible(false);
                     bridgeModalRef.current?.dismiss();
-                    
+
                     // Switch to Base and update amount
                     const baseNetwork = NETWORKS.find(n => n.id === 'base');
-                    
+
                     // Use setTimeout to ensure state updates are processed
                     setTimeout(() => {
                         if (baseNetwork) {
                             setSelectedNetwork(baseNetwork);
                         }
                         setAmount(bridgedAmount.toString());
-                        
+
                         // Wait a bit more for state to update, then show alert and open modal
                         setTimeout(() => {
                             Alert.alert(
-                                'Bridge Complete', 
-                                'Your funds have been bridged to Base. Proceeding with withdrawal...', 
+                                'Bridge Complete',
+                                'Your funds have been bridged to Base. Proceeding with withdrawal...',
                                 [
-                                    { 
-                                        text: 'Continue', 
+                                    {
+                                        text: 'Continue',
                                         onPress: () => {
                                             // Open offramp confirmation modal
                                             console.log('[Bridge] Opening offramp modal with Base network');

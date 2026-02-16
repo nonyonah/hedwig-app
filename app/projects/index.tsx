@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { Briefcase, List, Calendar, User, CurrencyDollar, CheckCircle, Clock, Receipt, CaretRight, X, DotsThree, Trash, Check, FileText, CaretLeft, Plus } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
+import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
@@ -489,54 +490,35 @@ export default function ProjectsScreen() {
                                         <Text style={[styles.modalHeaderTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{selectedProject.title}</Text>
                                     </View>
                                     <View style={styles.modalHeaderRight}>
-                                        <TouchableOpacity
-                                            style={styles.menuButton}
-                                            onPress={() => {
-                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                                LayoutAnimation.configureNext(LayoutAnimation.create(
-                                                    200,
-                                                    LayoutAnimation.Types.easeInEaseOut,
-                                                    LayoutAnimation.Properties.opacity
-                                                ));
-                                                setShowActionMenu(!showActionMenu);
-                                            }}
-                                        >
-                                            <DotsThree size={24} color={themeColors.textSecondary} weight="bold" />
-                                        </TouchableOpacity>
+                                        <Host style={{ height: 36 }} matchContents>
+                                            <ContextMenu>
+                                                <ContextMenu.Trigger>
+                                                    <ExpoButton variant="borderless" systemImage="ellipsis">
+                                                        {' '}
+                                                    </ExpoButton>
+                                                </ContextMenu.Trigger>
+                                                <ContextMenu.Items>
+                                                    <ExpoButton
+                                                        onPress={handleCompleteProject}
+                                                        systemImage="checkmark.circle.fill"
+                                                    >
+                                                        Complete Project
+                                                    </ExpoButton>
+                                                    <ExpoButton
+                                                        onPress={handleDeleteProject}
+                                                        systemImage="trash.fill"
+                                                    >
+                                                        Delete Project
+                                                    </ExpoButton>
+                                                </ContextMenu.Items>
+                                            </ContextMenu>
+                                        </Host>
                                         <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeDetailModal}>
                                             <X size={20} color={themeColors.textSecondary} weight="bold" />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
 
-                                {/* Action Menu Dropdown */}
-                                {showActionMenu && (
-                                    <>
-                                        <TouchableOpacity
-                                            style={styles.menuBackdrop}
-                                            activeOpacity={1}
-                                            onPress={() => {
-                                                LayoutAnimation.configureNext(LayoutAnimation.create(
-                                                    150,
-                                                    LayoutAnimation.Types.easeInEaseOut,
-                                                    LayoutAnimation.Properties.opacity
-                                                ));
-                                                setShowActionMenu(false);
-                                            }}
-                                        />
-                                        <View style={[styles.pullDownMenu, { backgroundColor: themeColors.surface, borderColor: themeColors.border, borderWidth: 1 }]}>
-                                            <TouchableOpacity style={styles.pullDownMenuItem} onPress={handleCompleteProject}>
-                                                <CheckCircle size={18} color={Colors.success} weight="fill" />
-                                                <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>Complete Project</Text>
-                                            </TouchableOpacity>
-                                            <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
-                                            <TouchableOpacity style={styles.pullDownMenuItem} onPress={handleDeleteProject}>
-                                                <Trash size={18} color="#EF4444" weight="fill" />
-                                                <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete Project</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    </>
-                                )}
                             </>
                         )}
 

@@ -17,6 +17,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import * as WebBrowser from 'expo-web-browser';
+import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
 import { getUserGradient } from '../../../utils/gradientUtils';
 
 // Profile color gradient options (consistent with other screens)
@@ -71,8 +72,7 @@ export default function WalletScreen() {
     const [showQRModal, setShowQRModal] = useState(false);
     const [selectedChain, setSelectedChain] = useState(CHAINS[0]);
     const [networkFilter, setNetworkFilter] = useState<'all' | 'base' | 'solana'>('all');
-    const [showNetworkDropdown, setShowNetworkDropdown] = useState(false);
-    const dropdownAnimation = useState(new Animated.Value(0))[0];
+
 
     useEffect(() => {
         fetchUserData();
@@ -220,14 +220,14 @@ export default function WalletScreen() {
     // Combine tokens for list - separate by chain, not grouped
     const baseUSDC = baseBalances.find(b => b.asset === 'usdc');
     const baseETH = baseBalances.find(b => b.asset === 'eth');
-    
+
     const allTokens = [
         // ETH on Base
         ...(baseETH ? [{
             chain: 'base',
             name: 'Ethereum',
             symbol: 'ETH',
-            balance: parseFloat(baseETH.display_values?.eth || baseETH.raw_value || '0') / (baseETH.raw_value_decimals ? Math.pow(10, baseETH.raw_value_decimals) : 1e18),
+            balance: parseFloat(baseETH.display_values?.token || '0'),
             balanceUsd: parseFloat(baseETH.display_values?.usd || '0'),
             icon: require('../../../assets/icons/tokens/eth.png')
         }] : []),
@@ -236,7 +236,7 @@ export default function WalletScreen() {
             chain: 'base',
             name: 'USD Coin',
             symbol: 'USDC',
-            balance: parseFloat(baseUSDC.display_values?.usdc || baseUSDC.raw_value || '0') / (baseUSDC.raw_value_decimals ? Math.pow(10, baseUSDC.raw_value_decimals) : 1e6),
+            balance: parseFloat(baseUSDC.display_values?.token || '0'),
             balanceUsd: parseFloat(baseUSDC.display_values?.usd || '0'),
             icon: require('../../../assets/icons/tokens/usdc.png')
         }] : []),
@@ -261,8 +261,8 @@ export default function WalletScreen() {
     ];
 
     // Filter tokens by network
-    const filteredTokens = networkFilter === 'all' 
-        ? allTokens 
+    const filteredTokens = networkFilter === 'all'
+        ? allTokens
         : allTokens.filter(t => t.chain === networkFilter);
 
     return (
@@ -326,111 +326,36 @@ export default function WalletScreen() {
                 <View style={styles.tokenSection}>
                     <View style={styles.tokenHeader}>
                         <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Tokens</Text>
-                        <TouchableOpacity 
-                            style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}
-                            onPress={() => {
-                                if (!showNetworkDropdown) {
-                                    setShowNetworkDropdown(true);
-                                    Animated.spring(dropdownAnimation, {
-                                        toValue: 1,
-                                        damping: 15,
-                                        stiffness: 150,
-                                        useNativeDriver: true,
-                                    }).start();
-                                } else {
-                                    Animated.timing(dropdownAnimation, {
-                                        toValue: 0,
-                                        duration: 200,
-                                        useNativeDriver: true,
-                                    }).start(() => setShowNetworkDropdown(false));
-                                }
-                            }}
-                        >
-                            {networkFilter === 'all' ? (
-                                <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>All Networks</Text>
-                            ) : (
-                                <>
-                                    <Image 
-                                        source={networkFilter === 'base' ? require('../../../assets/icons/networks/base.png') : require('../../../assets/icons/networks/solana.png')} 
-                                        style={styles.networkFilterIcon} 
-                                    />
-                                    <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
-                                        {networkFilter === 'base' ? 'Base' : 'Solana'}
-                                    </Text>
-                                </>
-                            )}
-                            <CaretDown size={16} color={themeColors.textSecondary} weight="bold" />
-                        </TouchableOpacity>
+                        <Host style={{ height: 36 }} matchContents>
+                            <ContextMenu>
+                                <ContextMenu.Trigger>
+                                    <ExpoButton variant="bordered" systemImage={networkFilter === 'all' ? 'square.grid.2x2' : networkFilter === 'base' ? 'circle.hexagonpath.fill' : 'sun.max.fill'}>
+                                        {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
+                                    </ExpoButton>
+                                </ContextMenu.Trigger>
+                                <ContextMenu.Items>
+                                    <ExpoButton
+                                        onPress={() => setNetworkFilter('all')}
+                                        systemImage="square.grid.2x2"
+                                    >
+                                        All Networks
+                                    </ExpoButton>
+                                    <ExpoButton
+                                        onPress={() => setNetworkFilter('base')}
+                                        systemImage="circle.hexagonpath.fill"
+                                    >
+                                        Base
+                                    </ExpoButton>
+                                    <ExpoButton
+                                        onPress={() => setNetworkFilter('solana')}
+                                        systemImage="sun.max.fill"
+                                    >
+                                        Solana
+                                    </ExpoButton>
+                                </ContextMenu.Items>
+                            </ContextMenu>
+                        </Host>
                     </View>
-
-                    {/* Network Dropdown */}
-                    {showNetworkDropdown && (
-                        <Animated.View 
-                            style={[
-                                styles.networkDropdown, 
-                                { backgroundColor: themeColors.surface },
-                                {
-                                    opacity: dropdownAnimation,
-                                    transform: [
-                                        {
-                                            scale: dropdownAnimation.interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [0.95, 1],
-                                            }),
-                                        },
-                                        {
-                                            translateY: dropdownAnimation.interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [-10, 0],
-                                            }),
-                                        },
-                                    ],
-                                }
-                            ]}
-                        >
-                            <TouchableOpacity 
-                                style={[styles.networkDropdownItem, networkFilter === 'all' && { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}
-                                onPress={() => { 
-                                    setNetworkFilter('all');
-                                    Animated.timing(dropdownAnimation, {
-                                        toValue: 0,
-                                        duration: 200,
-                                        useNativeDriver: true,
-                                    }).start(() => setShowNetworkDropdown(false));
-                                }}
-                            >
-                                <Text style={[styles.networkDropdownText, { color: themeColors.textPrimary }]}>All Networks</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={[styles.networkDropdownItem, networkFilter === 'base' && { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}
-                                onPress={() => { 
-                                    setNetworkFilter('base');
-                                    Animated.timing(dropdownAnimation, {
-                                        toValue: 0,
-                                        duration: 200,
-                                        useNativeDriver: true,
-                                    }).start(() => setShowNetworkDropdown(false));
-                                }}
-                            >
-                                <Image source={require('../../../assets/icons/networks/base.png')} style={styles.networkDropdownIcon} />
-                                <Text style={[styles.networkDropdownText, { color: themeColors.textPrimary }]}>Base</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={[styles.networkDropdownItem, networkFilter === 'solana' && { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}
-                                onPress={() => { 
-                                    setNetworkFilter('solana');
-                                    Animated.timing(dropdownAnimation, {
-                                        toValue: 0,
-                                        duration: 200,
-                                        useNativeDriver: true,
-                                    }).start(() => setShowNetworkDropdown(false));
-                                }}
-                            >
-                                <Image source={require('../../../assets/icons/networks/solana.png')} style={styles.networkDropdownIcon} />
-                                <Text style={[styles.networkDropdownText, { color: themeColors.textPrimary }]}>Solana</Text>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    )}
 
                     {filteredTokens.map((item, index) => (
                         <View key={`${item.chain}-${item.symbol}-${index}`} style={[styles.tokenItem, { backgroundColor: themeColors.surface }]}>
@@ -439,16 +364,16 @@ export default function WalletScreen() {
                                     <Image source={item.icon} style={styles.tokenIconImage} />
                                     {/* Chain badge overlay */}
                                     <View style={styles.chainBadgeOverlay}>
-                                        <Image 
-                                            source={item.chain === 'base' ? require('../../../assets/icons/networks/base.png') : require('../../../assets/icons/networks/solana.png')} 
-                                            style={styles.chainBadgeIcon} 
+                                        <Image
+                                            source={item.chain === 'base' ? require('../../../assets/icons/networks/base.png') : require('../../../assets/icons/networks/solana.png')}
+                                            style={styles.chainBadgeIcon}
                                         />
                                     </View>
                                 </View>
                                 <View>
                                     <Text style={[styles.tokenName, { color: themeColors.textPrimary }]}>{item.name}</Text>
                                     <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary }]}>
-                                        {item.balance === 0 
+                                        {item.balance === 0
                                             ? `0 ${item.symbol}`
                                             : item.symbol === 'ETH' || item.symbol === 'SOL'
                                                 ? `${item.balance.toFixed(6).replace(/\.?0+$/, '')} ${item.symbol}`

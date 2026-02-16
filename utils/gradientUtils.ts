@@ -36,8 +36,9 @@ function hashString(str: string): number {
  * @param userId User ID or name to generate gradient from
  * @returns Array of two hex colors [startColor, endColor]
  */
-export function getUserGradient(userId: string = 'default'): [string, string] {
-    const hash = hashString(userId);
+export function getUserGradient(userId: any = 'default'): [string, string] {
+    const safeId = String(userId || 'default');
+    const hash = hashString(safeId);
     const index = hash % GRADIENT_PALETTES.length;
     return GRADIENT_PALETTES[index] as [string, string];
 }

@@ -7,6 +7,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
+import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThree, Bell } from 'phosphor-react-native';
@@ -263,6 +264,116 @@ export default function PaymentLinksScreen() {
         );
     };
 
+    const handleSendReminder = async () => {
+        if (!selectedLink) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        const sendReminder = async () => {
+            try {
+                const token = await getAccessToken();
+                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/remind`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    Alert.alert('Success', 'Reminder sent successfully!');
+                } else {
+                    Alert.alert('Error', data.error?.message || 'Failed to send reminder');
+                }
+            } catch (error) {
+                Alert.alert('Error', 'Failed to send reminder');
+            }
+        };
+
+        if (!selectedLink.content?.recipient_email) {
+            Alert.prompt(
+                'Missing Email',
+                'Please enter the recipient\'s email address to send the reminder.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Send',
+                        onPress: async (email: any) => {
+                            if (!email || !email.includes('@')) {
+                                Alert.alert('Error', 'Please enter a valid email address');
+                                return;
+                            }
+                            try {
+                                const token = await getAccessToken();
+                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                const updateRes = await fetch(`${apiUrl}/api/documents/${selectedLink.id}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Authorization': `Bearer ${token}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        content: { recipient_email: email }
+                                    })
+                                });
+                                if (updateRes.ok) {
+                                    setSelectedLink({
+                                        ...selectedLink,
+                                        content: { ...selectedLink.content, recipient_email: email }
+                                    });
+                                    await sendReminder();
+                                } else {
+                                    Alert.alert('Error', 'Failed to update email');
+                                }
+                            } catch (err) {
+                                Alert.alert('Error', 'Failed to save email');
+                            }
+                        }
+                    }
+                ],
+                'plain-text',
+                '',
+                'email-address'
+            );
+        } else {
+            sendReminder();
+        }
+    };
+
+    const handleToggleReminders = async () => {
+        if (!selectedLink) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        const remindersEnabled = selectedLink?.content?.reminders_enabled !== false;
+        const newState = !remindersEnabled;
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/toggle-reminders`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ enabled: newState })
+            });
+            const data = await response.json();
+            if (data.success) {
+                Alert.alert('Success', `Automatic reminders ${newState ? 'enabled' : 'disabled'}`);
+                setSelectedLink({
+                    ...selectedLink,
+                    content: { ...selectedLink.content, reminders_enabled: newState }
+                });
+            } else {
+                Alert.alert('Error', data.error?.message || 'Failed to toggle reminders');
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to toggle reminders');
+        }
+    };
+
+    const handleDeleteLink = () => {
+        if (!selectedLink) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        handleDelete(selectedLink.id);
+        closeModal();
+    };
+
     const openModal = (link: any) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedLink(link);
@@ -472,195 +583,41 @@ export default function PaymentLinksScreen() {
                         </View>
                         <View style={styles.modalHeaderRight}>
                             {selectedLink?.status !== 'PAID' && (
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        LayoutAnimation.configureNext(LayoutAnimation.create(
-                                            200,
-                                            LayoutAnimation.Types.easeInEaseOut,
-                                            LayoutAnimation.Properties.opacity
-                                        ));
-                                        setShowActionMenu(!showActionMenu);
-                                    }}
-                                    style={styles.menuButton}
-                                >
-                                    <DotsThree size={24} color={Colors.textSecondary} weight="bold" />
-                                </TouchableOpacity>
+                                <Host style={{ height: 36 }} matchContents>
+                                    <ContextMenu>
+                                        <ContextMenu.Trigger>
+                                            <ExpoButton variant="borderless" systemImage="ellipsis">
+                                                {' '}
+                                            </ExpoButton>
+                                        </ContextMenu.Trigger>
+                                        <ContextMenu.Items>
+                                            <ExpoButton
+                                                onPress={handleSendReminder}
+                                                systemImage="bell.fill"
+                                            >
+                                                Send Reminder
+                                            </ExpoButton>
+                                            <ExpoButton
+                                                onPress={handleToggleReminders}
+                                                systemImage={selectedLink?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
+                                            >
+                                                {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
+                                            </ExpoButton>
+                                            <ExpoButton
+                                                onPress={handleDeleteLink}
+                                                systemImage="trash.fill"
+                                            >
+                                                Delete
+                                            </ExpoButton>
+                                        </ContextMenu.Items>
+                                    </ContextMenu>
+                                </Host>
                             )}
                             <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
                                 <X size={20} color={themeColors.textSecondary} weight="bold" />
                             </TouchableOpacity>
                         </View>
                     </View>
-
-                    {/* iOS Pull-Down Style Menu */}
-                    {showActionMenu && selectedLink?.status !== 'PAID' && (
-                        <>
-                            {/* Backdrop to dismiss menu */}
-                            <TouchableOpacity
-                                style={styles.menuBackdrop}
-                                activeOpacity={1}
-                                onPress={() => {
-                                    LayoutAnimation.configureNext(LayoutAnimation.create(
-                                        150,
-                                        LayoutAnimation.Types.easeInEaseOut,
-                                        LayoutAnimation.Properties.opacity
-                                    ));
-                                    setShowActionMenu(false);
-                                }}
-                            />
-                            <Animated.View
-                                style={[
-                                    styles.pullDownMenu,
-                                    { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-                                    {
-                                        opacity: 1,
-                                        transform: [{ scale: 1 }]
-                                    }
-                                ]}
-                            >
-                                <TouchableOpacity
-                                    style={styles.pullDownMenuItem}
-                                    onPress={async () => {
-                                        setShowActionMenu(false);
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-                                        const sendReminder = async () => {
-                                            try {
-                                                const token = await getAccessToken();
-                                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                                const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/remind`, {
-                                                    method: 'POST',
-                                                    headers: { 'Authorization': `Bearer ${token}` }
-                                                });
-                                                const data = await response.json();
-                                                if (data.success) {
-                                                    Alert.alert('Success', 'Reminder sent successfully!');
-                                                } else {
-                                                    Alert.alert('Error', data.error?.message || 'Failed to send reminder');
-                                                }
-                                            } catch (error) {
-                                                Alert.alert('Error', 'Failed to send reminder');
-                                            }
-                                        };
-
-                                        if (!selectedLink.content?.recipient_email) {
-                                            Alert.prompt(
-                                                'Missing Email',
-                                                'Please enter the recipient\'s email address to send the reminder.',
-                                                [
-                                                    { text: 'Cancel', style: 'cancel' },
-                                                    {
-                                                        text: 'Send',
-                                                        onPress: async (email: any) => {
-                                                            if (!email || !email.includes('@')) {
-                                                                Alert.alert('Error', 'Please enter a valid email address');
-                                                                return;
-                                                            }
-                                                            try {
-                                                                const token = await getAccessToken();
-                                                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-                                                                // Update document with email
-                                                                const updateRes = await fetch(`${apiUrl}/api/documents/${selectedLink.id}`, {
-                                                                    method: 'PUT',
-                                                                    headers: {
-                                                                        'Authorization': `Bearer ${token}`,
-                                                                        'Content-Type': 'application/json'
-                                                                    },
-                                                                    body: JSON.stringify({
-                                                                        content: { recipient_email: email }
-                                                                    })
-                                                                });
-
-                                                                if (updateRes.ok) {
-                                                                    // Update local state
-                                                                    setSelectedLink({
-                                                                        ...selectedLink,
-                                                                        content: { ...selectedLink.content, recipient_email: email }
-                                                                    });
-                                                                    // Proceed to send reminder
-                                                                    await sendReminder();
-                                                                } else {
-                                                                    Alert.alert('Error', 'Failed to update email');
-                                                                }
-                                                            } catch (err) {
-                                                                Alert.alert('Error', 'Failed to save email');
-                                                            }
-                                                        }
-                                                    }
-                                                ],
-                                                'plain-text',
-                                                '',
-                                                'email-address'
-                                            );
-                                        } else {
-                                            sendReminder();
-                                        }
-                                    }}
-                                >
-                                    <Bell size={18} color={Colors.primary} weight="fill" />
-                                    <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>Send Reminder</Text>
-                                </TouchableOpacity>
-
-                                <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
-
-                                <TouchableOpacity
-                                    style={styles.pullDownMenuItem}
-                                    onPress={async () => {
-                                        setShowActionMenu(false);
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                        const remindersEnabled = selectedLink?.content?.reminders_enabled !== false;
-                                        const newState = !remindersEnabled;
-                                        try {
-                                            const token = await getAccessToken();
-                                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                            const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/toggle-reminders`, {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Authorization': `Bearer ${token}`,
-                                                    'Content-Type': 'application/json'
-                                                },
-                                                body: JSON.stringify({ enabled: newState })
-                                            });
-                                            const data = await response.json();
-                                            if (data.success) {
-                                                Alert.alert('Success', `Automatic reminders ${newState ? 'enabled' : 'disabled'}`);
-                                                setSelectedLink({
-                                                    ...selectedLink,
-                                                    content: { ...selectedLink.content, reminders_enabled: newState }
-                                                });
-                                            } else {
-                                                Alert.alert('Error', data.error?.message || 'Failed to toggle reminders');
-                                            }
-                                        } catch (error) {
-                                            Alert.alert('Error', 'Failed to toggle reminders');
-                                        }
-                                    }}
-                                >
-                                    <Bell size={18} color={selectedLink?.content?.reminders_enabled !== false ? Colors.textSecondary : Colors.primary} weight={selectedLink?.content?.reminders_enabled !== false ? 'regular' : 'fill'} />
-                                    <Text style={[styles.pullDownMenuText, { color: themeColors.textPrimary }]}>
-                                        {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
-                                    </Text>
-                                </TouchableOpacity>
-
-                                <View style={[styles.pullDownMenuDivider, { backgroundColor: themeColors.border }]} />
-
-                                <TouchableOpacity
-                                    style={styles.pullDownMenuItem}
-                                    onPress={() => {
-                                        setShowActionMenu(false);
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                        handleDelete(selectedLink.id);
-                                        closeModal();
-                                    }}
-                                >
-                                    <Trash size={18} color="#EF4444" weight="fill" />
-                                    <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete</Text>
-                                </TouchableOpacity>
-                            </Animated.View>
-                        </>
-                    )}
 
                     <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
                         <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
