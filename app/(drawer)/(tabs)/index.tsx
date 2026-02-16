@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, TextInput, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeColors } from '../../../theme/colors';
-import { Bell, MagnifyingGlass, Plus } from 'phosphor-react-native';
+import { useThemeColors, Colors } from '../../../theme/colors';
+import { Bell, Search as MagnifyingGlass, Plus, FileText, ScrollText as Scroll, Link as LinkIcon, Briefcase, ChevronRight as CaretRight, CircleX as XCircle } from 'lucide-react-native';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { UniversalCreationBox } from '../../../components/UniversalCreationBox';
@@ -18,6 +18,17 @@ import { getUserGradient } from '../../../utils/gradientUtils';
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+
+// Helper types for search
+type SearchResultItem = {
+    id: string;
+    type: 'INVOICE' | 'CONTRACT' | 'LINK' | 'PROJECT';
+    title: string;
+    subtitle?: string;
+    date?: string;
+    status?: string;
+    data: any;
+};
 
 export default function HomeDashboard() {
     const themeColors = useThemeColors();
@@ -36,6 +47,11 @@ export default function HomeDashboard() {
         inProgress: { projects: 0, milestones: 0 },
         dueSoon: { invoices: 0, milestones: 0, projects: 0, links: 0 }
     });
+
+    // Search State
+    const [allDocuments, setAllDocuments] = useState<SearchResultItem[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filteredResults, setFilteredResults] = useState<SearchResultItem[]>([]);
 
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -62,6 +78,21 @@ export default function HomeDashboard() {
         }, [isReady, user])
     );
 
+    // Handle Search Filter
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setFilteredResults([]);
+            return;
+        }
+        const query = searchQuery.toLowerCase();
+        const results = allDocuments.filter(item =>
+            (item.title ? item.title.toLowerCase().includes(query) : false) ||
+            (item.subtitle && item.subtitle.toLowerCase().includes(query)) ||
+            (item.status && item.status.toLowerCase().includes(query))
+        );
+        setFilteredResults(results);
+    }, [searchQuery, allDocuments]);
+
     const fetchUserData = async () => {
         if (!user) return;
         try {
@@ -73,20 +104,13 @@ export default function HomeDashboard() {
                 const userData = profileData.data.user || profileData.data;
                 setUserName({ firstName: userData.firstName || '', lastName: userData.lastName || '' });
                 if (userData.avatar) {
-                    // Check if it's a data URI (base64 image) or regular URL
                     if (userData.avatar.startsWith('data:') || userData.avatar.startsWith('http')) {
                         setProfileIcon({ imageUri: userData.avatar });
                     } else {
-                        // Try to parse as JSON for legacy emoji/color format
-                        try { 
-                            const parsed = JSON.parse(userData.avatar); 
-                            // Only use imageUri from parsed data, ignore emoji/color
-                            if (parsed.imageUri) {
-                                setProfileIcon({ imageUri: parsed.imageUri });
-                            }
-                        } catch { 
-                            setProfileIcon({ imageUri: userData.avatar }); 
-                        }
+                        try {
+                            const parsed = JSON.parse(userData.avatar);
+                            if (parsed.imageUri) setProfileIcon({ imageUri: parsed.imageUri });
+                        } catch { setProfileIcon({ imageUri: userData.avatar }); }
                     }
                 }
                 setWalletAddresses({ evm: userData.ethereumWalletAddress || userData.baseWalletAddress, solana: userData.solanaWalletAddress });
@@ -109,7 +133,7 @@ export default function HomeDashboard() {
             ]);
 
             const today = new Date();
-            today.setHours(0, 0, 0, 0); // Normalize today
+            today.setHours(0, 0, 0, 0);
             const nextWeek = new Date(today);
             nextWeek.setDate(today.getDate() + 7);
 
@@ -119,20 +143,26 @@ export default function HomeDashboard() {
                 dueSoon: { invoices: 0, milestones: 0, projects: 0, links: 0 }
             };
 
+            const allDocs: SearchResultItem[] = [];
+
             // Process Invoices
             if (invoicesRes.success && invoicesRes.data.documents) {
                 invoicesRes.data.documents.forEach((inv: any) => {
-                    if (inv.status === 'PAID') return;
+                    allDocs.push({
+                        id: inv.id,
+                        type: 'INVOICE',
+                        title: `Invoice #${inv.content?.invoice_number || inv.id.slice(0, 8)}`,
+                        subtitle: inv.content?.client_name || 'Unknown Client',
+                        status: inv.status,
+                        data: inv
+                    });
 
+                    if (inv.status === 'PAID') return;
                     if (inv.content?.due_date) {
                         const due = new Date(inv.content.due_date);
-                        if (due < today) {
-                            newCounts.reminders.invoices++; // Overdue
-                        } else if (due <= nextWeek) {
-                            newCounts.dueSoon.invoices++;
-                        }
+                        if (due < today) newCounts.reminders.invoices++;
+                        else if (due <= nextWeek) newCounts.dueSoon.invoices++;
                     } else {
-                        // No date = Reminders (Immediate Attention)
                         newCounts.reminders.invoices++;
                     }
                 });
@@ -141,6 +171,15 @@ export default function HomeDashboard() {
             // Process Contracts
             if (contractsRes.success && contractsRes.data.documents) {
                 contractsRes.data.documents.forEach((con: any) => {
+                    allDocs.push({
+                        id: con.id,
+                        type: 'CONTRACT',
+                        title: con.title || 'Untitled Contract',
+                        subtitle: con.content?.client_name || 'Unknown Client',
+                        status: con.status,
+                        data: con
+                    });
+
                     if (['SENT', 'VIEWED', 'ACTIVE'].includes(con.status)) {
                         newCounts.reminders.contracts++;
                     }
@@ -150,45 +189,50 @@ export default function HomeDashboard() {
             // Process Links
             if (linksRes.success && linksRes.data.documents) {
                 linksRes.data.documents.forEach((link: any) => {
+                    allDocs.push({
+                        id: link.id,
+                        type: 'LINK',
+                        title: link.title || 'Payment Link',
+                        subtitle: link.content?.amount ? `$${link.content.amount}` : 'No Amount',
+                        status: link.status,
+                        data: link
+                    });
+
                     if (link.status === 'PAID') return;
                     if (link.content?.due_date) {
                         const due = new Date(link.content.due_date);
-                        if (due <= nextWeek && due >= today) {
-                            newCounts.dueSoon.links++;
-                        } else if (due < today) {
-                            newCounts.reminders.links++;
-                        }
+                        if (due <= nextWeek && due >= today) newCounts.dueSoon.links++;
+                        else if (due < today) newCounts.reminders.links++;
                     }
                 });
             }
 
-            // Process Projects & Milestones
+            // Process Projects
             if (projectsRes.success && projectsRes.data.projects) {
                 projectsRes.data.projects.forEach((proj: any) => {
-                    // Active Projects
+                    allDocs.push({
+                        id: proj.id,
+                        type: 'PROJECT',
+                        title: proj.name || 'Untitled Project',
+                        subtitle: proj.client?.name || 'No Client',
+                        status: proj.status,
+                        data: proj
+                    });
+
                     if (['ongoing', 'active'].includes(proj.status?.toLowerCase())) {
                         newCounts.inProgress.projects++;
-
-                        // Check Project Deadline
                         if (proj.deadline) {
                             const deadline = new Date(proj.deadline);
-                            if (deadline <= nextWeek && deadline >= today) {
-                                newCounts.dueSoon.projects++;
-                            }
+                            if (deadline <= nextWeek && deadline >= today) newCounts.dueSoon.projects++;
                         }
                     }
-
-                    // Milestones
                     if (proj.milestones) {
                         proj.milestones.forEach((m: any) => {
                             if (['pending', 'in_progress'].includes(m.status)) {
                                 newCounts.inProgress.milestones++;
-
                                 if (m.dueDate) {
                                     const due = new Date(m.dueDate);
-                                    if (due <= nextWeek && due >= today) {
-                                        newCounts.dueSoon.milestones++;
-                                    }
+                                    if (due <= nextWeek && due >= today) newCounts.dueSoon.milestones++;
                                 }
                             }
                         });
@@ -197,6 +241,7 @@ export default function HomeDashboard() {
             }
 
             setCounts(newCounts);
+            setAllDocuments(allDocs);
 
         } catch (error) {
             console.error('Failed to fetch data', error);
@@ -208,7 +253,6 @@ export default function HomeDashboard() {
 
     const renderSummaryRow = (label: string, count: number, badgeText: string | null, onPress: () => void) => {
         if (count === 0 && !badgeText) return null;
-
         return (
             <AnimatedListItem onPress={onPress}>
                 <View style={[styles.row, { backgroundColor: themeColors.surface }]}>
@@ -237,19 +281,35 @@ export default function HomeDashboard() {
             network: data.network || 'base'
         });
         setShowTransactionModal(true);
-        // Small delay to allow modal to mount before presenting if it uses imperative present
-        setTimeout(() => {
-            transactionModalRef.current?.present();
-        }, 100);
+        setTimeout(() => { transactionModalRef.current?.present(); }, 100);
+    };
+
+    const getIconForType = (type: string) => {
+        switch (type) {
+            case 'INVOICE': return <FileText size={24} color={Colors.primary} />;
+            case 'CONTRACT': return <Scroll size={24} color="#8B5CF6" />;
+            case 'LINK': return <LinkIcon size={24} color="#10B981" />;
+            case 'PROJECT': return <Briefcase size={24} color="#F59E0B" />;
+            default: return <FileText size={24} color={themeColors.textSecondary} />;
+        }
+    };
+
+    const navigateToItem = (item: SearchResultItem) => {
+        let path = '';
+        switch (item.type) {
+            case 'INVOICE': path = `/(tabs)/invoices/${item.id}`; break;
+            case 'CONTRACT': path = `/(tabs)/contracts/${item.id}`; break;
+            case 'LINK': path = `/(tabs)/links/${item.id}`; break;
+            case 'PROJECT': path = `/(tabs)/projects/${item.id}`; break;
+        }
+        if (path) router.push(path);
     };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerLeft}>
-                    <TouchableOpacity 
-                        onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-                    >
+                    <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
                         {profileIcon?.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
                         ) : (
@@ -272,62 +332,91 @@ export default function HomeDashboard() {
                 </View>
             </View>
 
-            <ScrollView
-                style={styles.scrollView}
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={() => { setRefreshing(true); fetchDashboardData(); }}
-                    />
-                }
-                contentContainerStyle={{ paddingBottom: 100 }}
-            >
-                <View style={[styles.searchContainer, { backgroundColor: themeColors.surface }]}>
-                    <MagnifyingGlass size={20} color={themeColors.textSecondary} />
-                    <TextInput
-                        style={[styles.searchInput, { color: themeColors.textPrimary }]}
-                        placeholder="Search"
-                        placeholderTextColor={themeColors.textSecondary}
-                    />
-                </View>
+            <View style={[styles.searchContainer, { backgroundColor: themeColors.surface }]}>
+                <MagnifyingGlass size={20} color={themeColors.textSecondary} />
+                <TextInput
+                    style={[styles.searchInput, { color: themeColors.textPrimary }]}
+                    placeholder="Search documents, projects..."
+                    placeholderTextColor={themeColors.textSecondary}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                        <XCircle size={20} color={themeColors.textSecondary} fill={themeColors.textSecondary} />
+                    </TouchableOpacity>
+                )}
+            </View>
 
-                <Text style={[styles.mainHeading, { color: themeColors.textPrimary }]}>Your Activity</Text>
+            {searchQuery.length > 0 ? (
+                <FlatList
+                    data={filteredResults}
+                    keyExtractor={(item) => `${item.type}-${item.id}`}
+                    contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity style={[styles.searchItem, { backgroundColor: themeColors.surface }]} onPress={() => navigateToItem(item)}>
+                            <View style={styles.searchItemLeft}>
+                                <View style={[styles.searchIconContainer, { backgroundColor: themeColors.background }]}>
+                                    {getIconForType(item.type)}
+                                </View>
+                                <View>
+                                    <Text style={[styles.searchItemTitle, { color: themeColors.textPrimary }]}>{item.title}</Text>
+                                    <Text style={[styles.searchItemSubtitle, { color: themeColors.textSecondary }]}>{item.subtitle} • {item.status}</Text>
+                                </View>
+                            </View>
+                            <CaretRight size={20} color={themeColors.textSecondary} />
+                        </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={
+                        <View style={styles.emptySearch}>
+                            <Text style={{ color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_400Regular' }}>No results found</Text>
+                        </View>
+                    }
+                />
+            ) : (
+                <ScrollView
+                    style={styles.scrollView}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDashboardData(); }} />
+                    }
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                >
+                    <Text style={[styles.mainHeading, { color: themeColors.textPrimary }]}>Your Activity</Text>
 
-
-                {/* Reminders Section */}
-                <View style={styles.sectionContainer}>
-                    <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Reminders</Text>
-                    <View style={styles.cardContainer}>
-                        {renderSummaryRow('Invoices', counts.reminders.invoices, 'Due today', () => router.push('/(tabs)/invoices?filter=due_today'))}
-                        {renderSummaryRow('Awaiting contract signatures', counts.reminders.contracts, null, () => router.push('/(tabs)/contracts?filter=sent'))}
-                        {renderSummaryRow('Payment links expiring today', counts.reminders.links, null, () => router.push('/(tabs)/links'))}
+                    {/* Reminders Section */}
+                    <View style={styles.sectionContainer}>
+                        <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Reminders</Text>
+                        <View style={styles.cardContainer}>
+                            {renderSummaryRow('Invoices', counts.reminders.invoices, 'Due today', () => router.push('/(tabs)/invoices?filter=due_today'))}
+                            {renderSummaryRow('Awaiting contract signatures', counts.reminders.contracts, null, () => router.push('/(tabs)/contracts?filter=sent'))}
+                            {renderSummaryRow('Payment links expiring today', counts.reminders.links, null, () => router.push('/(tabs)/links'))}
+                        </View>
                     </View>
-                </View>
 
-                {/* In Progress Section */}
-                <View style={styles.sectionContainer}>
-                    <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>In Progress</Text>
-                    <View style={styles.cardContainer}>
-                        {renderSummaryRow('Active Projects', counts.inProgress.projects, null, () => { })}
-                        {renderSummaryRow('Milestones in progress', counts.inProgress.milestones, null, () => { })}
+                    {/* In Progress Section */}
+                    <View style={styles.sectionContainer}>
+                        <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>In Progress</Text>
+                        <View style={styles.cardContainer}>
+                            {renderSummaryRow('Active Projects', counts.inProgress.projects, null, () => { })}
+                            {renderSummaryRow('Milestones in progress', counts.inProgress.milestones, null, () => { })}
+                        </View>
                     </View>
-                </View>
 
-                {/* Due Soon Section */}
-                <View style={styles.sectionContainer}>
-                    <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Due Soon</Text>
-                    <View style={styles.cardContainer}>
-                        {renderSummaryRow('Invoices due this week', counts.dueSoon.invoices, null, () => router.push('/(tabs)/invoices?filter=due_soon'))}
-                        {renderSummaryRow('Projects due soon', counts.dueSoon.projects, null, () => router.push('/(tabs)/projects?filter=due_soon'))}
-                        {renderSummaryRow('Payment links due soon', counts.dueSoon.links, null, () => router.push('/(tabs)/links?filter=due_soon'))}
-                        {renderSummaryRow('Milestones due soon', counts.dueSoon.milestones, null, () => { })}
+                    {/* Due Soon Section */}
+                    <View style={styles.sectionContainer}>
+                        <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Due Soon</Text>
+                        <View style={styles.cardContainer}>
+                            {renderSummaryRow('Invoices due this week', counts.dueSoon.invoices, null, () => router.push('/(tabs)/invoices?filter=due_soon'))}
+                            {renderSummaryRow('Projects due soon', counts.dueSoon.projects, null, () => router.push('/(tabs)/projects?filter=due_soon'))}
+                            {renderSummaryRow('Payment links due soon', counts.dueSoon.links, null, () => router.push('/(tabs)/links?filter=due_soon'))}
+                            {renderSummaryRow('Milestones due soon', counts.dueSoon.milestones, null, () => { })}
+                        </View>
                     </View>
-                </View>
+                </ScrollView>
+            )}
 
-            </ScrollView>
-
-            <TouchableOpacity style={[styles.fab, { backgroundColor: '#2563EB' }]} onPress={() => setShowCreationBox(true)}><Plus size={32} color="#FFFFFF" weight="bold" /></TouchableOpacity>
+            <TouchableOpacity style={[styles.fab, { backgroundColor: '#2563EB' }]} onPress={() => setShowCreationBox(true)}><Plus size={32} color="#FFFFFF" strokeWidth={3} /></TouchableOpacity>
 
             <UniversalCreationBox
                 visible={showCreationBox}
@@ -341,42 +430,28 @@ export default function HomeDashboard() {
                 data={transactionData}
                 onSuccess={(hash) => {
                     console.log('Transaction successful:', hash);
-                    // Optionally refresh data or show success toast
                 }}
             />
         </SafeAreaView>
     );
 }
 
-
-
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingBottom: 12,
-        paddingTop: 8,
-    },
-    headerLeft: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        gap: 12 
-    },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8 },
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     headerTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24 },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     iconButton: { padding: 4 },
     avatar: { width: 40, height: 40, borderRadius: 20 },
     scrollView: { flex: 1, paddingHorizontal: 20 },
-    searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48, borderRadius: 12, marginBottom: 24 },
+    searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48, borderRadius: 12, marginBottom: 12, marginHorizontal: 20 },
     searchInput: { flex: 1, marginLeft: 12, fontFamily: 'GoogleSansFlex_400Regular', fontSize: 16, height: '100%' },
     mainHeading: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24, marginBottom: 16, marginTop: 12 },
     sectionContainer: { marginBottom: 24 },
     sectionHeader: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18, marginBottom: 12 },
     cardContainer: { borderRadius: 16, overflow: 'hidden' },
-    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 20, marginBottom: 1 }, // mb 1 for separator effect or use border
+    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 20, marginBottom: 1 },
     rowLabel: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 16 },
     rowRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
@@ -384,4 +459,10 @@ const styles = StyleSheet.create({
     countBadge: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
     countText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 14, color: '#475569' },
     fab: { position: 'absolute', bottom: 110, right: 24, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 },
+    searchItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 12 },
+    searchItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    searchIconContainer: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+    searchItemTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 },
+    searchItemSubtitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14 },
+    emptySearch: { alignItems: 'center', marginTop: 40 }
 });

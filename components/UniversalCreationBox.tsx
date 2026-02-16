@@ -19,7 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BottomSheetTextInput, BottomSheetBackdrop, BottomSheetView, BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useThemeColors } from '../theme/colors';
-import { CalendarBlank, ArrowUp, Paperclip, ListPlus, XCircle, Check, Trash, Tray, CaretDown, Link as LinkIcon, FileText, PaperPlaneRight } from 'phosphor-react-native';
+import { Calendar as CalendarBlank, ArrowUp, Paperclip, ListPlus, CircleX as XCircle, Check, Trash, Inbox as Tray, ChevronDown as CaretDown, Link as LinkIcon, FileText, Send as PaperPlaneRight } from 'lucide-react-native';
 
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
@@ -588,7 +588,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                         {item.description} (${item.amount})
                                     </Text>
                                     <TouchableOpacity onPress={() => removeManualItem(index)}>
-                                        <XCircle size={16} color={secondaryText} weight="fill" />
+                                        <XCircle size={16} color={secondaryText} fill={secondaryText} />
                                     </TouchableOpacity>
                                 </View>
                             ))}
@@ -618,7 +618,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                 style={[styles.miniButton, { backgroundColor: brandColor }]}
                                 onPress={handleAddItem}
                             >
-                                <Check size={16} color="#FFFFFF" weight="bold" />
+                                <Check size={16} color="#FFFFFF" strokeWidth={3} />
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.miniButton, { backgroundColor: isDark ? '#3A3A3C' : '#E5E5EA' }]}
@@ -627,7 +627,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                     setIsAddingItem(false);
                                 }}
                             >
-                                <XCircle size={16} color={secondaryText} weight="bold" />
+                                <XCircle size={16} color={secondaryText} strokeWidth={3} />
                             </TouchableOpacity>
                         </View>
                     ) : null}
@@ -674,7 +674,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                     <CalendarBlank
                                         size={16}
                                         color={effectiveDate ? brandColor : secondaryText}
-                                        weight="bold"
+                                        strokeWidth={3}
                                     />
                                     <Text style={[
                                         styles.datePillText,
@@ -705,7 +705,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                 <ListPlus
                                     size={16}
                                     color={isAddingItem ? brandColor : secondaryText}
-                                    weight="bold"
+                                    strokeWidth={3}
                                 />
                                 <Text style={[
                                     styles.datePillText,
@@ -731,7 +731,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                             <Paperclip
                                 size={16}
                                 color={selectedFile ? brandColor : secondaryText}
-                                weight="bold"
+                                strokeWidth={3}
                             />
                             {selectedFile ? (
                                 <Text style={[
@@ -785,9 +785,9 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                 activeOpacity={0.7}
                             >
                                 {/* Icon for mode - Subtle */}
-                                {selectedMode === 'auto' && <Tray size={18} color={secondaryText} weight="regular" />}
-                                {selectedMode === 'payment_link' && <LinkIcon size={18} color={secondaryText} weight="regular" />}
-                                {selectedMode === 'invoice' && <FileText size={18} color={secondaryText} weight="regular" />}
+                                {selectedMode === 'auto' && <Tray size={18} color={secondaryText} />}
+                                {selectedMode === 'payment_link' && <LinkIcon size={18} color={secondaryText} />}
+                                {selectedMode === 'invoice' && <FileText size={18} color={secondaryText} />}
 
                                 {/* Text - Subtle System Font */}
                                 <Text style={{ fontSize: 16, fontWeight: '500', color: secondaryText }}>

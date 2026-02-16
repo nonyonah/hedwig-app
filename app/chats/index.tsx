@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { List, Chat, MagnifyingGlass, Plus, Trash, CheckCircle, X } from 'phosphor-react-native';
+import { List, MessageSquare as Chat, Search as MagnifyingGlass, Plus, Trash, CircleCheck as CheckCircle, X } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
@@ -247,7 +247,7 @@ export default function ChatsScreen() {
                 {isSelectionMode ? (
                     <View style={styles.selectionIndicator}>
                         {isSelected ? (
-                            <CheckCircle size={24} color={Colors.primary} weight="fill" />
+                            <CheckCircle size={24} color={Colors.primary} fill={Colors.primary} />
                         ) : (
                             <View style={{
                                 width: 24,
@@ -260,7 +260,7 @@ export default function ChatsScreen() {
                     </View>
                 ) : (
                     <View style={[styles.chatIcon, { backgroundColor: themeColors.background }]}>
-                        <Chat size={24} color={themeColors.textPrimary} weight="duotone" />
+                        <Chat size={24} color={themeColors.textPrimary} />
                     </View>
                 )}
 
@@ -313,14 +313,14 @@ export default function ChatsScreen() {
                                 <Trash
                                     size={24}
                                     color={selectedChats.size > 0 ? '#EF4444' : themeColors.textTertiary}
-                                    weight={selectedChats.size > 0 ? 'fill' : 'regular'}
+                                    fill={selectedChats.size > 0 ? '#EF4444' : 'none'}
                                 />
                             </TouchableOpacity>
                         </View>
                     ) : (
                         <View style={styles.defaultHeaderContent}>
                             <TouchableOpacity onPress={() => setIsSidebarOpen(true)}>
-                                <List size={24} color={themeColors.textPrimary} weight="bold" />
+                                <List size={24} color={themeColors.textPrimary} strokeWidth={3} />
                             </TouchableOpacity>
                             <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Chats</Text>
                             <TouchableOpacity onPress={() => router.replace('/')}>
@@ -368,7 +368,7 @@ export default function ChatsScreen() {
                         }
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <Chat size={48} color={themeColors.textSecondary} weight="bold" />
+                                <Chat size={48} color={themeColors.textSecondary} strokeWidth={3} />
                                 <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
                                     {searchQuery ? 'No chats found' : 'No conversations yet'}
                                 </Text>

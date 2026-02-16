@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Pla
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, Gear, TrendUp, TrendDown, ArrowRight, Sparkle, CaretLeft } from 'phosphor-react-native';
+import { List, Settings as Gear, TrendingUp as TrendUp, TrendingDown as TrendDown, ArrowRight, Sparkles as Sparkle, ChevronLeft as CaretLeft } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -90,8 +90,8 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, comparison, trend }) 
         if (!trend || trend === 'neutral') return null;
         const color = getTrendColor();
         return trend === 'up'
-            ? <TrendUp size={14} color={color} weight="bold" />
-            : <TrendDown size={14} color={color} weight="bold" />;
+            ? <TrendUp size={14} color={color} strokeWidth={3} />
+            : <TrendDown size={14} color={color} strokeWidth={3} />;
     };
 
     return (
@@ -359,7 +359,7 @@ export default function InsightsScreen() {
                 <View style={styles.headerTop}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                            <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                            <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
                         </View>
                     </TouchableOpacity>
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Insights</Text>
@@ -374,7 +374,7 @@ export default function InsightsScreen() {
             >
                 {/* AI Disclaimer */}
                 <View style={[styles.disclaimer, { backgroundColor: themeColors.surface }]}>
-                    <Sparkle size={16} color={Colors.primary} weight="fill" />
+                    <Sparkle size={16} color={Colors.primary} fill={Colors.primary} />
                     <Text style={[styles.disclaimerText, { color: themeColors.textSecondary }]}>
                         Insights are AI-generated based on your activity
                     </Text>
@@ -388,7 +388,7 @@ export default function InsightsScreen() {
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             onPress={() => targetGoalSheetRef.current?.present()}
                         >
-                            <Gear size={18} color={themeColors.textSecondary} weight="bold" />
+                            <Gear size={18} color={themeColors.textSecondary} strokeWidth={3} />
                         </TouchableOpacity>
                     </View>
 
@@ -423,9 +423,9 @@ export default function InsightsScreen() {
 
                     <View style={[styles.trendBadge, { backgroundColor: (earningsTrend === 'up' ? Colors.success : earningsTrend === 'down' ? Colors.error : themeColors.textSecondary) + '15' }]}>
                         {earningsTrend === 'up' ? (
-                            <TrendUp size={14} color={Colors.success} weight="bold" />
+                            <TrendUp size={14} color={Colors.success} strokeWidth={3} />
                         ) : earningsTrend === 'down' ? (
-                            <TrendDown size={14} color={Colors.error} weight="bold" />
+                            <TrendDown size={14} color={Colors.error} strokeWidth={3} />
                         ) : null}
                         <Text style={[styles.trendBadgeText, { color: earningsTrend === 'up' ? Colors.success : earningsTrend === 'down' ? Colors.error : themeColors.textSecondary }]}>
                             {earningsTrend === 'up' ? 'Up from last month' : earningsTrend === 'down' ? 'Down from last month' : 'Same as last month'}
@@ -476,7 +476,7 @@ export default function InsightsScreen() {
                                     <Text style={[styles.insightActionText, { color: insight.color || Colors.primary }]}>
                                         {insight.actionLabel}
                                     </Text>
-                                    <ArrowRight size={12} color={insight.color || Colors.primary} weight="bold" />
+                                    <ArrowRight size={12} color={insight.color || Colors.primary} strokeWidth={3} />
                                 </View>
                             )}
                         </TouchableOpacity>

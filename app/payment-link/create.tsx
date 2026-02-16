@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CaretLeft, CurrencyDollar, FileText, Coins } from 'phosphor-react-native';
+import { ChevronLeft as CaretLeft, DollarSign as CurrencyDollar, FileText, Coins } from 'lucide-react-native';
 import { usePrivy } from '@privy-io/expo';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -64,7 +64,7 @@ export default function CreatePaymentLinkScreen() {
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
                     </View>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Create Payment Link</Text>

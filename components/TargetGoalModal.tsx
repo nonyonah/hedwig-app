@@ -1,7 +1,7 @@
 import React, { useState, useEffect, forwardRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { X, Minus, Plus } from 'phosphor-react-native';
+import { X, Minus, Plus } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 
 const { height } = Dimensions.get('window');
@@ -105,7 +105,7 @@ export const TargetGoalModal = forwardRef<BottomSheetModal, TargetGoalModalProps
                         onPress={handleClose}
                         style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
                     >
-                        <X size={20} color={themeColors.textSecondary} weight="bold" />
+                        <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                     </TouchableOpacity>
                 </View>
 
@@ -125,7 +125,7 @@ export const TargetGoalModal = forwardRef<BottomSheetModal, TargetGoalModalProps
                             onLongPress={() => adjustTarget(-1000)}
                             style={[styles.adjustButton, { backgroundColor: Colors.primary }]}
                         >
-                            <Minus size={32} color="#FFFFFF" weight="bold" />
+                            <Minus size={32} color="#FFFFFF" strokeWidth={3} />
                         </TouchableOpacity>
 
                         <View style={styles.valueContainer}>
@@ -142,7 +142,7 @@ export const TargetGoalModal = forwardRef<BottomSheetModal, TargetGoalModalProps
                             onLongPress={() => adjustTarget(1000)}
                             style={[styles.adjustButton, { backgroundColor: Colors.primary }]}
                         >
-                            <Plus size={32} color="#FFFFFF" weight="bold" />
+                            <Plus size={32} color="#FFFFFF" strokeWidth={3} />
                         </TouchableOpacity>
                     </View>
 

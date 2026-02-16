@@ -8,7 +8,7 @@ import { DrawerActions } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
 import { useAuth } from '../../hooks/useAuth';
-import { List, Receipt, Clock, CheckCircle, WarningCircle, X, UserCircle, ShareNetwork, Wallet, Trash, Bell, DotsThree } from 'phosphor-react-native';
+import { List, Receipt, Clock, CheckCircle, AlertCircle as WarningCircle, X, CircleUser as UserCircle, Share2 as ShareNetwork, Wallet, Trash, Bell, MoreHorizontal as DotsThree } from 'lucide-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -410,7 +410,7 @@ export default function InvoicesScreen() {
                     style={styles.deleteButton}
                     onPress={() => handleDelete(item.id)}
                 >
-                    <Trash size={24} color="#FFFFFF" weight="fill" />
+                    <Trash size={24} color="#FFFFFF" fill="#FFFFFF" />
                 </TouchableOpacity>
             </Animated.View>
         );
@@ -524,7 +524,7 @@ export default function InvoicesScreen() {
                         }
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <Receipt size={64} color={themeColors.textSecondary} weight="duotone" />
+                                <Receipt size={64} color={themeColors.textSecondary} />
                                 <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Invoices Yet</Text>
                                 <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
                                     Create your first invoice to get paid
@@ -581,7 +581,7 @@ export default function InvoicesScreen() {
                         </View>
                         <View style={styles.modalHeaderRight}>
                             {selectedInvoice?.status !== 'PAID' && (
-                                <Host style={{ height: 36 }} matchContents>
+                                <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
                                     <ContextMenu>
                                         <ContextMenu.Trigger>
                                             <ExpoButton variant="borderless" systemImage="ellipsis">
@@ -612,7 +612,7 @@ export default function InvoicesScreen() {
                                 </Host>
                             )}
                             <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                                <X size={20} color={themeColors.textSecondary} weight="bold" />
+                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                             </TouchableOpacity>
                         </View>
                     </View>

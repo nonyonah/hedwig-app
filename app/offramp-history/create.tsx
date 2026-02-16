@@ -21,7 +21,7 @@ import {
     UIManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CaretLeft, CheckCircle, Warning, MagnifyingGlass, X, CaretDown, Bank as BankIcon, ArrowsDownUp } from 'phosphor-react-native';
+import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, Search as MagnifyingGlass, X, ChevronDown as CaretDown, Landmark as BankIcon, ArrowUpDown as ArrowsDownUp } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAuth } from '../../hooks/useAuth';
@@ -39,6 +39,12 @@ const NETWORKS = [
     { id: 'solana', name: 'Solana', icon: require('../../assets/icons/networks/solana.png') },
 ];
 
+// Country / fiat currency options
+const COUNTRIES = [
+    { id: 'NG', name: 'Nigeria', currency: 'NGN', flag: '🇳🇬' },
+    { id: 'GH', name: 'Ghana', currency: 'GHS', flag: '🇬🇭' },
+];
+
 interface Bank {
     code: string;
     name: string;
@@ -53,6 +59,7 @@ export default function CreateWithdrawalScreen() {
     // Form State
     const [amount, setAmount] = useState('');
     const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS[0]);
+    const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
     const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
     const [accountNumber, setAccountNumber] = useState('');
     const [accountName, setAccountName] = useState('');
@@ -94,7 +101,7 @@ export default function CreateWithdrawalScreen() {
 
     // Load supported banks
     useEffect(() => {
-        console.log('CreateWithdrawalScreen mounted - Version: 3.0 (Native Modal)');
+        console.log('CreateWithdrawalScreen mounted - Version: 4.0 (Multi-currency)');
 
         // Listen for bank selection
         const subscription = DeviceEventEmitter.addListener('onBankSelected', (bank: Bank) => {
@@ -105,6 +112,14 @@ export default function CreateWithdrawalScreen() {
             subscription.remove();
         };
     }, []);
+
+    // Reset bank when country changes
+    useEffect(() => {
+        setSelectedBank(null);
+        setAccountNumber('');
+        setAccountName('');
+        setAccountError('');
+    }, [selectedCountry]);
 
     // Validate account when bank and number are present
     useEffect(() => {
@@ -137,7 +152,8 @@ export default function CreateWithdrawalScreen() {
                 },
                 body: JSON.stringify({
                     bankName: selectedBank.name, // Sending name as backend expects this currently
-                    accountNumber
+                    accountNumber,
+                    currency: selectedCountry.currency,
                 })
             });
 
@@ -261,8 +277,8 @@ export default function CreateWithdrawalScreen() {
     }, [isNetworkSelectorVisible, networkDropdownAnimation]);
 
     const handleOpenBankSheet = useCallback(() => {
-        router.push('/offramp-history/bank-selection');
-    }, []);
+        router.push({ pathname: '/offramp-history/bank-selection', params: { currency: selectedCountry.currency } });
+    }, [selectedCountry]);
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -271,7 +287,7 @@ export default function CreateWithdrawalScreen() {
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                            <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                            <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
                         </View>
                     </TouchableOpacity>
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>New Withdrawal</Text>
@@ -300,20 +316,23 @@ export default function CreateWithdrawalScreen() {
                                 placeholderTextColor={themeColors.textSecondary}
                                 keyboardType="decimal-pad"
                             />
-                            {/* Interactive Chain Badge - Native ContextMenu */}
-                            <Host style={{ height: 36 }} matchContents>
+                            {/* Chain Badge - using wallet page ContextMenu pattern */}
+                            <Host>
                                 <ContextMenu>
                                     <ContextMenu.Trigger>
-                                        <ExpoButton variant="bordered">
-                                            {selectedNetwork.name}
-                                        </ExpoButton>
+                                        <View style={[styles.chainBadge, { backgroundColor: themeColors.background }]}>
+                                            <Image source={selectedNetwork.icon} style={styles.chainBadgeIcon} />
+                                            <Text style={[styles.chainBadgeName, { color: themeColors.textPrimary }]}>
+                                                {selectedNetwork.name}
+                                            </Text>
+                                            <CaretDown size={12} color={themeColors.textSecondary} strokeWidth={3} />
+                                        </View>
                                     </ContextMenu.Trigger>
                                     <ContextMenu.Items>
                                         {NETWORKS.map((network) => (
                                             <ExpoButton
                                                 key={network.id}
                                                 onPress={() => setSelectedNetwork(network)}
-                                                systemImage={selectedNetwork.id === network.id ? "checkmark.circle.fill" : "circle"}
                                             >
                                                 {network.name}
                                             </ExpoButton>
@@ -328,7 +347,7 @@ export default function CreateWithdrawalScreen() {
                         {selectedNetwork.id === 'solana' && (
                             <View style={[styles.disclaimerBox, { backgroundColor: themeColors.surface, borderColor: Colors.primary }]}>
                                 <View style={styles.disclaimerIconContainer}>
-                                    <ArrowsDownUp size={20} color={Colors.primary} weight="bold" />
+                                    <ArrowsDownUp size={20} color={Colors.primary} strokeWidth={3} />
                                 </View>
                                 <View style={styles.disclaimerTextContainer}>
                                     <Text style={[styles.disclaimerTitle, { color: themeColors.textPrimary }]}>
@@ -340,6 +359,32 @@ export default function CreateWithdrawalScreen() {
                                 </View>
                             </View>
                         )}
+
+                        {/* Country / Currency Selector - using wallet page ContextMenu pattern */}
+                        <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Country</Text>
+                        <Host style={{ marginBottom: 16 }}>
+                            <ContextMenu>
+                                <ContextMenu.Trigger>
+                                    <View style={[styles.authInputContainer, { backgroundColor: themeColors.surface, height: 43, marginBottom: 0 }]}>
+                                        <Text style={{ fontSize: 18, lineHeight: 22, marginRight: 4 }}>{selectedCountry.flag}</Text>
+                                        <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0 }]}>
+                                            {selectedCountry.name} ({selectedCountry.currency})
+                                        </Text>
+                                        <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                                    </View>
+                                </ContextMenu.Trigger>
+                                <ContextMenu.Items>
+                                    {COUNTRIES.map((country) => (
+                                        <ExpoButton
+                                            key={country.id}
+                                            onPress={() => setSelectedCountry(country)}
+                                        >
+                                            {`${country.flag} ${country.name} (${country.currency})`}
+                                        </ExpoButton>
+                                    ))}
+                                </ContextMenu.Items>
+                            </ContextMenu>
+                        </Host>
 
                         {/* Bank Selection */}
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Bank Name</Text>
@@ -355,7 +400,7 @@ export default function CreateWithdrawalScreen() {
                                 editable={false}
                                 pointerEvents="none"
                             />
-                            <CaretDown size={20} color={themeColors.textSecondary} weight="bold" />
+                            <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
                         </TouchableOpacity>
 
                         {/* Account Number */}
@@ -375,7 +420,7 @@ export default function CreateWithdrawalScreen() {
                                 maxLength={10}
                             />
                             {accountNumber.length === 10 && (
-                                <CheckCircle size={20} color={Colors.success} weight="fill" />
+                                <CheckCircle size={20} color={Colors.success} fill={Colors.success} />
                             )}
                         </View>
 
@@ -397,10 +442,10 @@ export default function CreateWithdrawalScreen() {
                                                 editable={false}
                                             />
                                             {accountName && !accountError && (
-                                                <CheckCircle size={20} color={Colors.success} weight="fill" />
+                                                <CheckCircle size={20} color={Colors.success} fill={Colors.success} />
                                             )}
                                             {accountError && (
-                                                <Warning size={20} color={Colors.error} weight="fill" />
+                                                <Warning size={20} color={Colors.error} fill={Colors.error} />
                                             )}
                                         </View>
                                     )}
@@ -441,7 +486,7 @@ export default function CreateWithdrawalScreen() {
                     amount,
                     token: 'USDC',
                     network: selectedNetwork.id, // This will be 'base' after bridge completes
-                    fiatCurrency: 'NGN',
+                    fiatCurrency: selectedCountry.currency,
                     bankName: selectedBank.name,
                     accountNumber,
                     accountName
@@ -563,26 +608,7 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         flex: 1,
     },
-    chainBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        borderRadius: 20,
-        marginLeft: 8,
-    },
-    chainIconContainer: {
-        marginRight: 6,
-    },
-    chainIcon: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-    },
-    chainBadgeText: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 13,
-    },
+
     helperText: {
         fontSize: 13,
         textAlign: 'center',
@@ -709,5 +735,22 @@ const styles = StyleSheet.create({
         fontSize: 13,
         lineHeight: 18,
     },
-    // Sheet Styles (Removed - using action menu instead)
+    // Chain badge - matches OfframpConfirmationModal.chainBadge exactly
+    chainBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 8,
+    },
+    chainBadgeIcon: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+    },
+    chainBadgeName: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 14,
+    },
 });

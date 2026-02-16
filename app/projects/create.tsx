@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert,
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { CaretLeft, Plus, X, CurrencyDollar, Calendar, User, FileText } from 'phosphor-react-native';
+import { ChevronLeft as CaretLeft, Plus, X, DollarSign as CurrencyDollar, Calendar, User, FileText } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAuth } from '../../hooks/useAuth';
@@ -156,7 +156,7 @@ export default function CreateProjectScreen() {
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
                     </View>
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>New Project</Text>
@@ -266,7 +266,7 @@ export default function CreateProjectScreen() {
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, marginBottom: 12 }}>
                         <Text style={styles.sectionTitleWithoutMargin}>Milestones</Text>
                         <TouchableOpacity onPress={addMilestone} style={styles.addIndicesButton}>
-                            <Plus size={16} color={Colors.primary} weight="bold" />
+                            <Plus size={16} color={Colors.primary} strokeWidth={3} />
                             <Text style={styles.addIndicesText}>Add Milestone</Text>
                         </TouchableOpacity>
                     </View>

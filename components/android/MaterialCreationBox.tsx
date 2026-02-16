@@ -14,7 +14,7 @@ import {
     Keyboard,
 } from 'react-native';
 import { useThemeColors } from '../../theme/colors';
-import { CalendarBlank, Flag, Signpost, DotsThree, Tray, CaretDown, Check } from 'phosphor-react-native';
+import { Calendar as CalendarBlank, Flag, Signpost, MoreHorizontal as DotsThree, Inbox as Tray, ChevronDown as CaretDown, Check } from 'lucide-react-native';
 
 interface MaterialCreationBoxProps {
     visible: boolean;
@@ -197,7 +197,7 @@ export function MaterialCreationBox({
                                 <CalendarBlank
                                     size={16}
                                     color={effectiveDate ? themeColors.primary : themeColors.textSecondary}
-                                    weight="bold"
+                                    strokeWidth={3}
                                 />
                                 <Text
                                     style={[
@@ -222,11 +222,11 @@ export function MaterialCreationBox({
                                 style={styles.contextSelector}
                                 android_ripple={{ color: themeColors.border }}
                             >
-                                <Tray size={18} color={themeColors.textSecondary} weight="bold" />
+                                <Tray size={18} color={themeColors.textSecondary} strokeWidth={3} />
                                 <Text style={[styles.contextText, { color: themeColors.textSecondary }]}>
                                     Inbox
                                 </Text>
-                                <CaretDown size={14} color={themeColors.textSecondary} weight="bold" />
+                                <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
                             </TouchableOpacity>
 
                             <View style={{ flex: 1 }} />
@@ -261,7 +261,7 @@ export function MaterialCreationBox({
                                     <Check
                                         size={20}
                                         color={inputText.trim() ? '#FFFFFF' : themeColors.textPlaceholder}
-                                        weight="bold"
+                                        strokeWidth={3}
                                     />
                                 )}
                             </TouchableOpacity>

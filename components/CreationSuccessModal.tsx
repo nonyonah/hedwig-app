@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
-import { CheckCircle, X } from 'phosphor-react-native';
+import { CircleCheck as CheckCircle, X } from 'lucide-react-native';
 import { useThemeColors } from '../theme/colors';
 import { useSettings } from '../context/SettingsContext';
 
@@ -48,8 +48,8 @@ export default function CreationSuccessModal({ visible, onClose, type, amount, t
                     <View style={styles.content}>
                         <CheckCircle
                             size={80}
-                            weight="fill"
-                            color={themeColors.primary}
+                            fill={themeColors.primary}
+                            color="white"
                             style={styles.icon}
                         />
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 
 import { usePrivy } from '@privy-io/expo';
-import { Copy, ShareNetwork, CheckCircle, Clock, WarningCircle, ArrowSquareOut } from 'phosphor-react-native';
+import { Copy, Share2 as ShareNetwork, CheckCircle, Clock, AlertCircle as WarningCircle, SquareArrowOutUpRight as ArrowSquareOut } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
@@ -85,9 +85,9 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ docType, docId
 
     const getStatusIcon = (status: string) => {
         switch (status?.toUpperCase()) {
-            case 'PAID': return <CheckCircle size={14} color="#10B981" weight="fill" />;
-            case 'PENDING': return <Clock size={14} color="#F59E0B" weight="fill" />;
-            default: return <WarningCircle size={14} color={Colors.textSecondary} weight="fill" />;
+            case 'PAID': return <CheckCircle size={14} color="#10B981" fill="#10B981" />;
+            case 'PENDING': return <Clock size={14} color="#F59E0B" fill="#F59E0B" />;
+            default: return <WarningCircle size={14} color={Colors.textSecondary} fill={Colors.textSecondary} />;
         }
     };
 

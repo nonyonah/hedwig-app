@@ -187,11 +187,12 @@ export class PaycrestService {
      */
     static async verifyBankAccount(
         bankName: string,
-        accountNumber: string
+        accountNumber: string,
+        currency: string = 'NGN'
     ): Promise<{ accountName: string; verified: boolean }> {
         try {
             // Convert bank name to Paycrest institution code (async API lookup)
-            const institutionCode = await this.findInstitutionCode(bankName);
+            const institutionCode = await this.findInstitutionCode(bankName, currency);
 
             logger.debug('Verifying bank account');
 

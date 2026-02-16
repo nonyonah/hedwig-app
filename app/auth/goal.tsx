@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Minus, Plus, CaretLeft } from 'phosphor-react-native';
+import { Minus, Plus, ChevronLeft as CaretLeft } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
 
@@ -67,7 +67,7 @@ export default function GoalScreen() {
             {/* Back button on its own row */}
             <TouchableOpacity style={styles.backButtonRow} onPress={() => router.back()}>
                 <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                    <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                    <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
                 </View>
             </TouchableOpacity>
 
@@ -113,7 +113,7 @@ export default function GoalScreen() {
                     style={styles.adjustButton}
                     activeOpacity={0.7}
                 >
-                    <Minus size={28} color="#FFFFFF" weight="bold" />
+                    <Minus size={28} color="#FFFFFF" strokeWidth={3} />
                 </TouchableOpacity>
 
                 <View style={styles.valueContainer}>
@@ -131,7 +131,7 @@ export default function GoalScreen() {
                     style={styles.adjustButton}
                     activeOpacity={0.7}
                 >
-                    <Plus size={28} color="#FFFFFF" weight="bold" />
+                    <Plus size={28} color="#FFFFFF" strokeWidth={3} />
                 </TouchableOpacity>
             </View>
 

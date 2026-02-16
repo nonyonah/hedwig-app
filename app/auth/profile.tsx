@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, ScrollView, Image, ActivityIndicator, Animated, Keyboard } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Camera, Check, CaretLeft } from 'phosphor-react-native';
+import { Camera, Check, ChevronLeft as CaretLeft } from 'lucide-react-native';
 import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -228,7 +228,7 @@ export default function ProfileScreen() {
                             <View style={styles.headerBar}>
                                 <TouchableOpacity style={styles.headerBackButton} onPress={() => router.back()}>
                                     <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                        <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                        <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
                                     </View>
                                 </TouchableOpacity>
                                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Edit Profile</Text>
@@ -241,7 +241,7 @@ export default function ProfileScreen() {
                             <>
                                 <TouchableOpacity style={styles.backButtonRow} onPress={() => router.back()}>
                                     <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                        <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                        <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
                                     </View>
                                 </TouchableOpacity>
                                 <View style={styles.titleSection}>
@@ -270,7 +270,7 @@ export default function ProfileScreen() {
                                     </LinearGradient>
                                 )}
                                 <View style={[styles.cameraIcon, { backgroundColor: themeColors.background }]}>
-                                    <Camera size={20} color={themeColors.textPrimary} weight="fill" />
+                                    <Camera size={20} color={themeColors.textPrimary} fill={themeColors.textPrimary} />
                                 </View>
                             </TouchableOpacity>
                         </View>

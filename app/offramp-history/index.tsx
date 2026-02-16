@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, X, Copy, Bank, ArrowDown, CheckCircle, Clock, Warning, ArrowsCounterClockwise, CaretLeft, Plus } from 'phosphor-react-native';
+import { List, X, Copy, Landmark as Bank, ArrowDown, CheckCircle, Clock, TriangleAlert as Warning, RotateCcw as ArrowsCounterClockwise, ChevronLeft as CaretLeft, Plus } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -237,7 +237,7 @@ export default function OfframpHistoryScreen() {
                         {item.fiatCurrency} {item.fiatAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </Text>
                     <View style={[styles.statusBadge, { backgroundColor: statusConfig.color + '20' }]}>
-                        <StatusIcon size={12} color={statusConfig.color} weight="bold" />
+                        <StatusIcon size={12} color={statusConfig.color} strokeWidth={3} />
                         <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.label}</Text>
                     </View>
                 </View>
@@ -281,9 +281,9 @@ export default function OfframpHistoryScreen() {
                                 isFailed && index === currentIndex && styles.progressCircleFailed
                             ]}>
                                 {isCompleted ? (
-                                    <CheckCircle size={16} color="#FFFFFF" weight="bold" />
+                                    <CheckCircle size={16} color="#FFFFFF" strokeWidth={3} />
                                 ) : isFailed && index === currentIndex ? (
-                                    <X size={16} color="#FFFFFF" weight="bold" />
+                                    <X size={16} color="#FFFFFF" strokeWidth={3} />
                                 ) : (
                                     <Text style={[
                                         styles.progressNumber,
@@ -311,7 +311,7 @@ export default function OfframpHistoryScreen() {
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                             <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
                             </View>
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
@@ -319,7 +319,7 @@ export default function OfframpHistoryScreen() {
                             onPress={() => router.push('/offramp-history/create' as any)}
                             style={styles.backButton}
                         >
-                            <Plus size={24} color={themeColors.textPrimary} weight="bold" />
+                            <Plus size={24} color={themeColors.textPrimary} strokeWidth={3} />
                         </TouchableOpacity>
                     </View>
 
@@ -358,7 +358,7 @@ export default function OfframpHistoryScreen() {
                     </View>
                 ) : orders.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Bank size={48} color={themeColors.textTertiary} weight="bold" />
+                        <Bank size={48} color={themeColors.textTertiary} strokeWidth={3} />
                         <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No withdrawals yet</Text>
                         <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>Your withdrawal history will appear here.</Text>
                     </View>
@@ -413,7 +413,7 @@ export default function OfframpHistoryScreen() {
                                 </View>
                             </View>
                             <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                                <X size={20} color={themeColors.textSecondary} weight="bold" />
+                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                             </TouchableOpacity>
                         </View>
 

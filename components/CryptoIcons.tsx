@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, View, Text } from 'react-native';
-import { CurrencyNgn, CurrencyDollar } from 'phosphor-react-native';
+import { DollarSign } from 'lucide-react-native';
 
 // Network icon images
 const BaseIcon = require('../assets/icons/networks/base.png');
@@ -124,13 +124,13 @@ export const TokenCELO = (props: any) => (
 
 export const TokenCUSD = (props: any) => (
     <View style={{ width: props.width || 32, height: props.height || 32, borderRadius: (props.width || 32) / 2, backgroundColor: '#45D07F', justifyContent: 'center', alignItems: 'center' }}>
-        <CurrencyDollar size={(props.width || 32) * 0.6} color="white" weight="bold" />
+        <DollarSign size={(props.width || 32) * 0.6} color="white" strokeWidth={3} />
     </View>
 );
 
 export const TokenCNGN = (props: any) => (
     <View style={{ width: props.width || 32, height: props.height || 32, borderRadius: (props.width || 32) / 2, backgroundColor: '#008751', justifyContent: 'center', alignItems: 'center' }}>
-        <CurrencyNgn size={(props.width || 32) * 0.6} color="white" weight="bold" />
+        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: (props.width || 32) * 0.6 }}>₦</Text>
     </View>
 );
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'rea
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Platform, Linking } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import * as WebBrowser from 'expo-web-browser';
-import { ShieldCheck, Warning, ArrowRight, CheckCircle, ClockCountdown } from 'phosphor-react-native';
+import { ShieldCheck, TriangleAlert as Warning, ArrowRight, CheckCircle, Timer as ClockCountdown } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useKYC } from '../hooks/useKYC';
 import Analytics from '../services/analytics';
@@ -113,7 +113,7 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
     const renderExplanation = () => (
         <View style={[styles.contentCard, { backgroundColor: themeColors.surface }]}>
             <View style={styles.iconContainer}>
-                <ShieldCheck size={64} color={Colors.primary} weight="fill" />
+                <ShieldCheck size={64} color="white" fill={Colors.primary} />
             </View>
             <Text style={[styles.title, { color: themeColors.textPrimary }]}>
                 Identity Verification
@@ -151,7 +151,7 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
                 loading={isStarting}
                 size="large"
                 style={{ marginBottom: 12 }}
-                icon={<ArrowRight size={20} color="#fff" weight="bold" />}
+                icon={<ArrowRight size={20} color="#fff" strokeWidth={3} />}
                 iconPosition="right"
             />
 
@@ -167,7 +167,7 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
     const renderPending = () => (
         <View style={[styles.contentCard, { backgroundColor: themeColors.surface }]}>
             <View style={styles.iconContainer}>
-                <ClockCountdown size={64} color={Colors.warning} weight="fill" />
+                <ClockCountdown size={64} color="white" fill={Colors.warning} />
             </View>
             <Text style={[styles.title, { color: themeColors.textPrimary }]}>
                 Verification In Progress
@@ -204,7 +204,7 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
     const renderApproved = () => (
         <View style={[styles.contentCard, { backgroundColor: themeColors.surface }]}>
             <View style={styles.iconContainer}>
-                <CheckCircle size={64} color={Colors.success} weight="fill" />
+                <CheckCircle size={64} color="white" fill={Colors.success} />
             </View>
             <Text style={[styles.title, { color: themeColors.textPrimary }]}>
                 Verification Complete!
@@ -228,7 +228,7 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
     const renderRejected = () => (
         <View style={[styles.contentCard, { backgroundColor: themeColors.surface }]}>
             <View style={styles.iconContainer}>
-                <Warning size={64} color={Colors.error} weight="fill" />
+                <Warning size={64} color="white" fill={Colors.error} />
             </View>
             <Text style={[styles.title, { color: themeColors.textPrimary }]}>
                 Verification Failed

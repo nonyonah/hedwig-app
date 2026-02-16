@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Fingerprint } from 'phosphor-react-native';
+import { Fingerprint } from 'lucide-react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet, usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -299,7 +299,7 @@ export default function BiometricsScreen() {
                         colors={['#60A5FA', '#3B82F6', '#2563EB']}
                         style={styles.iconGradient}
                     >
-                        <Fingerprint size={48} color="#FFFFFF" weight="fill" />
+                        <Fingerprint size={48} color="#FFFFFF" fill="#FFFFFF" />
                     </LinearGradient>
                 </View>
 

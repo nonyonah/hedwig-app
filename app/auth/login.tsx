@@ -16,11 +16,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CaretLeft } from 'phosphor-react-native';
+import { ChevronLeft as CaretLeft } from 'lucide-react-native';
 import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/colors';
 import { Button } from '../../components/Button';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
-import { useLoginWithEmail, usePrivy, useOAuthFlow } from '@privy-io/expo';
+import { useLoginWithEmail, usePrivy, useLoginWithOAuth } from '@privy-io/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -49,7 +49,7 @@ export default function LoginScreen() {
     // Privy Hooks
     const { sendCode, loginWithCode } = useLoginWithEmail();
     const { getAccessToken, user, isReady } = usePrivy();
-    const { start: oauthLogin } = useOAuthFlow();
+    const { login: oauthLogin } = useLoginWithOAuth();
 
     // Detect demo email
     useEffect(() => {
@@ -146,9 +146,10 @@ export default function LoginScreen() {
         Keyboard.dismiss();
         setLoading(true);
         try {
-            await oauthLogin({ provider });
+            const user = await oauthLogin({ provider });
+            console.log('OAuth login successful:', user?.id);
 
-            // After OAuth, check if user exists
+            // After OAuth, check if user exists in our backend
             const token = await getAccessToken();
             if (token) {
                 const response = await fetch(`${API_URL}/api/auth/me`, {
@@ -161,9 +162,14 @@ export default function LoginScreen() {
                     router.replace('/auth/profile');
                 }
             }
-        } catch (error) {
-            console.error('OAuth error:', error);
-            Alert.alert('Error', `Failed to sign in with ${provider}. Please try again.`);
+        } catch (error: any) {
+            // Don't show error if user cancelled the flow
+            if (error?.message?.includes('cancelled') || error?.message?.includes('canceled') || error?.message?.includes('dismissed')) {
+                console.log('OAuth flow cancelled by user');
+                return;
+            }
+            console.error(`OAuth ${provider} error:`, JSON.stringify(error, null, 2));
+            Alert.alert('Error', `Failed to sign in with ${provider}. Please try again.\n\n${error?.message || ''}`);
         } finally {
             setLoading(false);
         }
@@ -193,7 +199,7 @@ export default function LoginScreen() {
                 <View style={styles.header}>
                     <TouchableOpacity onPress={handleBack} style={styles.backButton}>
                         <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                            <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                            <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
                         </View>
                     </TouchableOpacity>
                 </View>

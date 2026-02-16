@@ -5,7 +5,7 @@ import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { Users, Plus, User, Envelope, Phone, Trash, PencilSimple, X, List, CurrencyDollar, Clock, Buildings, CaretLeft } from 'phosphor-react-native';
+import { Users, Plus, User, Mail as Envelope, Phone, Trash, Pencil as PencilSimple, X, List, DollarSign as CurrencyDollar, Clock, Building2 as Buildings, ChevronLeft as CaretLeft } from 'lucide-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -258,7 +258,7 @@ export default function ClientsScreen() {
 
     const renderRightActions = (clientId: string) => (
         <TouchableOpacity style={styles.deleteAction} onPress={() => handleDelete(clientId)}>
-            <Trash size={24} color="#FFF" weight="bold" />
+            <Trash size={24} color="#FFF" strokeWidth={3} />
         </TouchableOpacity>
     );
 
@@ -358,7 +358,7 @@ export default function ClientsScreen() {
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                             <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
                             </View>
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Clients</Text>
@@ -373,7 +373,7 @@ export default function ClientsScreen() {
                 {/* Client List */}
                 {clients.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Users size={64} color={themeColors.textSecondary} weight="light" />
+                        <Users size={64} color={themeColors.textSecondary} strokeWidth={1} />
                         <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Clients Yet</Text>
                         <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
                             Add your first client to start tracking earnings and creating invoices
@@ -417,7 +417,7 @@ export default function ClientsScreen() {
                                 {/* Company Badge */}
                                 {selectedClient.company && (
                                     <View style={styles.companyBadge}>
-                                        <Buildings size={16} color={themeColors.textSecondary} weight="fill" />
+                                        <Buildings size={16} color={themeColors.textSecondary} fill={themeColors.textSecondary} />
                                         <Text style={[styles.companyBadgeText, { color: themeColors.textSecondary }]}>{selectedClient.company}</Text>
                                     </View>
                                 )}
@@ -510,7 +510,7 @@ export default function ClientsScreen() {
                                 style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
                                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); closeFormModal(); }}
                             >
-                                <X size={20} color={themeColors.textSecondary} weight="bold" />
+                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                             </TouchableOpacity>
                         </View>
 

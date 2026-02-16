@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, SectionList, Dimensions, FlatList, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { CaretLeft, CalendarBlank, Reference, Hash, ChatCircle, CalendarCheck, CaretRight, CaretDown, CaretUp, Plus } from 'phosphor-react-native';
+import { ChevronLeft as CaretLeft, Calendar as CalendarBlank, CalendarCheck, ChevronRight as CaretRight, Plus, CheckCircle, Clock, Tag } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
@@ -21,6 +21,9 @@ interface CalendarEvent {
     eventDate: string;
     relatedId?: string;
     relatedType?: string;
+    amount?: number;
+    currency?: string;
+    status?: string;
 }
 
 interface Section {
@@ -33,12 +36,18 @@ interface Section {
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-// Todoist-like colors
 const EVENT_COLORS: Record<string, string> = {
-    invoice_due: '#DC2626', // Red
-    milestone_due: '#F59E0B', // Amber
-    project_deadline: '#2563EB', // Blue
-    reminder: '#6B7280', // Grey
+    invoice_due: '#DC2626',
+    milestone_due: '#F59E0B',
+    project_deadline: '#2563EB',
+    reminder: '#6B7280',
+};
+
+const getStartOfWeek = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day;
+    return new Date(d.setDate(diff));
 };
 
 const generateDateRange = (startDate: Date, days: number) => {
@@ -51,24 +60,23 @@ const generateDateRange = (startDate: Date, days: number) => {
     return dates;
 };
 
-// Sunday start
 const generateMonthGrid = (year: number, month: number) => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
-    const startDayOfWeek = firstDay.getDay(); // 0 = Sun
-    
-    const startOffset = startDayOfWeek; 
+    const startDayOfWeek = firstDay.getDay();
+
+    const startOffset = startDayOfWeek;
 
     const grid = [];
     for (let i = 0; i < startOffset; i++) {
-        const d = new Date(year, month, 0 - i); 
+        const d = new Date(year, month, 0 - i);
         grid.unshift(d);
     }
     for (let i = 1; i <= daysInMonth; i++) {
         grid.push(new Date(year, month, i));
     }
-    const remaining = 42 - grid.length; 
+    const remaining = 42 - grid.length;
     for (let i = 1; i <= remaining; i++) {
         grid.push(new Date(year, month + 1, i));
     }
@@ -84,14 +92,14 @@ export default function CalendarScreen() {
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    
+
+    // UI State
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [expanded, setExpanded] = useState(false);
-    
-    const [viewDate, setViewDate] = useState(new Date()); 
+    const [viewDate, setViewDate] = useState(new Date());
 
-    const flatListRef = useRef<FlatList>(null);
-    const sectionListRef = useRef<SectionList>(null);
+    const flatListRef = useRef<FlatList<Date>>(null);
+    const sectionListRef = useRef<SectionList<CalendarEvent, Section>>(null);
 
     useFocusEffect(
         useCallback(() => {
@@ -99,22 +107,34 @@ export default function CalendarScreen() {
         }, [])
     );
 
+    // Initial Scroll Alignment (Left-align start of week)
+    // We only need this if selecting a new date while already collapsed
     useEffect(() => {
-        if (!expanded && flatListRef.current && !isLoading) {
-            const index = scrollableDates.findIndex(d => isSameDay(d, selectedDate));
+        if (!expanded && flatListRef.current) {
+            const startOfWeek = getStartOfWeek(selectedDate);
+            const index = scrollableDates.findIndex(d => isSameDay(d, startOfWeek));
+
             if (index !== -1) {
-                setTimeout(() => {
-                     flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
-                }, 500);
+                // Only animate if we are already mounted.
+                // However, initialScrollIndex handles the mount case.
+                // We use this for updates.
+                flatListRef.current?.scrollToIndex({ index: Math.max(0, index), animated: true, viewPosition: 0 });
             }
         }
-    }, [isLoading, expanded]);
+    }, [selectedDate, expanded]);
 
     const scrollableDates = useMemo(() => {
-        const start = new Date();
-        start.setDate(start.getDate() - 30);
-        return generateDateRange(start, 120);
+        const today = new Date();
+        const startOfWeek = getStartOfWeek(today);
+        startOfWeek.setDate(startOfWeek.getDate() - 28);
+        return generateDateRange(startOfWeek, 120);
     }, []);
+
+    const getInitialScrollIndex = () => {
+        const startOfWeek = getStartOfWeek(selectedDate);
+        const index = scrollableDates.findIndex(d => isSameDay(d, startOfWeek));
+        return Math.max(0, index);
+    };
 
     const monthGridDates = useMemo(() => {
         return generateMonthGrid(viewDate.getFullYear(), viewDate.getMonth());
@@ -131,11 +151,9 @@ export default function CalendarScreen() {
         return isSameDay(date, today);
     };
 
-    // Group ALL events by date + Include next 14 days even if empty
     const sections: Section[] = useMemo(() => {
         const grouped: Record<string, CalendarEvent[]> = {};
 
-        // 1. Group existing events
         events.forEach(event => {
             const date = new Date(event.eventDate);
             const key = date.toISOString().split('T')[0];
@@ -143,7 +161,6 @@ export default function CalendarScreen() {
             grouped[key].push(event);
         });
 
-        // 2. Ensure next 14 days exist
         const today = new Date();
         for (let i = 0; i < 14; i++) {
             const d = new Date(today);
@@ -153,7 +170,7 @@ export default function CalendarScreen() {
         }
 
         const sortedKeys = Object.keys(grouped).sort();
-        
+
         return sortedKeys.map(key => {
             const [y, m, d] = key.split('-').map(Number);
             const properDate = new Date(y, m - 1, d);
@@ -162,18 +179,18 @@ export default function CalendarScreen() {
             const monthDay = properDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
             const now = new Date();
-            now.setHours(0,0,0,0);
+            now.setHours(0, 0, 0, 0);
             const checkDate = new Date(properDate);
-            checkDate.setHours(0,0,0,0);
-            
+            checkDate.setHours(0, 0, 0, 0);
+
             let relativeDay = '';
             const diffTime = checkDate.getTime() - now.getTime();
             const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-            
+
             if (diffDays === 0) relativeDay = 'Today';
             else if (diffDays === 1) relativeDay = 'Tomorrow';
             else if (diffDays === -1) relativeDay = 'Yesterday';
-            
+
             const subtitle = relativeDay ? `${relativeDay} · ${dayName}` : dayName;
 
             return {
@@ -190,12 +207,14 @@ export default function CalendarScreen() {
         const key = date.toISOString().split('T')[0];
         const index = sections.findIndex(s => s.dateISO === key);
         if (index !== -1 && sectionListRef.current) {
-             sectionListRef.current.scrollToLocation({
-                 sectionIndex: index,
-                 itemIndex: 0,
-                 animated: true,
-                 viewOffset: 100 
-             });
+            setTimeout(() => {
+                sectionListRef.current?.scrollToLocation({
+                    sectionIndex: index,
+                    itemIndex: 0,
+                    animated: true,
+                    viewOffset: 60
+                });
+            }, 10);
         }
     };
 
@@ -231,19 +250,21 @@ export default function CalendarScreen() {
         }
     };
 
-    const handleMonthChange = (direction: 'prev' | 'next') => {
-        const newDate = new Date(viewDate);
-        newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
-        setViewDate(newDate);
+    const handleMarkAsPaid = async (event: CalendarEvent) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        // Optimistic update
+        setEvents(prev => prev.filter(e => e.id !== event.id));
+        Alert.alert("Success", "Marked as paid.");
     };
 
     const renderDayItem = ({ item }: { item: Date }) => {
         const isSelected = isSameDay(item, selectedDate);
         const isTodayDate = isToday(item);
-        
+
         return (
             <TouchableOpacity
-                style={[styles.dayItem]} 
+                style={[styles.dayItem]}
                 onPress={() => {
                     Haptics.selectionAsync();
                     setSelectedDate(item);
@@ -258,7 +279,7 @@ export default function CalendarScreen() {
                     isSelected && { backgroundColor: Colors.primary },
                 ]}>
                     <Text style={[
-                        styles.dayNumber, 
+                        styles.dayNumber,
                         { fontFamily: 'GoogleSansFlex_600SemiBold' },
                         { color: isSelected ? '#FFFFFF' : (isTodayDate ? Colors.primary : themeColors.textPrimary) }
                     ]}>
@@ -273,7 +294,7 @@ export default function CalendarScreen() {
         const isSelected = isSameDay(date, selectedDate);
         const isTodayDate = isToday(date);
         const isSameMonth = date.getMonth() === viewDate.getMonth();
-        
+
         return (
             <TouchableOpacity
                 key={index}
@@ -300,39 +321,13 @@ export default function CalendarScreen() {
         );
     };
 
-    const handleDelete = async (eventId: string) => {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        Alert.alert(
-            'Delete Event',
-            'Are you sure you want to delete this calendar event?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const token = await getAccessToken();
-                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                            const response = await fetch(`${apiUrl}/api/calendar/${eventId}`, {
-                                method: 'DELETE',
-                                headers: { 'Authorization': `Bearer ${token}` },
-                            });
-                             const data = await response.json();
-                             if (data.success) {
-                                 setEvents(prev => prev.filter(e => e.id !== eventId));
-                             } else {
-                                 Alert.alert('Error', 'Failed to delete');
-                             }
-                        } catch(e) { Alert.alert('Error', 'Failed'); }
-                    }
-                },
-            ]
-        );
+    const getEventColor = (eventType: string) => EVENT_COLORS[eventType] || '#8B5CF6';
+
+    const getEventLabel = (item: CalendarEvent) => {
+        if (item.relatedType) return item.relatedType;
+        return item.eventType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     };
 
-    const getEventColor = (eventType: string) => EVENT_COLORS[eventType] || '#8B5CF6';
-    
     const renderEvent = ({ item }: { item: CalendarEvent }) => {
         const time = new Date(item.eventDate).toLocaleTimeString('en-US', {
             hour: 'numeric',
@@ -345,31 +340,32 @@ export default function CalendarScreen() {
             <TouchableOpacity
                 activeOpacity={0.7}
                 style={[styles.eventRow, { borderBottomColor: themeColors.border }]}
-                onLongPress={() => handleDelete(item.id)}
+            // onPress={() => openEventDetails(item)}
             >
-                <View style={[styles.checkboxCircle, { borderColor: color }]} />
+                <TouchableOpacity
+                    style={[styles.checkboxCircle, { borderColor: color }]}
+                    onPress={() => handleMarkAsPaid(item)}
+                >
+                </TouchableOpacity>
+
                 <View style={styles.eventContent}>
                     <Text style={[styles.eventTitle, { color: themeColors.textPrimary, fontFamily: 'GoogleSansFlex_500Medium' }]} numberOfLines={2}>
                         {item.title}
                     </Text>
                     {item.description && (
-                         <Text style={[styles.eventDescription, { color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_400Regular' }]} numberOfLines={1}>
-                             {item.description}
-                         </Text>
+                        <Text style={[styles.eventDescription, { color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_400Regular' }]} numberOfLines={1}>
+                            {item.description}
+                        </Text>
                     )}
                     <View style={styles.eventMeta}>
                         <Text style={[styles.metaText, { color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_400Regular' }]}>
-                           {time}
+                            {time}
                         </Text>
                         <View style={styles.metaDot} />
                         <Text style={[styles.metaText, { color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_400Regular' }]}>
-                             {item.eventType.replace('_', ' ')}
+                            {getEventLabel(item)}
                         </Text>
                     </View>
-                </View>
-                <View style={styles.eventRight}>
-                    <Text style={[styles.inboxLabel, { color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_400Regular' }]}>Inbox</Text>
-                    <CalendarCheck size={14} color={themeColors.textSecondary} />
                 </View>
             </TouchableOpacity>
         );
@@ -382,55 +378,50 @@ export default function CalendarScreen() {
                     {section.title} · {section.subtitle}
                 </Text>
             </View>
-            <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
         </View>
     );
 
     return (
-        <View style={{ flex: 1 }}>
-            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+        <View style={{ flex: 1, backgroundColor: themeColors.background }}>
+            <SafeAreaView style={[styles.container]}>
                 <View style={styles.header}>
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                             <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
                             </View>
                         </TouchableOpacity>
+
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary, fontFamily: 'GoogleSansFlex_600SemiBold' }]}>Upcoming</Text>
-                        <TouchableOpacity style={styles.headerAction}>
-                             <View style={styles.headerDots}>
-                                 <View style={[styles.dot, {backgroundColor: Colors.primary}]} />
-                                 <View style={[styles.dot, {backgroundColor: Colors.primary}]} />
-                                 <View style={[styles.dot, {backgroundColor: Colors.primary}]} />
-                             </View>
-                        </TouchableOpacity>
+
+                        <View style={styles.headerRightPlaceholder} />
                     </View>
                 </View>
 
-                <View style={[styles.calendarContainer, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity 
-                        style={styles.monthLabel} 
+                <View style={[styles.calendarContainer, { borderColor: themeColors.border }]}>
+                    <TouchableOpacity
+                        style={styles.monthLabel}
                         activeOpacity={0.7}
                         onPress={toggleExpanded}
                     >
                         <Text style={[styles.monthText, { color: themeColors.textPrimary, fontFamily: 'GoogleSansFlex_600SemiBold' }]}>
-                            {expanded 
+                            {expanded
                                 ? viewDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                                 : selectedDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                             }
                         </Text>
-                        <CaretRight 
-                            size={14} 
-                            color={themeColors.textPrimary} 
-                            weight="bold" 
+                        <CaretRight
+                            size={14}
+                            color={themeColors.textPrimary}
+                            strokeWidth={3}
                             style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}
                         />
                     </TouchableOpacity>
 
-                   {expanded ? (
+                    {expanded ? (
                         <View style={styles.monthView}>
                             <View style={styles.gridHeaderRow}>
-                                {['S','M','T','W','T','F','S'].map((day, i) => (
+                                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
                                     <Text key={i} style={[styles.gridHeaderCheck, { color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_600SemiBold' }]}>{day}</Text>
                                 ))}
                             </View>
@@ -441,8 +432,8 @@ export default function CalendarScreen() {
                                 <View style={[styles.dragHandle, { backgroundColor: themeColors.border }]} />
                             </View>
                         </View>
-                   ) : (
-                       <FlatList
+                    ) : (
+                        <FlatList
                             ref={flatListRef}
                             data={scrollableDates}
                             renderItem={renderDayItem}
@@ -454,8 +445,9 @@ export default function CalendarScreen() {
                                 { length: (SCREEN_WIDTH / 7), offset: (SCREEN_WIDTH / 7) * index, index }
                             )}
                             initialNumToRender={14}
-                       />
-                   )}
+                            initialScrollIndex={getInitialScrollIndex()}
+                        />
+                    )}
                 </View>
 
                 {isLoading ? (
@@ -463,13 +455,14 @@ export default function CalendarScreen() {
                         <ActivityIndicator size="large" color={Colors.primary} />
                     </View>
                 ) : (
-                    <SectionList
+                    <SectionList<CalendarEvent, Section>
                         ref={sectionListRef}
                         sections={sections}
                         renderItem={renderEvent}
                         renderSectionHeader={renderSectionHeader}
                         keyExtractor={(item) => item.id}
                         contentContainerStyle={styles.listContent}
+                        stickySectionHeadersEnabled={false}
                         showsVerticalScrollIndicator={false}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
@@ -477,20 +470,13 @@ export default function CalendarScreen() {
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
                                 <View style={[styles.emptyIconCircle, { backgroundColor: themeColors.surface }]}>
-                                    <CalendarBlank size={48} color={themeColors.textSecondary} weight="duotone" />
+                                    <CalendarBlank size={48} color={themeColors.textSecondary} />
                                 </View>
                                 <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary, fontFamily: 'GoogleSansFlex_600SemiBold' }]}>No Upcoming Tasks</Text>
-                                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_500Medium' }]}>
-                                    All caught up!
-                                </Text>
                             </View>
                         }
                     />
                 )}
-                
-                <TouchableOpacity style={[styles.fab, { backgroundColor: Colors.primary }]}>
-                    <Plus size={24} color="#FFFFFF" weight="bold" />
-                </TouchableOpacity>
             </SafeAreaView>
         </View>
     );
@@ -517,7 +503,12 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
     backButtonCircle: {
-        display: 'none',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        // No border
     },
     headerTitle: {
         fontSize: 18,
@@ -527,24 +518,10 @@ const styles = StyleSheet.create({
     headerRightPlaceholder: {
         width: 40,
     },
-    headerAction: {
-         width: 40,
-         alignItems: 'flex-end',
-         justifyContent: 'center',
-    },
-    headerDots: {
-        flexDirection: 'row',
-        gap: 3,
-    },
-    dot: {
-        width: 4, 
-        height: 4, 
-        borderRadius: 2,
-    },
     calendarContainer: {
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderColor: '#E5E7EB',
         paddingBottom: 8,
+        overflow: 'hidden', // Add overflow hidden for animation clipping
     },
     monthLabel: {
         flexDirection: 'row',
@@ -557,9 +534,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     stripContent: {
+        // paddingHorizontal: 16,
     },
     dayItem: {
-        width: (SCREEN_WIDTH) / 7, 
+        width: (SCREEN_WIDTH) / 7,
         alignItems: 'center',
         gap: 12,
         paddingVertical: 8,
@@ -579,15 +557,16 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     monthView: {
-        paddingHorizontal: 16,
+        // paddingHorizontal: 16, // REMOVED padding
     },
     gridHeaderRow: {
         flexDirection: 'row',
         marginBottom: 12,
         justifyContent: 'space-between',
+        // Should use full width items now
     },
     gridHeaderCheck: {
-        width: (SCREEN_WIDTH - 32) / 7,
+        width: SCREEN_WIDTH / 7, // Changed from (SCREEN_WIDTH - 32) / 7
         textAlign: 'center',
         fontSize: 11,
         textTransform: 'uppercase',
@@ -597,7 +576,7 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     gridItem: {
-        width: (SCREEN_WIDTH - 32) / 7,
+        width: SCREEN_WIDTH / 7, // Changed from (SCREEN_WIDTH - 32) / 7
         height: 44,
         justifyContent: 'center',
         alignItems: 'center',
@@ -633,9 +612,6 @@ const styles = StyleSheet.create({
     sectionDate: {
         fontSize: 14,
     },
-    divider: {
-        display: 'none',
-    },
     eventRow: {
         flexDirection: 'row',
         paddingHorizontal: 16,
@@ -670,33 +646,10 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
     metaDot: {
-        width: 2, 
-        height: 2, 
-        borderRadius: 1, 
+        width: 2,
+        height: 2,
+        borderRadius: 1,
         backgroundColor: '#6B7280'
-    },
-    eventRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-    },
-    inboxLabel: {
-        fontSize: 12,
-    },
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 6,
     },
     listContent: {
         paddingBottom: 100,
@@ -723,11 +676,5 @@ const styles = StyleSheet.create({
     emptyStateTitle: {
         fontSize: 18,
         marginTop: 4,
-    },
-    emptyStateText: {
-        fontSize: 14,
-        textAlign: 'center',
-        marginTop: 8,
-        lineHeight: 20,
     },
 });

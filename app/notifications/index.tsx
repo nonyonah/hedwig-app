@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SectionList, ActivityIndicator, RefreshControl, Image, Platform, ScrollView, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CaretLeft, Bell, CheckCircle, CurrencyDollar, ArrowsDownUp, Megaphone, Receipt, Link, Bank, Trash, FileText } from 'phosphor-react-native';
+import { ChevronLeft as CaretLeft, Bell, CheckCircle, DollarSign as CurrencyDollar, ArrowUpDown as ArrowsDownUp, Megaphone, Receipt, Link, Landmark as Bank, Trash, FileText } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
@@ -156,20 +156,20 @@ export default function NotificationsScreen() {
             if (metadata?.documentId && metadata?.documentId.startsWith('inv_')) {
                 return (
                     <View style={[styles.iconContainer, { backgroundColor: '#10B981' }]}>
-                        <Receipt size={20} color="#FFFFFF" weight="fill" />
+                        <Receipt size={20} color="#FFFFFF" />
                     </View>
                 );
             }
             if (metadata?.documentId && !metadata?.documentId.startsWith('inv_')) {
                 return (
                     <View style={[styles.iconContainer, { backgroundColor: '#3B82F6' }]}>
-                        <Link size={20} color="#FFFFFF" weight="bold" />
+                        <Link size={20} color="#FFFFFF" strokeWidth={3} />
                     </View>
                 );
             }
             return (
                 <View style={[styles.iconContainer, { backgroundColor: '#10B981' }]}>
-                    <CurrencyDollar size={20} color="#FFFFFF" weight="fill" />
+                    <CurrencyDollar size={20} color="#FFFFFF" fill="#FFFFFF" />
                 </View>
             );
         }
@@ -194,31 +194,31 @@ export default function NotificationsScreen() {
             case 'announcement':
                 return (
                     <View style={[styles.iconContainer, { backgroundColor: '#F59E0B' }]}>
-                        <Megaphone size={20} color="#FFFFFF" weight="fill" />
+                        <Megaphone size={20} color="#FFFFFF" fill="#FFFFFF" />
                     </View>
                 );
             case 'contract_approved':
                 return (
                     <View style={[styles.iconContainer, { backgroundColor: '#8B5CF6' }]}>
-                        <FileText size={20} color="#FFFFFF" weight="fill" />
+                        <FileText size={20} color="#FFFFFF" fill="#FFFFFF" />
                     </View>
                 );
             case 'proposal_accepted':
                 return (
                     <View style={[styles.iconContainer, { backgroundColor: '#10B981' }]}>
-                        <CheckCircle size={20} color="#FFFFFF" weight="fill" />
+                        <CheckCircle size={20} color="#FFFFFF" fill="#FFFFFF" />
                     </View>
                 );
             case 'proposal_sent':
                 return (
                     <View style={[styles.iconContainer, { backgroundColor: '#3B82F6' }]}>
-                        <FileText size={20} color="#FFFFFF" weight="fill" />
+                        <FileText size={20} color="#FFFFFF" fill="#FFFFFF" />
                     </View>
                 );
             default:
                 return (
                     <View style={[styles.iconContainer, { backgroundColor: Colors.textSecondary }]}>
-                        <Bell size={20} color="#FFFFFF" weight="fill" />
+                        <Bell size={20} color="#FFFFFF" fill="#FFFFFF" />
                     </View>
                 );
         }
@@ -273,7 +273,7 @@ export default function NotificationsScreen() {
             <TouchableOpacity onPress={() => deleteNotification(id)}>
                 <View style={styles.deleteButton}>
                     <Animated.View style={{ transform: [{ scale }] }}>
-                        <Trash size={24} color="#FFFFFF" weight="bold" />
+                        <Trash size={24} color="#FFFFFF" strokeWidth={3} />
                     </Animated.View>
                 </View>
             </TouchableOpacity>
@@ -357,7 +357,7 @@ export default function NotificationsScreen() {
                     onPress={() => router.back()}
                 >
                     <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
                     </View>
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Notifications</Text>
@@ -375,7 +375,7 @@ export default function NotificationsScreen() {
                 </View>
             ) : notifications.length === 0 ? (
                 <View style={styles.emptyState}>
-                    <Bell size={64} color={themeColors.textSecondary} weight="light" />
+                    <Bell size={64} color={themeColors.textSecondary} strokeWidth={1} />
                     <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No notifications yet</Text>
                     <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
                         When someone pays your invoice or sends you crypto, I'll let you know here!

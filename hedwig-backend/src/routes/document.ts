@@ -1083,9 +1083,9 @@ router.patch('/:id/status', authenticate, async (req: Request, res: Response, ne
         
         // If marked as PAID, also complete associated calendar event
         if (status === 'PAID') {
-             await markCalendarEventCompleted('invoice', id);
+             await markCalendarEventCompleted('invoice', id as string);
              // Also try payment_link just in case (sourceType might vary)
-             await markCalendarEventCompleted('payment_link', id);
+             await markCalendarEventCompleted('payment_link', id as string);
         }
 
         res.json({

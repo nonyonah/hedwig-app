@@ -10,7 +10,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { List, CheckCircle, ShareNetwork, X, Wallet, UserCircle, Trash, DotsThree, Bell } from 'phosphor-react-native';
+import { List, CheckCircle, Share2 as ShareNetwork, X, Wallet, CircleUser as UserCircle, Trash, MoreHorizontal as DotsThree, Bell } from 'lucide-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -406,7 +406,7 @@ export default function PaymentLinksScreen() {
                     style={styles.deleteButton}
                     onPress={() => handleDelete(item.id)}
                 >
-                    <Trash size={24} color="#FFFFFF" weight="fill" />
+                    <Trash size={24} color="#FFFFFF" fill="#FFFFFF" />
                 </TouchableOpacity>
             </Animated.View>
         );
@@ -520,7 +520,7 @@ export default function PaymentLinksScreen() {
                         }
                         ListEmptyComponent={
                             < View style={styles.emptyState}>
-                                <ShareNetwork size={64} color={themeColors.textSecondary} weight="duotone" />
+                                <ShareNetwork size={64} color={themeColors.textSecondary} />
                                 <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Payment Links</Text>
                                 <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
                                     Create a payment link to accept crypto payments
@@ -583,7 +583,7 @@ export default function PaymentLinksScreen() {
                         </View>
                         <View style={styles.modalHeaderRight}>
                             {selectedLink?.status !== 'PAID' && (
-                                <Host style={{ height: 36 }} matchContents>
+                                <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
                                     <ContextMenu>
                                         <ContextMenu.Trigger>
                                             <ExpoButton variant="borderless" systemImage="ellipsis">
@@ -614,7 +614,7 @@ export default function PaymentLinksScreen() {
                                 </Host>
                             )}
                             <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                                <X size={20} color={themeColors.textSecondary} weight="bold" />
+                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                             </TouchableOpacity>
                         </View>
                     </View>

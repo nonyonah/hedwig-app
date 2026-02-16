@@ -5,16 +5,16 @@ import { useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 import { useState, useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { 
-    ChartBar, 
-    ArrowsLeftRight, 
-    CurrencyDollar, 
-    Calendar, 
-    FolderOpen, 
-    Users, 
-    Gear,
-    PaperPlaneTilt
-} from 'phosphor-react-native';
+import {
+    BarChart3 as ChartBar,
+    ArrowLeftRight as ArrowsLeftRight,
+    DollarSign as CurrencyDollar,
+    Calendar,
+    FolderOpen,
+    Users,
+    Settings as Gear,
+    Send as PaperPlaneTilt
+} from 'lucide-react-native';
 
 function CustomDrawerContent(props: any) {
     const router = useRouter();
@@ -84,7 +84,7 @@ function CustomDrawerContent(props: any) {
                                 style={styles.menuItem}
                                 onPress={() => handleNavigation(item.route)}
                             >
-                                <IconComponent size={24} color={themeColors.textPrimary} weight="regular" />
+                                <IconComponent size={24} color={themeColors.textPrimary} />
                                 <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{item.name}</Text>
                             </TouchableOpacity>
                         );
@@ -102,7 +102,7 @@ function CustomDrawerContent(props: any) {
                                 style={styles.menuItem}
                                 onPress={() => handleNavigation(item.route)}
                             >
-                                <IconComponent size={24} color={themeColors.textPrimary} weight="regular" />
+                                <IconComponent size={24} color={themeColors.textPrimary} />
                                 <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{item.name}</Text>
                             </TouchableOpacity>
                         );
@@ -112,14 +112,14 @@ function CustomDrawerContent(props: any) {
 
             {/* Footer with Feedback Button */}
             <View style={styles.footer}>
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={[styles.feedbackButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                     onPress={() => {
                         props.navigation.closeDrawer();
                         // Add feedback functionality here
                     }}
                 >
-                    <PaperPlaneTilt size={20} color={themeColors.textPrimary} weight="regular" />
+                    <PaperPlaneTilt size={20} color={themeColors.textPrimary} />
                     <Text style={[styles.feedbackText, { color: themeColors.textPrimary }]}>Give feedback</Text>
                 </TouchableOpacity>
             </View>

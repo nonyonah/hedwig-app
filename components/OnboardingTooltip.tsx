@@ -8,7 +8,7 @@ import {
     Dimensions,
     Modal,
 } from 'react-native';
-import { X } from 'phosphor-react-native';
+import { X } from 'lucide-react-native';
 import { Colors } from '../theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

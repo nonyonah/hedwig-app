@@ -6,7 +6,7 @@ import '@walletconnect/react-native-compat';
 import { AppKitProvider, useAppKit, useAccount, useProvider } from '@reown/appkit-react-native';
 import { paymentAppKit } from '../../lib/appkit';
 import { ethers } from 'ethers';
-import { CheckCircle, DownloadSimple, Wallet } from 'phosphor-react-native';
+import { CheckCircle, Download as DownloadSimple, Wallet } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
 
@@ -286,12 +286,12 @@ function InvoiceContent() {
                         size="large"
                         loading={isPaying}
                         disabled={isPaying}
-                        icon={!isConnected && !isPaying ? <Wallet size={20} color="#FFF" weight="fill" /> : undefined}
+                        icon={!isConnected && !isPaying ? <Wallet size={20} color="#FFF" fill="#FFF" /> : undefined}
                     />
                 </View>
 
                 <View style={styles.footer}>
-                    <CheckCircle size={16} color={themeColors.textSecondary} weight="fill" />
+                    <CheckCircle size={16} color={themeColors.textSecondary} fill={themeColors.textSecondary} />
                     <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>Secured by Hedwig</Text>
                 </View>
             </ScrollView>

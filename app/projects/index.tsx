@@ -5,7 +5,7 @@ import { BlurView } from 'expo-blur'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { Briefcase, List, Calendar, User, CurrencyDollar, CheckCircle, Clock, Receipt, CaretRight, X, DotsThree, Trash, Check, FileText, CaretLeft, Plus } from 'phosphor-react-native';
+import { Briefcase, List, Calendar, User, DollarSign as CurrencyDollar, CheckCircle, Clock, Receipt, ChevronRight as CaretRight, X, MoreHorizontal as DotsThree, Trash2 as Trash, Check, FileText, ChevronLeft as CaretLeft, Plus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
 import { Colors, useThemeColors } from '../../theme/colors';
@@ -310,8 +310,8 @@ export default function ProjectsScreen() {
 
     const getMilestoneStatusIcon = (status: string) => {
         switch (status) {
-            case 'paid': return <CheckCircle size={18} color="#10B981" weight="fill" />;
-            case 'invoiced': return <Receipt size={18} color="#3B82F6" weight="fill" />;
+            case 'paid': return <CheckCircle size={18} color="#10B981" fill="#10B981" />;
+            case 'invoiced': return <Receipt size={18} color="#3B82F6" />;
             default: return <Clock size={18} color={Colors.textSecondary} />;
         }
     };
@@ -353,7 +353,7 @@ export default function ProjectsScreen() {
                             <Text style={[styles.projectItemClient, { color: themeColors.textSecondary }]}>{item.client?.name || 'No client'}</Text>
                             {item.hasContract && (
                                 <View style={styles.contractBadge}>
-                                    <FileText size={10} color="#6366F1" weight="fill" />
+                                    <FileText size={10} color="#6366F1" fill="#6366F1" />
                                     <Text style={styles.contractBadgeText}>Contract</Text>
                                 </View>
                             )}
@@ -399,7 +399,7 @@ export default function ProjectsScreen() {
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                             <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
                             </View>
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Projects</Text>
@@ -407,7 +407,7 @@ export default function ProjectsScreen() {
                             onPress={() => router.push('/projects/create')}
                             style={[styles.backButton, { alignItems: 'flex-end' }]}
                         >
-                            <Plus size={24} color={themeColors.textPrimary} weight="bold" />
+                            <Plus size={24} color={themeColors.textPrimary} strokeWidth={3} />
                         </TouchableOpacity>
                     </View>
                     {/* Filter Chips inside Header */}
@@ -442,7 +442,7 @@ export default function ProjectsScreen() {
                 {/* Project List */}
                 {filteredProjects.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Briefcase size={64} color={themeColors.textSecondary} weight="bold" />
+                        <Briefcase size={64} color={themeColors.textSecondary} strokeWidth={3} />
                         <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Projects Yet</Text>
                         <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
                             Projects help you track milestones and invoices for client work.
@@ -490,7 +490,7 @@ export default function ProjectsScreen() {
                                         <Text style={[styles.modalHeaderTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{selectedProject.title}</Text>
                                     </View>
                                     <View style={styles.modalHeaderRight}>
-                                        <Host style={{ height: 36 }} matchContents>
+                                        <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
                                             <ContextMenu>
                                                 <ContextMenu.Trigger>
                                                     <ExpoButton variant="borderless" systemImage="ellipsis">
@@ -514,7 +514,7 @@ export default function ProjectsScreen() {
                                             </ContextMenu>
                                         </Host>
                                         <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeDetailModal}>
-                                            <X size={20} color={themeColors.textSecondary} weight="bold" />
+                                            <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -689,7 +689,7 @@ export default function ProjectsScreen() {
                                                         <ActivityIndicator size="small" color={Colors.primary} />
                                                     ) : (
                                                         <>
-                                                            <Check size={14} color={Colors.primary} weight="bold" />
+                                                            <Check size={14} color={Colors.primary} strokeWidth={3} />
                                                             <Text style={styles.completeButtonText}>Invoice</Text>
                                                         </>
                                                     )}

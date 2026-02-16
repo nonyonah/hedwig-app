@@ -11,8 +11,8 @@ import {
     SafeAreaView,
     Platform
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { MagnifyingGlass, X, Bank as BankIcon, CaretLeft } from 'phosphor-react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Search as MagnifyingGlass, X, Landmark as BankIcon, ChevronLeft as CaretLeft } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -25,6 +25,7 @@ export default function BankSelectionScreen() {
     const router = useRouter();
     const themeColors = useThemeColors();
     const { getAccessToken } = useAuth();
+    const { currency = 'NGN' } = useLocalSearchParams<{ currency?: string }>();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [banks, setBanks] = useState<Bank[]>([]);
@@ -32,7 +33,7 @@ export default function BankSelectionScreen() {
 
     useEffect(() => {
         fetchBanks();
-    }, []);
+    }, [currency]);
 
     const fetchBanks = async () => {
         try {
@@ -40,7 +41,7 @@ export default function BankSelectionScreen() {
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-            const response = await fetch(`${apiUrl}/api/offramp/institutions?currency=NGN`, {
+            const response = await fetch(`${apiUrl}/api/offramp/institutions?currency=${currency}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -94,14 +95,14 @@ export default function BankSelectionScreen() {
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Select Bank</Text>
                 <TouchableOpacity onPress={() => router.back()} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                    <X size={20} color={themeColors.textPrimary} weight="bold" />
+                    <X size={20} color={themeColors.textPrimary} strokeWidth={3} />
                 </TouchableOpacity>
             </View>
 
             {/* Search Bar */}
             <View style={{ paddingHorizontal: 20, marginBottom: 10 }}>
                 <View style={[styles.searchBar, { backgroundColor: themeColors.surface }]}>
-                    <MagnifyingGlass size={20} color={themeColors.textSecondary} weight="bold" />
+                    <MagnifyingGlass size={20} color={themeColors.textSecondary} strokeWidth={3} />
                     <TextInput
                         style={[styles.searchInput, { color: themeColors.textPrimary }]}
                         placeholder="Search bank..."
@@ -112,7 +113,7 @@ export default function BankSelectionScreen() {
                     />
                     {searchQuery.length > 0 && (
                         <TouchableOpacity onPress={() => setSearchQuery('')}>
-                            <X size={16} color={themeColors.textSecondary} weight="bold" />
+                            <X size={16} color={themeColors.textSecondary} strokeWidth={3} />
                         </TouchableOpacity>
                     )}
                 </View>

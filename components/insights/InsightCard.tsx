@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Link } from 'expo-router';
-import { CaretRight } from 'phosphor-react-native';
+import { ChevronRight as CaretRight } from 'lucide-react-native';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Insight } from '../../hooks/useInsights';
@@ -70,7 +70,7 @@ export const InsightCard: React.FC<InsightCardProps> = ({ insight, onPress }) =>
                             <Text style={[styles.actionText, { color: insight.color }]}>
                                 {insight.actionLabel}
                             </Text>
-                            <CaretRight size={14} color={insight.color} weight="bold" />
+                            <CaretRight size={14} color={insight.color} strokeWidth={3} />
                         </View>
                     )}
                 </View>

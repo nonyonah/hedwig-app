@@ -9,7 +9,7 @@ import { DrawerActions } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { List, CheckCircle, FileText, X, UserCircle, Trash, DotsThree, PaperPlaneTilt, Clock, Eye } from 'phosphor-react-native';
+import { List, CircleCheck as CheckCircle, FileText, X, CircleUser as UserCircle, Trash, Ellipsis as DotsThree, Send as PaperPlaneTilt, Clock, Eye } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -267,13 +267,13 @@ export default function ContractsScreen() {
             case 'PAID':
             case 'APPROVED':
             case 'SIGNED':
-                return <CheckCircle size={16} color="#16A34A" weight="fill" />;
+                return <CheckCircle size={16} color="#16A34A" fill="#16A34A" />;
             case 'SENT':
             case 'ACTIVE':
             case 'VIEWED':
-                return <PaperPlaneTilt size={16} color="#4F46E5" weight="fill" />;
+                return <PaperPlaneTilt size={16} color="#4F46E5" fill="#4F46E5" />;
             default:
-                return <Clock size={16} color="#D97706" weight="fill" />;
+                return <Clock size={16} color="#D97706" fill="#D97706" />;
         }
     };
 
@@ -387,7 +387,7 @@ export default function ContractsScreen() {
                         contentContainerStyle={styles.listContent}
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
-                                <FileText size={64} color={themeColors.textSecondary} weight="duotone" />
+                                <FileText size={64} color={themeColors.textSecondary} />
                                 <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Contracts</Text>
                                 <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
                                     Create a contract with AI to get started
@@ -424,7 +424,7 @@ export default function ContractsScreen() {
                     <View style={styles.modalHeader}>
                         <View style={styles.modalHeaderLeft}>
                             <View style={[styles.modalIconContainer, { backgroundColor: themeColors.surface }]}>
-                                <FileText size={28} color={Colors.primary} weight="duotone" />
+                                <FileText size={28} color={Colors.primary} />
                             </View>
                             <View>
                                 <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
@@ -445,11 +445,11 @@ export default function ContractsScreen() {
                                     }}
                                     style={styles.menuButton}
                                 >
-                                    <DotsThree size={24} color={themeColors.textSecondary} weight="bold" />
+                                    <DotsThree size={24} color={themeColors.textSecondary} strokeWidth={3} />
                                 </TouchableOpacity>
                             )}
                             <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                                <X size={20} color={themeColors.textSecondary} weight="bold" />
+                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -474,7 +474,7 @@ export default function ContractsScreen() {
                                         closeModal();
                                     }}
                                 >
-                                    <Trash size={18} color="#EF4444" weight="fill" />
+                                    <Trash size={18} color="#EF4444" fill="#EF4444" />
                                     <Text style={[styles.pullDownMenuText, { color: '#EF4444' }]}>Delete</Text>
                                 </TouchableOpacity>
                             </Animated.View>
@@ -528,7 +528,7 @@ export default function ContractsScreen() {
                             style={[styles.viewButton, { backgroundColor: '#059669' }]}
                             onPress={() => handleSendContract(selectedContract.id)}
                         >
-                            <PaperPlaneTilt size={20} color="#FFFFFF" weight="fill" style={{ marginRight: 8 }} />
+                            <PaperPlaneTilt size={20} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 8 }} />
                             <Text style={styles.viewButtonText}>Send to Client</Text>
                         </TouchableOpacity>
                     )}
@@ -549,7 +549,7 @@ export default function ContractsScreen() {
                             }
                         }}
                     >
-                        <Eye size={20} color="#FFFFFF" weight="fill" style={{ marginRight: 8 }} />
+                        <Eye size={20} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 8 }} />
                         <Text style={styles.viewButtonText}>View Contract</Text>
                     </TouchableOpacity>
                 </BottomSheetView>

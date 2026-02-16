@@ -17,7 +17,7 @@ import {
     Platform,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { X, CheckCircle, Clock, Wallet, ArrowDown } from 'phosphor-react-native';
+import { X, CheckCircle, Clock, Wallet, ArrowDown } from 'lucide-react-native';
 import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { Connection, Transaction, clusterApiUrl } from '@solana/web3.js';
 import { Colors, useThemeColors } from '../theme/colors';
@@ -367,7 +367,7 @@ export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalP
                     {/* Central Arrow Button */}
                     <View style={styles.arrowContainer}>
                         <View style={[styles.arrowCircle, { backgroundColor: themeColors.surface, borderColor: themeColors.background }]}>
-                            <ArrowDown size={20} color={themeColors.textPrimary} weight="bold" />
+                            <ArrowDown size={20} color={themeColors.textPrimary} strokeWidth={3} />
                         </View>
                     </View>
 
@@ -424,7 +424,7 @@ export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalP
     const renderSigningStep = () => (
         <>
             <View style={styles.statusIcon}>
-                <Wallet size={48} color={Colors.primary} weight="fill" />
+                <Wallet size={48} color={Colors.primary} fill={Colors.primary} />
             </View>
             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Sign Transaction</Text>
             <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>{bridgeStatus}</Text>
@@ -436,7 +436,7 @@ export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalP
     const renderBridgingStep = () => (
         <>
             <View style={styles.statusIcon}>
-                <Clock size={48} color={Colors.warning} weight="fill" />
+                <Clock size={48} color={Colors.warning} fill={Colors.warning} />
             </View>
             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Bridging...</Text>
             <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>{bridgeStatus}</Text>
@@ -456,7 +456,7 @@ export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalP
     const renderCompleteStep = () => (
         <>
             <View style={styles.statusIcon}>
-                <CheckCircle size={64} color={Colors.success} weight="fill" />
+                <CheckCircle size={64} color={Colors.success} fill={Colors.success} />
             </View>
             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Bridge Complete!</Text>
             <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
@@ -485,7 +485,7 @@ export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalP
     const renderErrorStep = () => (
         <>
             <View style={styles.statusIcon}>
-                <X size={64} color={Colors.error} weight="fill" />
+                <X size={64} color={Colors.error} strokeWidth={3} />
             </View>
             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Bridge Failed</Text>
             <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>{error}</Text>

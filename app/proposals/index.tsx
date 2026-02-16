@@ -8,7 +8,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CaretLeft, FileText } from 'phosphor-react-native';
+import { ChevronLeft as CaretLeft, FileText } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
@@ -25,7 +25,7 @@ export default function ProposalsScreen() {
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} weight="bold" />
+                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
                     </View>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Proposals</Text>
@@ -33,7 +33,7 @@ export default function ProposalsScreen() {
             </View>
 
             <View style={styles.content}>
-                <FileText size={80} color={Colors.textSecondary} weight="light" />
+                <FileText size={80} color={Colors.textSecondary} strokeWidth={1} />
                 <Text style={styles.title}>Coming Soon</Text>
                 <Text style={styles.subtitle}>
                     The proposals feature is currently being improved.{'\n'}

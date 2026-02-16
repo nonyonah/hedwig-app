@@ -1,7 +1,7 @@
 import React, { useState, forwardRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { X, PaperPlaneTilt, Bug, Lightbulb } from 'phosphor-react-native';
+import { X, Send as PaperPlaneTilt, Bug, Lightbulb } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSettings } from '../context/SettingsContext';
@@ -96,7 +96,7 @@ export const FeedbackModal = forwardRef<BottomSheetModal, FeedbackModalProps>(({
                         Give Feedback
                     </Text>
                     <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                        <X size={24} color={themeColors.textSecondary} weight="bold" />
+                        <X size={24} color={themeColors.textSecondary} strokeWidth={3} />
                     </TouchableOpacity>
                 </View>
 
@@ -121,7 +121,7 @@ export const FeedbackModal = forwardRef<BottomSheetModal, FeedbackModalProps>(({
                         <Lightbulb
                             size={24}
                             color={feedbackType === 'feature' ? '#FFFFFF' : themeColors.textPrimary}
-                            weight="fill"
+                            fill={feedbackType === 'feature' ? '#FFFFFF' : themeColors.textPrimary}
                         />
                         <Text style={[
                             styles.typeText,
@@ -147,7 +147,7 @@ export const FeedbackModal = forwardRef<BottomSheetModal, FeedbackModalProps>(({
                         <Bug
                             size={24}
                             color={feedbackType === 'bug' ? '#FFFFFF' : themeColors.textPrimary}
-                            weight="fill"
+                            fill={feedbackType === 'bug' ? '#FFFFFF' : themeColors.textPrimary}
                         />
                         <Text style={[
                             styles.typeText,
@@ -200,7 +200,7 @@ export const FeedbackModal = forwardRef<BottomSheetModal, FeedbackModalProps>(({
                     onPress={handleSubmit}
                     disabled={isSubmitting}
                 >
-                    <PaperPlaneTilt size={20} color="#FFFFFF" weight="bold" />
+                    <PaperPlaneTilt size={20} color="#FFFFFF" strokeWidth={3} />
                     <Text style={styles.submitButtonText}>
                         {isSubmitting ? 'Sending...' : 'Submit Feedback'}
                     </Text>

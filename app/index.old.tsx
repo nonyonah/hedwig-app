@@ -13,7 +13,7 @@ import { usePrivy } from '@privy-io/expo';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useUserActions, Suggestion } from '../hooks/useUserActions';
 import { useUser } from '../context/UserContext';
-import { List, UserCircle, SquaresFour, ArrowUp, ArrowDown, Link, Receipt, Pen, Scroll, X, Copy, ThumbsUp, ThumbsDown, ArrowsClockwise, Gear, Swap, ClockCounterClockwise, House, SignOut, Chat, Wallet, CaretRight, CaretLeft, CreditCard, CurrencyNgn, ShareNetwork, Square, Paperclip, Image as ImageIcon, File, Bell, Plus, Microphone, Stop } from 'phosphor-react-native';
+import { List, Bell, ArrowDown, File, X, Plus, Image as ImageIcon, Square, ArrowUp, Copy, ThumbsUp, ThumbsDown, RefreshCw as ArrowsClockwise } from 'lucide-react-native';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
@@ -1102,7 +1102,7 @@ export default function HomeScreen() {
                         onPress={() => { Keyboard.dismiss(); setIsSidebarOpen(true); }}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <List size={24} color={themeColors.textPrimary} weight="bold" />
+                        <List size={24} color={themeColors.textPrimary} strokeWidth={3} />
                     </TouchableOpacity>
                     <View style={styles.headerRight}>
                         {/* Notifications Bell */}
@@ -1111,7 +1111,7 @@ export default function HomeScreen() {
                             style={styles.notificationButton}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
-                            <Bell size={24} color={themeColors.textPrimary} weight="bold" />
+                            <Bell size={24} color={themeColors.textPrimary} strokeWidth={3} />
                             {unreadNotificationCount > 0 && (
                                 <View style={styles.notificationBadge}>
                                     <Text style={styles.notificationBadgeText}>
@@ -1204,7 +1204,7 @@ export default function HomeScreen() {
                                         }}
                                         activeOpacity={0.8}
                                     >
-                                        <ArrowDown size={20} color={themeColors.textPrimary} weight="bold" />
+                                        <ArrowDown size={20} color={themeColors.textPrimary} strokeWidth={3} />
                                     </TouchableOpacity>
                                 )}
                             </View>
@@ -1259,7 +1259,7 @@ export default function HomeScreen() {
                                         }),
                                     }],
                                 }}>
-                                    <Plus size={24} color={themeColors.textPrimary} weight="bold" />
+                                    <Plus size={24} color={themeColors.textPrimary} strokeWidth={3} />
                                 </Animated.View>
                             </TouchableOpacity>
 
@@ -1318,9 +1318,9 @@ export default function HomeScreen() {
                                     onPress={isGenerating ? stopGeneration : sendMessage}
                                 >
                                     {isGenerating ? (
-                                        <Stop size={22} color="#FFFFFF" weight="fill" />
+                                        <Square size={22} color="#FFFFFF" fill="#FFFFFF" />
                                     ) : (
-                                        <ArrowUp size={22} color="#FFFFFF" weight="bold" />
+                                        <ArrowUp size={22} color="#FFFFFF" strokeWidth={3} />
                                     )}
                                 </TouchableOpacity>
                             )}

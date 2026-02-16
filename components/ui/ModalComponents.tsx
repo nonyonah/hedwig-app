@@ -17,7 +17,7 @@ import {
     ViewStyle,
     TextStyle
 } from 'react-native';
-import { X } from 'phosphor-react-native';
+import { X } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 
 /**
@@ -46,7 +46,7 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
                     style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
                     onPress={onClose}
                 >
-                    <X size={20} color={themeColors.textSecondary} weight="bold" />
+                    <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                 </TouchableOpacity>
             )}
         </View>

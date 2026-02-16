@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Share } from 'react-native';
 import { useRouter, usePathname, Link } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link as LinkIcon, Receipt, Chat, SignOut, ArrowsLeftRight, Gear, MagnifyingGlass, X, Bank, Users, Briefcase, FileText, ChartBar, CalendarBlank } from 'phosphor-react-native';
+import { House, Link as LinkIcon, Receipt, MessageCircle as Chat, LogOut as SignOut, ArrowLeftRight as ArrowsLeftRight, Settings as Gear, Search as MagnifyingGlass, X, Landmark as Bank, Users, Briefcase, FileText, ChartBar, Calendar as CalendarBlank } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -307,7 +307,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             {/* Primary Navigation */}
                             <View style={styles.menuSection}>
                                 {renderMenuItem(
-                                    <House size={22} weight="bold" />,
+                                    <House size={22} strokeWidth={3} />,
                                     'Home',
                                     pathname === '/',
                                     () => {
@@ -316,43 +316,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     }
                                 )}
                                 {renderMenuItem(
-                                    <Receipt size={22} weight="bold" />,
+                                    <Receipt size={22} strokeWidth={3} />,
                                     'Invoices',
                                     pathname === '/invoices',
                                     () => handleNavigation('/invoices')
                                 )}
                                 {renderMenuItem(
-                                    <LinkIcon size={22} weight="bold" />,
+                                    <LinkIcon size={22} strokeWidth={3} />,
                                     'Payment Links',
                                     pathname === '/payment-links',
                                     () => handleNavigation('/payment-links')
                                 )}
                                 {renderMenuItem(
-                                    <Users size={22} weight="bold" />,
+                                    <Users size={22} strokeWidth={3} />,
                                     'Clients',
                                     pathname === '/clients',
                                     () => handleNavigation('/clients')
                                 )}
                                 {renderMenuItem(
-                                    <Briefcase size={22} weight="bold" />,
+                                    <Briefcase size={22} strokeWidth={3} />,
                                     'Projects',
                                     pathname === '/projects',
                                     () => handleNavigation('/projects')
                                 )}
                                 {renderMenuItem(
-                                    <FileText size={22} weight="bold" />,
+                                    <FileText size={22} strokeWidth={3} />,
                                     'Contracts',
                                     pathname === '/contracts',
                                     () => handleNavigation('/contracts')
                                 )}
                                 {renderMenuItem(
-                                    <ChartBar size={22} weight="bold" />,
+                                    <ChartBar size={22} strokeWidth={3} />,
                                     'Insights',
                                     pathname === '/insights',
                                     () => handleNavigation('/insights')
                                 )}
                                 {renderMenuItem(
-                                    <CalendarBlank size={22} weight="bold" />,
+                                    <CalendarBlank size={22} strokeWidth={3} />,
                                     'Calendar',
                                     pathname === '/calendar',
                                     () => handleNavigation('/calendar')
@@ -367,7 +367,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         const ConversationItem = (
                                             <View style={styles.menuItem}>
                                                 <View style={styles.menuIcon}>
-                                                    <Chat size={22} weight="bold" color={themeColors.textPrimary} />
+                                                    <Chat size={22} strokeWidth={3} color={themeColors.textPrimary} />
                                                 </View>
                                                 <Text
                                                     style={[
@@ -393,7 +393,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     </Link.Trigger>
                                                     <Link.Preview style={{ width: 280, height: 160 }}>
                                                         <View style={{ flex: 1, padding: 16, backgroundColor: themeColors.background, justifyContent: 'center' }}>
-                                                            <Chat size={32} weight="fill" color={Colors.primary} style={{ marginBottom: 12 }} />
+                                                            <Chat size={32} fill={Colors.primary} color="white" style={{ marginBottom: 12 }} />
                                                             <Text style={{ fontSize: 16, fontWeight: '600', color: themeColors.textPrimary }} numberOfLines={2}>
                                                                 {conv.title || 'Untitled Chat'}
                                                             </Text>
@@ -479,19 +479,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <View style={styles.settingsSection}>
                                 <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>SETTINGS</Text>
                                 {renderMenuItem(
-                                    <ArrowsLeftRight size={22} weight="bold" />,
+                                    <ArrowsLeftRight size={22} strokeWidth={3} />,
                                     'Transactions',
                                     pathname === '/transactions',
                                     () => handleNavigation('/transactions')
                                 )}
                                 {renderMenuItem(
-                                    <Bank size={22} weight="bold" />,
+                                    <Bank size={22} strokeWidth={3} />,
                                     'Withdrawals',
                                     pathname === '/offramp-history',
                                     () => handleNavigation('/offramp-history')
                                 )}
                                 {renderMenuItem(
-                                    <Gear size={22} weight="bold" />,
+                                    <Gear size={22} strokeWidth={3} />,
                                     'Settings',
                                     pathname === '/settings',
                                     () => handleNavigation('/settings')

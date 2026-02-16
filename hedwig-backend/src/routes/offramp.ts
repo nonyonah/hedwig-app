@@ -65,9 +65,9 @@ router.get('/institutions', authenticate, async (req: Request, res: Response, ne
  */
 router.post('/verify-account', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { bankName, accountNumber } = req.body;
+        const { bankName, accountNumber, currency } = req.body;
 
-        const result = await PaycrestService.verifyBankAccount(bankName, accountNumber);
+        const result = await PaycrestService.verifyBankAccount(bankName, accountNumber, currency);
 
         res.json({
             success: true,

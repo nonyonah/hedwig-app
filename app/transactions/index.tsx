@@ -17,7 +17,7 @@ import {
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowsLeftRight, CaretLeft } from 'phosphor-react-native';
+import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowLeftRight as ArrowsLeftRight, ChevronLeft as CaretLeft } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
@@ -287,7 +287,7 @@ export default function TransactionsScreen() {
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                             <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                                <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
                             </View>
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Transactions</Text>
@@ -301,7 +301,7 @@ export default function TransactionsScreen() {
                     </View>
                 ) : transactions.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <ArrowsLeftRight size={48} color={themeColors.textTertiary} weight="bold" />
+                        <ArrowsLeftRight size={48} color={themeColors.textTertiary} strokeWidth={3} />
                         <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No transactions yet</Text>
                         <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>Your transaction history will appear here.</Text>
                     </View>
@@ -363,7 +363,7 @@ export default function TransactionsScreen() {
                             </View>
                         </View>
                         <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                            <X size={20} color={themeColors.textSecondary} weight="bold" />
+                            <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                         </TouchableOpacity>
                     </View>
 
@@ -388,7 +388,7 @@ export default function TransactionsScreen() {
                                         <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1} ellipsizeMode="middle">
                                             {selectedTransaction.hash.slice(0, 10)}...{selectedTransaction.hash.slice(-8)}
                                         </Text>
-                                        <Copy size={14} color={themeColors.textTertiary} weight="bold" style={{ marginLeft: 6 }} />
+                                        <Copy size={14} color={themeColors.textTertiary} strokeWidth={3} style={{ marginLeft: 6 }} />
                                     </TouchableOpacity>
                                 </View>
                                 <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />

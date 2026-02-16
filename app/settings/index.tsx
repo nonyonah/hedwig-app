@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { CaretRight, List, CaretDown, Check, ShieldWarning, Lock, Copy, WarningCircle, CheckSquare, Square, CaretLeft } from 'phosphor-react-native';
+import { ChevronRight as CaretRight, List, ChevronDown as CaretDown, Check, ShieldAlert as ShieldWarning, Lock, Copy, CircleAlert as WarningCircle, SquareCheck as CheckSquare, Square, ChevronLeft as CaretLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
@@ -262,7 +262,7 @@ export default function SettingsScreen() {
                 <View style={styles.headerTop}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
                         <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                            <CaretLeft size={24} color={themeColors.textPrimary} weight="bold" />
+                            <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
                         </View>
                     </TouchableOpacity>
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Settings</Text>
@@ -454,7 +454,7 @@ export default function SettingsScreen() {
                                 {opt.label}
                             </Text>
                             {theme === opt.code && (
-                                <Check size={20} color={Colors.primary} weight="bold" />
+                                <Check size={20} color={Colors.primary} strokeWidth={3} />
                             )}
                         </TouchableOpacity>
                     ))}
@@ -478,7 +478,7 @@ export default function SettingsScreen() {
                     {/* Shield Icon */}
                     <View style={styles.shieldIconContainer}>
                         <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
-                            <ShieldWarning size={32} color={themeColors.textPrimary} weight="fill" />
+                            <ShieldWarning size={32} color={themeColors.textPrimary} fill={themeColors.textPrimary} />
                         </View>
                     </View>
 
@@ -495,21 +495,21 @@ export default function SettingsScreen() {
                     {/* Warning Items */}
                     <View style={styles.warningItemsContainer}>
                         <View style={styles.warningItem}>
-                            <Lock size={24} color={themeColors.textSecondary} weight="regular" />
+                            <Lock size={24} color={themeColors.textSecondary} />
                             <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
                                 Your recovery phrase is like a password, keep it secret.
                             </Text>
                         </View>
 
                         <View style={styles.warningItem}>
-                            <Copy size={24} color={themeColors.textSecondary} weight="regular" />
+                            <Copy size={24} color={themeColors.textSecondary} />
                             <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
                                 If you enter it in another app, it can steal your funds and Hedwig account.
                             </Text>
                         </View>
 
                         <View style={styles.warningItem}>
-                            <WarningCircle size={24} color={themeColors.textSecondary} weight="regular" />
+                            <WarningCircle size={24} color={themeColors.textSecondary} />
                             <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
                                 We do not recommend ever sharing it with any app or person.
                             </Text>
@@ -525,9 +525,9 @@ export default function SettingsScreen() {
                         }}
                     >
                         {recoveryAcknowledged ? (
-                            <CheckSquare size={24} color={Colors.primary} weight="fill" />
+                            <CheckSquare size={24} color={Colors.primary} fill={Colors.primary} />
                         ) : (
-                            <Square size={24} color={themeColors.textSecondary} weight="regular" />
+                            <Square size={24} color={themeColors.textSecondary} />
                         )}
                         <Text style={[styles.checkboxText, { color: themeColors.textSecondary }]}>
                             I understand that sharing this key could lead to loss of funds.

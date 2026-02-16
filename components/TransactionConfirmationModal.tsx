@@ -4,7 +4,7 @@ import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/ex
 import { ethers } from 'ethers';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { X, CheckCircle, Warning, Fingerprint, ArrowSquareOut, XCircle } from 'phosphor-react-native';
+import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
@@ -147,7 +147,7 @@ const parseErrorMessage = (error: any): string => {
 export const TransactionConfirmationModal = forwardRef<BottomSheetModal, TransactionConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
     // Early return MUST be before any hooks to follow Rules of Hooks
     if (!data) return null;
-    
+
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
     const { getAccessToken } = useAuth();
@@ -803,7 +803,7 @@ export const TransactionConfirmationModal = forwardRef<BottomSheetModal, Transac
             case 'failed':
                 return (
                     <View style={styles.statusContainer}>
-                        <XCircle size={120} color={Colors.error || '#EF4444'} weight="fill" style={{ marginBottom: 24 }} />
+                        <XCircle size={120} color="white" fill={Colors.error || '#EF4444'} style={{ marginBottom: 24 }} />
                         <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>Transaction failed. Don't worry your funds are safe.</Text>
                         <Text style={styles.errorMessage}>{statusMessage}</Text>
                         <View style={styles.actionButtonsContainer}>
@@ -820,7 +820,7 @@ export const TransactionConfirmationModal = forwardRef<BottomSheetModal, Transac
                         <View style={styles.header}>
                             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Confirm Transaction</Text>
                             <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={handleDismiss}>
-                                <X size={20} color={themeColors.textSecondary} weight="bold" />
+                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                             </TouchableOpacity>
                         </View>
 

@@ -5,7 +5,7 @@ import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { ethers } from 'ethers';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Clipboard from 'expo-clipboard';
-import { X, CheckCircle, Warning, Fingerprint, ArrowSquareOut, XCircle, Bank, Copy, CurrencyNgn, ArrowsDownUp } from 'phosphor-react-native';
+import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle, Landmark as Bank, Copy, ArrowUpDown as ArrowsDownUp } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
@@ -431,7 +431,7 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
             case 'awaiting_transfer':
                 return (
                     <View style={styles.statusContainer}>
-                        <ArrowsDownUp size={80} color={Colors.primary} weight="fill" style={{ marginBottom: 16 }} />
+                        <ArrowsDownUp size={80} color={Colors.primary} strokeWidth={3} style={{ marginBottom: 16 }} />
                         <Text style={styles.statusTitle}>Send crypto to complete offramp</Text>
                         <Text style={styles.statusSubtitle}>
                             Transfer {data.amount} {data.token} to the address below
@@ -486,7 +486,7 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
             case 'failed':
                 return (
                     <View style={styles.statusContainer}>
-                        <XCircle size={120} color={Colors.error || '#EF4444'} weight="fill" style={{ marginBottom: 24 }} />
+                        <XCircle size={120} color="white" fill={Colors.error || '#EF4444'} style={{ marginBottom: 24 }} />
                         <Text style={styles.statusTitle}>
                             {tokensSent ? 'Offramp Failed' : 'Offramp Failed'}
                         </Text>
@@ -514,7 +514,7 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                         <View style={styles.header}>
                             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Confirm Offramp</Text>
                             <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={handleClose}>
-                                <X size={20} color={themeColors.textSecondary} weight="bold" />
+                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                             </TouchableOpacity>
                         </View>
 
@@ -523,7 +523,7 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                             <Text style={[styles.amountLabel, { color: themeColors.textSecondary }]}>You're converting</Text>
                             <Text style={[styles.amount, { color: themeColors.textPrimary }]}>{data.amount} {data.token}</Text>
                             <View style={styles.fiatEstimate}>
-                                <CurrencyNgn size={18} color={themeColors.textSecondary} />
+                                <Text style={{ fontSize: 18, color: themeColors.textSecondary, fontWeight: 'bold' }}>₦</Text>
                                 <Text style={[styles.fiatAmount, { color: themeColors.textSecondary }]}>
                                     {isLoadingRate ? 'Calculating...' : `≈ ${data.fiatCurrency} ${estimatedFiat || data.estimatedFiat || '...'}`}
                                 </Text>
