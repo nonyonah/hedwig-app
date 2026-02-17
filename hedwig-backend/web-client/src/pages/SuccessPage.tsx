@@ -1,9 +1,8 @@
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, ArrowRight } from '@phosphor-icons/react';
+import { useSearchParams } from 'react-router-dom';
+import { CheckCircle } from '@phosphor-icons/react';
 import './PaymentLinkPage.css'; // Reuse existing styles
 
 export default function SuccessPage() {
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const txHash = searchParams.get('txHash');
     const amount = searchParams.get('amount');

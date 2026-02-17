@@ -23,7 +23,7 @@ export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZb
  * @param amount - Amount in USD
  * @returns Fee percentage (0.005 for >$1000, 0.01 for <=$1000)
  */
-export function calculateFeePercent(amount: number): number {
+export function calculateFeePercent(_amount: number): number {
     return 0; // Fee disabled temporarily
 }
 
@@ -41,7 +41,7 @@ export function calculatePlatformFee(amount: number): number {
  * @param amount - Amount in USD
  * @returns Display string like "0.5%" or "1%"
  */
-export function getFeeDisplayText(amount: number): string {
+export function getFeeDisplayText(_amount: number): string {
     return '0%';
 }
 

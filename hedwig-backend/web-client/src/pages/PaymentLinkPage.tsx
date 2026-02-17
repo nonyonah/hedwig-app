@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
 import { Wallet, CheckCircle, ArrowSquareOut, CurrencyCircleDollar } from '@phosphor-icons/react';
@@ -290,12 +290,6 @@ export default function PaymentLinkPage() {
                 });
 
                 // First transfer: 99.5% to freelancer
-                // Update UI to show status
-                const originalText = (document.querySelector('.pay-button span') as HTMLElement)?.innerText;
-                const payButton = document.querySelector('.pay-button') as HTMLButtonElement;
-
-                // We can't easily update React state from here without triggering re-renders, 
-                // but we can proceed with the sequence.
 
                 console.log('Sending to freelancer...');
                 const tx = await signer.sendTransaction({
