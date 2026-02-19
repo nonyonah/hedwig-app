@@ -1,17 +1,14 @@
-
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
-import { Wallet, CheckCircle, ArrowSquareOut, CurrencyCircleDollar } from '@phosphor-icons/react';
+import { CheckCircle, ArrowSquareOut, CurrencyCircleDollar } from '@phosphor-icons/react';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
-import { TOKENS, HEDWIG_PAYMENT_ABI, HEDWIG_CONTRACTS } from '../lib/appkit';
+import { TOKENS } from '../lib/appkit';
 import {
     SOLANA_RPC,
-    SOLANA_PLATFORM_WALLET,
     SOLANA_USDC_MINT,
     USDC_DECIMALS,
-    calculateFeePercent,
     getAssociatedTokenAddress,
     createAssociatedTokenAccountInstruction,
     createTokenTransferInstruction,
@@ -51,8 +48,6 @@ interface PaymentLinkData {
 
 type ChainId = 'base' | 'baseSepolia' | 'celo' | 'solana';
 
-
-
 export default function PaymentLinkPage() {
     const { id } = useParams<{ id: string }>();
     const { open } = useAppKit();
@@ -75,27 +70,25 @@ export default function PaymentLinkPage() {
             try {
                 setLoading(true);
                 const apiUrl = import.meta.env.VITE_API_URL || '';
-                const response = await fetch(`${apiUrl} /api/documents / ${id} `);
+                const response = await fetch(`${apiUrl}/api/documents/${id}`);
 
                 if (!response.ok) {
                     throw new Error('Payment link not found');
                 }
 
                 const data = await response.json();
-                // Backend returns {success: true, data: {document: {...} } }
                 const doc = data.data?.document || data.data || data;
                 setPaymentLink(doc);
 
                 // Initialize chain and token from document data if available
                 if (doc.chain) {
                     const normalizedChain = doc.chain.toLowerCase();
-                    if (normalizedChain.includes('solana')) setSelectedChain('solana' as any); // cast for now if type update needed
+                    if (normalizedChain.includes('solana')) setSelectedChain('solana');
                     else if (normalizedChain.includes('celo')) setSelectedChain('celo');
                     else setSelectedChain('baseSepolia');
                 }
 
                 if (doc.currency) {
-                    // Map USD to USDC for crypto payments
                     const token = doc.currency === 'USD' ? 'USDC' : doc.currency;
                     setSelectedToken(token);
                 }
@@ -116,95 +109,91 @@ export default function PaymentLinkPage() {
         const merchantAddress = paymentLink.user?.solana_wallet_address;
         if (!merchantAddress) {
             alert('Merchant does not have a Solana wallet address configured.');
-            setIsPaying(false);
             return;
         }
 
-        // Check for Phantom wallet - prioritize window.phantom.solana
+        // Check for Phantom wallet - prioritize window.phantom.solana (InvoicePage Logic)
         const phantomProvider = (window as any).phantom?.solana || (window as any).solana;
-        if (!phantomProvider?.isPhantom) {
-            // If provider exists but isn't Phantom, might be another wallet interfering
-            console.warn('Solana provider found but isPhantom flag missing or false');
-        }
 
         if (!phantomProvider) {
             alert('Please install Phantom wallet to pay with Solana!');
-            setIsPaying(false);
             return;
         }
 
         try {
-            // Connect to Phantom
+            setIsPaying(true);
+
+            // Connect to Phantom (InvoicePage Logic: Connect every time)
+            console.log('[Solana] Connecting to wallet...');
             const response = await phantomProvider.connect();
             const senderPubkey = response.publicKey;
+            console.log('[Solana] Connected:', senderPubkey.toString());
 
             // Initialize Solana connection
             const connection = new Connection(SOLANA_RPC, 'confirmed');
 
             const merchantPubkey = new PublicKey(merchantAddress);
-            const platformPubkey = new PublicKey(SOLANA_PLATFORM_WALLET);
             const mintPubkey = new PublicKey(SOLANA_USDC_MINT);
 
             const amount = paymentLink.amount;
-            // Use selectedToken which handles the USD->USDC normalization
             const currency = selectedToken || paymentLink.currency || 'USDC';
 
             const transaction = new Transaction();
 
             if (currency === 'USDC') {
                 // Calculate split amounts with dynamic fee
-                const feePercent = calculateFeePercent(amount);
-                const totalTokenAmount = BigInt(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
-                const platformFee = BigInt(Math.floor(Number(totalTokenAmount) * feePercent));
-                const merchantAmount = totalTokenAmount - platformFee;
+                console.log(`[Solana] Calculating amount for ${amount} USDC`);
+                // Direct transfer: 100% to merchant (No Platform Fee)
+                // Use safe BigInt conversion
+                const amountInUnits = Math.floor(amount * Math.pow(10, USDC_DECIMALS));
+                if (isNaN(amountInUnits)) throw new Error('Invalid amount calculation');
+                const totalTokenAmount = BigInt(amountInUnits);
 
-                console.log(`[Solana USDC]Total: ${totalTokenAmount}, Merchant: ${merchantAmount}, Platform: ${platformFee} (${feePercent * 100}%)`);
+                console.log(`[Solana USDC] Total Direct: ${totalTokenAmount.toString()}`);
 
                 // Get Associated Token Accounts
                 const senderATA = await getAssociatedTokenAddress(senderPubkey, mintPubkey);
                 const merchantATA = await getAssociatedTokenAddress(merchantPubkey, mintPubkey);
-                const platformATA = await getAssociatedTokenAddress(platformPubkey, mintPubkey);
+
+                console.log('[Solana] Sender ATA:', senderATA.toString());
+                console.log('[Solana] Merchant ATA:', merchantATA.toString());
 
                 // Check if merchant ATA exists, create if not
                 if (!(await accountExists(connection, merchantATA))) {
+                    console.log('[Solana] Creating merchant ATA...');
                     transaction.add(
                         createAssociatedTokenAccountInstruction(senderPubkey, merchantATA, merchantPubkey, mintPubkey)
                     );
                 }
 
-                // Check if platform ATA exists, create if not
-                if (!(await accountExists(connection, platformATA))) {
-                    transaction.add(
-                        createAssociatedTokenAccountInstruction(senderPubkey, platformATA, platformPubkey, mintPubkey)
-                    );
-                }
-
-                // Add USDC transfer to merchant
-                transaction.add(createTokenTransferInstruction(senderATA, merchantATA, senderPubkey, merchantAmount));
-
-                // Add USDC transfer to platform
-                transaction.add(createTokenTransferInstruction(senderATA, platformATA, senderPubkey, platformFee));
+                // Add USDC transfer to merchant (Full Amount)
+                transaction.add(createTokenTransferInstruction(senderATA, merchantATA, senderPubkey, totalTokenAmount));
             } else {
-                throw new Error(`${currency} is not supported on Solana.Please use USDC.`);
+                throw new Error(`${currency} is not supported on Solana. Please use USDC.`);
             }
 
             // Get recent blockhash
-            const { blockhash } = await connection.getLatestBlockhash();
+            console.log('[Solana] Getting blockhash...');
+            const { blockhash } = await connection.getLatestBlockhash('finalized');
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = senderPubkey;
 
-            // Sign and send transaction
+            console.log('[Solana] Requesting signature...');
+
+            // Sign and send transaction (Matching InvoicePage implementation: signAndSendTransaction)
+            // This relies on the provider to handle signing and sending
             const { signature } = await phantomProvider.signAndSendTransaction(transaction);
             console.log('[Solana] Transaction sent:', signature);
 
             // Wait for confirmation
             let confirmed = false;
             let attempts = 0;
-            while (!confirmed && attempts < 30) {
+            while (!confirmed && attempts < 60) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 attempts++;
                 const status = await connection.getSignatureStatuses([signature]);
-                if (status.value[0]?.confirmationStatus === 'confirmed' || status.value[0]?.confirmationStatus === 'finalized') {
+                const confirmationStatus = status.value[0]?.confirmationStatus;
+                if (confirmationStatus === 'confirmed' || confirmationStatus === 'finalized') {
                     confirmed = true;
                 }
             }
@@ -217,7 +206,7 @@ export default function PaymentLinkPage() {
 
             // Update backend
             const apiUrl = import.meta.env.VITE_API_URL || '';
-            await fetch(`${apiUrl} /api/documents / ${id}/pay`, {
+            await fetch(`${apiUrl}/api/documents/${id}/pay`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -232,25 +221,15 @@ export default function PaymentLinkPage() {
             setShowSuccess(true);
         } catch (err) {
             console.error('[Solana] Payment failed:', err);
+            // InvoicePage simple error handling
             alert(err instanceof Error ? err.message : 'Solana payment failed');
         } finally {
             setIsPaying(false);
         }
     };
 
-    const handleConnectWallet = () => {
-        open();
-    };
-
-    const handlePayment = async () => {
+    const handleEVMPayment = async () => {
         if (!paymentLink) return;
-
-        // Solana payments use Phantom wallet - no EVM wallet needed
-        if (selectedChain === 'solana') {
-            setIsPaying(true);
-            await handleSolanaPayment();
-            return;
-        }
 
         // EVM payments require wallet connection
         if (!walletProvider || !address) {
@@ -268,78 +247,28 @@ export default function PaymentLinkPage() {
         let finalTxHash = '';
 
         try {
-
             const provider = new BrowserProvider(walletProvider as import('ethers').Eip1193Provider);
             const signer = await provider.getSigner();
 
             const evmChain = selectedChain as Exclude<ChainId, 'solana'>;
             const tokenAddress = TOKENS[evmChain]?.[selectedToken as keyof (typeof TOKENS)[typeof evmChain]];
-            const hedwigContractAddress = HEDWIG_CONTRACTS[evmChain as keyof typeof HEDWIG_CONTRACTS];
 
             if (selectedToken === 'ETH') {
-                // Native ETH transfer - Manual 0.5% / 99.5% split
-                const EVM_PLATFORM_WALLET = '0x72e9193B11BF60E8E79B346126545f1B98Ff8496';
+                // Native ETH transfer
                 const totalWei = parseUnits(paymentLink.amount.toString(), 18);
-                const platformFee = totalWei * 5n / 1000n; // 0.5% (5/1000)
-                const freelancerAmount = totalWei - platformFee;
-
-                console.log('[EVM Native] Split payment:', {
-                    total: totalWei.toString(),
-                    toFreelancer: freelancerAmount.toString(),
-                    toPlatform: platformFee.toString()
-                });
-
-                // First transfer: 99.5% to freelancer
-
-                console.log('Sending to freelancer...');
                 const tx = await signer.sendTransaction({
                     to: recipientAddress,
-                    value: freelancerAmount,
+                    value: totalWei,
                 });
                 await tx.wait();
-
-                // Second transfer: 0.5% to platform
-                console.log('Sending platform fee...');
-                const platformTx = await signer.sendTransaction({
-                    to: EVM_PLATFORM_WALLET,
-                    value: platformFee
-                });
-                await platformTx.wait();
-
-                finalTxHash = tx.hash; // Use the main transfer hash for record
+                finalTxHash = tx.hash;
                 setTxHash(tx.hash);
-            } else if (tokenAddress && hedwigContractAddress) {
+            } else if (tokenAddress) {
+                // ERC20 Transfer
                 const tokenContract = new Contract(tokenAddress, ERC20_ABI, signer);
-                const hedwigContract = new Contract(hedwigContractAddress, HEDWIG_PAYMENT_ABI, signer);
                 const decimals = await tokenContract.decimals();
                 const amountInUnits = parseUnits(paymentLink.amount.toString(), decimals);
-
-                const currentAllowance = await tokenContract.allowance(address, hedwigContractAddress);
-
-                console.log('[Payment] Checking allowance:', {
-                    current: currentAllowance.toString(),
-                    required: amountInUnits.toString(),
-                    needsApproval: currentAllowance < amountInUnits
-                });
-
-                // Always approve if current allowance is less than required
-                if (BigInt(currentAllowance.toString()) < BigInt(amountInUnits.toString())) {
-                    console.log('[Payment] Approving tokens to HedwigPayment contract...');
-                    const approveTx = await tokenContract.approve(hedwigContractAddress, amountInUnits);
-                    console.log('[Payment] Approval tx submitted:', approveTx.hash);
-                    await approveTx.wait();
-                    console.log('[Payment] Tokens approved');
-                } else {
-                    console.log('[Payment] Sufficient allowance exists');
-                }
-
-                console.log('[Payment] Calling HedwigPayment.pay()...');
-                const tx = await hedwigContract.pay(
-                    tokenAddress,
-                    amountInUnits,
-                    recipientAddress,
-                    paymentLink.id
-                );
+                const tx = await tokenContract.transfer(recipientAddress, amountInUnits);
                 await tx.wait();
                 finalTxHash = tx.hash;
                 setTxHash(tx.hash);
@@ -347,6 +276,7 @@ export default function PaymentLinkPage() {
                 throw new Error(`Token ${selectedToken} not available on ${selectedChain}`);
             }
 
+            // Update backend
             const apiUrl = import.meta.env.VITE_API_URL || '';
             await fetch(`${apiUrl}/api/documents/${id}/pay`, {
                 method: 'POST',
@@ -367,6 +297,10 @@ export default function PaymentLinkPage() {
         } finally {
             setIsPaying(false);
         }
+    };
+
+    const handleConnectWallet = () => {
+        open();
     };
 
     const getExplorerUrl = (hash: string) => {
@@ -390,21 +324,20 @@ export default function PaymentLinkPage() {
         ? `${paymentLink.user.first_name || ''} ${paymentLink.user.last_name || ''}`.trim() || 'Merchant'
         : 'Merchant';
 
-    const merchantWallet = paymentLink?.user?.ethereum_wallet_address
-        ? `${paymentLink.user.ethereum_wallet_address.slice(0, 6)}...${paymentLink.user.ethereum_wallet_address.slice(-4)}`
-        : '';
-
     // Loading state
     if (loading) {
         return (
-            <div className="page-container">
-                <div className="payment-card">
+            <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                <div className="payment-card redesigned" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
                     <div className="loading-state">
                         <div className="spinner"></div>
                         <p>Loading payment details...</p>
                     </div>
                 </div>
-                <div className="footer">Secured by Hedwig</div>
+                <div className="secured-footer" style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.6 }}>
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: '#6B7280' }}>Secured with</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Hedwig</span>
+                </div>
             </div>
         );
     }
@@ -412,15 +345,18 @@ export default function PaymentLinkPage() {
     // Error state
     if (error || !paymentLink) {
         return (
-            <div className="page-container">
-                <div className="payment-card">
+            <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                <div className="payment-card redesigned" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
                     <div className="error-state">
                         <CurrencyCircleDollar size={64} weight="light" className="error-icon" />
                         <h2>Payment Link Not Found</h2>
                         <p>{error || 'This payment link may have expired or does not exist.'}</p>
                     </div>
                 </div>
-                <div className="footer">Secured by Hedwig</div>
+                <div className="secured-footer" style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.6 }}>
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: '#6B7280' }}>Secured with</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Hedwig</span>
+                </div>
             </div>
         );
     }
@@ -428,10 +364,10 @@ export default function PaymentLinkPage() {
     // Success state
     if (showSuccess) {
         return (
-            <div className="page-container">
-                <div className="payment-card success-card">
-                    <CheckCircle size={80} weight="fill" className="success-icon" />
-                    <h2 className="success-title">Payment Successful!</h2>
+            <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                <div className="payment-card redesigned success-card" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
+                    <CheckCircle size={80} weight="fill" className="success-icon" style={{ color: '#059669', margin: '0 auto 16px' }} />
+                    <h2 className="success-title" style={{ marginTop: '0' }}>Payment Successful!</h2>
                     <p className="success-amount">{formatAmount(paymentLink.amount)} {paymentLink.currency || 'USDC'}</p>
                     <p className="success-message">
                         Your payment has been sent to {merchantName}
@@ -442,128 +378,181 @@ export default function PaymentLinkPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="view-tx-button"
+                            style={{ marginTop: '24px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 24px', backgroundColor: '#F3F4F6', borderRadius: '50px', textDecoration: 'none', color: '#111827', fontWeight: 500 }}
                         >
                             View Transaction <ArrowSquareOut size={16} />
                         </a>
                     )}
                 </div>
-                <div className="footer">Secured by Hedwig</div>
-            </div>
-        );
-    }
-
-    // Already paid state
-    if (paymentLink.status.toLowerCase() === 'paid') {
-        return (
-            <div className="page-container">
-                <div className="payment-card">
-                    <div className="paid-state">
-                        <CheckCircle size={64} weight="fill" className="paid-icon" />
-                        <h2>Payment Complete</h2>
-                        <p className="paid-amount">{formatAmount(paymentLink.amount)} {paymentLink.currency || 'USDC'}</p>
-                        <p>This payment has already been completed.</p>
-                    </div>
+                <div className="secured-footer" style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.6 }}>
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: '#6B7280' }}>Secured with</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Hedwig</span>
                 </div>
-                <div className="footer">Secured by Hedwig</div>
             </div>
         );
     }
 
     // Main payment view
     return (
-        <div className="page-container">
-            <div className="payment-card">
-                <h1 className="payment-title">Payment Link</h1>
+        <div
+            className="page-container"
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: '100vw',
+                height: '100vh',
+                backgroundColor: '#FFFFFF',
+                zIndex: 10000,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                fontFamily: "'Google Sans Flex', sans-serif"
+            }}
+        >
+            <div className="payment-card redesigned" style={{
+                width: '480px',
+                minWidth: '480px',
+                minHeight: '323px',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '24px',
+                boxShadow: 'none', /* Flat - No Shadow */
+                padding: '40px', /* Increased padding */
+                display: 'flex',
+                flexDirection: 'column',
+                boxSizing: 'border-box',
+                border: '1px solid #F3F4F6'
+            }}
+            >
+                <h1 className="payment-title" style={{ marginBottom: '32px' }}>Payment Link</h1>
 
-                <div className="details-section">
-                    <div className="detail-row">
-                        <span className="detail-label">Sold by</span>
-                        <span className="detail-value">{merchantWallet || merchantName}</span>
+                <div className="info-grid" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <span className="info-label" style={{ color: '#6B7280' }}>Sold by</span>
+                        <span className="info-value" style={{ fontWeight: 500, color: '#111827' }}>{merchantName}</span>
                     </div>
 
-                    {paymentLink.title && (
-                        <div className="detail-row">
-                            <span className="detail-label">For</span>
-                            <span className="detail-value">{paymentLink.title}</span>
-                        </div>
-                    )}
-
-                    <div className="detail-row">
-                        <span className="detail-label">Price</span>
-                        <span className="detail-value highlight">
-                            {formatAmount(paymentLink.amount)} {paymentLink.currency || 'USDC'}
+                    <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <span className="info-label" style={{ color: '#6B7280' }}>Wallet</span>
+                        <span className="info-value" style={{ fontWeight: 500, color: '#6B7280' }}>
+                            {selectedChain === 'solana'
+                                ? (paymentLink.user?.solana_wallet_address ? `${paymentLink.user.solana_wallet_address.slice(0, 6)}...${paymentLink.user.solana_wallet_address.slice(-4)}` : 'N/A')
+                                : (paymentLink.user?.ethereum_wallet_address ? `${paymentLink.user.ethereum_wallet_address.slice(0, 6)}...${paymentLink.user.ethereum_wallet_address.slice(-4)}` : 'N/A')
+                            }
                         </span>
                     </div>
 
-                    {!paymentLink.content?.blockradar_url && (
-                        <div className="detail-row">
-                            <span className="detail-label">Network</span>
-                            <div className="chain-selector">
-                                <button
-                                    className={`chain-option ${selectedChain === 'baseSepolia' ? 'active' : ''}`}
-                                    onClick={() => setSelectedChain('baseSepolia')}
-                                >
-                                    <img src="/assets/icons/networks/base.png" alt="Base" className="chain-icon" />
-                                    Base Sepolia
-                                </button>
-                                <button
-                                    className={`chain-option ${selectedChain === 'solana' ? 'active' : ''}`}
-                                    onClick={() => setSelectedChain('solana')}
-                                >
-                                    <img src="/assets/icons/networks/solana.png" alt="Solana" className="chain-icon" />
-                                    Solana
-                                </button>
-                            </div>
+                    <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <span className="info-label" style={{ color: '#6B7280' }}>For</span>
+                        <span className="info-value" style={{ fontWeight: 500 }}>{paymentLink.title || 'Payment'}</span>
+                    </div>
+
+                    <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <span className="info-label" style={{ color: '#6B7280' }}>Price</span>
+                        <div className="info-value price-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                            <img src="/assets/icons/tokens/usdc.png" alt="USDC" className="token-icon-inline" style={{ width: '20px', height: '20px' }} onError={(e) => e.currentTarget.style.display = 'none'} />
+                            <span>{formatAmount(paymentLink.amount)} {paymentLink.currency || 'USDC'}</span>
                         </div>
-                    )}
+                    </div>
+
+                    <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <span className="info-label" style={{ color: '#6B7280' }}>Network</span>
+                        <div className="network-select-wrapper" style={{ width: 'auto', position: 'relative' }}>
+                            {/* Logo Overlay */}
+                            <img
+                                src={selectedChain === 'solana' ? '/assets/icons/networks/solana.png' : '/assets/icons/networks/base.png'}
+                                alt="Chain"
+                                style={{
+                                    position: 'absolute',
+                                    left: '12px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    width: '20px',
+                                    height: '20px',
+                                    pointerEvents: 'none',
+                                    zIndex: 1,
+                                    borderRadius: '50%' /* Rounded Logo */
+                                }}
+                            />
+                            <select
+                                value={selectedChain}
+                                onChange={(e) => {
+                                    setSelectedChain(e.target.value as ChainId);
+                                }}
+                                style={{
+                                    appearance: 'none',
+                                    backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23333%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E")`,
+                                    backgroundRepeat: 'no-repeat',
+                                    backgroundPosition: 'right 12px center',
+                                    backgroundSize: '16px',
+                                    paddingRight: '36px',
+                                    paddingLeft: '40px', /* Space for logo */
+                                    paddingTop: '8px',
+                                    paddingBottom: '8px',
+                                    border: '1px solid #E5E7EB',
+                                    borderRadius: '50px', /* Rounded 50px */
+                                    fontSize: '14px',
+                                    height: '40px',
+                                    color: '#111827',
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                    backgroundColor: 'white',
+                                    fontWeight: 500
+                                }}
+                            >
+                                <option value="baseSepolia">Base</option>
+                                <option value="solana">Solana</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
-                {paymentLink.content?.blockradar_url ? (
+                <div className="action-section" style={{ marginTop: '32px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <button
-                        className="pay-button"
-                        onClick={() => window.location.href = paymentLink!.content!.blockradar_url!}
-                    >
-                        <Wallet size={20} weight="bold" />
-                        <span>Pay with Crypto</span>
-                    </button>
-                ) : (
-                    <button
-                        className={`pay-button ${isPaying ? 'loading' : ''}`}
-                        onClick={selectedChain === 'solana' || isConnected ? handlePayment : handleConnectWallet}
+                        className={`pay-button redesigned ${isPaying ? 'loading' : ''}`}
+                        onClick={selectedChain === 'solana' ? handleSolanaPayment : (isConnected ? handleEVMPayment : handleConnectWallet)}
                         disabled={isPaying}
+                        style={{
+                            width: '100%',
+                            height: '48px',
+                            backgroundColor: '#2563EB', /* Brand Blue - Flat */
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50px', /* Rounded 50px */
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            boxShadow: 'none' /* Flat */
+                        }}
                     >
                         {isPaying ? (
                             <>
                                 <div className="button-spinner"></div>
                                 <span>Processing...</span>
                             </>
-                        ) : selectedChain === 'solana' ? (
-                            <>
-                                <Wallet size={20} weight="bold" />
-                                <span>Pay with Phantom</span>
-                            </>
-                        ) : isConnected ? (
-                            <>
-                                <Wallet size={20} weight="bold" />
-                                <span>Pay with wallet</span>
-                            </>
                         ) : (
-                            <>
-                                <Wallet size={20} weight="bold" />
-                                <span>Connect Wallet</span>
-                            </>
+                            <span>
+                                {selectedChain === 'solana'
+                                    ? 'Pay with Wallet'
+                                    : (isConnected ? 'Pay now' : 'Connect Wallet')
+                                }
+                            </span>
                         )}
                     </button>
-                )}
-
-                {isConnected && address && (
-                    <div className="connected-status">
-                        Connected: {address.slice(0, 6)}...{address.slice(-4)}
-                    </div>
-                )}
+                </div>
             </div>
 
-            <div className="footer">Secured by Hedwig</div>
-        </div>
+            <div className="secured-footer" style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.6 }}>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: '#6B7280' }}>Secured with</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Hedwig</span>
+            </div>
+        </div >
     );
 }

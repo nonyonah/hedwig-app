@@ -7,7 +7,7 @@ import { getOrCreateUser } from '../utils/userHelper';
 import NotificationService from '../services/notifications';
 import { createCalendarEventFromSource, markCalendarEventCompleted } from './calendar';
 import { createLogger } from '../utils/logger';
-import BlockradarService from '../services/blockradar';
+// import BlockradarService from '../services/blockradar'; // REMOVED: Reverting to direct wallet-to-wallet payments
 
 const logger = createLogger('Documents');
 
@@ -92,56 +92,16 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             );
         }
 
-        // Generate BlockRadar Payment Link for Invoice
-        let blockradarUrl = '';
-        try {
-            // Format items into a memo string
-            const itemsMemo = items && Array.isArray(items) && items.length > 0
-                ? items.map((i: any) => `${i.description} ($${i.amount})`).join(', ')
-                : description || `Invoice for ${clientName || 'Client'}`;
-
-            const brLink = await BlockradarService.createPaymentLink({
-                name: `Invoice ${doc.id.substring(0, 8)} - ${clientName || 'Client'}`,
-                description: itemsMemo,
-                amount: amount.toString(),
-                redirectUrl: `${WEB_CLIENT_URL}/invoice/${doc.id}?status=success`,
-                successMessage: `Thank you for your payment! Invoice ${doc.id.substring(0, 8)} has been paid.`,
-                metadata: {
-                    documentId: doc.id,
-                    userId: user.id,
-                    type: 'INVOICE',
-                    clientName: clientName || 'Unknown',
-                    itemCount: items?.length || 0
-                }
-            });
-            blockradarUrl = brLink.url;
-            logger.info('Generated BlockRadar link for Invoice', { docId: doc.id, url: blockradarUrl });
-        } catch (brError: any) {
-            logger.error('Failed to create BlockRadar link', { error: brError });
-            console.error('[BlockRadar Debug] Failed to create link:', brError?.response?.data || brError.message);
-        }
-
         // Generate shareable Vercel URL for the invoice
-        const shareableUrl = blockradarUrl || `${WEB_CLIENT_URL}/invoice/${doc.id}`;
+        const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
         
-        // Update document with BlockRadar URL
-        if (blockradarUrl) {
-            await supabase
-                .from('documents')
-                .update({ 
-                    payment_link_url: shareableUrl, // Store BR link as main link
-                    content: {
-                        ...doc.content,
-                        blockradar_url: blockradarUrl
-                    }
-                })
-                .eq('id', doc.id);
-            
-            // Update local object for response
-            if (doc.content) {
-                (doc.content as any).blockradar_url = blockradarUrl;
-            }
-        }
+        // Update document with payment link URL
+        await supabase
+            .from('documents')
+            .update({ 
+                payment_link_url: shareableUrl
+            })
+            .eq('id', doc.id);
 
         // Send email if recipient provided
         if (doc && recipientEmail) {
@@ -163,7 +123,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                 currency: 'USD',
                 description: description || 'Invoice for services',
                 linkId: doc.id,
-                paymentUrl: blockradarUrl // Prioritize BlockRadar link
+                paymentUrl: shareableUrl // Use internal link
             }));
 
             if (emailSent) {
@@ -261,40 +221,13 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
 
         if (error) throw error;
 
-        // Generate BlockRadar Payment Link
-        let blockradarUrl = '';
-        try {
-            const brLink = await BlockradarService.createPaymentLink({
-                name: `Payment from ${clientName}`,
-                description: description || `Payment request for ${clientName}`,
-                amount: amount.toString(),
-                redirectUrl: `${process.env.WEB_CLIENT_URL || 'https://hedwig.money'}/success`,
-                successMessage: `Thank you for your payment!`,
-                metadata: {
-                    clientId: user.id,
-                    documentId: doc.id,
-                    type: 'PAYMENT_LINK',
-                    clientName: clientName || 'Unknown'
-                }
-            });
-            blockradarUrl = brLink.url;
-            logger.info('Generated BlockRadar link', { docId: doc.id, url: blockradarUrl });
-        } catch (brError: any) {
-            logger.error('Failed to create BlockRadar link', { error: brError });
-            console.error('[BlockRadar Debug] Failed to create payment link:', brError?.response?.data || brError.message);
-        }
-
-        // Update with the shareable Vercel URL now that we have the document ID
-        // Use BlockRadar URL if available, otherwise fallback to Hedwig URL
-        const shareableUrl = blockradarUrl || `${WEB_CLIENT_URL}/pay/${doc.id}`;
+        // Generate shareable Vercel URL
+        const shareableUrl = `${WEB_CLIENT_URL}/pay/${doc.id}`;
+        
         await supabase
             .from('documents')
             .update({ 
-                payment_link_url: shareableUrl,
-                content: {
-                    ...doc.content,
-                    blockradar_url: blockradarUrl
-                }
+                payment_link_url: shareableUrl
             })
             .eq('id', doc.id);
 
@@ -330,7 +263,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 description: description || 'Payment Request',
                 linkId: doc.id,
                 network: 'Base', // defaulting to Base since we mostly support valid tokens there for now, or could extract from currency
-                paymentUrl: blockradarUrl
+                paymentUrl: shareableUrl
             }));
 
             if (emailSent) {
@@ -896,10 +829,17 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
 
         logger.debug('Pay request received', { chain, token, amount });
 
-        // Fetch the document
+        // Fetch the document with user details
         const { data: doc, error: fetchError } = await supabase
             .from('documents')
-            .select('*')
+            .select(`
+                *,
+                user:users(
+                    email,
+                    first_name,
+                    last_name
+                )
+            `)
             .eq('id', id)
             .single();
 
@@ -993,10 +933,31 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
             } else {
                 logger.info('In-app notification created');
             }
+            
+            // Send email notification to freelancer if email exists
+            const userEmail = doc.user?.email;
+            if (userEmail) {
+                const freelancerName = doc.user.first_name 
+                    ? `${doc.user.first_name} ${doc.user.last_name || ''}`.trim()
+                    : 'Freelancer';
+                
+                const { EmailService } = await import('../services/email');
+                await EmailService.sendPaymentReceivedEmail({
+                    to: userEmail,
+                    recipientName: freelancerName,
+                    senderName: payerDisplay,
+                    amount: doc.amount.toString(),
+                    currency: doc.currency || 'USDC',
+                    txHash: txHash || 'N/A',
+                    documentTitle: doc.title,
+                    linkId: doc.id
+                });
+                logger.info('Payment received email sent');
+            }
 
             logger.info('Payment notification sent');
         } catch (notifyError) {
-            // Don't fail the payment if notification fails
+             // Don't fail the payment if notification fails
             logger.error('Failed to send payment notification', { error: notifyError instanceof Error ? notifyError.message : 'Unknown' });
         }
 

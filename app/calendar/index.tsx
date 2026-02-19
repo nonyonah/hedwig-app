@@ -24,6 +24,7 @@ interface CalendarEvent {
     amount?: number;
     currency?: string;
     status?: string;
+    createdAt?: string;
 }
 
 interface Section {
@@ -329,7 +330,9 @@ export default function CalendarScreen() {
     };
 
     const renderEvent = ({ item }: { item: CalendarEvent }) => {
-        const time = new Date(item.eventDate).toLocaleTimeString('en-US', {
+        // Fallback to item.createdAt if item.eventDate is just a YYYY-MM-DD
+        const timeSource = item.createdAt || item.eventDate;
+        const time = new Date(timeSource).toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
             hour12: true

@@ -84,7 +84,7 @@ export function createAssociatedTokenAccountInstruction(
     return new TransactionInstruction({
         keys,
         programId: ASSOCIATED_TOKEN_PROGRAM_ID,
-        data: Buffer.alloc(0),
+        data: new Uint8Array(0) as any,
     });
 }
 
@@ -115,7 +115,7 @@ export function createTokenTransferInstruction(
     return new TransactionInstruction({
         keys,
         programId: TOKEN_PROGRAM_ID,
-        data: Buffer.from(data),
+        data: data as any,
     });
 }
 

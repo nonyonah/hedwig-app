@@ -109,7 +109,10 @@ class NotificationService {
 
             return response.data.data as ExpoPushTicket[];
         } catch (error: any) {
-            logger.error('Error sending bulk notifications', { error: error.message });
+            logger.error('Error sending bulk notifications', { 
+                error: error.message,
+                response: error.response?.data
+            });
             return [];
         }
     }

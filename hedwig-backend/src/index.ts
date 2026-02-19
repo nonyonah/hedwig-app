@@ -62,6 +62,9 @@ app.use(
                     "https://cdn.jsdelivr.net", // Marked.js
                     "https://esm.sh", // Reown AppKit ES modules
                     "https://bundle.run", // Buffer polyfill for Solana
+                    "chrome-extension:",
+                    "moz-extension:",
+                    "https://*.phantom.app",
                 ],
                 scriptSrcAttr: ["'unsafe-inline'"], // Allow inline event handlers (onclick, etc.)
                 styleSrc: [
@@ -76,12 +79,14 @@ app.use(
                     "https://fonts.reown.com",
                     "https://*.reown.com",
                 ],
-                imgSrc: ["'self'", "data:", "https://*.walletconnect.com", "https://*.reown.com"],
+                imgSrc: ["'self'", "data:", "blob:", "https://*.walletconnect.com", "https://*.reown.com", "chrome-extension:", "moz-extension:", "https://*.phantom.app"],
                 connectSrc: [
                     "'self'",
                     "https://cdn.jsdelivr.net",
                     "https://esm.sh",
                     "https://unpkg.com", // Solana web3.js source maps
+                    "chrome-extension:",
+                    "moz-extension:",
                     "https://api.devnet.solana.com", // Solana Devnet RPC
                     "https://api.mainnet-beta.solana.com", // Solana Mainnet RPC
                     "https://api.testnet.solana.com", // Solana Testnet RPC
@@ -106,11 +111,15 @@ app.use(
                     "https://*.reown.org",
                     "wss://*.walletconnect.org",
                     "wss://*.walletconnect.com",
+                    "https://*.phantom.app",
+                    "wss://*.phantom.app",
                     // EVM RPC endpoints
                     "https://mainnet.base.org",
                     "https://sepolia.base.org",
                     "https://forno.celo.org",
                 ],
+                frameSrc: ["'self'", "https:", "blob:", "data:", "chrome-extension:", "moz-extension:", "https://*.phantom.app"],
+                childSrc: ["'self'", "https:", "blob:", "data:", "chrome-extension:", "moz-extension:", "https://*.phantom.app"],
             },
         },
     })

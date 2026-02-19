@@ -2,22 +2,19 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
-import { Wallet, DownloadSimple, CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
+import { DownloadSimple, CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
-import { TOKENS, HEDWIG_PAYMENT_ABI, HEDWIG_CONTRACTS } from '../lib/appkit';
+import { TOKENS } from '../lib/appkit';
 import {
     SOLANA_RPC,
-    SOLANA_PLATFORM_WALLET,
     SOLANA_USDC_MINT,
     USDC_DECIMALS,
-    calculateFeePercent,
-    getFeeDisplayText,
     getAssociatedTokenAddress,
     createAssociatedTokenAccountInstruction,
     createTokenTransferInstruction,
     accountExists,
 } from '../lib/solana';
-
+import './InvoicePage.css'; // Use dedicated CSS
 
 // ERC20 ABI for transfers and approvals
 const ERC20_ABI = [
@@ -43,6 +40,7 @@ interface InvoiceData {
     status: string;
     due_date?: string;
     currency?: string;
+    chain?: string;
     content?: {
         from?: { name: string; email?: string };
         to?: { name: string; email?: string };
@@ -75,7 +73,7 @@ export default function InvoicePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedChain, setSelectedChain] = useState<ChainId>('baseSepolia');
-    const [selectedToken, setSelectedToken] = useState<TokenSymbol>('USDC');
+    const [selectedToken] = useState<TokenSymbol>('USDC');
     const [isPaying, setIsPaying] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
     const [showSuccess, setShowSuccess] = useState(searchParams.get('status') === 'success');
@@ -130,66 +128,79 @@ export default function InvoicePage() {
         const merchantAddress = invoice.user?.solana_wallet_address;
         if (!merchantAddress) {
             alert('Merchant does not have a Solana wallet address configured.');
-            setIsPaying(false);
             return;
         }
 
-        // Check for Phantom wallet - prioritize window.phantom.solana
+        // Check for Phantom wallet - prioritized
         const phantomProvider = (window as any).phantom?.solana || (window as any).solana;
 
         if (!phantomProvider) {
             alert('Please install Phantom wallet to pay with Solana!');
-            setIsPaying(false);
+            window.open('https://phantom.app/', '_blank');
             return;
         }
 
         try {
+            setIsPaying(true);
+
+            // Connect
+            console.log('[Solana] Connecting...');
             const response = await phantomProvider.connect();
             const senderPubkey = response.publicKey;
+            console.log('[Solana] Connected:', senderPubkey.toString());
+
             const connection = new Connection(SOLANA_RPC, 'confirmed');
 
             const merchantPubkey = new PublicKey(merchantAddress);
-            const platformPubkey = new PublicKey(SOLANA_PLATFORM_WALLET);
             const mintPubkey = new PublicKey(SOLANA_USDC_MINT);
 
             const amount = invoice.amount;
             const transaction = new Transaction();
 
-            // Calculate split with dynamic fee
+            // Calculate split
             const currency = selectedToken || 'USDC';
             if (currency === 'USDC' || selectedToken === 'USDC') {
-                const feePercent = calculateFeePercent(amount);
-                const totalTokenAmount = BigInt(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
-                const platformFee = BigInt(Math.floor(Number(totalTokenAmount) * feePercent));
-                const merchantAmount = totalTokenAmount - platformFee;
+                console.log(`[Solana] Calculating amount for ${amount} USDC`);
 
+                // Direct transfer: 100% to merchant
+                const amountInUnits = Math.floor(amount * Math.pow(10, USDC_DECIMALS));
+                if (isNaN(amountInUnits)) throw new Error('Invalid amount calculation');
+                const totalTokenAmount = BigInt(amountInUnits);
+
+                console.log(`[Solana USDC] Total Direct: ${totalTokenAmount.toString()}`);
+
+                // Get Associated Token Accounts
                 const senderATA = await getAssociatedTokenAddress(senderPubkey, mintPubkey);
                 const merchantATA = await getAssociatedTokenAddress(merchantPubkey, mintPubkey);
-                const platformATA = await getAssociatedTokenAddress(platformPubkey, mintPubkey);
 
+                console.log('[Solana] Sender ATA:', senderATA.toString());
+                console.log('[Solana] Merchant ATA:', merchantATA.toString());
+
+                // Check if merchant ATA exists, create if not
                 if (!(await accountExists(connection, merchantATA))) {
+                    console.log('[Solana] Creating merchant ATA...');
                     transaction.add(createAssociatedTokenAccountInstruction(senderPubkey, merchantATA, merchantPubkey, mintPubkey));
                 }
-                if (!(await accountExists(connection, platformATA))) {
-                    transaction.add(createAssociatedTokenAccountInstruction(senderPubkey, platformATA, platformPubkey, mintPubkey));
-                }
 
-                transaction.add(createTokenTransferInstruction(senderATA, merchantATA, senderPubkey, merchantAmount));
-                transaction.add(createTokenTransferInstruction(senderATA, platformATA, senderPubkey, platformFee));
+                // Transfer full amount to merchant
+                transaction.add(createTokenTransferInstruction(senderATA, merchantATA, senderPubkey, totalTokenAmount));
 
             } else {
                 throw new Error(`${currency} is not supported on Solana. Please use USDC.`);
             }
 
-            const { blockhash } = await connection.getLatestBlockhash();
+            console.log('[Solana] Getting blockhash...');
+            const { blockhash } = await connection.getLatestBlockhash('finalized');
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = senderPubkey;
 
+            console.log('[Solana] Requesting signature...');
             const { signature } = await phantomProvider.signAndSendTransaction(transaction);
+            console.log('[Solana] Transaction sent:', signature);
 
             let confirmed = false;
             let attempts = 0;
-            while (!confirmed && attempts < 30) {
+            while (!confirmed && attempts < 60) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 attempts++;
                 const status = await connection.getSignatureStatuses([signature]);
@@ -206,7 +217,13 @@ export default function InvoicePage() {
             await fetch(`${apiUrl}/api/documents/${id}/pay`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ txHash: signature, payer: senderPubkey.toString(), chain: 'solana', token: 'USDC', amount }),
+                body: JSON.stringify({
+                    txHash: signature,
+                    payer: senderPubkey.toString(),
+                    chain: 'solana',
+                    token: 'USDC',
+                    amount: invoice.amount,
+                }),
             });
 
             setShowSuccess(true);
@@ -222,15 +239,8 @@ export default function InvoicePage() {
         open();
     };
 
-    const handlePayment = async () => {
+    const handleEVMPayment = async () => {
         if (!invoice) return;
-
-        // Solana payments use Phantom wallet - no EVM wallet needed
-        if (selectedChain === 'solana') {
-            setIsPaying(true);
-            await handleSolanaPayment();
-            return;
-        }
 
         // EVM payments require wallet connection
         if (!walletProvider || !address) {
@@ -248,91 +258,34 @@ export default function InvoicePage() {
         let finalTxHash = '';
 
         try {
+            console.log('Starting EVM payment...');
 
             const provider = new BrowserProvider(walletProvider as import('ethers').Eip1193Provider);
             const signer = await provider.getSigner();
 
-            // Get token address and HedwigPayment contract address
+            // Get token address
             const evmChain = selectedChain as Exclude<ChainId, 'solana'>;
             const tokenAddress = TOKENS[evmChain]?.[selectedToken as keyof (typeof TOKENS)[typeof evmChain]];
-            const hedwigContractAddress = HEDWIG_CONTRACTS[evmChain as keyof typeof HEDWIG_CONTRACTS];
 
             if (selectedToken === 'ETH') {
-                // Native ETH transfer - Direct (Fee disabled)
+                // Native ETH transfer
                 const amountWei = parseUnits(invoice.amount.toString(), 18);
-
-                console.log('[EVM Native] Direct payment (Fees disabled):', {
-                    to: recipientAddress,
-                    amount: amountWei.toString()
-                });
-
-                console.log('Sending to freelancer...');
                 const tx = await signer.sendTransaction({
                     to: recipientAddress,
                     value: amountWei,
                 });
                 await tx.wait();
-
                 finalTxHash = tx.hash;
                 setTxHash(tx.hash);
             } else if (tokenAddress) {
-                // ERC20 Transfer - Direct (Fee disabled), skip HedwigPayment contract
+                // ERC20 Transfer
                 const tokenContract = new Contract(tokenAddress, ERC20_ABI, signer);
                 const decimals = await tokenContract.decimals();
                 const amountInUnits = parseUnits(invoice.amount.toString(), decimals);
-
-                console.log('[EVM ERC20] Direct payment (Fees disabled):', {
-                    token: tokenAddress,
-                    amount: amountInUnits.toString(),
-                    to: recipientAddress
-                });
-
-                console.log('[Payment] Sending tokens directly to freelancer...');
                 const tx = await tokenContract.transfer(recipientAddress, amountInUnits);
                 await tx.wait();
-
                 finalTxHash = tx.hash;
                 setTxHash(tx.hash);
-            } else if (tokenAddress && hedwigContractAddress) {
-                // Use HedwigPayment contract for atomic 99%/1% fee split
-                const tokenContract = new Contract(tokenAddress, ERC20_ABI, signer);
-                const hedwigContract = new Contract(hedwigContractAddress, HEDWIG_PAYMENT_ABI, signer);
-                const decimals = await tokenContract.decimals();
-                const amountInUnits = parseUnits(invoice.amount.toString(), decimals);
-
-                // Step 1: Check current allowance
-                const currentAllowance = await tokenContract.allowance(address, hedwigContractAddress);
-
-                console.log('[Payment] Checking allowance:', {
-                    current: currentAllowance.toString(),
-                    required: amountInUnits.toString(),
-                    needsApproval: BigInt(currentAllowance.toString()) < BigInt(amountInUnits.toString())
-                });
-
-                // Step 2: Approve if needed (using explicit BigInt comparison)
-                if (BigInt(currentAllowance.toString()) < BigInt(amountInUnits.toString())) {
-                    console.log('[Payment] Approving tokens to HedwigPayment contract...');
-                    const approveTx = await tokenContract.approve(hedwigContractAddress, amountInUnits);
-                    console.log('[Payment] Approval tx submitted:', approveTx.hash);
-                    await approveTx.wait();
-                    console.log('[Payment] Tokens approved');
-                } else {
-                    console.log('[Payment] Sufficient allowance exists');
-                }
-
-                // Step 3: Call pay() on HedwigPayment contract
-                // Contract handles 99%/1% split atomically
-                console.log('[Payment] Calling HedwigPayment.pay()...');
-                const tx = await hedwigContract.pay(
-                    tokenAddress,
-                    amountInUnits,
-                    recipientAddress,
-                    invoice.id // Use invoice ID as invoiceId
-                );
-                await tx.wait();
-                finalTxHash = tx.hash;
-                setTxHash(tx.hash);
-                console.log('[Payment] Payment complete:', tx.hash);
             } else {
                 throw new Error(`Token ${selectedToken} not available on ${selectedChain}`);
             }
@@ -343,7 +296,7 @@ export default function InvoicePage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    txHash: finalTxHash, // Fixed: use finalTxHash instead of stale txHash state
+                    txHash: finalTxHash,
                     paidBy: address,
                     chain: selectedChain,
                     token: selectedToken,
@@ -376,12 +329,24 @@ export default function InvoicePage() {
         }).format(amount);
     };
 
+    // Helper for displaying wallet address 
+    const getDisplayWalletAddress = () => {
+        if (selectedChain === 'solana') {
+            const addr = invoice?.user?.solana_wallet_address;
+            return addr ? `${addr.slice(0, 5)}...${addr.slice(-4)}` : 'Not configured';
+        }
+        const addr = invoice?.user?.ethereum_wallet_address;
+        return addr ? `${addr.slice(0, 5)}...${addr.slice(-4)}` : 'Not configured';
+    };
+
     if (loading) {
         return (
-            <div className="container">
-                <div className="card loading-container">
-                    <div className="spinner" />
-                    <p>Loading invoice...</p>
+            <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                <div className="payment-card redesigned" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
+                    <div className="loading-state">
+                        <div className="spinner"></div>
+                        <p>Loading invoice...</p>
+                    </div>
                 </div>
             </div>
         );
@@ -389,10 +354,12 @@ export default function InvoicePage() {
 
     if (error || !invoice) {
         return (
-            <div className="container">
-                <div className="card error-container">
-                    <div className="error-title">Invoice Not Found</div>
-                    <p className="error-message">{error || 'The invoice you are looking for does not exist.'}</p>
+            <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                <div className="payment-card redesigned" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
+                    <div className="error-state">
+                        <div className="error-title">Invoice Not Found</div>
+                        <p className="error-message">{error || 'The invoice you are looking for does not exist.'}</p>
+                    </div>
                 </div>
             </div>
         );
@@ -400,11 +367,11 @@ export default function InvoicePage() {
 
     if (showSuccess) {
         return (
-            <div className="container">
-                <div className="card success-container">
-                    <CheckCircle size={80} weight="fill" className="success-icon" />
-                    <h2 className="success-title">Payment Successful!</h2>
-                    <p className="success-message">
+            <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                <div className="payment-card redesigned" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
+                    <CheckCircle size={80} weight="fill" className="success-icon" style={{ color: '#059669', margin: '0 auto 16px' }} />
+                    <h2 className="success-title" style={{ marginTop: '0', textAlign: 'center' }}>Payment Successful!</h2>
+                    <p className="success-message" style={{ textAlign: 'center', color: '#6B7280' }}>
                         Your payment of {formatCurrency(invoice.amount)} has been sent successfully.
                     </p>
                     {txHash && (
@@ -412,65 +379,96 @@ export default function InvoicePage() {
                             href={getExplorerUrl(txHash)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="tx-link"
+                            style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 24px', backgroundColor: '#F3F4F6', borderRadius: '50px', textDecoration: 'none', color: '#111827', fontWeight: 500 }}
                         >
                             View Transaction <ArrowSquareOut size={16} />
                         </a>
                     )}
                 </div>
-                <div className="footer">Secured by Hedwig</div>
+                <div className="secured-footer" style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.6 }}>
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: '#6B7280' }}>Secured with</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Hedwig</span>
+                </div>
             </div>
         );
     }
 
     const items = invoice.content?.items || [];
     const subtotal = items.reduce((sum, item) => sum + item.amount, 0) || invoice.amount;
-    const feePercent = calculateFeePercent(subtotal);
-    const platformFee = subtotal * feePercent;
-    const freelancerReceives = subtotal - platformFee;
 
     return (
-        <div className="container">
-            <div className="card">
+        <div
+            className="invoice-page-container"
+            style={{
+                position: 'relative',
+                minHeight: '100vh',
+                width: '100vw',
+                backgroundColor: '#FFFFFF',
+                zIndex: 1, // Low z-index
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-start',
+                alignItems: 'center',
+                padding: '60px 0',
+                fontFamily: "'Google Sans Flex', sans-serif"
+            }}
+        >
+            <div className="invoice-card" style={{
+                width: '600px',
+                minWidth: '600px',
+                minHeight: 'auto',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '24px',
+                boxShadow: 'none',
+                padding: '32px',
+                display: 'flex',
+                flexDirection: 'column',
+                boxSizing: 'border-box',
+                border: '1px solid #F3F4F6',
+                margin: 'auto 0' // Ensure it centers if space allows, but scrolls if not
+            }}>
                 {/* Header */}
-                <div className="header">
-                    <div className="invoice-number">INV-{invoice.id.slice(0, 8).toUpperCase()}</div>
-                    <span className={`status-badge ${invoice.status.toLowerCase()}`}>
-                        {invoice.status}
-                    </span>
-                    <button className="icon-button" title="Download">
+                <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <div className="invoice-number" style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>
+                        INV-{invoice.id.slice(0, 8).toUpperCase()}
+                    </div>
+                    <button className="icon-button" title="Download" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#6B7280' }}>
                         <DownloadSimple size={20} />
                     </button>
                 </div>
 
                 {/* Parties */}
-                <div className="parties">
-                    <div className="party-column">
-                        <div className="party-label">From</div>
-                        <div className="party-name">
+                <div className="parties" style={{ display: 'flex', gap: '32px', marginBottom: '24px', borderBottom: '1px solid #F3F4F6', paddingBottom: '24px' }}>
+                    <div className="party-column" style={{ flex: 1 }}>
+                        <div className="party-label" style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>From</div>
+                        <div className="party-name" style={{ fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
                             {invoice.content?.from?.name ||
                                 `${invoice.user?.first_name || ''} ${invoice.user?.last_name || ''}`.trim() ||
                                 'Unknown'}
                         </div>
-                        <div className="party-email">{invoice.content?.from?.email || invoice.user?.email}</div>
+                        <div className="party-email" style={{ fontSize: '14px', color: '#6B7280' }}>
+                            {invoice.content?.from?.email || invoice.user?.email}
+                        </div>
                     </div>
-                    <div className="party-column">
-                        <div className="party-label">To</div>
-                        <div className="party-name">
+                    <div className="party-column" style={{ flex: 1 }}>
+                        <div className="party-label" style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>To</div>
+                        <div className="party-name" style={{ fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
                             {invoice.content?.to?.name || invoice.content?.client_name || 'Client'}
                         </div>
-                        <div className="party-email">
+                        <div className="party-email" style={{ fontSize: '14px', color: '#6B7280' }}>
                             {invoice.content?.to?.email || invoice.content?.recipient_email}
                         </div>
                     </div>
                 </div>
 
                 {/* Amount */}
-                <div className="amount-section">
-                    <div className="amount-label">Amount</div>
-                    <div className="amount-value">{formatCurrency(invoice.amount)}</div>
+                <div className="amount-section" style={{ marginBottom: '24px' }}>
+                    <div className="amount-label" style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>Amount</div>
+                    <div className="amount-value" style={{ fontSize: '48px', fontWeight: 700, color: '#111827', letterSpacing: '-1px', marginBottom: '8px' }}>
+                        {formatCurrency(invoice.amount)}
+                    </div>
                     {invoice.due_date && (
-                        <div className="due-date">
+                        <div className="due-date" style={{ fontSize: '14px', color: '#6B7280' }}>
                             Due {new Date(invoice.due_date).toLocaleDateString()}
                         </div>
                     )}
@@ -478,108 +476,129 @@ export default function InvoicePage() {
 
                 {/* Items */}
                 {items.length > 0 && (
-                    <div className="items-section">
-                        <div className="items-header">
+                    <div className="items-section" style={{ marginBottom: '24px' }}>
+                        <div className="items-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '12px', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase' }}>
                             <span className="items-header-label">Item</span>
                             <span className="items-header-label">Amount</span>
                         </div>
                         {items.map((item, index) => (
-                            <div key={index} className="item-row">
+                            <div key={index} className="item-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '14px', fontWeight: 500, color: '#111827' }}>
                                 <span className="item-name">{item.description}</span>
                                 <span className="item-price">{formatCurrency(item.amount)}</span>
                             </div>
                         ))}
+                        <div style={{ height: '1px', backgroundColor: '#F3F4F6', marginTop: '24px' }}></div>
                     </div>
                 )}
 
-                <div className="divider" />
-
                 {/* Summary */}
-                <div className="summary-section">
-                    <div className="summary-row">
+                <div className="summary-section" style={{ marginBottom: '24px' }}>
+                    <div className="summary-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '14px', color: '#6B7280' }}>
                         <span className="summary-label">Subtotal</span>
                         <span className="summary-value">{formatCurrency(subtotal)}</span>
                     </div>
-                    <div className="summary-row">
-                        <span className="summary-label">Platform fee ({getFeeDisplayText(subtotal)})</span>
-                        <span className="summary-value">-{formatCurrency(platformFee)}</span>
-                    </div>
-                    <div className="summary-row">
-                        <span className="summary-label">Freelancer receives</span>
-                        <span className="summary-value">{formatCurrency(freelancerReceives)}</span>
-                    </div>
-                    <div className="summary-row total-row">
+                    {/* Removed Platform Fee and Freelancer receives rows as per request */}
+                    <div className="summary-row total-row" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', fontSize: '16px', fontWeight: 600, color: '#111827' }}>
                         <span className="total-label">Total</span>
                         <span className="total-value">{formatCurrency(invoice.amount)}</span>
                     </div>
                 </div>
 
-                {/* Payment */}
-                {invoice.status.toLowerCase() !== 'paid' && (
-                    <div className="payment-section">
-                        {!invoice.content?.blockradar_url && (
-                            <div className="selectors-row">
-                                <button
-                                    className={`selector-button ${selectedChain === 'baseSepolia' ? 'active' : ''}`}
-                                    onClick={() => setSelectedChain('baseSepolia')}
-                                >
-                                    <img src="/assets/icons/networks/base.png" className="selector-icon" alt="Base" />
-                                    <span className="selector-text">Base Sepolia</span>
-                                </button>
-                                <button
-                                    className={`selector-button ${selectedChain === 'solana' ? 'active' : ''}`}
-                                    onClick={() => setSelectedChain('solana')}
-                                >
-                                    <img src="/assets/icons/networks/solana.png" className="selector-icon" alt="Solana" />
-                                    <span className="selector-text">Solana</span>
-                                </button>
-                                <button
-                                    className={`selector-button ${selectedToken === 'USDC' ? 'active' : ''}`}
-                                    onClick={() => setSelectedToken('USDC')}
-                                >
-                                    <img src="/assets/icons/tokens/usdc.png" className="selector-icon" alt="USDC" />
-                                    <span className="selector-text">USDC</span>
-                                </button>
-                            </div>
-                        )}
-
-                        {invoice.content?.blockradar_url ? (
-                            <button
-                                className="pay-button"
-                                onClick={() => window.location.href = invoice!.content!.blockradar_url!}
+                {/* Network & Wallet Section (Gray Box) */}
+                <div className="network-section" style={{ backgroundColor: '#F9FAFB', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
+                    {/* Network Row */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <span style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>Network</span>
+                        <div className="network-select-wrapper" style={{ width: 'auto', position: 'relative' }}>
+                            {/* Logo Overlay */}
+                            <img
+                                src={selectedChain === 'solana' ? '/assets/icons/networks/solana.png' : '/assets/icons/networks/base.png'}
+                                alt="Chain"
+                                style={{
+                                    position: 'absolute',
+                                    left: '10px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    width: '18px',
+                                    height: '18px',
+                                    pointerEvents: 'none',
+                                    zIndex: 1,
+                                    borderRadius: '50%'
+                                }}
+                            />
+                            <select
+                                value={selectedChain}
+                                onChange={(e) => {
+                                    setSelectedChain(e.target.value as ChainId);
+                                }}
+                                style={{
+                                    appearance: 'none',
+                                    backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23333%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E")`,
+                                    backgroundRepeat: 'no-repeat',
+                                    backgroundPosition: 'right 8px center',
+                                    backgroundSize: '12px',
+                                    paddingRight: '28px',
+                                    paddingLeft: '34px',
+                                    paddingTop: '6px',
+                                    paddingBottom: '6px',
+                                    border: '1px solid #E5E7EB',
+                                    borderRadius: '50px',
+                                    fontSize: '13px',
+                                    height: '32px',
+                                    color: '#111827',
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                    backgroundColor: 'white',
+                                    fontWeight: 500
+                                }}
                             >
-                                <Wallet size={20} />
-                                <span>Pay with Crypto</span>
-                            </button>
-                        ) : (
-                            <button
-                                className="pay-button"
-                                onClick={selectedChain === 'solana' || isConnected ? handlePayment : handleConnectWallet}
-                                disabled={isPaying}
-                            >
-                                <Wallet size={20} />
-                                <span>
-                                    {isPaying
-                                        ? 'Processing...'
-                                        : selectedChain === 'solana'
-                                            ? 'Pay with Phantom'
-                                            : isConnected
-                                                ? `Pay ${formatCurrency(invoice.amount)}`
-                                                : 'Connect Wallet'}
-                                </span>
-                            </button>
-                        )}
-
-                        {isConnected && address && !invoice.content?.blockradar_url && (
-                            <div style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginTop: '12px' }}>
-                                Connected: {address.slice(0, 6)}...{address.slice(-4)}
-                            </div>
-                        )}
+                                <option value="baseSepolia">Base</option>
+                                <option value="solana">Solana</option>
+                            </select>
+                        </div>
                     </div>
+
+                    {/* Wallet Row */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>Wallet</span>
+                        <span style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>
+                            {getDisplayWalletAddress()}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Pay Button */}
+                {invoice.status.toLowerCase() !== 'paid' && (
+                    <button
+                        className={`pay-button redesigned ${isPaying ? 'loading' : ''}`}
+                        onClick={selectedChain === 'solana' ? handleSolanaPayment : (isConnected ? handleEVMPayment : handleConnectWallet)}
+                        disabled={isPaying}
+                        style={{
+                            width: '100%',
+                            height: '48px',
+                            backgroundColor: '#2563EB',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50px',
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            boxShadow: 'none'
+                        }}
+                    >
+                        {isPaying ? 'Processing...' : (selectedChain === 'solana' ? 'Connect Wallet' : (isConnected ? 'Pay now' : 'Connect Wallet'))}
+                    </button>
                 )}
             </div>
 
-            <div className="footer">Secured by Hedwig</div>
+            <div className="secured-footer" style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.6 }}>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: '#6B7280' }}>Secured with</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>Hedwig</span>
+            </div>
         </div>
     );
 }

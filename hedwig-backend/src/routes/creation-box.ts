@@ -39,6 +39,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient].
 - Extract 'title' from the text (do not use generic "Payment Link" if a specific title is provided).
 - Extract 'amount' and 'currency'.
 - Extract 'recipient' (email or name).
+- Extract 'dueDate' if mentioned (preferably in YYYY-MM-DD format).
 - Intent MUST be 'payment_link'.
 `;
         } else if (mode === 'invoice') {
@@ -49,6 +50,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
 - Extract 'amount' and 'currency'.
 - Extract 'recipient' (email or name).
 - Extract 'items' if listed.
+- Extract 'dueDate' if mentioned (preferably in YYYY-MM-DD format).
 - Intent MUST be 'invoice'.
 `;
         }
@@ -333,39 +335,65 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
                     const today = new Date(referenceDate);
                     today.setHours(0, 0, 0, 0);
                     
-                    // Check for day names (e.g., "Friday", "next Monday")
-                    const isNextWeek = dueDateStr.includes('next');
-                    const dayMatch = dayNames.find(day => dueDateStr.includes(day));
+                    // Check for Month Day format (e.g. "Feb 25", "February 25th")
+                    // Matches: Jan, Feb, January, etc. + space + 1-31 + optional st/nd/rd/th + optional year
+                    const monthMatch = dueDateStr.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?/i);
                     
-                    if (dayMatch) {
-                        const targetDayIndex = dayNames.indexOf(dayMatch);
-                        const currentDayIndex = today.getDay();
-                        let daysToAdd = targetDayIndex - currentDayIndex;
+                    if (monthMatch) {
+                        const monthName = monthMatch[1].toLowerCase();
+                        const day = parseInt(monthMatch[2]);
+                        const year = monthMatch[3] ? parseInt(monthMatch[3]) : today.getFullYear();
                         
-                        if (daysToAdd <= 0 || isNextWeek) {
-                            daysToAdd += 7; // Move to next week
-                        }
-                        if (isNextWeek && daysToAdd <= 7) {
-                            daysToAdd += 7; // "next Friday" when today is Thursday
-                        }
+                        const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+                        const monthIndex = months.findIndex(m => monthName.startsWith(m));
                         
-                        date = new Date(today);
-                        date.setDate(today.getDate() + daysToAdd);
-                    } else if (dueDateStr.includes('today')) {
-                        date = today;
-                    } else if (dueDateStr.includes('tomorrow')) {
-                        date = new Date(today);
-                        date.setDate(today.getDate() + 1);
-                    } else if (dueDateStr.includes('next week')) {
-                        date = new Date(today);
-                        date.setDate(today.getDate() + 7);
-                    } else if (dueDateStr.includes('end of week') || dueDateStr.includes('this week')) {
-                        // Find next Friday
-                        const daysUntilFriday = (5 - today.getDay() + 7) % 7 || 7;
-                        date = new Date(today);
-                        date.setDate(today.getDate() + daysUntilFriday);
-                    } else if (dueDateStr.includes('end of month')) {
-                        date = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                        if (monthIndex >= 0) {
+                            date = new Date(year, monthIndex, day);
+                            
+                            // If no year specified and date is in the past (more than 30 days?), assume next year?
+                            // Or generally, invoices are future.
+                            // If Today is Dec 2024, and user says "Jan 5", they likely mean Jan 2025.
+                            // If Today is Jan 2024, and user says "Feb 25", they mean Feb 2024.
+                            if (!monthMatch[3] && date < today) {
+                                // If the date is in the past, add one year
+                                date.setFullYear(year + 1);
+                            }
+                        }
+                    } else {
+                        // Check for day names (e.g., "Friday", "next Monday")
+                        const isNextWeek = dueDateStr.includes('next');
+                        const dayMatch = dayNames.find(day => dueDateStr.includes(day));
+                        
+                        if (dayMatch) {
+                            const targetDayIndex = dayNames.indexOf(dayMatch);
+                            const currentDayIndex = today.getDay();
+                            let daysToAdd = targetDayIndex - currentDayIndex;
+                            
+                            if (daysToAdd <= 0 || isNextWeek) {
+                                daysToAdd += 7; // Move to next week
+                            }
+                            if (isNextWeek && daysToAdd <= 7) {
+                                daysToAdd += 7; // "next Friday" when today is Thursday
+                            }
+                            
+                            date = new Date(today);
+                            date.setDate(today.getDate() + daysToAdd);
+                        } else if (dueDateStr.includes('today')) {
+                            date = today;
+                        } else if (dueDateStr.includes('tomorrow')) {
+                            date = new Date(today);
+                            date.setDate(today.getDate() + 1);
+                        } else if (dueDateStr.includes('next week')) {
+                            date = new Date(today);
+                            date.setDate(today.getDate() + 7);
+                        } else if (dueDateStr.includes('end of week') || dueDateStr.includes('this week')) {
+                            // Find next Friday
+                            const daysUntilFriday = (5 - today.getDay() + 7) % 7 || 7;
+                            date = new Date(today);
+                            date.setDate(today.getDate() + daysUntilFriday);
+                        } else if (dueDateStr.includes('end of month')) {
+                            date = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                        }
                     }
                 }
                 

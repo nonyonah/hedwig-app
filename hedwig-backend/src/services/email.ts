@@ -16,8 +16,8 @@ const SHARED_STYLES = `
     .amount-value { font-size: 36px; color: #111827; font-weight: 700; margin: 0; }
     .description { color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 24px; text-align: center; }
     .btn-container { text-align: center; margin-top: 32px; }
-    .btn { display: inline-block; background-color: #4F46E5; color: #ffffff; font-weight: 600; padding: 16px 32px; border-radius: 30px; text-decoration: none; font-size: 16px; transition: background-color 0.2s; }
-    .btn:hover { background-color: #4338ca; }
+    .btn { display: inline-block; background-color: #2563EB; color: #ffffff !important; font-weight: 600; padding: 12px 32px; line-height: 1.5; border-radius: 50px; text-decoration: none; font-size: 16px; transition: background-color 0.2s; mso-padding-alt: 0; }
+    .btn:hover { background-color: #1D4ED8; }
     .footer { background-color: #f9fafb; padding: 24px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
     .footer a { color: #6b7280; text-decoration: underline; }
 `;

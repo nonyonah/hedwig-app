@@ -1,59 +1,36 @@
-/* PaymentLinkPage.css - Redesigned */
+/* InvoicePage.css */
 
-/* Main Container - Force full screen, override any parent constraints */
-.page-container {
-    position: fixed !important;
-    /* Force out of flow */
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100vw !important;
-    height: 100vh !important;
-    background-color: #FFFFFF !important;
-    /* White background full screen */
+/* Main Container - Normal flow */
+.invoice-page-container {
+    width: 100%;
+    min-height: 100vh;
+    background-color: #FFFFFF;
     font-family: 'Google Sans Flex', sans-serif;
-    z-index: 10000 !important;
-    /* Ensure on top of everything */
-    overflow-y: auto;
-    /* Allow scrolling */
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 20px;
+    justify-content: flex-start;
+    padding: 60px 0;
     box-sizing: border-box;
-    margin: 0 !important;
+    /* Removed position: fixed and z-index to avoid stacking context wars */
 }
 
 /* Card Styles */
-.payment-card {
+.invoice-card {
     background: white;
-    /* Strict dimensions */
-    width: 436px !important;
-    min-width: 436px !important;
-    max-width: 436px !important;
-    min-height: 323px !important;
-    flex-shrink: 0 !important;
-    /* Prevent squishing */
+    /* Flexible width handled by inline styles or defaults */
+    min-height: auto;
+    /* flex-shrink: 0; */
 
     padding: 32px;
     border-radius: 24px;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-    border: 1px solid rgba(0, 0, 0, 0.04);
-    margin: auto;
+    border: 1px solid #E5E7EB;
+    margin: auto 0;
     /* Center in flex container */
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-}
-
-.payment-card.redesigned {
-    background: #FFFFFF;
-    /* If card background needs contrast against page background, change page-container bg to #FAFAFA */
-    /* But user said "white background ... isnt in the entire screen", presumably referring to page bg? */
-    /* Or card bg? I'll keep card white. */
-    border: 1px solid #E5E7EB;
 }
 
 /* Typography */
@@ -65,7 +42,6 @@
     margin-bottom: 24px;
     letter-spacing: -0.01em;
     line-height: 1.2;
-    flex-shrink: 0;
 }
 
 /* Info Grid */
@@ -73,9 +49,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    flex-grow: 1;
     width: 100%;
-    flex-shrink: 0;
 }
 
 .info-row {
@@ -85,7 +59,6 @@
     font-size: 14px;
     min-height: 24px;
     width: 100%;
-    flex-shrink: 0;
 }
 
 .info-label {
@@ -137,18 +110,18 @@
 .action-section {
     margin-top: 24px;
     width: 100%;
-    flex-shrink: 0;
 }
 
 .pay-button.redesigned {
     width: 100%;
     height: 44px;
-    background-color: #8B5CF6;
-    /* Violet-500 */
+    background-color: #2563EB;
+    /* Brand Blue */
     color: white;
     border: none;
-    border-radius: 12px;
-    font-size: 15px;
+    border-radius: 50px;
+    /* Pill shape */
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s;
@@ -156,14 +129,15 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
+    box-shadow: none;
 }
 
 .pay-button.redesigned:hover {
-    background-color: #7C3AED;
+    background-color: #1D4ED8;
 }
 
 .pay-button.redesigned:disabled {
-    background-color: #C4B5FD;
+    background-color: #93C5FD;
     cursor: not-allowed;
 }
 
@@ -186,21 +160,20 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    width: 436px !important;
-    min-height: 323px !important;
-    /* Fixed height for consistency */
+    width: 436px;
+    min-height: 323px;
     background: white;
     border-radius: 24px;
     padding: 32px;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-    flex-shrink: 0;
+    border: 1px solid #E5E7EB;
 }
 
 .spinner {
     width: 40px;
     height: 40px;
     border: 3px solid #E5E7EB;
-    border-top-color: #8B5CF6;
+    border-top-color: #2563EB;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 16px;
@@ -272,7 +245,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    color: #8B5CF6;
+    color: #2563EB;
     text-decoration: none;
     font-weight: 600;
     font-size: 14px;
