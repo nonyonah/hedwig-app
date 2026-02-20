@@ -444,8 +444,8 @@ export default function InvoicesScreen() {
                         <View style={styles.cardChainBadge}>
                             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                                 <View style={{ flexDirection: 'row' }}>
-                                    <Image source={ICONS.base} style={{ width: 14, height: 14, borderRadius: 7, marginRight: -6, zIndex: 1 }} />
                                     <Image source={ICONS.solana} style={{ width: 14, height: 14, borderRadius: 7 }} />
+                                    <Image source={ICONS.base} style={{ width: 14, height: 14, borderRadius: 7, marginLeft: -6 }} />
                                 </View>
                             </View>
                         </View>
@@ -675,8 +675,8 @@ export default function InvoicesScreen() {
                             <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
                             <View style={styles.chainValue}>
                                 <View style={{ flexDirection: 'row', marginRight: 6 }}>
-                                    <Image source={ICONS.base} style={[styles.smallIcon, { width: 16, height: 16, marginRight: -6, zIndex: 1 }]} />
                                     <Image source={ICONS.solana} style={[styles.smallIcon, { width: 16, height: 16 }]} />
+                                    <Image source={ICONS.base} style={[styles.smallIcon, { width: 16, height: 16, marginLeft: -6 }]} />
                                 </View>
                                 <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>Multichain</Text>
                             </View>

@@ -257,8 +257,8 @@ function InvoiceContent() {
                     <View style={styles.selectorsRow}>
                         <View style={[styles.selectorBadge, { backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0 }]}>
                             <View style={{ flexDirection: 'row', marginRight: 8 }}>
-                                <Image source={require('../../assets/icons/networks/base.png')} style={[styles.selectorIcon, { marginRight: -8, zIndex: 1 }]} />
                                 <Image source={require('../../assets/icons/networks/solana.png')} style={styles.selectorIcon} />
+                                <Image source={require('../../assets/icons/networks/base.png')} style={[styles.selectorIcon, { marginLeft: -8 }]} />
                             </View>
                             <Text style={[styles.selectorText, { color: themeColors.textPrimary }]}>Multichain</Text>
                         </View>
@@ -268,8 +268,8 @@ function InvoiceContent() {
                         </View>
                         <View style={[styles.networkBadge, { backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0 }]}>
                             <View style={{ flexDirection: 'row', marginRight: 6 }}>
-                                <Image source={require('../../assets/icons/networks/base.png')} style={[styles.networkIcon, { marginRight: -8, zIndex: 1 }]} />
                                 <Image source={require('../../assets/icons/networks/solana.png')} style={styles.networkIcon} />
+                                <Image source={require('../../assets/icons/networks/base.png')} style={[styles.networkIcon, { marginLeft: -8 }]} />
                             </View>
                             <Text style={[styles.networkText, { color: themeColors.textPrimary }]}>Multichain</Text>
                         </View>
