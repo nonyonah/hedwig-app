@@ -258,7 +258,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         />
                         {searchQuery.length > 0 && (
                             <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); }}>
-                                <X size={18} color={themeColors.textSecondary} />
+                                <X size={18} color={themeColors.textSecondary} strokeWidth={3} />
                             </TouchableOpacity>
                         )}
                     </View>

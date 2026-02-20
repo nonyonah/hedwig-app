@@ -1237,7 +1237,7 @@ export default function HomeScreen() {
                                     <File size={14} color={Colors.primary} />
                                     <Text style={styles.attachmentName} numberOfLines={1}>{file.name}</Text>
                                     <TouchableOpacity onPress={() => removeAttachment(index)}>
-                                        <X size={14} color={Colors.textSecondary} />
+                                        <X size={14} color={Colors.textSecondary} strokeWidth={3} />
                                     </TouchableOpacity>
                                 </View>
                             ))}

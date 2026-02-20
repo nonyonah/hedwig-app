@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Alert, LayoutAnimation, Platform, UIManager, Share } from 'react-native';
-import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
+let ContextMenu: any = null;
+let ExpoButton: any = null;
+let Host: any = null;
+if (Platform.OS === 'ios') {
+    try {
+        const SwiftUI = require('@expo/ui/swift-ui');
+        ContextMenu = SwiftUI.ContextMenu;
+        ExpoButton = SwiftUI.Button;
+        Host = SwiftUI.Host;
+    } catch (e) { }
+}
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 
 // Enable LayoutAnimation on Android
@@ -300,26 +310,48 @@ export default function WalletScreen() {
                         <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Tokens</Text>
 
                         {/* Native Network Dropdown */}
-                        <Host>
-                            <ContextMenu>
-                                <ContextMenu.Trigger>
-                                    <View style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}>
-                                        {networkFilter !== 'all' && (
-                                            <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
-                                        )}
-                                        <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
-                                            {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
-                                        </Text>
-                                        <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
-                                    </View>
-                                </ContextMenu.Trigger>
-                                <ContextMenu.Items>
-                                    <ExpoButton onPress={() => setNetworkFilter('all')}>All Networks</ExpoButton>
-                                    <ExpoButton onPress={() => setNetworkFilter('base')}>Base</ExpoButton>
-                                    <ExpoButton onPress={() => setNetworkFilter('solana')}>Solana</ExpoButton>
-                                </ContextMenu.Items>
-                            </ContextMenu>
-                        </Host>
+                        {Platform.OS === 'ios' && Host ? (
+                            <Host>
+                                <ContextMenu>
+                                    <ContextMenu.Trigger>
+                                        <View style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}>
+                                            {networkFilter !== 'all' && (
+                                                <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
+                                            )}
+                                            <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
+                                                {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
+                                            </Text>
+                                            <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
+                                        </View>
+                                    </ContextMenu.Trigger>
+                                    <ContextMenu.Items>
+                                        <ExpoButton onPress={() => setNetworkFilter('all')}>All Networks</ExpoButton>
+                                        <ExpoButton onPress={() => setNetworkFilter('base')}>Base</ExpoButton>
+                                        <ExpoButton onPress={() => setNetworkFilter('solana')}>Solana</ExpoButton>
+                                    </ContextMenu.Items>
+                                </ContextMenu>
+                            </Host>
+                        ) : (
+                            <TouchableOpacity
+                                style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}
+                                onPress={() => {
+                                    Alert.alert('Select Network', undefined, [
+                                        { text: 'All Networks', onPress: () => setNetworkFilter('all') },
+                                        { text: 'Base', onPress: () => setNetworkFilter('base') },
+                                        { text: 'Solana', onPress: () => setNetworkFilter('solana') },
+                                        { text: 'Cancel', style: 'cancel' }
+                                    ]);
+                                }}
+                            >
+                                {networkFilter !== 'all' && (
+                                    <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
+                                )}
+                                <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
+                                    {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
+                                </Text>
+                                <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
+                            </TouchableOpacity>
+                        )}
                     </View>
 
                     {filteredTokens.map((item, index) => (
@@ -437,22 +469,40 @@ export default function WalletScreen() {
                             <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Share</Text>
                         </TouchableOpacity>
 
-                        <Host>
-                            <ContextMenu>
-                                <ContextMenu.Trigger>
-                                    <View style={styles.receiveActionBtn}>
-                                        <View style={[styles.receiveActionCircle, { backgroundColor: themeColors.surface }]}>
-                                            <Copy size={28} color={themeColors.textPrimary} />
+                        {Platform.OS === 'ios' && Host ? (
+                            <Host>
+                                <ContextMenu>
+                                    <ContextMenu.Trigger>
+                                        <View style={styles.receiveActionBtn}>
+                                            <View style={[styles.receiveActionCircle, { backgroundColor: themeColors.surface }]}>
+                                                <Copy size={28} color={themeColors.textPrimary} />
+                                            </View>
+                                            <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Copy</Text>
                                         </View>
-                                        <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Copy</Text>
-                                    </View>
-                                </ContextMenu.Trigger>
-                                <ContextMenu.Items>
-                                    <ExpoButton onPress={() => copyAddress('base')}>Copy EVM Address</ExpoButton>
-                                    <ExpoButton onPress={() => copyAddress('solana')}>Copy Solana Address</ExpoButton>
-                                </ContextMenu.Items>
-                            </ContextMenu>
-                        </Host>
+                                    </ContextMenu.Trigger>
+                                    <ContextMenu.Items>
+                                        <ExpoButton onPress={() => copyAddress('base')}>Copy EVM Address</ExpoButton>
+                                        <ExpoButton onPress={() => copyAddress('solana')}>Copy Solana Address</ExpoButton>
+                                    </ContextMenu.Items>
+                                </ContextMenu>
+                            </Host>
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.receiveActionBtn}
+                                onPress={() => {
+                                    Alert.alert('Copy Address', undefined, [
+                                        { text: 'Copy EVM Address', onPress: () => copyAddress('base') },
+                                        { text: 'Copy Solana Address', onPress: () => copyAddress('solana') },
+                                        { text: 'Cancel', style: 'cancel' }
+                                    ]);
+                                }}
+                            >
+                                <View style={[styles.receiveActionCircle, { backgroundColor: themeColors.surface }]}>
+                                    <Copy size={28} color={themeColors.textPrimary} />
+                                </View>
+                                <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Copy</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </BottomSheetView>
             </BottomSheetModal>

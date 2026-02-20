@@ -103,7 +103,7 @@ export function OnboardingTooltip({
                                 onPress={onDismiss}
                                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             >
-                                <X size={20} color={Colors.textSecondary} />
+                                <X size={20} color={Colors.textSecondary} strokeWidth={3} />
                             </TouchableOpacity>
                         </View>
 

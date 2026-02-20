@@ -6,7 +6,17 @@ import { BlurView } from 'expo-blur';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
+let ContextMenu: any = null;
+let ExpoButton: any = null;
+let Host: any = null;
+if (Platform.OS === 'ios') {
+    try {
+        const SwiftUI = require('@expo/ui/swift-ui');
+        ContextMenu = SwiftUI.ContextMenu;
+        ExpoButton = SwiftUI.Button;
+        Host = SwiftUI.Host;
+    } catch (e) { }
+}
 import { useAuth } from '../../hooks/useAuth';
 import { List, Receipt, Clock, CheckCircle, AlertCircle as WarningCircle, X, CircleUser as UserCircle, Share2 as ShareNetwork, Wallet, Trash, Bell, MoreHorizontal as DotsThree } from 'lucide-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -581,35 +591,53 @@ export default function InvoicesScreen() {
                         </View>
                         <View style={styles.modalHeaderRight}>
                             {selectedInvoice?.status !== 'PAID' && (
-                                <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                    <ContextMenu>
-                                        <ContextMenu.Trigger>
-                                            <ExpoButton variant="borderless" systemImage="ellipsis">
-                                                {' '}
-                                            </ExpoButton>
-                                        </ContextMenu.Trigger>
-                                        <ContextMenu.Items>
-                                            <ExpoButton
-                                                onPress={handleSendReminder}
-                                                systemImage="bell.fill"
-                                            >
-                                                Send Reminder
-                                            </ExpoButton>
-                                            <ExpoButton
-                                                onPress={handleToggleReminders}
-                                                systemImage={selectedInvoice?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
-                                            >
-                                                {selectedInvoice?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
-                                            </ExpoButton>
-                                            <ExpoButton
-                                                onPress={handleDeleteInvoice}
-                                                systemImage="trash.fill"
-                                            >
-                                                Delete
-                                            </ExpoButton>
-                                        </ContextMenu.Items>
-                                    </ContextMenu>
-                                </Host>
+                                <>
+                                    {Platform.OS === 'ios' && Host ? (
+                                        <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
+                                            <ContextMenu>
+                                                <ContextMenu.Trigger>
+                                                    <ExpoButton variant="borderless" systemImage="ellipsis">
+                                                        {' '}
+                                                    </ExpoButton>
+                                                </ContextMenu.Trigger>
+                                                <ContextMenu.Items>
+                                                    <ExpoButton
+                                                        onPress={handleSendReminder}
+                                                        systemImage="bell.fill"
+                                                    >
+                                                        Send Reminder
+                                                    </ExpoButton>
+                                                    <ExpoButton
+                                                        onPress={handleToggleReminders}
+                                                        systemImage={selectedInvoice?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
+                                                    >
+                                                        {selectedInvoice?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
+                                                    </ExpoButton>
+                                                    <ExpoButton
+                                                        onPress={handleDeleteInvoice}
+                                                        systemImage="trash.fill"
+                                                    >
+                                                        Delete
+                                                    </ExpoButton>
+                                                </ContextMenu.Items>
+                                            </ContextMenu>
+                                        </Host>
+                                    ) : (
+                                        <TouchableOpacity
+                                            style={{ padding: 4, marginRight: 8 }}
+                                            onPress={() => {
+                                                Alert.alert('Invoice Options', undefined, [
+                                                    { text: 'Send Reminder', onPress: handleSendReminder },
+                                                    { text: selectedInvoice?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders', onPress: handleToggleReminders },
+                                                    { text: 'Delete', style: 'destructive', onPress: handleDeleteInvoice },
+                                                    { text: 'Cancel', style: 'cancel' }
+                                                ]);
+                                            }}
+                                        >
+                                            <DotsThree size={24} color={themeColors.textSecondary} />
+                                        </TouchableOpacity>
+                                    )}
+                                </>
                             )}
                             <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
                                 <X size={20} color={themeColors.textSecondary} strokeWidth={3} />

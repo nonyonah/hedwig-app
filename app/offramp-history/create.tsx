@@ -28,7 +28,17 @@ import { useAuth } from '../../hooks/useAuth';
 import { BottomSheetModal, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { OfframpConfirmationModal } from '../../components/OfframpConfirmationModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
+let ContextMenu: any = null;
+let ExpoButton: any = null;
+let Host: any = null;
+if (Platform.OS === 'ios') {
+    try {
+        const SwiftUI = require('@expo/ui/swift-ui');
+        ContextMenu = SwiftUI.ContextMenu;
+        ExpoButton = SwiftUI.Button;
+        Host = SwiftUI.Host;
+    } catch (e) { }
+}
 import { SolanaBridgeModal } from '../../components/SolanaBridgeModal';
 import { useEmbeddedSolanaWallet, useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { useWallet } from '../../hooks/useWallet';
@@ -317,29 +327,47 @@ export default function CreateWithdrawalScreen() {
                                 keyboardType="decimal-pad"
                             />
                             {/* Chain Badge - using wallet page ContextMenu pattern */}
-                            <Host>
-                                <ContextMenu>
-                                    <ContextMenu.Trigger>
-                                        <View style={[styles.chainBadge, { backgroundColor: themeColors.background }]}>
-                                            <Image source={selectedNetwork.icon} style={styles.chainBadgeIcon} />
-                                            <Text style={[styles.chainBadgeName, { color: themeColors.textPrimary }]}>
-                                                {selectedNetwork.name}
-                                            </Text>
-                                            <CaretDown size={12} color={themeColors.textSecondary} strokeWidth={3} />
-                                        </View>
-                                    </ContextMenu.Trigger>
-                                    <ContextMenu.Items>
-                                        {NETWORKS.map((network) => (
-                                            <ExpoButton
-                                                key={network.id}
-                                                onPress={() => setSelectedNetwork(network)}
-                                            >
-                                                {network.name}
-                                            </ExpoButton>
-                                        ))}
-                                    </ContextMenu.Items>
-                                </ContextMenu>
-                            </Host>
+                            {Platform.OS === 'ios' && Host ? (
+                                <Host>
+                                    <ContextMenu>
+                                        <ContextMenu.Trigger>
+                                            <View style={[styles.chainBadge, { backgroundColor: themeColors.background }]}>
+                                                <Image source={selectedNetwork.icon} style={styles.chainBadgeIcon} />
+                                                <Text style={[styles.chainBadgeName, { color: themeColors.textPrimary }]}>
+                                                    {selectedNetwork.name}
+                                                </Text>
+                                                <CaretDown size={12} color={themeColors.textSecondary} strokeWidth={3} />
+                                            </View>
+                                        </ContextMenu.Trigger>
+                                        <ContextMenu.Items>
+                                            {NETWORKS.map((network) => (
+                                                <ExpoButton
+                                                    key={network.id}
+                                                    onPress={() => setSelectedNetwork(network)}
+                                                >
+                                                    {network.name}
+                                                </ExpoButton>
+                                            ))}
+                                        </ContextMenu.Items>
+                                    </ContextMenu>
+                                </Host>
+                            ) : (
+                                <TouchableOpacity
+                                    style={[styles.chainBadge, { backgroundColor: themeColors.background }]}
+                                    onPress={() => {
+                                        Alert.alert('Select Network', undefined, [
+                                            ...NETWORKS.map(n => ({ text: n.name, onPress: () => setSelectedNetwork(n) })),
+                                            { text: 'Cancel', style: 'cancel' }
+                                        ]);
+                                    }}
+                                >
+                                    <Image source={selectedNetwork.icon} style={styles.chainBadgeIcon} />
+                                    <Text style={[styles.chainBadgeName, { color: themeColors.textPrimary }]}>
+                                        {selectedNetwork.name}
+                                    </Text>
+                                    <CaretDown size={12} color={themeColors.textSecondary} strokeWidth={3} />
+                                </TouchableOpacity>
+                            )}
                         </View>
 
 
@@ -362,29 +390,47 @@ export default function CreateWithdrawalScreen() {
 
                         {/* Country / Currency Selector - using wallet page ContextMenu pattern */}
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Country</Text>
-                        <Host style={{ marginBottom: 16 }}>
-                            <ContextMenu>
-                                <ContextMenu.Trigger>
-                                    <View style={[styles.authInputContainer, { backgroundColor: themeColors.surface, height: 43, marginBottom: 0 }]}>
-                                        <Text style={{ fontSize: 18, lineHeight: 22, marginRight: 4 }}>{selectedCountry.flag}</Text>
-                                        <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0 }]}>
-                                            {selectedCountry.name} ({selectedCountry.currency})
-                                        </Text>
-                                        <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                                    </View>
-                                </ContextMenu.Trigger>
-                                <ContextMenu.Items>
-                                    {COUNTRIES.map((country) => (
-                                        <ExpoButton
-                                            key={country.id}
-                                            onPress={() => setSelectedCountry(country)}
-                                        >
-                                            {`${country.flag} ${country.name} (${country.currency})`}
-                                        </ExpoButton>
-                                    ))}
-                                </ContextMenu.Items>
-                            </ContextMenu>
-                        </Host>
+                        {Platform.OS === 'ios' && Host ? (
+                            <Host style={{ marginBottom: 16 }}>
+                                <ContextMenu>
+                                    <ContextMenu.Trigger>
+                                        <View style={[styles.authInputContainer, { backgroundColor: themeColors.surface, height: 43, marginBottom: 0 }]}>
+                                            <Text style={{ fontSize: 18, lineHeight: 22, marginRight: 4 }}>{selectedCountry.flag}</Text>
+                                            <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0 }]}>
+                                                {selectedCountry.name} ({selectedCountry.currency})
+                                            </Text>
+                                            <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                                        </View>
+                                    </ContextMenu.Trigger>
+                                    <ContextMenu.Items>
+                                        {COUNTRIES.map((country) => (
+                                            <ExpoButton
+                                                key={country.id}
+                                                onPress={() => setSelectedCountry(country)}
+                                            >
+                                                {`${country.flag} ${country.name} (${country.currency})`}
+                                            </ExpoButton>
+                                        ))}
+                                    </ContextMenu.Items>
+                                </ContextMenu>
+                            </Host>
+                        ) : (
+                            <TouchableOpacity
+                                style={[styles.authInputContainer, { backgroundColor: themeColors.surface, height: 43, marginBottom: 16 }]}
+                                onPress={() => {
+                                    Alert.alert('Select Country', undefined, [
+                                        ...COUNTRIES.map(c => ({ text: `${c.flag} ${c.name} (${c.currency})`, onPress: () => setSelectedCountry(c) })),
+                                        { text: 'Cancel', style: 'cancel' }
+                                    ]);
+                                }}
+                            >
+                                <Text style={{ fontSize: 18, lineHeight: 22, marginRight: 4 }}>{selectedCountry.flag}</Text>
+                                <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0 }]}>
+                                    {selectedCountry.name} ({selectedCountry.currency})
+                                </Text>
+                                <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                            </TouchableOpacity>
+                        )}
 
                         {/* Bank Selection */}
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Bank Name</Text>

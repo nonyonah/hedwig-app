@@ -283,7 +283,7 @@ export default function OfframpHistoryScreen() {
                                 {isCompleted ? (
                                     <CheckCircle size={16} color="#FFFFFF" strokeWidth={3} />
                                 ) : isFailed && index === currentIndex ? (
-                                    <X size={16} color="#FFFFFF" strokeWidth={3} />
+                                    <X size={16} color="#FFFFFF" strokeWidth={4} />
                                 ) : (
                                     <Text style={[
                                         styles.progressNumber,

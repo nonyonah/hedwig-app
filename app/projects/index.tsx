@@ -7,7 +7,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { Briefcase, List, Calendar, User, DollarSign as CurrencyDollar, CheckCircle, Clock, Receipt, ChevronRight as CaretRight, X, MoreHorizontal as DotsThree, Trash2 as Trash, Check, FileText, ChevronLeft as CaretLeft, Plus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
+let ContextMenu: any = null;
+let ExpoButton: any = null;
+let Host: any = null;
+if (Platform.OS === 'ios') {
+    try {
+        const SwiftUI = require('@expo/ui/swift-ui');
+        ContextMenu = SwiftUI.ContextMenu;
+        ExpoButton = SwiftUI.Button;
+        Host = SwiftUI.Host;
+    } catch (e) { }
+}
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
@@ -490,29 +500,44 @@ export default function ProjectsScreen() {
                                         <Text style={[styles.modalHeaderTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{selectedProject.title}</Text>
                                     </View>
                                     <View style={styles.modalHeaderRight}>
-                                        <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                            <ContextMenu>
-                                                <ContextMenu.Trigger>
-                                                    <ExpoButton variant="borderless" systemImage="ellipsis">
-                                                        {' '}
-                                                    </ExpoButton>
-                                                </ContextMenu.Trigger>
-                                                <ContextMenu.Items>
-                                                    <ExpoButton
-                                                        onPress={handleCompleteProject}
-                                                        systemImage="checkmark.circle.fill"
-                                                    >
-                                                        Complete Project
-                                                    </ExpoButton>
-                                                    <ExpoButton
-                                                        onPress={handleDeleteProject}
-                                                        systemImage="trash.fill"
-                                                    >
-                                                        Delete Project
-                                                    </ExpoButton>
-                                                </ContextMenu.Items>
-                                            </ContextMenu>
-                                        </Host>
+                                        {Platform.OS === 'ios' && Host ? (
+                                            <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
+                                                <ContextMenu>
+                                                    <ContextMenu.Trigger>
+                                                        <ExpoButton variant="borderless" systemImage="ellipsis">
+                                                            {' '}
+                                                        </ExpoButton>
+                                                    </ContextMenu.Trigger>
+                                                    <ContextMenu.Items>
+                                                        <ExpoButton
+                                                            onPress={handleCompleteProject}
+                                                            systemImage="checkmark.circle.fill"
+                                                        >
+                                                            Complete Project
+                                                        </ExpoButton>
+                                                        <ExpoButton
+                                                            onPress={handleDeleteProject}
+                                                            systemImage="trash.fill"
+                                                        >
+                                                            Delete Project
+                                                        </ExpoButton>
+                                                    </ContextMenu.Items>
+                                                </ContextMenu>
+                                            </Host>
+                                        ) : (
+                                            <TouchableOpacity
+                                                style={{ padding: 4, marginRight: 8 }}
+                                                onPress={() => {
+                                                    Alert.alert('Project Options', undefined, [
+                                                        { text: 'Complete Project', onPress: handleCompleteProject },
+                                                        { text: 'Delete Project', style: 'destructive', onPress: handleDeleteProject },
+                                                        { text: 'Cancel', style: 'cancel' }
+                                                    ]);
+                                                }}
+                                            >
+                                                <DotsThree size={24} color={themeColors.textSecondary} />
+                                            </TouchableOpacity>
+                                        )}
                                         <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeDetailModal}>
                                             <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                                         </TouchableOpacity>

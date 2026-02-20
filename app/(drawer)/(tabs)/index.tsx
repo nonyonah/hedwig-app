@@ -160,8 +160,9 @@ export default function HomeDashboard() {
                     if (inv.status === 'PAID') return;
                     if (inv.content?.due_date) {
                         const due = new Date(inv.content.due_date);
-                        if (due < today) newCounts.reminders.invoices++;
-                        else if (due <= nextWeek) newCounts.dueSoon.invoices++;
+                        due.setHours(0, 0, 0, 0);
+                        if (due.getTime() <= today.getTime()) newCounts.reminders.invoices++;
+                        else if (due.getTime() <= nextWeek.getTime()) newCounts.dueSoon.invoices++;
                     } else {
                         newCounts.reminders.invoices++;
                     }
@@ -201,8 +202,9 @@ export default function HomeDashboard() {
                     if (link.status === 'PAID') return;
                     if (link.content?.due_date) {
                         const due = new Date(link.content.due_date);
-                        if (due <= nextWeek && due >= today) newCounts.dueSoon.links++;
-                        else if (due < today) newCounts.reminders.links++;
+                        due.setHours(0, 0, 0, 0);
+                        if (due.getTime() <= today.getTime()) newCounts.reminders.links++;
+                        else if (due.getTime() <= nextWeek.getTime()) newCounts.dueSoon.links++;
                     }
                 });
             }
@@ -251,8 +253,50 @@ export default function HomeDashboard() {
         }
     };
 
+    const getBadgeText = (type: 'INVOICE' | 'LINK', category: 'reminders' | 'dueSoon') => {
+        const uncompleted = allDocuments.filter(d => d.type === type && d.status !== 'PAID');
+        if (uncompleted.length === 0) return null;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const nextWeek = new Date(today);
+        nextWeek.setDate(today.getDate() + 7);
+
+        let overdue = 0;
+        let todayCount = 0;
+        let nextDue: Date | null = null;
+
+        uncompleted.forEach(doc => {
+            if (doc.data.content?.due_date) {
+                const due = new Date(doc.data.content.due_date);
+                due.setHours(0, 0, 0, 0);
+                if (due.getTime() < today.getTime()) overdue++;
+                else if (due.getTime() === today.getTime()) todayCount++;
+                else if (due.getTime() <= nextWeek.getTime()) {
+                    if (!nextDue || due.getTime() < nextDue.getTime()) nextDue = due;
+                }
+            }
+        });
+
+        if (category === 'reminders') {
+            if (overdue > 0 && todayCount > 0) return `${overdue} Overdue, ${todayCount} Due today`;
+            if (overdue > 0) return `${overdue} Overdue`;
+            if (todayCount > 0) return `${todayCount} Due today`;
+            return null;
+        } else if (category === 'dueSoon') {
+            if (nextDue) {
+                const diffTime = Math.abs(nextDue.getTime() - today.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays === 1) return 'Due tomorrow';
+                return `Due in ${diffDays} days`;
+            }
+            return null;
+        }
+        return null;
+    };
+
     const renderSummaryRow = (label: string, count: number, badgeText: string | null, onPress: () => void) => {
-        if (count === 0 && !badgeText) return null;
+        if (count === 0) return null;
         return (
             <AnimatedListItem onPress={onPress}>
                 <View style={[styles.row, { backgroundColor: themeColors.surface }]}>
@@ -343,7 +387,7 @@ export default function HomeDashboard() {
                 />
                 {searchQuery.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <XCircle size={20} color={themeColors.textSecondary} fill={themeColors.textSecondary} />
+                        <XCircle size={20} color={themeColors.textSecondary} fill={themeColors.textSecondary} strokeWidth={3} />
                     </TouchableOpacity>
                 )}
             </View>
@@ -388,9 +432,9 @@ export default function HomeDashboard() {
                     <View style={styles.sectionContainer}>
                         <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Reminders</Text>
                         <View style={styles.cardContainer}>
-                            {renderSummaryRow('Invoices', counts.reminders.invoices, 'Due today', () => router.push('/(tabs)/invoices?filter=due_today'))}
+                            {renderSummaryRow('Invoices', counts.reminders.invoices, getBadgeText('INVOICE', 'reminders'), () => router.push('/(tabs)/invoices'))}
                             {renderSummaryRow('Awaiting contract signatures', counts.reminders.contracts, null, () => router.push('/(tabs)/contracts?filter=sent'))}
-                            {renderSummaryRow('Payment links expiring today', counts.reminders.links, null, () => router.push('/(tabs)/links'))}
+                            {renderSummaryRow('Payment links', counts.reminders.links, getBadgeText('LINK', 'reminders'), () => router.push('/(tabs)/links'))}
                         </View>
                     </View>
 
@@ -407,9 +451,9 @@ export default function HomeDashboard() {
                     <View style={styles.sectionContainer}>
                         <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Due Soon</Text>
                         <View style={styles.cardContainer}>
-                            {renderSummaryRow('Invoices due this week', counts.dueSoon.invoices, null, () => router.push('/(tabs)/invoices?filter=due_soon'))}
+                            {renderSummaryRow('Invoices due soon', counts.dueSoon.invoices, getBadgeText('INVOICE', 'dueSoon'), () => router.push('/(tabs)/invoices?filter=due_soon'))}
                             {renderSummaryRow('Projects due soon', counts.dueSoon.projects, null, () => router.push('/(tabs)/projects?filter=due_soon'))}
-                            {renderSummaryRow('Payment links due soon', counts.dueSoon.links, null, () => router.push('/(tabs)/links?filter=due_soon'))}
+                            {renderSummaryRow('Payment links due soon', counts.dueSoon.links, getBadgeText('LINK', 'dueSoon'), () => router.push('/(tabs)/links?filter=due_soon'))}
                             {renderSummaryRow('Milestones due soon', counts.dueSoon.milestones, null, () => { })}
                         </View>
                     </View>

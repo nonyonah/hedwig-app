@@ -345,7 +345,7 @@ export default function ChatsScreen() {
                             />
                             {searchQuery.length > 0 && (
                                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                                    <X size={16} color={themeColors.textSecondary} />
+                                    <X size={16} color={themeColors.textSecondary} strokeWidth={3} />
                                 </TouchableOpacity>
                             )}
                         </View>

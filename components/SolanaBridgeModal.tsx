@@ -559,7 +559,7 @@ export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalP
                             style={styles.closeButton}
                             onPress={handleDismiss}
                         >
-                            <X size={24} color={themeColors.textSecondary} />
+                            <X size={24} color={themeColors.textSecondary} strokeWidth={3} />
                         </TouchableOpacity>
                     </View>
                 )}

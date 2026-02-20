@@ -41,7 +41,7 @@ export default function CreationSuccessModal({ visible, onClose, type, amount, t
                         onPress={onClose}
                         hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                     >
-                        <X size={24} color={isDark ? '#8E8E93' : '#8E8E93'} />
+                        <X size={24} color={isDark ? '#8E8E93' : '#8E8E93'} strokeWidth={3} />
                     </TouchableOpacity>
 
                     {/* Content */}

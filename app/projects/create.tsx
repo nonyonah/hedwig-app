@@ -277,7 +277,7 @@ export default function CreateProjectScreen() {
                                 <Text style={[styles.milestoneIndex, { color: themeColors.textSecondary }]}>#{index + 1}</Text>
                                 {milestones.length > 1 && (
                                     <TouchableOpacity onPress={() => removeMilestone(index)}>
-                                        <X size={20} color={themeColors.textSecondary} />
+                                        <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                                     </TouchableOpacity>
                                 )}
                             </View>

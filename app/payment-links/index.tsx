@@ -7,7 +7,17 @@ import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
-import { ContextMenu, Button as ExpoButton, Host } from '@expo/ui/swift-ui';
+let ContextMenu: any = null;
+let ExpoButton: any = null;
+let Host: any = null;
+if (Platform.OS === 'ios') {
+    try {
+        const SwiftUI = require('@expo/ui/swift-ui');
+        ContextMenu = SwiftUI.ContextMenu;
+        ExpoButton = SwiftUI.Button;
+        Host = SwiftUI.Host;
+    } catch (e) { }
+}
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { List, CheckCircle, Share2 as ShareNetwork, X, Wallet, CircleUser as UserCircle, Trash, MoreHorizontal as DotsThree, Bell } from 'lucide-react-native';
@@ -583,35 +593,53 @@ export default function PaymentLinksScreen() {
                         </View>
                         <View style={styles.modalHeaderRight}>
                             {selectedLink?.status !== 'PAID' && (
-                                <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                    <ContextMenu>
-                                        <ContextMenu.Trigger>
-                                            <ExpoButton variant="borderless" systemImage="ellipsis">
-                                                {' '}
-                                            </ExpoButton>
-                                        </ContextMenu.Trigger>
-                                        <ContextMenu.Items>
-                                            <ExpoButton
-                                                onPress={handleSendReminder}
-                                                systemImage="bell.fill"
-                                            >
-                                                Send Reminder
-                                            </ExpoButton>
-                                            <ExpoButton
-                                                onPress={handleToggleReminders}
-                                                systemImage={selectedLink?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
-                                            >
-                                                {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
-                                            </ExpoButton>
-                                            <ExpoButton
-                                                onPress={handleDeleteLink}
-                                                systemImage="trash.fill"
-                                            >
-                                                Delete
-                                            </ExpoButton>
-                                        </ContextMenu.Items>
-                                    </ContextMenu>
-                                </Host>
+                                <>
+                                    {Platform.OS === 'ios' && Host ? (
+                                        <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
+                                            <ContextMenu>
+                                                <ContextMenu.Trigger>
+                                                    <ExpoButton variant="borderless" systemImage="ellipsis">
+                                                        {' '}
+                                                    </ExpoButton>
+                                                </ContextMenu.Trigger>
+                                                <ContextMenu.Items>
+                                                    <ExpoButton
+                                                        onPress={handleSendReminder}
+                                                        systemImage="bell.fill"
+                                                    >
+                                                        Send Reminder
+                                                    </ExpoButton>
+                                                    <ExpoButton
+                                                        onPress={handleToggleReminders}
+                                                        systemImage={selectedLink?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
+                                                    >
+                                                        {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
+                                                    </ExpoButton>
+                                                    <ExpoButton
+                                                        onPress={handleDeleteLink}
+                                                        systemImage="trash.fill"
+                                                    >
+                                                        Delete
+                                                    </ExpoButton>
+                                                </ContextMenu.Items>
+                                            </ContextMenu>
+                                        </Host>
+                                    ) : (
+                                        <TouchableOpacity
+                                            style={{ padding: 4, marginRight: 8 }}
+                                            onPress={() => {
+                                                Alert.alert('Payment Link Options', undefined, [
+                                                    { text: 'Send Reminder', onPress: handleSendReminder },
+                                                    { text: selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders', onPress: handleToggleReminders },
+                                                    { text: 'Delete', style: 'destructive', onPress: handleDeleteLink },
+                                                    { text: 'Cancel', style: 'cancel' }
+                                                ]);
+                                            }}
+                                        >
+                                            <DotsThree size={24} color={themeColors.textSecondary} />
+                                        </TouchableOpacity>
+                                    )}
+                                </>
                             )}
                             <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
                                 <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
