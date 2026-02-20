@@ -44,6 +44,11 @@
         "android.permission.POST_PROMOTED_NOTIFICATIONS",
         "android.permission.CAMERA",
         "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.POST_PROMOTED_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
@@ -93,6 +98,12 @@
         "projectId": "ade423ca-7649-400c-9817-21e000b2cde4"
       }
     },
-    "owner": "nonsooo"
+    "owner": "nonsooo",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ade423ca-7649-400c-9817-21e000b2cde4"
+    }
   }
 }

@@ -14,15 +14,18 @@
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
         "EXPO_PUBLIC_API_URL": "http://192.168.0.229:3000"
-      }
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.0"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
+      "channel": "production",
       "autoIncrement": true,
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.0",
@@ -38,7 +41,8 @@
         "EXPO_PUBLIC_WEB_CLIENT_URL": "https://hedwig-app-1024636755109.europe-west1.run.app",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {
