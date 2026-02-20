@@ -121,9 +121,11 @@ app.use(
                     // Privy APIs
                     "https://auth.privy.io",
                     "wss://auth.privy.io",
+                    "https://*.privy.io",
+                    "wss://*.privy.io",
                 ],
-                frameSrc: ["'self'", "https:", "blob:", "data:", "chrome-extension:", "moz-extension:", "https://*.phantom.app"],
-                childSrc: ["'self'", "https:", "blob:", "data:", "chrome-extension:", "moz-extension:", "https://*.phantom.app"],
+                frameSrc: ["'self'", "https:", "blob:", "data:", "chrome-extension:", "moz-extension:", "https://*.phantom.app", "https://*.privy.io"],
+                childSrc: ["'self'", "https:", "blob:", "data:", "chrome-extension:", "moz-extension:", "https://*.phantom.app", "https://*.privy.io"],
             },
         },
     })
