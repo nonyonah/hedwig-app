@@ -22,7 +22,7 @@ RUN apt-get update -qq && \
 
 # Install node modules (include dev for TypeScript build)
 COPY package-lock.json package.json ./
-RUN npm ci --include=dev
+RUN npm ci --include=dev --legacy-peer-deps
 
 # Copy application code
 COPY . .
@@ -32,7 +32,7 @@ RUN npm run build
 
 # Build web-client (it has its own package.json)
 WORKDIR /app/web-client
-RUN npm ci --include=dev
+RUN npm ci --include=dev --legacy-peer-deps
 # Set Vite environment variables for build (baked into frontend)
 ENV VITE_REOWN_PROJECT_ID=e2fead0a05813697717820eaed0f18ea
 ENV VITE_API_URL=https://pay.hedwigbot.xyz
