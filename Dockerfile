@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y rsync && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 
 # Install dependencies (including devDependencies needed for build)
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy the rest of the application source code
 COPY . .
