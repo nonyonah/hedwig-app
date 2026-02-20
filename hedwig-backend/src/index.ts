@@ -42,7 +42,7 @@ import { createLogger } from './utils/logger';
 const logger = createLogger('Server');
 
 const app: Application = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // Initialize background tasks
 SchedulerService.initScheduler();

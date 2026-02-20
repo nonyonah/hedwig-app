@@ -4,6 +4,8 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
 import { DownloadSimple, CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
+import { useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import bs58 from 'bs58';
 import { TOKENS, SOLANA_RPC } from '../lib/constants';
 import {
     SOLANA_USDC_MINT,
@@ -66,6 +68,7 @@ export default function InvoicePage() {
     const [searchParams] = useSearchParams();
     const { connectWallet } = usePrivy();
     const { wallets } = useWallets();
+    const { signAndSendTransaction } = useSignAndSendTransaction();
     const evmWallet = wallets.find(w => (w as any).chainType === 'ethereum');
     const solanaWallet = wallets.find(w => (w as any).chainType === 'solana');
     const address = evmWallet?.address || solanaWallet?.address;
@@ -140,8 +143,6 @@ export default function InvoicePage() {
         try {
             setIsPaying(true);
 
-            console.log('[Solana] Connecting via Privy...');
-            const solanaProvider = await (solanaWallet as any).getSolanaProvider();
             const senderPubkey = new PublicKey(solanaWallet.address);
             console.log('[Solana] Connected:', senderPubkey.toString());
 
@@ -190,16 +191,21 @@ export default function InvoicePage() {
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = senderPubkey;
 
-            console.log('[Solana] Requesting signature...');
-            const { signature } = await solanaProvider.signAndSendTransaction(transaction);
-            console.log('[Solana] Transaction sent:', signature);
+            console.log('[Solana] Requesting signature and sending...');
+            const { signature } = await signAndSendTransaction({
+                transaction: transaction.serialize({ requireAllSignatures: false }),
+                wallet: solanaWallet as any
+            });
+            console.log('[Solana] Transaction sent:', bs58.encode(signature));
+
+            const txHashStr = typeof signature === 'string' ? signature : bs58.encode(signature);
 
             let confirmed = false;
             let attempts = 0;
             while (!confirmed && attempts < 60) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 attempts++;
-                const status = await connection.getSignatureStatuses([signature]);
+                const status = await connection.getSignatureStatuses([txHashStr]);
                 if (status.value[0]?.confirmationStatus === 'confirmed' || status.value[0]?.confirmationStatus === 'finalized') {
                     confirmed = true;
                 }
@@ -207,14 +213,14 @@ export default function InvoicePage() {
 
             if (!confirmed) throw new Error('Transaction confirmation timed out.');
 
-            setTxHash(signature);
+            setTxHash(txHashStr);
 
             const apiUrl = import.meta.env.VITE_API_URL || '';
             await fetch(`${apiUrl}/api/documents/${id}/pay`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    txHash: signature,
+                    txHash: txHashStr,
                     payer: senderPubkey.toString(),
                     chain: 'solana',
                     token: 'USDC',
