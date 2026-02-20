@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
 import { DownloadSimple, CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
-import { TOKENS } from '../lib/appkit';
+import { TOKENS, SOLANA_RPC } from '../lib/constants';
 import {
-    SOLANA_RPC,
     SOLANA_USDC_MINT,
     USDC_DECIMALS,
     getAssociatedTokenAddress,
@@ -65,9 +64,11 @@ type TokenSymbol = 'USDC' | 'USDT' | 'cUSD' | 'ETH';
 export default function InvoicePage() {
     const { id } = useParams<{ id: string }>();
     const [searchParams] = useSearchParams();
-    const { open } = useAppKit();
-    const { address, isConnected } = useAppKitAccount();
-    const { walletProvider } = useAppKitProvider('eip155');
+    const { connectWallet } = usePrivy();
+    const { wallets } = useWallets();
+    const evmWallet = wallets.find(w => (w as any).chainType === 'ethereum');
+    const solanaWallet = wallets.find(w => (w as any).chainType === 'solana');
+    const address = evmWallet?.address || solanaWallet?.address;
 
     const [invoice, setInvoice] = useState<InvoiceData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -131,22 +132,17 @@ export default function InvoicePage() {
             return;
         }
 
-        // Check for Phantom wallet - prioritized
-        const phantomProvider = (window as any).phantom?.solana || (window as any).solana;
-
-        if (!phantomProvider) {
-            alert('Please install Phantom wallet to pay with Solana!');
-            window.open('https://phantom.app/', '_blank');
+        if (!solanaWallet) {
+            alert('Please connect your Solana wallet first!');
             return;
         }
 
         try {
             setIsPaying(true);
 
-            // Connect
-            console.log('[Solana] Connecting...');
-            const response = await phantomProvider.connect();
-            const senderPubkey = response.publicKey;
+            console.log('[Solana] Connecting via Privy...');
+            const solanaProvider = await (solanaWallet as any).getSolanaProvider();
+            const senderPubkey = new PublicKey(solanaWallet.address);
             console.log('[Solana] Connected:', senderPubkey.toString());
 
             const connection = new Connection(SOLANA_RPC, 'confirmed');
@@ -195,7 +191,7 @@ export default function InvoicePage() {
             transaction.feePayer = senderPubkey;
 
             console.log('[Solana] Requesting signature...');
-            const { signature } = await phantomProvider.signAndSendTransaction(transaction);
+            const { signature } = await solanaProvider.signAndSendTransaction(transaction);
             console.log('[Solana] Transaction sent:', signature);
 
             let confirmed = false;
@@ -236,15 +232,15 @@ export default function InvoicePage() {
     };
 
     const handleConnectWallet = () => {
-        open();
+        connectWallet();
     };
 
     const handleEVMPayment = async () => {
         if (!invoice) return;
 
         // EVM payments require wallet connection
-        if (!walletProvider || !address) {
-            alert('Please connect your wallet first.');
+        if (!evmWallet || !evmWallet.address) {
+            alert('Please connect your EVM wallet first.');
             return;
         }
 
@@ -260,7 +256,8 @@ export default function InvoicePage() {
         try {
             console.log('Starting EVM payment...');
 
-            const provider = new BrowserProvider(walletProvider as import('ethers').Eip1193Provider);
+            const ethereumProvider = await (evmWallet as any).getEthereumProvider();
+            const provider = new BrowserProvider(ethereumProvider as import('ethers').Eip1193Provider);
             const signer = await provider.getSigner();
 
             // Get token address
@@ -571,7 +568,13 @@ export default function InvoicePage() {
                 {invoice.status.toLowerCase() !== 'paid' && (
                     <button
                         className={`pay-button redesigned ${isPaying ? 'loading' : ''}`}
-                        onClick={selectedChain === 'solana' ? handleSolanaPayment : (isConnected ? handleEVMPayment : handleConnectWallet)}
+                        onClick={() => {
+                            if (selectedChain === 'solana') {
+                                solanaWallet ? handleSolanaPayment() : handleConnectWallet();
+                            } else {
+                                evmWallet ? handleEVMPayment() : handleConnectWallet();
+                            }
+                        }}
                         disabled={isPaying}
                         style={{
                             width: '100%',
@@ -590,7 +593,11 @@ export default function InvoicePage() {
                             boxShadow: 'none'
                         }}
                     >
-                        {isPaying ? 'Processing...' : (selectedChain === 'solana' ? 'Connect Wallet' : (isConnected ? 'Pay now' : 'Connect Wallet'))}
+                        {isPaying ? 'Processing...' : (
+                            selectedChain === 'solana'
+                                ? (solanaWallet ? 'Pay now' : 'Connect Wallet')
+                                : (evmWallet ? 'Pay now' : 'Connect Wallet')
+                        )}
                     </button>
                 )}
             </div>

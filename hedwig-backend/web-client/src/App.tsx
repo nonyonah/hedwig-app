@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import './lib/appkit'; // Initialize AppKit
 import InvoicePage from './pages/InvoicePage';
 import PaymentLinkPage from './pages/PaymentLinkPage';
 import ContractPage from './pages/ContractPage';
@@ -14,16 +13,32 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* Invoice routes */}
-        <Route path="/invoice/:id" element={<InvoicePage />} />
-        <Route path="/invoices/:id" element={<InvoicePage />} />
+        <Route path="/invoice/:id" element={
+          <PrivyWrapper>
+            <InvoicePage />
+          </PrivyWrapper>
+        } />
+        <Route path="/invoices/:id" element={
+          <PrivyWrapper>
+            <InvoicePage />
+          </PrivyWrapper>
+        } />
 
         {/* Contract routes */}
         <Route path="/contract/:id" element={<ContractPage />} />
         <Route path="/contracts/:id" element={<ContractPage />} />
 
         {/* Payment link routes */}
-        <Route path="/pay/:id" element={<PaymentLinkPage />} />
-        <Route path="/payment-link/:id" element={<PaymentLinkPage />} />
+        <Route path="/pay/:id" element={
+          <PrivyWrapper>
+            <PaymentLinkPage />
+          </PrivyWrapper>
+        } />
+        <Route path="/payment-link/:id" element={
+          <PrivyWrapper>
+            <PaymentLinkPage />
+          </PrivyWrapper>
+        } />
 
         {/* Export wallet route - wrapped with Privy */}
         <Route path="/export-wallet" element={

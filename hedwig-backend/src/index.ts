@@ -78,8 +78,9 @@ app.use(
                     "https://fonts.gstatic.com",
                     "https://fonts.reown.com",
                     "https://*.reown.com",
+                    "https://auth.privy.io",
                 ],
-                imgSrc: ["'self'", "data:", "blob:", "https://*.walletconnect.com", "https://*.reown.com", "chrome-extension:", "moz-extension:", "https://*.phantom.app"],
+                imgSrc: ["'self'", "data:", "blob:", "https://*.walletconnect.com", "https://*.reown.com", "chrome-extension:", "moz-extension:", "https://*.phantom.app", "https://auth.privy.io"],
                 connectSrc: [
                     "'self'",
                     "https://cdn.jsdelivr.net",
@@ -117,6 +118,9 @@ app.use(
                     "https://mainnet.base.org",
                     "https://sepolia.base.org",
                     "https://forno.celo.org",
+                    // Privy APIs
+                    "https://auth.privy.io",
+                    "wss://auth.privy.io",
                 ],
                 frameSrc: ["'self'", "https:", "blob:", "data:", "chrome-extension:", "moz-extension:", "https://*.phantom.app"],
                 childSrc: ["'self'", "https:", "blob:", "data:", "chrome-extension:", "moz-extension:", "https://*.phantom.app"],
