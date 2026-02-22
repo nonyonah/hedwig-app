@@ -6,6 +6,7 @@ import ExportWalletPage from './pages/ExportWalletPage';
 import FeedbackPage from './pages/FeedbackPage';
 import SuccessPage from './pages/SuccessPage';
 import { AppKitProvider } from './lib/AppKitProvider';
+import { PrivyWrapper } from './lib/PrivyWrapper';
 import './index.css';
 
 function App() {
@@ -40,11 +41,11 @@ function App() {
           </AppKitProvider>
         } />
 
-        {/* Export wallet route - wrapped with AppKit */}
+        {/* Export wallet route - wrapped with Privy */}
         <Route path="/export-wallet" element={
-          <AppKitProvider>
+          <PrivyWrapper>
             <ExportWalletPage />
-          </AppKitProvider>
+          </PrivyWrapper>
         } />
 
         {/* Feedback route - UserJot widget */}
