@@ -1,20 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { BrowserProvider, Contract, parseUnits } from 'ethers';
+import { useWalletConnection } from '../hooks/useWalletConnection';
+import { useSwitchChain, useWalletClient } from 'wagmi';
+import { Contract, parseUnits } from 'ethers';
 import { DownloadSimple, CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
-import { Connection, PublicKey, Transaction } from '@solana/web3.js';
-import { useSignAndSendTransaction } from '@privy-io/react-auth/solana';
-import bs58 from 'bs58';
-import { TOKENS, SOLANA_RPC } from '../lib/constants';
-import {
-    SOLANA_USDC_MINT,
-    USDC_DECIMALS,
-    getAssociatedTokenAddress,
-    createAssociatedTokenAccountInstruction,
-    createTokenTransferInstruction,
-    accountExists,
-} from '../lib/solana';
+import { TOKENS } from '../lib/constants';
+import { executePayment } from '../lib/paymentHandler';
 import './InvoicePage.css'; // Use dedicated CSS
 
 // ERC20 ABI for transfers and approvals
@@ -63,20 +54,30 @@ interface InvoiceData {
 type ChainId = 'base' | 'baseSepolia' | 'celo' | 'solana';
 type TokenSymbol = 'USDC' | 'USDT' | 'cUSD' | 'ETH';
 
+// Helper function to map chain names to chain IDs
+const getChainId = (chain: ChainId): number => {
+    const chainIds: Record<Exclude<ChainId, 'solana'>, number> = {
+        base: 8453,
+        baseSepolia: 84532,
+        celo: 42220,
+    };
+    return chainIds[chain as Exclude<ChainId, 'solana'>];
+};
+
 export default function InvoicePage() {
     const { id } = useParams<{ id: string }>();
     const [searchParams] = useSearchParams();
-    const { connectWallet } = usePrivy();
-    const { wallets } = useWallets();
-    const { signAndSendTransaction } = useSignAndSendTransaction();
-    const evmWallet = wallets.find(w => (w as any).chainType === 'ethereum');
-    const solanaWallet = wallets.find(w => (w as any).chainType === 'solana');
-    const address = evmWallet?.address || solanaWallet?.address;
+    const { address, isConnected, connectWallet: openWalletModal, chainId } = useWalletConnection();
+    const { switchChain } = useSwitchChain();
+    const { data: walletClient } = useWalletClient();
+    
+    // Use the connected wallet address
+    const evmWallet = isConnected ? { address } : null;
 
     const [invoice, setInvoice] = useState<InvoiceData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedChain, setSelectedChain] = useState<ChainId>('baseSepolia');
+    const [selectedChain, setSelectedChain] = useState<ChainId>('base');
     const [selectedToken] = useState<TokenSymbol>('USDC');
     const [isPaying, setIsPaying] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
@@ -108,12 +109,17 @@ export default function InvoicePage() {
 
                 setInvoice(doc);
 
+                // If invoice is already paid, show success screen
+                if (doc.status && doc.status.toLowerCase() === 'paid') {
+                    setShowSuccess(true);
+                }
+
                 // Initialize chain from document data if available
                 if (doc.chain) {
                     const normalizedChain = doc.chain.toLowerCase();
                     if (normalizedChain.includes('solana')) setSelectedChain('solana' as any);
                     else if (normalizedChain.includes('celo')) setSelectedChain('celo');
-                    else setSelectedChain('baseSepolia');
+                    else setSelectedChain('base');
                 }
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load invoice');
@@ -125,7 +131,7 @@ export default function InvoicePage() {
         fetchInvoice();
     }, [id]);
 
-    // Solana payment handler using Phantom wallet
+    // Solana payment handler using direct wallet connection (Phantom, Solflare, etc.)
     const handleSolanaPayment = async () => {
         if (!invoice) return;
 
@@ -135,116 +141,69 @@ export default function InvoicePage() {
             return;
         }
 
-        if (!solanaWallet) {
-            alert('Please connect your Solana wallet first!');
+        // Check if Solana wallet is available (Phantom, Solflare, etc.)
+        if (!window.solana) {
+            alert('Please install a Solana wallet like Phantom or Solflare!');
             return;
         }
 
         try {
             setIsPaying(true);
 
-            const senderPubkey = new PublicKey(solanaWallet.address);
-            console.log('[Solana] Connected:', senderPubkey.toString());
+            // Connect to Solana wallet
+            await window.solana.connect();
 
-            const connection = new Connection(SOLANA_RPC, 'confirmed');
+            console.log('[Solana] Creating transfer...');
+            console.log('[Solana] Recipient:', merchantAddress);
+            console.log('[Solana] Amount:', invoice.amount, 'USDC');
 
-            const merchantPubkey = new PublicKey(merchantAddress);
-            const mintPubkey = new PublicKey(SOLANA_USDC_MINT);
-
-            const amount = invoice.amount;
-            const transaction = new Transaction();
-
-            // Calculate split
-            const currency = selectedToken || 'USDC';
-            if (currency === 'USDC' || selectedToken === 'USDC') {
-                console.log(`[Solana] Calculating amount for ${amount} USDC`);
-
-                // Direct transfer: 100% to merchant
-                const amountInUnits = Math.floor(amount * Math.pow(10, USDC_DECIMALS));
-                if (isNaN(amountInUnits)) throw new Error('Invalid amount calculation');
-                const totalTokenAmount = BigInt(amountInUnits);
-
-                console.log(`[Solana USDC] Total Direct: ${totalTokenAmount.toString()}`);
-
-                // Get Associated Token Accounts
-                const senderATA = await getAssociatedTokenAddress(senderPubkey, mintPubkey);
-                const merchantATA = await getAssociatedTokenAddress(merchantPubkey, mintPubkey);
-
-                console.log('[Solana] Sender ATA:', senderATA.toString());
-                console.log('[Solana] Merchant ATA:', merchantATA.toString());
-
-                // Check if merchant ATA exists, create if not
-                if (!(await accountExists(connection, merchantATA))) {
-                    console.log('[Solana] Creating merchant ATA...');
-                    transaction.add(createAssociatedTokenAccountInstruction(senderPubkey, merchantATA, merchantPubkey, mintPubkey));
-                }
-
-                // Transfer full amount to merchant
-                transaction.add(createTokenTransferInstruction(senderATA, merchantATA, senderPubkey, totalTokenAmount));
-
-            } else {
-                throw new Error(`${currency} is not supported on Solana. Please use USDC.`);
-            }
-
-            console.log('[Solana] Getting blockhash...');
-            const { blockhash } = await connection.getLatestBlockhash('finalized');
-            transaction.recentBlockhash = blockhash;
-            transaction.feePayer = senderPubkey;
-
-            console.log('[Solana] Requesting signature and sending...');
-            const { signature } = await signAndSendTransaction({
-                transaction: transaction.serialize({ requireAllSignatures: false }),
-                wallet: solanaWallet as any
+            // Use the new payment handler
+            const result = await executePayment({
+                chain: 'solana',
+                token: 'USDC',
+                amount: invoice.amount,
+                recipientAddress: merchantAddress,
+                wallet: window.solana,
             });
-            console.log('[Solana] Transaction sent:', bs58.encode(signature));
 
-            const txHashStr = typeof signature === 'string' ? signature : bs58.encode(signature);
+            console.log('[Solana] Transaction sent:', result.txHash);
 
-            let confirmed = false;
-            let attempts = 0;
-            while (!confirmed && attempts < 60) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                attempts++;
-                const status = await connection.getSignatureStatuses([txHashStr]);
-                if (status.value[0]?.confirmationStatus === 'confirmed' || status.value[0]?.confirmationStatus === 'finalized') {
-                    confirmed = true;
-                }
-            }
+            setTxHash(result.txHash);
 
-            if (!confirmed) throw new Error('Transaction confirmation timed out.');
-
-            setTxHash(txHashStr);
-
+            // Update backend
             const apiUrl = import.meta.env.VITE_API_URL || '';
-            await fetch(`${apiUrl}/api/documents/${id}/pay`, {
+            const response = await fetch(`${apiUrl}/api/documents/${id}/pay`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    txHash: txHashStr,
-                    payer: senderPubkey.toString(),
+                    txHash: result.txHash,
+                    payer: window.solana.publicKey.toString(),
                     chain: 'solana',
                     token: 'USDC',
                     amount: invoice.amount,
                 }),
             });
 
+            if (!response.ok) {
+                throw new Error('Failed to update payment status');
+            }
+
             setShowSuccess(true);
         } catch (err) {
             console.error('[Solana] Payment failed:', err);
-            alert(err instanceof Error ? err.message : 'Solana payment failed');
+            alert(`Payment failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
         } finally {
             setIsPaying(false);
         }
     };
 
     const handleConnectWallet = () => {
-        connectWallet();
+        openWalletModal();
     };
 
     const handleEVMPayment = async () => {
         if (!invoice) return;
 
-        // EVM payments require wallet connection
         if (!evmWallet || !evmWallet.address) {
             alert('Please connect your EVM wallet first.');
             return;
@@ -260,56 +219,119 @@ export default function InvoicePage() {
         let finalTxHash = '';
 
         try {
-            console.log('Starting EVM payment...');
+            console.log('[EVM] Starting payment...');
 
-            const ethereumProvider = await (evmWallet as any).getEthereumProvider();
-            const provider = new BrowserProvider(ethereumProvider as import('ethers').Eip1193Provider);
-            const signer = await provider.getSigner();
-
-            // Get token address
             const evmChain = selectedChain as Exclude<ChainId, 'solana'>;
             const tokenAddress = TOKENS[evmChain]?.[selectedToken as keyof (typeof TOKENS)[typeof evmChain]];
 
+            // Get the target chain ID
+            const targetChainId = getChainId(selectedChain);
+
+            // Switch chain if necessary
+            if (chainId !== targetChainId) {
+                console.log('[EVM] Switching chain to', targetChainId);
+                try {
+                    await switchChain({ chainId: targetChainId });
+                } catch (err) {
+                    console.error('[EVM] Chain switch failed:', err);
+                    throw new Error('Please switch to the correct network in your wallet');
+                }
+            }
+
+            // Get the ethereum provider from walletClient
+            if (!walletClient) {
+                throw new Error('Wallet client not available');
+            }
+
+            const provider = walletClient.transport;
+            
             if (selectedToken === 'ETH') {
                 // Native ETH transfer
                 const amountWei = parseUnits(invoice.amount.toString(), 18);
-                const tx = await signer.sendTransaction({
-                    to: recipientAddress,
-                    value: amountWei,
+                const txHash = await provider.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: evmWallet.address,
+                        to: recipientAddress,
+                        value: '0x' + amountWei.toString(16),
+                    }],
                 });
-                await tx.wait();
-                finalTxHash = tx.hash;
-                setTxHash(tx.hash);
+                finalTxHash = txHash as string;
+                setTxHash(txHash as string);
             } else if (tokenAddress) {
                 // ERC20 Transfer
-                const tokenContract = new Contract(tokenAddress, ERC20_ABI, signer);
-                const decimals = await tokenContract.decimals();
+                const tokenContract = new Contract(tokenAddress, ERC20_ABI);
+                const decimals = 6;
                 const amountInUnits = parseUnits(invoice.amount.toString(), decimals);
-                const tx = await tokenContract.transfer(recipientAddress, amountInUnits);
-                await tx.wait();
-                finalTxHash = tx.hash;
-                setTxHash(tx.hash);
+                
+                const data = tokenContract.interface.encodeFunctionData('transfer', [
+                    recipientAddress,
+                    amountInUnits
+                ]);
+                
+                const txHash = await provider.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: evmWallet.address,
+                        to: tokenAddress,
+                        data: data,
+                    }],
+                });
+                finalTxHash = txHash as string;
+                setTxHash(txHash as string);
             } else {
                 throw new Error(`Token ${selectedToken} not available on ${selectedChain}`);
             }
 
-            // Update invoice status on backend
+            // Wait for transaction confirmation
+            console.log('[EVM] Waiting for transaction confirmation...');
+            let confirmed = false;
+            let attempts = 0;
+            while (!confirmed && attempts < 60) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                attempts++;
+                const receipt = await provider.request({
+                    method: 'eth_getTransactionReceipt',
+                    params: [finalTxHash]
+                });
+                if (receipt && (receipt as any).status === '0x1') {
+                    confirmed = true;
+                }
+            }
+
+            if (!confirmed) {
+                throw new Error('Transaction confirmation timed out. Transaction hash: ' + finalTxHash);
+            }
+            console.log('[EVM] Transaction confirmed');
+
+            // Update backend
             const apiUrl = import.meta.env.VITE_API_URL || '';
-            await fetch(`${apiUrl}/api/documents/${id}/pay`, {
+            const response = await fetch(`${apiUrl}/api/documents/${id}/pay`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     txHash: finalTxHash,
-                    paidBy: address,
+                    payer: evmWallet.address,
                     chain: selectedChain,
                     token: selectedToken,
+                    amount: invoice.amount,
                 }),
             });
 
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
+                console.error('[EVM] Backend update failed:', errorData);
+                throw new Error(`Failed to update payment status: ${errorData.error?.message || response.statusText}`);
+            }
+
+            const apiResult = await response.json();
+            console.log('[EVM] Backend updated successfully:', apiResult);
+
             setShowSuccess(true);
         } catch (err) {
-            console.error('Payment failed:', err);
-            alert(err instanceof Error ? err.message : 'Payment failed');
+            console.error('[EVM] Payment failed:', err);
+            const errorMessage = err instanceof Error ? err.message : 'Payment failed';
+            alert(errorMessage);
         } finally {
             setIsPaying(false);
         }
@@ -555,7 +577,7 @@ export default function InvoicePage() {
                                     fontWeight: 500
                                 }}
                             >
-                                <option value="baseSepolia">Base</option>
+                                <option value="base">Base</option>
                                 <option value="solana">Solana</option>
                             </select>
                         </div>
@@ -572,39 +594,59 @@ export default function InvoicePage() {
 
                 {/* Pay Button */}
                 {invoice.status.toLowerCase() !== 'paid' && (
-                    <button
-                        className={`pay-button redesigned ${isPaying ? 'loading' : ''}`}
-                        onClick={() => {
-                            if (selectedChain === 'solana') {
-                                solanaWallet ? handleSolanaPayment() : handleConnectWallet();
-                            } else {
-                                evmWallet ? handleEVMPayment() : handleConnectWallet();
-                            }
-                        }}
-                        disabled={isPaying}
-                        style={{
-                            width: '100%',
-                            height: '48px',
-                            backgroundColor: '#2563EB',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '50px',
-                            fontSize: '16px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px',
-                            boxShadow: 'none'
-                        }}
-                    >
-                        {isPaying ? 'Processing...' : (
-                            selectedChain === 'solana'
-                                ? (solanaWallet ? 'Pay now' : 'Connect Wallet')
-                                : (evmWallet ? 'Pay now' : 'Connect Wallet')
+                    <>
+                        {selectedChain === 'solana' ? (
+                            <button
+                                className={`pay-button redesigned ${isPaying ? 'loading' : ''}`}
+                                onClick={handleSolanaPayment}
+                                disabled={isPaying}
+                                style={{
+                                    width: '100%',
+                                    height: '48px',
+                                    backgroundColor: '#2563EB',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '50px',
+                                    fontSize: '16px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    boxShadow: 'none'
+                                }}
+                            >
+                                {isPaying ? 'Processing...' : 'Pay now'}
+                            </button>
+                        ) : (
+                            <button
+                                className={`pay-button redesigned ${isPaying ? 'loading' : ''}`}
+                                onClick={() => {
+                                    evmWallet ? handleEVMPayment() : handleConnectWallet();
+                                }}
+                                disabled={isPaying}
+                                style={{
+                                    width: '100%',
+                                    height: '48px',
+                                    backgroundColor: '#2563EB',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '50px',
+                                    fontSize: '16px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    boxShadow: 'none'
+                                }}
+                            >
+                                {isPaying ? 'Processing...' : (evmWallet ? 'Pay now' : 'Connect Wallet')}
+                            </button>
                         )}
-                    </button>
+                    </>
                 )}
             </div>
 

@@ -5,7 +5,7 @@ import ContractPage from './pages/ContractPage';
 import ExportWalletPage from './pages/ExportWalletPage';
 import FeedbackPage from './pages/FeedbackPage';
 import SuccessPage from './pages/SuccessPage';
-import { PrivyWrapper } from './lib/PrivyWrapper';
+import { AppKitProvider } from './lib/AppKitProvider';
 import './index.css';
 
 function App() {
@@ -14,14 +14,14 @@ function App() {
       <Routes>
         {/* Invoice routes */}
         <Route path="/invoice/:id" element={
-          <PrivyWrapper>
+          <AppKitProvider>
             <InvoicePage />
-          </PrivyWrapper>
+          </AppKitProvider>
         } />
         <Route path="/invoices/:id" element={
-          <PrivyWrapper>
+          <AppKitProvider>
             <InvoicePage />
-          </PrivyWrapper>
+          </AppKitProvider>
         } />
 
         {/* Contract routes */}
@@ -30,21 +30,21 @@ function App() {
 
         {/* Payment link routes */}
         <Route path="/pay/:id" element={
-          <PrivyWrapper>
+          <AppKitProvider>
             <PaymentLinkPage />
-          </PrivyWrapper>
+          </AppKitProvider>
         } />
         <Route path="/payment-link/:id" element={
-          <PrivyWrapper>
+          <AppKitProvider>
             <PaymentLinkPage />
-          </PrivyWrapper>
+          </AppKitProvider>
         } />
 
-        {/* Export wallet route - wrapped with Privy */}
+        {/* Export wallet route - wrapped with AppKit */}
         <Route path="/export-wallet" element={
-          <PrivyWrapper>
+          <AppKitProvider>
             <ExportWalletPage />
-          </PrivyWrapper>
+          </AppKitProvider>
         } />
 
         {/* Feedback route - UserJot widget */}
@@ -53,20 +53,20 @@ function App() {
         {/* Success route */}
         <Route path="/success" element={<SuccessPage />} />
 
-        {/* Fallback */}
-        <Route path="*" element={
-          <div className="container">
-            <div className="card" style={{ textAlign: 'center', padding: '48px' }}>
-              <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '16px' }}>
-                Hedwig Payments
-              </h1>
-              <p style={{ color: '#666' }}>
-                Secure crypto payments for freelancers
-              </p>
+          {/* Fallback */}
+          <Route path="*" element={
+            <div className="container">
+              <div className="card" style={{ textAlign: 'center', padding: '48px' }}>
+                <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '16px' }}>
+                  Hedwig Payments
+                </h1>
+                <p style={{ color: '#666' }}>
+                  Secure crypto payments for freelancers
+                </p>
+              </div>
             </div>
-          </div>
-        } />
-      </Routes>
+          } />
+        </Routes>
     </BrowserRouter>
   );
 }

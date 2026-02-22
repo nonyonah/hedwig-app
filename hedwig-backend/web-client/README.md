@@ -1,73 +1,123 @@
-# React + TypeScript + Vite
+# Hedwig Web Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Web client for processing invoice and payment link payments using Reown AppKit for wallet connections.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Multi-chain Support**: Base (EVM) and Solana blockchain payments
+- **Wallet Integration**: Reown AppKit for seamless wallet connections
+- **Payment Processing**: Invoice and payment link payment flows
+- **Token Support**: USDC, USDT, ETH on Base; USDC on Solana
 
-## React Compiler
+## Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Prerequisites
 
-## Expanding the ESLint configuration
+- Node.js 18+
+- npm or yarn
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Installation
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.env` file in the root directory with the following variables:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+# Reown AppKit Project ID (required)
+# Obtain from https://cloud.reown.com/
+VITE_REOWN_PROJECT_ID=your_project_id_here
+
+# Backend API URL
+VITE_API_URL=https://pay.hedwigbot.xyz
+
+# Solana RPC endpoint
+VITE_SOLANA_RPC=https://api.mainnet-beta.solana.com
+
+# UserJot Project ID (for feedback widget)
+VITE_USERJOT_PROJECT_ID=your_userjot_project_id
+
+# Web client URL
+EXPO_PUBLIC_WEB_CLIENT_URL=https://pay.hedwigbot.xyz
 ```
+
+### Getting a Reown Project ID
+
+1. Visit [Reown Cloud](https://cloud.reown.com/)
+2. Create a new project
+3. Copy the Project ID
+4. Add it to your `.env` file as `VITE_REOWN_PROJECT_ID`
+
+## Development
+
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:5173`
+
+## Build
+
+```bash
+npm run build
+```
+
+## Architecture
+
+### Wallet Connection
+
+The application uses Reown AppKit for wallet connections, supporting:
+
+- **EVM Wallets**: MetaMask, Coinbase Wallet, WalletConnect
+- **Solana Wallets**: Phantom, Solflare
+
+### Payment Flow
+
+1. User connects wallet via Reown AppKit
+2. User selects chain (Base or Solana) and token
+3. Application creates transaction using:
+   - Wagmi for EVM transactions
+   - Solana Pay for Solana transactions
+4. User signs transaction in wallet
+5. Application waits for blockchain confirmation
+6. Backend is updated with payment status
+
+### Key Components
+
+- `AppKitProvider`: Wraps the application with Reown AppKit configuration
+- `useWalletConnection`: Hook for wallet connection state and actions
+- `paymentHandler`: Unified payment logic for EVM and Solana chains
+- `InvoicePage`: Invoice payment processing
+- `PaymentLinkPage`: Payment link processing
+
+## Troubleshooting
+
+### Wallet Connection Issues
+
+- Ensure your wallet extension is installed and unlocked
+- Check that you're on the correct network (Base or Solana)
+- Try refreshing the page and reconnecting
+
+### Chain Switching Issues
+
+- Some wallets require manual chain switching
+- If automatic switching fails, manually switch to Base (Chain ID: 8453) in your wallet
+
+### Transaction Failures
+
+- Check that you have sufficient balance for the transaction and gas fees
+- Ensure you're connected to the correct network
+- Verify the recipient address is correct
+
+### Configuration Errors
+
+- Verify `VITE_REOWN_PROJECT_ID` is set in your `.env` file
+- Ensure all required environment variables are present
+- Restart the development server after changing environment variables
+
+## Support
+
+For issues or questions, please contact support or open an issue in the repository.
