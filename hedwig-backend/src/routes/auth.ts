@@ -174,6 +174,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                 ethereum_wallet_address,
                 solana_wallet_address,
                 stacks_wallet_address,
+                kyc_status,
                 created_at,
                 updated_at,
                 privy_id
@@ -204,6 +205,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                             ethereum_wallet_address,
                             solana_wallet_address,
                             stacks_wallet_address,
+                            kyc_status,
                             created_at,
                             updated_at,
                             privy_id
@@ -245,6 +247,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
             ethereumWalletAddress: user.ethereum_wallet_address,
             solanaWalletAddress: user.solana_wallet_address,
             stacksWalletAddress: user.stacks_wallet_address,
+            kycStatus: user.kyc_status || 'not_started',
             createdAt: user.created_at,
             updatedAt: user.updated_at,
         };

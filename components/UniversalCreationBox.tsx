@@ -554,7 +554,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                 backdropComponent={renderBackdrop}
                 enablePanDownToClose
                 enableDynamicSizing={true}
-                android_keyboardInputMode="adjustResize"
+                android_keyboardInputMode="adjustPan"
                 keyboardBehavior="interactive"
                 keyboardBlurBehavior="restore"
                 backgroundStyle={{

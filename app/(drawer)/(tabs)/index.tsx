@@ -3,12 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, TextInput, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, Colors } from '../../../theme/colors';
-import { Bell, Search as MagnifyingGlass, Plus, FileText, ScrollText as Scroll, Link as LinkIcon, Briefcase, ChevronRight as CaretRight, CircleX as XCircle } from 'lucide-react-native';
+import { Bell, Search as MagnifyingGlass, Plus, FileText, ScrollText as Scroll, Link as LinkIcon, Briefcase, ChevronRight as CaretRight, CircleX as XCircle, Inbox } from 'lucide-react-native';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { UniversalCreationBox } from '../../../components/UniversalCreationBox';
 import { AnimatedListItem } from '../../../components/AnimatedListItem';
 import { TransactionConfirmationModal } from '../../../components/TransactionConfirmationModal';
+import { TutorialCard } from '../../../components/TutorialCard';
+import { useTutorial } from '../../../hooks/useTutorial';
 import { useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -61,6 +63,7 @@ export default function HomeDashboard() {
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [transactionData, setTransactionData] = useState<any>(null);
     const transactionModalRef = React.useRef<any>(null);
+    const { isLoaded: tutorialLoaded, isCompleted: tutorialCompleted, shouldShowOnScreen, nextStep, prevStep, skipTutorial, startTutorial, activeStep, activeStepIndex, totalSteps } = useTutorial();
 
     useEffect(() => {
         if (isReady && user) {
@@ -68,6 +71,13 @@ export default function HomeDashboard() {
             fetchDashboardData();
         }
     }, [isReady, user]);
+
+    // Auto-start tutorial for new users once data has loaded
+    useEffect(() => {
+        if (tutorialLoaded && !tutorialCompleted && isReady && user && !isLoadingData) {
+            startTutorial();
+        }
+    }, [tutorialLoaded, tutorialCompleted, isReady, user, isLoadingData]);
 
     // Refetch profile data when screen comes into focus
     useFocusEffect(
@@ -428,35 +438,52 @@ export default function HomeDashboard() {
                 >
                     <Text style={[styles.mainHeading, { color: themeColors.textPrimary }]}>Your Activity</Text>
 
-                    {/* Reminders Section */}
-                    <View style={styles.sectionContainer}>
-                        <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Reminders</Text>
-                        <View style={styles.cardContainer}>
-                            {renderSummaryRow('Invoices', counts.reminders.invoices, getBadgeText('INVOICE', 'reminders'), () => router.push('/(tabs)/invoices'))}
-                            {renderSummaryRow('Awaiting contract signatures', counts.reminders.contracts, null, () => router.push('/(tabs)/contracts?filter=sent'))}
-                            {renderSummaryRow('Payment links', counts.reminders.links, getBadgeText('LINK', 'reminders'), () => router.push('/(tabs)/links'))}
+                    {/* Check if there is any activity at all */}
+                    {(counts.reminders.invoices + counts.reminders.contracts + counts.reminders.links +
+                        counts.inProgress.projects + counts.inProgress.milestones +
+                        counts.dueSoon.invoices + counts.dueSoon.projects + counts.dueSoon.links + counts.dueSoon.milestones) === 0 && !isLoadingData ? (
+                        <View style={styles.emptyStateContainer}>
+                            <Inbox size={64} color={themeColors.textSecondary} strokeWidth={1} />
+                            <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>
+                                All clear
+                            </Text>
+                            <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+                                Tap the + button to create invoices, payment{"\n"}links, contracts, or send tokens.
+                            </Text>
                         </View>
-                    </View>
+                    ) : (
+                        <>
+                            {/* Reminders Section */}
+                            <View style={styles.sectionContainer}>
+                                <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Reminders</Text>
+                                <View style={styles.cardContainer}>
+                                    {renderSummaryRow('Invoices', counts.reminders.invoices, getBadgeText('INVOICE', 'reminders'), () => router.push('/(tabs)/invoices'))}
+                                    {renderSummaryRow('Awaiting contract signatures', counts.reminders.contracts, null, () => router.push('/(tabs)/contracts?filter=sent'))}
+                                    {renderSummaryRow('Payment links', counts.reminders.links, getBadgeText('LINK', 'reminders'), () => router.push('/(tabs)/links'))}
+                                </View>
+                            </View>
 
-                    {/* In Progress Section */}
-                    <View style={styles.sectionContainer}>
-                        <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>In Progress</Text>
-                        <View style={styles.cardContainer}>
-                            {renderSummaryRow('Active Projects', counts.inProgress.projects, null, () => { })}
-                            {renderSummaryRow('Milestones in progress', counts.inProgress.milestones, null, () => { })}
-                        </View>
-                    </View>
+                            {/* In Progress Section */}
+                            <View style={styles.sectionContainer}>
+                                <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>In Progress</Text>
+                                <View style={styles.cardContainer}>
+                                    {renderSummaryRow('Active Projects', counts.inProgress.projects, null, () => { })}
+                                    {renderSummaryRow('Milestones in progress', counts.inProgress.milestones, null, () => { })}
+                                </View>
+                            </View>
 
-                    {/* Due Soon Section */}
-                    <View style={styles.sectionContainer}>
-                        <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Due Soon</Text>
-                        <View style={styles.cardContainer}>
-                            {renderSummaryRow('Invoices due soon', counts.dueSoon.invoices, getBadgeText('INVOICE', 'dueSoon'), () => router.push('/(tabs)/invoices?filter=due_soon'))}
-                            {renderSummaryRow('Projects due soon', counts.dueSoon.projects, null, () => router.push('/(tabs)/projects?filter=due_soon'))}
-                            {renderSummaryRow('Payment links due soon', counts.dueSoon.links, getBadgeText('LINK', 'dueSoon'), () => router.push('/(tabs)/links?filter=due_soon'))}
-                            {renderSummaryRow('Milestones due soon', counts.dueSoon.milestones, null, () => { })}
-                        </View>
-                    </View>
+                            {/* Due Soon Section */}
+                            <View style={styles.sectionContainer}>
+                                <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Due Soon</Text>
+                                <View style={styles.cardContainer}>
+                                    {renderSummaryRow('Invoices due soon', counts.dueSoon.invoices, getBadgeText('INVOICE', 'dueSoon'), () => router.push('/(tabs)/invoices?filter=due_soon'))}
+                                    {renderSummaryRow('Projects due soon', counts.dueSoon.projects, null, () => router.push('/(tabs)/projects?filter=due_soon'))}
+                                    {renderSummaryRow('Payment links due soon', counts.dueSoon.links, getBadgeText('LINK', 'dueSoon'), () => router.push('/(tabs)/links?filter=due_soon'))}
+                                    {renderSummaryRow('Milestones due soon', counts.dueSoon.milestones, null, () => { })}
+                                </View>
+                            </View>
+                        </>
+                    )}
                 </ScrollView>
             )}
 
@@ -476,6 +503,20 @@ export default function HomeDashboard() {
                     console.log('Transaction successful:', hash);
                 }}
             />
+
+            {/* Tutorial cards for home screen steps */}
+            {shouldShowOnScreen('home') && activeStep && (
+                <TutorialCard
+                    step={activeStepIndex + 1}
+                    totalSteps={totalSteps}
+                    title={activeStep.title}
+                    body={activeStep.body}
+                    anchorPosition={activeStep.anchorPosition}
+                    onNext={nextStep}
+                    onBack={prevStep}
+                    onSkip={skipTutorial}
+                />
+            )}
         </SafeAreaView>
     );
 }
@@ -508,5 +549,8 @@ const styles = StyleSheet.create({
     searchIconContainer: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
     searchItemTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 },
     searchItemSubtitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14 },
-    emptySearch: { alignItems: 'center', marginTop: 40 }
+    emptySearch: { alignItems: 'center', marginTop: 40 },
+    emptyStateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80, paddingHorizontal: 40 },
+    emptyStateTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 20, marginTop: 20, marginBottom: 8 },
+    emptyStateText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 15, textAlign: 'center', lineHeight: 22 },
 });

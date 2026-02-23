@@ -31,6 +31,8 @@ import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import * as WebBrowser from 'expo-web-browser';
 import { getUserGradient } from '../../../utils/gradientUtils';
+import { TutorialCard } from '../../../components/TutorialCard';
+import { useTutorial } from '../../../hooks/useTutorial';
 
 // Profile color gradient options
 const PROFILE_COLOR_OPTIONS = [
@@ -67,6 +69,7 @@ export default function WalletScreen() {
         getTotalUsd: getBaseTotalUsd,
         fetchBalances: fetchBaseBalances
     } = useWallet();
+    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
 
     const solanaWalletState = useEmbeddedSolanaWallet();
     const solanaAddress = (solanaWalletState as any)?.wallets?.[0]?.address;
@@ -251,264 +254,280 @@ export default function WalletScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
-            {/* Header */}
-            <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                <View style={styles.headerLeft}>
-                    <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-                        {profileIcon?.imageUri ? (
-                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileImage} />
-                        ) : (
-                            <LinearGradient
-                                colors={getUserGradient(user?.id)}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.profileImage}
-                            >
-                                <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 }}>
-                                    {userName.firstName?.[0] || 'U'}
-                                </Text>
-                            </LinearGradient>
-                        )}
+        <>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+                {/* Header */}
+                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
+                    <View style={styles.headerLeft}>
+                        <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+                            {profileIcon?.imageUri ? (
+                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileImage} />
+                            ) : (
+                                <LinearGradient
+                                    colors={getUserGradient(user?.id)}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.profileImage}
+                                >
+                                    <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 }}>
+                                        {userName.firstName?.[0] || 'U'}
+                                    </Text>
+                                </LinearGradient>
+                            )}
+                        </TouchableOpacity>
+                        <View style={styles.headerTextContainer}>
+                            <Text style={[styles.headerName, { color: themeColors.textPrimary }]}>
+                                {userName.firstName ? `${userName.firstName}'s Wallet` : 'My Wallet'}
+                            </Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings')}>
+                        <Gear size={24} color={themeColors.textPrimary} />
                     </TouchableOpacity>
-                    <View style={styles.headerTextContainer}>
-                        <Text style={[styles.headerName, { color: themeColors.textPrimary }]}>
-                            {userName.firstName ? `${userName.firstName}'s Wallet` : 'My Wallet'}
+                </View>
+
+                <ScrollView
+                    style={styles.content}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+                >
+                    <View style={styles.balanceSection}>
+                        <Text style={[styles.totalBalance, { color: themeColors.textPrimary }]}>
+                            ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </Text>
                     </View>
-                </View>
-                <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings')}>
-                    <Gear size={24} color={themeColors.textPrimary} />
-                </TouchableOpacity>
-            </View>
 
-            <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-            >
-                <View style={styles.balanceSection}>
-                    <Text style={[styles.totalBalance, { color: themeColors.textPrimary }]}>
-                        ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Text>
-                </View>
-
-                <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => bottomSheetRef.current?.present()}
-                    >
-                        <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
-                            <QrCode size={24} color="#2563EB" fill="#2563EB" />
-                        </View>
-                        <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Receive</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.tokenSection}>
-                    <View style={styles.tokenHeader}>
-                        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Tokens</Text>
-
-                        {/* Native Network Dropdown */}
-                        {Platform.OS === 'ios' && Host ? (
-                            <Host>
-                                <ContextMenu>
-                                    <ContextMenu.Trigger>
-                                        <View style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}>
-                                            {networkFilter !== 'all' && (
-                                                <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
-                                            )}
-                                            <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
-                                                {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
-                                            </Text>
-                                            <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
-                                        </View>
-                                    </ContextMenu.Trigger>
-                                    <ContextMenu.Items>
-                                        <ExpoButton onPress={() => setNetworkFilter('all')}>All Networks</ExpoButton>
-                                        <ExpoButton onPress={() => setNetworkFilter('base')}>Base</ExpoButton>
-                                        <ExpoButton onPress={() => setNetworkFilter('solana')}>Solana</ExpoButton>
-                                    </ContextMenu.Items>
-                                </ContextMenu>
-                            </Host>
-                        ) : (
-                            <TouchableOpacity
-                                style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}
-                                onPress={() => {
-                                    Alert.alert('Select Network', undefined, [
-                                        { text: 'All Networks', onPress: () => setNetworkFilter('all') },
-                                        { text: 'Base', onPress: () => setNetworkFilter('base') },
-                                        { text: 'Solana', onPress: () => setNetworkFilter('solana') },
-                                        { text: 'Cancel', style: 'cancel' }
-                                    ]);
-                                }}
-                            >
-                                {networkFilter !== 'all' && (
-                                    <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
-                                )}
-                                <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
-                                    {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
-                                </Text>
-                                <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
-                            </TouchableOpacity>
-                        )}
+                    <View style={styles.actionButtons}>
+                        <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => bottomSheetRef.current?.present()}
+                        >
+                            <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
+                                <QrCode size={24} color="#2563EB" fill="#2563EB" />
+                            </View>
+                            <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Receive</Text>
+                        </TouchableOpacity>
                     </View>
 
-                    {filteredTokens.map((item, index) => (
-                        <View key={`${item.chain}-${item.symbol}-${index}`} style={[styles.tokenItem, { backgroundColor: themeColors.surface }]}>
-                            <View style={styles.tokenLeft}>
-                                <View style={styles.tokenIconContainer}>
-                                    <Image source={item.icon} style={styles.tokenIconImage} />
-                                    <View style={styles.chainBadgeOverlay}>
-                                        <Image
-                                            source={item.chain === 'base' ? require('../../../assets/icons/networks/base.png') : require('../../../assets/icons/networks/solana.png')}
-                                            style={styles.chainBadgeIcon}
-                                        />
+                    <View style={styles.tokenSection}>
+                        <View style={styles.tokenHeader}>
+                            <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Tokens</Text>
+
+                            {/* Native Network Dropdown */}
+                            {Platform.OS === 'ios' && Host ? (
+                                <Host>
+                                    <ContextMenu>
+                                        <ContextMenu.Trigger>
+                                            <View style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}>
+                                                {networkFilter !== 'all' && (
+                                                    <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
+                                                )}
+                                                <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
+                                                    {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
+                                                </Text>
+                                                <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
+                                            </View>
+                                        </ContextMenu.Trigger>
+                                        <ContextMenu.Items>
+                                            <ExpoButton onPress={() => setNetworkFilter('all')}>All Networks</ExpoButton>
+                                            <ExpoButton onPress={() => setNetworkFilter('base')}>Base</ExpoButton>
+                                            <ExpoButton onPress={() => setNetworkFilter('solana')}>Solana</ExpoButton>
+                                        </ContextMenu.Items>
+                                    </ContextMenu>
+                                </Host>
+                            ) : (
+                                <TouchableOpacity
+                                    style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}
+                                    onPress={() => {
+                                        Alert.alert('Select Network', undefined, [
+                                            { text: 'All Networks', onPress: () => setNetworkFilter('all') },
+                                            { text: 'Base', onPress: () => setNetworkFilter('base') },
+                                            { text: 'Solana', onPress: () => setNetworkFilter('solana') },
+                                            { text: 'Cancel', style: 'cancel' }
+                                        ]);
+                                    }}
+                                >
+                                    {networkFilter !== 'all' && (
+                                        <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
+                                    )}
+                                    <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
+                                        {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
+                                    </Text>
+                                    <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        {filteredTokens.map((item, index) => (
+                            <View key={`${item.chain}-${item.symbol}-${index}`} style={[styles.tokenItem, { backgroundColor: themeColors.surface }]}>
+                                <View style={styles.tokenLeft}>
+                                    <View style={styles.tokenIconContainer}>
+                                        <Image source={item.icon} style={styles.tokenIconImage} />
+                                        <View style={styles.chainBadgeOverlay}>
+                                            <Image
+                                                source={item.chain === 'base' ? require('../../../assets/icons/networks/base.png') : require('../../../assets/icons/networks/solana.png')}
+                                                style={styles.chainBadgeIcon}
+                                            />
+                                        </View>
+                                    </View>
+                                    <View>
+                                        <Text style={[styles.tokenName, { color: themeColors.textPrimary }]}>{item.name}</Text>
+                                        <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary }]}>
+                                            {item.balance === 0
+                                                ? `0 ${item.symbol}`
+                                                : item.symbol === 'ETH' || item.symbol === 'SOL'
+                                                    ? `${item.balance.toFixed(6).replace(/\.?0+$/, '')} ${item.symbol}`
+                                                    : `${item.balance.toFixed(2).replace(/\.?0+$/, '')} ${item.symbol}`
+                                            }
+                                        </Text>
                                     </View>
                                 </View>
-                                <View>
-                                    <Text style={[styles.tokenName, { color: themeColors.textPrimary }]}>{item.name}</Text>
-                                    <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary }]}>
-                                        {item.balance === 0
-                                            ? `0 ${item.symbol}`
-                                            : item.symbol === 'ETH' || item.symbol === 'SOL'
-                                                ? `${item.balance.toFixed(6).replace(/\.?0+$/, '')} ${item.symbol}`
-                                                : `${item.balance.toFixed(2).replace(/\.?0+$/, '')} ${item.symbol}`
-                                        }
+                                <View style={styles.tokenRight}>
+                                    <Text style={[styles.tokenBalance, { color: themeColors.textPrimary }]}>
+                                        ${item.balanceUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </Text>
+                                    <Text style={[styles.chainLabel, { color: themeColors.textSecondary }]}>
+                                        {item.chain === 'base' ? 'on Base' : 'on Solana'}
                                     </Text>
                                 </View>
                             </View>
-                            <View style={styles.tokenRight}>
-                                <Text style={[styles.tokenBalance, { color: themeColors.textPrimary }]}>
-                                    ${item.balanceUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </Text>
-                                <Text style={[styles.chainLabel, { color: themeColors.textSecondary }]}>
-                                    {item.chain === 'base' ? 'on Base' : 'on Solana'}
+                        ))}
+                        {filteredTokens.length === 0 && (
+                            <View style={styles.emptyState}>
+                                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+                                    No tokens found on {networkFilter === 'all' ? 'any network' : networkFilter === 'base' ? 'Base' : 'Solana'}
                                 </Text>
                             </View>
+                        )}
+                    </View>
+                </ScrollView>
+
+                {/* Receive Modal - Bottom Sheet */}
+                <BottomSheetModal
+                    ref={bottomSheetRef}
+                    index={0}
+                    snapPoints={snapPoints}
+                    enablePanDownToClose={true}
+                    backdropComponent={renderBackdrop}
+                    backgroundStyle={{ backgroundColor: themeColors.background }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+                >
+                    <BottomSheetView style={[styles.bottomSheetContent, { backgroundColor: themeColors.background }]}>
+                        {/* Header: Receive left-aligned, X on right */}
+                        <View style={styles.receiveHeader}>
+                            <Text style={[styles.receiveHeaderTitle, { color: themeColors.textPrimary }]}>Receive</Text>
+                            <TouchableOpacity onPress={() => bottomSheetRef.current?.dismiss()} style={styles.closeButton}>
+                                <X size={20} color={themeColors.textPrimary} strokeWidth={3} />
+                            </TouchableOpacity>
                         </View>
-                    ))}
-                    {filteredTokens.length === 0 && (
-                        <View style={styles.emptyState}>
-                            <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                                No tokens found on {networkFilter === 'all' ? 'any network' : networkFilter === 'base' ? 'Base' : 'Solana'}
+
+                        {/* Main Content */}
+                        <View style={styles.receiveBody}>
+                            {/* User Name */}
+                            <Text style={[styles.receiveUserName, { color: themeColors.textPrimary }]}>
+                                {userName.firstName || 'My Wallet'}
                             </Text>
-                        </View>
-                    )}
-                </View>
-            </ScrollView>
 
-            {/* Receive Modal - Bottom Sheet */}
-            <BottomSheetModal
-                ref={bottomSheetRef}
-                index={0}
-                snapPoints={snapPoints}
-                enablePanDownToClose={true}
-                backdropComponent={renderBackdrop}
-                backgroundStyle={{ backgroundColor: themeColors.background }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
-            >
-                <BottomSheetView style={[styles.bottomSheetContent, { backgroundColor: themeColors.background }]}>
-                    {/* Header: Receive left-aligned, X on right */}
-                    <View style={styles.receiveHeader}>
-                        <Text style={[styles.receiveHeaderTitle, { color: themeColors.textPrimary }]}>Receive</Text>
-                        <TouchableOpacity onPress={() => bottomSheetRef.current?.dismiss()} style={styles.closeButton}>
-                            <X size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Main Content */}
-                    <View style={styles.receiveBody}>
-                        {/* User Name */}
-                        <Text style={[styles.receiveUserName, { color: themeColors.textPrimary }]}>
-                            {userName.firstName || 'My Wallet'}
-                        </Text>
-
-                        {/* Large QR Code Card */}
-                        <View style={styles.qrCard}>
-                            <QRCode
-                                value={selectedChain === 'solana' ? (solanaAddress || 'loading') : (baseAddress || 'loading')}
-                                size={220}
-                                backgroundColor="#FFFFFF"
-                                color="#000000"
-                            />
-                        </View>
-
-                        {/* Supported Networks Logos Row */}
-                        <View style={styles.supportedNetworksSection}>
-                            <View style={styles.networkLogosRow}>
-                                {CHAINS.map((chain) => (
-                                    <TouchableOpacity
-                                        key={chain.id}
-                                        onPress={() => setSelectedChain(chain.id as 'base' | 'solana')}
-                                        style={[
-                                            styles.networkLogoWrapper,
-                                            selectedChain === chain.id && styles.networkLogoActive
-                                        ]}
-                                    >
-                                        <Image source={chain.icon} style={styles.supportedNetworkIcon} />
-                                    </TouchableOpacity>
-                                ))}
+                            {/* Large QR Code Card */}
+                            <View style={styles.qrCard}>
+                                <QRCode
+                                    value={selectedChain === 'solana' ? (solanaAddress || 'loading') : (baseAddress || 'loading')}
+                                    size={220}
+                                    backgroundColor="#FFFFFF"
+                                    color="#000000"
+                                />
                             </View>
-                            <Text style={[styles.supportedNetworksText, { color: themeColors.textSecondary }]}>Supported Networks</Text>
-                        </View>
-                    </View>
 
-                    {/* Bottom Action Bar */}
-                    <View style={styles.receiveActionBar}>
-                        <TouchableOpacity
-                            style={styles.receiveActionBtn}
-                            onPress={() => {
-                                const address = selectedChain === 'solana' ? (solanaAddress || '') : (baseAddress || '');
-                                Share.share({ message: address });
-                            }}
-                        >
-                            <View style={[styles.receiveActionCircle, { backgroundColor: themeColors.surface }]}>
-                                <Export size={28} color={themeColors.textPrimary} />
+                            {/* Supported Networks Logos Row */}
+                            <View style={styles.supportedNetworksSection}>
+                                <View style={styles.networkLogosRow}>
+                                    {CHAINS.map((chain) => (
+                                        <TouchableOpacity
+                                            key={chain.id}
+                                            onPress={() => setSelectedChain(chain.id as 'base' | 'solana')}
+                                            style={[
+                                                styles.networkLogoWrapper,
+                                                selectedChain === chain.id && styles.networkLogoActive
+                                            ]}
+                                        >
+                                            <Image source={chain.icon} style={styles.supportedNetworkIcon} />
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                                <Text style={[styles.supportedNetworksText, { color: themeColors.textSecondary }]}>Supported Networks</Text>
                             </View>
-                            <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Share</Text>
-                        </TouchableOpacity>
+                        </View>
 
-                        {Platform.OS === 'ios' && Host ? (
-                            <Host>
-                                <ContextMenu>
-                                    <ContextMenu.Trigger>
-                                        <View style={styles.receiveActionBtn}>
-                                            <View style={[styles.receiveActionCircle, { backgroundColor: themeColors.surface }]}>
-                                                <Copy size={28} color={themeColors.textPrimary} />
-                                            </View>
-                                            <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Copy</Text>
-                                        </View>
-                                    </ContextMenu.Trigger>
-                                    <ContextMenu.Items>
-                                        <ExpoButton onPress={() => copyAddress('base')}>Copy EVM Address</ExpoButton>
-                                        <ExpoButton onPress={() => copyAddress('solana')}>Copy Solana Address</ExpoButton>
-                                    </ContextMenu.Items>
-                                </ContextMenu>
-                            </Host>
-                        ) : (
+                        {/* Bottom Action Bar */}
+                        <View style={styles.receiveActionBar}>
                             <TouchableOpacity
                                 style={styles.receiveActionBtn}
                                 onPress={() => {
-                                    Alert.alert('Copy Address', undefined, [
-                                        { text: 'Copy EVM Address', onPress: () => copyAddress('base') },
-                                        { text: 'Copy Solana Address', onPress: () => copyAddress('solana') },
-                                        { text: 'Cancel', style: 'cancel' }
-                                    ]);
+                                    const address = selectedChain === 'solana' ? (solanaAddress || '') : (baseAddress || '');
+                                    Share.share({ message: address });
                                 }}
                             >
                                 <View style={[styles.receiveActionCircle, { backgroundColor: themeColors.surface }]}>
-                                    <Copy size={28} color={themeColors.textPrimary} />
+                                    <Export size={28} color={themeColors.textPrimary} />
                                 </View>
-                                <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Copy</Text>
+                                <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Share</Text>
                             </TouchableOpacity>
-                        )}
-                    </View>
-                </BottomSheetView>
-            </BottomSheetModal>
-        </SafeAreaView>
+
+                            {Platform.OS === 'ios' && Host ? (
+                                <Host>
+                                    <ContextMenu>
+                                        <ContextMenu.Trigger>
+                                            <View style={styles.receiveActionBtn}>
+                                                <View style={[styles.receiveActionCircle, { backgroundColor: themeColors.surface }]}>
+                                                    <Copy size={28} color={themeColors.textPrimary} />
+                                                </View>
+                                                <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Copy</Text>
+                                            </View>
+                                        </ContextMenu.Trigger>
+                                        <ContextMenu.Items>
+                                            <ExpoButton onPress={() => copyAddress('base')}>Copy EVM Address</ExpoButton>
+                                            <ExpoButton onPress={() => copyAddress('solana')}>Copy Solana Address</ExpoButton>
+                                        </ContextMenu.Items>
+                                    </ContextMenu>
+                                </Host>
+                            ) : (
+                                <TouchableOpacity
+                                    style={styles.receiveActionBtn}
+                                    onPress={() => {
+                                        Alert.alert('Copy Address', undefined, [
+                                            { text: 'Copy EVM Address', onPress: () => copyAddress('base') },
+                                            { text: 'Copy Solana Address', onPress: () => copyAddress('solana') },
+                                            { text: 'Cancel', style: 'cancel' }
+                                        ]);
+                                    }}
+                                >
+                                    <View style={[styles.receiveActionCircle, { backgroundColor: themeColors.surface }]}>
+                                        <Copy size={28} color={themeColors.textPrimary} />
+                                    </View>
+                                    <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Copy</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </BottomSheetView>
+                </BottomSheetModal>
+            </SafeAreaView>
+
+            {/* Tutorial card for wallet step */}
+            {shouldShowOnScreen('wallet') && activeStep && (
+                <TutorialCard
+                    step={activeStepIndex + 1}
+                    totalSteps={totalSteps}
+                    title={activeStep.title}
+                    body={activeStep.body}
+                    anchorPosition={activeStep.anchorPosition}
+                    onNext={nextStep}
+                    onBack={prevStep}
+                    onSkip={skipTutorial}
+                />)}
+        </>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: { flex: 1 },

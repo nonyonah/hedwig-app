@@ -32,6 +32,8 @@ import { getUserGradient } from '../../utils/gradientUtils';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import { TutorialCard } from '../../components/TutorialCard';
+import { useTutorial } from '../../hooks/useTutorial';
 
 // Icons for tokens, networks, and status
 const ICONS = {
@@ -74,6 +76,7 @@ export default function PaymentLinksScreen() {
     const currency = settings?.currency || 'USD';
     const themeColors = useThemeColors();
     const bottomSheetRef = React.useRef<BottomSheetModal>(null);
+    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
     const [links, setLinks] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -467,250 +470,266 @@ export default function PaymentLinksScreen() {
     };
 
     return (
-        <View style={{ flex: 1 }}>
-            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
-                <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <View style={styles.headerTop}>
-                        <View style={styles.headerLeft}>
-                            <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-                                {profileIcon.imageUri ? (
-                                    <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                                ) : (
-                                    <LinearGradient
-                                        colors={getUserGradient(user?.id)}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.profileIcon}
-                                    >
-                                        <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 }}>
-                                            {userName.firstName?.[0] || 'U'}
-                                        </Text>
-                                    </LinearGradient>
-                                )}
-                            </TouchableOpacity>
-                            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Payment Links</Text>
-                        </View>
-                    </View>
-
-                    {/* Filter Chips inside Header */}
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.filterContent}
-                        style={styles.filterScrollView}
-                    >
-                        {(['all', 'paid', 'pending', 'due_soon'] as const).map(filter => (
-                            <TouchableOpacity
-                                key={filter}
-                                style={[styles.filterChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
-                                onPress={() => setStatusFilter(filter)}
-                            >
-                                <Text style={[styles.filterText, { color: themeColors.textSecondary }, statusFilter === filter && styles.filterTextActive]}>
-                                    {filter === 'due_soon' ? 'Due Soon' : filter.charAt(0).toUpperCase() + filter.slice(1)}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-
-                {isLoading ? (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={Colors.primary} />
-                    </View>
-                ) : (
-                    <FlatList
-                        data={filteredLinks}
-                        renderItem={renderItem}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.listContent}
-                        showsVerticalScrollIndicator={false}
-                        alwaysBounceVertical={true}
-                        refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
-                        }
-                        ListEmptyComponent={
-                            < View style={styles.emptyState}>
-                                <ShareNetwork size={64} color={themeColors.textSecondary} />
-                                <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Payment Links</Text>
-                                <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                                    Create a payment link to accept crypto payments
-                                </Text>
-                            </View>
-                        }
-                    />
-                )}
-            </SafeAreaView>
-
-            <ProfileModal
-                visible={showProfileModal}
-                onClose={() => setShowProfileModal(false)}
-                userName={userName}
-                walletAddresses={walletAddresses}
-                profileIcon={profileIcon}
-            />
-
-
-
-            {/* Details Modal */}
-            <BottomSheetModal
-                ref={bottomSheetRef}
-                index={0}
-                enableDynamicSizing={true}
-                enablePanDownToClose={true}
-                backdropComponent={(props) => (
-                    <BottomSheetBackdrop
-                        {...props}
-                        disappearsOnIndex={-1}
-                        appearsOnIndex={0}
-                        opacity={0.5}
-                    />
-                )}
-                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-            >
-                <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 20 }}>
-                    <View style={styles.modalHeader}>
-                        <View style={styles.modalHeaderLeft}>
-                            {/* Token icon with status badge */}
-                            <View style={styles.modalIconContainer}>
-                                <Image
-                                    source={ICONS.usdc}
-                                    style={styles.modalTokenIcon}
-                                />
-                                <Image
-                                    source={selectedLink?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
-                                    style={styles.modalStatusBadge}
-                                />
-                            </View>
-                            <View>
-                                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
-                                    {selectedLink?.status === 'PAID' ? 'Paid' : 'Pending'}
-                                </Text>
-                                <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                    {selectedLink?.created_at ? `${new Date(selectedLink.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')} ${new Date(selectedLink.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                                </Text>
-                            </View>
-                        </View>
-                        <View style={styles.modalHeaderRight}>
-                            {selectedLink?.status !== 'PAID' && (
-                                <>
-                                    {Platform.OS === 'ios' && Host ? (
-                                        <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                            <ContextMenu>
-                                                <ContextMenu.Trigger>
-                                                    <ExpoButton variant="borderless" systemImage="ellipsis">
-                                                        {' '}
-                                                    </ExpoButton>
-                                                </ContextMenu.Trigger>
-                                                <ContextMenu.Items>
-                                                    <ExpoButton
-                                                        onPress={handleSendReminder}
-                                                        systemImage="bell.fill"
-                                                    >
-                                                        Send Reminder
-                                                    </ExpoButton>
-                                                    <ExpoButton
-                                                        onPress={handleToggleReminders}
-                                                        systemImage={selectedLink?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
-                                                    >
-                                                        {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
-                                                    </ExpoButton>
-                                                    <ExpoButton
-                                                        onPress={handleDeleteLink}
-                                                        systemImage="trash.fill"
-                                                    >
-                                                        Delete
-                                                    </ExpoButton>
-                                                </ContextMenu.Items>
-                                            </ContextMenu>
-                                        </Host>
+        <>
+            <View style={{ flex: 1 }}>
+                <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+                    <View style={[styles.header, { backgroundColor: themeColors.background }]}>
+                        <View style={styles.headerTop}>
+                            <View style={styles.headerLeft}>
+                                <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+                                    {profileIcon.imageUri ? (
+                                        <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
                                     ) : (
-                                        <TouchableOpacity
-                                            style={{ padding: 4, marginRight: 8 }}
-                                            onPress={() => {
-                                                Alert.alert('Payment Link Options', undefined, [
-                                                    { text: 'Send Reminder', onPress: handleSendReminder },
-                                                    { text: selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders', onPress: handleToggleReminders },
-                                                    { text: 'Delete', style: 'destructive', onPress: handleDeleteLink },
-                                                    { text: 'Cancel', style: 'cancel' }
-                                                ]);
-                                            }}
+                                        <LinearGradient
+                                            colors={getUserGradient(user?.id)}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={styles.profileIcon}
                                         >
-                                            <DotsThree size={24} color={themeColors.textSecondary} />
-                                        </TouchableOpacity>
+                                            <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 }}>
+                                                {userName.firstName?.[0] || 'U'}
+                                            </Text>
+                                        </LinearGradient>
                                     )}
-                                </>
-                            )}
-                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
-                        <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
-                            {formatCurrency((selectedLink?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
-                        </Text>
-                        <View style={styles.amountCardSub}>
-                            <Image source={ICONS.usdc} style={styles.smallIcon} />
-                            <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedLink?.amount} USDC</Text>
-                        </View>
-                    </View>
-
-                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
-                        <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Link ID</Text>
-                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>LINK-{selectedLink?.id?.substring(0, 8).toUpperCase()}</Text>
-                        </View>
-                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                        <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
-                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.title}</Text>
-                        </View>
-                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                        <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
-                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.content?.clientName || selectedLink?.content?.client_name || 'N/A'}</Text>
-                        </View>
-                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                        <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
-                            <View style={styles.chainValue}>
-                                <View style={{ flexDirection: 'row', marginRight: 6 }}>
-                                    <Image source={ICONS.solana} style={[styles.smallIcon, { width: 16, height: 16 }]} />
-                                    <Image source={ICONS.base} style={[styles.smallIcon, { width: 16, height: 16, marginLeft: -6 }]} />
-                                </View>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>Multichain</Text>
+                                </TouchableOpacity>
+                                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Payment Links</Text>
                             </View>
                         </View>
+
+                        {/* Filter Chips inside Header */}
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.filterContent}
+                            style={styles.filterScrollView}
+                        >
+                            {(['all', 'paid', 'pending', 'due_soon'] as const).map(filter => (
+                                <TouchableOpacity
+                                    key={filter}
+                                    style={[styles.filterChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
+                                    onPress={() => setStatusFilter(filter)}
+                                >
+                                    <Text style={[styles.filterText, { color: themeColors.textSecondary }, statusFilter === filter && styles.filterTextActive]}>
+                                        {filter === 'due_soon' ? 'Due Soon' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
                     </View>
 
-                    <TouchableOpacity
-                        style={styles.viewButton}
-                        onPress={async () => {
-                            try {
-                                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                // Use the stored BlockRadar URL if available, otherwise fallback to local construction
-                                const url = selectedLink.payment_link_url ||
-                                    selectedLink.content?.blockradar_url ||
-                                    `${apiUrl}/pay/${selectedLink.id}`;
-
-                                await WebBrowser.openBrowserAsync(url, {
-                                    presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-                                    controlsColor: Colors.primary,
-                                });
-                            } catch (error: any) {
-                                Alert.alert('Error', `Failed to open: ${error?.message}`);
+                    {isLoading ? (
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="large" color={Colors.primary} />
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={filteredLinks}
+                            renderItem={renderItem}
+                            keyExtractor={(item) => item.id}
+                            contentContainerStyle={styles.listContent}
+                            showsVerticalScrollIndicator={false}
+                            alwaysBounceVertical={true}
+                            refreshControl={
+                                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                             }
-                        }}
-                    >
-                        <Text style={styles.viewButtonText}>View Payment Link</Text>
-                    </TouchableOpacity>
-                </BottomSheetView>
-            </BottomSheetModal>
-        </View >
+                            ListEmptyComponent={
+                                < View style={styles.emptyState}>
+                                    <ShareNetwork size={64} color={themeColors.textSecondary} />
+                                    <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Payment Links</Text>
+                                    <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+                                        Create a payment link to accept crypto payments
+                                    </Text>
+                                </View>
+                            }
+                        />
+                    )}
+                </SafeAreaView>
+
+                <ProfileModal
+                    visible={showProfileModal}
+                    onClose={() => setShowProfileModal(false)}
+                    userName={userName}
+                    walletAddresses={walletAddresses}
+                    profileIcon={profileIcon}
+                />
+
+
+
+                {/* Details Modal */}
+                <BottomSheetModal
+                    ref={bottomSheetRef}
+                    index={0}
+                    enableDynamicSizing={true}
+                    enablePanDownToClose={true}
+                    backdropComponent={(props) => (
+                        <BottomSheetBackdrop
+                            {...props}
+                            disappearsOnIndex={-1}
+                            appearsOnIndex={0}
+                            opacity={0.5}
+                        />
+                    )}
+                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                >
+                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 20 }}>
+                        <View style={styles.modalHeader}>
+                            <View style={styles.modalHeaderLeft}>
+                                {/* Token icon with status badge */}
+                                <View style={styles.modalIconContainer}>
+                                    <Image
+                                        source={ICONS.usdc}
+                                        style={styles.modalTokenIcon}
+                                    />
+                                    <Image
+                                        source={selectedLink?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
+                                        style={styles.modalStatusBadge}
+                                    />
+                                </View>
+                                <View>
+                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                                        {selectedLink?.status === 'PAID' ? 'Paid' : 'Pending'}
+                                    </Text>
+                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                        {selectedLink?.created_at ? `${new Date(selectedLink.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')} ${new Date(selectedLink.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.modalHeaderRight}>
+                                {selectedLink?.status !== 'PAID' && (
+                                    <>
+                                        {Platform.OS === 'ios' && Host ? (
+                                            <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
+                                                <ContextMenu>
+                                                    <ContextMenu.Trigger>
+                                                        <ExpoButton variant="borderless" systemImage="ellipsis">
+                                                            {' '}
+                                                        </ExpoButton>
+                                                    </ContextMenu.Trigger>
+                                                    <ContextMenu.Items>
+                                                        <ExpoButton
+                                                            onPress={handleSendReminder}
+                                                            systemImage="bell.fill"
+                                                        >
+                                                            Send Reminder
+                                                        </ExpoButton>
+                                                        <ExpoButton
+                                                            onPress={handleToggleReminders}
+                                                            systemImage={selectedLink?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
+                                                        >
+                                                            {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
+                                                        </ExpoButton>
+                                                        <ExpoButton
+                                                            onPress={handleDeleteLink}
+                                                            systemImage="trash.fill"
+                                                        >
+                                                            Delete
+                                                        </ExpoButton>
+                                                    </ContextMenu.Items>
+                                                </ContextMenu>
+                                            </Host>
+                                        ) : (
+                                            <TouchableOpacity
+                                                style={{ padding: 4, marginRight: 8 }}
+                                                onPress={() => {
+                                                    Alert.alert('Payment Link Options', undefined, [
+                                                        { text: 'Send Reminder', onPress: handleSendReminder },
+                                                        { text: selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders', onPress: handleToggleReminders },
+                                                        { text: 'Delete', style: 'destructive', onPress: handleDeleteLink },
+                                                        { text: 'Cancel', style: 'cancel' }
+                                                    ]);
+                                                }}
+                                            >
+                                                <DotsThree size={24} color={themeColors.textSecondary} />
+                                            </TouchableOpacity>
+                                        )}
+                                    </>
+                                )}
+                                <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
+                                    <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                            <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                                {formatCurrency((selectedLink?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
+                            </Text>
+                            <View style={styles.amountCardSub}>
+                                <Image source={ICONS.usdc} style={styles.smallIcon} />
+                                <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedLink?.amount} USDC</Text>
+                            </View>
+                        </View>
+
+                        <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                            <View style={styles.detailRow}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Link ID</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>LINK-{selectedLink?.id?.substring(0, 8).toUpperCase()}</Text>
+                            </View>
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                            <View style={styles.detailRow}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.title}</Text>
+                            </View>
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                            <View style={styles.detailRow}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.content?.clientName || selectedLink?.content?.client_name || 'N/A'}</Text>
+                            </View>
+                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                            <View style={styles.detailRow}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
+                                <View style={styles.chainValue}>
+                                    <View style={{ flexDirection: 'row', marginRight: 6 }}>
+                                        <Image source={ICONS.solana} style={[styles.smallIcon, { width: 16, height: 16 }]} />
+                                        <Image source={ICONS.base} style={[styles.smallIcon, { width: 16, height: 16, marginLeft: -6 }]} />
+                                    </View>
+                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>Multichain</Text>
+                                </View>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.viewButton}
+                            onPress={async () => {
+                                try {
+                                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                    // Use the stored BlockRadar URL if available, otherwise fallback to local construction
+                                    const url = selectedLink.payment_link_url ||
+                                        selectedLink.content?.blockradar_url ||
+                                        `${apiUrl}/pay/${selectedLink.id}`;
+
+                                    await WebBrowser.openBrowserAsync(url, {
+                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+                                        controlsColor: Colors.primary,
+                                    });
+                                } catch (error: any) {
+                                    Alert.alert('Error', `Failed to open: ${error?.message}`);
+                                }
+                            }}
+                        >
+                            <Text style={styles.viewButtonText}>View Payment Link</Text>
+                        </TouchableOpacity>
+                    </BottomSheetView>
+                </BottomSheetModal>
+            </View >
+
+            {/* Tutorial card for links step */}
+            {shouldShowOnScreen('links') && activeStep && (
+                <TutorialCard
+                    step={activeStepIndex + 1}
+                    totalSteps={totalSteps}
+                    title={activeStep.title}
+                    body={activeStep.body}
+                    anchorPosition={activeStep.anchorPosition}
+                    onNext={nextStep}
+                    onBack={prevStep}
+                    onSkip={skipTutorial}
+                />)}
+        </>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {

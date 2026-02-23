@@ -17,6 +17,7 @@ import { View, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
+import { TutorialProvider } from '../context/TutorialContext';
 import { useThemeColors } from '../theme/colors';
 import * as Sentry from '@sentry/react-native';
 import { isRunningInExpoGo } from 'expo';
@@ -187,11 +188,13 @@ function RootLayout() {
 
     return (
         <SettingsProvider>
-            <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-                <BottomSheetModalProvider>
-                    {isWeb ? <WebLayout /> : <NativeLayout />}
-                </BottomSheetModalProvider>
-            </GestureHandlerRootView>
+            <TutorialProvider>
+                <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+                    <BottomSheetModalProvider>
+                        {isWeb ? <WebLayout /> : <NativeLayout />}
+                    </BottomSheetModalProvider>
+                </GestureHandlerRootView>
+            </TutorialProvider>
         </SettingsProvider>
     );
 }

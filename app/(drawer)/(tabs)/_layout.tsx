@@ -34,7 +34,7 @@ export default function TabLayout() {
 
             <NativeTabs.Trigger name="invoices">
                 <Label>Invoices</Label>
-                <Icon sf="doc.text.fill" md="receipt_long" />
+                <Icon sf="doc.text.fill" md="receipt-long" />
             </NativeTabs.Trigger>
 
             <NativeTabs.Trigger name="links">
@@ -49,7 +49,7 @@ export default function TabLayout() {
 
             <NativeTabs.Trigger name="wallet">
                 <Label>Wallet</Label>
-                <Icon sf="creditcard.fill" md="account_balance_wallet" />
+                <Icon sf="creditcard.fill" md="account-balance-wallet" />
             </NativeTabs.Trigger>
         </NativeTabs>
     );

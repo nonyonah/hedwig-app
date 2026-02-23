@@ -20,6 +20,7 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import Analytics from '../../services/analytics';
 import { useKYC } from '../../hooks/useKYC';
 import KYCVerificationModal from '../../components/KYCVerificationModal';
+import { useTutorial } from '../../hooks/useTutorial';
 
 
 
@@ -39,6 +40,8 @@ export default function SettingsScreen() {
     const themeColors = useThemeColors();
     const { user, logout, getAccessToken } = useAuth();
 
+
+    const { replayTutorial } = useTutorial();
 
     const [conversations, setConversations] = useState<any[]>([]);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
@@ -342,6 +345,18 @@ export default function SettingsScreen() {
                             onValueChange={setLiveTrackingEnabled}
                         />
                     </View>
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <TouchableOpacity
+                        style={styles.settingRow}
+                        onPress={async () => {
+                            await replayTutorial();
+                            router.replace('/(drawer)/(tabs)');
+                        }}
+                    >
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Show app tutorial</Text>
+                        <CaretRight size={20} color={themeColors.textSecondary} />
+                    </TouchableOpacity>
                 </View>
 
                 <View style={styles.spacer} />
