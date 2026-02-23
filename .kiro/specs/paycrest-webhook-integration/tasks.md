@@ -1,0 +1,106 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Fault Condition** - Blockradar Webhooks Incorrectly Update Offramp Status
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate Blockradar webhooks incorrectly update offramp order status
+  - **Scoped PBT Approach**: Scope the property to concrete failing cases - Blockradar withdrawal webhooks (withdrawal.success, withdrawal.failed) with metadata.offrampOrderId
+  - Test that Blockradar withdrawal webhooks with offramp metadata DO update offramp_orders status on UNFIXED code
+  - Generate test cases for withdrawal.success and withdrawal.failed events with metadata.offrampOrderId
+  - Assert that offramp_orders.status is updated by Blockradar webhooks (this should happen on unfixed code)
+  - Run test on UNFIXED code in `hedwig-backend/src/routes/blockradarWebhook.ts`
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found:
+    - withdrawal.success with offrampOrderId updates status to 'PROCESSING'
+    - withdrawal.failed with offrampOrderId updates status to 'FAILED'
+    - Status conflicts when Paycrest webhooks provide different status
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Non-Offramp Blockradar Webhooks Continue Working
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs (non-offramp webhook events)
+  - Test deposit webhooks (deposit.success, deposit.confirmed):
+    - Observe: User balance is updated correctly
+    - Observe: Transaction records are created
+    - Observe: Notifications are sent
+  - Test payment link deposit webhooks:
+    - Observe: Documents are marked as PAID
+    - Observe: Auto-withdrawal flow is triggered
+    - Observe: Milestones are updated
+  - Test sweep webhooks (sweep.success, sweep.failed):
+    - Observe: Events are logged correctly
+  - Test non-offramp withdrawal webhooks (withdrawal.success WITHOUT metadata.offrampOrderId):
+    - Observe: Handled correctly without offramp status updates
+  - Test webhook signature verification:
+    - Observe: Invalid signatures are rejected with 401
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4_
+
+- [x] 3. Fix Blockradar webhook handler to stop updating offramp status
+
+  - [x] 3.1 Remove offramp status update logic from handleWithdrawal function
+    - Open `hedwig-backend/src/routes/blockradarWebhook.ts`
+    - Locate handleWithdrawal function (around line 654)
+    - Remove code block that checks for metadata.offrampOrderId
+    - Remove lines that query offramp_orders table
+    - Remove lines that update status and tx_hash
+    - Remove logging related to offramp order updates
+    - Add explanatory comment: "Offramp order status is managed by Paycrest webhooks, not Blockradar webhooks"
+    - Preserve general withdrawal logging that doesn't involve offramp status
+    - _Bug_Condition: isBugCondition(input) where input.eventType IN ['withdrawal.success', 'withdrawal.confirmed'] AND input.data.metadata.offrampOrderId EXISTS_
+    - _Expected_Behavior: offrampOrderStatusNotUpdated(result) - Blockradar webhooks SHALL NOT update offramp_orders table status_
+    - _Preservation: Non-offramp Blockradar webhooks (deposits, payment link deposits, sweeps, non-offramp withdrawals) SHALL produce exactly the same behavior_
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 3.1, 3.2, 3.3, 3.4_
+
+  - [x] 3.2 Remove offramp status update logic from handleWithdrawalFailed function
+    - Locate handleWithdrawalFailed function (around line 682)
+    - Remove code block that checks for metadata.offrampOrderId
+    - Remove lines that query offramp_orders table
+    - Remove lines that update status and error_message
+    - Remove lines that create failure notifications
+    - Add explanatory comment: "Offramp failures are managed by Paycrest webhooks (payment_order.expired, payment_order.refunded)"
+    - Preserve general withdrawal failure logging that doesn't involve offramp status
+    - _Bug_Condition: isBugCondition(input) where input.eventType = 'withdrawal.failed' AND input.data.metadata.offrampOrderId EXISTS_
+    - _Expected_Behavior: offrampOrderStatusNotUpdated(result) - Blockradar webhooks SHALL NOT update offramp_orders table status_
+    - _Preservation: Non-offramp Blockradar webhooks SHALL produce exactly the same behavior_
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 3.1, 3.2, 3.3, 3.4_
+
+  - [x] 3.3 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Blockradar Webhooks Do Not Update Offramp Status
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - Verify that Blockradar withdrawal webhooks with offramp metadata do NOT update offramp_orders status
+    - Verify no database queries to offramp_orders table occur in Blockradar webhook handler
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7_
+
+  - [x] 3.4 Verify preservation tests still pass
+    - **Property 2: Preservation** - Non-Offramp Blockradar Webhooks Continue Working
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - Verify deposit webhooks still update balances and create transactions
+    - Verify payment link deposits still trigger auto-withdrawal
+    - Verify sweep webhooks still log correctly
+    - Verify non-offramp withdrawals still work
+    - Verify signature verification still rejects invalid signatures
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all tests still pass after fix (no regressions)
+    - _Requirements: 3.1, 3.2, 3.3, 3.4_
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run all unit tests for Blockradar webhook handler
+  - Run all property-based tests for fault condition and preservation
+  - Run integration tests for full offramp flow (create → withdraw → Paycrest settle)
+  - Verify Paycrest webhook handler still correctly updates offramp status
+  - Verify no regressions in deposit, payment link, or sweep functionality
+  - Ensure all tests pass, ask the user if questions arise

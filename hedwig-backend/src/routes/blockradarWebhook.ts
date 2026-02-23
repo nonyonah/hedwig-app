@@ -656,24 +656,6 @@ async function handleWithdrawal(data: any) {
   const metadata = data.metadata || {};
 
   logger.info('Processing withdrawal success', { txHash, metadata });
-
-  // If this withdrawal was for an offramp, update the order status
-  if (metadata.offrampOrderId) {
-    const { error } = await supabase
-      .from('offramp_orders')
-      .update({
-        status: 'PROCESSING',
-        tx_hash: txHash,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', metadata.offrampOrderId);
-
-    if (error) {
-      logger.error('Failed to update offramp order', { error, orderId: metadata.offrampOrderId });
-    } else {
-      logger.info('Offramp order updated', { orderId: metadata.offrampOrderId });
-    }
-  }
 }
 
 /**
@@ -684,35 +666,6 @@ async function handleWithdrawalFailed(data: any) {
   const errorMessage = data.error || data.message || 'Withdrawal failed';
 
   logger.error('Withdrawal failed', { metadata, error: errorMessage });
-
-  // If this withdrawal was for an offramp, mark it as failed
-  if (metadata.offrampOrderId) {
-    await supabase
-      .from('offramp_orders')
-      .update({
-        status: 'FAILED',
-        error_message: errorMessage,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', metadata.offrampOrderId);
-
-    // Notify user
-    const { data: order } = await supabase
-      .from('offramp_orders')
-      .select('user_id')
-      .eq('id', metadata.offrampOrderId)
-      .single();
-
-    if (order) {
-      await supabase.from('notifications').insert({
-        user_id: order.user_id,
-        type: 'OFFRAMP_FAILED',
-        title: 'Offramp Failed',
-        message: 'Your offramp request could not be processed. Please try again.',
-        data: { orderId: metadata.offrampOrderId, error: errorMessage },
-      });
-    }
-  }
 }
 
 

@@ -112,7 +112,7 @@ const verifyWebhookSignature = (payload: string, signature: string): boolean => 
 router.post('/', async (req: Request, res: Response) => {
     try {
         const signature = req.headers['x-paycrest-signature'] as string;
-        const rawBody = JSON.stringify(req.body);
+        const rawBody = (req as any).rawBody || JSON.stringify(req.body);
 
         // In production, require webhook secret and signature
         if (process.env.NODE_ENV === 'production') {
