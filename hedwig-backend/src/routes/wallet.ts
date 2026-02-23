@@ -96,8 +96,8 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             });
         }
 
-        // 2. Fetch balances from Privy API for each wallet
-        let allBalances: any[] = [];
+        // 2. Fetch balances from Privy API for each wallet (in parallel)
+        const balancePromises: Promise<any>[] = [];
         
         for (const wallet of wallets) {
             // Skip if no wallet_id - balance API requires it
@@ -120,42 +120,48 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                 continue;
             }
 
-            // Make a separate API call for each asset (API doesn't support array)
+            // Create a promise for each asset balance fetch
             for (const asset of assets) {
-                try {
-                    logger.debug('Fetching balance for wallet', { walletId: wallet.id, chain: chainType, asset });
+                balancePromises.push(
+                    (async () => {
+                        try {
+                            logger.debug('Fetching balance for wallet', { walletId: wallet.id, chain: chainType, asset });
 
-                    // Use Privy Node SDK to fetch balance with single asset
-                    const response = await privyNode.wallets().balance.get(wallet.id, {
-                        chain: chainType as any,
-                        asset: asset as any,
-                        include_currency: 'usd'
-                    });
-
-                    logger.debug('Balance response', { walletId: wallet.id, asset, response });
-
-                    if (response && response.balances) {
-                        for (const bal of response.balances) {
-                            allBalances.push({
-                                chain: bal.chain,
-                                asset: bal.asset,
-                                raw_value: bal.raw_value,
-                                display_values: {
-                                    token: bal.display_values?.token || '0',
-                                    usd: bal.display_values?.usd || '0'
-                                }
+                            const response = await privyNode.wallets().balance.get(wallet.id!, {
+                                chain: chainType as any,
+                                asset: asset as any,
+                                include_currency: 'usd'
                             });
+
+                            logger.debug('Balance response', { walletId: wallet.id, asset, response });
+
+                            if (response && response.balances) {
+                                return response.balances.map((bal: any) => ({
+                                    chain: bal.chain,
+                                    asset: bal.asset,
+                                    raw_value: bal.raw_value,
+                                    display_values: {
+                                        token: bal.display_values?.token || '0',
+                                        usd: bal.display_values?.usd || '0'
+                                    }
+                                }));
+                            }
+                            return [];
+                        } catch (apiError: any) {
+                            logger.error('Privy API balance fetch failed', { 
+                                walletId: wallet.id, 
+                                asset,
+                                error: apiError.message?.slice(0, 200)
+                            });
+                            return [];
                         }
-                    }
-                } catch (apiError: any) {
-                    logger.error('Privy API balance fetch failed', { 
-                        walletId: wallet.id, 
-                        asset,
-                        error: apiError.message?.slice(0, 200)
-                    });
-                }
+                    })()
+                );
             }
         }
+
+        const balanceResults = await Promise.all(balancePromises);
+        const allBalances = balanceResults.flat();
 
         const primaryAddress = wallets.find(w => w.type === 'evm')?.address || wallets[0]?.address;
         const solanaAddress = wallets.find(w => w.type === 'solana')?.address;

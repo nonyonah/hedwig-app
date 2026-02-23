@@ -44,7 +44,12 @@ export function PrivyWrapper({ children }: PrivyWrapperProps) {
                 },
                 loginMethods: ['email', 'google', 'apple'],
                 embeddedWallets: {
-                    createOnLogin: 'all-users',
+                    ethereum: {
+                        createOnLogin: 'all-users',
+                    },
+                    solana: {
+                        createOnLogin: 'all-users',
+                    },
                 },
             }}
         >
