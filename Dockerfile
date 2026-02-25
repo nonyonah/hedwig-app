@@ -1,43 +1,57 @@
-# Stage 1: Build the Application
-FROM node:22 AS build
+# Root deployment image for Cloud Run.
+# IMPORTANT: This repository contains both mobile app and backend code.
+# Cloud Run must run the backend HTTP server (hedwig-backend), not Expo dev server.
 
-# Set the working directory
-WORKDIR /usr/src/app
+FROM node:22-slim AS build
 
-# Install system dependencies required by Expo modules
-# 'rsync' is required for the expo-module prepare script
-RUN apt-get update && apt-get install -y rsync && rm -rf /var/lib/apt/lists/*
+WORKDIR /app/hedwig-backend
 
-# Copy package files
-COPY package*.json ./
+# Build toolchain for native node modules
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y build-essential git node-gyp pkg-config python-is-python3 rsync && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install dependencies (including devDependencies needed for build)
-RUN npm install --legacy-peer-deps
+# Install backend deps
+COPY hedwig-backend/package-lock.json hedwig-backend/package.json ./
+RUN npm ci --include=dev --legacy-peer-deps
 
-# Copy the rest of the application source code
-COPY . .
+# Copy backend source and build TypeScript
+COPY hedwig-backend ./
+RUN npm run build
 
-# Stage 2: Create the Final Production Image
+# Build embedded web-client
+WORKDIR /app/hedwig-backend/web-client
+RUN npm ci --include=dev --legacy-peer-deps
+ENV VITE_REOWN_PROJECT_ID=e2fead0a05813697717820eaed0f18ea
+ENV VITE_API_URL=https://pay.hedwigbot.xyz
+ENV VITE_PRIVY_APP_ID=cmby98gd300hxl40mrdr3mkoh
+RUN npm run build
+
+
 FROM node:22-slim
 
-WORKDIR /usr/src/app
-
-# Copy built application and modules from build stage
-COPY --from=build /usr/src/app .
-
-# Set environment variables
+WORKDIR /app/hedwig-backend
 ENV NODE_ENV=production
-# Match the internal_port in fly.toml
 ENV PORT=8080
+
+# Non-root runtime user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 hedwig
+
+# Runtime artifacts
+COPY --from=build /app/hedwig-backend/dist /app/hedwig-backend/dist
+COPY --from=build /app/hedwig-backend/node_modules /app/hedwig-backend/node_modules
+COPY --from=build /app/hedwig-backend/package.json /app/hedwig-backend/package.json
+COPY --from=build /app/hedwig-backend/src/templates /app/hedwig-backend/src/templates
+COPY --from=build /app/hedwig-backend/public /app/hedwig-backend/public
+COPY --from=build /app/hedwig-backend/web-client/dist /app/hedwig-backend/web-client/dist
+
+RUN chown -R hedwig:nodejs /app/hedwig-backend
+USER hedwig
+
 EXPOSE 8080
 
-# Secure the container by running as a non-root user
-USER node
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 8080) + '/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
-# Add health check for container orchestration
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:8080/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
-
-# Start the application
-# Note: Ensure "npm run start" or "node index.js" is appropriate for your app
-CMD [ "npm", "run", "start" ]
+CMD ["node", "dist/index.js"]
