@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 const logger = createLogger('DiditService');
 
-const DIDIT_API_URL = process.env.DIDIT_API_URL || 'https://api.didit.me/v3';
+const DIDIT_API_URL = process.env.DIDIT_API_URL || 'https://verification.didit.me/v3';
 
 interface CreateSessionParams {
   userId: string;
@@ -57,6 +57,7 @@ interface DiditAuthResponse {
 }
 
 class DiditService {
+  private apiKey: string;
   private clientId: string;
   private clientSecret: string;
   private workflowId: string;
@@ -67,6 +68,7 @@ class DiditService {
 
   constructor() {
     // Support both new and legacy env names.
+    this.apiKey = process.env.DIDIT_API_KEY || '';
     this.clientId = process.env.DIDIT_CLIENT_ID || process.env.DIDIT_APP_ID || '';
     this.clientSecret = process.env.DIDIT_CLIENT_SECRET || process.env.DIDIT_API_KEY || '';
     this.workflowId = process.env.DIDIT_WORKFLOW_ID || '';
@@ -77,13 +79,22 @@ class DiditService {
         .replace(/\/$/, '');
     this.callbackUrl = `${baseUrl}/api/webhooks/didit`;
 
-    if (!this.clientId || !this.clientSecret || !this.workflowId) {
+    if (!this.workflowId || (!this.apiKey && (!this.clientId || !this.clientSecret))) {
       logger.warn('Didit configuration missing', {
+        hasApiKey: !!this.apiKey,
         hasClientId: !!this.clientId,
         hasClientSecret: !!this.clientSecret,
         hasWorkflowId: !!this.workflowId
       });
     }
+  }
+
+  private getApiKeyHeaders(): Record<string, string> {
+    return {
+      'accept': 'application/json',
+      'content-type': 'application/json',
+      'x-api-key': this.apiKey,
+    };
   }
 
   /**
@@ -184,23 +195,56 @@ class DiditService {
   async createSession(params: CreateSessionParams): Promise<DiditSession> {
     try {
       logger.info('Creating Didit session', { userId: params.userId });
-
-      // Get valid access token
-      const accessToken = await this.getAccessToken();
-
-      const response = await fetch(`${DIDIT_API_URL}/sessions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+      const payload = JSON.stringify({
+        workflow_id: this.workflowId,
+        vendor_data: params.userId,
+        callback: this.callbackUrl, // Didit v3 docs
+        callback_url: this.callbackUrl, // compatibility fallback
+        email: params.email,
+        contact_details: {
+          email: params.email,
         },
-        body: JSON.stringify({
-          workflow_id: this.workflowId,
-          vendor_data: params.userId,
-          callback_url: this.callbackUrl,
-          email: params.email
-        }),
       });
+
+      const sessionEndpoints = [
+        `${DIDIT_API_URL}/session/`,
+        `${DIDIT_API_URL}/sessions`,
+      ];
+
+      let response: Response | null = null;
+      let lastErrorText = '';
+
+      for (const endpoint of sessionEndpoints) {
+        if (this.apiKey) {
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: this.getApiKeyHeaders(),
+            body: payload,
+          });
+        } else {
+          const accessToken = await this.getAccessToken();
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: payload,
+          });
+        }
+
+        if (response.ok) break;
+        lastErrorText = await response.text();
+        logger.warn('Didit session create attempt failed', {
+          endpoint,
+          status: response.status,
+          body: lastErrorText,
+        });
+      }
+
+      if (!response) {
+        throw new Error('Didit session request was not executed');
+      }
 
       if (response.ok) {
         const data = await response.json() as DiditCreateSessionResponse;
@@ -229,12 +273,11 @@ class DiditService {
           status: data.status || data.session?.status || 'pending',
         };
       } else {
-        const errorText = await response.text();
         logger.error('Failed to create Didit session', { 
           status: response.status, 
-          body: errorText 
+          body: lastErrorText 
         });
-        throw new Error(`Didit API error: ${response.status} ${errorText}`);
+        throw new Error(`Didit API error: ${response.status} ${lastErrorText}`);
       }
     } catch (error) {
       logger.error('Failed to create Didit session', { error });
@@ -247,16 +290,44 @@ class DiditService {
    */
   async getSessionStatus(sessionId: string): Promise<{ status: string; decision?: string }> {
       try {
-        // Get valid access token
-        const accessToken = await this.getAccessToken();
+        const endpoints = [
+          `${DIDIT_API_URL}/session/${sessionId}/decision/`,
+          `${DIDIT_API_URL}/sessions/${sessionId}`,
+          `${DIDIT_API_URL}/session/${sessionId}`,
+        ];
 
-        const response = await fetch(`${DIDIT_API_URL}/sessions/${sessionId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-        });
+        let response: Response | null = null;
+        let lastErrorText = '';
+
+        for (const endpoint of endpoints) {
+          if (this.apiKey) {
+            response = await fetch(endpoint, {
+              method: 'GET',
+              headers: this.getApiKeyHeaders(),
+            });
+          } else {
+            const accessToken = await this.getAccessToken();
+            response = await fetch(endpoint, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+            });
+          }
+
+          if (response.ok) break;
+          lastErrorText = await response.text();
+          logger.warn('Didit get session attempt failed', {
+            endpoint,
+            status: response.status,
+            body: lastErrorText,
+          });
+        }
+
+        if (!response) {
+          throw new Error('Didit get session request was not executed');
+        }
   
         if (response.ok) {
           const data = await response.json() as DiditGetSessionResponse;
@@ -274,12 +345,11 @@ class DiditService {
             decision,
           };
         } else {
-          const errorText = await response.text();
           logger.error('Failed to get Didit session status', { 
             status: response.status, 
-            body: errorText 
+            body: lastErrorText 
           });
-          throw new Error(`Didit API error: ${response.status} ${errorText}`);
+          throw new Error(`Didit API error: ${response.status} ${lastErrorText}`);
         }
       } catch (error) {
         logger.error('Failed to get Didit session status', { error });
