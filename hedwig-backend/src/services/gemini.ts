@@ -4,14 +4,20 @@ import { createLogger } from '../utils/logger';
 const logger = createLogger('Gemini');
 
 if (!process.env.GEMINI_API_KEY) {
-  throw new Error('GEMINI_API_KEY is not defined in environment variables');
+  logger.warn('GEMINI_API_KEY is not defined. Gemini features will use fallbacks when possible.');
 }
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = process.env.GEMINI_API_KEY
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
 
 // Use Gemini 2.0 Flash model
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const model = genAI?.getGenerativeModel({ model: 'gemini-2.0-flash' }) || {
+  generateContent: async () => {
+    throw new Error('Gemini model unavailable: GEMINI_API_KEY is not configured');
+  },
+};
 
 export class GeminiService {
   /**
