@@ -211,8 +211,15 @@ async function processPaymentEvent(data: {
  */
 router.post('/alchemy', async (req: Request, res: Response) => {
     try {
-        // Get raw body for signature validation
-        const rawBody = JSON.stringify(req.body);
+        // CRITICAL: Use exact raw body for signature validation. Alchemy signs the raw request bytes.
+        // JSON.stringify(req.body) would produce different output (key order, spacing) and break verification.
+        const rawBody = (req as any).rawBody;
+        if (!rawBody) {
+            logger.error('Alchemy webhook: rawBody not available - body parser verify middleware must set req.rawBody');
+            res.status(500).json({ error: 'Server configuration error' });
+            return;
+        }
+
         const signature = req.headers['x-alchemy-signature'] as string;
 
         if (!signature) {

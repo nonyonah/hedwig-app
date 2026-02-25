@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Alert, LayoutAnimation, Platform, UIManager, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, LayoutAnimation, Platform, UIManager, Share } from 'react-native';
 let ContextMenu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
@@ -33,6 +33,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { getUserGradient } from '../../../utils/gradientUtils';
 import { TutorialCard } from '../../../components/TutorialCard';
 import { useTutorial } from '../../../hooks/useTutorial';
+import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
 
 // Profile color gradient options
 const PROFILE_COLOR_OPTIONS = [
@@ -289,6 +290,9 @@ export default function WalletScreen() {
                 <ScrollView
                     style={styles.content}
                     showsVerticalScrollIndicator={false}
+                    bounces={false}
+                    overScrollMode="never"
+                    contentInsetAdjustmentBehavior="never"
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 >
                     <View style={styles.balanceSection}>
@@ -336,25 +340,24 @@ export default function WalletScreen() {
                                     </ContextMenu>
                                 </Host>
                             ) : (
-                                <TouchableOpacity
-                                    style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}
-                                    onPress={() => {
-                                        Alert.alert('Select Network', undefined, [
-                                            { text: 'All Networks', onPress: () => setNetworkFilter('all') },
-                                            { text: 'Base', onPress: () => setNetworkFilter('base') },
-                                            { text: 'Solana', onPress: () => setNetworkFilter('solana') },
-                                            { text: 'Cancel', style: 'cancel' }
-                                        ]);
-                                    }}
-                                >
-                                    {networkFilter !== 'all' && (
-                                        <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
-                                    )}
-                                    <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
-                                        {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
-                                    </Text>
-                                    <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
-                                </TouchableOpacity>
+                                <AndroidDropdownMenu
+                                    options={[
+                                        { label: 'All Networks', onPress: () => setNetworkFilter('all') },
+                                        { label: 'Base', onPress: () => setNetworkFilter('base') },
+                                        { label: 'Solana', onPress: () => setNetworkFilter('solana') },
+                                    ]}
+                                    trigger={
+                                        <View style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}>
+                                            {networkFilter !== 'all' && (
+                                                <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
+                                            )}
+                                            <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
+                                                {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
+                                            </Text>
+                                            <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
+                                        </View>
+                                    }
+                                />
                             )}
                         </View>
 
@@ -491,21 +494,20 @@ export default function WalletScreen() {
                                     </ContextMenu>
                                 </Host>
                             ) : (
-                                <TouchableOpacity
-                                    style={styles.receiveActionBtn}
-                                    onPress={() => {
-                                        Alert.alert('Copy Address', undefined, [
-                                            { text: 'Copy EVM Address', onPress: () => copyAddress('base') },
-                                            { text: 'Copy Solana Address', onPress: () => copyAddress('solana') },
-                                            { text: 'Cancel', style: 'cancel' }
-                                        ]);
-                                    }}
-                                >
-                                    <View style={[styles.receiveActionCircle, { backgroundColor: themeColors.surface }]}>
-                                        <Copy size={28} color={themeColors.textPrimary} />
-                                    </View>
-                                    <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Copy</Text>
-                                </TouchableOpacity>
+                                <AndroidDropdownMenu
+                                    options={[
+                                        { label: 'Copy EVM Address', onPress: () => copyAddress('base') },
+                                        { label: 'Copy Solana Address', onPress: () => copyAddress('solana') },
+                                    ]}
+                                    trigger={
+                                        <View style={styles.receiveActionBtn}>
+                                            <View style={[styles.receiveActionCircle, { backgroundColor: themeColors.surface }]}>
+                                                <Copy size={28} color={themeColors.textPrimary} />
+                                            </View>
+                                            <Text style={[styles.receiveActionLabel, { color: themeColors.textPrimary }]}>Copy</Text>
+                                        </View>
+                                    }
+                                />
                             )}
                         </View>
                     </BottomSheetView>

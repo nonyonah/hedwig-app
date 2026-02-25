@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Platform, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Dimensions, Image } from 'react-native';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
@@ -7,7 +7,7 @@ import { List, Settings as Gear, TrendingUp as TrendUp, TrendingDown as TrendDow
 import Svg, { Circle } from 'react-native-svg';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInsights } from '../../hooks/useInsights';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
@@ -371,6 +371,9 @@ export default function InsightsScreen() {
                 style={styles.content}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                bounces={false}
+                overScrollMode="never"
+                contentInsetAdjustmentBehavior="never"
             >
                 {/* AI Disclaimer */}
                 <View style={[styles.disclaimer, { backgroundColor: themeColors.surface }]}>
@@ -459,6 +462,8 @@ export default function InsightsScreen() {
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.insightsScroll}
+                    bounces={false}
+                    overScrollMode="never"
                 >
                     {insights.map((insight) => (
                         <TouchableOpacity

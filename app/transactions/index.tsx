@@ -7,7 +7,6 @@ import {
     TouchableOpacity,
     Dimensions,
     Alert,
-    SafeAreaView,
     ActivityIndicator,
     SectionList,
     Platform,
@@ -27,7 +26,7 @@ import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
@@ -318,6 +317,9 @@ export default function TransactionsScreen() {
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
                         stickySectionHeadersEnabled={true}
+                        bounces={false}
+                        overScrollMode="never"
+                        contentInsetAdjustmentBehavior="never"
                     />
                 )}
             </SafeAreaView>
@@ -717,4 +719,3 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
 });
-

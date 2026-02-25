@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, ScrollView, Alert, LayoutAnimation, UIManager, Image } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { BlurView } from 'expo-blur'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +27,7 @@ import Svg, { Circle } from 'react-native-svg';
 import Analytics from '../../services/analytics';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -81,6 +82,7 @@ export default function ProjectsScreen() {
     const [statusFilter, setStatusFilter] = useState<StatusFilter>((params.filter as any) || 'all');
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [completingMilestone, setCompletingMilestone] = useState<string | null>(null);
+    const milestonesScrollRef = useRef<any>(null);
 
     // Track page view
     useAnalyticsScreen('Projects');
@@ -153,6 +155,9 @@ export default function ProjectsScreen() {
         modalHaptic('open', true);
         setSelectedProject(project);
         bottomSheetRef.current?.present();
+        setTimeout(() => {
+            milestonesScrollRef.current?.scrollTo?.({ y: 0, animated: false });
+        }, 120);
     };
 
     const closeDetailModal = () => {
@@ -426,6 +431,8 @@ export default function ProjectsScreen() {
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.filterContent}
                         style={styles.filterScrollView}
+                        bounces={false}
+                        overScrollMode="never"
                     >
                         {(['all', 'ongoing', 'completed', 'paid', 'due_soon'] as StatusFilter[]).map(filter => (
                             <TouchableOpacity
@@ -470,6 +477,9 @@ export default function ProjectsScreen() {
                         renderItem={renderProjectItem}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        bounces={false}
+                        overScrollMode="never"
+                        contentInsetAdjustmentBehavior="never"
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                         }
@@ -525,18 +535,26 @@ export default function ProjectsScreen() {
                                                 </ContextMenu>
                                             </Host>
                                         ) : (
-                                            <TouchableOpacity
-                                                style={{ padding: 4, marginRight: 8 }}
-                                                onPress={() => {
-                                                    Alert.alert('Project Options', undefined, [
-                                                        { text: 'Complete Project', onPress: handleCompleteProject },
-                                                        { text: 'Delete Project', style: 'destructive', onPress: handleDeleteProject },
-                                                        { text: 'Cancel', style: 'cancel' }
-                                                    ]);
-                                                }}
-                                            >
-                                                <DotsThree size={24} color={themeColors.textSecondary} />
-                                            </TouchableOpacity>
+                                            <AndroidDropdownMenu
+                                                options={[
+                                                    {
+                                                        label: 'Complete Project',
+                                                        onPress: handleCompleteProject,
+                                                        icon: <Check size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                    },
+                                                    {
+                                                        label: 'Delete Project',
+                                                        onPress: handleDeleteProject,
+                                                        destructive: true,
+                                                        icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
+                                                    },
+                                                ]}
+                                                trigger={
+                                                    <View style={{ padding: 4, marginRight: 8 }}>
+                                                        <DotsThree size={24} color={themeColors.textSecondary} />
+                                                    </View>
+                                                }
+                                            />
                                         )}
                                         <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeDetailModal}>
                                             <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
@@ -548,15 +566,13 @@ export default function ProjectsScreen() {
                         )}
 
                         {selectedProject && (
-                            <BottomSheetFlatList
-                                data={selectedProject.milestones || []}
-                                keyExtractor={(item: Milestone) => item.id}
+                            <BottomSheetScrollView
+                                ref={milestonesScrollRef}
                                 showsVerticalScrollIndicator={false}
-                                contentContainerStyle={{ paddingBottom: 600, paddingHorizontal: 24 }}
-                                nestedScrollEnabled={true}
+                                contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 24 }}
                                 keyboardShouldPersistTaps="handled"
-                                ListHeaderComponent={
-                                    <>
+                            >
+                                <>
                                         {/* Status Badge */}
                                         <View style={styles.modalHeader}>
                                             <View style={[styles.statusBadgeNew, { backgroundColor: getStatusColor(selectedProject.status) + '15' }]}>
@@ -665,65 +681,69 @@ export default function ProjectsScreen() {
                                             </View>
                                         </View>
                                     </>
-                                }
-                                ListEmptyComponent={
+
+                                {(selectedProject.milestones?.length ?? 0) === 0 ? (
                                     <View style={styles.noMilestonesContainer}>
                                         <Text style={[styles.noMilestones, { color: themeColors.textSecondary }]}>No milestones yet</Text>
                                         <Text style={[styles.noMilestonesHint, { color: themeColors.textTertiary }]}>Ask Hedwig to add one!</Text>
                                     </View>
-                                }
-                                renderItem={({ item: milestone, index }: { item: Milestone; index: number }) => (
-                                    <View style={[
-                                        styles.milestoneCard,
-                                        { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 },
-                                        index === (selectedProject.milestones?.length ?? 0) - 1 && { marginBottom: 0 }
-                                    ]}>
-                                        <View style={styles.milestoneCardHeader}>
-                                            <View style={styles.milestoneCardLeft}>
-                                                {getMilestoneStatusIcon(milestone.status)}
-                                                <Text style={[styles.milestoneCardTitle, { color: themeColors.textPrimary }]}>{milestone.title}</Text>
+                                ) : (
+                                    (selectedProject.milestones || []).map((milestone, index) => (
+                                        <View
+                                            key={milestone.id}
+                                            style={[
+                                                styles.milestoneCard,
+                                                { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 },
+                                                index === (selectedProject.milestones?.length ?? 0) - 1 && { marginBottom: 0 },
+                                            ]}
+                                        >
+                                            <View style={styles.milestoneCardHeader}>
+                                                <View style={styles.milestoneCardLeft}>
+                                                    {getMilestoneStatusIcon(milestone.status)}
+                                                    <Text style={[styles.milestoneCardTitle, { color: themeColors.textPrimary }]}>{milestone.title}</Text>
+                                                </View>
+                                                <Text style={[styles.milestoneCardAmount, { color: themeColors.textPrimary }]}>${milestone.amount.toLocaleString()}</Text>
                                             </View>
-                                            <Text style={[styles.milestoneCardAmount, { color: themeColors.textPrimary }]}>${milestone.amount.toLocaleString()}</Text>
-                                        </View>
-                                        <View style={styles.milestoneCardFooter}>
-                                            <View style={[
-                                                styles.statusBadge,
-                                                milestone.status === 'paid' && { backgroundColor: '#DCFCE7' }, // Keep light green for paid
-                                                milestone.status === 'invoiced' && { backgroundColor: '#DBEAFE' }, // Keep light blue for invoiced
-                                                milestone.status === 'pending' && { backgroundColor: themeColors.surface }, // Surface for pending
-                                            ]}>
-                                                <Text style={[
-                                                    styles.statusText,
-                                                    milestone.status === 'paid' && { color: '#16A34A' },
-                                                    milestone.status === 'invoiced' && { color: '#2563EB' },
-                                                    milestone.status === 'pending' && { color: themeColors.textSecondary },
+                                            <View style={styles.milestoneCardFooter}>
+                                                <View style={[
+                                                    styles.statusBadge,
+                                                    milestone.status === 'paid' && { backgroundColor: '#DCFCE7' },
+                                                    milestone.status === 'invoiced' && { backgroundColor: '#DBEAFE' },
+                                                    milestone.status === 'pending' && { backgroundColor: themeColors.surface },
                                                 ]}>
-                                                    {milestone.status.charAt(0).toUpperCase() + milestone.status.slice(1)}
-                                                </Text>
+                                                    <Text style={[
+                                                        styles.statusText,
+                                                        milestone.status === 'paid' && { color: '#16A34A' },
+                                                        milestone.status === 'invoiced' && { color: '#2563EB' },
+                                                        milestone.status === 'pending' && { color: themeColors.textSecondary },
+                                                    ]}>
+                                                        {milestone.status.charAt(0).toUpperCase() + milestone.status.slice(1)}
+                                                    </Text>
+                                                </View>
+                                                {milestone.dueDate && (
+                                                    <Text style={[styles.milestoneCardDate, { color: themeColors.textSecondary }]}>Due {new Date(milestone.dueDate).toLocaleDateString()}</Text>
+                                                )}
+                                                {milestone.status === 'pending' && (
+                                                    <TouchableOpacity
+                                                        style={styles.completeButton}
+                                                        onPress={() => handleCompleteMilestone(milestone)}
+                                                        disabled={completingMilestone === milestone.id}
+                                                    >
+                                                        {completingMilestone === milestone.id ? (
+                                                            <ActivityIndicator size="small" color={Colors.primary} />
+                                                        ) : (
+                                                            <>
+                                                                <Check size={14} color={Colors.primary} strokeWidth={3} />
+                                                                <Text style={styles.completeButtonText}>Invoice</Text>
+                                                            </>
+                                                        )}
+                                                    </TouchableOpacity>
+                                                )}
                                             </View>
-                                            {milestone.dueDate && (
-                                                <Text style={[styles.milestoneCardDate, { color: themeColors.textSecondary }]}>Due {new Date(milestone.dueDate).toLocaleDateString()}</Text>
-                                            )}
-                                            {milestone.status === 'pending' && (
-                                                <TouchableOpacity
-                                                    style={styles.completeButton}
-                                                    onPress={() => handleCompleteMilestone(milestone)}
-                                                    disabled={completingMilestone === milestone.id}
-                                                >
-                                                    {completingMilestone === milestone.id ? (
-                                                        <ActivityIndicator size="small" color={Colors.primary} />
-                                                    ) : (
-                                                        <>
-                                                            <Check size={14} color={Colors.primary} strokeWidth={3} />
-                                                            <Text style={styles.completeButtonText}>Invoice</Text>
-                                                        </>
-                                                    )}
-                                                </TouchableOpacity>
-                                            )}
                                         </View>
-                                    </View>
+                                    ))
                                 )}
-                            />
+                            </BottomSheetScrollView>
                         )}
                     </View>
                 </BottomSheetModal>

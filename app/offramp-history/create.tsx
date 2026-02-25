@@ -42,6 +42,7 @@ if (Platform.OS === 'ios') {
 import { SolanaBridgeModal } from '../../components/SolanaBridgeModal';
 import { useEmbeddedSolanaWallet, useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { useWallet } from '../../hooks/useWallet';
+import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 
 // Network options
 const NETWORKS = [
@@ -245,9 +246,7 @@ export default function CreateWithdrawalScreen() {
     };
 
     const handleSuccess = (orderId: string) => {
-        setTimeout(() => {
-            router.replace('/offramp-history');
-        }, 2000);
+        router.replace('/offramp-history');
     };
 
 
@@ -309,7 +308,13 @@ export default function CreateWithdrawalScreen() {
                     style={{ flex: 1 }}
                     keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
                 >
-                    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    <ScrollView
+                        contentContainerStyle={styles.content}
+                        showsVerticalScrollIndicator={false}
+                        bounces={false}
+                        overScrollMode="never"
+                        contentInsetAdjustmentBehavior="never"
+                    >
 
                         <Text style={[styles.helperTextTop, { color: themeColors.textSecondary }]}>
                             Enter withdrawal details
@@ -352,21 +357,22 @@ export default function CreateWithdrawalScreen() {
                                     </ContextMenu>
                                 </Host>
                             ) : (
-                                <TouchableOpacity
-                                    style={[styles.chainBadge, { backgroundColor: themeColors.background }]}
-                                    onPress={() => {
-                                        Alert.alert('Select Network', undefined, [
-                                            ...NETWORKS.map(n => ({ text: n.name, onPress: () => setSelectedNetwork(n) })),
-                                            { text: 'Cancel', style: 'cancel' }
-                                        ]);
-                                    }}
-                                >
-                                    <Image source={selectedNetwork.icon} style={styles.chainBadgeIcon} />
-                                    <Text style={[styles.chainBadgeName, { color: themeColors.textPrimary }]}>
-                                        {selectedNetwork.name}
-                                    </Text>
-                                    <CaretDown size={12} color={themeColors.textSecondary} strokeWidth={3} />
-                                </TouchableOpacity>
+                                <AndroidDropdownMenu
+                                    options={NETWORKS.map((network) => ({
+                                        label: network.name,
+                                        onPress: () => setSelectedNetwork(network),
+                                        icon: <Image source={network.icon} style={styles.chainBadgeIcon} />,
+                                    }))}
+                                    trigger={
+                                        <View style={[styles.chainBadge, { backgroundColor: themeColors.background }]}>
+                                            <Image source={selectedNetwork.icon} style={styles.chainBadgeIcon} />
+                                            <Text style={[styles.chainBadgeName, { color: themeColors.textPrimary }]}>
+                                                {selectedNetwork.name}
+                                            </Text>
+                                            <CaretDown size={12} color={themeColors.textSecondary} strokeWidth={3} />
+                                        </View>
+                                    }
+                                />
                             )}
                         </View>
 
@@ -415,21 +421,21 @@ export default function CreateWithdrawalScreen() {
                                 </ContextMenu>
                             </Host>
                         ) : (
-                            <TouchableOpacity
-                                style={[styles.authInputContainer, { backgroundColor: themeColors.surface, height: 43, marginBottom: 16 }]}
-                                onPress={() => {
-                                    Alert.alert('Select Country', undefined, [
-                                        ...COUNTRIES.map(c => ({ text: `${c.flag} ${c.name} (${c.currency})`, onPress: () => setSelectedCountry(c) })),
-                                        { text: 'Cancel', style: 'cancel' }
-                                    ]);
-                                }}
-                            >
-                                <Text style={{ fontSize: 18, lineHeight: 22, marginRight: 4 }}>{selectedCountry.flag}</Text>
-                                <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0 }]}>
-                                    {selectedCountry.name} ({selectedCountry.currency})
-                                </Text>
-                                <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                            </TouchableOpacity>
+                            <AndroidDropdownMenu
+                                options={COUNTRIES.map((country) => ({
+                                    label: `${country.flag} ${country.name} (${country.currency})`,
+                                    onPress: () => setSelectedCountry(country),
+                                }))}
+                                trigger={
+                                    <View style={[styles.authInputContainer, { backgroundColor: themeColors.surface, height: 43, marginBottom: 16 }]}>
+                                        <Text style={{ fontSize: 18, lineHeight: 22, marginRight: 4 }}>{selectedCountry.flag}</Text>
+                                        <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0 }]}>
+                                            {selectedCountry.name} ({selectedCountry.currency})
+                                        </Text>
+                                        <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                                    </View>
+                                }
+                            />
                         )}
 
                         {/* Bank Selection */}

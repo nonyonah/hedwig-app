@@ -91,6 +91,7 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
     const [estimatedFiat, setEstimatedFiat] = useState<string>('');
     const [isLoadingRate, setIsLoadingRate] = useState(false);
     const [tokensSent, setTokensSent] = useState(false); // Track if tokens were sent to Paycrest
+    const hasTriggeredSuccessNavigation = useRef(false);
 
     const kycSheetRef = useRef<BottomSheetModal>(null);
 
@@ -160,8 +161,22 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
         setReceiveAddress(null);
         setStatusMessage('');
         setTokensSent(false);
+        hasTriggeredSuccessNavigation.current = false;
         onClose();
     }, [onClose]);
+
+    useEffect(() => {
+        if (modalState !== 'success' || !onSuccess || !orderId || hasTriggeredSuccessNavigation.current) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            hasTriggeredSuccessNavigation.current = true;
+            onSuccess(orderId);
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [modalState, onSuccess, orderId]);
 
     const handleConfirm = async () => {
         if (!data) return;
@@ -391,6 +406,15 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
     };
 
     const handleClose = () => {
+        if (
+            modalState === 'success' &&
+            onSuccess &&
+            orderId &&
+            !hasTriggeredSuccessNavigation.current
+        ) {
+            hasTriggeredSuccessNavigation.current = true;
+            onSuccess(orderId);
+        }
         // @ts-ignore
         ref?.current?.dismiss();
         handleDismiss();

@@ -78,23 +78,30 @@ const getStatusMessage = (event: string, amount: number, currency: string): { ti
 };
 
 /**
- * Verify Paycrest webhook signature
+ * Verify Paycrest webhook signature (HMAC-SHA256 of raw body with PAYCREST_WEBHOOK_SECRET)
  */
 const verifyWebhookSignature = (payload: string, signature: string): boolean => {
     if (!PAYCREST_WEBHOOK_SECRET) {
         logger.warn('No webhook secret configured, skipping signature verification');
         return true;
     }
+    if (!signature || typeof signature !== 'string') {
+        return false;
+    }
 
     const expectedSignature = crypto
         .createHmac('sha256', PAYCREST_WEBHOOK_SECRET)
-        .update(payload)
+        .update(payload, 'utf8')
         .digest('hex');
 
-    return crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expectedSignature)
-    );
+    // timingSafeEqual throws if buffers have different lengths; compare length first
+    const sigBuf = Buffer.from(signature, 'utf8');
+    const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+    if (sigBuf.length !== expectedBuf.length) {
+        logger.warn('Paycrest signature length mismatch');
+        return false;
+    }
+    return crypto.timingSafeEqual(sigBuf, expectedBuf);
 };
 
 /**
@@ -112,7 +119,15 @@ const verifyWebhookSignature = (payload: string, signature: string): boolean => 
 router.post('/', async (req: Request, res: Response) => {
     try {
         const signature = req.headers['x-paycrest-signature'] as string;
-        const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+        // Use exact raw body for HMAC verification. Fallback to JSON.stringify only for dev if rawBody missing.
+        const rawBody = (req as any).rawBody;
+        const bodyForVerification = rawBody ?? JSON.stringify(req.body);
+
+        if (!rawBody && process.env.NODE_ENV === 'production') {
+            logger.error('Paycrest webhook: rawBody not available in production - body parser verify middleware must set req.rawBody');
+            res.status(500).json({ error: 'Webhook not configured' });
+            return;
+        }
 
         // In production, require webhook secret and signature
         if (process.env.NODE_ENV === 'production') {
@@ -126,16 +141,16 @@ router.post('/', async (req: Request, res: Response) => {
                 res.status(401).json({ error: 'Missing signature' });
                 return;
             }
-            if (!verifyWebhookSignature(rawBody, signature)) {
-                logger.warn('Invalid webhook signature');
+            if (!verifyWebhookSignature(bodyForVerification, signature)) {
+                logger.warn('Invalid webhook signature (verify PAYCREST_WEBHOOK_SECRET and that Paycrest sends x-paycrest-signature)');
                 res.status(401).json({ error: 'Invalid signature' });
                 return;
             }
         } else {
             // In development, verify if both secret and signature are present
             if (PAYCREST_WEBHOOK_SECRET && signature) {
-                if (!verifyWebhookSignature(rawBody, signature)) {
-                    logger.warn('Invalid webhook signature');
+                if (!verifyWebhookSignature(bodyForVerification, signature)) {
+                    logger.warn('Invalid webhook signature (check PAYCREST_WEBHOOK_SECRET and raw body)');
                     res.status(401).json({ error: 'Invalid signature' });
                     return;
                 }

@@ -29,6 +29,7 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { getUserGradient } from '../../utils/gradientUtils';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
+import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency, getCurrencySymbol } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
@@ -627,19 +628,34 @@ export default function InvoicesScreen() {
                                                 </ContextMenu>
                                             </Host>
                                         ) : (
-                                            <TouchableOpacity
-                                                style={{ padding: 4, marginRight: 8 }}
-                                                onPress={() => {
-                                                    Alert.alert('Invoice Options', undefined, [
-                                                        { text: 'Send Reminder', onPress: handleSendReminder },
-                                                        { text: selectedInvoice?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders', onPress: handleToggleReminders },
-                                                        { text: 'Delete', style: 'destructive', onPress: handleDeleteInvoice },
-                                                        { text: 'Cancel', style: 'cancel' }
-                                                    ]);
-                                                }}
-                                            >
-                                                <DotsThree size={24} color={themeColors.textSecondary} />
-                                            </TouchableOpacity>
+                                            <AndroidDropdownMenu
+                                                width={280}
+                                                options={[
+                                                    {
+                                                        label: 'Send Reminder',
+                                                        onPress: handleSendReminder,
+                                                        icon: <Bell size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                    },
+                                                    {
+                                                        label: selectedInvoice?.content?.reminders_enabled !== false
+                                                            ? 'Disable Auto-Reminders'
+                                                            : 'Enable Auto-Reminders',
+                                                        onPress: handleToggleReminders,
+                                                        icon: <Clock size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                    },
+                                                    {
+                                                        label: 'Delete',
+                                                        onPress: handleDeleteInvoice,
+                                                        destructive: true,
+                                                        icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
+                                                    },
+                                                ]}
+                                                trigger={
+                                                    <View style={{ padding: 4, marginRight: 8 }}>
+                                                        <DotsThree size={24} color={themeColors.textSecondary} />
+                                                    </View>
+                                                }
+                                            />
                                         )}
                                     </>
                                 )}
@@ -795,6 +811,7 @@ const styles = StyleSheet.create({
     listContent: {
         padding: 16,
         paddingBottom: 120, // Increased for Tab Bar safe area
+        flexGrow: 1, // Ensures empty state takes up available space on iOS
     },
     card: {
         backgroundColor: '#f5f5f5',
@@ -847,8 +864,11 @@ const styles = StyleSheet.create({
     },
     amount: {
         ...Typography.h2,
+        ...Platform.select({
+            android: { fontFamily: 'GoogleSansFlex_600SemiBold' },
+            ios: { fontWeight: '700' },
+        }),
         fontSize: 32,
-        fontWeight: '700',
         color: Colors.textPrimary,
         marginBottom: 16,
     },

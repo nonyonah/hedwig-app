@@ -7,13 +7,13 @@ import {
     TouchableOpacity,
     Modal,
     Dimensions,
-    SafeAreaView,
     ActivityIndicator,
     SectionList,
     Image,
     Animated,
     ScrollView
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
 import { List, X, Copy, Landmark as Bank, ArrowDown, CheckCircle, Clock, TriangleAlert as Warning, RotateCcw as ArrowsCounterClockwise, ChevronLeft as CaretLeft, Plus } from 'lucide-react-native';
@@ -329,6 +329,8 @@ export default function OfframpHistoryScreen() {
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.filterContent}
                         style={styles.filterScrollView}
+                        bounces={false}
+                        overScrollMode="never"
                     >
                         {(['all', 'processing', 'completed', 'failed'] as const).map(filter => (
                             <TouchableOpacity
@@ -375,6 +377,9 @@ export default function OfframpHistoryScreen() {
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
                         stickySectionHeadersEnabled={true}
+                        bounces={false}
+                        overScrollMode="never"
+                        contentInsetAdjustmentBehavior="never"
                     />
                 )}
 
@@ -417,7 +422,12 @@ export default function OfframpHistoryScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        <ScrollView showsVerticalScrollIndicator={false}>
+                        <ScrollView
+                            showsVerticalScrollIndicator={false}
+                            bounces={false}
+                            overScrollMode="never"
+                            contentInsetAdjustmentBehavior="never"
+                        >
                             {selectedOrder && (
                                 <>
                                     {/* Progress Steps */}

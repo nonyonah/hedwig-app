@@ -121,7 +121,16 @@ router.post('/test', authenticate, async (req: Request, res: Response) => {
     }
 
     try {
-        const userId = req.user!.id;
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found' },
+            });
+            return;
+        }
+        const userId = user.id;
         logger.debug('Creating test in-app notification');
 
         // Create in-app notification in database

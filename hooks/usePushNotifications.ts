@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -40,7 +40,7 @@ export function usePushNotifications() {
     /**
      * Register for push notifications
      */
-    async function registerForPushNotifications(): Promise<string | null> {
+    const registerForPushNotifications = useCallback(async (): Promise<string | null> => {
         // Check if we're on a physical device
         if (!Device.isDevice) {
             setError('Push notifications require a physical device');
@@ -102,13 +102,14 @@ export function usePushNotifications() {
             setError(err.message);
             return null;
         }
-    }
+    }, []);
 
     /**
      * Register device token with backend
      */
-    async function registerWithBackend(authToken: string): Promise<boolean> {
-        if (!expoPushToken) {
+    const registerWithBackend = useCallback(async (authToken: string, pushTokenOverride?: string): Promise<boolean> => {
+        const tokenToRegister = pushTokenOverride || expoPushToken;
+        if (!tokenToRegister) {
             console.log('[Push] No push token available');
             return false;
         }
@@ -121,7 +122,7 @@ export function usePushNotifications() {
                     'Authorization': `Bearer ${authToken}`,
                 },
                 body: JSON.stringify({
-                    expoPushToken,
+                    expoPushToken: tokenToRegister,
                     platform: Platform.OS,
                 }),
             });
@@ -140,12 +141,12 @@ export function usePushNotifications() {
             console.error('[Push] Error registering with backend:', err);
             return false;
         }
-    }
+    }, [expoPushToken]);
 
     /**
      * Unregister device token from backend
      */
-    async function unregisterFromBackend(authToken: string): Promise<boolean> {
+    const unregisterFromBackend = useCallback(async (authToken: string): Promise<boolean> => {
         if (!expoPushToken) return true;
 
         try {
@@ -170,7 +171,7 @@ export function usePushNotifications() {
             console.error('[Push] Error unregistering from backend:', err);
             return false;
         }
-    }
+    }, [expoPushToken]);
 
     // Set up notification listeners
     useEffect(() => {
@@ -178,9 +179,6 @@ export function usePushNotifications() {
         AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY).then(token => {
             if (token) setExpoPushToken(token);
         });
-
-        // Register for push notifications
-        registerForPushNotifications();
 
         // Listen for incoming notifications (foreground)
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {

@@ -24,6 +24,7 @@ import { isRunningInExpoGo } from 'expo';
 import { initializeAnalytics, trackScreen } from '../services/analytics';
 import Analytics from '../services/analytics';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync();
@@ -133,6 +134,22 @@ function NativeLayout() {
     );
 }
 
+function ThemeAwareStatusBar() {
+    const { currentTheme } = useSettings();
+    const isDark = currentTheme === 'dark';
+
+    if (Platform.OS !== 'android') {
+        return null;
+    }
+
+    return (
+        <StatusBar
+            style={isDark ? 'light' : 'dark'}
+            backgroundColor={isDark ? '#000000' : '#FFFFFF'}
+        />
+    );
+}
+
 function RootLayout() {
     // Register navigation container for Sentry route tracking
     const ref = useNavigationContainerRef();
@@ -190,6 +207,7 @@ function RootLayout() {
         <SettingsProvider>
             <TutorialProvider>
                 <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+                    <ThemeAwareStatusBar />
                     <BottomSheetModalProvider>
                         {isWeb ? <WebLayout /> : <NativeLayout />}
                     </BottomSheetModalProvider>

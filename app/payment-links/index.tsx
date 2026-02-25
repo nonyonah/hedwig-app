@@ -34,6 +34,7 @@ import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import { TutorialCard } from '../../components/TutorialCard';
 import { useTutorial } from '../../hooks/useTutorial';
+import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 
 // Icons for tokens, networks, and status
 const ICONS = {
@@ -629,19 +630,34 @@ export default function PaymentLinksScreen() {
                                                 </ContextMenu>
                                             </Host>
                                         ) : (
-                                            <TouchableOpacity
-                                                style={{ padding: 4, marginRight: 8 }}
-                                                onPress={() => {
-                                                    Alert.alert('Payment Link Options', undefined, [
-                                                        { text: 'Send Reminder', onPress: handleSendReminder },
-                                                        { text: selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders', onPress: handleToggleReminders },
-                                                        { text: 'Delete', style: 'destructive', onPress: handleDeleteLink },
-                                                        { text: 'Cancel', style: 'cancel' }
-                                                    ]);
-                                                }}
-                                            >
-                                                <DotsThree size={24} color={themeColors.textSecondary} />
-                                            </TouchableOpacity>
+                                            <AndroidDropdownMenu
+                                                width={280}
+                                                options={[
+                                                    {
+                                                        label: 'Send Reminder',
+                                                        onPress: handleSendReminder,
+                                                        icon: <Bell size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                    },
+                                                    {
+                                                        label: selectedLink?.content?.reminders_enabled !== false
+                                                            ? 'Disable Auto-Reminders'
+                                                            : 'Enable Auto-Reminders',
+                                                        onPress: handleToggleReminders,
+                                                        icon: <CheckCircle size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                    },
+                                                    {
+                                                        label: 'Delete',
+                                                        onPress: handleDeleteLink,
+                                                        destructive: true,
+                                                        icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
+                                                    },
+                                                ]}
+                                                trigger={
+                                                    <View style={{ padding: 4, marginRight: 8 }}>
+                                                        <DotsThree size={24} color={themeColors.textSecondary} />
+                                                    </View>
+                                                }
+                                            />
                                         )}
                                     </>
                                 )}
@@ -796,6 +812,7 @@ const styles = StyleSheet.create({
     listContent: {
         padding: 16,
         paddingBottom: 120,
+        flexGrow: 1, // Ensures empty state takes up available space on iOS
     },
     card: {
         backgroundColor: '#f5f5f5',
@@ -853,8 +870,11 @@ const styles = StyleSheet.create({
     },
     amount: {
         ...Typography.h2,
+        ...Platform.select({
+            android: { fontFamily: 'GoogleSansFlex_600SemiBold' },
+            ios: { fontWeight: '700' },
+        }),
         fontSize: 32,
-        fontWeight: '700',
         color: Colors.textPrimary,
         marginBottom: 16,
     },

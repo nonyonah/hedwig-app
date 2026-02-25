@@ -644,8 +644,11 @@ const styles = StyleSheet.create({
     },
     amount: {
         ...Typography.h2,
+        ...Platform.select({
+            android: { fontFamily: 'GoogleSansFlex_600SemiBold' },
+            ios: { fontWeight: '700' },
+        }),
         fontSize: 32,
-        fontWeight: '700',
         marginBottom: 16,
     },
     cardFooter: {

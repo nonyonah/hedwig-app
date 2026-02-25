@@ -390,6 +390,9 @@ export default function ClientsScreen() {
                         renderItem={renderClientItem}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        bounces={false}
+                        overScrollMode="never"
+                        contentInsetAdjustmentBehavior="never"
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                         }
@@ -413,7 +416,14 @@ export default function ClientsScreen() {
                         <Text style={[styles.detailModalTitle, { color: themeColors.textPrimary }]}>{selectedClient?.name || 'Client Details'}</Text>
 
                         {selectedClient && (
-                            <ScrollView showsVerticalScrollIndicator={false} style={styles.detailModalBody} contentContainerStyle={{ paddingBottom: 16 }}>
+                            <ScrollView
+                                showsVerticalScrollIndicator={false}
+                                style={styles.detailModalBody}
+                                contentContainerStyle={{ paddingBottom: 16 }}
+                                bounces={false}
+                                overScrollMode="never"
+                                contentInsetAdjustmentBehavior="never"
+                            >
                                 {/* Company Badge */}
                                 {selectedClient.company && (
                                     <View style={styles.companyBadge}>
@@ -514,7 +524,12 @@ export default function ClientsScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        <ScrollView style={styles.formBody}>
+                        <ScrollView
+                            style={styles.formBody}
+                            bounces={false}
+                            overScrollMode="never"
+                            contentInsetAdjustmentBehavior="never"
+                        >
                             <View style={styles.inputGroup}>
                                 <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Name *</Text>
                                 <TextInput
