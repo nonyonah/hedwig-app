@@ -331,8 +331,10 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
         setNewItemAmount('');
         setIsAddingItem(false);
 
-        // Dismiss keyboard after adding item
-        Keyboard.dismiss();
+        // Keep keyboard active for continued entry in the main prompt.
+        setTimeout(() => {
+            inputRef.current?.focus();
+        }, 50);
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     };
 
@@ -534,6 +536,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                 disappearsOnIndex={-1}
                 appearsOnIndex={0}
                 opacity={0.4}
+                pressBehavior="close"
             />
         ),
         []
@@ -623,8 +626,10 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                             <TouchableOpacity
                                 style={[styles.miniButton, { backgroundColor: isDark ? '#3A3A3C' : '#E5E5EA' }]}
                                 onPress={() => {
-                                    Keyboard.dismiss();
                                     setIsAddingItem(false);
+                                    setTimeout(() => {
+                                        inputRef.current?.focus();
+                                    }, 50);
                                 }}
                             >
                                 <XCircle size={16} color={secondaryText} strokeWidth={3} />

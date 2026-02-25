@@ -8,33 +8,42 @@ const router = Router();
 
 router.post('/', async (req: Request, res: Response) => {
     try {
-        const signature = req.headers['x-didit-signature'] as string;
-        const event = req.body;
+        const signature = (req.headers['x-didit-signature'] ||
+            req.headers['x-didit-signature-256'] ||
+            req.headers['x-signature']) as string | undefined;
+        const rawBody = (req as any).rawBody;
+        const event = req.body?.event || req.body?.data || req.body;
+        const decision = (
+            event?.decision ||
+            event?.result?.decision ||
+            event?.verification?.decision ||
+            event?.status ||
+            event?.result?.status ||
+            event?.verification?.status ||
+            ''
+        ).toLowerCase();
+        const sessionId = event?.session_id || event?.sessionId || event?.session?.id;
+        const vendorData = event?.vendor_data || event?.vendorData || event?.session?.vendor_data;
 
         logger.info('Received Didit webhook', { 
-            headers: req.headers,
-            type: event.type,
-            sessionId: event.session_id,
-            status: event.status,
-            decision: event.decision 
+            hasSignature: !!signature,
+            type: event?.type,
+            sessionId,
+            status: event?.status,
+            decision,
         });
         
         // Validate signature
-        // Note: Didit might send different signature headers, check docs if x-didit-signature is correct
-        if (!DiditService.validateWebhook(signature, req.body)) {
+        if (!DiditService.validateWebhook(signature, rawBody || req.body)) {
             logger.warn('Invalid Didit webhook signature', { received: signature });
-            // For debugging, we might want to log what we computed vs what we got, but strictly we return 401
             res.status(401).send('Invalid signature');
             return;
         }
 
-        // Handle 'verification_completed' or status updates
-        // Didit V2 event types might differ, so we also check if status/decision is present
-        if (event.type === 'verification_completed' || event.status || event.decision) {
+        // Handle completion/status updates from different Didit payload shapes
+        if (event?.type === 'verification_completed' || decision) {
             // Map Didit status to our status
             let kycStatus = 'pending';
-            // Normalize to lowercase for comparison
-            const decision = (event.decision || event.status || '').toLowerCase(); 
 
             logger.info('Processing Didit decision/status', { decision, raw: event });
 
@@ -51,14 +60,14 @@ router.post('/', async (req: Request, res: Response) => {
             }
 
             // Find user by vendor_data (this is where we put the userId)
-            const userId = event.vendor_data; 
+            const userId = vendorData; 
             
             // Fallback: if vendor_data missing, try to find by kyc_session_id
-            if (!userId && event.session_id) {
+            if (!userId && sessionId) {
                  const { data: userBySession } = await supabase
                     .from('users')
                     .select('id')
-                    .eq('kyc_session_id', event.session_id)
+                    .eq('kyc_session_id', sessionId)
                     .single();
                  
                  if (userBySession) {
@@ -89,7 +98,10 @@ router.post('/', async (req: Request, res: Response) => {
 
                 logger.info('Updated KYC status from webhook', { userId, status: kycStatus });
             } else {
-                logger.warn('Webhook missing vendor_data (userId) and session lookup failed', event);
+                logger.warn('Webhook missing vendor_data (userId) and session lookup failed', {
+                    sessionId,
+                    payloadKeys: Object.keys(event || {}),
+                });
             }
         }
 

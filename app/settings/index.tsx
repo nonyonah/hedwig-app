@@ -569,8 +569,10 @@ export default function SettingsScreen() {
                                 });
 
                                 if (authResult.success) {
-                                    // Build URL first
-                                    const webClientUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'http://192.168.0.229:5173';
+                                    // Build URL first - fallback to API host in production if web client URL isn't set
+                                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                    const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+                                    const webClientUrl = (process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl).replace(/\/$/, '');
                                     const exportUrl = `${webClientUrl}/export-wallet`;
 
                                     // Close modal AFTER a small delay to let browser open

@@ -78,6 +78,15 @@ router.post('/start', authenticate, async (req: Request, res: Response, next) =>
             email: user.email || `user-${user.id}@hedwig.app`
         });
 
+        if (!session.url) {
+            logger.error('Didit session created without URL', { userId: user.id, sessionId: session.id });
+            res.status(502).json({
+                success: false,
+                error: { message: 'KYC provider did not return a verification URL' },
+            });
+            return;
+        }
+
         // Update user with session ID
         await supabase
             .from('users')

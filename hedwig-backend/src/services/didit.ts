@@ -3,7 +3,7 @@ import crypto from 'crypto';
 
 const logger = createLogger('DiditService');
 
-const DIDIT_API_URL = 'https://api.didit.me/v3'; // Updated to v3
+const DIDIT_API_URL = process.env.DIDIT_API_URL || 'https://api.didit.me/v3';
 
 interface CreateSessionParams {
   userId: string;
@@ -19,14 +19,35 @@ interface DiditSession {
 
 interface DiditCreateSessionResponse {
   session_id: string;
+  id?: string;
   redirect_url?: string;
   url?: string;
+  session_url?: string;
+  verification_url?: string;
+  link?: string;
+  session?: {
+    id?: string;
+    url?: string;
+    redirect_url?: string;
+    session_url?: string;
+    verification_url?: string;
+    link?: string;
+    status?: string;
+  };
   status: string;
 }
 
 interface DiditGetSessionResponse {
   status: string;
   decision?: string;
+  verification?: {
+    status?: string;
+    decision?: string;
+  };
+  result?: {
+    status?: string;
+    decision?: string;
+  };
 }
 
 interface DiditAuthResponse {
@@ -42,12 +63,19 @@ class DiditService {
   private webhookSecret: string;
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
+  private callbackUrl: string;
 
   constructor() {
-    this.clientId = process.env.DIDIT_CLIENT_ID || '';
-    this.clientSecret = process.env.DIDIT_CLIENT_SECRET || '';
+    // Support both new and legacy env names.
+    this.clientId = process.env.DIDIT_CLIENT_ID || process.env.DIDIT_APP_ID || '';
+    this.clientSecret = process.env.DIDIT_CLIENT_SECRET || process.env.DIDIT_API_KEY || '';
     this.workflowId = process.env.DIDIT_WORKFLOW_ID || '';
     this.webhookSecret = process.env.DIDIT_WEBHOOK_SECRET || '';
+    const baseUrl =
+      (process.env.PUBLIC_BASE_URL || process.env.EXPO_PUBLIC_API_URL || 'https://pay.hedwigbot.xyz')
+        .replace(/\/api\/?$/, '')
+        .replace(/\/$/, '');
+    this.callbackUrl = `${baseUrl}/api/webhooks/didit`;
 
     if (!this.clientId || !this.clientSecret || !this.workflowId) {
       logger.warn('Didit configuration missing', {
@@ -65,28 +93,57 @@ class DiditService {
     try {
       logger.info('Authenticating with Didit OAuth');
 
-      const response = await fetch(`${DIDIT_API_URL}/oauth/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const tokenUrl = process.env.DIDIT_TOKEN_URL || `${DIDIT_API_URL}/oauth/token`;
+      const attempts: Array<{ body: BodyInit; headers: Record<string, string>; label: string }> = [
+        {
+          label: 'json_client_credentials',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: this.clientId,
+            client_secret: this.clientSecret,
+            grant_type: 'client_credentials',
+          }),
         },
-        body: JSON.stringify({
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
-          grant_type: 'client_credentials'
-        }),
-      });
+        {
+          label: 'form_client_credentials',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: this.clientId,
+            client_secret: this.clientSecret,
+            grant_type: 'client_credentials',
+          }).toString(),
+        },
+      ];
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        logger.error('Didit authentication failed', { 
-          status: response.status, 
-          body: errorText 
+      let lastStatus = 0;
+      let lastErrorText = '';
+      let authData: DiditAuthResponse | null = null;
+
+      for (const attempt of attempts) {
+        const response = await fetch(tokenUrl, {
+          method: 'POST',
+          headers: attempt.headers,
+          body: attempt.body,
         });
-        throw new Error(`Didit auth error: ${response.status} ${errorText}`);
+
+        if (response.ok) {
+          authData = await response.json() as DiditAuthResponse;
+          logger.info('Didit token auth attempt succeeded', { attempt: attempt.label });
+          break;
+        }
+
+        lastStatus = response.status;
+        lastErrorText = await response.text();
+        logger.warn('Didit token auth attempt failed', {
+          attempt: attempt.label,
+          status: response.status,
+          body: lastErrorText,
+        });
       }
 
-      const authData = await response.json() as DiditAuthResponse;
+      if (!authData) {
+        throw new Error(`Didit auth error: ${lastStatus} ${lastErrorText}`);
+      }
       
       if (!authData.access_token) {
         throw new Error('No access token received from Didit');
@@ -140,19 +197,36 @@ class DiditService {
         body: JSON.stringify({
           workflow_id: this.workflowId,
           vendor_data: params.userId,
-          callback_url: `https://pay.hedwigbot.xyz/api/webhooks/didit`,
+          callback_url: this.callbackUrl,
           email: params.email
         }),
       });
 
       if (response.ok) {
         const data = await response.json() as DiditCreateSessionResponse;
-        logger.info('Didit session created successfully', { sessionId: data.session_id });
+        const sessionId = data.session_id || data.id || data.session?.id || '';
+        const sessionUrl =
+          data.redirect_url ||
+          data.url ||
+          data.session_url ||
+          data.verification_url ||
+          data.link ||
+          data.session?.redirect_url ||
+          data.session?.url ||
+          data.session?.session_url ||
+          data.session?.verification_url ||
+          data.session?.link ||
+          '';
+
+        logger.info('Didit session created successfully', {
+          sessionId,
+          hasUrl: !!sessionUrl,
+        });
         
         return {
-          id: data.session_id,
-          url: data.redirect_url || data.url || '',
-          status: data.status,
+          id: sessionId,
+          url: sessionUrl,
+          status: data.status || data.session?.status || 'pending',
         };
       } else {
         const errorText = await response.text();
@@ -186,9 +260,18 @@ class DiditService {
   
         if (response.ok) {
           const data = await response.json() as DiditGetSessionResponse;
+          const status =
+            data.status ||
+            data.verification?.status ||
+            data.result?.status ||
+            'pending';
+          const decision =
+            data.decision ||
+            data.verification?.decision ||
+            data.result?.decision;
           return {
-            status: data.status,
-            decision: data.decision
+            status,
+            decision,
           };
         } else {
           const errorText = await response.text();
@@ -207,20 +290,38 @@ class DiditService {
   /**
    * Validate webhook signature
    */
-  validateWebhook(signature: string, body: any): boolean {
+  validateWebhook(signature: string | undefined, body: any): boolean {
     if (!this.webhookSecret || this.webhookSecret.includes('placeholder')) {
         return true; // Bypass if not configured (dev mode)
     }
+    if (!signature || typeof signature !== 'string') {
+        return false;
+    }
     
     try {
-        const payload = JSON.stringify(body);
-        const computedSignature = crypto
+        const payload = typeof body === 'string' ? body : JSON.stringify(body);
+        const computedHex = crypto
             .createHmac('sha256', this.webhookSecret)
             .update(payload)
             .digest('hex');
-            
-        // Didit signature format validation
-        return signature === computedSignature;
+        const computedBase64 = crypto
+            .createHmac('sha256', this.webhookSecret)
+            .update(payload)
+            .digest('base64');
+
+        const normalized = signature
+            .trim()
+            .replace(/^sha256=/i, '')
+            .replace(/^hmac-sha256=/i, '');
+
+        const safeCompare = (a: string, b: string) => {
+            const aBuf = Buffer.from(a, 'utf8');
+            const bBuf = Buffer.from(b, 'utf8');
+            if (aBuf.length !== bBuf.length) return false;
+            return crypto.timingSafeEqual(aBuf, bBuf);
+        };
+
+        return safeCompare(normalized, computedHex) || safeCompare(normalized, computedBase64);
     } catch (e) {
         logger.error('Webhook signature validation failed', { error: e });
         return false;

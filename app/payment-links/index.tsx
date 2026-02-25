@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, RefreshControl, Share } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
@@ -388,6 +388,27 @@ export default function PaymentLinksScreen() {
         closeModal();
     };
 
+    const getPaymentLinkUrl = (link: any) => {
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+        return link?.payment_link_url ||
+            link?.content?.blockradar_url ||
+            `${apiUrl}/pay/${link?.id}`;
+    };
+
+    const handleShareLink = async () => {
+        if (!selectedLink) return;
+        try {
+            const url = getPaymentLinkUrl(selectedLink);
+            await Share.share({
+                message: `Payment link ${selectedLink.title || `LINK-${selectedLink.id?.slice(0, 8).toUpperCase()}`}: ${url}`,
+                url,
+            });
+        } catch (error) {
+            console.error('Failed to share payment link:', error);
+            Alert.alert('Error', 'Failed to share payment link');
+        }
+    };
+
     const openModal = (link: any) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedLink(link);
@@ -597,70 +618,89 @@ export default function PaymentLinksScreen() {
                                 </View>
                             </View>
                             <View style={styles.modalHeaderRight}>
-                                {selectedLink?.status !== 'PAID' && (
-                                    <>
-                                        {Platform.OS === 'ios' && Host ? (
-                                            <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                                <ContextMenu>
-                                                    <ContextMenu.Trigger>
-                                                        <ExpoButton variant="borderless" systemImage="ellipsis">
-                                                            {' '}
-                                                        </ExpoButton>
-                                                    </ContextMenu.Trigger>
-                                                    <ContextMenu.Items>
+                                <>
+                                    {Platform.OS === 'ios' && Host ? (
+                                        <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
+                                            <ContextMenu>
+                                                <ContextMenu.Trigger>
+                                                    <ExpoButton variant="borderless" systemImage="ellipsis">
+                                                        {' '}
+                                                    </ExpoButton>
+                                                </ContextMenu.Trigger>
+                                                <ContextMenu.Items>
+                                                    <ExpoButton
+                                                        onPress={handleShareLink}
+                                                        systemImage="square.and.arrow.up"
+                                                    >
+                                                        Share
+                                                    </ExpoButton>
+                                                    {selectedLink?.status !== 'PAID' && (
                                                         <ExpoButton
                                                             onPress={handleSendReminder}
                                                             systemImage="bell.fill"
                                                         >
                                                             Send Reminder
                                                         </ExpoButton>
+                                                    )}
+                                                    {selectedLink?.status !== 'PAID' && (
                                                         <ExpoButton
                                                             onPress={handleToggleReminders}
                                                             systemImage={selectedLink?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
                                                         >
                                                             {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
                                                         </ExpoButton>
+                                                    )}
+                                                    {selectedLink?.status !== 'PAID' && (
                                                         <ExpoButton
                                                             onPress={handleDeleteLink}
                                                             systemImage="trash.fill"
                                                         >
                                                             Delete
                                                         </ExpoButton>
-                                                    </ContextMenu.Items>
-                                                </ContextMenu>
-                                            </Host>
-                                        ) : (
-                                            <AndroidDropdownMenu
-                                                width={280}
-                                                options={[
-                                                    {
-                                                        label: 'Send Reminder',
-                                                        onPress: handleSendReminder,
-                                                        icon: <Bell size={16} color={themeColors.textPrimary} strokeWidth={3} />,
-                                                    },
-                                                    {
-                                                        label: selectedLink?.content?.reminders_enabled !== false
-                                                            ? 'Disable Auto-Reminders'
-                                                            : 'Enable Auto-Reminders',
-                                                        onPress: handleToggleReminders,
-                                                        icon: <CheckCircle size={16} color={themeColors.textPrimary} strokeWidth={3} />,
-                                                    },
-                                                    {
-                                                        label: 'Delete',
-                                                        onPress: handleDeleteLink,
-                                                        destructive: true,
-                                                        icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
-                                                    },
-                                                ]}
-                                                trigger={
-                                                    <View style={{ padding: 4, marginRight: 8 }}>
-                                                        <DotsThree size={24} color={themeColors.textSecondary} />
-                                                    </View>
-                                                }
-                                            />
-                                        )}
-                                    </>
-                                )}
+                                                    )}
+                                                </ContextMenu.Items>
+                                            </ContextMenu>
+                                        </Host>
+                                    ) : (
+                                        <AndroidDropdownMenu
+                                            width={280}
+                                            options={[
+                                                {
+                                                    label: 'Share',
+                                                    onPress: handleShareLink,
+                                                    icon: <ShareNetwork size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                },
+                                                ...(selectedLink?.status !== 'PAID'
+                                                    ? [
+                                                        {
+                                                            label: 'Send Reminder',
+                                                            onPress: handleSendReminder,
+                                                            icon: <Bell size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                        },
+                                                        {
+                                                            label: selectedLink?.content?.reminders_enabled !== false
+                                                                ? 'Disable Auto-Reminders'
+                                                                : 'Enable Auto-Reminders',
+                                                            onPress: handleToggleReminders,
+                                                            icon: <CheckCircle size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                        },
+                                                        {
+                                                            label: 'Delete',
+                                                            onPress: handleDeleteLink,
+                                                            destructive: true,
+                                                            icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
+                                                        },
+                                                    ]
+                                                    : []),
+                                            ]}
+                                            trigger={
+                                                <View style={{ padding: 4, marginRight: 8 }}>
+                                                    <DotsThree size={24} color={themeColors.textSecondary} />
+                                                </View>
+                                            }
+                                        />
+                                    )}
+                                </>
                                 <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
                                     <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                                 </TouchableOpacity>
@@ -709,11 +749,7 @@ export default function PaymentLinksScreen() {
                             style={styles.viewButton}
                             onPress={async () => {
                                 try {
-                                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                    // Use the stored BlockRadar URL if available, otherwise fallback to local construction
-                                    const url = selectedLink.payment_link_url ||
-                                        selectedLink.content?.blockradar_url ||
-                                        `${apiUrl}/pay/${selectedLink.id}`;
+                                    const url = getPaymentLinkUrl(selectedLink);
 
                                     await WebBrowser.openBrowserAsync(url, {
                                         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Animated, Share } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -391,6 +391,27 @@ export default function InvoicesScreen() {
         closeModal();
     };
 
+    const getInvoiceUrl = (invoice: any) => {
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+        return invoice?.payment_link_url ||
+            invoice?.content?.blockradar_url ||
+            `${apiUrl}/invoice/${invoice?.id}`;
+    };
+
+    const handleShareInvoice = async () => {
+        if (!selectedInvoice) return;
+        try {
+            const url = getInvoiceUrl(selectedInvoice);
+            await Share.share({
+                message: `Invoice ${selectedInvoice.title || `INV-${selectedInvoice.id?.slice(0, 8).toUpperCase()}`}: ${url}`,
+                url,
+            });
+        } catch (error) {
+            console.error('Failed to share invoice:', error);
+            Alert.alert('Error', 'Failed to share invoice');
+        }
+    };
+
     const openModal = (invoice: any) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedInvoice(invoice);
@@ -595,70 +616,89 @@ export default function InvoicesScreen() {
                                 </View>
                             </View>
                             <View style={styles.modalHeaderRight}>
-                                {selectedInvoice?.status !== 'PAID' && (
-                                    <>
-                                        {Platform.OS === 'ios' && Host ? (
-                                            <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                                <ContextMenu>
-                                                    <ContextMenu.Trigger>
-                                                        <ExpoButton variant="borderless" systemImage="ellipsis">
-                                                            {' '}
-                                                        </ExpoButton>
-                                                    </ContextMenu.Trigger>
-                                                    <ContextMenu.Items>
+                                <>
+                                    {Platform.OS === 'ios' && Host ? (
+                                        <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
+                                            <ContextMenu>
+                                                <ContextMenu.Trigger>
+                                                    <ExpoButton variant="borderless" systemImage="ellipsis">
+                                                        {' '}
+                                                    </ExpoButton>
+                                                </ContextMenu.Trigger>
+                                                <ContextMenu.Items>
+                                                    <ExpoButton
+                                                        onPress={handleShareInvoice}
+                                                        systemImage="square.and.arrow.up"
+                                                    >
+                                                        Share
+                                                    </ExpoButton>
+                                                    {selectedInvoice?.status !== 'PAID' && (
                                                         <ExpoButton
                                                             onPress={handleSendReminder}
                                                             systemImage="bell.fill"
                                                         >
                                                             Send Reminder
                                                         </ExpoButton>
+                                                    )}
+                                                    {selectedInvoice?.status !== 'PAID' && (
                                                         <ExpoButton
                                                             onPress={handleToggleReminders}
                                                             systemImage={selectedInvoice?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
                                                         >
                                                             {selectedInvoice?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
                                                         </ExpoButton>
+                                                    )}
+                                                    {selectedInvoice?.status !== 'PAID' && (
                                                         <ExpoButton
                                                             onPress={handleDeleteInvoice}
                                                             systemImage="trash.fill"
                                                         >
                                                             Delete
                                                         </ExpoButton>
-                                                    </ContextMenu.Items>
-                                                </ContextMenu>
-                                            </Host>
-                                        ) : (
-                                            <AndroidDropdownMenu
-                                                width={280}
-                                                options={[
-                                                    {
-                                                        label: 'Send Reminder',
-                                                        onPress: handleSendReminder,
-                                                        icon: <Bell size={16} color={themeColors.textPrimary} strokeWidth={3} />,
-                                                    },
-                                                    {
-                                                        label: selectedInvoice?.content?.reminders_enabled !== false
-                                                            ? 'Disable Auto-Reminders'
-                                                            : 'Enable Auto-Reminders',
-                                                        onPress: handleToggleReminders,
-                                                        icon: <Clock size={16} color={themeColors.textPrimary} strokeWidth={3} />,
-                                                    },
-                                                    {
-                                                        label: 'Delete',
-                                                        onPress: handleDeleteInvoice,
-                                                        destructive: true,
-                                                        icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
-                                                    },
-                                                ]}
-                                                trigger={
-                                                    <View style={{ padding: 4, marginRight: 8 }}>
-                                                        <DotsThree size={24} color={themeColors.textSecondary} />
-                                                    </View>
-                                                }
-                                            />
-                                        )}
-                                    </>
-                                )}
+                                                    )}
+                                                </ContextMenu.Items>
+                                            </ContextMenu>
+                                        </Host>
+                                    ) : (
+                                        <AndroidDropdownMenu
+                                            width={280}
+                                            options={[
+                                                {
+                                                    label: 'Share',
+                                                    onPress: handleShareInvoice,
+                                                    icon: <ShareNetwork size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                },
+                                                ...(selectedInvoice?.status !== 'PAID'
+                                                    ? [
+                                                        {
+                                                            label: 'Send Reminder',
+                                                            onPress: handleSendReminder,
+                                                            icon: <Bell size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                        },
+                                                        {
+                                                            label: selectedInvoice?.content?.reminders_enabled !== false
+                                                                ? 'Disable Auto-Reminders'
+                                                                : 'Enable Auto-Reminders',
+                                                            onPress: handleToggleReminders,
+                                                            icon: <Clock size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                        },
+                                                        {
+                                                            label: 'Delete',
+                                                            onPress: handleDeleteInvoice,
+                                                            destructive: true,
+                                                            icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
+                                                        },
+                                                    ]
+                                                    : []),
+                                            ]}
+                                            trigger={
+                                                <View style={{ padding: 4, marginRight: 8 }}>
+                                                    <DotsThree size={24} color={themeColors.textSecondary} />
+                                                </View>
+                                            }
+                                        />
+                                    )}
+                                </>
                                 <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
                                     <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
                                 </TouchableOpacity>
@@ -707,11 +747,7 @@ export default function InvoicesScreen() {
                             style={styles.viewButton}
                             onPress={async () => {
                                 try {
-                                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                    // Use the stored BlockRadar URL if available, otherwise fallback to local construction
-                                    const url = selectedInvoice.payment_link_url ||
-                                        selectedInvoice.content?.blockradar_url ||
-                                        `${apiUrl}/invoice/${selectedInvoice.id}`;
+                                    const url = getInvoiceUrl(selectedInvoice);
 
                                     await WebBrowser.openBrowserAsync(url, {
                                         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
