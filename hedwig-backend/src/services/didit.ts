@@ -94,7 +94,7 @@ class DiditService {
       logger.info('Authenticating with Didit OAuth');
 
       const tokenUrl = process.env.DIDIT_TOKEN_URL || `${DIDIT_API_URL}/oauth/token`;
-      const attempts: Array<{ body: BodyInit; headers: Record<string, string>; label: string }> = [
+      const attempts: Array<{ body: string; headers: Record<string, string>; label: string }> = [
         {
           label: 'json_client_credentials',
           headers: { 'Content-Type': 'application/json' },
