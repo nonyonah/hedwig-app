@@ -91,6 +91,9 @@ app.use(
                     "https://api.devnet.solana.com", // Solana Devnet RPC
                     "https://api.mainnet-beta.solana.com", // Solana Mainnet RPC
                     "https://api.testnet.solana.com", // Solana Testnet RPC
+                    "https://solana-mainnet.g.alchemy.com", // Alchemy Solana Mainnet RPC
+                    "https://rpc.ankr.com", // Ankr Solana RPC
+                    "https://solana-rpc.publicnode.com", // PublicNode Solana RPC
                     "wss://api.devnet.solana.com", // Solana Devnet WebSocket
                     "wss://api.mainnet-beta.solana.com", // Solana Mainnet WebSocket
                     "wss://api.testnet.solana.com", // Solana Testnet WebSocket
