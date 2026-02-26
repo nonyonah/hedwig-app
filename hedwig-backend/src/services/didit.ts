@@ -357,44 +357,118 @@ class DiditService {
       }
   }
 
+  private safeCompare(a: string, b: string): boolean {
+    const aBuf = Buffer.from(a, 'utf8');
+    const bBuf = Buffer.from(b, 'utf8');
+    if (aBuf.length !== bBuf.length) return false;
+    return crypto.timingSafeEqual(aBuf, bBuf);
+  }
+
+  private normalizeSignature(signature: string): string {
+    return signature
+      .trim()
+      .replace(/^sha256=/i, '')
+      .replace(/^hmac-sha256=/i, '');
+  }
+
+  private sortKeysDeep(value: any): any {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.sortKeysDeep(item));
+    }
+    if (value && typeof value === 'object') {
+      return Object.keys(value)
+        .sort()
+        .reduce((acc: Record<string, any>, key) => {
+          acc[key] = this.sortKeysDeep(value[key]);
+          return acc;
+        }, {});
+    }
+    return value;
+  }
+
+  private isTimestampFresh(timestamp: string): boolean {
+    const ts = Number(timestamp);
+    if (!Number.isFinite(ts)) return false;
+    const now = Math.floor(Date.now() / 1000);
+    return Math.abs(now - ts) <= 300;
+  }
+
   /**
    * Validate webhook signature
+   * Supports:
+   * - X-Signature (raw-body HMAC)
+   * - X-Signature-V2 (canonical JSON HMAC)
+   * - X-Signature-Simple (field-based HMAC)
    */
-  validateWebhook(signature: string | undefined, body: any): boolean {
+  validateWebhook(input: {
+    signature?: string;
+    signatureV2?: string;
+    signatureSimple?: string;
+    timestamp?: string;
+    rawBody?: string;
+    body?: any;
+  }): boolean {
     if (!this.webhookSecret || this.webhookSecret.includes('placeholder')) {
-        return true; // Bypass if not configured (dev mode)
+      return true;
     }
-    if (!signature || typeof signature !== 'string') {
-        return false;
-    }
-    
+
     try {
-        const payload = typeof body === 'string' ? body : JSON.stringify(body);
-        const computedHex = crypto
-            .createHmac('sha256', this.webhookSecret)
-            .update(payload)
-            .digest('hex');
-        const computedBase64 = crypto
-            .createHmac('sha256', this.webhookSecret)
-            .update(payload)
-            .digest('base64');
+      const { signature, signatureV2, signatureSimple, timestamp, rawBody, body } = input;
+      const normalizedRawSig = signature ? this.normalizeSignature(signature) : '';
+      const normalizedV2Sig = signatureV2 ? this.normalizeSignature(signatureV2) : '';
+      const normalizedSimpleSig = signatureSimple ? this.normalizeSignature(signatureSimple) : '';
+      const jsonBody = typeof body === 'string' ? JSON.parse(body) : (body || {});
 
-        const normalized = signature
-            .trim()
-            .replace(/^sha256=/i, '')
-            .replace(/^hmac-sha256=/i, '');
+      // 1) Try V2 signature (recommended by Didit docs)
+      if (normalizedV2Sig && timestamp && this.isTimestampFresh(timestamp)) {
+        const canonicalJson = JSON.stringify(this.sortKeysDeep(jsonBody));
+        const expectedV2 = crypto
+          .createHmac('sha256', this.webhookSecret)
+          .update(canonicalJson, 'utf8')
+          .digest('hex');
+        if (this.safeCompare(normalizedV2Sig, expectedV2)) {
+          return true;
+        }
+      }
 
-        const safeCompare = (a: string, b: string) => {
-            const aBuf = Buffer.from(a, 'utf8');
-            const bBuf = Buffer.from(b, 'utf8');
-            if (aBuf.length !== bBuf.length) return false;
-            return crypto.timingSafeEqual(aBuf, bBuf);
-        };
+      // 2) Fallback to Simple signature
+      if (normalizedSimpleSig && timestamp && this.isTimestampFresh(timestamp)) {
+        const canonicalSimple = [
+          jsonBody.timestamp || '',
+          jsonBody.session_id || '',
+          jsonBody.status || '',
+          jsonBody.webhook_type || '',
+        ].join(':');
+        const expectedSimple = crypto
+          .createHmac('sha256', this.webhookSecret)
+          .update(canonicalSimple, 'utf8')
+          .digest('hex');
+        if (this.safeCompare(normalizedSimpleSig, expectedSimple)) {
+          return true;
+        }
+      }
 
-        return safeCompare(normalized, computedHex) || safeCompare(normalized, computedBase64);
+      // 3) Legacy raw-body signature
+      if (normalizedRawSig) {
+        const payload = rawBody || (typeof body === 'string' ? body : JSON.stringify(body));
+        const expectedHex = crypto
+          .createHmac('sha256', this.webhookSecret)
+          .update(payload, 'utf8')
+          .digest('hex');
+        const expectedBase64 = crypto
+          .createHmac('sha256', this.webhookSecret)
+          .update(payload, 'utf8')
+          .digest('base64');
+
+        if (this.safeCompare(normalizedRawSig, expectedHex) || this.safeCompare(normalizedRawSig, expectedBase64)) {
+          return true;
+        }
+      }
+
+      return false;
     } catch (e) {
-        logger.error('Webhook signature validation failed', { error: e });
-        return false;
+      logger.error('Webhook signature validation failed', { error: e });
+      return false;
     }
   }
 }

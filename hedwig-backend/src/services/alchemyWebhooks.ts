@@ -103,10 +103,11 @@ class AlchemyWebhooksService {
      */
     validateSignature(rawBody: string, signature: string, signingKey: string): boolean {
         try {
+            const normalizedSignature = signature.trim().replace(/^sha256=/i, '');
             const hmac = crypto.createHmac('sha256', signingKey);
             hmac.update(rawBody, 'utf8');
             const digest = hmac.digest('hex');
-            return signature === digest;
+            return normalizedSignature === digest;
         } catch (error) {
             logger.error('Signature validation error');
             return false;

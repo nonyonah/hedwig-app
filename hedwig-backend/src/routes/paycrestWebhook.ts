@@ -94,8 +94,10 @@ const verifyWebhookSignature = (payload: string, signature: string): boolean => 
         .update(payload, 'utf8')
         .digest('hex');
 
+    const normalizedSignature = signature.trim().replace(/^sha256=/i, '');
+
     // timingSafeEqual throws if buffers have different lengths; compare length first
-    const sigBuf = Buffer.from(signature, 'utf8');
+    const sigBuf = Buffer.from(normalizedSignature, 'utf8');
     const expectedBuf = Buffer.from(expectedSignature, 'utf8');
     if (sigBuf.length !== expectedBuf.length) {
         logger.warn('Paycrest signature length mismatch');

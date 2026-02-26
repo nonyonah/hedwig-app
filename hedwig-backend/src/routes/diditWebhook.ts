@@ -11,6 +11,9 @@ router.post('/', async (req: Request, res: Response) => {
         const signature = (req.headers['x-didit-signature'] ||
             req.headers['x-didit-signature-256'] ||
             req.headers['x-signature']) as string | undefined;
+        const signatureV2 = req.headers['x-signature-v2'] as string | undefined;
+        const signatureSimple = req.headers['x-signature-simple'] as string | undefined;
+        const timestamp = req.headers['x-timestamp'] as string | undefined;
         const rawBody = (req as any).rawBody;
         const event = req.body?.event || req.body?.data || req.body;
         const decision = (
@@ -26,7 +29,9 @@ router.post('/', async (req: Request, res: Response) => {
         const vendorData = event?.vendor_data || event?.vendorData || event?.session?.vendor_data;
 
         logger.info('Received Didit webhook', { 
-            hasSignature: !!signature,
+            hasLegacySignature: !!signature,
+            hasSignatureV2: !!signatureV2,
+            hasSignatureSimple: !!signatureSimple,
             type: event?.type,
             sessionId,
             status: event?.status,
@@ -34,8 +39,15 @@ router.post('/', async (req: Request, res: Response) => {
         });
         
         // Validate signature
-        if (!DiditService.validateWebhook(signature, rawBody || req.body)) {
-            logger.warn('Invalid Didit webhook signature', { received: signature });
+        if (!DiditService.validateWebhook({
+            signature,
+            signatureV2,
+            signatureSimple,
+            timestamp,
+            rawBody,
+            body: req.body,
+        })) {
+            logger.warn('Invalid Didit webhook signature');
             res.status(401).send('Invalid signature');
             return;
         }
