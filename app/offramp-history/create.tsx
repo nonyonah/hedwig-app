@@ -20,7 +20,7 @@ import {
     Animated,
     UIManager,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, Search as MagnifyingGlass, X, ChevronDown as CaretDown, Landmark as BankIcon, ArrowUpDown as ArrowsDownUp } from 'lucide-react-native';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -63,6 +63,7 @@ interface Bank {
 
 export default function CreateWithdrawalScreen() {
     const router = useRouter();
+    const navigation = useNavigation();
     const themeColors = useThemeColors();
     const { getAccessToken } = useAuth();
     const insets = useSafeAreaInsets();
@@ -246,6 +247,10 @@ export default function CreateWithdrawalScreen() {
     };
 
     const handleSuccess = (orderId: string) => {
+        if (navigation.canGoBack()) {
+            router.back();
+            return;
+        }
         router.replace('/offramp-history');
     };
 

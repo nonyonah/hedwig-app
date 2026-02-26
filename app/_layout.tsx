@@ -2,7 +2,7 @@
 import 'react-native-get-random-values';
 import 'fast-text-encoding';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Stack, useNavigationContainerRef } from 'expo-router';
 import { PrivyProvider } from '@privy-io/expo';
 import Constants from 'expo-constants';
@@ -25,6 +25,8 @@ import { initializeAnalytics, trackScreen } from '../services/analytics';
 import Analytics from '../services/analytics';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '../hooks/useAuth';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync();
@@ -120,6 +122,33 @@ function WebLayout() {
 
 import { UserProvider } from '../context/UserContext';
 
+function PushNotificationBootstrap() {
+    const { user, isReady, getAccessToken } = useAuth();
+    const { isRegistered, registerForPushNotifications, registerWithBackend } = usePushNotifications();
+
+    useEffect(() => {
+        const setupPushNotifications = async () => {
+            if (!isReady || !user || isRegistered) return;
+
+            try {
+                const pushToken = await registerForPushNotifications();
+                if (!pushToken) return;
+
+                const authToken = await getAccessToken();
+                if (!authToken) return;
+
+                await registerWithBackend(authToken, pushToken);
+            } catch (error) {
+                console.error('[Push] Failed to initialize notifications:', error);
+            }
+        };
+
+        setupPushNotifications();
+    }, [isReady, user, isRegistered, getAccessToken, registerForPushNotifications, registerWithBackend]);
+
+    return null;
+}
+
 // Native layout with Privy
 function NativeLayout() {
     return (
@@ -128,6 +157,7 @@ function NativeLayout() {
             clientId={PRIVY_CLIENT_ID}
         >
             <UserProvider>
+                <PushNotificationBootstrap />
                 <ThemedStack />
             </UserProvider>
         </PrivyProvider>

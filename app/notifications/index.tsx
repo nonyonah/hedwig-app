@@ -117,16 +117,24 @@ export default function NotificationsScreen() {
     const deleteNotification = async (notificationId: string) => {
         try {
             // Optimistic update
+            const previous = notifications;
             setNotifications(prev => prev.filter(n => n.id !== notificationId));
 
-            // const token = await getAccessToken();
-            // if (!token) return;
+            const token = await getAccessToken();
+            if (!token) {
+                setNotifications(previous);
+                return;
+            }
 
-            // const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            // await fetch(`${apiUrl}/api/notifications/${notificationId}`, {
-            //     method: 'DELETE',
-            //     headers: { 'Authorization': `Bearer ${token}` }
-            // });
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/notifications/${notificationId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!response.ok) {
+                setNotifications(previous);
+            }
         } catch (error) {
             console.error('[Notifications] Error deleting:', error);
             fetchNotifications(); // Revert on error

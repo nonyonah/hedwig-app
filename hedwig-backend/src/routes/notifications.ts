@@ -325,6 +325,47 @@ router.patch('/:id/read', authenticate, async (req: Request, res: Response) => {
 });
 
 /**
+ * DELETE /api/notifications/:id
+ * Delete a single notification
+ */
+router.delete('/:id', authenticate, async (req: Request, res: Response) => {
+    try {
+        const privyId = req.user!.id;
+        const notificationId = req.params.id;
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found' },
+            });
+            return;
+        }
+
+        const { error } = await supabase
+            .from('notifications')
+            .delete()
+            .eq('id', notificationId)
+            .eq('user_id', user.id);
+
+        if (error) {
+            throw new Error(`Failed to delete notification: ${error.message}`);
+        }
+
+        res.json({
+            success: true,
+            data: { message: 'Notification deleted' },
+        });
+    } catch (error: any) {
+        logger.error('Error deleting notification');
+        res.status(500).json({
+            success: false,
+            error: { message: 'Internal server error' },
+        });
+    }
+});
+
+/**
  * POST /api/notifications/read-all
  * Mark all notifications as read
  */

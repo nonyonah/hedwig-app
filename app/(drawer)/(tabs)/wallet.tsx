@@ -106,14 +106,14 @@ export default function WalletScreen() {
     useEffect(() => {
         fetchUserData();
         fetchBaseBalances();
-    }, []);
+    }, [fetchUserData, fetchBaseBalances]);
 
     useFocusEffect(
         React.useCallback(() => {
             if (user) {
                 fetchUserData();
             }
-        }, [user])
+        }, [user, fetchUserData])
     );
 
     useEffect(() => {
@@ -122,7 +122,7 @@ export default function WalletScreen() {
         }
     }, [solanaAddress]);
 
-    const fetchUserData = async () => {
+    const fetchUserData = useCallback(async () => {
         if (!user) return;
         try {
             const token = await getAccessToken();
@@ -146,9 +146,9 @@ export default function WalletScreen() {
                 }
             }
         } catch (error) { console.error('Failed to fetch user data:', error); }
-    };
+    }, [user, getAccessToken]);
 
-    const fetchSolanaBalances = async (address: string) => {
+    const fetchSolanaBalances = useCallback(async (address: string) => {
         try {
             setIsSolanaLoading(true);
             const connection = new Connection(SOLANA_RPC_URL);
@@ -181,7 +181,7 @@ export default function WalletScreen() {
 
         } catch (error) { console.error('Failed to fetch Solana balances:', error); }
         finally { setIsSolanaLoading(false); }
-    };
+    }, []);
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -192,6 +192,25 @@ export default function WalletScreen() {
         ]);
         setRefreshing(false);
     };
+
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchUserData();
+            fetchBaseBalances();
+            if (solanaAddress) {
+                fetchSolanaBalances(solanaAddress);
+            }
+
+            const intervalId = setInterval(() => {
+                fetchBaseBalances();
+                if (solanaAddress) {
+                    fetchSolanaBalances(solanaAddress);
+                }
+            }, 7000);
+
+            return () => clearInterval(intervalId);
+        }, [fetchBaseBalances, fetchSolanaBalances, solanaAddress, fetchUserData])
+    );
 
     const copyAddress = async (chain: 'base' | 'solana') => {
         const address = chain === 'solana' ? solanaAddress : baseAddress;
@@ -290,8 +309,9 @@ export default function WalletScreen() {
                 <ScrollView
                     style={styles.content}
                     showsVerticalScrollIndicator={false}
-                    bounces={false}
-                    overScrollMode="never"
+                    bounces={true}
+                    alwaysBounceVertical={true}
+                    overScrollMode="always"
                     contentInsetAdjustmentBehavior="never"
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 >

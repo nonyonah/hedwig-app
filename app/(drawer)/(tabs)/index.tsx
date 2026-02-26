@@ -11,7 +11,6 @@ import { AnimatedListItem } from '../../../components/AnimatedListItem';
 import { TransactionConfirmationModal } from '../../../components/TransactionConfirmationModal';
 import { TutorialCard } from '../../../components/TutorialCard';
 import { useTutorial } from '../../../hooks/useTutorial';
-import { usePushNotifications } from '../../../hooks/usePushNotifications';
 import { useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,7 +37,6 @@ export default function HomeDashboard() {
     const router = useRouter();
     const navigation = useNavigation();
     const { user, getAccessToken, isReady } = useAuth();
-    const { isRegistered, registerForPushNotifications, registerWithBackend } = usePushNotifications();
 
     // User Data
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
@@ -73,26 +71,6 @@ export default function HomeDashboard() {
             fetchDashboardData();
         }
     }, [isReady, user]);
-
-    useEffect(() => {
-        const setupPushNotifications = async () => {
-            if (!isReady || !user || isRegistered) return;
-
-            try {
-                const pushToken = await registerForPushNotifications();
-                if (!pushToken) return;
-
-                const authToken = await getAccessToken();
-                if (!authToken) return;
-
-                await registerWithBackend(authToken, pushToken);
-            } catch (error) {
-                console.error('[Push] Failed to initialize notifications:', error);
-            }
-        };
-
-        setupPushNotifications();
-    }, [isReady, user, isRegistered, getAccessToken, registerForPushNotifications, registerWithBackend]);
 
     // Auto-start tutorial for new users once data has loaded
     useEffect(() => {
