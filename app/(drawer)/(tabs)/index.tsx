@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, TextInput, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, Colors } from '../../../theme/colors';
@@ -128,8 +128,8 @@ export default function HomeDashboard() {
         } catch (e) { console.error(e); }
     };
 
-    const fetchDashboardData = async () => {
-        setIsLoadingData(true);
+    const fetchDashboardData = useCallback(async (isRefresh = false) => {
+        if (!isRefresh) setIsLoadingData(true);
         try {
             const t = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -258,10 +258,16 @@ export default function HomeDashboard() {
         } catch (error) {
             console.error('Failed to fetch data', error);
         } finally {
-            setIsLoadingData(false);
+            if (!isRefresh) setIsLoadingData(false);
             setRefreshing(false);
         }
-    };
+    }, [getAccessToken]);
+
+    const onRefresh = useCallback(async () => {
+        if (refreshing) return;
+        setRefreshing(true);
+        await fetchDashboardData(true);
+    }, [refreshing, fetchDashboardData]);
 
     const getBadgeText = (type: 'INVOICE' | 'LINK', category: 'reminders' | 'dueSoon') => {
         const uncompleted = allDocuments.filter(d => d.type === type && d.status !== 'PAID');
@@ -276,7 +282,7 @@ export default function HomeDashboard() {
         let todayCount = 0;
         let nextDue: Date | null = null;
 
-        uncompleted.forEach(doc => {
+        for (const doc of uncompleted) {
             if (doc.data.content?.due_date) {
                 const due = new Date(doc.data.content.due_date);
                 due.setHours(0, 0, 0, 0);
@@ -286,7 +292,7 @@ export default function HomeDashboard() {
                     if (!nextDue || due.getTime() < nextDue.getTime()) nextDue = due;
                 }
             }
-        });
+        }
 
         if (category === 'reminders') {
             if (overdue > 0 && todayCount > 0) return `${overdue} Overdue, ${todayCount} Due today`;
@@ -431,11 +437,11 @@ export default function HomeDashboard() {
                 <ScrollView
                     style={styles.scrollView}
                     showsVerticalScrollIndicator={false}
-                    bounces={false}
-                    overScrollMode="never"
+                    bounces={true}
+                    overScrollMode="always"
                     contentInsetAdjustmentBehavior="never"
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDashboardData(); }} />
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                     }
                     contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
                 >

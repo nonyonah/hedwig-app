@@ -57,6 +57,14 @@ const CHAINS = [
 const SOLANA_RPC_URL = 'https://api.mainnet-beta.solana.com';
 const USDC_MINT_ADDRESS = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
+const toNumber = (value: unknown): number => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    if (typeof value !== 'string') return 0;
+    const normalized = value.replace(/,/g, '').trim();
+    const parsed = parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export default function WalletScreen() {
     const themeColors = useThemeColors();
     const router = useRouter();
@@ -102,25 +110,6 @@ export default function WalletScreen() {
 
     // Network Filter & Dropdown
     const [networkFilter, setNetworkFilter] = useState<'all' | 'base' | 'solana'>('all');
-
-    useEffect(() => {
-        fetchUserData();
-        fetchBaseBalances();
-    }, [fetchUserData, fetchBaseBalances]);
-
-    useFocusEffect(
-        React.useCallback(() => {
-            if (user) {
-                fetchUserData();
-            }
-        }, [user, fetchUserData])
-    );
-
-    useEffect(() => {
-        if (solanaAddress) {
-            fetchSolanaBalances(solanaAddress);
-        }
-    }, [solanaAddress]);
 
     const fetchUserData = useCallback(async () => {
         if (!user) return;
@@ -221,7 +210,7 @@ export default function WalletScreen() {
         }
     };
 
-    const baseTotal = parseFloat(getBaseTotalUsd());
+    const baseTotal = toNumber(getBaseTotalUsd());
     const solanaTotal = (solanaBalances.sol * solanaPrices.sol) + (solanaBalances.usdc * solanaPrices.usdc);
     const totalBalance = baseTotal + solanaTotal;
 
@@ -233,16 +222,16 @@ export default function WalletScreen() {
             chain: 'base',
             name: 'Ethereum',
             symbol: 'ETH',
-            balance: parseFloat(baseETH.display_values?.token || '0'),
-            balanceUsd: parseFloat(baseETH.display_values?.usd || '0'),
+            balance: toNumber(baseETH.display_values?.token),
+            balanceUsd: toNumber(baseETH.display_values?.usd),
             icon: require('../../../assets/icons/tokens/eth.png')
         }] : []),
         ...(baseUSDC ? [{
             chain: 'base',
             name: 'USD Coin',
             symbol: 'USDC',
-            balance: parseFloat(baseUSDC.display_values?.token || '0'),
-            balanceUsd: parseFloat(baseUSDC.display_values?.usd || '0'),
+            balance: toNumber(baseUSDC.display_values?.token),
+            balanceUsd: toNumber(baseUSDC.display_values?.usd),
             icon: require('../../../assets/icons/tokens/usdc.png')
         }] : []),
         ...(solanaAddress ? [{
@@ -408,6 +397,14 @@ export default function WalletScreen() {
                                 <View style={styles.tokenRight}>
                                     <Text style={[styles.tokenBalance, { color: themeColors.textPrimary }]}>
                                         ${item.balanceUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </Text>
+                                    <Text style={[styles.tokenEquivalent, { color: themeColors.textSecondary }]}>
+                                        {item.balance === 0
+                                            ? `0 ${item.symbol}`
+                                            : item.symbol === 'ETH' || item.symbol === 'SOL'
+                                                ? `${item.balance.toFixed(6).replace(/\.?0+$/, '')} ${item.symbol}`
+                                                : `${item.balance.toFixed(2).replace(/\.?0+$/, '')} ${item.symbol}`
+                                        }
                                     </Text>
                                     <Text style={[styles.chainLabel, { color: themeColors.textSecondary }]}>
                                         {item.chain === 'base' ? 'on Base' : 'on Solana'}
@@ -580,6 +577,7 @@ const styles = StyleSheet.create({
     chainBadgeIcon: { width: 12, height: 12, borderRadius: 6 },
     tokenName: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 },
     tokenSymbol: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13, marginTop: 2 },
+    tokenEquivalent: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13, marginTop: 2 },
     chainLabel: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 12, marginTop: 2 },
     tokenRight: { alignItems: 'flex-end' },
     tokenBalance: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16, marginBottom: 2 },
