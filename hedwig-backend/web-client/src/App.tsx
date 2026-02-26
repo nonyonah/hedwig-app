@@ -5,7 +5,6 @@ import ContractPage from './pages/ContractPage';
 import ExportWalletPage from './pages/ExportWalletPage';
 import FeedbackPage from './pages/FeedbackPage';
 import SuccessPage from './pages/SuccessPage';
-import { AppKitProvider } from './lib/AppKitProvider';
 import { PrivyWrapper } from './lib/PrivyWrapper';
 import './index.css';
 
@@ -15,14 +14,14 @@ function App() {
       <Routes>
         {/* Invoice routes */}
         <Route path="/invoice/:id" element={
-          <AppKitProvider>
+          <PrivyWrapper>
             <InvoicePage />
-          </AppKitProvider>
+          </PrivyWrapper>
         } />
         <Route path="/invoices/:id" element={
-          <AppKitProvider>
+          <PrivyWrapper>
             <InvoicePage />
-          </AppKitProvider>
+          </PrivyWrapper>
         } />
 
         {/* Contract routes */}
@@ -31,14 +30,14 @@ function App() {
 
         {/* Payment link routes */}
         <Route path="/pay/:id" element={
-          <AppKitProvider>
+          <PrivyWrapper>
             <PaymentLinkPage />
-          </AppKitProvider>
+          </PrivyWrapper>
         } />
         <Route path="/payment-link/:id" element={
-          <AppKitProvider>
+          <PrivyWrapper>
             <PaymentLinkPage />
-          </AppKitProvider>
+          </PrivyWrapper>
         } />
 
         {/* Export wallet route - wrapped with Privy */}
@@ -73,4 +72,3 @@ function App() {
 }
 
 export default App;
-

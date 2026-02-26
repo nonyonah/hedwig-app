@@ -31,6 +31,28 @@ interface PaymentResult {
   txHash: string;
 }
 
+const DEFAULT_SOLANA_RPC_ENDPOINTS = [
+  'https://api.mainnet-beta.solana.com',
+  'https://rpc.ankr.com/solana',
+  'https://solana-rpc.publicnode.com',
+];
+
+function getSolanaRpcEndpoints(): string[] {
+  const configuredPrimary = (import.meta.env.VITE_SOLANA_RPC || '').trim();
+  const configuredFallbacks = (import.meta.env.VITE_SOLANA_RPC_FALLBACKS || '')
+    .split(',')
+    .map((value: string) => value.trim())
+    .filter(Boolean);
+
+  const endpoints = [
+    configuredPrimary,
+    ...configuredFallbacks,
+    ...DEFAULT_SOLANA_RPC_ENDPOINTS,
+  ].filter(Boolean);
+
+  return [...new Set(endpoints)];
+}
+
 export async function executePayment(params: PaymentParams): Promise<PaymentResult> {
   if (params.chain === 'solana') {
     return executeSolanaPayment(params);
@@ -80,11 +102,30 @@ async function executeEVMPayment(params: EVMPaymentParams): Promise<PaymentResul
 async function executeSolanaPayment(params: SolanaPaymentParams): Promise<PaymentResult> {
   const { amount, recipientAddress, wallet } = params;
 
-  // Connect to Solana
-  const connection = new Connection(
-    import.meta.env.VITE_SOLANA_RPC || 'https://api.mainnet-beta.solana.com',
-    'confirmed'
-  );
+  const rpcEndpoints = getSolanaRpcEndpoints();
+  let connection: Connection | null = null;
+  let selectedRpcEndpoint = '';
+  let lastRpcError: unknown = null;
+
+  for (const endpoint of rpcEndpoints) {
+    try {
+      const candidate = new Connection(endpoint, 'confirmed');
+      await candidate.getLatestBlockhash('confirmed');
+      connection = candidate;
+      selectedRpcEndpoint = endpoint;
+      break;
+    } catch (error) {
+      lastRpcError = error;
+      console.warn(`[Solana] RPC endpoint unavailable: ${endpoint}`, error);
+    }
+  }
+
+  if (!connection) {
+    throw new Error(
+      `No available Solana RPC endpoint. Last error: ${lastRpcError instanceof Error ? lastRpcError.message : String(lastRpcError)}`
+    );
+  }
+  console.log(`[Solana] Using RPC endpoint: ${selectedRpcEndpoint}`);
 
   const fromPubkey = new PublicKey(wallet.publicKey.toString());
   const toPubkey = new PublicKey(recipientAddress);
@@ -132,7 +173,7 @@ async function executeSolanaPayment(params: SolanaPaymentParams): Promise<Paymen
   );
 
   // Get recent blockhash
-  const { blockhash } = await connection.getLatestBlockhash();
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = fromPubkey;
 
@@ -141,7 +182,14 @@ async function executeSolanaPayment(params: SolanaPaymentParams): Promise<Paymen
   const signature = signedTx.signature || signedTx;
 
   // Wait for confirmation
-  await connection.confirmTransaction(signature, 'confirmed');
+  await connection.confirmTransaction(
+    {
+      signature,
+      blockhash,
+      lastValidBlockHeight,
+    },
+    'confirmed'
+  );
 
   return {
     txHash: signature,

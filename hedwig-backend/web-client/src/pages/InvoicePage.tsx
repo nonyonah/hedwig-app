@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useWalletConnection } from '../hooks/useWalletConnection';
-import { useSwitchChain, useWalletClient } from 'wagmi';
 import { Contract, parseUnits } from 'ethers';
 import { DownloadSimple, CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
 import { TOKENS } from '../lib/constants';
 import { executePayment } from '../lib/paymentHandler';
+import { usePrivyEvmWallet } from '../hooks/usePrivyEvmWallet';
 import './InvoicePage.css'; // Use dedicated CSS
 
 // ERC20 ABI for transfers and approvals
@@ -71,12 +70,7 @@ const getInjectedSolanaWallet = () => {
 export default function InvoicePage() {
     const { id } = useParams<{ id: string }>();
     const [searchParams] = useSearchParams();
-    const { address, isConnected, connectWallet: openWalletModal, chainId } = useWalletConnection();
-    const { switchChain } = useSwitchChain();
-    const { data: walletClient } = useWalletClient();
-    
-    // Use the connected wallet address
-    const evmWallet = isConnected ? { address } : null;
+    const { evmWallet, address: evmAddress, chainId: evmChainId, connectEvmWallet } = usePrivyEvmWallet();
 
     const [invoice, setInvoice] = useState<InvoiceData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -204,13 +198,13 @@ export default function InvoicePage() {
     };
 
     const handleConnectWallet = () => {
-        openWalletModal();
+        connectEvmWallet();
     };
 
     const handleEVMPayment = async () => {
         if (!invoice) return;
 
-        if (!evmWallet || !evmWallet.address) {
+        if (!evmWallet || !evmAddress) {
             alert('Please connect your EVM wallet first.');
             return;
         }
@@ -234,22 +228,17 @@ export default function InvoicePage() {
             const targetChainId = getChainId(selectedChain);
 
             // Switch chain if necessary
-            if (chainId !== targetChainId) {
+            if (evmChainId !== targetChainId) {
                 console.log('[EVM] Switching chain to', targetChainId);
                 try {
-                    await switchChain({ chainId: targetChainId });
+                    await evmWallet.switchChain(targetChainId);
                 } catch (err) {
                     console.error('[EVM] Chain switch failed:', err);
                     throw new Error('Please switch to the correct network in your wallet');
                 }
             }
 
-            // Get the ethereum provider from walletClient
-            if (!walletClient) {
-                throw new Error('Wallet client not available');
-            }
-
-            const provider = walletClient.transport;
+            const provider = await evmWallet.getEthereumProvider();
             
             if (selectedToken === 'ETH') {
                 // Native ETH transfer
@@ -257,7 +246,7 @@ export default function InvoicePage() {
                 const txHash = await provider.request({
                     method: 'eth_sendTransaction',
                     params: [{
-                        from: evmWallet.address,
+                        from: evmAddress,
                         to: recipientAddress,
                         value: '0x' + amountWei.toString(16),
                     }],
@@ -278,7 +267,7 @@ export default function InvoicePage() {
                 const txHash = await provider.request({
                     method: 'eth_sendTransaction',
                     params: [{
-                        from: evmWallet.address,
+                        from: evmAddress,
                         to: tokenAddress,
                         data: data,
                     }],
@@ -317,7 +306,7 @@ export default function InvoicePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     txHash: finalTxHash,
-                    payer: evmWallet.address,
+                    payer: evmAddress,
                     chain: selectedChain,
                     token: selectedToken,
                     amount: invoice.amount,
@@ -629,7 +618,7 @@ export default function InvoicePage() {
                             <button
                                 className={`pay-button redesigned ${isPaying ? 'loading' : ''}`}
                                 onClick={() => {
-                                    evmWallet ? handleEVMPayment() : handleConnectWallet();
+                                    evmAddress ? handleEVMPayment() : handleConnectWallet();
                                 }}
                                 disabled={isPaying}
                                 style={{
@@ -649,7 +638,7 @@ export default function InvoicePage() {
                                     boxShadow: 'none'
                                 }}
                             >
-                                {isPaying ? 'Processing...' : (evmWallet ? 'Pay now' : 'Connect Wallet')}
+                                {isPaying ? 'Processing...' : (evmAddress ? 'Pay now' : 'Connect Wallet')}
                             </button>
                         )}
                     </>

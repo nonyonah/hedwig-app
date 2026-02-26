@@ -37,6 +37,8 @@ RUN npm ci --include=dev --legacy-peer-deps
 ENV VITE_REOWN_PROJECT_ID=e2fead0a05813697717820eaed0f18ea
 ENV VITE_API_URL=https://pay.hedwigbot.xyz
 ENV VITE_PRIVY_APP_ID=cmby98gd300hxl40mrdr3mkoh
+ENV VITE_SOLANA_RPC=https://solana-mainnet.g.alchemy.com/v2/eSa5NrMQkXT-bXFuSdka4
+ENV VITE_SOLANA_RPC_FALLBACKS=https://rpc.ankr.com/solana,https://solana-rpc.publicnode.com
 RUN npm run build
 WORKDIR /app
 
