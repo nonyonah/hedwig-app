@@ -32,7 +32,7 @@ interface PaymentResult {
 }
 
 const DEFAULT_SOLANA_RPC_ENDPOINTS = [
-  'https://api.mainnet-beta.solana.com',
+  'https://solana-mainnet.g.alchemy.com/v2/eSa5NrMQkXT-bXFuSdka4',
   'https://rpc.ankr.com/solana',
   'https://solana-rpc.publicnode.com',
 ];
@@ -116,7 +116,7 @@ async function executeSolanaPayment(params: SolanaPaymentParams): Promise<Paymen
       break;
     } catch (error) {
       lastRpcError = error;
-      console.warn(`[Solana] RPC endpoint unavailable: ${endpoint}`, error);
+      console.log(`[Solana] RPC endpoint unavailable: ${endpoint}`, error);
     }
   }
 

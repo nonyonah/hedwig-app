@@ -362,7 +362,7 @@ export default function InvoicePage() {
     if (loading) {
         return (
             <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                <div className="payment-card redesigned" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
+                <div className="payment-card redesigned" style={{ width: 'min(480px, calc(100vw - 32px))', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: 'clamp(20px, 5vw, 40px)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
                     <div className="loading-state">
                         <div className="spinner"></div>
                         <p>Loading invoice...</p>
@@ -375,7 +375,7 @@ export default function InvoicePage() {
     if (error || !invoice) {
         return (
             <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                <div className="payment-card redesigned" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
+                <div className="payment-card redesigned" style={{ width: 'min(480px, calc(100vw - 32px))', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: 'clamp(20px, 5vw, 40px)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
                     <div className="error-state">
                         <div className="error-title">Invoice Not Found</div>
                         <p className="error-message">{error || 'The invoice you are looking for does not exist.'}</p>
@@ -388,7 +388,7 @@ export default function InvoicePage() {
     if (showSuccess) {
         return (
             <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                <div className="payment-card redesigned" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
+                <div className="payment-card redesigned" style={{ width: 'min(480px, calc(100vw - 32px))', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: 'clamp(20px, 5vw, 40px)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
                     <CheckCircle size={80} weight="fill" className="success-icon" style={{ color: '#059669', margin: '0 auto 16px' }} />
                     <h2 className="success-title" style={{ marginTop: '0', textAlign: 'center' }}>Payment Successful!</h2>
                     <p className="success-message" style={{ textAlign: 'center', color: '#6B7280' }}>
@@ -429,18 +429,17 @@ export default function InvoicePage() {
                 flexDirection: 'column',
                 justifyContent: 'flex-start',
                 alignItems: 'center',
-                padding: '60px 0',
+                padding: 'clamp(20px, 4vw, 60px) 16px',
                 fontFamily: "'Google Sans Flex', sans-serif"
             }}
         >
             <div className="invoice-card" style={{
-                width: '600px',
-                minWidth: '600px',
+                width: 'min(600px, calc(100vw - 32px))',
                 minHeight: 'auto',
                 backgroundColor: '#FFFFFF',
                 borderRadius: '24px',
                 boxShadow: 'none',
-                padding: '32px',
+                padding: 'clamp(20px, 4vw, 32px)',
                 display: 'flex',
                 flexDirection: 'column',
                 boxSizing: 'border-box',
@@ -458,7 +457,7 @@ export default function InvoicePage() {
                 </div>
 
                 {/* Parties */}
-                <div className="parties" style={{ display: 'flex', gap: '32px', marginBottom: '24px', borderBottom: '1px solid #F3F4F6', paddingBottom: '24px' }}>
+                <div className="parties" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '24px', borderBottom: '1px solid #F3F4F6', paddingBottom: '24px' }}>
                     <div className="party-column" style={{ flex: 1 }}>
                         <div className="party-label" style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>From</div>
                         <div className="party-name" style={{ fontWeight: 600, color: '#111827', marginBottom: '4px' }}>

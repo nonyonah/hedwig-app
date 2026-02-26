@@ -336,7 +336,7 @@ export default function PaymentLinkPage() {
     if (loading) {
         return (
             <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                <div className="payment-card redesigned" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
+                <div className="payment-card redesigned" style={{ width: 'min(480px, calc(100vw - 32px))', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: 'clamp(20px, 5vw, 40px)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
                     <div className="loading-state">
                         <div className="spinner"></div>
                         <p>Loading payment details...</p>
@@ -354,7 +354,7 @@ export default function PaymentLinkPage() {
     if (error || !paymentLink) {
         return (
             <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                <div className="payment-card redesigned" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
+                <div className="payment-card redesigned" style={{ width: 'min(480px, calc(100vw - 32px))', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: 'clamp(20px, 5vw, 40px)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
                     <div className="error-state">
                         <CurrencyCircleDollar size={64} weight="light" className="error-icon" />
                         <h2>Payment Link Not Found</h2>
@@ -373,7 +373,7 @@ export default function PaymentLinkPage() {
     if (showSuccess) {
         return (
             <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                <div className="payment-card redesigned success-card" style={{ width: '480px', minWidth: '480px', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: '40px', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
+                <div className="payment-card redesigned success-card" style={{ width: 'min(480px, calc(100vw - 32px))', minHeight: '323px', backgroundColor: '#FFFFFF', borderRadius: '24px', boxShadow: 'none', padding: 'clamp(20px, 5vw, 40px)', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', border: '1px solid #F3F4F6' }}>
                     <CheckCircle size={80} weight="fill" className="success-icon" style={{ color: '#059669', margin: '0 auto 16px' }} />
                     <h2 className="success-title" style={{ marginTop: '0' }}>Payment Successful!</h2>
                     <p className="success-amount">{formatAmount(paymentLink.amount)} {paymentLink.currency || 'USDC'}</p>
@@ -422,13 +422,12 @@ export default function PaymentLinkPage() {
             }}
         >
             <div className="payment-card redesigned" style={{
-                width: '480px',
-                minWidth: '480px',
+                width: 'min(480px, calc(100vw - 32px))',
                 minHeight: '323px',
                 backgroundColor: '#FFFFFF',
                 borderRadius: '24px',
                 boxShadow: 'none', /* Flat - No Shadow */
-                padding: '40px', /* Increased padding */
+                padding: 'clamp(20px, 5vw, 40px)', /* Increased padding */
                 display: 'flex',
                 flexDirection: 'column',
                 boxSizing: 'border-box',
