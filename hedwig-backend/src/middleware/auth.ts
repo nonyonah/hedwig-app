@@ -5,11 +5,23 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('AuthMiddleware');
 
-// Initialize Privy client
-export const privy = new PrivyClient(
-    process.env.PRIVY_APP_ID!,
-    process.env.PRIVY_APP_SECRET!
-);
+let privyClient: PrivyClient | null = null;
+
+export function getPrivyAuthClient(): PrivyClient {
+    if (privyClient) {
+        return privyClient;
+    }
+
+    const appId = process.env.PRIVY_APP_ID;
+    const appSecret = process.env.PRIVY_APP_SECRET;
+
+    if (!appId || !appSecret) {
+        throw new AppError('Privy is not configured on the backend (missing PRIVY_APP_ID/PRIVY_APP_SECRET)', 500);
+    }
+
+    privyClient = new PrivyClient(appId, appSecret);
+    return privyClient;
+}
 
 // Extend Express Request to include user
 declare global {
@@ -31,6 +43,8 @@ const RETRY_DELAY = 1000;
  * Retry logic for token verification (handles transient network issues)
  */
 async function verifyTokenWithRetry(token: string, retries = MAX_RETRIES): Promise<any> {
+    const privy = getPrivyAuthClient();
+
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             logger.debug('Verification attempt', { attempt, maxRetries: retries });

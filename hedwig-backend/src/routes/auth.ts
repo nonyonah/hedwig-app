@@ -1,20 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, getPrivyAuthClient } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { AppError } from '../middleware/errorHandler';
 import AlchemyAddressService from '../services/alchemyAddress';
 import { createLogger } from '../utils/logger';
-import { PrivyClient } from '@privy-io/server-auth';
 
 const logger = createLogger('Auth');
 
 const router = Router();
-
-// Initialize Privy client for fetching user details
-const privy = new PrivyClient(
-    process.env.PRIVY_APP_ID!,
-    process.env.PRIVY_APP_SECRET!
-);
 
 /**
  * POST /api/auth/register
@@ -189,7 +182,7 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
             try {
                 // Fetch user details from Privy to get their email
                 const privyUserId = req.user!.privyId || req.user!.id;
-                const privyUser = await privy.getUser(privyUserId);
+                const privyUser = await getPrivyAuthClient().getUser(privyUserId);
                 const email = privyUser?.email?.address || privyUser?.google?.email || privyUser?.apple?.email;
                 
                 if (email) {

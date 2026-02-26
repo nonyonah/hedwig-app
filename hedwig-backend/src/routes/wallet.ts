@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authenticate, privy } from '../middleware/auth';
+import { authenticate, getPrivyAuthClient } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { supabase } from '../lib/supabase';
 import BlockradarService from '../services/blockradar';
@@ -10,11 +10,27 @@ const logger = createLogger('Wallet');
 
 const router = Router();
 
-// Initialize Privy Node API client for wallet operations
-const privyNode = new PrivyClient({
-    appId: process.env.PRIVY_APP_ID!,
-    appSecret: process.env.PRIVY_APP_SECRET!
-});
+let privyNodeClient: PrivyClient | null = null;
+
+function getPrivyNodeClient(): PrivyClient {
+    if (privyNodeClient) {
+        return privyNodeClient;
+    }
+
+    const appId = process.env.PRIVY_APP_ID;
+    const appSecret = process.env.PRIVY_APP_SECRET;
+
+    if (!appId || !appSecret) {
+        throw new AppError('Privy is not configured on the backend (missing PRIVY_APP_ID/PRIVY_APP_SECRET)', 500);
+    }
+
+    privyNodeClient = new PrivyClient({
+        appId,
+        appSecret
+    });
+
+    return privyNodeClient;
+}
 
 /**
  * GET /api/wallet/balance
@@ -26,7 +42,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
         logger.debug('Fetching balances', { userId });
 
         // 1. Get User from Privy to find wallet addresses and IDs
-        const user = await privy.getUser(userId);
+        const user = await getPrivyAuthClient().getUser(userId);
         
         // Extract wallets with both id and address
         // The balance API requires wallet_id, not address
@@ -127,7 +143,7 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                         try {
                             logger.debug('Fetching balance for wallet', { walletId: wallet.id, chain: chainType, asset });
 
-                            const response = await privyNode.wallets().balance.get(wallet.id!, {
+                            const response = await getPrivyNodeClient().wallets().balance.get(wallet.id!, {
                                 chain: chainType as any,
                                 asset: asset as any,
                                 include_currency: 'usd'

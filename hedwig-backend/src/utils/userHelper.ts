@@ -1,14 +1,8 @@
-import { PrivyClient } from '@privy-io/server-auth';
 import { supabase } from '../lib/supabase';
 import { createLogger } from './logger';
+import { getPrivyAuthClient } from '../middleware/auth';
 
 const logger = createLogger('UserSync');
-
-// Initialize Privy client
-const privy = new PrivyClient(
-    process.env.PRIVY_APP_ID!,
-    process.env.PRIVY_APP_SECRET!
-);
 
 /**
  * Get internal user from Supabase, or create/sync from Privy if missing
@@ -28,7 +22,7 @@ export async function getOrCreateUser(privyId: string) {
 
         // 2. If not found by privy_id, fetch user details from Privy
         logger.debug('User not found by privy_id, fetching from Privy', { privyId });
-        const privyUser = await privy.getUser(privyId);
+        const privyUser = await getPrivyAuthClient().getUser(privyId);
 
         if (!privyUser) {
             throw new Error(`Privy user not found for ID: ${privyId}`);
@@ -127,4 +121,3 @@ export async function getOrCreateUser(privyId: string) {
         throw error;
     }
 }
-
