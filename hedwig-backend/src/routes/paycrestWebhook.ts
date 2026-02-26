@@ -12,68 +12,47 @@ const router = Router();
 // Paycrest webhook secret for signature verification
 const PAYCREST_WEBHOOK_SECRET = process.env.PAYCREST_WEBHOOK_SECRET || '';
 
-/**
- * Map Paycrest status events to our status
- */
-const mapPaycrestStatus = (event: string): string => {
-    switch (event) {
-        case 'order.initiated':
-            return 'PENDING';
-        case 'order.pending':
-            return 'PENDING';
-        case 'order.validated':
-            return 'PROCESSING';
-        case 'order.settled':
-            return 'COMPLETED';
-        case 'order.refunded':
-            return 'FAILED';
-        case 'order.expired':
-            return 'FAILED';
-        default:
-            return 'PENDING';
+const normalizePaycrestEvent = (rawEvent: unknown, data: any): string => {
+    if (typeof rawEvent === 'string' && rawEvent.trim().length > 0) {
+        return rawEvent.trim().toLowerCase();
     }
+    if (typeof data?.event === 'string' && data.event.trim().length > 0) {
+        return data.event.trim().toLowerCase();
+    }
+    if (typeof data?.status === 'string' && data.status.trim().length > 0) {
+        const status = data.status.trim().toLowerCase();
+        if (status.includes('.')) return status;
+        return `payment_order.${status}`;
+    }
+    return 'payment_order.pending';
 };
 
 /**
- * Get user-friendly status message
+ * Map Paycrest order status monitoring events to app status.
+ * Supports both new (payment_order.*) and legacy (order.*) event names.
  */
-const getStatusMessage = (event: string, amount: number, currency: string): { title: string; body: string } => {
-    switch (event) {
-        case 'order.initiated':
-            return {
-                title: '💰 Withdrawal Started',
-                body: `Your withdrawal of ${amount.toFixed(2)} ${currency} has been initiated.`
-            };
-        case 'order.pending':
-            return {
-                title: '⏳ Processing Withdrawal',
-                body: `Your withdrawal is being processed by our provider.`
-            };
-        case 'order.validated':
-            return {
-                title: '✅ Withdrawal Validated',
-                body: `Your withdrawal has been validated and will be settled shortly.`
-            };
-        case 'order.settled':
-            return {
-                title: '🎉 Withdrawal Complete!',
-                body: `${amount.toFixed(2)} ${currency} has been sent to your bank account.`
-            };
-        case 'order.refunded':
-            return {
-                title: '↩️ Withdrawal Refunded',
-                body: `Your withdrawal was refunded. Funds have been returned to your wallet.`
-            };
-        case 'order.expired':
-            return {
-                title: '⏰ Withdrawal Expired',
-                body: `Your withdrawal order has expired. Please try again.`
-            };
+const mapPaycrestStatus = (event: string, data: any): 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' => {
+    const normalizedEvent = normalizePaycrestEvent(event, data);
+    const tail = normalizedEvent.includes('.') ? normalizedEvent.split('.').pop() : normalizedEvent;
+
+    switch (tail) {
+        case 'initiated':
+            return 'PENDING';
+        case 'pending':
+        case 'processing':
+            return 'PROCESSING';
+        case 'validated':
+        case 'settled':
+        case 'completed':
+        case 'success':
+            return 'COMPLETED';
+        case 'refunded':
+        case 'expired':
+        case 'failed':
+        case 'cancelled':
+            return 'FAILED';
         default:
-            return {
-                title: 'Withdrawal Update',
-                body: `Status: ${event}`
-            };
+            return 'PROCESSING';
     }
 };
 
@@ -111,12 +90,11 @@ const verifyWebhookSignature = (payload: string, signature: string): boolean => 
  * Handle Paycrest order status webhooks
  * 
  * Events:
- * - order.initiated: Order created
- * - order.pending: Awaiting provider
- * - order.validated: Ready for settlement
- * - order.settled: Successfully completed
- * - order.refunded: Refunded to sender
- * - order.expired: Timed out
+ * - payment_order.initiated / order.initiated
+ * - payment_order.pending / order.pending
+ * - payment_order.validated / order.validated
+ * - payment_order.failed / order.failed
+ * - payment_order.expired / order.expired
  */
 router.post('/', async (req: Request, res: Response) => {
     try {
@@ -159,8 +137,9 @@ router.post('/', async (req: Request, res: Response) => {
             }
         }
 
-        const { event, data } = req.body;
-        logger.info('Received webhook event', { event });
+        const { event: rawEvent, data } = req.body;
+        const event = normalizePaycrestEvent(rawEvent, data);
+        logger.info('Received webhook event', { event, rawEvent });
 
         if (!event || !data?.id) {
             res.status(400).json({ error: 'Missing event or order ID' });
@@ -168,7 +147,7 @@ router.post('/', async (req: Request, res: Response) => {
         }
 
         const paycrestOrderId = data.id;
-        const newStatus = mapPaycrestStatus(event);
+        const newStatus = mapPaycrestStatus(event, data);
 
         // 1. Find the order in our database
         const { data: order, error: findError } = await supabase
@@ -214,7 +193,7 @@ router.post('/', async (req: Request, res: Response) => {
 
         // Add error message for failed orders
         if (newStatus === 'FAILED') {
-            updateData.error_message = data.reason || `Order ${event.replace('order.', '')}`;
+            updateData.error_message = data.reason || `Order ${event.replace('payment_order.', '').replace('order.', '')}`;
         }
 
         const { error: updateError } = await supabase
@@ -226,26 +205,30 @@ router.post('/', async (req: Request, res: Response) => {
             logger.error('Failed to update order status', { error: updateError.message });
         }
 
-        // 3. Send push notification
-        // Use internal user ID (UUID) for device_tokens lookup, not email or privy_id
+        // 3. Send user notification only when withdrawal is successfully completed.
+        // The withdrawal history screen tracks in-progress states.
         const internalUserId = (order as any).users?.id;
 
-        if (internalUserId) {
-            const notification = getStatusMessage(event, order.fiat_amount, order.fiat_currency);
+        if (internalUserId && newStatus === 'COMPLETED') {
+            const title = 'Withdrawal Successful';
+            const body = `${Number(order.fiat_amount || 0).toFixed(2)} ${order.fiat_currency} has been sent to your bank account.`;
 
-            // Create in-app notification (uses internal user ID)
+            // Create in-app success notification (uses expected frontend type)
             await supabase
                 .from('notifications')
                 .insert({
                     user_id: internalUserId,
-                    title: notification.title,
-                    message: notification.body,
-                    type: 'offramp',
+                    title,
+                    message: body,
+                    type: 'offramp_success',
                     metadata: {
                         orderId: order.id,
                         paycrestOrderId: paycrestOrderId,
                         event: event,
                         status: newStatus,
+                        amount: order.crypto_amount,
+                        token: order.token,
+                        destination: `${order.bank_name} • ****${order.account_number?.slice(-4) || ''}`,
                         fiatAmount: order.fiat_amount,
                         fiatCurrency: order.fiat_currency,
                     },
@@ -255,8 +238,8 @@ router.post('/', async (req: Request, res: Response) => {
             // Send push notification with full data for Live Activities/Updates
             try {
                 await NotificationService.notifyUser(internalUserId, {
-                    title: notification.title,
-                    body: notification.body,
+                    title,
+                    body,
                     data: {
                         type: 'offramp_status',
                         orderId: order.id,

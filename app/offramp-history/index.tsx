@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import {
     View,
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { List, X, Copy, Landmark as Bank, ArrowDown, CheckCircle, Clock, TriangleAlert as Warning, RotateCcw as ArrowsCounterClockwise, ChevronLeft as CaretLeft, Plus } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -100,6 +101,7 @@ interface UserData {
 
 export default function OfframpHistoryScreen() {
     const router = useRouter();
+    const isFocused = useIsFocused();
     const { getAccessToken } = useAuth();
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
@@ -134,7 +136,7 @@ export default function OfframpHistoryScreen() {
     }, [orders, statusFilter]);
 
     useEffect(() => {
-        fetchOrders();
+        fetchOrders(true);
         fetchConversations();
     }, []);
 
@@ -157,9 +159,11 @@ export default function OfframpHistoryScreen() {
         }
     };
 
-    const fetchOrders = async () => {
+    const fetchOrders = useCallback(async (showLoader = false) => {
         try {
-            setIsLoading(true);
+            if (showLoader) {
+                setIsLoading(true);
+            }
             const token = await getAccessToken();
             if (!token) return;
 
@@ -175,9 +179,30 @@ export default function OfframpHistoryScreen() {
         } catch (error) {
             console.error('Error fetching offramp orders:', error);
         } finally {
-            setIsLoading(false);
+            if (showLoader) {
+                setIsLoading(false);
+            }
         }
-    };
+    }, [getAccessToken]);
+
+    useEffect(() => {
+        if (!isFocused) return;
+
+        // Keep withdrawal statuses in sync with Paycrest webhook updates.
+        const interval = setInterval(() => {
+            fetchOrders(false);
+        }, 6000);
+
+        return () => clearInterval(interval);
+    }, [isFocused, fetchOrders]);
+
+    useEffect(() => {
+        if (!selectedOrder) return;
+        const updated = orders.find(order => order.id === selectedOrder.id);
+        if (updated) {
+            setSelectedOrder(updated);
+        }
+    }, [orders, selectedOrder]);
 
     const openModal = (order: OfframpOrder) => {
         modalHaptic('open', hapticsEnabled);

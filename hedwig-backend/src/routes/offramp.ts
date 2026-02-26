@@ -8,6 +8,30 @@ const logger = createLogger('Offramp');
 
 const router = Router();
 
+const mapPaycrestOrderStatus = (rawStatus?: string): 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null => {
+    if (!rawStatus) return null;
+    const status = rawStatus.toLowerCase();
+
+    if (status === 'initiated') return 'PENDING';
+    if (status === 'pending' || status === 'processing') return 'PROCESSING';
+    if (status === 'validated' || status === 'settled' || status === 'completed' || status === 'success') return 'COMPLETED';
+    if (status === 'expired' || status === 'failed' || status === 'refunded' || status === 'cancelled') return 'FAILED';
+    return null;
+};
+
+const extractPaycrestStatus = (payload: any): string | undefined =>
+    payload?.status ||
+    payload?.data?.status ||
+    payload?.order?.status;
+
+const extractPaycrestTxHash = (payload: any): string | undefined =>
+    payload?.txHash ||
+    payload?.tx_hash ||
+    payload?.data?.txHash ||
+    payload?.data?.tx_hash ||
+    payload?.order?.txHash ||
+    payload?.order?.tx_hash;
+
 /**
  * GET /api/offramp/rates
  * Get current exchange rates
@@ -271,6 +295,54 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
             throw new Error(`Failed to fetch orders: ${error.message}`);
         }
 
+        // Poll Paycrest for active orders to keep status fresh if webhook delivery is delayed.
+        const activeOrders = (orders || []).filter(
+            order => order.status === 'PENDING' || order.status === 'PROCESSING'
+        ).slice(0, 10);
+
+        await Promise.all(activeOrders.map(async (order) => {
+            try {
+                const paycrestOrder = await PaycrestService.getOrderStatus(order.paycrest_order_id);
+                const statusFromPaycrest = extractPaycrestStatus(paycrestOrder);
+                const mappedStatus = mapPaycrestOrderStatus(statusFromPaycrest);
+                const txHash = extractPaycrestTxHash(paycrestOrder);
+
+                if (mappedStatus && mappedStatus !== order.status) {
+                    const updatePayload: Record<string, any> = {
+                        status: mappedStatus,
+                    };
+                    if (mappedStatus === 'COMPLETED') {
+                        updatePayload.completed_at = new Date().toISOString();
+                    }
+                    if (mappedStatus === 'FAILED') {
+                        updatePayload.error_message = order.error_message || 'Order failed or expired';
+                    }
+                    if (txHash) {
+                        updatePayload.tx_hash = txHash;
+                    }
+
+                    const { data: updatedOrder } = await supabase
+                        .from('offramp_orders')
+                        .update(updatePayload)
+                        .eq('id', order.id)
+                        .select()
+                        .single();
+
+                    if (updatedOrder) {
+                        Object.assign(order, updatedOrder);
+                    }
+                } else if (txHash && txHash !== order.tx_hash) {
+                    await supabase
+                        .from('offramp_orders')
+                        .update({ tx_hash: txHash })
+                        .eq('id', order.id);
+                    order.tx_hash = txHash;
+                }
+            } catch (pollError) {
+                logger.warn('Failed to poll Paycrest order status', { orderId: order.id });
+            }
+        }));
+
         // Map to camelCase
         const formattedOrders = orders.map(order => ({
             id: order.id,
@@ -343,14 +415,18 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
         // Get latest status from Paycrest
         try {
             const paycrestOrder = await PaycrestService.getOrderStatus(order.paycrest_order_id);
+            const statusFromPaycrest = extractPaycrestStatus(paycrestOrder);
+            const mappedStatus = mapPaycrestOrderStatus(statusFromPaycrest);
+            const txHash = extractPaycrestTxHash(paycrestOrder);
 
             // Update local status if changed
-            if (paycrestOrder.status && paycrestOrder.status.toLowerCase() !== order.status.toLowerCase()) {
+            if (mappedStatus && mappedStatus !== order.status) {
                 const { data: updatedOrder } = await supabase
                     .from('offramp_orders')
                     .update({
-                        status: paycrestOrder.status.toUpperCase(),
-                        tx_hash: paycrestOrder.txHash || order.tx_hash,
+                        status: mappedStatus,
+                        tx_hash: txHash || order.tx_hash,
+                        completed_at: mappedStatus === 'COMPLETED' ? new Date().toISOString() : order.completed_at,
                     })
                     .eq('id', order.id)
                     .select()
@@ -359,6 +435,12 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
                 if (updatedOrder) {
                     Object.assign(order, updatedOrder);
                 }
+            } else if (txHash && txHash !== order.tx_hash) {
+                await supabase
+                    .from('offramp_orders')
+                    .update({ tx_hash: txHash })
+                    .eq('id', order.id);
+                order.tx_hash = txHash;
             }
         } catch (error) {
             logger.warn('Failed to fetch Paycrest order status', { error: error instanceof Error ? error.message : 'Unknown' });

@@ -11,7 +11,7 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 interface Notification {
     id: string;
-    type: 'payment_received' | 'crypto_received' | 'offramp_success' | 'announcement';
+    type: 'payment_received' | 'crypto_received' | 'offramp_success' | 'offramp' | 'announcement';
     title: string;
     message: string;
     metadata: any;
@@ -174,8 +174,7 @@ export default function NotificationsScreen() {
             );
         }
 
-        if (type === 'crypto_received' || type === 'offramp_success') {
-            const isWithdrawal = type === 'offramp_success';
+        if (type === 'crypto_received' || type === 'offramp_success' || type === 'offramp') {
             // Use USDC icon as base for now, can be dynamic if metadata.token is available and mapped
             return (
                 <View style={[styles.iconContainer, { backgroundColor: 'transparent', overflow: 'visible' }]}>
@@ -238,7 +237,7 @@ export default function NotificationsScreen() {
                 // Invoices are payment_received where title contains "Invoice"
                 return notifications.filter(n => n.type === 'payment_received' && n.title.toLowerCase().includes('invoice'));
             case 'withdrawals':
-                return notifications.filter(n => n.type === 'offramp_success');
+                return notifications.filter(n => n.type === 'offramp_success' || n.type === 'offramp');
             default:
                 return notifications;
         }
@@ -308,7 +307,7 @@ export default function NotificationsScreen() {
                         <Text style={[styles.notificationMessage, { color: themeColors.textSecondary }]} numberOfLines={2}>
                             {item.type === 'crypto_received' && item.metadata?.amount
                                 ? `You received ${item.metadata.amount} ${item.metadata.token || 'USDC'} from ${formatAddress(item.metadata.from)}`
-                                : item.type === 'offramp_success' && item.metadata?.amount
+                                : (item.type === 'offramp_success' || item.type === 'offramp') && item.metadata?.amount
                                     ? `You withdrew ${item.metadata.amount} ${item.metadata.token || 'USDC'} to ${item.metadata.destination || 'your bank'}`
                                     : item.message}
                         </Text>
