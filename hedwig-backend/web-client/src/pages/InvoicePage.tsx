@@ -64,6 +64,10 @@ const getChainId = (chain: ChainId): number => {
     return chainIds[chain as Exclude<ChainId, 'solana'>];
 };
 
+const getInjectedSolanaWallet = () => {
+    return window.phantom?.solana || window.solflare || window.solana;
+};
+
 export default function InvoicePage() {
     const { id } = useParams<{ id: string }>();
     const [searchParams] = useSearchParams();
@@ -131,7 +135,7 @@ export default function InvoicePage() {
         fetchInvoice();
     }, [id]);
 
-    // Solana payment handler using direct wallet connection (Phantom, Solflare, etc.)
+    // Solana payment handler using injected wallets (Phantom, Solflare, etc.)
     const handleSolanaPayment = async () => {
         if (!invoice) return;
 
@@ -141,9 +145,9 @@ export default function InvoicePage() {
             return;
         }
 
-        // Check if Solana wallet is available (Phantom, Solflare, etc.)
-        if (!window.solana) {
-            alert('Please install a Solana wallet like Phantom or Solflare!');
+        const solanaWallet = getInjectedSolanaWallet();
+        if (!solanaWallet) {
+            alert('No Solana wallet found. Install Phantom or Solflare, then refresh this page.');
             return;
         }
 
@@ -151,7 +155,9 @@ export default function InvoicePage() {
             setIsPaying(true);
 
             // Connect to Solana wallet
-            await window.solana.connect();
+            if (!solanaWallet.publicKey) {
+                await solanaWallet.connect();
+            }
 
             console.log('[Solana] Creating transfer...');
             console.log('[Solana] Recipient:', merchantAddress);
@@ -163,7 +169,7 @@ export default function InvoicePage() {
                 token: 'USDC',
                 amount: invoice.amount,
                 recipientAddress: merchantAddress,
-                wallet: window.solana,
+                wallet: solanaWallet,
             });
 
             console.log('[Solana] Transaction sent:', result.txHash);
@@ -177,7 +183,7 @@ export default function InvoicePage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     txHash: result.txHash,
-                    payer: window.solana.publicKey.toString(),
+                    payer: solanaWallet.publicKey.toString(),
                     chain: 'solana',
                     token: 'USDC',
                     amount: invoice.amount,

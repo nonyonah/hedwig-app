@@ -3,12 +3,13 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SolanaAdapter } from '@reown/appkit-adapter-solana';
-import { base } from 'wagmi/chains';
+import { base, solana } from '@reown/appkit/networks';
 import { wagmiConfig } from './wagmiConfig';
 import { appKitConfig } from './appKitConfig';
 import type { ReactNode } from 'react';
 
 const queryClient = new QueryClient();
+let isAppKitInitialized = false;
 
 interface AppKitProviderProps {
   children: ReactNode;
@@ -41,18 +42,21 @@ export function AppKitProvider({ children }: AppKitProviderProps) {
     );
   }
 
-  // Initialize AppKit with adapters
-  const wagmiAdapter = new WagmiAdapter({
-    networks: [base],
-    projectId,
-  });
+  if (!isAppKitInitialized) {
+    const wagmiAdapter = new WagmiAdapter({
+      networks: [base],
+      projectId,
+    });
 
-  createAppKit({
-    adapters: [wagmiAdapter, new SolanaAdapter()],
-    networks: [base],
-    projectId,
-    ...appKitConfig,
-  });
+    createAppKit({
+      adapters: [wagmiAdapter, new SolanaAdapter()],
+      networks: [base, solana],
+      projectId,
+      ...appKitConfig,
+    });
+
+    isAppKitInitialized = true;
+  }
 
   return (
     <WagmiProvider config={wagmiConfig}>

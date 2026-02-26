@@ -1,6 +1,11 @@
 import { parseUnits } from 'ethers';
 import { PublicKey, Connection, Transaction } from '@solana/web3.js';
-import { getAssociatedTokenAddress, createTransferInstruction, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import {
+  getAssociatedTokenAddress,
+  createTransferInstruction,
+  createAssociatedTokenAccountInstruction,
+  TOKEN_PROGRAM_ID,
+} from '@solana/spl-token';
 import { TOKENS, SOLANA_TOKENS } from './constants';
 
 interface EVMPaymentParams {
@@ -96,11 +101,26 @@ async function executeSolanaPayment(params: SolanaPaymentParams): Promise<Paymen
     toPubkey
   );
 
+  const toTokenAccountInfo = await connection.getAccountInfo(toTokenAccount);
+
   // Convert amount to lamports (USDC has 6 decimals)
   const amountLamports = Math.floor(amount * 1_000_000);
 
-  // Create transfer instruction
-  const transaction = new Transaction().add(
+  const transaction = new Transaction();
+
+  // Ensure receiver can accept USDC before transfer.
+  if (!toTokenAccountInfo) {
+    transaction.add(
+      createAssociatedTokenAccountInstruction(
+        fromPubkey,
+        toTokenAccount,
+        toPubkey,
+        mintPubkey
+      )
+    )
+  }
+
+  transaction.add(
     createTransferInstruction(
       fromTokenAccount,
       toTokenAccount,

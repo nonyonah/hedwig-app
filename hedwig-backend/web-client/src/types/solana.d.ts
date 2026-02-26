@@ -9,8 +9,14 @@ interface SolanaWallet {
     signTransaction(transaction: any): Promise<any>;
     signAllTransactions(transactions: any[]): Promise<any[]>;
     isConnected: boolean;
+    isPhantom?: boolean;
+    isSolflare?: boolean;
 }
 
 interface Window {
     solana?: SolanaWallet;
+    phantom?: {
+        solana?: SolanaWallet;
+    };
+    solflare?: SolanaWallet;
 }
