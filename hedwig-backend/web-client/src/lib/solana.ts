@@ -8,9 +8,9 @@
 import { Connection, PublicKey, Transaction, TransactionInstruction, SystemProgram } from '@solana/web3.js';
 
 // Constants
-export const SOLANA_RPC = 'https://api.devnet.solana.com';
+export const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
 export const SOLANA_PLATFORM_WALLET = '367XwKWueJw99K5b1jpwKhdYMAGgavoiV7oZvCFkv3Xt';
-export const SOLANA_USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'; // Devnet USDC
+export const SOLANA_USDC_MINT = 'EPjFWdd5Au7B7WqSqqxS7ZkFvCPScoqB9Ko6z8bn8js'; // Mainnet USDC
 export const USDC_DECIMALS = 6;
 export const LAMPORTS_PER_SOL = 1_000_000_000;
 

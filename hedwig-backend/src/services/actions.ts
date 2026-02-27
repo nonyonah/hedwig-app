@@ -298,7 +298,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
                 currency: token,
                 chain: chain,
                 status: 'DRAFT',
-                payment_link_url: `https://hedwig.app/pay/${Date.now()}` // Simulated URL
+                payment_link_url: `https://pay.hedwigbot.xyz/pay/${Date.now()}` // Simulated URL
             })
             .select()
             .single();

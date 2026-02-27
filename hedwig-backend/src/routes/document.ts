@@ -13,8 +13,8 @@ const logger = createLogger('Documents');
 
 const router = Router();
 
-// Vercel-hosted web client URL for invoice and payment link pages
-const WEB_CLIENT_URL = process.env.WEB_CLIENT_URL || 'https://web-client-eight-alpha.vercel.app';
+// Canonical public web URL for invoice and payment link pages.
+const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwig.money').replace(/\/+$/, '');
 
 /**
  * POST /api/documents/invoice

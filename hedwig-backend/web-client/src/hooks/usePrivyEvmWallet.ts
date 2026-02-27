@@ -1,32 +1,46 @@
 import { useMemo } from 'react';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
-import type { ConnectedWallet } from '@privy-io/react-auth';
-
-function getNumericChainId(caipChainId: string | undefined): number | undefined {
-  if (!caipChainId) return undefined;
-  const parts = caipChainId.split(':');
-  if (parts.length < 2) return undefined;
-  const parsed = Number(parts[1]);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
+import { useAccount, useConnect, useSwitchChain } from 'wagmi';
+import { base } from 'viem/chains';
 
 export function usePrivyEvmWallet() {
-  const { connectWallet } = usePrivy();
-  const { wallets, ready } = useWallets();
+  const { address, chainId, connector, isConnected, isConnecting } = useAccount();
+  const { connectAsync, connectors, isPending: isConnectPending } = useConnect();
+  const { switchChainAsync } = useSwitchChain();
 
-  const evmWallet = useMemo(() => {
-    return wallets.find((wallet): wallet is ConnectedWallet => wallet.type === 'ethereum');
-  }, [wallets]);
+  const connectEvmWallet = async () => {
+    const preferredConnector =
+      connectors.find((item) => item.id === 'injected') ||
+      connectors.find((item) => item.id === 'coinbaseWalletSDK') ||
+      connectors[0];
 
-  const connectEvmWallet = () => {
-    connectWallet({ walletChainType: 'ethereum-only' });
+    if (!preferredConnector) {
+      throw new Error('No EVM wallet connector is available.');
+    }
+
+    await connectAsync({
+      connector: preferredConnector,
+      chainId: base.id,
+    });
   };
 
+  const evmWallet = useMemo(() => {
+    if (!isConnected || !connector) return null;
+
+    return {
+      switchChain: async (targetChainId: number) => {
+        await switchChainAsync({ chainId: targetChainId });
+      },
+      getEthereumProvider: async () => {
+        return (await connector.getProvider()) as any;
+      },
+    };
+  }, [connector, isConnected, switchChainAsync]);
+
   return {
-    ready,
+    ready: !isConnecting && !isConnectPending,
     evmWallet,
-    address: evmWallet?.address,
-    chainId: getNumericChainId(evmWallet?.chainId),
+    address,
+    chainId,
     connectEvmWallet,
   };
 }

@@ -14,11 +14,11 @@ export const TOKENS = {
 } as const;
 
 export const SOLANA_TOKENS = {
-    USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Mainnet USDC
+    USDC: 'EPjFWdd5Au7B7WqSqqxS7ZkFvCPScoqB9Ko6z8bn8js', // Mainnet USDC
     USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
 } as const;
 
-export const SOLANA_RPC = 'https://api.devnet.solana.com';
+export const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
 
 export const HEDWIG_CONTRACTS = {
     base: '0x1c0A0eFBb438cc7705b947644F6AB88698b2704F',

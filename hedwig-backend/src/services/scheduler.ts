@@ -23,6 +23,12 @@ export const SchedulerService = {
             logger.debug('Running daily due date reminder check');
             await this.checkDueDateReminders();
         });
+
+        // Run every day at 3:30 AM UTC - prune stale/wrong-project Expo push tokens
+        cron.schedule('30 3 * * *', async () => {
+            logger.debug('Running Expo token cleanup job');
+            await NotificationService.cleanupExpoDeviceTokens();
+        });
     },
 
     /**
@@ -361,4 +367,3 @@ export const SchedulerService = {
         }
     }
 };
-

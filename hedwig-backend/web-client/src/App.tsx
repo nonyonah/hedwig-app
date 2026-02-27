@@ -6,6 +6,7 @@ import ExportWalletPage from './pages/ExportWalletPage';
 import FeedbackPage from './pages/FeedbackPage';
 import SuccessPage from './pages/SuccessPage';
 import { PrivyWrapper } from './lib/PrivyWrapper';
+import { OnchainWrapper } from './lib/OnchainWrapper';
 import './index.css';
 
 function App() {
@@ -14,14 +15,14 @@ function App() {
       <Routes>
         {/* Invoice routes */}
         <Route path="/invoice/:id" element={
-          <PrivyWrapper>
+          <OnchainWrapper>
             <InvoicePage />
-          </PrivyWrapper>
+          </OnchainWrapper>
         } />
         <Route path="/invoices/:id" element={
-          <PrivyWrapper>
+          <OnchainWrapper>
             <InvoicePage />
-          </PrivyWrapper>
+          </OnchainWrapper>
         } />
 
         {/* Contract routes */}
@@ -30,14 +31,14 @@ function App() {
 
         {/* Payment link routes */}
         <Route path="/pay/:id" element={
-          <PrivyWrapper>
+          <OnchainWrapper>
             <PaymentLinkPage />
-          </PrivyWrapper>
+          </OnchainWrapper>
         } />
         <Route path="/payment-link/:id" element={
-          <PrivyWrapper>
+          <OnchainWrapper>
             <PaymentLinkPage />
-          </PrivyWrapper>
+          </OnchainWrapper>
         } />
 
         {/* Export wallet route - wrapped with Privy */}

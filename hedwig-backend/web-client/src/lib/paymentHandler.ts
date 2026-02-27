@@ -32,25 +32,51 @@ interface PaymentResult {
 }
 
 const DEFAULT_SOLANA_RPC_ENDPOINTS = [
-  'https://solana-mainnet.g.alchemy.com/v2/eSa5NrMQkXT-bXFuSdka4',
-  'https://rpc.ankr.com/solana',
-  'https://solana-rpc.publicnode.com',
+  '/api/solana/rpc?cluster=devnet',
+  'https://api.devnet.solana.com',
 ];
 
 function getSolanaRpcEndpoints(): string[] {
-  const configuredPrimary = (import.meta.env.VITE_SOLANA_RPC || '').trim();
+  const configuredProxy = (import.meta.env.VITE_SOLANA_RPC_PROXY_URL || '').trim();
+  const apiBaseUrl = (import.meta.env.VITE_API_URL || '').trim();
   const configuredFallbacks = (import.meta.env.VITE_SOLANA_RPC_FALLBACKS || '')
     .split(',')
     .map((value: string) => value.trim())
     .filter(Boolean);
 
+  const primaryProxyEndpoint = configuredProxy || (apiBaseUrl ? `${apiBaseUrl}/api/solana/rpc?cluster=devnet` : '/api/solana/rpc?cluster=devnet');
+
   const endpoints = [
-    configuredPrimary,
+    primaryProxyEndpoint,
     ...configuredFallbacks,
     ...DEFAULT_SOLANA_RPC_ENDPOINTS,
   ].filter(Boolean);
 
   return [...new Set(endpoints)];
+}
+
+function redactRpcUrl(url: string): string {
+  return url.replace(/\/v2\/[^/?#]+/g, '/v2/***');
+}
+
+function isBlockhashNotFoundError(error: unknown): boolean {
+  const message = String((error as any)?.message || error || '').toLowerCase();
+  return message.includes('blockhash not found');
+}
+
+async function extractSolanaErrorLogs(error: unknown): Promise<string> {
+  const maybeError = error as any;
+  if (maybeError && typeof maybeError.getLogs === 'function') {
+    try {
+      const logs = await maybeError.getLogs();
+      if (Array.isArray(logs) && logs.length > 0) {
+        return logs.join('\n');
+      }
+    } catch {
+      // Ignore log extraction failures and fall back to message-only errors.
+    }
+  }
+  return '';
 }
 
 export async function executePayment(params: PaymentParams): Promise<PaymentResult> {
@@ -116,7 +142,7 @@ async function executeSolanaPayment(params: SolanaPaymentParams): Promise<Paymen
       break;
     } catch (error) {
       lastRpcError = error;
-      console.log(`[Solana] RPC endpoint unavailable: ${endpoint}`, error);
+      console.log(`[Solana] RPC endpoint unavailable: ${redactRpcUrl(endpoint)}`, error);
     }
   }
 
@@ -125,7 +151,7 @@ async function executeSolanaPayment(params: SolanaPaymentParams): Promise<Paymen
       `No available Solana RPC endpoint. Last error: ${lastRpcError instanceof Error ? lastRpcError.message : String(lastRpcError)}`
     );
   }
-  console.log(`[Solana] Using RPC endpoint: ${selectedRpcEndpoint}`);
+  console.log(`[Solana] Using RPC endpoint: ${redactRpcUrl(selectedRpcEndpoint)}`);
 
   const fromPubkey = new PublicKey(wallet.publicKey.toString());
   const toPubkey = new PublicKey(recipientAddress);
@@ -172,26 +198,89 @@ async function executeSolanaPayment(params: SolanaPaymentParams): Promise<Paymen
     )
   );
 
-  // Get recent blockhash
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-  transaction.recentBlockhash = blockhash;
-  transaction.feePayer = fromPubkey;
+  if (typeof wallet.signTransaction !== 'function') {
+    throw new Error('Wallet does not support transaction signing. Please use a compatible Solana wallet.');
+  }
 
-  // Sign and send via Reown wallet
-  const signedTx = await wallet.signAndSendTransaction(transaction);
-  const signature = signedTx.signature || signedTx;
+  const waitForSignatureConfirmation = async (
+    signature: string,
+    lastValidBlockHeight: number,
+    timeoutMs: number = 90_000
+  ) => {
+    const startedAt = Date.now();
 
-  // Wait for confirmation
-  await connection.confirmTransaction(
-    {
-      signature,
-      blockhash,
-      lastValidBlockHeight,
-    },
-    'confirmed'
-  );
+    while (Date.now() - startedAt < timeoutMs) {
+      const [statusResponse, blockHeight] = await Promise.all([
+        connection.getSignatureStatuses([signature]),
+        connection.getBlockHeight('confirmed'),
+      ]);
+
+      const status = statusResponse?.value?.[0];
+      if (status?.err) {
+        throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`);
+      }
+      if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
+        return;
+      }
+      if (blockHeight > lastValidBlockHeight) {
+        throw new Error('Signature has expired: block height exceeded.');
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    }
+
+    throw new Error('Timed out waiting for transaction confirmation.');
+  };
+
+  const signAndBroadcast = async () => {
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = fromPubkey;
+
+    const signedTx = await wallet.signTransaction(transaction);
+    const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+      skipPreflight: false,
+      maxRetries: 5,
+      preflightCommitment: 'confirmed',
+    });
+
+    return { signature, blockhash, lastValidBlockHeight };
+  };
+
+  const maxAttempts = 3;
+  let attempt = 0;
+  let lastError: unknown = null;
+  let broadcastResult: { signature: string; blockhash: string; lastValidBlockHeight: number } | null = null;
+
+  while (attempt < maxAttempts && !broadcastResult) {
+    attempt += 1;
+    try {
+      const nextBroadcast = await signAndBroadcast();
+      await waitForSignatureConfirmation(nextBroadcast.signature, nextBroadcast.lastValidBlockHeight);
+      broadcastResult = nextBroadcast;
+      break;
+    } catch (error) {
+      lastError = error;
+      const message = String((error as any)?.message || error || '').toLowerCase();
+      const shouldRetry =
+        isBlockhashNotFoundError(error) ||
+        message.includes('block height exceeded') ||
+        message.includes('expired');
+
+      if (!shouldRetry || attempt >= maxAttempts) {
+        const logs = await extractSolanaErrorLogs(error);
+        throw new Error(logs ? `${(error as any)?.message || error}\n${logs}` : String((error as any)?.message || error));
+      }
+
+      console.warn(`[Solana] Retrying transaction with fresh blockhash (attempt ${attempt + 1}/${maxAttempts})...`);
+    }
+  }
+
+  if (!broadcastResult) {
+    throw new Error(String((lastError as any)?.message || lastError || 'Failed to submit Solana transaction'));
+  }
 
   return {
-    txHash: signature,
+    txHash: broadcastResult.signature,
   };
 }

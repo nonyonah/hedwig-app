@@ -1,21 +1,20 @@
 import { createConfig, http } from 'wagmi';
-import { base } from 'wagmi/chains';
+import { base, baseSepolia } from 'wagmi/chains';
 import { walletConnect, coinbaseWallet, injected } from 'wagmi/connectors';
 
 const projectId = import.meta.env.VITE_REOWN_PROJECT_ID;
-
-if (!projectId) {
-  throw new Error('VITE_REOWN_PROJECT_ID is not set');
-}
+const baseSepoliaRpcUrl = import.meta.env.VITE_BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
+const baseMainnetRpcUrl = import.meta.env.VITE_BASE_MAINNET_RPC_URL || 'https://mainnet.base.org';
 
 export const wagmiConfig = createConfig({
-  chains: [base],
+  chains: [baseSepolia, base],
   connectors: [
-    walletConnect({ projectId }),
+    ...(projectId ? [walletConnect({ projectId })] : []),
     coinbaseWallet({ appName: 'Hedwig Payments' }),
-    injected(), // MetaMask and other injected wallets
+    injected(),
   ],
   transports: {
-    [base.id]: http(),
+    [baseSepolia.id]: http(baseSepoliaRpcUrl),
+    [base.id]: http(baseMainnetRpcUrl),
   },
 });

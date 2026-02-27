@@ -1,5 +1,6 @@
 import { PrivyProvider } from '@privy-io/react-auth';
 import type { ReactNode } from 'react';
+import { baseSepolia } from 'viem/chains';
 
 interface PrivyWrapperProps {
     children: ReactNode;
@@ -42,6 +43,8 @@ export function PrivyWrapper({ children }: PrivyWrapperProps) {
                     accentColor: '#7c3aed',
                     logo: '/hedwig-logo.png',
                 },
+                defaultChain: baseSepolia,
+                supportedChains: [baseSepolia],
                 loginMethods: ['email', 'google', 'apple'],
                 embeddedWallets: {
                     ethereum: {

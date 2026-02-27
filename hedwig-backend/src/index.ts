@@ -32,6 +32,7 @@ import kycRoutes from './routes/kyc';
 import diditWebhookRoutes from './routes/diditWebhook';
 import blockradarWebhookRoutes from './routes/blockradarWebhook';
 import creationBoxRoutes from './routes/creation-box';
+import solanaRpcRoutes from './routes/solanaRpc';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -202,6 +203,7 @@ app.use('/api/kyc', kycRoutes);
 app.use('/api/webhooks/didit', diditWebhookRoutes);
 app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);
 app.use('/api/creation-box', creationBoxRoutes);
+app.use('/api/solana/rpc', solanaRpcRoutes);
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));

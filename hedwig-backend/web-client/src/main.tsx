@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Buffer } from 'buffer';
+import '@coinbase/onchainkit/styles.css';
 import App from './App';
 import './index.css';
 

@@ -36,6 +36,48 @@ export interface ExpoPushTicket {
  * NotificationService - Sends push notifications via Expo Push API
  */
 class NotificationService {
+    private isValidExpoToken(expoPushToken: string): boolean {
+        return expoPushToken.startsWith('ExponentPushToken[') || expoPushToken.startsWith('ExpoPushToken[');
+    }
+
+    private async pruneTokens(tokens: string[]): Promise<number> {
+        if (tokens.length === 0) return 0;
+
+        const { error, count } = await supabase
+            .from('device_tokens')
+            .delete({ count: 'exact' })
+            .in('expo_push_token', tokens);
+
+        if (error) {
+            logger.error('Failed pruning device tokens', { error: error.message, count: tokens.length });
+            return 0;
+        }
+
+        return count || 0;
+    }
+
+    private async pruneMismatchedExperienceTokens(details: Record<string, string[]>): Promise<void> {
+        const expectedExperienceId = process.env.EXPO_EXPECTED_EXPERIENCE_ID;
+        if (!expectedExperienceId) {
+            logger.warn('[Notifications] EXPO_EXPECTED_EXPERIENCE_ID not set; skipping wrong-project token pruning.');
+            return;
+        }
+
+        const tokensToDelete = Object.entries(details)
+            .filter(([experienceId]) => experienceId !== expectedExperienceId)
+            .flatMap(([, tokens]) => tokens || [])
+            .filter(Boolean);
+
+        if (tokensToDelete.length === 0) return;
+
+        const deleted = await this.pruneTokens(tokensToDelete);
+        logger.info('[Notifications] Pruned mismatched Expo experience tokens', {
+            expectedExperienceId,
+            requestedDeleteCount: tokensToDelete.length,
+            deletedCount: deleted,
+        });
+    }
+
     /**
      * Send a push notification to a single device
      */
@@ -82,9 +124,9 @@ class NotificationService {
     /**
      * Send push notifications to multiple devices
      */
-    async sendBulkNotifications(tokens: string[], payload: PushNotificationPayload): Promise<ExpoPushTicket[]> {
+    async sendBulkNotifications(tokens: string[], payload: PushNotificationPayload, allowRegroup: boolean = true): Promise<ExpoPushTicket[]> {
         const messages: ExpoPushMessage[] = tokens
-            .filter(token => token.startsWith('ExponentPushToken[') || token.startsWith('ExpoPushToken['))
+            .filter(token => this.isValidExpoToken(token))
             .map(token => ({
                 to: token,
                 title: payload.title,
@@ -109,9 +151,38 @@ class NotificationService {
 
             return response.data.data as ExpoPushTicket[];
         } catch (error: any) {
+            const responseData = error?.response?.data;
+            const firstError = Array.isArray(responseData?.errors) ? responseData.errors[0] : undefined;
+            const details = firstError?.details;
+
+            // Handle PUSH_TOO_MANY_EXPERIENCE_IDS by regrouping tokens per experience ID.
+            if (
+                allowRegroup &&
+                firstError?.code === 'PUSH_TOO_MANY_EXPERIENCE_IDS' &&
+                details &&
+                typeof details === 'object'
+            ) {
+                logger.warn('[Notifications] PUSH_TOO_MANY_EXPERIENCE_IDS. Regrouping tokens by experienceId.', {
+                    details,
+                });
+                await this.pruneMismatchedExperienceTokens(details as Record<string, string[]>);
+
+                const allTickets: ExpoPushTicket[] = [];
+                for (const experienceId of Object.keys(details)) {
+                    const groupTokens = details[experienceId] as string[] | undefined;
+                    if (!groupTokens || groupTokens.length === 0) continue;
+
+                    // Recursively send for this subset without further regrouping.
+                    const groupTickets = await this.sendBulkNotifications(groupTokens, payload, false);
+                    allTickets.push(...groupTickets);
+                }
+
+                return allTickets;
+            }
+
             logger.error('Error sending bulk notifications', { 
                 error: error.message,
-                response: error.response?.data
+                response: responseData
             });
             return [];
         }
@@ -229,6 +300,54 @@ class NotificationService {
         } catch (error: any) {
             logger.error('Error removing device token', { error: error.message });
             return false;
+        }
+    }
+
+    /**
+     * Periodic cleanup for Expo device tokens:
+     * - Remove malformed tokens
+     * - Remove tokens not updated recently
+     */
+    async cleanupExpoDeviceTokens(staleDays: number = 45): Promise<{ invalidDeleted: number; staleDeleted: number }> {
+        const cutoffDate = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000).toISOString();
+
+        try {
+            const { data: allTokens, error: fetchError } = await supabase
+                .from('device_tokens')
+                .select('expo_push_token');
+
+            if (fetchError) {
+                logger.error('Failed to fetch device tokens for cleanup', { error: fetchError.message });
+                return { invalidDeleted: 0, staleDeleted: 0 };
+            }
+
+            const invalidTokens = (allTokens || [])
+                .map((row: any) => row.expo_push_token as string)
+                .filter((token: string) => token && !this.isValidExpoToken(token));
+
+            const invalidDeleted = await this.pruneTokens(invalidTokens);
+
+            const { error: staleError, count: staleDeletedCount } = await supabase
+                .from('device_tokens')
+                .delete({ count: 'exact' })
+                .lt('updated_at', cutoffDate);
+
+            if (staleError) {
+                logger.error('Failed to prune stale device tokens', { error: staleError.message });
+                return { invalidDeleted, staleDeleted: 0 };
+            }
+
+            const staleDeleted = staleDeletedCount || 0;
+            logger.info('[Notifications] Expo token cleanup completed', {
+                staleDays,
+                invalidDeleted,
+                staleDeleted,
+            });
+
+            return { invalidDeleted, staleDeleted };
+        } catch (error: any) {
+            logger.error('Unexpected error during Expo token cleanup', { error: error.message });
+            return { invalidDeleted: 0, staleDeleted: 0 };
         }
     }
 

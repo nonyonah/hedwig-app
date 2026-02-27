@@ -33,11 +33,30 @@ interface PaymentLinkData {
     };
     content?: {
         blockradar_url?: string;
-        [key: string]: any;
+        [key: string]: unknown;
     };
 }
 
 type ChainId = 'base' | 'baseSepolia' | 'celo' | 'solana';
+
+type Eip1193Provider = {
+    request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+};
+
+const getErrorMessage = (err: unknown): string => {
+    if (typeof err === 'object' && err !== null && 'message' in err) {
+        return String((err as { message: unknown }).message);
+    }
+    return String(err ?? '');
+};
+
+const getErrorCode = (err: unknown): number | undefined => {
+    if (typeof err === 'object' && err !== null && 'code' in err) {
+        const code = (err as { code: unknown }).code;
+        return typeof code === 'number' ? code : undefined;
+    }
+    return undefined;
+};
 
 // Helper function to map chain names to chain IDs
 const getChainId = (chain: ChainId): number => {
@@ -53,9 +72,61 @@ const getInjectedSolanaWallet = () => {
     return window.phantom?.solana || window.solflare || window.solana;
 };
 
+const parseChainIdHex = (value: unknown): number => {
+    if (typeof value !== 'string') return NaN;
+    return value.startsWith('0x') ? parseInt(value, 16) : Number(value);
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const ensureWalletOnTargetChain = async (provider: Eip1193Provider, targetChainId: number): Promise<boolean> => {
+    const targetHex = `0x${targetChainId.toString(16)}`;
+
+    const readActiveChain = async () => parseChainIdHex(await provider.request({ method: 'eth_chainId' }));
+    let activeChainId = await readActiveChain();
+    if (activeChainId === targetChainId) return true;
+
+    try {
+        await provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: targetHex }],
+        });
+    } catch (switchError: unknown) {
+        const code = getErrorCode(switchError);
+        if (code === 4902 && targetChainId === 84532) {
+            await provider.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                    chainId: '0x14a34',
+                    chainName: 'Base Sepolia',
+                    nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+                    rpcUrls: ['https://sepolia.base.org'],
+                    blockExplorerUrls: ['https://sepolia.basescan.org'],
+                }],
+            });
+            await provider.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: targetHex }],
+            });
+        } else {
+            throw switchError;
+        }
+    }
+
+    // Some connectors/wallets take a few seconds to emit the updated chainId.
+    for (let i = 0; i < 40; i += 1) {
+        await sleep(250);
+        activeChainId = await readActiveChain();
+        if (activeChainId === targetChainId) return true;
+    }
+
+    console.warn('[EVM] Wallet chainId did not update after switch attempt.', { activeChainId, targetChainId });
+    throw new Error('Wallet is not on Base. Please switch network in your wallet and try again.');
+};
+
 export default function PaymentLinkPage() {
     const { id } = useParams<{ id: string }>();
-    const { evmWallet, address: evmAddress, chainId: evmChainId, connectEvmWallet } = usePrivyEvmWallet();
+    const { evmWallet, address: evmAddress, connectEvmWallet } = usePrivyEvmWallet();
 
     const [paymentLink, setPaymentLink] = useState<PaymentLinkData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -204,18 +275,9 @@ export default function PaymentLinkPage() {
             // Get the target chain ID
             const targetChainId = getChainId(selectedChain);
 
-            // Switch chain if necessary
-            if (evmChainId !== targetChainId) {
-                console.log('[EVM] Switching chain to', targetChainId);
-                try {
-                    await evmWallet.switchChain(targetChainId);
-                } catch (err) {
-                    console.error('[EVM] Chain switch failed:', err);
-                    throw new Error('Please switch to the correct network in your wallet');
-                }
-            }
-
-            const provider = await evmWallet.getEthereumProvider();
+            const provider = (await evmWallet.getEthereumProvider()) as Eip1193Provider;
+            console.log('[EVM] Ensuring wallet chain is', targetChainId);
+            await ensureWalletOnTargetChain(provider, targetChainId);
             
             if (selectedToken === 'ETH') {
                 // Native ETH transfer
@@ -233,13 +295,71 @@ export default function PaymentLinkPage() {
             } else if (tokenAddress) {
                 // ERC20 Transfer
                 const tokenContract = new Contract(tokenAddress, ERC20_ABI);
-                const decimals = 6;
+                let decimals = 6;
+                try {
+                    const decimalsData = tokenContract.interface.encodeFunctionData('decimals', []);
+                    const decimalsHex = (await provider.request({
+                        method: 'eth_call',
+                        params: [{ to: tokenAddress, data: decimalsData }, 'latest'],
+                    })) as string;
+                    const [onchainDecimals] = tokenContract.interface.decodeFunctionResult('decimals', decimalsHex);
+                    decimals = Number(onchainDecimals);
+                } catch {
+                    // Keep default (USDC/USDT are 6) if read fails.
+                }
                 const amountInUnits = parseUnits(paymentLink.amount.toString(), decimals);
                 
+                // Balance precheck to avoid "transfer amount exceeds balance" revert.
+                try {
+                    const balanceData = tokenContract.interface.encodeFunctionData('balanceOf', [evmAddress]);
+                    const balanceHex = (await provider.request({
+                        method: 'eth_call',
+                        params: [{ to: tokenAddress, data: balanceData }, 'latest'],
+                    })) as string;
+                    const [balance] = tokenContract.interface.decodeFunctionResult('balanceOf', balanceHex);
+                    if ((balance as bigint) < amountInUnits) {
+                        throw new Error(`Insufficient ${selectedToken} balance on the selected network.`);
+                    }
+                } catch (balanceError: unknown) {
+                    const message = getErrorMessage(balanceError);
+                    if (message.toLowerCase().includes('insufficient')) throw balanceError;
+                    // If RPC read fails, allow the send path; wallet will still revert if truly insufficient.
+                    console.warn('[EVM] Could not precheck token balance. Continuing to send transaction.', balanceError);
+                }
+
                 const data = tokenContract.interface.encodeFunctionData('transfer', [
                     recipientAddress,
                     amountInUnits
                 ]);
+
+                // Dry-run call for clear failures before broadcast.
+                try {
+                    await provider.request({
+                        method: 'eth_call',
+                        params: [{
+                            from: evmAddress,
+                            to: tokenAddress,
+                            data,
+                        }, 'latest'],
+                    });
+                } catch (callError: unknown) {
+                    const message = getErrorMessage(callError);
+                    const lowerMessage = message.toLowerCase();
+                    if (lowerMessage.includes('execution reverted')) {
+                        throw new Error(`Transfer reverted. Ensure you have enough ${selectedToken} and ETH for gas on the selected network.`);
+                    }
+                    // WalletConnect/public RPC can intermittently fail on read calls.
+                    // Do not block send flow for transport errors.
+                    if (
+                        lowerMessage.includes('failed to fetch') ||
+                        lowerMessage.includes('http request failed') ||
+                        lowerMessage.includes('rpc.walletconnect')
+                    ) {
+                        console.warn('[EVM] Preflight eth_call failed due to RPC transport issue. Continuing to send transaction.', callError);
+                    } else {
+                        throw callError;
+                    }
+                }
                 
                 const txHash = await provider.request({
                     method: 'eth_sendTransaction',
@@ -266,7 +386,7 @@ export default function PaymentLinkPage() {
                     method: 'eth_getTransactionReceipt',
                     params: [finalTxHash]
                 });
-                if (receipt && (receipt as any).status === '0x1') {
+                if (typeof receipt === 'object' && receipt !== null && 'status' in receipt && (receipt as { status: unknown }).status === '0x1') {
                     confirmed = true;
                 }
             }
@@ -301,7 +421,11 @@ export default function PaymentLinkPage() {
             setShowSuccess(true);
         } catch (err) {
             console.error('[EVM] Payment failed:', err);
-            alert(err instanceof Error ? err.message : 'Payment failed');
+            const raw = err instanceof Error ? err.message : getErrorMessage(err);
+            const errorMessage = raw.toLowerCase().includes('execution reverted')
+                ? 'Transfer reverted. Ensure you have enough Base USDC and ETH for gas.'
+                : raw;
+            alert(errorMessage);
         } finally {
             setIsPaying(false);
         }
@@ -318,6 +442,9 @@ export default function PaymentLinkPage() {
             celo: 'https://celoscan.io/tx/',
             solana: 'https://solscan.io/tx/',
         };
+        if (selectedChain === 'solana') {
+            return `${explorers.solana}${hash}`;
+        }
         return `${explorers[selectedChain]}${hash}`;
     };
 
@@ -553,7 +680,11 @@ export default function PaymentLinkPage() {
                         <button
                             className={`pay-button redesigned ${isPaying ? 'loading' : ''}`}
                             onClick={() => {
-                                evmAddress ? handleEVMPayment() : handleConnectWallet();
+                                if (evmAddress) {
+                                    handleEVMPayment();
+                                } else {
+                                    handleConnectWallet();
+                                }
                             }}
                             disabled={isPaying}
                             style={{
