@@ -5,6 +5,7 @@ import { createLogger } from '../utils/logger';
 const logger = createLogger('Notifications');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+const EXPO_RECEIPTS_URL = 'https://exp.host/--/api/v2/push/getReceipts';
 
 export interface PushNotificationPayload {
     title: string;
@@ -30,6 +31,15 @@ export interface ExpoPushTicket {
     id?: string;
     message?: string;
     details?: any;
+}
+
+interface ExpoPushReceipt {
+    status: 'ok' | 'error';
+    message?: string;
+    details?: {
+        error?: string;
+        [key: string]: any;
+    };
 }
 
 /**
@@ -78,6 +88,75 @@ class NotificationService {
         });
     }
 
+    private chunkArray<T>(items: T[], size: number): T[][] {
+        const chunks: T[][] = [];
+        for (let i = 0; i < items.length; i += size) {
+            chunks.push(items.slice(i, i + size));
+        }
+        return chunks;
+    }
+
+    private async pruneTokensFromTickets(messages: ExpoPushMessage[], tickets: ExpoPushTicket[]): Promise<void> {
+        const tokensToDelete = tickets
+            .map((ticket, index) => ({ ticket, token: messages[index]?.to }))
+            .filter(({ ticket, token }) => {
+                if (!token) return false;
+                const errorCode = ticket?.details?.error;
+                return ticket?.status === 'error' && errorCode === 'DeviceNotRegistered';
+            })
+            .map(({ token }) => token);
+
+        if (tokensToDelete.length === 0) return;
+
+        const deleted = await this.pruneTokens(tokensToDelete);
+        logger.info('[Notifications] Pruned unregistered tokens from Expo tickets', {
+            requestedDeleteCount: tokensToDelete.length,
+            deletedCount: deleted,
+        });
+    }
+
+    private async pruneTokensFromReceipts(ticketToToken: Record<string, string>): Promise<void> {
+        const receiptIds = Object.keys(ticketToToken);
+        if (receiptIds.length === 0) return;
+
+        const chunks = this.chunkArray(receiptIds, 300);
+        const tokensToDelete: string[] = [];
+
+        for (const chunk of chunks) {
+            try {
+                const response = await axios.post(
+                    EXPO_RECEIPTS_URL,
+                    { ids: chunk },
+                    {
+                        headers: {
+                            'Accept': 'application/json',
+                            'Accept-Encoding': 'gzip, deflate',
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                );
+
+                const receipts = response.data?.data || {};
+                for (const [id, receipt] of Object.entries(receipts)) {
+                    const typed = receipt as ExpoPushReceipt;
+                    if (typed?.status === 'error' && typed?.details?.error === 'DeviceNotRegistered') {
+                        const token = ticketToToken[id];
+                        if (token) tokensToDelete.push(token);
+                    }
+                }
+            } catch (error: any) {
+                logger.warn('[Notifications] Failed to fetch Expo receipts', { error: error.message });
+            }
+        }
+
+        if (tokensToDelete.length === 0) return;
+        const deleted = await this.pruneTokens(tokensToDelete);
+        logger.info('[Notifications] Pruned unregistered tokens from Expo receipts', {
+            requestedDeleteCount: tokensToDelete.length,
+            deletedCount: deleted,
+        });
+    }
+
     /**
      * Send a push notification to a single device
      */
@@ -112,6 +191,9 @@ class NotificationService {
                 logger.info('Sent notification');
             } else {
                 logger.error('Failed to send notification');
+                if (ticket?.details?.error === 'DeviceNotRegistered') {
+                    await this.pruneTokens([expoPushToken]);
+                }
             }
 
             return ticket || { status: 'error', message: 'No ticket received' };
@@ -149,7 +231,18 @@ class NotificationService {
                 },
             });
 
-            return response.data.data as ExpoPushTicket[];
+            const tickets = (response.data.data || []) as ExpoPushTicket[];
+            await this.pruneTokensFromTickets(messages, tickets);
+
+            const ticketToToken: Record<string, string> = {};
+            tickets.forEach((ticket, index) => {
+                if (ticket?.id) {
+                    ticketToToken[ticket.id] = messages[index]?.to;
+                }
+            });
+            await this.pruneTokensFromReceipts(ticketToToken);
+
+            return tickets;
         } catch (error: any) {
             const responseData = error?.response?.data;
             const firstError = Array.isArray(responseData?.errors) ? responseData.errors[0] : undefined;

@@ -48,6 +48,16 @@ export function usePushNotifications() {
         }
 
         try {
+            // Configure Android notification channel first (Expo recommendation)
+            if (Platform.OS === 'android') {
+                await Notifications.setNotificationChannelAsync('default', {
+                    name: 'Default',
+                    importance: Notifications.AndroidImportance.MAX,
+                    vibrationPattern: [0, 250, 250, 250],
+                    lightColor: '#FF6B35',
+                });
+            }
+
             // Check existing permissions
             const { status: existingStatus } = await Notifications.getPermissionsAsync();
             let finalStatus = existingStatus;
@@ -67,11 +77,10 @@ export function usePushNotifications() {
             // Try multiple sources for project ID
             const projectId =
                 Constants.expoConfig?.extra?.eas?.projectId ||
-                (Constants as any).easConfig?.projectId ||
-                Constants.expoConfig?.owner; // Fallback
+                (Constants as any).easConfig?.projectId;
 
             if (!projectId) {
-                setError('Project ID not found - configure in app.json');
+                setError('EAS project ID not found - configure expo.extra.eas.projectId');
                 return null;
             }
 
@@ -81,20 +90,14 @@ export function usePushNotifications() {
             });
 
             const token = tokenData.data;
+            if (!token.startsWith('ExpoPushToken[') && !token.startsWith('ExponentPushToken[')) {
+                setError('Invalid Expo push token received');
+                return null;
+            }
             setExpoPushToken(token);
 
             // Store token locally
             await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
-
-            // Configure Android notification channel
-            if (Platform.OS === 'android') {
-                await Notifications.setNotificationChannelAsync('default', {
-                    name: 'Default',
-                    importance: Notifications.AndroidImportance.MAX,
-                    vibrationPattern: [0, 250, 250, 250],
-                    lightColor: '#FF6B35',
-                });
-            }
 
             return token;
         } catch (err: any) {
