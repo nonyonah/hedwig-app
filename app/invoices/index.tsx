@@ -18,7 +18,7 @@ if (Platform.OS === 'ios') {
     } catch (e) { }
 }
 import { useAuth } from '../../hooks/useAuth';
-import { List, Receipt, Clock, CheckCircle, AlertCircle as WarningCircle, X, CircleUser as UserCircle, Share2 as ShareNetwork, Wallet, Trash, Bell, MoreHorizontal as DotsThree } from 'lucide-react-native';
+import { List, Receipt, Clock, CheckCircle, AlertCircle as WarningCircle, X, CircleUser as UserCircle, Share2 as ShareNetwork, Wallet, Trash, Bell, MoreHorizontal as DotsThree } from '../../components/ui/AppIcon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -806,7 +806,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 24,
+        fontSize: Platform.OS === 'android' ? 22 : 24,
         color: Colors.textPrimary,
     },
     profileIcon: {

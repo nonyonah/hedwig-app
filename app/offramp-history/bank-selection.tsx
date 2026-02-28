@@ -12,7 +12,7 @@ import {
     Platform
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Search as MagnifyingGlass, X, Landmark as BankIcon, ChevronLeft as CaretLeft } from 'lucide-react-native';
+import { Search as MagnifyingGlass, X, Landmark as BankIcon, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 

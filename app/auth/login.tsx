@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft as CaretLeft } from 'lucide-react-native';
+import { ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/colors';
 import { Button } from '../../components/Button';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';

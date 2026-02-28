@@ -10,7 +10,6 @@ import {
     KeyboardAvoidingView,
     Platform,
     Alert,
-    SafeAreaView,
     Image,
     Keyboard,
     DeviceEventEmitter,
@@ -21,13 +20,13 @@ import {
     UIManager,
 } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
-import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, Search as MagnifyingGlass, X, ChevronDown as CaretDown, Landmark as BankIcon, ArrowUpDown as ArrowsDownUp } from 'lucide-react-native';
+import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, Search as MagnifyingGlass, X, ChevronDown as CaretDown, Landmark as BankIcon, ArrowUpDown as ArrowsDownUp } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAuth } from '../../hooks/useAuth';
-import { BottomSheetModal, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { OfframpConfirmationModal } from '../../components/OfframpConfirmationModal';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 let ContextMenu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
@@ -43,6 +42,7 @@ import { SolanaBridgeModal } from '../../components/SolanaBridgeModal';
 import { useEmbeddedSolanaWallet, useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { useWallet } from '../../hooks/useWallet';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Network options
 const NETWORKS = [
@@ -61,12 +61,25 @@ interface Bank {
     name: string;
 }
 
+interface Beneficiary {
+    id: string;
+    bankCode: string;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    countryId: string;
+    currency: string;
+    networkId: string;
+    createdAt: number;
+}
+
+const BENEFICIARIES_STORAGE_KEY = 'hedwig_withdrawal_beneficiaries_v1';
+
 export default function CreateWithdrawalScreen() {
     const router = useRouter();
     const navigation = useNavigation();
     const themeColors = useThemeColors();
     const { getAccessToken } = useAuth();
-    const insets = useSafeAreaInsets();
 
     // Form State
     const [amount, setAmount] = useState('');
@@ -77,6 +90,7 @@ export default function CreateWithdrawalScreen() {
     const [accountName, setAccountName] = useState('');
     const [isValidatingAccount, setIsValidatingAccount] = useState(false);
     const [accountError, setAccountError] = useState('');
+    const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
 
     // Bank Selection State
     // Removed local bank fetching state
@@ -86,6 +100,7 @@ export default function CreateWithdrawalScreen() {
     // chainSheetRef removed
     const confirmModalRef = useRef<BottomSheetModal>(null);
     const bridgeModalRef = useRef<BottomSheetModal>(null);
+    const beneficiariesSheetRef = useRef<BottomSheetModal>(null);
 
     // Wallets & Address
     const { address: baseAddress } = useWallet();
@@ -110,6 +125,7 @@ export default function CreateWithdrawalScreen() {
     // Snap points - fixed to be higher as requested
     const snapPoints = useMemo(() => ['90%'], []);
     const chainSnapPoints = useMemo(() => ['40%'], []);
+    const beneficiariesSnapPoints = useMemo(() => ['55%'], []);
 
     // Load supported banks
     useEffect(() => {
@@ -124,6 +140,32 @@ export default function CreateWithdrawalScreen() {
             subscription.remove();
         };
     }, []);
+
+    const loadBeneficiaries = useCallback(async () => {
+        try {
+            const raw = await AsyncStorage.getItem(BENEFICIARIES_STORAGE_KEY);
+            if (!raw) {
+                setBeneficiaries([]);
+                return;
+            }
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) {
+                setBeneficiaries([]);
+                return;
+            }
+            const cleaned = parsed
+                .filter((item: any) => typeof item?.accountNumber === 'string' && typeof item?.bankName === 'string')
+                .slice(0, 20);
+            setBeneficiaries(cleaned);
+        } catch (error) {
+            console.log('[Beneficiaries] Failed to load:', error);
+            setBeneficiaries([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadBeneficiaries();
+    }, [loadBeneficiaries]);
 
     // Reset bank when country changes
     useEffect(() => {
@@ -183,6 +225,60 @@ export default function CreateWithdrawalScreen() {
             setIsValidatingAccount(false);
         }
     };
+
+    const saveCurrentAsBeneficiary = useCallback(async (silent = false) => {
+        if (!selectedBank || !accountNumber || !accountName) {
+            if (!silent) {
+                Alert.alert('Missing details', 'Verify bank details first before saving beneficiary.');
+            }
+            return false;
+        }
+
+        const beneficiary: Beneficiary = {
+            id: `${selectedBank.code || selectedBank.name}-${accountNumber}-${selectedCountry.currency}`,
+            bankCode: selectedBank.code,
+            bankName: selectedBank.name,
+            accountNumber,
+            accountName,
+            countryId: selectedCountry.id,
+            currency: selectedCountry.currency,
+            networkId: selectedNetwork.id,
+            createdAt: Date.now(),
+        };
+
+        try {
+            const existingRaw = await AsyncStorage.getItem(BENEFICIARIES_STORAGE_KEY);
+            const existing: Beneficiary[] = existingRaw ? JSON.parse(existingRaw) : [];
+            const deduped = Array.isArray(existing)
+                ? existing.filter((item) => item.id !== beneficiary.id)
+                : [];
+            const next = [beneficiary, ...deduped].slice(0, 20);
+            await AsyncStorage.setItem(BENEFICIARIES_STORAGE_KEY, JSON.stringify(next));
+            setBeneficiaries(next);
+            if (!silent) {
+                Alert.alert('Saved', 'Beneficiary added successfully.');
+            }
+            return true;
+        } catch (error) {
+            console.log('[Beneficiaries] Save error:', error);
+            if (!silent) {
+                Alert.alert('Save failed', 'Could not save beneficiary. Please try again.');
+            }
+            return false;
+        }
+    }, [selectedBank, accountNumber, accountName, selectedCountry.id, selectedCountry.currency, selectedNetwork.id]);
+
+    const applyBeneficiary = useCallback((beneficiary: Beneficiary) => {
+        const country = COUNTRIES.find((c) => c.id === beneficiary.countryId) || COUNTRIES[0];
+        const network = NETWORKS.find((n) => n.id === beneficiary.networkId) || NETWORKS[0];
+
+        setSelectedCountry(country);
+        setSelectedNetwork(network);
+        setSelectedBank({ code: beneficiary.bankCode, name: beneficiary.bankName });
+        setAccountNumber(beneficiary.accountNumber);
+        setAccountName(beneficiary.accountName);
+        setAccountError('');
+    }, []);
 
     const handleReview = () => {
         console.log('[CreateWithdrawal] handleReview called', {
@@ -247,6 +343,7 @@ export default function CreateWithdrawalScreen() {
     };
 
     const handleSuccess = (orderId: string) => {
+        void saveCurrentAsBeneficiary(true);
         if (navigation.canGoBack()) {
             router.back();
             return;
@@ -293,6 +390,14 @@ export default function CreateWithdrawalScreen() {
     const handleOpenBankSheet = useCallback(() => {
         router.push({ pathname: '/offramp-history/bank-selection', params: { currency: selectedCountry.currency } });
     }, [selectedCountry]);
+
+    const handleOpenBeneficiariesSheet = useCallback(() => {
+        if (!beneficiaries.length) {
+            Alert.alert('No beneficiaries yet', 'Add a beneficiary after verifying account details.');
+            return;
+        }
+        beneficiariesSheetRef.current?.present();
+    }, [beneficiaries.length]);
 
     return (
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -443,6 +548,23 @@ export default function CreateWithdrawalScreen() {
                             />
                         )}
 
+                        <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Beneficiaries</Text>
+                        <TouchableOpacity
+                            style={[styles.authInputContainer, { backgroundColor: themeColors.surface }]}
+                            onPress={handleOpenBeneficiariesSheet}
+                        >
+                            <BankIcon size={18} color={themeColors.textSecondary} />
+                            <Text
+                                style={[styles.authInput, styles.beneficiaryInputText, { color: beneficiaries.length ? themeColors.textPrimary : themeColors.textSecondary }]}
+                                numberOfLines={1}
+                            >
+                                {beneficiaries.length
+                                    ? 'Choose beneficiary'
+                                    : 'No beneficiaries yet'}
+                            </Text>
+                            <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                        </TouchableOpacity>
+
                         {/* Bank Selection */}
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Bank Name</Text>
                         <TouchableOpacity
@@ -510,6 +632,19 @@ export default function CreateWithdrawalScreen() {
                             </>
                         )}
 
+                        {!!accountName && !accountError && !!selectedBank && (
+                            <TouchableOpacity
+                                style={[styles.saveBeneficiaryButton, { backgroundColor: themeColors.surface }]}
+                                onPress={() => {
+                                    void saveCurrentAsBeneficiary();
+                                }}
+                            >
+                                <Text style={[styles.saveBeneficiaryText, { color: themeColors.textPrimary }]}>
+                                    Add beneficiary
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
                         <Text style={[styles.helperText, { color: themeColors.textSecondary }]}>
                             Withdrawals are processed instantly.
                         </Text>
@@ -550,6 +685,47 @@ export default function CreateWithdrawalScreen() {
                 } : null}
                 onSuccess={handleSuccess}
             />
+
+            <BottomSheetModal
+                ref={beneficiariesSheetRef}
+                index={0}
+                snapPoints={beneficiariesSnapPoints}
+                enablePanDownToClose
+                backdropComponent={renderBackdrop}
+                backgroundStyle={{ backgroundColor: themeColors.background }}
+                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+            >
+                <BottomSheetView style={styles.beneficiariesSheet}>
+                    <Text style={[styles.beneficiariesSheetTitle, { color: themeColors.textPrimary }]}>Beneficiaries</Text>
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.beneficiariesList}
+                    >
+                        {beneficiaries.map((beneficiary) => (
+                            <TouchableOpacity
+                                key={beneficiary.id}
+                                style={[styles.beneficiaryItem, { backgroundColor: themeColors.surface }]}
+                                onPress={() => {
+                                    applyBeneficiary(beneficiary);
+                                    beneficiariesSheetRef.current?.dismiss();
+                                }}
+                            >
+                                <View style={styles.beneficiaryItemIcon}>
+                                    <BankIcon size={16} color={themeColors.textSecondary} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.beneficiaryItemTitle, { color: themeColors.textPrimary }]}>
+                                        {beneficiary.accountName}
+                                    </Text>
+                                    <Text style={[styles.beneficiaryItemSubtitle, { color: themeColors.textSecondary }]}>
+                                        {beneficiary.bankName} • {beneficiary.accountNumber}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </BottomSheetView>
+            </BottomSheetModal>
 
             {/* Solana Bridge Modal */}
             <SolanaBridgeModal
@@ -632,7 +808,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 17,
+        fontSize: Platform.OS === 'android' ? 20 : 22,
     },
     placeholder: {
         width: 40,
@@ -809,5 +985,57 @@ const styles = StyleSheet.create({
     chainBadgeName: {
         fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 14,
+    },
+    beneficiariesSheet: {
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+    },
+    beneficiariesSheetTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 22,
+        marginBottom: 12,
+    },
+    beneficiariesList: {
+        gap: 10,
+        paddingBottom: 8,
+    },
+    beneficiaryItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderRadius: 16,
+    },
+    beneficiaryItemIcon: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    beneficiaryItemTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 15,
+    },
+    beneficiaryItemSubtitle: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 13,
+        marginTop: 2,
+    },
+    saveBeneficiaryButton: {
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: 'center',
+        marginTop: 4,
+        marginBottom: 8,
+    },
+    saveBeneficiaryText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 14,
+    },
+    beneficiaryInputText: {
+        marginLeft: 8,
+        paddingVertical: 0,
     },
 });

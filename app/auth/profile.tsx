@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, ScrollView, Image, ActivityIndicator, Animated, Keyboard } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Camera, Check, ChevronLeft as CaretLeft } from 'lucide-react-native';
+import { Camera, Check, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors, useKeyboardAppearance } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';

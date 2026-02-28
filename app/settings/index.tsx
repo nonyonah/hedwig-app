@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { ChevronRight as CaretRight, List, ChevronDown as CaretDown, Check, ShieldAlert as ShieldWarning, Lock, Copy, CircleAlert as WarningCircle, SquareCheck as CheckSquare, Square, ChevronLeft as CaretLeft } from 'lucide-react-native';
+import { ChevronRight as CaretRight, List, ChevronDown as CaretDown, Check, ShieldAlert as ShieldWarning, Lock, Copy, CircleAlert as WarningCircle, SquareCheck as CheckSquare, Square, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 28,
+        fontSize: Platform.OS === 'android' ? 26 : 28,
         color: Colors.textPrimary,
     },
     headerSpacer: {

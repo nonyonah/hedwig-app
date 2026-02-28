@@ -20,7 +20,7 @@ if (Platform.OS === 'ios') {
 }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { List, CheckCircle, Share2 as ShareNetwork, X, Wallet, CircleUser as UserCircle, Trash, MoreHorizontal as DotsThree, Bell } from 'lucide-react-native';
+import { List, CheckCircle, Share2 as ShareNetwork, X, Wallet, CircleUser as UserCircle, Trash, MoreHorizontal as DotsThree, Bell } from '../../components/ui/AppIcon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 24,
+        fontSize: Platform.OS === 'android' ? 22 : 24,
         color: Colors.textPrimary,
     },
     profileIcon: {

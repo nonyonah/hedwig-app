@@ -5,7 +5,7 @@ import { BlurView } from 'expo-blur'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { Briefcase, List, Calendar, User, DollarSign as CurrencyDollar, CheckCircle, Clock, Receipt, ChevronRight as CaretRight, X, MoreHorizontal as DotsThree, Trash2 as Trash, Check, FileText, ChevronLeft as CaretLeft, Plus } from 'lucide-react-native';
+import { Briefcase, List, Calendar, User, DollarSign as CurrencyDollar, CheckCircle, Clock, Receipt, ChevronRight as CaretRight, X, MoreHorizontal as DotsThree, Trash2 as Trash, Check, FileText, ChevronLeft as CaretLeft, Plus } from '../../components/ui/AppIcon';
 import * as Haptics from 'expo-haptics';
 let ContextMenu: any = null;
 let ExpoButton: any = null;
@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: Platform.OS === 'android' ? 20 : 22,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,

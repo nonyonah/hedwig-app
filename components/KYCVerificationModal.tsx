@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'rea
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Platform, Linking } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import * as WebBrowser from 'expo-web-browser';
-import { ShieldCheck, TriangleAlert as Warning, ArrowRight, CheckCircle, Timer as ClockCountdown } from 'lucide-react-native';
+import { ShieldCheck, TriangleAlert as Warning, ArrowRight, CheckCircle, Timer as ClockCountdown } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useKYC } from '../hooks/useKYC';
 import Analytics from '../services/analytics';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
-import { CircleCheck as CheckCircle, X } from 'lucide-react-native';
+import { CircleCheck as CheckCircle, X } from './ui/AppIcon';
 import { useThemeColors } from '../theme/colors';
 import { useSettings } from '../context/SettingsContext';
 

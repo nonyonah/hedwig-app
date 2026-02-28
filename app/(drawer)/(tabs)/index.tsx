@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, TextInput, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, Colors } from '../../../theme/colors';
-import { Bell, Search as MagnifyingGlass, Plus, FileText, ScrollText as Scroll, Link as LinkIcon, Briefcase, ChevronRight as CaretRight, CircleX as XCircle, Inbox } from 'lucide-react-native';
+import { Bell, Search as MagnifyingGlass, Plus, FileText, ScrollText as Scroll, Link as LinkIcon, Briefcase, ChevronRight as CaretRight, CircleX as XCircle, Inbox } from '../../../components/ui/AppIcon';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { UniversalCreationBox } from '../../../components/UniversalCreationBox';
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8 },
     headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    headerTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24 },
+    headerTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: Platform.OS === 'android' ? 22 : 24 },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     iconButton: { padding: 4 },
     avatar: { width: 40, height: 40, borderRadius: 20 },

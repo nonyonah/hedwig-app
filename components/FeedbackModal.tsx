@@ -1,7 +1,7 @@
 import React, { useState, forwardRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { X, Send as PaperPlaneTilt, Bug, Lightbulb } from 'lucide-react-native';
+import { X, Send as PaperPlaneTilt, Bug, Lightbulb } from './ui/AppIcon';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSettings } from '../context/SettingsContext';

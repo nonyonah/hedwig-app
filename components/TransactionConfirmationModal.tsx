@@ -4,7 +4,7 @@ import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/ex
 import { ethers } from 'ethers';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle } from 'lucide-react-native';
+import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';

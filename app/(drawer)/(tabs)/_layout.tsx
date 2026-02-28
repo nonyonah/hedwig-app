@@ -3,7 +3,7 @@ import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
 import { Tabs, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Platform, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { Home, Receipt, Link2, FileText, Wallet2 } from 'lucide-react-native';
+import { Home, Receipt, Link2, FileText, Wallet2 } from '../../../components/ui/AppIcon';
 
 import { useThemeColors } from '../../../theme/colors';
 import { useAuth } from '../../../hooks/useAuth';

@@ -17,7 +17,7 @@ import {
     Platform,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { X, CheckCircle, Clock, Wallet, ArrowDown } from 'lucide-react-native';
+import { X, CheckCircle, Clock, Wallet, ArrowDown } from './ui/AppIcon';
 import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { Connection, Transaction, clusterApiUrl } from '@solana/web3.js';
 import { Colors, useThemeColors } from '../theme/colors';

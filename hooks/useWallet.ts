@@ -15,12 +15,14 @@ interface Balance {
 interface WalletData {
     balances: Balance[];
     address: string | null;
+    solanaAddress: string | null;
 }
 
 // Web mock
 const useWalletWeb = () => ({
     balances: [],
     address: null,
+    solanaAddress: null,
     isLoading: false,
     error: null,
     fetchBalances: async () => {},
@@ -32,6 +34,7 @@ const useWalletWeb = () => ({
 export const useWallet = () => {
     const [balances, setBalances] = useState<Balance[]>([]);
     const [address, setAddress] = useState<string | null>(null);
+    const [solanaAddress, setSolanaAddress] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { getAccessToken } = useAuth();
@@ -70,6 +73,7 @@ export const useWallet = () => {
             if (data.success) {
                 setBalances(data.data.balances || []);
                 setAddress(data.data.address || null);
+                setSolanaAddress(data.data.solanaAddress || null);
             } else {
                 throw new Error(data.error || 'Failed to fetch balances');
             }
@@ -138,6 +142,7 @@ export const useWallet = () => {
     return {
         balances,
         address,
+        solanaAddress,
         isLoading,
         error,
         fetchBalances,

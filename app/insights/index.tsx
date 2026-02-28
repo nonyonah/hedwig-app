@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Dimensi
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, Settings as Gear, TrendingUp as TrendUp, TrendingDown as TrendDown, ArrowRight, Sparkles as Sparkle, ChevronLeft as CaretLeft } from 'lucide-react-native';
+import { List, Settings as Gear, TrendingUp as TrendUp, TrendingDown as TrendDown, ArrowRight, Sparkles as Sparkle, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import Svg, { Circle } from 'react-native-svg';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     // profileIcon removed
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: Platform.OS === 'android' ? 20 : 22,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,

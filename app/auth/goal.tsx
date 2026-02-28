@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Minus, Plus, ChevronLeft as CaretLeft } from 'lucide-react-native';
+import { Minus, Plus, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
 

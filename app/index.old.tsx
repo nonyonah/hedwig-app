@@ -13,7 +13,7 @@ import { usePrivy } from '@privy-io/expo';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useUserActions, Suggestion } from '../hooks/useUserActions';
 import { useUser } from '../context/UserContext';
-import { List, Bell, ArrowDown, File, X, Plus, Image as ImageIcon, Square, ArrowUp, Copy, ThumbsUp, ThumbsDown, RefreshCw as ArrowsClockwise } from 'lucide-react-native';
+import { List, Bell, ArrowDown, File, X, Plus, Image as ImageIcon, Square, ArrowUp, Copy, ThumbsUp, ThumbsDown, RefreshCw as ArrowsClockwise } from '../components/ui/AppIcon';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN

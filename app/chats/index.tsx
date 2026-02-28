@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { List, MessageSquare as Chat, Search as MagnifyingGlass, Plus, Trash, CircleCheck as CheckCircle, X } from 'lucide-react-native';
+import { List, MessageSquare as Chat, Search as MagnifyingGlass, Plus, Trash, CircleCheck as CheckCircle, X } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...Typography.h4,
-        fontSize: 22,
+        fontSize: Platform.OS === 'android' ? 20 : 22,
     },
     selectionTitle: {
         ...Typography.h4,

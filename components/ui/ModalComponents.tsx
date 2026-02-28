@@ -17,7 +17,7 @@ import {
     ViewStyle,
     TextStyle
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X } from './AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 
 /**

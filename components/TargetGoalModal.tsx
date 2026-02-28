@@ -1,7 +1,7 @@
 import React, { useState, useEffect, forwardRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { X, Minus, Plus } from 'lucide-react-native';
+import { X, Minus, Plus } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 
 const { height } = Dimensions.get('window');

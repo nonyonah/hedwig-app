@@ -8,7 +8,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft as CaretLeft, FileText } from 'lucide-react-native';
+import { ChevronLeft as CaretLeft, FileText } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, View, Text } from 'react-native';
-import { DollarSign } from 'lucide-react-native';
+import { DollarSign } from './ui/AppIcon';
 
 // Network icon images
 const BaseIcon = require('../assets/icons/networks/base.png');

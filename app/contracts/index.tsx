@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Linking } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Linking, RefreshControl } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -9,7 +9,7 @@ import { DrawerActions } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { List, CircleCheck as CheckCircle, FileText, X, CircleUser as UserCircle, Trash, Ellipsis as DotsThree, Send as PaperPlaneTilt, Clock, Eye } from 'lucide-react-native';
+import { List, CircleCheck as CheckCircle, FileText, X, CircleUser as UserCircle, Trash, Ellipsis as DotsThree, Send as PaperPlaneTilt, Clock, Eye } from '../../components/ui/AppIcon';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -51,6 +51,7 @@ export default function ContractsScreen() {
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
     const [showActionMenu, setShowActionMenu] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'approved'>('all');
 
@@ -126,7 +127,10 @@ export default function ContractsScreen() {
         }, [user])
     );
 
-    const fetchContracts = async () => {
+    const fetchContracts = async (isRefresh: boolean = false) => {
+        if (!isRefresh) {
+            setIsLoading(true);
+        }
         try {
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -145,8 +149,16 @@ export default function ContractsScreen() {
             console.error('Error fetching contracts:', error);
             Alert.alert('Error', 'Failed to load contracts');
         } finally {
-            setIsLoading(false);
+            if (!isRefresh) {
+                setIsLoading(false);
+            }
         }
+    };
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchContracts(true);
+        setRefreshing(false);
     };
 
     const handleDelete = async (contractId: string) => {
@@ -384,6 +396,13 @@ export default function ContractsScreen() {
                         data={filteredContracts}
                         renderItem={renderItem}
                         keyExtractor={(item) => item.id}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                                tintColor={Colors.primary}
+                            />
+                        }
                         contentContainerStyle={styles.listContent}
                         ListEmptyComponent={
                             <View style={styles.emptyState}>
@@ -580,7 +599,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 24,
+        fontSize: Platform.OS === 'android' ? 22 : 24,
     },
     profileIcon: {
         width: 40,

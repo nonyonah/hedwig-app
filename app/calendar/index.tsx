@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, SectionList, Dimensions, FlatList, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { ChevronLeft as CaretLeft, Calendar as CalendarBlank, CalendarCheck, ChevronRight as CaretRight, Plus, CheckCircle, Clock, Tag } from 'lucide-react-native';
+import { ChevronLeft as CaretLeft, Calendar as CalendarBlank, CalendarCheck, ChevronRight as CaretRight, Plus, CheckCircle, Clock, Tag } from '../../components/ui/AppIcon';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';

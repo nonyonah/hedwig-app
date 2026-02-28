@@ -16,7 +16,7 @@ import {
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowLeftRight as ArrowsLeftRight, ChevronLeft as CaretLeft } from 'lucide-react-native';
+import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowLeftRight as ArrowsLeftRight, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     // headerLeft removed
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: Platform.OS === 'android' ? 20 : 22,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,

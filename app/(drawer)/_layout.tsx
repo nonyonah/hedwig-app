@@ -14,7 +14,7 @@ import {
     Users,
     Settings as Gear,
     Send as PaperPlaneTilt
-} from 'lucide-react-native';
+} from '../../components/ui/AppIcon';
 
 function CustomDrawerContent(props: any) {
     const router = useRouter();

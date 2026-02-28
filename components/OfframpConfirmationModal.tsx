@@ -5,7 +5,7 @@ import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { ethers } from 'ethers';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Clipboard from 'expo-clipboard';
-import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle, Landmark as Bank, Copy, ArrowUpDown as ArrowsDownUp } from 'lucide-react-native';
+import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle, Landmark as Bank, Copy, ArrowUpDown as ArrowsDownUp } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';

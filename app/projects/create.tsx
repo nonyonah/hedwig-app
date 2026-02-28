@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert,
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { ChevronLeft as CaretLeft, Plus, X, DollarSign as CurrencyDollar, Calendar, User, FileText } from 'lucide-react-native';
+import { ChevronLeft as CaretLeft, Plus, X, DollarSign as CurrencyDollar, Calendar, User, FileText } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAuth } from '../../hooks/useAuth';

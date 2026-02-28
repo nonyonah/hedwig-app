@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SectionList, ActivityIndicator, RefreshControl, Image, Platform, ScrollView, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft as CaretLeft, Bell, CheckCircle, DollarSign as CurrencyDollar, ArrowUpDown as ArrowsDownUp, Megaphone, Receipt, Link, Landmark as Bank, Trash, FileText } from 'lucide-react-native';
+import { ChevronLeft as CaretLeft, Bell, CheckCircle, DollarSign as CurrencyDollar, ArrowUpDown as ArrowsDownUp, Megaphone, Receipt, Link, Landmark as Bank, Trash, FileText } from '../../components/ui/AppIcon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: Platform.OS === 'android' ? 20 : 22,
         color: Colors.textPrimary,
         textAlign: 'center',
         flex: 1,

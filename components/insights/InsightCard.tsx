@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Link } from 'expo-router';
-import { ChevronRight as CaretRight } from 'lucide-react-native';
+import { ChevronRight as CaretRight } from '../ui/AppIcon';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Insight } from '../../hooks/useInsights';

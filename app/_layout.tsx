@@ -13,7 +13,7 @@ import {
     GoogleSansFlex_600SemiBold,
 } from '@expo-google-fonts/google-sans-flex';
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
-import { View, Platform } from 'react-native';
+import { View, Platform, Image, ActivityIndicator, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
@@ -30,6 +30,10 @@ import { usePushNotifications } from '../hooks/usePushNotifications';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({
+    fade: true,
+    duration: 250,
+});
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
@@ -78,6 +82,9 @@ function ThemedStack() {
             <Stack.Screen name="payment-link/[id]" />
             <Stack.Screen name="payment-links/index" />
             <Stack.Screen name="settings/index" />
+            <Stack.Screen name="wallet/send" />
+            <Stack.Screen name="wallet/send-address" />
+            <Stack.Screen name="wallet/send-token" />
 
             <Stack.Screen name="notifications/index" />
             <Stack.Screen name="insights/index" />
@@ -114,6 +121,9 @@ function WebLayout() {
             <Stack.Screen name="payment-link/[id]" />
             <Stack.Screen name="payment-links/index" />
             <Stack.Screen name="settings/index" />
+            <Stack.Screen name="wallet/send" />
+            <Stack.Screen name="wallet/send-address" />
+            <Stack.Screen name="wallet/send-token" />
             <Stack.Screen name="notifications/index" />
             <Stack.Screen name="insights/index" />
         </Stack>
@@ -180,6 +190,19 @@ function ThemeAwareStatusBar() {
     );
 }
 
+function StartupGate({ children, isApiWarmed }: { children: React.ReactNode; isApiWarmed: boolean }) {
+    if (isApiWarmed) {
+        return <>{children}</>;
+    }
+
+    return (
+        <View style={styles.startupOverlay}>
+            <Image source={require('../assets/splash-icon.png')} style={styles.startupLogo} resizeMode="contain" />
+            <ActivityIndicator size="small" color="#FFFFFF" style={styles.startupSpinner} />
+        </View>
+    );
+}
+
 function RootLayout() {
     // Register navigation container for Sentry route tracking
     const ref = useNavigationContainerRef();
@@ -218,15 +241,51 @@ function RootLayout() {
         Merriweather_700Bold,
         Merriweather_900Black,
     });
+    const [isApiWarmed, setIsApiWarmed] = React.useState(false);
 
-    // Hide splash screen once fonts are loaded
+    useEffect(() => {
+        let cancelled = false;
+
+        const warmUpApi = async () => {
+            const configuredApiUrl = (process.env.EXPO_PUBLIC_API_URL || '').trim();
+            const apiUrl = configuredApiUrl.replace(/\/$/, '');
+            if (!apiUrl) {
+                if (!cancelled) setIsApiWarmed(true);
+                return;
+            }
+
+            const endpoints = [`${apiUrl}/api/health`, `${apiUrl}/health`, apiUrl];
+
+            for (const endpoint of endpoints) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 7000);
+                try {
+                    await fetch(endpoint, { method: 'GET', signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (!cancelled) setIsApiWarmed(true);
+                    return;
+                } catch (error) {
+                    clearTimeout(timeoutId);
+                }
+            }
+
+            if (!cancelled) setIsApiWarmed(true);
+        };
+
+        warmUpApi();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // Hide splash screen once fonts are ready; API warmup continues in the app gate.
     const onLayoutRootView = useCallback(async () => {
         if (fontsLoaded) {
             await SplashScreen.hideAsync();
         }
     }, [fontsLoaded]);
 
-    // Keep splash screen visible until fonts are ready
+    // Keep native splash for initial boot until fonts are available.
     if (!fontsLoaded) {
         return null;
     }
@@ -239,7 +298,9 @@ function RootLayout() {
                 <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
                     <ThemeAwareStatusBar />
                     <BottomSheetModalProvider>
-                        {isWeb ? <WebLayout /> : <NativeLayout />}
+                        <StartupGate isApiWarmed={isApiWarmed}>
+                            {isWeb ? <WebLayout /> : <NativeLayout />}
+                        </StartupGate>
                     </BottomSheetModalProvider>
                 </GestureHandlerRootView>
             </TutorialProvider>
@@ -249,3 +310,20 @@ function RootLayout() {
 
 // Wrap with Sentry for automatic error boundary and performance tracking
 export default Sentry.wrap(RootLayout);
+
+const styles = StyleSheet.create({
+    startupOverlay: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 32,
+    },
+    startupLogo: {
+        width: 180,
+        height: 180,
+    },
+    startupSpinner: {
+        marginTop: 20,
+    },
+});

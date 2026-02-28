@@ -19,7 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BottomSheetTextInput, BottomSheetBackdrop, BottomSheetView, BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useThemeColors } from '../theme/colors';
-import { Calendar as CalendarBlank, ArrowUp, Paperclip, ListPlus, CircleX as XCircle, Check, Trash, Inbox as Tray, ChevronDown as CaretDown, Link as LinkIcon, FileText, Send as PaperPlaneRight } from 'lucide-react-native';
+import { Calendar as CalendarBlank, ArrowUp, Paperclip, ListPlus, CircleX as XCircle, Check, Trash, Inbox as Tray, ChevronDown as CaretDown, Link as LinkIcon, FileText, Send as PaperPlaneRight } from './ui/AppIcon';
 
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';

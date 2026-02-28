@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Share } from 'react-native';
 import { useRouter, usePathname, Link } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link as LinkIcon, Receipt, MessageCircle as Chat, LogOut as SignOut, ArrowLeftRight as ArrowsLeftRight, Settings as Gear, Search as MagnifyingGlass, X, Landmark as Bank, Users, Briefcase, FileText, ChartBar, Calendar as CalendarBlank } from 'lucide-react-native';
+import { House, Link as LinkIcon, Receipt, MessageCircle as Chat, LogOut as SignOut, ArrowLeftRight as ArrowsLeftRight, Settings as Gear, Search as MagnifyingGlass, X, Landmark as Bank, Users, Briefcase, FileText, ChartBar, Calendar as CalendarBlank } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';

@@ -11,13 +11,14 @@ import {
     SectionList,
     Image,
     Animated,
-    ScrollView
+    ScrollView,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
-import { List, X, Copy, Landmark as Bank, ArrowDown, CheckCircle, Clock, TriangleAlert as Warning, RotateCcw as ArrowsCounterClockwise, ChevronLeft as CaretLeft, Plus } from 'lucide-react-native';
+import { List, X, Copy, Landmark as Bank, ArrowDown, CheckCircle, Clock, TriangleAlert as Warning, RotateCcw as ArrowsCounterClockwise, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -340,12 +341,7 @@ export default function OfframpHistoryScreen() {
                             </View>
                         </TouchableOpacity>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
-                        <TouchableOpacity
-                            onPress={() => router.push('/offramp-history/create' as any)}
-                            style={styles.backButton}
-                        >
-                            <Plus size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                        </TouchableOpacity>
+                        <View style={styles.headerRightPlaceholder} />
                     </View>
 
                     {/* Filter Chips inside Header */}
@@ -474,6 +470,25 @@ export default function OfframpHistoryScreen() {
                                     {/* Details Card */}
                                     <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                                         <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Order ID</Text>
+                                            <TouchableOpacity
+                                                style={styles.orderIdValueWrap}
+                                                onPress={() => copyToClipboard(selectedOrder.paycrestOrderId || selectedOrder.id)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Text
+                                                    style={[styles.detailValue, styles.orderIdText, { color: themeColors.textPrimary }]}
+                                                    numberOfLines={1}
+                                                    ellipsizeMode="middle"
+                                                >
+                                                    {selectedOrder.paycrestOrderId || selectedOrder.id}
+                                                </Text>
+                                                <Copy size={14} color={themeColors.textSecondary} strokeWidth={2.5} />
+                                            </TouchableOpacity>
+                                        </View>
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+
+                                        <View style={styles.detailRow}>
                                             <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Status</Text>
                                             <View style={[styles.statusBadge, { backgroundColor: STATUS_CONFIG[selectedOrder.status].color + '20' }]}>
                                                 <Text style={[styles.statusText, { color: STATUS_CONFIG[selectedOrder.status].color }]}>
@@ -556,7 +571,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: Platform.OS === 'android' ? 20 : 22,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,
@@ -873,6 +888,19 @@ const styles = StyleSheet.create({
     detailValueRow: {
         flexDirection: 'row',
         alignItems: 'center',
+    },
+    orderIdValueWrap: {
+        flex: 1,
+        marginLeft: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 6,
+        minWidth: 0,
+    },
+    orderIdText: {
+        textAlign: 'right',
+        flexShrink: 1,
     },
     chainValue: {
         flexDirection: 'row',

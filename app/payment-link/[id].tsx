@@ -6,7 +6,7 @@ import '@walletconnect/react-native-compat';
 import { AppKitProvider, useAppKit, useAccount, useProvider } from '@reown/appkit-react-native';
 import { paymentAppKit } from '../../lib/appkit';
 import { ethers } from 'ethers';
-import { Wallet, CheckCircle } from 'lucide-react-native';
+import { Wallet, CheckCircle } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
 

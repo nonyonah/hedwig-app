@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft as CaretLeft, DollarSign as CurrencyDollar, Calendar as CalendarBlank, User, Mail as Envelope, FileText } from 'lucide-react-native';
+import { ChevronLeft as CaretLeft, DollarSign as CurrencyDollar, Calendar as CalendarBlank, User, Mail as Envelope, FileText } from '../../components/ui/AppIcon';
 import { usePrivy } from '@privy-io/expo';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';

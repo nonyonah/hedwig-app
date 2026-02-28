@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 
 import { usePrivy } from '@privy-io/expo';
-import { Copy, Share2 as ShareNetwork, CheckCircle, Clock, AlertCircle as WarningCircle, SquareArrowOutUpRight as ArrowSquareOut } from 'lucide-react-native';
+import { Copy, Share2 as ShareNetwork, CheckCircle, Clock, AlertCircle as WarningCircle, SquareArrowOutUpRight as ArrowSquareOut } from './ui/AppIcon';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';

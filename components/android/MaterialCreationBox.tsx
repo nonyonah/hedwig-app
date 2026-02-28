@@ -14,7 +14,7 @@ import {
     Keyboard,
 } from 'react-native';
 import { useThemeColors } from '../../theme/colors';
-import { Calendar as CalendarBlank, Flag, Signpost, MoreHorizontal as DotsThree, Inbox as Tray, ChevronDown as CaretDown, Check } from 'lucide-react-native';
+import { Calendar as CalendarBlank, Flag, Signpost, MoreHorizontal as DotsThree, Inbox as Tray, ChevronDown as CaretDown, Check } from '../ui/AppIcon';
 
 interface MaterialCreationBoxProps {
     visible: boolean;

@@ -5,7 +5,7 @@ import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { Users, Plus, User, Mail as Envelope, Phone, Trash, Pencil as PencilSimple, X, List, DollarSign as CurrencyDollar, Clock, Building2 as Buildings, ChevronLeft as CaretLeft } from 'lucide-react-native';
+import { Users, Plus, User, Mail as Envelope, Phone, Trash, Pencil as PencilSimple, X, List, DollarSign as CurrencyDollar, Clock, Building2 as Buildings, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
+        fontSize: Platform.OS === 'android' ? 20 : 22,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,

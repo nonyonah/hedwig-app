@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../hooks/useAuth';
 import { useWallet } from '../hooks/useWallet';
 import * as Clipboard from 'expo-clipboard';
-import { Copy, Wallet, ChevronRight as CaretRight, ChevronLeft as CaretLeft, X } from 'lucide-react-native';
+import { Copy, Wallet, ChevronRight as CaretRight, ChevronLeft as CaretLeft, X } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
