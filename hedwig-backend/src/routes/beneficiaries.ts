@@ -25,10 +25,13 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 
         const formatted = beneficiaries.map(b => ({
             id: b.id,
+            bankCode: b.bank_code,
             bankName: b.bank_name,
             accountNumber: b.account_number,
             accountName: b.account_name,
             currency: b.currency,
+            countryId: b.country_id,
+            networkId: b.network_id,
             isDefault: b.is_default,
             createdAt: b.created_at,
         }));
@@ -49,7 +52,16 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
         const userId = req.user!.id;
-        const { bankName, accountNumber, accountName, currency = 'NGN', isDefault = false } = req.body;
+        const {
+            bankCode = null,
+            bankName,
+            accountNumber,
+            accountName,
+            currency = 'NGN',
+            countryId = null,
+            networkId = null,
+            isDefault = false
+        } = req.body;
 
         if (!bankName || !accountNumber || !accountName) {
             res.status(400).json({
@@ -71,10 +83,13 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             .from('beneficiaries')
             .upsert({
                 user_id: userId,
+                bank_code: bankCode,
                 bank_name: bankName,
                 account_number: accountNumber,
                 account_name: accountName,
                 currency,
+                country_id: countryId,
+                network_id: networkId,
                 is_default: isDefault,
             }, { onConflict: 'user_id,account_number' })
             .select()
@@ -89,10 +104,13 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             data: {
                 beneficiary: {
                     id: beneficiary.id,
+                    bankCode: beneficiary.bank_code,
                     bankName: beneficiary.bank_name,
                     accountNumber: beneficiary.account_number,
                     accountName: beneficiary.account_name,
                     currency: beneficiary.currency,
+                    countryId: beneficiary.country_id,
+                    networkId: beneficiary.network_id,
                     isDefault: beneficiary.is_default,
                     createdAt: beneficiary.created_at,
                 },
@@ -164,10 +182,13 @@ router.put('/:id/default', authenticate, async (req: Request, res: Response, nex
             data: {
                 beneficiary: {
                     id: beneficiary.id,
+                    bankCode: beneficiary.bank_code,
                     bankName: beneficiary.bank_name,
                     accountNumber: beneficiary.account_number,
                     accountName: beneficiary.account_name,
                     currency: beneficiary.currency,
+                    countryId: beneficiary.country_id,
+                    networkId: beneficiary.network_id,
                     isDefault: beneficiary.is_default,
                 },
             },

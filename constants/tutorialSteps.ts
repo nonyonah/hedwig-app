@@ -3,7 +3,7 @@ export type AnchorPosition = 'top' | 'center' | 'bottom';
 export interface TutorialStep {
     id: string;
     /** Which screen this step is shown on.  */
-    screenId: 'home' | 'invoices' | 'links' | 'wallet' | 'settings';
+    screenId: 'home' | 'invoices' | 'links' | 'wallet' | 'insights' | 'transactions' | 'withdrawals' | 'calendar' | 'projects' | 'clients' | 'settings';
     title: string;
     body: string;
     anchorPosition: AnchorPosition;
@@ -43,6 +43,48 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
         screenId: 'wallet',
         title: 'Your embedded wallet',
         body: 'Your crypto wallet is built right in. Send, receive, and off-ramp funds to your bank without leaving the app.',
+        anchorPosition: 'center',
+    },
+    {
+        id: 'insights_intro',
+        screenId: 'insights',
+        title: 'Track your performance trends',
+        body: 'Insights summarizes earnings, invoice performance, and client activity so you can spot what needs attention fast.',
+        anchorPosition: 'center',
+    },
+    {
+        id: 'transactions_intro',
+        screenId: 'transactions',
+        title: 'Review all wallet activity',
+        body: 'Use Transactions to monitor incoming and outgoing payments, then open any entry to copy details or view on-chain.',
+        anchorPosition: 'center',
+    },
+    {
+        id: 'withdrawals_intro',
+        screenId: 'withdrawals',
+        title: 'Follow every withdrawal status',
+        body: 'Withdrawals shows each off-ramp order from pending to completed so you can confirm settlement at a glance.',
+        anchorPosition: 'center',
+    },
+    {
+        id: 'calendar_intro',
+        screenId: 'calendar',
+        title: 'Never miss a due date',
+        body: 'Your calendar keeps upcoming invoices, reminders, and milestone deadlines in one timeline for quick planning.',
+        anchorPosition: 'top',
+    },
+    {
+        id: 'projects_intro',
+        screenId: 'projects',
+        title: 'Manage projects and milestones',
+        body: 'Projects helps you track deliverables, progress, and invoice-ready milestones from start to completion.',
+        anchorPosition: 'center',
+    },
+    {
+        id: 'clients_intro',
+        screenId: 'clients',
+        title: 'Keep client records organized',
+        body: 'Clients stores contact info and earnings history so you can manage relationships and billing in one place.',
         anchorPosition: 'center',
     },
     {

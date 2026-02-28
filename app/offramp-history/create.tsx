@@ -42,7 +42,7 @@ import { SolanaBridgeModal } from '../../components/SolanaBridgeModal';
 import { useEmbeddedSolanaWallet, useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { useWallet } from '../../hooks/useWallet';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 
 // Network options
 const NETWORKS = [
@@ -63,17 +63,15 @@ interface Bank {
 
 interface Beneficiary {
     id: string;
-    bankCode: string;
+    bankCode?: string;
     bankName: string;
     accountNumber: string;
     accountName: string;
-    countryId: string;
+    countryId?: string;
     currency: string;
-    networkId: string;
-    createdAt: number;
+    networkId?: string;
+    createdAt?: string | number;
 }
-
-const BENEFICIARIES_STORAGE_KEY = 'hedwig_withdrawal_beneficiaries_v1';
 
 export default function CreateWithdrawalScreen() {
     const router = useRouter();
@@ -143,25 +141,29 @@ export default function CreateWithdrawalScreen() {
 
     const loadBeneficiaries = useCallback(async () => {
         try {
-            const raw = await AsyncStorage.getItem(BENEFICIARIES_STORAGE_KEY);
-            if (!raw) {
+            const token = await getAccessToken();
+            if (!token) {
                 setBeneficiaries([]);
                 return;
             }
-            const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed)) {
-                setBeneficiaries([]);
+
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/beneficiaries`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+
+            if (response.ok && data?.success) {
+                const items = Array.isArray(data?.data?.beneficiaries) ? data.data.beneficiaries : [];
+                setBeneficiaries(items);
                 return;
             }
-            const cleaned = parsed
-                .filter((item: any) => typeof item?.accountNumber === 'string' && typeof item?.bankName === 'string')
-                .slice(0, 20);
-            setBeneficiaries(cleaned);
+            setBeneficiaries([]);
         } catch (error) {
             console.log('[Beneficiaries] Failed to load:', error);
             setBeneficiaries([]);
         }
-    }, []);
+    }, [getAccessToken]);
 
     useEffect(() => {
         loadBeneficiaries();
@@ -234,27 +236,45 @@ export default function CreateWithdrawalScreen() {
             return false;
         }
 
-        const beneficiary: Beneficiary = {
-            id: `${selectedBank.code || selectedBank.name}-${accountNumber}-${selectedCountry.currency}`,
-            bankCode: selectedBank.code,
-            bankName: selectedBank.name,
-            accountNumber,
-            accountName,
-            countryId: selectedCountry.id,
-            currency: selectedCountry.currency,
-            networkId: selectedNetwork.id,
-            createdAt: Date.now(),
-        };
-
         try {
-            const existingRaw = await AsyncStorage.getItem(BENEFICIARIES_STORAGE_KEY);
-            const existing: Beneficiary[] = existingRaw ? JSON.parse(existingRaw) : [];
-            const deduped = Array.isArray(existing)
-                ? existing.filter((item) => item.id !== beneficiary.id)
-                : [];
-            const next = [beneficiary, ...deduped].slice(0, 20);
-            await AsyncStorage.setItem(BENEFICIARIES_STORAGE_KEY, JSON.stringify(next));
-            setBeneficiaries(next);
+            const token = await getAccessToken();
+            if (!token) {
+                if (!silent) Alert.alert('Session expired', 'Please sign in again.');
+                return false;
+            }
+
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/beneficiaries`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    bankCode: selectedBank.code,
+                    bankName: selectedBank.name,
+                    accountNumber,
+                    accountName,
+                    currency: selectedCountry.currency,
+                    countryId: selectedCountry.id,
+                    networkId: selectedNetwork.id,
+                }),
+            });
+            const data = await response.json();
+
+            if (!response.ok || !data?.success) {
+                throw new Error(data?.error?.message || 'Could not save beneficiary');
+            }
+
+            const beneficiary = data?.data?.beneficiary as Beneficiary | undefined;
+            if (beneficiary) {
+                setBeneficiaries((prev) => {
+                    const deduped = prev.filter((item) => item.id !== beneficiary.id);
+                    return [beneficiary, ...deduped].slice(0, 20);
+                });
+            } else {
+                await loadBeneficiaries();
+            }
             if (!silent) {
                 Alert.alert('Saved', 'Beneficiary added successfully.');
             }
@@ -266,19 +286,41 @@ export default function CreateWithdrawalScreen() {
             }
             return false;
         }
-    }, [selectedBank, accountNumber, accountName, selectedCountry.id, selectedCountry.currency, selectedNetwork.id]);
+    }, [selectedBank, accountNumber, accountName, selectedCountry.id, selectedCountry.currency, selectedNetwork.id, getAccessToken, loadBeneficiaries]);
 
     const applyBeneficiary = useCallback((beneficiary: Beneficiary) => {
-        const country = COUNTRIES.find((c) => c.id === beneficiary.countryId) || COUNTRIES[0];
-        const network = NETWORKS.find((n) => n.id === beneficiary.networkId) || NETWORKS[0];
+        const country = COUNTRIES.find((c) => c.id === beneficiary.countryId || c.currency === beneficiary.currency) || COUNTRIES[0];
+        const network = NETWORKS.find((n) => n.id === beneficiary.networkId) || selectedNetwork;
 
         setSelectedCountry(country);
         setSelectedNetwork(network);
-        setSelectedBank({ code: beneficiary.bankCode, name: beneficiary.bankName });
+        setSelectedBank({ code: beneficiary.bankCode || '', name: beneficiary.bankName });
         setAccountNumber(beneficiary.accountNumber);
         setAccountName(beneficiary.accountName);
         setAccountError('');
-    }, []);
+    }, [selectedNetwork]);
+
+    const handleDeleteBeneficiary = useCallback(async (beneficiaryId: string) => {
+        try {
+            const token = await getAccessToken();
+            if (!token) {
+                Alert.alert('Session expired', 'Please sign in again.');
+                return;
+            }
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/beneficiaries/${beneficiaryId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            if (!response.ok || !data?.success) {
+                throw new Error(data?.error?.message || 'Could not delete beneficiary');
+            }
+            setBeneficiaries((prev) => prev.filter((item) => item.id !== beneficiaryId));
+        } catch (error: any) {
+            Alert.alert('Delete failed', error?.message || 'Unable to delete beneficiary');
+        }
+    }, [getAccessToken]);
 
     const handleReview = () => {
         console.log('[CreateWithdrawal] handleReview called', {
@@ -702,26 +744,37 @@ export default function CreateWithdrawalScreen() {
                         contentContainerStyle={styles.beneficiariesList}
                     >
                         {beneficiaries.map((beneficiary) => (
-                            <TouchableOpacity
+                            <Swipeable
                                 key={beneficiary.id}
-                                style={[styles.beneficiaryItem, { backgroundColor: themeColors.surface }]}
-                                onPress={() => {
-                                    applyBeneficiary(beneficiary);
-                                    beneficiariesSheetRef.current?.dismiss();
-                                }}
+                                renderRightActions={() => (
+                                    <TouchableOpacity
+                                        style={styles.beneficiaryDeleteAction}
+                                        onPress={() => handleDeleteBeneficiary(beneficiary.id)}
+                                    >
+                                        <Text style={styles.beneficiaryDeleteActionText}>Delete</Text>
+                                    </TouchableOpacity>
+                                )}
                             >
-                                <View style={styles.beneficiaryItemIcon}>
-                                    <BankIcon size={16} color={themeColors.textSecondary} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={[styles.beneficiaryItemTitle, { color: themeColors.textPrimary }]}>
-                                        {beneficiary.accountName}
-                                    </Text>
-                                    <Text style={[styles.beneficiaryItemSubtitle, { color: themeColors.textSecondary }]}>
-                                        {beneficiary.bankName} • {beneficiary.accountNumber}
-                                    </Text>
-                                </View>
-                            </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.beneficiaryItem, { backgroundColor: themeColors.surface }]}
+                                    onPress={() => {
+                                        applyBeneficiary(beneficiary);
+                                        beneficiariesSheetRef.current?.dismiss();
+                                    }}
+                                >
+                                    <View style={styles.beneficiaryItemIcon}>
+                                        <BankIcon size={16} color={themeColors.textSecondary} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.beneficiaryItemTitle, { color: themeColors.textPrimary }]}>
+                                            {beneficiary.accountName}
+                                        </Text>
+                                        <Text style={[styles.beneficiaryItemSubtitle, { color: themeColors.textSecondary }]}>
+                                            {beneficiary.bankName} • {beneficiary.accountNumber}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </Swipeable>
                         ))}
                     </ScrollView>
                 </BottomSheetView>
@@ -1022,6 +1075,19 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 13,
         marginTop: 2,
+    },
+    beneficiaryDeleteAction: {
+        width: 88,
+        marginBottom: 10,
+        borderRadius: 12,
+        backgroundColor: '#EF4444',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    beneficiaryDeleteActionText: {
+        color: '#FFFFFF',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 14,
     },
     saveBeneficiaryButton: {
         borderRadius: 12,

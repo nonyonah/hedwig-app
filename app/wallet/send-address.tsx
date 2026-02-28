@@ -3,24 +3,31 @@ import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { ChevronLeft as CaretLeft, ScanLine, Wallet, History } from '../../components/ui/AppIcon';
 import { useThemeColors } from '../../theme/colors';
 import {
     detectRecipientChain,
-    readRecentRecipients,
-    saveRecentRecipient,
     SendChain,
     shortenAddress,
 } from './sendFlow';
 import Button from '../../components/Button';
+import { useAuth } from '../../hooks/useAuth';
+import {
+    deleteRecipient,
+    listRecipients,
+    saveRecipient,
+    SavedRecipient,
+} from './recipientApi';
 
 export default function SendAddressScreen() {
     const themeColors = useThemeColors();
     const router = useRouter();
     const params = useLocalSearchParams<{ recipient?: string }>();
+    const { getAccessToken } = useAuth();
 
     const [address, setAddress] = useState(typeof params.recipient === 'string' ? params.recipient : '');
-    const [recentRecipients, setRecentRecipients] = useState<{ address: string; chain: SendChain; updatedAt: number }[]>([]);
+    const [recentRecipients, setRecentRecipients] = useState<SavedRecipient[]>([]);
 
     const detectedChain = useMemo(() => detectRecipientChain(address), [address]);
     const matchingRecent = useMemo(
@@ -29,9 +36,13 @@ export default function SendAddressScreen() {
     );
 
     const loadRecent = useCallback(async () => {
-        const entries = await readRecentRecipients();
-        setRecentRecipients(entries);
-    }, []);
+        try {
+            const entries = await listRecipients(getAccessToken);
+            setRecentRecipients(entries);
+        } catch {
+            setRecentRecipients([]);
+        }
+    }, [getAccessToken]);
 
     useEffect(() => {
         loadRecent();
@@ -47,16 +58,41 @@ export default function SendAddressScreen() {
     };
 
     const goToTokenSelect = async (candidate: string) => {
-        const chain = detectRecipientChain(candidate);
-        if (!chain) {
-            Alert.alert('Unsupported address', 'Enter a valid EVM (0x...) or Solana wallet address.');
+        const input = candidate.trim();
+        if (!input) {
+            Alert.alert('Missing recipient', 'Enter a valid wallet address.');
             return;
         }
 
-        const recipient = candidate.trim();
-        await saveRecentRecipient(recipient, chain);
-        router.replace({ pathname: '/wallet/send-token', params: { recipient, chain } });
+        const chain = detectRecipientChain(input);
+        if (!chain) {
+            Alert.alert('Unsupported recipient', 'Only direct wallet addresses are supported for now.');
+            return;
+        }
+
+        try {
+            const recipient = input;
+            await saveRecipient(getAccessToken, recipient, chain, null);
+            await loadRecent();
+            router.replace({ pathname: '/wallet/send-token', params: { recipient, chain } });
+        } catch (error: any) {
+            Alert.alert('Could not continue', error?.message || 'Use a valid EVM or Solana address.');
+        }
     };
+
+    const handleDeleteRecipient = useCallback(
+        async (id: string) => {
+            try {
+                await deleteRecipient(getAccessToken, id);
+                setRecentRecipients((prev) => prev.filter((entry) => entry.id !== id));
+            } catch (error: any) {
+                Alert.alert('Delete failed', error?.message || 'Unable to remove recipient.');
+            }
+        },
+        [getAccessToken]
+    );
+
+    const hasInput = address.trim().length > 0;
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -77,7 +113,7 @@ export default function SendAddressScreen() {
                     onChangeText={setAddress}
                     autoCapitalize="none"
                     autoCorrect={false}
-                    placeholder="ENS or Address"
+                    placeholder="Wallet address"
                     placeholderTextColor={themeColors.textTertiary}
                     style={[styles.addressInput, { color: themeColors.textPrimary }]}
                 />
@@ -105,20 +141,35 @@ export default function SendAddressScreen() {
                         <History size={18} color={themeColors.textSecondary} />
                         <Text style={[styles.matchingTitle, { color: themeColors.textSecondary }]}>Recents</Text>
                     </View>
-                    {matchingRecent.slice(0, 4).map((entry) => (
-                        <TouchableOpacity
-                            key={`${entry.address}-${entry.updatedAt}`}
-                            style={styles.recentRow}
-                            onPress={() => goToTokenSelect(entry.address)}
+                    {matchingRecent.slice(0, 6).map((entry) => (
+                        <Swipeable
+                            key={entry.id}
+                            renderRightActions={() => (
+                                <TouchableOpacity
+                                    style={styles.deleteAction}
+                                    onPress={() => handleDeleteRecipient(entry.id)}
+                                >
+                                    <Text style={styles.deleteActionText}>Delete</Text>
+                                </TouchableOpacity>
+                            )}
                         >
-                            <View style={[styles.recentIconWrap, { backgroundColor: themeColors.surface }]}> 
-                                <Wallet size={20} color={themeColors.textSecondary} />
-                            </View>
-                            <View>
-                                <Text style={[styles.recentAddress, { color: themeColors.textPrimary }]}>{shortenAddress(entry.address, 8, 5)}</Text>
-                                <Text style={[styles.recentAddressMuted, { color: themeColors.textSecondary }]}>{shortenAddress(entry.address, 10, 6)}</Text>
-                            </View>
-                        </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.recentRow}
+                                onPress={() => goToTokenSelect(entry.address)}
+                            >
+                                <View style={[styles.recentIconWrap, { backgroundColor: themeColors.surface }]}> 
+                                    <Wallet size={20} color={themeColors.textSecondary} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.recentAddress, { color: themeColors.textPrimary }]}>
+                                        {entry.label ? entry.label : shortenAddress(entry.address, 8, 5)}
+                                    </Text>
+                                    <Text style={[styles.recentAddressMuted, { color: themeColors.textSecondary }]}>
+                                        {shortenAddress(entry.address, 10, 6)}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        </Swipeable>
                     ))}
                 </View>
             )}
@@ -128,7 +179,7 @@ export default function SendAddressScreen() {
                     title="Continue"
                     onPress={() => goToTokenSelect(address)}
                     size="large"
-                    disabled={!detectedChain}
+                    disabled={!hasInput}
                 />
             </View>
         </SafeAreaView>
@@ -234,7 +285,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        marginBottom: 14,
+        marginBottom: 10,
+        paddingVertical: 4,
     },
     recentIconWrap: {
         width: 54,
@@ -256,5 +308,18 @@ const styles = StyleSheet.create({
         marginTop: 'auto',
         paddingHorizontal: 20,
         paddingBottom: 18,
+    },
+    deleteAction: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 88,
+        borderRadius: 14,
+        marginBottom: 10,
+        backgroundColor: '#EF4444',
+    },
+    deleteActionText: {
+        color: '#FFFFFF',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 14,
     },
 });

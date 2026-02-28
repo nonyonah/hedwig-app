@@ -66,6 +66,14 @@ interface OfframpData {
     estimatedFiat?: string;
 }
 
+const PLATFORM_FEE_RATE = 0.01;
+const toNumber = (value: string): number => {
+    const n = parseFloat(value);
+    return Number.isFinite(n) ? n : 0;
+};
+const getPlatformFee = (grossAmount: number): number => grossAmount * PLATFORM_FEE_RATE;
+const getNetCryptoAmount = (grossAmount: number): number => Math.max(0, grossAmount - getPlatformFee(grossAmount));
+
 interface OfframpConfirmationModalProps {
     visible: boolean;
     onClose: () => void;
@@ -114,7 +122,9 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
             // Use provided rate if available
             if (data.rate && data.estimatedFiat) {
                 setCurrentRate(data.rate);
-                setEstimatedFiat(data.estimatedFiat);
+                const gross = toNumber(data.amount);
+                const net = getNetCryptoAmount(gross);
+                setEstimatedFiat((net * parseFloat(data.rate)).toFixed(2));
                 return;
             }
 
@@ -139,7 +149,9 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                 if (result.success && result.data?.rate) {
                     const rate = result.data.rate;
                     setCurrentRate(rate);
-                    const fiat = parseFloat(data.amount) * parseFloat(rate);
+                    const gross = toNumber(data.amount);
+                    const net = getNetCryptoAmount(gross);
+                    const fiat = net * parseFloat(rate);
                     setEstimatedFiat(fiat.toFixed(2));
                     console.log('[OfframpModal] Rate fetched successfully:', rate);
                 } else {
@@ -271,13 +283,15 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
 
             // Build ERC20 transfer transaction
             const decimals = 6; // USDC has 6 decimals
-            const amountWei = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, decimals)));
+            const grossAmount = toNumber(data.amount);
+            const transferAmount = Number(order.cryptoAmount || getNetCryptoAmount(grossAmount));
+            const amountWei = BigInt(Math.floor(transferAmount * Math.pow(10, decimals)));
             const recipientPadded = order.receiveAddress.slice(2).toLowerCase().padStart(64, '0');
             const amountPadded = amountWei.toString(16).padStart(64, '0');
             const transferData = '0xa9059cbb' + recipientPadded + amountPadded;
 
             console.log('[Offramp] Sending tokens to:', order.receiveAddress);
-            console.log('[Offramp] Amount:', data.amount, tokenSymbol);
+            console.log('[Offramp] Amount:', transferAmount, tokenSymbol);
 
             // Use ethers to estimate gas and get proper fee data
             const rpcUrl = RPC_URLS[network];
@@ -336,7 +350,7 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                     body: JSON.stringify({
                         type: 'OFFRAMP',
                         txHash: txHash,
-                        amount: data.amount,
+                        amount: transferAmount.toString(),
                         token: data.token,
                         chain: network.toUpperCase(),
                         fromAddress: walletAddress,
@@ -567,6 +581,18 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                                 <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Exchange Rate</Text>
                                 <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                                     1 {data.token} = {isLoadingRate ? '...' : `${data.fiatCurrency} ${currentRate || data.rate || '...'}`}
+                                </Text>
+                            </View>
+                            <View style={styles.detailRow}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Platform Fee (1%)</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                    {getPlatformFee(toNumber(data.amount)).toFixed(2)} {data.token}
+                                </Text>
+                            </View>
+                            <View style={styles.detailRow}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Net Converted</Text>
+                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                    {getNetCryptoAmount(toNumber(data.amount)).toFixed(2)} {data.token}
                                 </Text>
                             </View>
                             <View style={[styles.divider, { backgroundColor: themeColors.border }]} />

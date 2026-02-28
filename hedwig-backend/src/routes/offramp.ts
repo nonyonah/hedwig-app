@@ -150,20 +150,25 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
-        // Platform fee is 1% (displayed to user, but Paycrest handles actual deduction)
+        // Platform fee is 1% and is deducted from the entered amount.
         const platformFee = amountNum * 0.01;
+        const netCryptoAmount = amountNum - platformFee;
+        if (netCryptoAmount <= 0) {
+            res.status(400).json({ success: false, error: 'Amount too low after fee deduction' });
+            return;
+        }
 
         // 1. Fetch current rate
         const rate = await PaycrestService.getExchangeRate(
             token,
-            amountNum,
+            netCryptoAmount,
             currency || 'NGN',
             network
         );
 
-        // 2. Create order with Paycrest (full amount - Paycrest handles fee deduction)
+        // 2. Create order with Paycrest using net amount after platform fee.
         const order = await PaycrestService.createOfframpOrder({
-            amount: amountNum,
+            amount: netCryptoAmount,
             token: token as 'USDC' | 'USDT',
             network: network as 'base',
             rate,
@@ -186,7 +191,7 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
                 status: 'PENDING',
                 chain: network.toUpperCase(),
                 token,
-                crypto_amount: amountNum,
+                crypto_amount: netCryptoAmount,
                 fiat_currency: order.fiatCurrency!,
                 fiat_amount: order.fiatAmount!,
                 exchange_rate: order.exchangeRate!,
@@ -239,6 +244,7 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
             chain: dbOrder.chain,
             token: dbOrder.token,
             cryptoAmount: dbOrder.crypto_amount,
+            grossCryptoAmount: amountNum,
             platformFee: platformFee, // Calculated 1% for display
             fiatCurrency: dbOrder.fiat_currency,
             fiatAmount: dbOrder.fiat_amount,

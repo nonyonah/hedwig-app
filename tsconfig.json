@@ -11,5 +11,10 @@
     "**/*.ts",
     "**/*.tsx",
     "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "hedwig-backend",
+    "hedwig-backend/**"
   ]
 }

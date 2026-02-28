@@ -27,6 +27,7 @@ import pdfRoutes from './routes/pdf';
 import walletRoutes from './routes/wallet';
 import notificationRoutes from './routes/notifications';
 import beneficiaryRoutes from './routes/beneficiaries';
+import recipientRoutes from './routes/recipients';
 import calendarRoutes from './routes/calendar';
 import kycRoutes from './routes/kyc';
 import diditWebhookRoutes from './routes/diditWebhook';
@@ -198,6 +199,7 @@ app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/beneficiaries', beneficiaryRoutes);
+app.use('/api/recipients', recipientRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use('/api/webhooks/didit', diditWebhookRoutes);

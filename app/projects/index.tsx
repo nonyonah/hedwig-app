@@ -28,6 +28,8 @@ import Analytics from '../../services/analytics';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
+import { TutorialCard } from '../../components/TutorialCard';
+import { useTutorial } from '../../hooks/useTutorial';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -83,6 +85,7 @@ export default function ProjectsScreen() {
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [completingMilestone, setCompletingMilestone] = useState<string | null>(null);
     const milestonesScrollRef = useRef<any>(null);
+    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
 
     // Track page view
     useAnalyticsScreen('Projects');
@@ -748,6 +751,19 @@ export default function ProjectsScreen() {
                     </View>
                 </BottomSheetModal>
             </SafeAreaView >
+
+            {shouldShowOnScreen('projects') && activeStep && (
+                <TutorialCard
+                    step={activeStepIndex + 1}
+                    totalSteps={totalSteps}
+                    title={activeStep.title}
+                    body={activeStep.body}
+                    anchorPosition={activeStep.anchorPosition}
+                    onNext={nextStep}
+                    onBack={prevStep}
+                    onSkip={skipTutorial}
+                />
+            )}
         </>
     );
 }

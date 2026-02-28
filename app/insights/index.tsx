@@ -14,6 +14,8 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { TargetGoalModal } from '../../components/TargetGoalModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import { TutorialCard } from '../../components/TutorialCard';
+import { useTutorial } from '../../hooks/useTutorial';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 52) / 2; // 2 columns with gaps
@@ -115,6 +117,7 @@ export default function InsightsScreen() {
     const themeColors = useThemeColors();
     const insets = useSafeAreaInsets();
     const { insights, loading } = useInsights();
+    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
 
     // Track page view
     useAnalyticsScreen('Insights');
@@ -503,6 +506,19 @@ export default function InsightsScreen() {
                 user={user}
                 getAccessToken={getAccessToken}
             />
+
+            {shouldShowOnScreen('insights') && activeStep && (
+                <TutorialCard
+                    step={activeStepIndex + 1}
+                    totalSteps={totalSteps}
+                    title={activeStep.title}
+                    body={activeStep.body}
+                    anchorPosition={activeStep.anchorPosition}
+                    onNext={nextStep}
+                    onBack={prevStep}
+                    onSkip={skipTutorial}
+                />
+            )}
         </SafeAreaView>
     );
 }

@@ -1,5 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 export type SendChain = 'base' | 'solana';
 
 export interface SendTokenOption {
@@ -13,14 +11,6 @@ export interface SendTokenOption {
     tokenIcon: any;
     chainIcon: any;
 }
-
-export interface RecentRecipient {
-    address: string;
-    chain: SendChain;
-    updatedAt: number;
-}
-
-const RECENT_RECIPIENTS_KEY = 'hedwig_recent_send_recipients_v1';
 
 export const SEND_TOKEN_OPTIONS: SendTokenOption[] = [
     {
@@ -97,33 +87,4 @@ export const parseNumeric = (value: unknown): number => {
     if (typeof value !== 'string') return 0;
     const parsed = parseFloat(value.replace(/,/g, '').trim());
     return Number.isFinite(parsed) ? parsed : 0;
-};
-
-export const readRecentRecipients = async (): Promise<RecentRecipient[]> => {
-    try {
-        const raw = await AsyncStorage.getItem(RECENT_RECIPIENTS_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed
-            .filter((item) => typeof item?.address === 'string' && (item?.chain === 'base' || item?.chain === 'solana'))
-            .map((item) => ({
-                address: item.address,
-                chain: item.chain,
-                updatedAt: typeof item.updatedAt === 'number' ? item.updatedAt : Date.now(),
-            }))
-            .slice(0, 20);
-    } catch {
-        return [];
-    }
-};
-
-export const saveRecentRecipient = async (address: string, chain: SendChain): Promise<void> => {
-    const trimmed = address.trim();
-    if (!trimmed) return;
-
-    const current = await readRecentRecipients();
-    const deduped = current.filter((item) => item.address.toLowerCase() !== trimmed.toLowerCase());
-    const next: RecentRecipient[] = [{ address: trimmed, chain, updatedAt: Date.now() }, ...deduped].slice(0, 20);
-    await AsyncStorage.setItem(RECENT_RECIPIENTS_KEY, JSON.stringify(next));
 };

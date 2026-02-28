@@ -16,6 +16,8 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import Analytics from '../../services/analytics';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import { TutorialCard } from '../../components/TutorialCard';
+import { useTutorial } from '../../hooks/useTutorial';
 
 interface Client {
     id: string;
@@ -39,6 +41,7 @@ export default function ClientsScreen() {
     const detailSheetRef = useRef<BottomSheetModal>(null);
     const formSheetRef = useRef<BottomSheetModal>(null);
     const [isEditing, setIsEditing] = useState(false);
+    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
 
     // Track page view
     useAnalyticsScreen('Clients');
@@ -595,6 +598,19 @@ export default function ClientsScreen() {
                 {/* Profile Modal */}
                 {/* <ProfileModal /> Removed */}
             </SafeAreaView>
+
+            {shouldShowOnScreen('clients') && activeStep && (
+                <TutorialCard
+                    step={activeStepIndex + 1}
+                    totalSteps={totalSteps}
+                    title={activeStep.title}
+                    body={activeStep.body}
+                    anchorPosition={activeStep.anchorPosition}
+                    onNext={nextStep}
+                    onBack={prevStep}
+                    onSkip={skipTutorial}
+                />
+            )}
         </>
     );
 }
