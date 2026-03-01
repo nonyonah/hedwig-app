@@ -4,6 +4,11 @@ import { supabase } from '../lib/supabase';
 
 const router = Router();
 
+const isMissingColumnError = (error: any) => {
+    const message = String(error?.message || '').toLowerCase();
+    return error?.code === '42703' || (message.includes('column') && message.includes('does not exist'));
+};
+
 /**
  * GET /api/beneficiaries
  * List user's saved beneficiaries
@@ -79,20 +84,98 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 .eq('user_id', userId);
         }
 
+        const basePayload = {
+            user_id: userId,
+            bank_name: bankName,
+            account_number: accountNumber,
+            account_name: accountName,
+            currency,
+            is_default: isDefault,
+        };
+        const extendedPayload = {
+            ...basePayload,
+            bank_code: bankCode,
+            country_id: countryId,
+            network_id: networkId,
+        };
+
+        const { data: existing, error: existingError } = await supabase
+            .from('beneficiaries')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('account_number', accountNumber)
+            .maybeSingle();
+
+        if (existingError) {
+            throw new Error(`Failed to check existing beneficiary: ${existingError.message}`);
+        }
+
+        let beneficiaryId: string | null = existing?.id || null;
+        if (beneficiaryId) {
+            const updateWithExtended = await supabase
+                .from('beneficiaries')
+                .update(extendedPayload)
+                .eq('id', beneficiaryId)
+                .eq('user_id', userId)
+                .select('id')
+                .single();
+
+            if (updateWithExtended.error) {
+                if (!isMissingColumnError(updateWithExtended.error)) {
+                    throw new Error(`Failed to save beneficiary: ${updateWithExtended.error.message}`);
+                }
+
+                const updateWithBase = await supabase
+                    .from('beneficiaries')
+                    .update(basePayload)
+                    .eq('id', beneficiaryId)
+                    .eq('user_id', userId)
+                    .select('id')
+                    .single();
+
+                if (updateWithBase.error) {
+                    throw new Error(`Failed to save beneficiary: ${updateWithBase.error.message}`);
+                }
+                beneficiaryId = updateWithBase.data.id;
+            } else {
+                beneficiaryId = updateWithExtended.data.id;
+            }
+        } else {
+            const insertWithExtended = await supabase
+                .from('beneficiaries')
+                .insert(extendedPayload)
+                .select('id')
+                .single();
+
+            if (insertWithExtended.error) {
+                if (!isMissingColumnError(insertWithExtended.error)) {
+                    throw new Error(`Failed to save beneficiary: ${insertWithExtended.error.message}`);
+                }
+
+                const insertWithBase = await supabase
+                    .from('beneficiaries')
+                    .insert(basePayload)
+                    .select('id')
+                    .single();
+
+                if (insertWithBase.error) {
+                    throw new Error(`Failed to save beneficiary: ${insertWithBase.error.message}`);
+                }
+                beneficiaryId = insertWithBase.data.id;
+            } else {
+                beneficiaryId = insertWithExtended.data.id;
+            }
+        }
+
+        if (!beneficiaryId) {
+            throw new Error('Failed to save beneficiary: no beneficiary ID returned');
+        }
+
         const { data: beneficiary, error } = await supabase
             .from('beneficiaries')
-            .upsert({
-                user_id: userId,
-                bank_code: bankCode,
-                bank_name: bankName,
-                account_number: accountNumber,
-                account_name: accountName,
-                currency,
-                country_id: countryId,
-                network_id: networkId,
-                is_default: isDefault,
-            }, { onConflict: 'user_id,account_number' })
-            .select()
+            .select('*')
+            .eq('id', beneficiaryId)
+            .eq('user_id', userId)
             .single();
 
         if (error) {
