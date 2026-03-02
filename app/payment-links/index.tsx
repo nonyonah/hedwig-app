@@ -82,7 +82,6 @@ export default function PaymentLinksScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedLink, setSelectedLink] = useState<any>(null);
-    const [showModal, setShowModal] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
@@ -428,6 +427,178 @@ export default function PaymentLinksScreen() {
         Alert.alert('Copied', 'Link ID copied to clipboard');
     };
 
+    const detailsModalContent = (
+        <View style={{ paddingBottom: 40, paddingHorizontal: 20 }}>
+            <View style={styles.modalHeader}>
+                <View style={styles.modalHeaderLeft}>
+                    {/* Token icon with status badge */}
+                    <View style={styles.modalIconContainer}>
+                        <Image
+                            source={ICONS.usdc}
+                            style={styles.modalTokenIcon}
+                        />
+                        <Image
+                            source={selectedLink?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
+                            style={styles.modalStatusBadge}
+                        />
+                    </View>
+                    <View>
+                        <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                            {selectedLink?.status === 'PAID' ? 'Paid' : 'Pending'}
+                        </Text>
+                        <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                            {selectedLink?.created_at ? `${new Date(selectedLink.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')} ${new Date(selectedLink.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                        </Text>
+                    </View>
+                </View>
+                <View style={styles.modalHeaderRight}>
+                    <>
+                        {Platform.OS === 'ios' && Host ? (
+                            <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
+                                <ContextMenu>
+                                    <ContextMenu.Trigger>
+                                        <ExpoButton variant="borderless" systemImage="ellipsis">
+                                            {' '}
+                                        </ExpoButton>
+                                    </ContextMenu.Trigger>
+                                    <ContextMenu.Items>
+                                        <ExpoButton
+                                            onPress={handleShareLink}
+                                            systemImage="square.and.arrow.up"
+                                        >
+                                            Share
+                                        </ExpoButton>
+                                        {selectedLink?.status !== 'PAID' && (
+                                            <ExpoButton
+                                                onPress={handleSendReminder}
+                                                systemImage="bell.fill"
+                                            >
+                                                Send Reminder
+                                            </ExpoButton>
+                                        )}
+                                        {selectedLink?.status !== 'PAID' && (
+                                            <ExpoButton
+                                                onPress={handleToggleReminders}
+                                                systemImage={selectedLink?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
+                                            >
+                                                {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
+                                            </ExpoButton>
+                                        )}
+                                        {selectedLink?.status !== 'PAID' && (
+                                            <ExpoButton
+                                                onPress={handleDeleteLink}
+                                                systemImage="trash.fill"
+                                            >
+                                                Delete
+                                            </ExpoButton>
+                                        )}
+                                    </ContextMenu.Items>
+                                </ContextMenu>
+                            </Host>
+                        ) : (
+                            <AndroidDropdownMenu
+                                width={280}
+                                options={[
+                                    {
+                                        label: 'Share',
+                                        onPress: handleShareLink,
+                                        icon: <ShareNetwork size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                    },
+                                    ...(selectedLink?.status !== 'PAID'
+                                        ? [
+                                            {
+                                                label: 'Send Reminder',
+                                                onPress: handleSendReminder,
+                                                icon: <Bell size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                            },
+                                            {
+                                                label: selectedLink?.content?.reminders_enabled !== false
+                                                    ? 'Disable Auto-Reminders'
+                                                    : 'Enable Auto-Reminders',
+                                                onPress: handleToggleReminders,
+                                                icon: <CheckCircle size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                            },
+                                            {
+                                                label: 'Delete',
+                                                onPress: handleDeleteLink,
+                                                destructive: true,
+                                                icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
+                                            },
+                                        ]
+                                        : []),
+                                ]}
+                                trigger={
+                                    <View style={{ padding: 4, marginRight: 8 }}>
+                                        <DotsThree size={24} color={themeColors.textSecondary} />
+                                    </View>
+                                }
+                            />
+                        )}
+                    </>
+                    <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
+                        <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                    {formatCurrency((selectedLink?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
+                </Text>
+                <View style={styles.amountCardSub}>
+                    <Image source={ICONS.usdc} style={styles.smallIcon} />
+                    <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedLink?.amount} USDC</Text>
+                </View>
+            </View>
+
+            <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Link ID</Text>
+                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>LINK-{selectedLink?.id?.substring(0, 8).toUpperCase()}</Text>
+                </View>
+                <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
+                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.title}</Text>
+                </View>
+                <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
+                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.content?.clientName || selectedLink?.content?.client_name || 'N/A'}</Text>
+                </View>
+                <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
+                    <View style={styles.chainValue}>
+                        <View style={{ flexDirection: 'row', marginRight: 6 }}>
+                            <Image source={ICONS.solana} style={[styles.smallIcon, { width: 16, height: 16 }]} />
+                            <Image source={ICONS.base} style={[styles.smallIcon, { width: 16, height: 16, marginLeft: -6 }]} />
+                        </View>
+                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>Multichain</Text>
+                    </View>
+                </View>
+            </View>
+
+            <TouchableOpacity
+                style={styles.viewButton}
+                onPress={async () => {
+                    try {
+                        const url = getPaymentLinkUrl(selectedLink);
+
+                        await WebBrowser.openBrowserAsync(url, {
+                            presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+                            controlsColor: Colors.primary,
+                        });
+                    } catch (error: any) {
+                        Alert.alert('Error', `Failed to open: ${error?.message}`);
+                    }
+                }}
+            >
+                <Text style={styles.viewButtonText}>View Payment Link</Text>
+            </TouchableOpacity>
+        </View>
+    );
+
     const renderRightActions = (progress: any, dragX: any, item: any) => {
         const trans = dragX.interpolate({
             inputRange: [-100, 0],
@@ -594,174 +765,8 @@ export default function PaymentLinksScreen() {
                     backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
                     handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
                 >
-                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 20 }}>
-                        <View style={styles.modalHeader}>
-                            <View style={styles.modalHeaderLeft}>
-                                {/* Token icon with status badge */}
-                                <View style={styles.modalIconContainer}>
-                                    <Image
-                                        source={ICONS.usdc}
-                                        style={styles.modalTokenIcon}
-                                    />
-                                    <Image
-                                        source={selectedLink?.status === 'PAID' ? ICONS.statusSuccess : ICONS.statusPending}
-                                        style={styles.modalStatusBadge}
-                                    />
-                                </View>
-                                <View>
-                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
-                                        {selectedLink?.status === 'PAID' ? 'Paid' : 'Pending'}
-                                    </Text>
-                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
-                                        {selectedLink?.created_at ? `${new Date(selectedLink.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')} ${new Date(selectedLink.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                                    </Text>
-                                </View>
-                            </View>
-                            <View style={styles.modalHeaderRight}>
-                                <>
-                                    {Platform.OS === 'ios' && Host ? (
-                                        <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                            <ContextMenu>
-                                                <ContextMenu.Trigger>
-                                                    <ExpoButton variant="borderless" systemImage="ellipsis">
-                                                        {' '}
-                                                    </ExpoButton>
-                                                </ContextMenu.Trigger>
-                                                <ContextMenu.Items>
-                                                    <ExpoButton
-                                                        onPress={handleShareLink}
-                                                        systemImage="square.and.arrow.up"
-                                                    >
-                                                        Share
-                                                    </ExpoButton>
-                                                    {selectedLink?.status !== 'PAID' && (
-                                                        <ExpoButton
-                                                            onPress={handleSendReminder}
-                                                            systemImage="bell.fill"
-                                                        >
-                                                            Send Reminder
-                                                        </ExpoButton>
-                                                    )}
-                                                    {selectedLink?.status !== 'PAID' && (
-                                                        <ExpoButton
-                                                            onPress={handleToggleReminders}
-                                                            systemImage={selectedLink?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
-                                                        >
-                                                            {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
-                                                        </ExpoButton>
-                                                    )}
-                                                    {selectedLink?.status !== 'PAID' && (
-                                                        <ExpoButton
-                                                            onPress={handleDeleteLink}
-                                                            systemImage="trash.fill"
-                                                        >
-                                                            Delete
-                                                        </ExpoButton>
-                                                    )}
-                                                </ContextMenu.Items>
-                                            </ContextMenu>
-                                        </Host>
-                                    ) : (
-                                        <AndroidDropdownMenu
-                                            width={280}
-                                            options={[
-                                                {
-                                                    label: 'Share',
-                                                    onPress: handleShareLink,
-                                                    icon: <ShareNetwork size={16} color={themeColors.textPrimary} strokeWidth={3} />,
-                                                },
-                                                ...(selectedLink?.status !== 'PAID'
-                                                    ? [
-                                                        {
-                                                            label: 'Send Reminder',
-                                                            onPress: handleSendReminder,
-                                                            icon: <Bell size={16} color={themeColors.textPrimary} strokeWidth={3} />,
-                                                        },
-                                                        {
-                                                            label: selectedLink?.content?.reminders_enabled !== false
-                                                                ? 'Disable Auto-Reminders'
-                                                                : 'Enable Auto-Reminders',
-                                                            onPress: handleToggleReminders,
-                                                            icon: <CheckCircle size={16} color={themeColors.textPrimary} strokeWidth={3} />,
-                                                        },
-                                                        {
-                                                            label: 'Delete',
-                                                            onPress: handleDeleteLink,
-                                                            destructive: true,
-                                                            icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
-                                                        },
-                                                    ]
-                                                    : []),
-                                            ]}
-                                            trigger={
-                                                <View style={{ padding: 4, marginRight: 8 }}>
-                                                    <DotsThree size={24} color={themeColors.textSecondary} />
-                                                </View>
-                                            }
-                                        />
-                                    )}
-                                </>
-                                <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                                    <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
-                            <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
-                                {formatCurrency((selectedLink?.amount || 0).toString().replace(/[^0-9.]/g, ''), currency)}
-                            </Text>
-                            <View style={styles.amountCardSub}>
-                                <Image source={ICONS.usdc} style={styles.smallIcon} />
-                                <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>{selectedLink?.amount} USDC</Text>
-                            </View>
-                        </View>
-
-                        <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Link ID</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>LINK-{selectedLink?.id?.substring(0, 8).toUpperCase()}</Text>
-                            </View>
-                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.title}</Text>
-                            </View>
-                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{selectedLink?.content?.clientName || selectedLink?.content?.client_name || 'N/A'}</Text>
-                            </View>
-                            <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
-                                <View style={styles.chainValue}>
-                                    <View style={{ flexDirection: 'row', marginRight: 6 }}>
-                                        <Image source={ICONS.solana} style={[styles.smallIcon, { width: 16, height: 16 }]} />
-                                        <Image source={ICONS.base} style={[styles.smallIcon, { width: 16, height: 16, marginLeft: -6 }]} />
-                                    </View>
-                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>Multichain</Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.viewButton}
-                            onPress={async () => {
-                                try {
-                                    const url = getPaymentLinkUrl(selectedLink);
-
-                                    await WebBrowser.openBrowserAsync(url, {
-                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-                                        controlsColor: Colors.primary,
-                                    });
-                                } catch (error: any) {
-                                    Alert.alert('Error', `Failed to open: ${error?.message}`);
-                                }
-                            }}
-                        >
-                            <Text style={styles.viewButtonText}>View Payment Link</Text>
-                        </TouchableOpacity>
+                    <BottomSheetView>
+                        {detailsModalContent}
                     </BottomSheetView>
                 </BottomSheetModal>
             </View >

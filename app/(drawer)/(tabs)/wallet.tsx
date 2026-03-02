@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, LayoutAnimation, Platform, UIManager, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, LayoutAnimation, Platform, UIManager, Alert, Share, ToastAndroid } from 'react-native';
 let ContextMenu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
@@ -23,15 +23,17 @@ import { useSettings } from '../../../context/SettingsContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { useWallet } from '../../../hooks/useWallet';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Settings as Gear, Copy, QrCode, ChevronDown as CaretDown, ChevronLeft as CaretLeft, X, ArrowUp } from '../../../components/ui/AppIcon';
+import { Settings as Gear, Copy, QrCode, ChevronDown as CaretDown, ChevronLeft as CaretLeft, X, ArrowUp, Wallet as WalletIcon } from '../../../components/ui/AppIcon';
 import QRCode from 'react-native-qrcode-svg';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import { getUserGradient } from '../../../utils/gradientUtils';
 import { TutorialCard } from '../../../components/TutorialCard';
 import { useTutorial } from '../../../hooks/useTutorial';
 import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
+import { createUsdKycLink, enrollUsdAccount, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 
 const CHAINS = [
     { id: 'base', name: 'Base', icon: require('../../../assets/icons/networks/base.png') },
@@ -59,6 +61,12 @@ const getTokenBalance = (entry: any, decimals: number): number => {
     }
 
     return 0;
+};
+
+const parseOptionalNumber = (value: unknown): number | null => {
+    if (value === null || value === undefined) return null;
+    const parsed = toNumber(value);
+    return Number.isFinite(parsed) ? parsed : null;
 };
 
 export default function WalletScreen() {
@@ -103,6 +111,10 @@ export default function WalletScreen() {
 
     // Network Filter & Dropdown
     const [networkFilter, setNetworkFilter] = useState<'all' | 'base' | 'solana'>('all');
+    const [usdStatus, setUsdStatus] = useState<UsdAccountStatus | null>(null);
+    const [usdDetails, setUsdDetails] = useState<UsdAccountDetails | null>(null);
+    const [usdTransfers, setUsdTransfers] = useState<UsdTransfer[]>([]);
+    const [usdLoading, setUsdLoading] = useState(false);
 
     const fetchUserData = useCallback(async () => {
         if (!user) return;
@@ -130,11 +142,46 @@ export default function WalletScreen() {
         } catch (error) { console.error('Failed to fetch user data:', error); }
     }, [user, getAccessToken]);
 
+    const fetchUsdData = useCallback(async () => {
+        if (!user) return;
+
+        try {
+            setUsdLoading(true);
+            const status = await getUsdAccountStatus(getAccessToken);
+            setUsdStatus(status);
+
+            if (status.featureEnabled || status.accountStatus !== 'not_started') {
+                try {
+                    const details = await getUsdAccountDetails(getAccessToken);
+                    setUsdDetails(details);
+                } catch {
+                    setUsdDetails(null);
+                }
+            } else {
+                setUsdDetails(null);
+            }
+
+            try {
+                const transfers = await getUsdTransfers(getAccessToken);
+                setUsdTransfers(transfers);
+            } catch {
+                setUsdTransfers([]);
+            }
+        } catch {
+            setUsdStatus(null);
+            setUsdDetails(null);
+            setUsdTransfers([]);
+        } finally {
+            setUsdLoading(false);
+        }
+    }, [getAccessToken, user]);
+
     const onRefresh = async () => {
         setRefreshing(true);
         await Promise.all([
             fetchUserData(),
-            fetchBaseBalances()
+            fetchBaseBalances(),
+            fetchUsdData()
         ]);
         setRefreshing(false);
     };
@@ -143,13 +190,14 @@ export default function WalletScreen() {
         React.useCallback(() => {
             fetchUserData();
             fetchBaseBalances();
+            fetchUsdData();
 
             const intervalId = setInterval(() => {
                 fetchBaseBalances();
             }, 15000);
 
             return () => clearInterval(intervalId);
-        }, [fetchBaseBalances, fetchUserData])
+        }, [fetchBaseBalances, fetchUserData, fetchUsdData])
     );
 
     const selectedAddress = selectedChain === 'solana' ? (solanaAddress || '') : (baseAddress || '');
@@ -158,10 +206,67 @@ export default function WalletScreen() {
     const copySelectedAddress = async () => {
         if (!selectedAddress) return;
         await Clipboard.setStringAsync(selectedAddress);
+        if (Platform.OS === 'android') {
+            ToastAndroid.show(`${selectedChainMeta.name} wallet address copied`, ToastAndroid.SHORT);
+            return;
+        }
         Alert.alert('Copied', `${selectedChainMeta.name} wallet address copied`);
     };
 
-    const totalBalance = toNumber(getBaseTotalUsd());
+    const shareSelectedAddress = async () => {
+        if (!selectedAddress) return;
+        try {
+            await Share.share({
+                message: `${selectedChainMeta.name} address:\n${selectedAddress}`,
+            });
+        } catch {
+            Alert.alert('Share unavailable', 'Could not open share sheet right now.');
+        }
+    };
+
+    const handleSendOptionPress = (path: '/wallet/send-address' | '/offramp-history/create') => {
+        sendSheetRef.current?.dismiss();
+        setTimeout(() => {
+            router.push(path as any);
+        }, 120);
+    };
+
+    const usdBalanceCandidates: unknown[] = [
+        usdDetails?.balances?.availableUsd,
+        usdDetails?.balances?.availableUSD,
+        usdDetails?.balances?.currentUsd,
+        usdDetails?.balances?.currentUSD,
+        usdDetails?.availableBalanceUsd,
+        usdDetails?.available_balance_usd,
+        usdDetails?.accountBalanceUsd,
+        usdDetails?.account_balance_usd,
+        usdDetails?.usdBalance,
+        usdDetails?.usd_balance,
+        usdStatus?.balances?.availableUsd,
+        usdStatus?.balances?.availableUSD,
+        usdStatus?.balances?.currentUsd,
+        usdStatus?.balances?.currentUSD,
+        usdStatus?.availableBalanceUsd,
+        usdStatus?.available_balance_usd,
+        usdStatus?.accountBalanceUsd,
+        usdStatus?.account_balance_usd,
+    ];
+
+    const explicitUsdBalance = usdBalanceCandidates
+        .map(parseOptionalNumber)
+        .find((value): value is number => value !== null);
+
+    const unsettledCompletedUsd = usdTransfers.reduce((sum, transfer) => {
+        const isCompleted = String(transfer.status || '').toLowerCase() === 'completed';
+        const settledAmount = toNumber(transfer.usdcAmountSettled);
+        if (!isCompleted || settledAmount > 0) return sum;
+        return sum + toNumber(transfer.netUsd);
+    }, 0);
+
+    const usdCheckingBalance = explicitUsdBalance ?? unsettledCompletedUsd;
+    const totalBalance = toNumber(getBaseTotalUsd()) + usdCheckingBalance;
+    const checkingAccountName = usdDetails?.ach?.accountName || usdDetails?.ach?.bankName || 'USD Checking Account';
+    const checkingAccountNumber = usdDetails?.ach?.accountNumberMasked || 'Tap to complete setup';
 
     const baseUSDC = walletBalances.find(b => b.chain === 'base' && b.asset === 'usdc');
     const baseETH = walletBalances.find(b => b.chain === 'base' && b.asset === 'eth');
@@ -211,6 +316,29 @@ export default function WalletScreen() {
         if (filter === 'base') return require('../../../assets/icons/networks/base.png');
         if (filter === 'solana') return require('../../../assets/icons/networks/solana.png');
         return null;
+    };
+
+    const handleUsdEnroll = async () => {
+        try {
+            await enrollUsdAccount(getAccessToken);
+            await fetchUsdData();
+            Alert.alert('USD account started', 'Enrollment started. Complete Bridge KYC to activate account details.');
+        } catch (error: any) {
+            Alert.alert('Enrollment failed', error?.message || 'Could not enroll for USD account');
+        }
+    };
+
+    const handleUsdKyc = async () => {
+        try {
+            const result = await createUsdKycLink(getAccessToken);
+            if (!result?.url) {
+                Alert.alert('Unavailable', 'KYC link is not available right now.');
+                return;
+            }
+            await WebBrowser.openBrowserAsync(result.url);
+        } catch (error: any) {
+            Alert.alert('Could not open KYC', error?.message || 'Please try again later.');
+        }
     };
 
     return (
@@ -281,6 +409,70 @@ export default function WalletScreen() {
                             </View>
                             <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Send</Text>
                         </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => router.push('/wallet/usd-account' as any)}
+                        >
+                            <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
+                                <WalletIcon size={24} color="#2563EB" />
+                            </View>
+                            <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>USD Account</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.checkingSection}>
+                        <View style={styles.tokenHeader}>
+                            <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Checking</Text>
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.tokenItem, { backgroundColor: themeColors.surface }]}
+                            onPress={() => router.push('/wallet/usd-account' as any)}
+                            activeOpacity={0.9}
+                        >
+                            <View style={styles.tokenLeft}>
+                                <View
+                                    style={[
+                                        styles.tokenIconContainer,
+                                        { backgroundColor: themeColors.surfaceHighlight || (isDark ? 'rgba(37,99,235,0.22)' : '#EAF0FF') }
+                                    ]}
+                                >
+                                    <WalletIcon size={20} color={Colors.primary} />
+                                </View>
+                                <View>
+                                    <Text style={[styles.tokenName, { color: themeColors.textPrimary }]}>{checkingAccountName}</Text>
+                                    <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary }]}>{checkingAccountNumber}</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.tokenRight}>
+                                <Text style={[styles.tokenBalance, { color: themeColors.textPrimary }]}>
+                                    ${usdCheckingBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </Text>
+                                <Text style={[styles.chainLabel, { color: themeColors.textSecondary }]}>USD</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        {usdLoading ? (
+                            <Text style={[styles.usdMutedText, { color: themeColors.textSecondary }]}>Loading checking account...</Text>
+                        ) : usdStatus && !usdDetails?.ach?.accountNumberMasked ? (
+                            <View style={styles.usdActionRow}>
+                                {usdStatus.diditKycStatus !== 'approved' ? (
+                                    <Text style={[styles.usdMutedText, { color: themeColors.textSecondary }]}>
+                                        Didit KYC must be approved before checking account setup.
+                                    </Text>
+                                ) : usdStatus.accountStatus === 'not_started' ? (
+                                    <TouchableOpacity style={[styles.usdActionButton, { backgroundColor: Colors.primary }]} onPress={handleUsdEnroll}>
+                                        <Text style={styles.usdActionButtonText}>Start Checking Setup</Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <TouchableOpacity style={[styles.usdActionButton, { backgroundColor: Colors.primary }]} onPress={handleUsdKyc}>
+                                        <Text style={styles.usdActionButtonText}>Complete Checking KYC</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        ) : null}
                     </View>
 
                     <View style={styles.tokenSection}>
@@ -402,7 +594,6 @@ export default function WalletScreen() {
                     handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
                 >
                     <BottomSheetView style={[styles.bottomSheetContent, { backgroundColor: themeColors.background }]}>
-                        {/* Header */}
                         <View style={styles.receiveHeader}>
                             <Text style={[styles.receiveHeaderTitle, { color: themeColors.textPrimary }]}>Receive</Text>
                             <TouchableOpacity onPress={() => receiveSheetRef.current?.dismiss()} style={styles.closeButton}>
@@ -411,10 +602,6 @@ export default function WalletScreen() {
                         </View>
 
                         <View style={styles.receiveBody}>
-                            <Text style={[styles.receiveSubtext, { color: themeColors.textSecondary }]}>
-                                Select a chain to get your receive address
-                            </Text>
-
                             {Platform.OS === 'ios' && Host ? (
                                 <Host>
                                     <ContextMenu>
@@ -453,33 +640,44 @@ export default function WalletScreen() {
                                 />
                             )}
 
-                            <View style={[styles.qrCard, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                            <View style={styles.qrCardCompact}>
                                 <QRCode
                                     value={selectedAddress || 'no-address'}
                                     size={210}
-                                    backgroundColor={isDark ? '#000000' : '#FFFFFF'}
-                                    color={isDark ? '#FFFFFF' : '#000000'}
+                                    backgroundColor="#FFFFFF"
+                                    color="#000000"
                                 />
                             </View>
 
-                            <Text
-                                style={[styles.addressValue, { color: themeColors.textPrimary }]}
-                                numberOfLines={2}
-                                ellipsizeMode="middle"
-                            >
-                                {selectedAddress || 'Address not available'}
+                            <Text style={[styles.receiveTitle, { color: themeColors.textPrimary }]}>
+                                Your {selectedChainMeta.name} Address
+                            </Text>
+                            <Text style={[styles.receiveSubtext, { color: themeColors.textSecondary }]}>
+                                Use this address to receive tokens on <Text style={[styles.receiveSubtextStrong, { color: themeColors.textPrimary }]}>{selectedChainMeta.name}</Text>.
                             </Text>
 
-                            <View style={styles.receiveActionRow}>
-                                <TouchableOpacity
-                                    style={[styles.receiveActionButton, { backgroundColor: themeColors.surface }]}
-                                    onPress={copySelectedAddress}
-                                    disabled={!selectedAddress}
+                            <TouchableOpacity
+                                style={[styles.addressPill, { backgroundColor: themeColors.surface }]}
+                                onPress={copySelectedAddress}
+                                disabled={!selectedAddress}
+                            >
+                                <Text
+                                    style={[styles.addressPillText, { color: themeColors.textPrimary }]}
+                                    numberOfLines={1}
+                                    ellipsizeMode="middle"
                                 >
-                                    <Copy size={18} color={themeColors.textPrimary} />
-                                    <Text style={[styles.receiveActionButtonText, { color: themeColors.textPrimary }]}>Copy</Text>
-                                </TouchableOpacity>
-                            </View>
+                                    {selectedAddress || 'Address not available'}
+                                </Text>
+                                <Copy size={18} color={themeColors.textSecondary} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.shareButton, { backgroundColor: Colors.primary }]}
+                                onPress={shareSelectedAddress}
+                                disabled={!selectedAddress}
+                            >
+                                <Text style={styles.shareButtonText}>Share</Text>
+                            </TouchableOpacity>
                         </View>
                     </BottomSheetView>
                 </BottomSheetModal>
@@ -499,10 +697,7 @@ export default function WalletScreen() {
 
                         <TouchableOpacity
                             style={[styles.sendOptionCard, { backgroundColor: themeColors.surface }]}
-                            onPress={() => {
-                                sendSheetRef.current?.dismiss();
-                                router.push('/wallet/send-address' as any);
-                            }}
+                            onPress={() => handleSendOptionPress('/wallet/send-address')}
                         >
                             <View>
                                 <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary }]}>Send crypto</Text>
@@ -513,10 +708,7 @@ export default function WalletScreen() {
 
                         <TouchableOpacity
                             style={[styles.sendOptionCard, { backgroundColor: themeColors.surface }]}
-                            onPress={() => {
-                                sendSheetRef.current?.dismiss();
-                                router.push('/offramp-history/create' as any);
-                            }}
+                            onPress={() => handleSendOptionPress('/offramp-history/create')}
                         >
                             <View>
                                 <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary }]}>Withdraw to bank</Text>
@@ -560,6 +752,11 @@ const styles = StyleSheet.create({
     actionButton: { alignItems: 'center', gap: 8, minWidth: 72 },
     actionIconBox: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
     actionButtonLabel: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 13 },
+    checkingSection: { marginBottom: 20 },
+    usdMutedText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13, lineHeight: 18 },
+    usdActionRow: { marginTop: 12 },
+    usdActionButton: { borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center' },
+    usdActionButtonText: { color: '#FFFFFF', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
     tokenSection: { marginBottom: 100 },
     tokenHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
     sectionTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 },
@@ -585,17 +782,65 @@ const styles = StyleSheet.create({
     receiveHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 },
     receiveHeaderTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 22 },
     closeButton: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 18, backgroundColor: 'rgba(128,128,128,0.2)' },
-    receiveBody: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 4 },
-    receiveSubtext: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14, marginBottom: 14 },
-    receiveChainDropdownContainer: { width: '100%', alignItems: 'center', marginBottom: 18 },
-    receiveChainDropdown: { width: '100%', maxWidth: 320, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 18 },
+    receiveBody: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 20 },
+    receiveSubtext: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        marginBottom: 24,
+        textAlign: 'center',
+        lineHeight: 21,
+        maxWidth: 320,
+    },
+    receiveSubtextStrong: { fontFamily: 'GoogleSansFlex_600SemiBold' },
+    receiveChainDropdownContainer: { width: '100%', alignItems: 'center', marginBottom: 22 },
+    receiveChainDropdown: { width: '100%', maxWidth: 320, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 22 },
     receiveChainDropdownIcon: { width: 18, height: 18, borderRadius: 9 },
     receiveChainDropdownText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 14 },
-    qrCard: { backgroundColor: '#FFFFFF', borderRadius: 28, padding: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 6, width: '100%', maxWidth: 320, aspectRatio: 1 },
-    addressValue: { width: '100%', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 15, lineHeight: 21, textAlign: 'center', marginBottom: 16 },
-    receiveActionRow: { width: '100%', flexDirection: 'row', marginBottom: 18 },
-    receiveActionButton: { flex: 1, height: 46, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-    receiveActionButtonText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 14 },
+    qrCardCompact: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+        alignSelf: 'center',
+    },
+    receiveTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 19,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    addressPill: {
+        width: '100%',
+        maxWidth: 360,
+        minHeight: 54,
+        borderRadius: 999,
+        paddingHorizontal: 18,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 14,
+    },
+    addressPillText: {
+        flex: 1,
+        marginRight: 12,
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 16,
+    },
+    shareButton: {
+        width: '100%',
+        maxWidth: 360,
+        height: 54,
+        borderRadius: 999,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    shareButtonText: {
+        color: '#FFFFFF',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 18,
+    },
     sendSheetContent: { paddingHorizontal: 20, paddingBottom: 24 },
     sendSheetTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24, marginBottom: 4 },
     sendSheetSubtitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14, marginBottom: 16 },

@@ -34,6 +34,8 @@ import diditWebhookRoutes from './routes/diditWebhook';
 import blockradarWebhookRoutes from './routes/blockradarWebhook';
 import creationBoxRoutes from './routes/creation-box';
 import solanaRpcRoutes from './routes/solanaRpc';
+import usdAccountRoutes from './routes/usdAccounts';
+import bridgeUsdWebhookRoutes from './routes/bridgeUsdWebhook';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -206,6 +208,8 @@ app.use('/api/webhooks/didit', diditWebhookRoutes);
 app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);
 app.use('/api/creation-box', creationBoxRoutes);
 app.use('/api/solana/rpc', solanaRpcRoutes);
+app.use('/api/usd-accounts', usdAccountRoutes);
+app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));
