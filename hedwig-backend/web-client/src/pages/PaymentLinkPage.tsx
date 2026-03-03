@@ -5,6 +5,7 @@ import { CheckCircle, ArrowSquareOut, CurrencyCircleDollar } from '@phosphor-ico
 import { TOKENS } from '../lib/constants';
 import { executePayment } from '../lib/paymentHandler';
 import { usePrivyEvmWallet } from '../hooks/usePrivyEvmWallet';
+import { getNetworkModeFromEvmChainId, resolveEvmChainForPayment, type RuntimeNetworkMode } from '../lib/networkMode';
 import './PaymentLinkPage.css';
 
 // ERC20 ABI for transfers and approvals
@@ -38,6 +39,10 @@ interface PaymentLinkData {
 }
 
 type ChainId = 'base' | 'baseSepolia' | 'celo' | 'solana';
+const AVAILABLE_PAYMENT_CHAINS: Array<{ id: ChainId; label: string }> = [
+    { id: 'base', label: 'Base' },
+    { id: 'solana', label: 'Solana' },
+];
 
 type Eip1193Provider = {
     request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -70,6 +75,18 @@ const getChainId = (chain: ChainId): number => {
 
 const getInjectedSolanaWallet = () => {
     return window.phantom?.solana || window.solflare || window.solana;
+};
+
+const getChainIcon = (chain: ChainId) => {
+    if (chain === 'solana') return '/assets/icons/networks/solana.png';
+    if (chain === 'celo') return '/assets/icons/networks/celo.png';
+    return '/assets/icons/networks/base.png';
+};
+
+const getSolanaNetworkMode = (wallet: any, evmChainId?: number): RuntimeNetworkMode => {
+    const walletNetwork = String(wallet?.network || wallet?.networkVersion || '').toLowerCase();
+    if (walletNetwork.includes('devnet') || walletNetwork.includes('testnet')) return 'testnet';
+    return getNetworkModeFromEvmChainId(evmChainId);
 };
 
 const parseChainIdHex = (value: unknown): number => {
@@ -126,7 +143,7 @@ const ensureWalletOnTargetChain = async (provider: Eip1193Provider, targetChainI
 
 export default function PaymentLinkPage() {
     const { id } = useParams<{ id: string }>();
-    const { evmWallet, address: evmAddress, connectEvmWallet } = usePrivyEvmWallet();
+    const { evmWallet, address: evmAddress, chainId: evmChainId, connectEvmWallet } = usePrivyEvmWallet();
 
     const [paymentLink, setPaymentLink] = useState<PaymentLinkData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -216,6 +233,7 @@ export default function PaymentLinkPage() {
                 amount: paymentLink.amount,
                 recipientAddress: merchantAddress,
                 wallet: solanaWallet,
+                networkMode: getSolanaNetworkMode(solanaWallet, evmChainId),
             });
 
             console.log('[Solana] Transaction sent:', result.txHash);
@@ -269,11 +287,15 @@ export default function PaymentLinkPage() {
         try {
             console.log('[EVM] Starting payment...');
 
-            const evmChain = selectedChain as Exclude<ChainId, 'solana'>;
+            const mode = getNetworkModeFromEvmChainId(evmChainId);
+            const evmChain = resolveEvmChainForPayment(
+                selectedChain as Exclude<ChainId, 'solana'>,
+                mode
+            );
             const tokenAddress = TOKENS[evmChain]?.[selectedToken as keyof (typeof TOKENS)[typeof evmChain]];
 
             // Get the target chain ID
-            const targetChainId = getChainId(selectedChain);
+            const targetChainId = getChainId(evmChain);
 
             const provider = (await evmWallet.getEthereumProvider()) as Eip1193Provider;
             console.log('[EVM] Ensuring wallet chain is', targetChainId);
@@ -404,7 +426,7 @@ export default function PaymentLinkPage() {
                 body: JSON.stringify({
                     txHash: finalTxHash,
                     payer: evmAddress,
-                    chain: selectedChain,
+                    chain: evmChain,
                     token: selectedToken,
                     amount: paymentLink.amount,
                 }),
@@ -423,7 +445,7 @@ export default function PaymentLinkPage() {
             console.error('[EVM] Payment failed:', err);
             const raw = err instanceof Error ? err.message : getErrorMessage(err);
             const errorMessage = raw.toLowerCase().includes('execution reverted')
-                ? 'Transfer reverted. Ensure you have enough Base USDC and ETH for gas.'
+                ? 'Transfer reverted. Ensure you have enough token balance and native gas on the selected network.'
                 : raw;
             alert(errorMessage);
         } finally {
@@ -443,9 +465,15 @@ export default function PaymentLinkPage() {
             solana: 'https://solscan.io/tx/',
         };
         if (selectedChain === 'solana') {
-            return `${explorers.solana}${hash}`;
+            const solanaMode = getNetworkModeFromEvmChainId(evmChainId);
+            const clusterSuffix = solanaMode === 'testnet' ? '?cluster=devnet' : '';
+            return `${explorers.solana}${hash}${clusterSuffix}`;
         }
-        return `${explorers[selectedChain]}${hash}`;
+        const runtimeChain = resolveEvmChainForPayment(
+            selectedChain as Exclude<ChainId, 'solana'>,
+            getNetworkModeFromEvmChainId(evmChainId)
+        );
+        return `${explorers[runtimeChain]}${hash}`;
     };
 
     const formatAmount = (amount: number) => {
@@ -597,7 +625,7 @@ export default function PaymentLinkPage() {
                         <div className="network-select-wrapper" style={{ width: 'auto', position: 'relative' }}>
                             {/* Logo Overlay */}
                             <img
-                                src={selectedChain === 'solana' ? '/assets/icons/networks/solana.png' : '/assets/icons/networks/base.png'}
+                                src={getChainIcon(selectedChain)}
                                 alt="Chain"
                                 style={{
                                     position: 'absolute',
@@ -637,8 +665,11 @@ export default function PaymentLinkPage() {
                                     fontWeight: 500
                                 }}
                             >
-                                <option value="base">Base</option>
-                                <option value="solana">Solana</option>
+                                {AVAILABLE_PAYMENT_CHAINS.map((chainOption) => (
+                                    <option key={chainOption.id} value={chainOption.id}>
+                                        {chainOption.label}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     </div>

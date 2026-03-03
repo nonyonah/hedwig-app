@@ -6,10 +6,12 @@ import {
   createAssociatedTokenAccountInstruction,
   TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
-import { TOKENS, SOLANA_TOKENS } from './constants';
+import { TOKENS, SOLANA_TOKENS_BY_CLUSTER } from './constants';
+import type { RuntimeNetworkMode } from './networkMode';
+import { resolveSolanaCluster } from './networkMode';
 
 interface EVMPaymentParams {
-  chain: 'base';
+  chain: 'base' | 'baseSepolia' | 'celo';
   token: 'USDC' | 'USDT' | 'ETH';
   amount: number;
   recipientAddress: string;
@@ -23,6 +25,7 @@ interface SolanaPaymentParams {
   amount: number;
   recipientAddress: string;
   wallet: any; // Solana wallet
+  networkMode?: RuntimeNetworkMode;
 }
 
 type PaymentParams = EVMPaymentParams | SolanaPaymentParams;
@@ -32,11 +35,11 @@ interface PaymentResult {
 }
 
 const DEFAULT_SOLANA_RPC_ENDPOINTS = [
-  '/api/solana/rpc?cluster=devnet',
-  'https://api.devnet.solana.com',
+  '/api/solana/rpc?cluster=mainnet-beta',
+  'https://api.mainnet-beta.solana.com',
 ];
 
-function getSolanaRpcEndpoints(): string[] {
+function getSolanaRpcEndpoints(cluster: 'mainnet-beta' | 'devnet'): string[] {
   const configuredProxy = (import.meta.env.VITE_SOLANA_RPC_PROXY_URL || '').trim();
   const apiBaseUrl = (import.meta.env.VITE_API_URL || '').trim();
   const configuredFallbacks = (import.meta.env.VITE_SOLANA_RPC_FALLBACKS || '')
@@ -44,11 +47,15 @@ function getSolanaRpcEndpoints(): string[] {
     .map((value: string) => value.trim())
     .filter(Boolean);
 
-  const primaryProxyEndpoint = configuredProxy || (apiBaseUrl ? `${apiBaseUrl}/api/solana/rpc?cluster=devnet` : '/api/solana/rpc?cluster=devnet');
+  const primaryProxyEndpoint = configuredProxy || (apiBaseUrl ? `${apiBaseUrl}/api/solana/rpc?cluster=${cluster}` : `/api/solana/rpc?cluster=${cluster}`);
+  const clusterDefaults = cluster === 'devnet'
+    ? ['https://api.devnet.solana.com']
+    : ['https://api.mainnet-beta.solana.com'];
 
   const endpoints = [
     primaryProxyEndpoint,
     ...configuredFallbacks,
+    ...clusterDefaults,
     ...DEFAULT_SOLANA_RPC_ENDPOINTS,
   ].filter(Boolean);
 
@@ -88,7 +95,7 @@ export async function executePayment(params: PaymentParams): Promise<PaymentResu
 }
 
 async function executeEVMPayment(params: EVMPaymentParams): Promise<PaymentResult> {
-  const { token, amount, recipientAddress, provider, senderAddress } = params;
+  const { chain, token, amount, recipientAddress, provider, senderAddress } = params;
 
   if (token === 'ETH') {
     // Native ETH transfer
@@ -104,7 +111,10 @@ async function executeEVMPayment(params: EVMPaymentParams): Promise<PaymentResul
     return { txHash: txHash as string };
   } else {
     // ERC20 transfer
-    const tokenAddress = TOKENS.base[token];
+    const tokenAddress = TOKENS[chain]?.[token as keyof typeof TOKENS[typeof chain]];
+    if (!tokenAddress) {
+      throw new Error(`${token} is not configured on ${chain}.`);
+    }
     const decimals = 6;
     const amountInUnits = parseUnits(amount.toString(), decimals);
     
@@ -126,9 +136,10 @@ async function executeEVMPayment(params: EVMPaymentParams): Promise<PaymentResul
 }
 
 async function executeSolanaPayment(params: SolanaPaymentParams): Promise<PaymentResult> {
-  const { amount, recipientAddress, wallet } = params;
+  const { amount, recipientAddress, wallet, networkMode = 'mainnet' } = params;
+  const cluster = resolveSolanaCluster(networkMode);
 
-  const rpcEndpoints = getSolanaRpcEndpoints();
+  const rpcEndpoints = getSolanaRpcEndpoints(cluster);
   let connection: Connection | null = null;
   let selectedRpcEndpoint = '';
   let lastRpcError: unknown = null;
@@ -155,7 +166,8 @@ async function executeSolanaPayment(params: SolanaPaymentParams): Promise<Paymen
 
   const fromPubkey = new PublicKey(wallet.publicKey.toString());
   const toPubkey = new PublicKey(recipientAddress);
-  const mintPubkey = new PublicKey(SOLANA_TOKENS.USDC);
+  const mintAddress = SOLANA_TOKENS_BY_CLUSTER[cluster].USDC;
+  const mintPubkey = new PublicKey(mintAddress);
 
   // Get associated token accounts
   const fromTokenAccount = await getAssociatedTokenAddress(

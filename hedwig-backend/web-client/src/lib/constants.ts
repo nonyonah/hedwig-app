@@ -18,6 +18,16 @@ export const SOLANA_TOKENS = {
     USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
 } as const;
 
+export const SOLANA_TOKENS_BY_CLUSTER = {
+    'mainnet-beta': {
+        USDC: 'EPjFWdd5Au7B7WqSqqxS7ZkFvCPScoqB9Ko6z8bn8js',
+    },
+    devnet: {
+        // Devnet USDC mint used for test payments
+        USDC: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+    },
+} as const;
+
 export const SOLANA_RPC = 'https://api.mainnet-beta.solana.com';
 
 export const HEDWIG_CONTRACTS = {
