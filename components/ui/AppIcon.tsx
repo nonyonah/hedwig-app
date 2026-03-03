@@ -1,6 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
+import { useThemeColors } from '../../theme/colors';
 import {
     ChartLineUp,
     ArrowsLeftRight,
@@ -267,18 +268,21 @@ const resolveIcon = (name: AppIconName): IconoirComponent | null => {
 export function AppIcon({
     name,
     size = 20,
-    color = '#111827',
+    color,
     strokeWidth = 2.8,
     style,
     fill: _fill,
 }: IconProps & { name: AppIconName }) {
+    const themeColors = useThemeColors();
+    const resolvedColor = color ?? themeColors.textSecondary;
+
     const forcedFallback = PHOSPHOR_FORCED_FALLBACKS[name];
     if (forcedFallback) {
         const ForcedIcon = forcedFallback;
         return (
             <ForcedIcon
                 size={size}
-                color={color}
+                color={resolvedColor}
                 weight="bold"
                 style={style}
             />
@@ -296,7 +300,7 @@ export function AppIcon({
                         height: size,
                         borderRadius: size / 2,
                         borderWidth: Math.max(1, strokeWidth / 2),
-                        borderColor: color,
+                        borderColor: resolvedColor,
                     },
                     style,
                 ]}
@@ -308,7 +312,7 @@ export function AppIcon({
         <IconComponent
             width={size}
             height={size}
-            color={color}
+            color={resolvedColor}
             strokeWidth={strokeWidth}
             style={style}
         />

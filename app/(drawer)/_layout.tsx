@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     menuTitle: {
-        fontFamily: 'GoogleSansFlex_500Medium',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
     },
     footer: {
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     feedbackText: {
-        fontFamily: 'GoogleSansFlex_500Medium',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
     },
 });

@@ -62,6 +62,7 @@
     },
     "plugins": [
       "expo-splash-screen",
+      "expo-notifications",
       "expo-router",
       "expo-web-browser",
       [

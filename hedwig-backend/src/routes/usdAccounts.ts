@@ -3,7 +3,9 @@ import { authenticate } from '../middleware/auth';
 import { bridgeUsdService } from '../services/bridgeUsd';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
+import { createLogger } from '../utils/logger';
 const router = Router();
+const logger = createLogger('UsdAccountsRoute');
 
 type UsdAccountRow = {
     id: string;
@@ -61,9 +63,21 @@ router.get('/status', authenticate, async (req: Request, res: Response, next) =>
     try {
         const authUserId = req.user!.id;
         const user = await getOrCreateUser(authUserId);
+        const sandboxMode = bridgeUsdService.isSandbox();
 
         const enabledForUser = bridgeUsdService.isEnabledForUser(user.id);
         const usdAccount = await getUsdAccountByUser(user.id);
+        logger.info('USD status resolved', {
+            userId: user.id,
+            sandboxMode,
+            enabledForUser,
+            diditKycStatus: user.kyc_status || 'not_started',
+            bridgeKycStatus: usdAccount?.bridge_kyc_status || 'not_started',
+            accountStatus: usdAccount?.provider_status || 'not_started',
+            hasBridgeCustomerId: Boolean(usdAccount?.bridge_customer_id),
+            hasVirtualAccountId: Boolean(usdAccount?.bridge_virtual_account_id),
+            hasAchAccountNumber: Boolean(usdAccount?.ach_account_number_masked),
+        });
 
         res.json({
             success: true,
@@ -72,6 +86,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next) =>
                 bridgeKycStatus: usdAccount?.bridge_kyc_status || 'not_started',
                 accountStatus: usdAccount?.provider_status || 'not_started',
                 featureEnabled: enabledForUser && (usdAccount?.feature_enabled || false),
+                sandboxMode,
                 settlementChain: usdAccount?.settlement_chain || 'BASE',
                 settlementToken: usdAccount?.settlement_token || 'USDC',
                 feeConfig: bridgeUsdService.getFeeConfig(),
@@ -89,6 +104,7 @@ router.post('/enroll', authenticate, async (req: Request, res: Response, next) =
     try {
         const authUserId = req.user!.id;
         const user = await getOrCreateUser(authUserId);
+        const sandboxMode = bridgeUsdService.isSandbox();
 
         if (!bridgeUsdService.isEnabledForUser(user.id)) {
             res.status(403).json({
@@ -98,7 +114,7 @@ router.post('/enroll', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
-        if (user.kyc_status !== 'approved') {
+        if (!sandboxMode && user.kyc_status !== 'approved') {
             res.status(403).json({
                 success: false,
                 error: { message: 'Didit KYC must be approved before enrolling for USD accounts' },
@@ -124,8 +140,8 @@ router.post('/enroll', authenticate, async (req: Request, res: Response, next) =
                 .from('user_usd_accounts')
                 .update({
                     bridge_customer_id: bridgeCustomerId,
-                    bridge_kyc_status: bridgeCustomer.kycStatus || 'pending',
-                    provider_status: bridgeCustomer.status || 'pending_kyc',
+                    bridge_kyc_status: sandboxMode ? 'approved' : (bridgeCustomer.kycStatus || 'pending'),
+                    provider_status: sandboxMode ? 'active' : (bridgeCustomer.status || 'pending_kyc'),
                 })
                 .eq('id', account.id);
             if (updateError) {
@@ -140,9 +156,9 @@ router.post('/enroll', authenticate, async (req: Request, res: Response, next) =
             data: {
                 bridgeCustomerId,
                 diditKycStatus: user.kyc_status,
-                bridgeKycStatus: refreshed?.bridge_kyc_status || 'pending',
-                accountStatus: refreshed?.provider_status || 'pending_kyc',
-                nextAction: 'complete_bridge_kyc',
+                bridgeKycStatus: refreshed?.bridge_kyc_status || (sandboxMode ? 'approved' : 'pending'),
+                accountStatus: refreshed?.provider_status || (sandboxMode ? 'active' : 'pending_kyc'),
+                nextAction: sandboxMode ? 'fetch_account_details' : 'complete_bridge_kyc',
             },
         });
     } catch (error) {
@@ -193,6 +209,15 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
         const authUserId = req.user!.id;
         const user = await getOrCreateUser(authUserId);
         const account = await ensureUsdAccountRow(user.id);
+        const sandboxMode = bridgeUsdService.isSandbox();
+        logger.info('USD details requested', {
+            userId: user.id,
+            sandboxMode,
+            hasBridgeCustomerId: Boolean(account.bridge_customer_id),
+            accountStatus: account.provider_status,
+            bridgeKycStatus: account.bridge_kyc_status,
+            hasStoredAchAccountNumber: Boolean(account.ach_account_number_masked),
+        });
 
         if (!bridgeUsdService.isEnabledForUser(user.id)) {
             res.status(403).json({
@@ -202,7 +227,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
-        if (user.kyc_status !== 'approved') {
+        if (!sandboxMode && user.kyc_status !== 'approved') {
             res.status(403).json({
                 success: false,
                 error: { message: 'Didit KYC not approved' },
@@ -220,25 +245,191 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
         }
 
         const bridgeCustomer = await bridgeUsdService.getCustomer(account.bridge_customer_id);
-        const bridgeKycStatus = bridgeCustomer.kycStatus || account.bridge_kyc_status || 'pending';
-        const providerStatus = bridgeCustomer.status || account.provider_status || 'pending_kyc';
+        let bridgeKycStatus = sandboxMode ? 'approved' : (bridgeCustomer.kycStatus || account.bridge_kyc_status || 'pending');
+        let providerStatus = sandboxMode ? 'active' : (bridgeCustomer.status || account.provider_status || 'pending_kyc');
+        logger.info('Bridge customer readiness', {
+            userId: user.id,
+            bridgeCustomerId: account.bridge_customer_id,
+            status: bridgeCustomer.status || null,
+            kycStatus: bridgeCustomer.kycStatus || null,
+            tosStatus: bridgeCustomer.tosStatus || null,
+            hasAcceptedTerms: bridgeCustomer.hasAcceptedTerms ?? null,
+            baseEndorsementStatus: bridgeCustomer.baseEndorsementStatus || null,
+        });
 
-        const isBridgeApproved = bridgeKycStatus.toLowerCase() === 'approved';
+        const isBridgeApproved = sandboxMode || bridgeKycStatus.toLowerCase() === 'approved';
 
         let virtualAccountId = account.bridge_virtual_account_id;
         let accountNumberMasked = account.ach_account_number_masked;
         let routingNumberMasked = account.ach_routing_number_masked;
         let bankName = account.bank_name;
+        let bankAddress: string | null = null;
+        let accountName: string | null = null;
         let enabled = account.feature_enabled;
+        const hasStoredAchDetails = Boolean(account.ach_account_number_masked && account.ach_routing_number_masked);
+        const hasStoredVirtualAccount = Boolean(account.bridge_virtual_account_id);
 
-        if (isBridgeApproved) {
-            const virtualAccount = await bridgeUsdService.getOrCreateAchAccount(account.bridge_customer_id);
-            virtualAccountId = virtualAccount.id;
-            accountNumberMasked = virtualAccount.accountNumberMasked;
-            routingNumberMasked = virtualAccount.routingNumberMasked;
-            bankName = virtualAccount.bankName;
-            enabled = true;
+        if (isBridgeApproved && !(hasStoredAchDetails || hasStoredVirtualAccount)) {
+            const destinationAddress = user.ethereum_wallet_address;
+            if (!destinationAddress) {
+                res.status(400).json({
+                    success: false,
+                    error: { message: 'Wallet address is required before creating a USD account' },
+                });
+                return;
+            }
+
+            try {
+                let customerIdForVirtualAccount = account.bridge_customer_id;
+                try {
+                    await bridgeUsdService.ensureSandboxCustomerAddressData(customerIdForVirtualAccount);
+                    if (sandboxMode) {
+                        const activeCustomer = await bridgeUsdService.waitForActiveCustomer(customerIdForVirtualAccount);
+                        providerStatus = activeCustomer.status || providerStatus;
+                        bridgeKycStatus = activeCustomer.kycStatus || bridgeKycStatus;
+                    }
+                } catch (customerDataError: any) {
+                    const customerDataMsg = String(customerDataError?.message || '').toLowerCase();
+                    const recoverableCustomerError =
+                        sandboxMode &&
+                        (customerDataMsg.includes('missing_address_data') ||
+                            customerDataMsg.includes('status code 422'));
+
+                    if (!recoverableCustomerError) {
+                        throw customerDataError;
+                    }
+
+                    logger.warn('Bridge customer missing required sandbox data; creating replacement customer', {
+                        userId: user.id,
+                        bridgeCustomerId: customerIdForVirtualAccount,
+                        message: customerDataError?.message || 'unknown error',
+                    });
+
+                    const replacementCustomer = await bridgeUsdService.createSandboxReplacementCustomer({
+                        externalUserId: user.id,
+                        email: user.email || null,
+                        firstName: user.first_name || null,
+                        lastName: user.last_name || null,
+                    });
+
+                    customerIdForVirtualAccount = replacementCustomer.id;
+                    account.bridge_customer_id = replacementCustomer.id;
+                    if (sandboxMode) {
+                        const activeReplacement = await bridgeUsdService.waitForActiveCustomer(replacementCustomer.id);
+                        providerStatus = activeReplacement.status || providerStatus;
+                        bridgeKycStatus = activeReplacement.kycStatus || bridgeKycStatus;
+                    }
+                    const { error: replacementUpdateError } = await supabase
+                        .from('user_usd_accounts')
+                        .update({
+                            bridge_customer_id: replacementCustomer.id,
+                            bridge_kyc_status: sandboxMode ? bridgeKycStatus : (replacementCustomer.kycStatus || bridgeKycStatus),
+                            provider_status: sandboxMode ? providerStatus : (replacementCustomer.status || providerStatus),
+                        })
+                        .eq('id', account.id);
+                    if (replacementUpdateError) {
+                        throw new Error(`Failed to persist replacement Bridge customer: ${replacementUpdateError.message}`);
+                    }
+                }
+
+                const virtualAccount = await bridgeUsdService.getOrCreateAchAccount({
+                    customerId: customerIdForVirtualAccount,
+                    destinationAddress,
+                });
+                virtualAccountId = virtualAccount.id || null;
+                accountNumberMasked = virtualAccount.accountNumberMasked;
+                routingNumberMasked = virtualAccount.routingNumberMasked;
+                bankName = virtualAccount.bankName;
+                bankAddress = virtualAccount.bankAddress;
+                accountName = virtualAccount.accountName;
+                enabled = Boolean(virtualAccount.accountNumberMasked && virtualAccount.routingNumberMasked);
+            } catch (virtualAccountError: any) {
+                const message = String(virtualAccountError?.message || '').toLowerCase();
+                const pendingLike =
+                    message.includes('kyc') ||
+                    message.includes('pending') ||
+                    message.includes('review') ||
+                    message.includes('not approved');
+                const inactiveCustomerLike =
+                    sandboxMode &&
+                    (message.includes('requires_active_kyc_status') ||
+                        message.includes('customer account is not active'));
+
+                logger.warn('Bridge virtual account creation failed', {
+                    userId: user.id,
+                    bridgeCustomerId: account.bridge_customer_id,
+                    message: virtualAccountError?.message || 'unknown error',
+                    pendingLike,
+                    inactiveCustomerLike,
+                });
+
+                if (inactiveCustomerLike) {
+                    try {
+                        const replacementCustomer = await bridgeUsdService.createSandboxReplacementCustomer({
+                            externalUserId: user.id,
+                            email: user.email || null,
+                            firstName: user.first_name || null,
+                            lastName: user.last_name || null,
+                        });
+                        const activeReplacement = await bridgeUsdService.waitForActiveCustomer(replacementCustomer.id);
+                        const retryVirtualAccount = await bridgeUsdService.getOrCreateAchAccount({
+                            customerId: replacementCustomer.id,
+                            destinationAddress,
+                        });
+
+                        account.bridge_customer_id = replacementCustomer.id;
+                        bridgeKycStatus = activeReplacement.kycStatus || bridgeKycStatus;
+                        providerStatus = activeReplacement.status || providerStatus;
+                        virtualAccountId = retryVirtualAccount.id || null;
+                        accountNumberMasked = retryVirtualAccount.accountNumberMasked;
+                        routingNumberMasked = retryVirtualAccount.routingNumberMasked;
+                        bankName = retryVirtualAccount.bankName;
+                        bankAddress = retryVirtualAccount.bankAddress;
+                        accountName = retryVirtualAccount.accountName;
+                        enabled = Boolean(retryVirtualAccount.accountNumberMasked && retryVirtualAccount.routingNumberMasked);
+                    } catch (retryError: any) {
+                        logger.warn('Retry after inactive Bridge customer failed', {
+                            userId: user.id,
+                            message: retryError?.message || 'unknown error',
+                        });
+                        providerStatus = 'pending_kyc';
+                        enabled = false;
+                        // Preserve any previously stored details; do not wipe fields.
+                        accountNumberMasked = account.ach_account_number_masked;
+                        routingNumberMasked = account.ach_routing_number_masked;
+                        bankName = account.bank_name;
+                    }
+                } else if (pendingLike) {
+                    // Keep account in pending review state without crashing UI.
+                    bridgeKycStatus = bridgeKycStatus || 'pending';
+                    providerStatus = 'pending_kyc';
+                    enabled = false;
+                    // Preserve any previously stored details; do not wipe fields.
+                    accountNumberMasked = account.ach_account_number_masked;
+                    routingNumberMasked = account.ach_routing_number_masked;
+                    bankName = account.bank_name;
+                } else {
+                    throw virtualAccountError;
+                }
+            }
+        } else if (hasStoredAchDetails || hasStoredVirtualAccount) {
+            // Use stable stored account details; avoid creating new virtual accounts on page open.
+            enabled = Boolean(account.ach_account_number_masked && account.ach_routing_number_masked);
+            if (enabled && providerStatus === 'pending_kyc') {
+                providerStatus = 'active';
+            }
         }
+        logger.info('USD details resolved', {
+            userId: user.id,
+            sandboxMode,
+            bridgeKycStatus,
+            providerStatus,
+            enabled,
+            hasVirtualAccountId: Boolean(virtualAccountId),
+            hasAchAccountNumber: Boolean(accountNumberMasked),
+            hasAchRouting: Boolean(routingNumberMasked),
+            bankName: bankName || null,
+        });
 
         const { error: updateError } = await supabase
             .from('user_usd_accounts')
@@ -265,8 +456,11 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                 bridgeKycStatus,
                 accountStatus: providerStatus,
                 featureEnabled: enabled,
+                sandboxMode,
                 ach: {
                     bankName,
+                    accountName,
+                    bankAddress,
                     accountNumberMasked: accountNumberMasked,
                     routingNumberMasked: routingNumberMasked,
                     rail: 'ACH',

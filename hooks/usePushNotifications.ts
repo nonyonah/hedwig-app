@@ -101,8 +101,20 @@ export function usePushNotifications() {
 
             return token;
         } catch (err: any) {
+            const message = String(err?.message || err || '');
+            const isFirebaseInitError =
+                Platform.OS === 'android' &&
+                (message.includes('Default FirebaseApp is not initialized') ||
+                    message.includes('FirebaseApp.initializeApp'));
+
+            if (isFirebaseInitError) {
+                console.warn('[Push] Android Firebase is not initialized for this build. Push registration skipped.');
+                setError('Push notifications require Android FCM credentials and a fresh native build.');
+                return null;
+            }
+
             console.error('[Push] Error registering:', err);
-            setError(err.message);
+            setError(message);
             return null;
         }
     }, []);

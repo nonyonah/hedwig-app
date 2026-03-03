@@ -208,6 +208,16 @@ app.use('/api/webhooks/didit', diditWebhookRoutes);
 app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);
 app.use('/api/creation-box', creationBoxRoutes);
 app.use('/api/solana/rpc', solanaRpcRoutes);
+app.use('/api/usd-accounts', (req, _res, next) => {
+    logger.info('USD account route hit', {
+        method: req.method,
+        path: req.path,
+        hasAuth: Boolean(req.headers.authorization),
+        origin: req.headers.origin || null,
+        userAgent: req.headers['user-agent'] || null,
+    });
+    next();
+});
 app.use('/api/usd-accounts', usdAccountRoutes);
 app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 

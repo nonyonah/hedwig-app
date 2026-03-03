@@ -13,7 +13,7 @@ const genAI = process.env.GEMINI_API_KEY
   : null;
 
 // Use Gemini 2.0 Flash model
-const model = genAI?.getGenerativeModel({ model: 'gemini-2.0-flash' }) || {
+const model = genAI?.getGenerativeModel({ model: 'gemini-2.5-flash' }) || {
   generateContent: async () => {
     throw new Error('Gemini model unavailable: GEMINI_API_KEY is not configured');
   },

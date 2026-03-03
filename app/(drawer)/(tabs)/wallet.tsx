@@ -23,7 +23,7 @@ import { useSettings } from '../../../context/SettingsContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { useWallet } from '../../../hooks/useWallet';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Settings as Gear, Copy, QrCode, ChevronDown as CaretDown, ChevronLeft as CaretLeft, X, ArrowUp, Wallet as WalletIcon } from '../../../components/ui/AppIcon';
+import { Settings as Gear, Copy, QrCode, ChevronDown as CaretDown, ChevronLeft as CaretLeft, X, ArrowUp, Wallet as WalletIcon, ArrowLeftRight, ShieldCheck, ArrowRight } from '../../../components/ui/AppIcon';
 import QRCode from 'react-native-qrcode-svg';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
@@ -33,7 +33,7 @@ import { getUserGradient } from '../../../utils/gradientUtils';
 import { TutorialCard } from '../../../components/TutorialCard';
 import { useTutorial } from '../../../hooks/useTutorial';
 import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
-import { createUsdKycLink, enrollUsdAccount, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
+import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 
 const CHAINS = [
     { id: 'base', name: 'Base', icon: require('../../../assets/icons/networks/base.png') },
@@ -93,8 +93,10 @@ export default function WalletScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const receiveSheetRef = useRef<BottomSheetModal>(null);
     const sendSheetRef = useRef<BottomSheetModal>(null);
+    const bridgeKycInfoSheetRef = useRef<BottomSheetModal>(null);
     const receiveSnapPoints = useMemo(() => ['90%'], []);
     const sendSnapPoints = useMemo(() => ['34%'], []);
+    const bridgeKycInfoSnapPoints = useMemo(() => ['78%'], []);
 
     const renderBackdrop = useCallback(
         (props: any) => (
@@ -263,10 +265,11 @@ export default function WalletScreen() {
         return sum + toNumber(transfer.netUsd);
     }, 0);
 
-    const usdCheckingBalance = explicitUsdBalance ?? unsettledCompletedUsd;
-    const totalBalance = toNumber(getBaseTotalUsd()) + usdCheckingBalance;
-    const checkingAccountName = usdDetails?.ach?.accountName || usdDetails?.ach?.bankName || 'USD Checking Account';
-    const checkingAccountNumber = usdDetails?.ach?.accountNumberMasked || 'Tap to complete setup';
+    const usdAccountBalance = explicitUsdBalance ?? unsettledCompletedUsd;
+    const totalBalance = toNumber(getBaseTotalUsd()) + usdAccountBalance;
+    const usdAccountName = usdDetails?.ach?.accountName || usdDetails?.ach?.bankName || 'USD Account';
+    const usdAccountNumber = usdDetails?.ach?.accountNumberMasked || 'Tap to complete setup';
+    const hasActiveUsdAccountDetails = Boolean(usdDetails?.ach?.accountNumberMasked);
 
     const baseUSDC = walletBalances.find(b => b.chain === 'base' && b.asset === 'usdc');
     const baseETH = walletBalances.find(b => b.chain === 'base' && b.asset === 'eth');
@@ -318,16 +321,6 @@ export default function WalletScreen() {
         return null;
     };
 
-    const handleUsdEnroll = async () => {
-        try {
-            await enrollUsdAccount(getAccessToken);
-            await fetchUsdData();
-            Alert.alert('USD account started', 'Enrollment started. Complete Bridge KYC to activate account details.');
-        } catch (error: any) {
-            Alert.alert('Enrollment failed', error?.message || 'Could not enroll for USD account');
-        }
-    };
-
     const handleUsdKyc = async () => {
         try {
             const result = await createUsdKycLink(getAccessToken);
@@ -339,6 +332,20 @@ export default function WalletScreen() {
         } catch (error: any) {
             Alert.alert('Could not open KYC', error?.message || 'Please try again later.');
         }
+    };
+
+    const handleOpenUsdAccount = () => {
+        const normalizedAccountStatus = String(usdStatus?.accountStatus || '').toLowerCase();
+        const hasStartedUsdFlow =
+            hasActiveUsdAccountDetails ||
+            (normalizedAccountStatus.length > 0 && normalizedAccountStatus !== 'not_started') ||
+            String(usdStatus?.bridgeKycStatus || '').toLowerCase() === 'approved';
+
+        if (hasStartedUsdFlow) {
+            router.push('/wallet/usd-account' as any);
+            return;
+        }
+        bridgeKycInfoSheetRef.current?.present();
     };
 
     return (
@@ -395,7 +402,7 @@ export default function WalletScreen() {
                             onPress={() => receiveSheetRef.current?.present()}
                         >
                             <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
-                                <QrCode size={24} color="#2563EB" fill="#2563EB" />
+                                <QrCode size={24} color={themeColors.textPrimary} />
                             </View>
                             <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Receive</Text>
                         </TouchableOpacity>
@@ -405,30 +412,30 @@ export default function WalletScreen() {
                             onPress={() => sendSheetRef.current?.present()}
                         >
                             <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
-                                <ArrowUp size={24} color="#2563EB" />
+                                <ArrowUp size={24} color={themeColors.textPrimary} />
                             </View>
                             <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Send</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             style={styles.actionButton}
-                            onPress={() => router.push('/wallet/usd-account' as any)}
+                            onPress={() => router.push('/offramp-history/create' as any)}
                         >
                             <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
-                                <WalletIcon size={24} color="#2563EB" />
+                                <ArrowLeftRight size={24} color={themeColors.textPrimary} />
                             </View>
-                            <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>USD Account</Text>
+                            <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Swap</Text>
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.checkingSection}>
+                    <View style={styles.usdAccountSection}>
                         <View style={styles.tokenHeader}>
-                            <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Checking</Text>
+                            <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>USD Account</Text>
                         </View>
 
                         <TouchableOpacity
                             style={[styles.tokenItem, { backgroundColor: themeColors.surface }]}
-                            onPress={() => router.push('/wallet/usd-account' as any)}
+                            onPress={handleOpenUsdAccount}
                             activeOpacity={0.9}
                         >
                             <View style={styles.tokenLeft}>
@@ -438,37 +445,33 @@ export default function WalletScreen() {
                                         { backgroundColor: themeColors.surfaceHighlight || (isDark ? 'rgba(37,99,235,0.22)' : '#EAF0FF') }
                                     ]}
                                 >
-                                    <WalletIcon size={20} color={Colors.primary} />
+                                    <WalletIcon size={20} color={themeColors.textPrimary} />
                                 </View>
                                 <View>
-                                    <Text style={[styles.tokenName, { color: themeColors.textPrimary }]}>{checkingAccountName}</Text>
-                                    <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary }]}>{checkingAccountNumber}</Text>
+                                    <Text style={[styles.tokenName, { color: themeColors.textPrimary }]}>{usdAccountName}</Text>
+                                    <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary }]}>{usdAccountNumber}</Text>
                                 </View>
                             </View>
 
                             <View style={styles.tokenRight}>
                                 <Text style={[styles.tokenBalance, { color: themeColors.textPrimary }]}>
-                                    ${usdCheckingBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    ${usdAccountBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </Text>
                                 <Text style={[styles.chainLabel, { color: themeColors.textSecondary }]}>USD</Text>
                             </View>
                         </TouchableOpacity>
 
-                        {usdLoading ? (
-                            <Text style={[styles.usdMutedText, { color: themeColors.textSecondary }]}>Loading checking account...</Text>
-                        ) : usdStatus && !usdDetails?.ach?.accountNumberMasked ? (
+                        {usdStatus && !usdDetails?.ach?.accountNumberMasked ? (
                             <View style={styles.usdActionRow}>
-                                {usdStatus.diditKycStatus !== 'approved' ? (
+                                {usdStatus.sandboxMode ? null : usdStatus.diditKycStatus !== 'approved' ? (
                                     <Text style={[styles.usdMutedText, { color: themeColors.textSecondary }]}>
-                                        Didit KYC must be approved before checking account setup.
+                                        Didit KYC must be approved before USD account setup.
                                     </Text>
                                 ) : usdStatus.accountStatus === 'not_started' ? (
-                                    <TouchableOpacity style={[styles.usdActionButton, { backgroundColor: Colors.primary }]} onPress={handleUsdEnroll}>
-                                        <Text style={styles.usdActionButtonText}>Start Checking Setup</Text>
-                                    </TouchableOpacity>
+                                    null
                                 ) : (
                                     <TouchableOpacity style={[styles.usdActionButton, { backgroundColor: Colors.primary }]} onPress={handleUsdKyc}>
-                                        <Text style={styles.usdActionButtonText}>Complete Checking KYC</Text>
+                                        <Text style={styles.usdActionButtonText}>Complete USD Account KYC</Text>
                                     </TouchableOpacity>
                                 )}
                             </View>
@@ -718,6 +721,60 @@ export default function WalletScreen() {
                         </TouchableOpacity>
                     </BottomSheetView>
                 </BottomSheetModal>
+
+                <BottomSheetModal
+                    ref={bridgeKycInfoSheetRef}
+                    index={0}
+                    snapPoints={bridgeKycInfoSnapPoints}
+                    enablePanDownToClose={true}
+                    backdropComponent={renderBackdrop}
+                    backgroundStyle={{ backgroundColor: themeColors.surface, borderRadius: 24 }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                >
+                    <BottomSheetView style={{ paddingBottom: 40 }}>
+                        <View style={[styles.bridgeKycSheetContent, { backgroundColor: themeColors.surface }]}>
+                            <View style={[styles.bridgeKycIconWrap, { backgroundColor: themeColors.surfaceHighlight || 'rgba(37, 99, 235, 0.14)' }]}>
+                                <ShieldCheck size={32} color={themeColors.textPrimary} />
+                            </View>
+                            <Text style={[styles.bridgeKycTitle, { color: themeColors.textPrimary }]}>Set up your USD account</Text>
+                            <Text style={[styles.bridgeKycBody, { color: themeColors.textSecondary }]}>
+                                To issue compliant USD account details, our partner Bridge runs a separate identity review. This verification is independent of your in-app KYC. Once approved, your USD account and routing details are assigned and ready for incoming deposits.
+                            </Text>
+                            <View style={styles.bridgeKycBullets}>
+                                <View style={styles.bridgeKycBulletRow}>
+                                    <View style={[styles.bridgeKycBullet, { backgroundColor: Colors.primary }]} />
+                                    <Text style={[styles.bridgeKycBulletText, { color: themeColors.textSecondary }]}>Bridge verification is required once per user</Text>
+                                </View>
+                                <View style={styles.bridgeKycBulletRow}>
+                                    <View style={[styles.bridgeKycBullet, { backgroundColor: Colors.primary }]} />
+                                    <Text style={[styles.bridgeKycBulletText, { color: themeColors.textSecondary }]}>Approval unlocks your account and routing details</Text>
+                                </View>
+                                <View style={styles.bridgeKycBulletRow}>
+                                    <View style={[styles.bridgeKycBullet, { backgroundColor: Colors.primary }]} />
+                                    <Text style={[styles.bridgeKycBulletText, { color: themeColors.textSecondary }]}>You can return any time to complete setup</Text>
+                                </View>
+                            </View>
+
+                            <TouchableOpacity
+                                style={[styles.bridgeKycPrimaryButton, { backgroundColor: Colors.primary }]}
+                                onPress={() => {
+                                    bridgeKycInfoSheetRef.current?.dismiss();
+                                    setTimeout(() => router.push('/wallet/usd-account' as any), 120);
+                                }}
+                            >
+                                <Text style={styles.bridgeKycPrimaryButtonText}>Continue to setup</Text>
+                                <ArrowRight size={18} color="#FFFFFF" />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.bridgeKycSecondaryButton, { backgroundColor: themeColors.surfaceHighlight || 'rgba(148,163,184,0.14)' }]}
+                                onPress={() => bridgeKycInfoSheetRef.current?.dismiss()}
+                            >
+                                <Text style={[styles.bridgeKycSecondaryButtonText, { color: themeColors.textPrimary }]}>Not now</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </BottomSheetView>
+                </BottomSheetModal>
             </SafeAreaView>
 
             {/* Tutorial card for wallet step */}
@@ -750,9 +807,9 @@ const styles = StyleSheet.create({
     totalBalance: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 42, letterSpacing: -1 },
     actionButtons: { flexDirection: 'row', justifyContent: 'space-evenly', marginBottom: 32 },
     actionButton: { alignItems: 'center', gap: 8, minWidth: 72 },
-    actionIconBox: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-    actionButtonLabel: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 13 },
-    checkingSection: { marginBottom: 20 },
+    actionIconBox: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
+    actionButtonLabel: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
+    usdAccountSection: { marginBottom: 20 },
     usdMutedText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13, lineHeight: 18 },
     usdActionRow: { marginTop: 12 },
     usdActionButton: { borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center' },
@@ -770,9 +827,9 @@ const styles = StyleSheet.create({
     chainBadgeOverlay: { position: 'absolute', bottom: -2, right: -2, backgroundColor: '#FFFFFF', borderRadius: 8, padding: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
     chainBadgeIcon: { width: 12, height: 12, borderRadius: 6 },
     tokenName: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 },
-    tokenSymbol: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13, marginTop: 2 },
+    tokenSymbol: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13, marginTop: 2 },
     tokenEquivalent: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13, marginTop: 2 },
-    chainLabel: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 12, marginTop: 2 },
+    chainLabel: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 12, marginTop: 2 },
     tokenRight: { alignItems: 'flex-end' },
     tokenBalance: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16, marginBottom: 2 },
     emptyState: { padding: 20, alignItems: 'center' },
@@ -847,4 +904,16 @@ const styles = StyleSheet.create({
     sendOptionCard: { borderRadius: 16, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     sendOptionTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16, marginBottom: 4 },
     sendOptionSubtitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13 },
+    bridgeKycSheetContent: { borderRadius: 24, paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center' },
+    bridgeKycIconWrap: { marginBottom: 16, width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
+    bridgeKycTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24, marginBottom: 12, textAlign: 'center' },
+    bridgeKycBody: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 16, lineHeight: 24, textAlign: 'center', marginBottom: 20 },
+    bridgeKycBullets: { alignSelf: 'stretch', marginBottom: 20 },
+    bridgeKycBulletRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+    bridgeKycBullet: { width: 8, height: 8, borderRadius: 4, marginRight: 12 },
+    bridgeKycBulletText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 15 },
+    bridgeKycPrimaryButton: { borderRadius: 999, minHeight: 56, alignItems: 'center', justifyContent: 'center', marginBottom: 10, width: '100%', flexDirection: 'row', gap: 8, paddingHorizontal: 18 },
+    bridgeKycPrimaryButtonText: { color: '#FFFFFF', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 15 },
+    bridgeKycSecondaryButton: { borderRadius: 999, minHeight: 56, alignItems: 'center', justifyContent: 'center', width: '100%', paddingHorizontal: 18 },
+    bridgeKycSecondaryButtonText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 14 },
 });

@@ -1,4 +1,21 @@
-const getApiUrl = (): string => process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const normalizeApiUrl = (input: string): string => {
+    const trimmed = input.trim();
+    if (!trimmed) return '';
+
+    if (/^https?:\/\/[^/]+/i.test(trimmed)) {
+        return trimmed.replace(/\/$/, '');
+    }
+
+    // Handle common typo: "http:192.168.0.2:3000"
+    if (/^https?:[^/]/i.test(trimmed)) {
+        const fixed = trimmed.replace(/^https?:/i, (match) => `${match}//`);
+        return fixed.replace(/\/$/, '');
+    }
+
+    return trimmed.replace(/\/$/, '');
+};
+
+const getApiUrl = (): string => normalizeApiUrl(process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000');
 
 const getAuthHeaders = (token: string): Record<string, string> => ({
     Authorization: `Bearer ${token}`,
@@ -10,6 +27,7 @@ export interface UsdAccountStatus {
     bridgeKycStatus: string;
     accountStatus: string;
     featureEnabled: boolean;
+    sandboxMode?: boolean;
     settlementChain: string;
     settlementToken: string;
     feeConfig?: {
@@ -36,6 +54,7 @@ export interface UsdAccountDetails {
     bridgeKycStatus: string;
     accountStatus: string;
     featureEnabled: boolean;
+    sandboxMode?: boolean;
     ach: {
         bankName: string | null;
         accountName?: string | null;
@@ -90,18 +109,55 @@ async function authedRequest(
     path: string,
     init?: RequestInit
 ) {
-    const token = await getAccessToken();
-    if (!token) throw new Error('Not authenticated');
+    const apiUrl = getApiUrl();
+    try {
+        // Validate URL once before requests to avoid silent network failures.
+        // eslint-disable-next-line no-new
+        new URL(apiUrl);
+    } catch {
+        throw new Error(`Invalid EXPO_PUBLIC_API_URL: "${apiUrl}"`);
+    }
 
-    const response = await fetch(`${getApiUrl()}${path}`, {
-        ...(init || {}),
-        headers: {
-            ...getAuthHeaders(token),
-            ...(init?.headers || {}),
-        },
-    });
+    if (__DEV__) {
+        console.log('[USD Account API] Using base URL:', apiUrl);
+    }
+
+    const token = await getAccessToken();
+    if (!token) {
+        if (__DEV__) {
+            console.warn(`[USD Account API] No auth token for ${path}`);
+        }
+        throw new Error('Not authenticated');
+    }
+
+    if (__DEV__) {
+        console.log('[USD Account API] Request:', `${apiUrl}${path}`, init?.method || 'GET');
+    }
+
+    let response: Response;
+    try {
+        response = await fetch(`${apiUrl}${path}`, {
+            ...(init || {}),
+            headers: {
+                ...getAuthHeaders(token),
+                ...(init?.headers || {}),
+            },
+        });
+    } catch (networkError: any) {
+        if (__DEV__) {
+            console.error('[USD Account API] Network error:', {
+                path,
+                apiUrl,
+                message: networkError?.message || String(networkError),
+            });
+        }
+        throw networkError;
+    }
 
     const payload = await response.json().catch(() => null);
+    if (__DEV__) {
+        console.log('[USD Account API] Response:', path, response.status, payload?.success);
+    }
     if (!response.ok || !payload?.success) {
         throw new Error(payload?.error?.message || `Request failed (${response.status})`);
     }
