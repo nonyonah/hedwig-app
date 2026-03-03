@@ -7,6 +7,63 @@ import { createLogger } from '../utils/logger';
 const router = Router();
 const logger = createLogger('UsdAccountsRoute');
 
+type DepositSourceType = 'ACH' | 'EXTERNAL_ADDRESS' | 'UNKNOWN';
+
+const resolveDepositSource = (rawPayload: any): { sourceType: DepositSourceType; sourceLabel: string } => {
+    if (!rawPayload || typeof rawPayload !== 'object') {
+        return { sourceType: 'UNKNOWN', sourceLabel: 'Unknown source' };
+    }
+
+    const payloadText = JSON.stringify(rawPayload).toLowerCase();
+    const fromAddressLike =
+        payloadText.includes('from_address') ||
+        payloadText.includes('fromaddress') ||
+        payloadText.includes('wallet_address') ||
+        payloadText.includes('onchain') ||
+        payloadText.includes('crypto');
+
+    const achLike =
+        payloadText.includes('ach') ||
+        payloadText.includes('routing_number') ||
+        payloadText.includes('bank_account') ||
+        payloadText.includes('payment_rail') ||
+        payloadText.includes('wire');
+
+    if (fromAddressLike && !achLike) {
+        return { sourceType: 'EXTERNAL_ADDRESS', sourceLabel: 'External address' };
+    }
+    if (achLike) {
+        return { sourceType: 'ACH', sourceLabel: 'ACH transfer' };
+    }
+
+    return { sourceType: 'UNKNOWN', sourceLabel: 'Unknown source' };
+};
+
+const getUsdSettlementConfig = (params: {
+    settlementChain: string | null | undefined;
+    ethereumWalletAddress?: string | null;
+    solanaWalletAddress?: string | null;
+}) => {
+    const normalizedChain = String(params.settlementChain || 'BASE').toUpperCase();
+    if (normalizedChain === 'SOLANA') {
+        return {
+            chain: 'SOLANA',
+            token: 'USDC',
+            destinationAddress: params.solanaWalletAddress || null,
+            destinationRail: 'solana',
+            destinationLabel: 'Solana wallet',
+        } as const;
+    }
+
+    return {
+        chain: 'BASE',
+        token: 'USDC',
+        destinationAddress: params.ethereumWalletAddress || null,
+        destinationRail: 'base',
+        destinationLabel: 'Base wallet',
+    } as const;
+};
+
 type UsdAccountRow = {
     id: string;
     user_id: string;
@@ -202,6 +259,82 @@ router.post('/kyc-link', authenticate, async (req: Request, res: Response, next)
 });
 
 /**
+ * PATCH /api/usd-accounts/settlement
+ * Update where inbound USD deposits settle to USDC (BASE or SOLANA)
+ */
+router.patch('/settlement', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const authUserId = req.user!.id;
+        const user = await getOrCreateUser(authUserId);
+        const account = await ensureUsdAccountRow(user.id);
+
+        if (!bridgeUsdService.isEnabledForUser(user.id)) {
+            res.status(403).json({
+                success: false,
+                error: { message: 'USD accounts are not enabled for this user' },
+            });
+            return;
+        }
+
+        const requestedChain = String((req.body as any)?.chain || '').toUpperCase();
+        if (requestedChain !== 'BASE' && requestedChain !== 'SOLANA') {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Invalid settlement chain. Use BASE or SOLANA.' },
+            });
+            return;
+        }
+
+        if (requestedChain === 'BASE' && !(user as any).ethereum_wallet_address) {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Base wallet not found for this account.' },
+            });
+            return;
+        }
+
+        if (requestedChain === 'SOLANA' && !(user as any).solana_wallet_address) {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Solana wallet not found for this account.' },
+            });
+            return;
+        }
+
+        const { error: updateError } = await supabase
+            .from('user_usd_accounts')
+            .update({
+                settlement_chain: requestedChain,
+                settlement_token: 'USDC',
+            })
+            .eq('id', account.id);
+
+        if (updateError) {
+            throw new Error(`Failed to update settlement: ${updateError.message}`);
+        }
+
+        const settlement = getUsdSettlementConfig({
+            settlementChain: requestedChain,
+            ethereumWalletAddress: (user as any).ethereum_wallet_address,
+            solanaWalletAddress: (user as any).solana_wallet_address,
+        });
+
+        res.json({
+            success: true,
+            data: {
+                settlement: {
+                    chain: settlement.chain,
+                    token: settlement.token,
+                    destination: settlement.destinationAddress,
+                },
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * GET /api/usd-accounts/details
  */
 router.get('/details', authenticate, async (req: Request, res: Response, next) => {
@@ -266,15 +399,20 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
         let bankAddress: string | null = null;
         let accountName: string | null = null;
         let enabled = account.feature_enabled;
+        const settlement = getUsdSettlementConfig({
+            settlementChain: account.settlement_chain,
+            ethereumWalletAddress: (user as any).ethereum_wallet_address,
+            solanaWalletAddress: (user as any).solana_wallet_address,
+        });
         const hasStoredAchDetails = Boolean(account.ach_account_number_masked && account.ach_routing_number_masked);
         const hasStoredVirtualAccount = Boolean(account.bridge_virtual_account_id);
 
         if (isBridgeApproved && !(hasStoredAchDetails || hasStoredVirtualAccount)) {
-            const destinationAddress = user.ethereum_wallet_address;
+            const destinationAddress = settlement.destinationAddress;
             if (!destinationAddress) {
                 res.status(400).json({
                     success: false,
-                    error: { message: 'Wallet address is required before creating a USD account' },
+                    error: { message: `${settlement.destinationLabel} is required before creating a USD account` },
                 });
                 return;
             }
@@ -335,6 +473,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                 const virtualAccount = await bridgeUsdService.getOrCreateAchAccount({
                     customerId: customerIdForVirtualAccount,
                     destinationAddress,
+                    destinationRail: settlement.destinationRail,
                 });
                 virtualAccountId = virtualAccount.id || null;
                 accountNumberMasked = virtualAccount.accountNumberMasked;
@@ -375,6 +514,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                         const retryVirtualAccount = await bridgeUsdService.getOrCreateAchAccount({
                             customerId: replacementCustomer.id,
                             destinationAddress,
+                            destinationRail: settlement.destinationRail,
                         });
 
                         account.bridge_customer_id = replacementCustomer.id;
@@ -467,9 +607,9 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                     currency: 'USD',
                 },
                 settlement: {
-                    chain: account.settlement_chain || 'BASE',
-                    token: account.settlement_token || 'USDC',
-                    destination: user.ethereum_wallet_address || null,
+                    chain: settlement.chain,
+                    token: settlement.token,
+                    destination: settlement.destinationAddress,
                 },
                 feeConfig: bridgeUsdService.getFeeConfig(),
             },
@@ -497,6 +637,7 @@ router.get('/transfers', authenticate, async (req: Request, res: Response, next)
         if (error) throw new Error(`Failed to fetch USD transfers: ${error.message}`);
 
         const transfers = (data || []).map((item) => ({
+            ...(resolveDepositSource((item as any).raw_payload)),
             id: item.id,
             bridgeTransferId: item.bridge_transfer_id,
             status: item.status,

@@ -407,12 +407,19 @@ class BridgeUsdService {
     async getOrCreateAchAccount(params: {
         customerId: string;
         destinationAddress: string;
+        destinationRail?: string;
         developerFeePercent?: string;
     }): Promise<BridgeVirtualAccount> {
         const client = this.requireClient();
-        const { customerId, destinationAddress, developerFeePercent } = params;
+        const { customerId, destinationAddress, destinationRail, developerFeePercent } = params;
         const requestedRail = (process.env.BRIDGE_USD_DESTINATION_PAYMENT_RAIL || 'base').toLowerCase();
-        const railsToTry = Array.from(new Set([requestedRail, 'ethereum']));
+        const railsToTry = Array.from(
+            new Set(
+                [destinationRail, requestedRail, 'base', 'ethereum', 'solana']
+                    .filter((rail): rail is string => Boolean(rail && rail.trim()))
+                    .map((rail) => rail.toLowerCase())
+            )
+        );
         const createErrors: string[] = [];
 
         for (const rail of railsToTry) {

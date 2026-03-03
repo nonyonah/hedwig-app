@@ -12,6 +12,26 @@ const isCompletedStatus = (status: string): boolean => {
     return normalized === 'completed' || normalized === 'settled' || normalized === 'success';
 };
 
+const getSettlementConfigForWebhook = (params: {
+    settlementChain?: string | null;
+    ethereumWalletAddress?: string | null;
+    solanaWalletAddress?: string | null;
+}) => {
+    const chain = String(params.settlementChain || 'BASE').toUpperCase();
+    if (chain === 'SOLANA') {
+        return {
+            chain: 'SOLANA',
+            walletLabel: 'Solana wallet',
+            destinationWallet: params.solanaWalletAddress || '',
+        } as const;
+    }
+    return {
+        chain: 'BASE',
+        walletLabel: 'Base wallet',
+        destinationWallet: params.ethereumWalletAddress || '',
+    } as const;
+};
+
 router.post('/', async (req: Request, res: Response) => {
     try {
         const signature =
@@ -54,7 +74,7 @@ router.post('/', async (req: Request, res: Response) => {
 
         const { data: usdAccount, error: usdAccountError } = await supabase
             .from('user_usd_accounts')
-            .select('id, user_id, bridge_customer_id')
+            .select('id, user_id, bridge_customer_id, settlement_chain, settlement_token')
             .eq('bridge_customer_id', event.customerId)
             .maybeSingle();
 
@@ -78,12 +98,17 @@ router.post('/', async (req: Request, res: Response) => {
         const userId = usdAccount.user_id as string;
         const { data: user, error: userError } = await supabase
             .from('users')
-            .select('id, ethereum_wallet_address')
+            .select('id, ethereum_wallet_address, solana_wallet_address')
             .eq('id', userId)
             .single();
         if (userError || !user) throw new Error('Failed to load user for transfer event');
 
-        const destinationWallet = user.ethereum_wallet_address || '';
+        const settlement = getSettlementConfigForWebhook({
+            settlementChain: (usdAccount as any).settlement_chain,
+            ethereumWalletAddress: (user as any).ethereum_wallet_address,
+            solanaWalletAddress: (user as any).solana_wallet_address,
+        });
+        const destinationWallet = settlement.destinationWallet;
         const feeCalc = bridgeUsdService.calculateFees(event.amountUsd, event.providerFeeUsd);
         const computedUsdcSettled = event.usdcAmountSettled > 0 ? event.usdcAmountSettled : feeCalc.netSettlementUsd;
         const completedAt = isCompletedStatus(event.status) ? new Date().toISOString() : null;
@@ -139,7 +164,7 @@ router.post('/', async (req: Request, res: Response) => {
                 .insert({
                     user_id: userId,
                     title: 'USD Deposit Settled',
-                    message: `$${event.amountUsd.toFixed(2)} received. ${computedUsdcSettled.toFixed(2)} USDC settled to Base wallet.`,
+                    message: `$${event.amountUsd.toFixed(2)} received. ${computedUsdcSettled.toFixed(2)} USDC settled to ${settlement.walletLabel}.`,
                     type: 'usd_deposit_settled',
                     metadata: {
                         transferId: transfer.id,
@@ -149,6 +174,7 @@ router.post('/', async (req: Request, res: Response) => {
                         providerFeeUsd: feeCalc.providerFeeUsd,
                         netUsd: feeCalc.netSettlementUsd,
                         usdcAmountSettled: computedUsdcSettled,
+                        settlementChain: settlement.chain,
                         settlementWallet: destinationWallet,
                         txHash: event.usdcTxHash,
                     },
@@ -161,7 +187,7 @@ router.post('/', async (req: Request, res: Response) => {
                     user_id: userId,
                     type: 'PAYMENT_RECEIVED',
                     status: 'CONFIRMED',
-                    chain: 'BASE',
+                    chain: settlement.chain,
                     tx_hash: event.usdcTxHash || null,
                     from_address: 'bridge_usd_account',
                     to_address: destinationWallet || 'unknown',
@@ -175,12 +201,13 @@ router.post('/', async (req: Request, res: Response) => {
             try {
                 await NotificationService.notifyUser(userId, {
                     title: 'USD Deposit Settled',
-                    body: `${computedUsdcSettled.toFixed(2)} USDC has been sent to your Base wallet.`,
+                    body: `${computedUsdcSettled.toFixed(2)} USDC has been sent to your ${settlement.walletLabel}.`,
                     data: {
                         type: 'usd_deposit_settled',
                         transferId: transfer.id,
                         txHash: event.usdcTxHash,
                         usdcAmountSettled: computedUsdcSettled,
+                        settlementChain: settlement.chain,
                     },
                 });
             } catch (notifyError) {

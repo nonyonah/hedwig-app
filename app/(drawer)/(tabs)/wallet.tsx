@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, LayoutAnimation, Platform, UIManager, Alert, Share, ToastAndroid } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, LayoutAnimation, Platform, UIManager, Alert, Share, ToastAndroid, ActivityIndicator } from 'react-native';
 let ContextMenu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
@@ -23,7 +23,7 @@ import { useSettings } from '../../../context/SettingsContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { useWallet } from '../../../hooks/useWallet';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Settings as Gear, Copy, QrCode, ChevronDown as CaretDown, ChevronLeft as CaretLeft, X, ArrowUp, Wallet as WalletIcon, ArrowLeftRight, ShieldCheck, ArrowRight } from '../../../components/ui/AppIcon';
+import { Settings as Gear, Copy, QrCode, ChevronDown as CaretDown, ChevronLeft as CaretLeft, X, ArrowUp, Wallet as WalletIcon, Plus, ShieldCheck, ArrowRight } from '../../../components/ui/AppIcon';
 import QRCode from 'react-native-qrcode-svg';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
@@ -33,7 +33,7 @@ import { getUserGradient } from '../../../utils/gradientUtils';
 import { TutorialCard } from '../../../components/TutorialCard';
 import { useTutorial } from '../../../hooks/useTutorial';
 import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
-import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
+import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, updateUsdSettlement, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 
 const CHAINS = [
     { id: 'base', name: 'Base', icon: require('../../../assets/icons/networks/base.png') },
@@ -93,10 +93,13 @@ export default function WalletScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const receiveSheetRef = useRef<BottomSheetModal>(null);
     const sendSheetRef = useRef<BottomSheetModal>(null);
+    const autoSettlementSheetRef = useRef<BottomSheetModal>(null);
     const bridgeKycInfoSheetRef = useRef<BottomSheetModal>(null);
     const receiveSnapPoints = useMemo(() => ['90%'], []);
     const sendSnapPoints = useMemo(() => ['34%'], []);
+    const autoSettlementSnapPoints = useMemo(() => ['30%'], []);
     const bridgeKycInfoSnapPoints = useMemo(() => ['78%'], []);
+    const [isUpdatingAutoSettlement, setIsUpdatingAutoSettlement] = useState(false);
 
     const renderBackdrop = useCallback(
         (props: any) => (
@@ -342,10 +345,34 @@ export default function WalletScreen() {
             String(usdStatus?.bridgeKycStatus || '').toLowerCase() === 'approved';
 
         if (hasStartedUsdFlow) {
-            router.push('/wallet/usd-account' as any);
+            router.push({ pathname: '/wallet/usd-account', params: { view: 'transactions' } } as any);
             return;
         }
         bridgeKycInfoSheetRef.current?.present();
+    };
+
+    const handleSelectAutoSettlementChain = async (chain: 'BASE' | 'SOLANA') => {
+        if (isUpdatingAutoSettlement) return;
+        if (chain === 'SOLANA' && !solanaAddress) {
+            Alert.alert('Solana wallet unavailable', 'Create a Solana wallet first before selecting Solana settlement.');
+            return;
+        }
+        if (chain === 'BASE' && !baseAddress) {
+            Alert.alert('Base wallet unavailable', 'Create a Base wallet first before selecting Base settlement.');
+            return;
+        }
+        try {
+            setIsUpdatingAutoSettlement(true);
+            await updateUsdSettlement(getAccessToken, chain);
+            autoSettlementSheetRef.current?.dismiss();
+            setTimeout(() => {
+                router.push('/wallet/usd-account' as any);
+            }, 120);
+        } catch (error: any) {
+            Alert.alert('Could not update settlement', error?.message || 'Please try again.');
+        } finally {
+            setIsUpdatingAutoSettlement(false);
+        }
     };
 
     return (
@@ -419,12 +446,12 @@ export default function WalletScreen() {
 
                         <TouchableOpacity
                             style={styles.actionButton}
-                            onPress={() => router.push('/offramp-history/create' as any)}
+                            onPress={() => autoSettlementSheetRef.current?.present()}
                         >
                             <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
-                                <ArrowLeftRight size={24} color={themeColors.textPrimary} />
+                                <Plus size={24} color={themeColors.textPrimary} />
                             </View>
-                            <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Swap</Text>
+                            <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Add</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -723,6 +750,55 @@ export default function WalletScreen() {
                 </BottomSheetModal>
 
                 <BottomSheetModal
+                    ref={autoSettlementSheetRef}
+                    index={0}
+                    snapPoints={autoSettlementSnapPoints}
+                    enablePanDownToClose={true}
+                    backdropComponent={renderBackdrop}
+                    backgroundStyle={{ backgroundColor: themeColors.background }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+                >
+                    <BottomSheetView style={[styles.sendSheetContent, { backgroundColor: themeColors.background }]}>
+                        <Text style={[styles.sendSheetTitle, { color: themeColors.textPrimary }]}>Auto-settlement</Text>
+                        <Text style={[styles.sendSheetSubtitle, { color: themeColors.textSecondary }]}>
+                            Choose where incoming USD settles as USDC
+                        </Text>
+
+                        <TouchableOpacity
+                            style={[styles.sendOptionCard, { backgroundColor: themeColors.surface }]}
+                            onPress={() => handleSelectAutoSettlementChain('BASE')}
+                            disabled={isUpdatingAutoSettlement}
+                        >
+                            <View style={styles.chainOptionLeft}>
+                                <Image source={require('../../../assets/icons/networks/base.png')} style={styles.chainOptionIcon} />
+                                <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary, marginBottom: 0 }]}>Base</Text>
+                            </View>
+                            {isUpdatingAutoSettlement ? (
+                                <ActivityIndicator size="small" color={themeColors.textSecondary} />
+                            ) : (
+                                <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
+                            )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.sendOptionCard, { backgroundColor: themeColors.surface }]}
+                            onPress={() => handleSelectAutoSettlementChain('SOLANA')}
+                            disabled={isUpdatingAutoSettlement}
+                        >
+                            <View style={styles.chainOptionLeft}>
+                                <Image source={require('../../../assets/icons/networks/solana.png')} style={styles.chainOptionIcon} />
+                                <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary, marginBottom: 0 }]}>Solana</Text>
+                            </View>
+                            {isUpdatingAutoSettlement ? (
+                                <ActivityIndicator size="small" color={themeColors.textSecondary} />
+                            ) : (
+                                <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
+                            )}
+                        </TouchableOpacity>
+                    </BottomSheetView>
+                </BottomSheetModal>
+
+                <BottomSheetModal
                     ref={bridgeKycInfoSheetRef}
                     index={0}
                     snapPoints={bridgeKycInfoSnapPoints}
@@ -904,6 +980,8 @@ const styles = StyleSheet.create({
     sendOptionCard: { borderRadius: 16, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     sendOptionTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16, marginBottom: 4 },
     sendOptionSubtitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13 },
+    chainOptionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    chainOptionIcon: { width: 20, height: 20, borderRadius: 10 },
     bridgeKycSheetContent: { borderRadius: 24, paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center' },
     bridgeKycIconWrap: { marginBottom: 16, width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
     bridgeKycTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24, marginBottom: 12, textAlign: 'center' },

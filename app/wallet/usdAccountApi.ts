@@ -93,6 +93,8 @@ export interface UsdAccountDetails {
 export interface UsdTransfer {
     id: string;
     bridgeTransferId: string;
+    sourceType?: 'ACH' | 'EXTERNAL_ADDRESS' | 'UNKNOWN';
+    sourceLabel?: string;
     status: string;
     grossUsd: number;
     hedwigFeeUsd: number;
@@ -193,4 +195,15 @@ export async function getUsdTransfers(getAccessToken: () => Promise<string | nul
     const payload = await authedRequest(getAccessToken, '/api/usd-accounts/transfers');
     const transfers = Array.isArray(payload?.data?.transfers) ? payload.data.transfers : [];
     return transfers as UsdTransfer[];
+}
+
+export async function updateUsdSettlement(
+    getAccessToken: () => Promise<string | null>,
+    chain: 'BASE' | 'SOLANA'
+): Promise<{ settlement: { chain: string; token: string; destination: string | null } }> {
+    const payload = await authedRequest(getAccessToken, '/api/usd-accounts/settlement', {
+        method: 'PATCH',
+        body: JSON.stringify({ chain }),
+    });
+    return payload.data;
 }

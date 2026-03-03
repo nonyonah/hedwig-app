@@ -1,26 +1,103 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, Share, StyleSheet, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, RefreshControl, ScrollView, SectionList, Share, StyleSheet, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
-import { CheckCircle, ChevronLeft as CaretLeft, ChevronRight, Copy, Landmark } from '../../components/ui/AppIcon';
+import { format, isToday, isYesterday } from 'date-fns';
+import { CheckCircle, ChevronLeft as CaretLeft, ChevronRight, Copy, Landmark, X } from '../../components/ui/AppIcon';
 import { useThemeColors, Colors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
-import { createUsdKycLink, enrollUsdAccount, getUsdAccountDetails, getUsdAccountStatus, UsdAccountDetails, UsdAccountStatus } from './usdAccountApi';
+import { createUsdKycLink, enrollUsdAccount, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from './usdAccountApi';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
+
+const ICONS = {
+    usdc: require('../../assets/icons/tokens/usdc.png'),
+    base: require('../../assets/icons/networks/base.png'),
+    solana: require('../../assets/icons/networks/solana.png'),
+    receive: require('../../assets/icons/status/receive.png'),
+};
+
+const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
+    PENDING: { color: '#F59E0B', label: 'Pending' },
+    PROCESSING: { color: '#3B82F6', label: 'Processing' },
+    COMPLETED: { color: '#10B981', label: 'Completed' },
+    FAILED: { color: '#EF4444', label: 'Failed' },
+    CANCELLED: { color: '#6B7280', label: 'Cancelled' },
+};
+
+const normalizeTransferStatus = (status?: string | null): keyof typeof STATUS_CONFIG => {
+    const key = String(status || 'PENDING').trim().toUpperCase();
+    if (key in STATUS_CONFIG) return key as keyof typeof STATUS_CONFIG;
+    if (key === 'SUCCESS' || key === 'SETTLED') return 'COMPLETED';
+    if (key === 'ERROR') return 'FAILED';
+    return 'PENDING';
+};
+
+const MOCK_USD_TRANSFERS: UsdTransfer[] = [
+    {
+        id: 'mock-usd-1',
+        bridgeTransferId: 'br_mock_1001',
+        sourceType: 'ACH',
+        sourceLabel: 'ACH transfer',
+        status: 'completed',
+        grossUsd: 2500,
+        hedwigFeeUsd: 0,
+        providerFeeUsd: 1,
+        netUsd: 2499,
+        usdcAmountSettled: 2499,
+        usdcTxHash: '0x5f1a...8c2d',
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
+        completedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+    },
+    {
+        id: 'mock-usd-2',
+        bridgeTransferId: 'br_mock_1002',
+        sourceType: 'EXTERNAL_ADDRESS',
+        sourceLabel: 'External address',
+        status: 'processing',
+        grossUsd: 420,
+        hedwigFeeUsd: 0,
+        providerFeeUsd: 1,
+        netUsd: 419,
+        usdcAmountSettled: 0,
+        usdcTxHash: null,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
+        completedAt: null,
+    },
+    {
+        id: 'mock-usd-3',
+        bridgeTransferId: 'br_mock_1003',
+        sourceType: 'ACH',
+        sourceLabel: 'ACH transfer',
+        status: 'completed',
+        grossUsd: 95.75,
+        hedwigFeeUsd: 0,
+        providerFeeUsd: 1,
+        netUsd: 94.75,
+        usdcAmountSettled: 94.75,
+        usdcTxHash: '0x1a8b...90fe',
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 52).toISOString(),
+        completedAt: new Date(Date.now() - 1000 * 60 * 60 * 51).toISOString(),
+    },
+];
 
 export default function UsdAccountScreen() {
     const themeColors = useThemeColors();
     const router = useRouter();
     const { getAccessToken } = useAuth();
+    const params = useLocalSearchParams<{ view?: string }>();
+    const isTransactionsView = params?.view === 'transactions';
 
     const [status, setStatus] = useState<UsdAccountStatus | null>(null);
     const [details, setDetails] = useState<UsdAccountDetails | null>(null);
+    const [transfers, setTransfers] = useState<UsdTransfer[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [isContinuing, setIsContinuing] = useState(false);
+    const [selectedTransfer, setSelectedTransfer] = useState<UsdTransfer | null>(null);
     const guidelinesSheetRef = useRef<BottomSheetModal>(null);
+    const transferSheetRef = useRef<BottomSheetModal>(null);
     const guidelinesSnapPoints = useMemo(() => ['86%'], []);
     const renderBackdrop = useCallback(
         (props: any) => (
@@ -51,6 +128,13 @@ export default function UsdAccountScreen() {
                 setDetails(detailsData);
             } catch {
                 setDetails(null);
+            }
+
+            try {
+                const transfersData = await getUsdTransfers(getAccessToken);
+                setTransfers(transfersData);
+            } catch {
+                setTransfers([]);
             }
 
         } finally {
@@ -157,6 +241,83 @@ export default function UsdAccountScreen() {
         { label: 'Bank address', value: bankAddress, copyLabel: 'Bank address' },
     ];
 
+    const displayTransfers = transfers.length > 0 ? transfers : MOCK_USD_TRANSFERS;
+    const settlementChain = String(details?.settlement?.chain || status?.settlementChain || 'BASE').toUpperCase();
+    const chainIcon = settlementChain === 'SOLANA' ? ICONS.solana : ICONS.base;
+
+    const groupedTransfers = useMemo(() => {
+        return displayTransfers.reduce((acc: Array<{ title: string; data: UsdTransfer[] }>, transfer) => {
+            const date = new Date(transfer.createdAt);
+            let title = format(date, 'MMM d');
+            if (isToday(date)) title = 'Today';
+            if (isYesterday(date)) title = 'Yesterday';
+
+            const existing = acc.find((s) => s.title === title);
+            if (existing) {
+                existing.data.push(transfer);
+            } else {
+                acc.push({ title, data: [transfer] });
+            }
+            return acc;
+        }, []);
+    }, [displayTransfers]);
+
+    const openTransferDetails = (transfer: UsdTransfer) => {
+        setSelectedTransfer(transfer);
+        transferSheetRef.current?.present();
+    };
+
+    const closeTransferDetails = () => {
+        transferSheetRef.current?.dismiss();
+    };
+
+    const openTransferExplorer = async (transfer: UsdTransfer) => {
+        if (!transfer.usdcTxHash) {
+            Alert.alert('Unavailable', 'Transaction hash is not available yet.');
+            return;
+        }
+        const url = settlementChain === 'SOLANA'
+            ? `https://explorer.solana.com/tx/${transfer.usdcTxHash}`
+            : `https://basescan.org/tx/${transfer.usdcTxHash}`;
+        try {
+            await WebBrowser.openBrowserAsync(url);
+        } catch {
+            Alert.alert('Could not open explorer', 'Please try again.');
+        }
+    };
+
+    const renderTransferItem = ({ item }: { item: UsdTransfer }) => {
+        const statusLabel = STATUS_CONFIG[normalizeTransferStatus(item.status)].label;
+        const sourceLabel = item.sourceLabel || (item.sourceType === 'EXTERNAL_ADDRESS' ? 'External address' : item.sourceType === 'ACH' ? 'ACH transfer' : 'Unknown source');
+        const amount = Number(item.grossUsd || 0);
+        return (
+            <TouchableOpacity
+                style={[styles.txItem, { borderBottomColor: themeColors.border }]}
+                onPress={() => openTransferDetails(item)}
+                activeOpacity={0.85}
+            >
+                <View style={styles.txIconContainer}>
+                    <Image source={ICONS.usdc} style={styles.txTokenIcon} />
+                    <View style={[styles.chainBadge, { backgroundColor: themeColors.background, borderColor: themeColors.background }]}>
+                        <Image source={chainIcon} style={styles.chainBadgeIcon} />
+                    </View>
+                </View>
+                <View style={styles.txContent}>
+                    <Text style={[styles.txTitle, { color: themeColors.textPrimary }]}>USD Deposit</Text>
+                    <Text style={[styles.txSubtitle, { color: themeColors.textSecondary }]}>
+                        {statusLabel} • {sourceLabel}
+                    </Text>
+                </View>
+                <View style={styles.txAmountContainer}>
+                    <Text style={[styles.txAmount, { color: themeColors.textPrimary }]}>+${amount.toFixed(2)}</Text>
+                    <Text style={[styles.txFiatAmount, { color: themeColors.textSecondary }]}>
+                        Net ${Number(item.netUsd || 0).toFixed(2)}
+                    </Text>
+                </View>
+            </TouchableOpacity>
+        );
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={styles.header}>
@@ -165,16 +326,19 @@ export default function UsdAccountScreen() {
                         <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
                     </View>
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>USD Account</Text>
+                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>
+                    {isTransactionsView ? 'Recent transactions' : 'USD Account'}
+                </Text>
                 <View style={styles.headerSpacer} />
             </View>
 
-            <ScrollView
-                style={styles.content}
-                contentContainerStyle={[styles.contentContainer, (isNewUserState || isKycReviewState || isCreationPendingState) ? styles.contentContainerEmpty : null]}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-                showsVerticalScrollIndicator={false}
-            >
+            {!isTransactionsView ? (
+                <ScrollView
+                    style={styles.content}
+                    contentContainerStyle={[styles.contentContainer, (isNewUserState || isKycReviewState || isCreationPendingState) ? styles.contentContainerEmpty : null]}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+                    showsVerticalScrollIndicator={false}
+                >
                 {isNewUserState ? (
                     <View style={styles.emptyStateContainer}>
                         <View style={[styles.emptyStateIconWrap, { backgroundColor: themeColors.surface }]}>
@@ -272,7 +436,29 @@ export default function UsdAccountScreen() {
                         ) : null}
                     </>
                 )}
-            </ScrollView>
+                </ScrollView>
+            ) : (
+                <SectionList
+                    sections={groupedTransfers}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderTransferItem}
+                    renderSectionHeader={({ section: { title } }) => (
+                        <View style={[styles.sectionHeaderContainer, { backgroundColor: themeColors.background }]}>
+                            <Text style={[styles.sectionHeaderText, { color: themeColors.textPrimary }]}>{title}</Text>
+                        </View>
+                    )}
+                    contentContainerStyle={styles.transactionListContent}
+                    showsVerticalScrollIndicator={false}
+                    stickySectionHeadersEnabled={true}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+                    ListEmptyComponent={() => (
+                        <View style={styles.emptyState}>
+                            <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No transactions yet</Text>
+                            <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>Your USD account transactions will appear here.</Text>
+                        </View>
+                    )}
+                />
+            )}
 
             {isNewUserState ? (
                 <View style={[styles.emptyStateFooter, { backgroundColor: themeColors.background }]}>
@@ -360,6 +546,102 @@ export default function UsdAccountScreen() {
                     </ScrollView>
                 </BottomSheetView>
             </BottomSheetModal>
+
+            <BottomSheetModal
+                ref={transferSheetRef}
+                index={0}
+                enableDynamicSizing={true}
+                enablePanDownToClose={true}
+                backdropComponent={(props) => (
+                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                )}
+                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+            >
+                <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                    <View style={styles.modalHeader}>
+                        <View style={styles.modalHeaderLeft}>
+                            <View style={styles.modalIconContainer}>
+                                <Image source={ICONS.usdc} style={styles.modalTokenIcon} />
+                                <Image source={ICONS.receive} style={styles.modalStatusBadge} />
+                            </View>
+                            <View>
+                                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>USD Deposit</Text>
+                                <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                    {selectedTransfer?.createdAt ? format(new Date(selectedTransfer.createdAt), 'MMM d, yyyy • h:mm a') : ''}
+                                </Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity onPress={closeTransferDetails} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
+                            <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {selectedTransfer ? (
+                        <>
+                            <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                                <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                                    +${Number(selectedTransfer.grossUsd || 0).toFixed(2)}
+                                </Text>
+                                <View style={styles.amountCardSub}>
+                                    <Image source={ICONS.usdc} style={styles.smallIcon} />
+                                    <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>
+                                        Net ${Number(selectedTransfer.netUsd || 0).toFixed(2)} settled
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Transfer ID</Text>
+                                    <TouchableOpacity onPress={() => copyValue('Transfer ID', selectedTransfer.bridgeTransferId)} style={styles.detailValueRow}>
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1} ellipsizeMode="middle">
+                                            {selectedTransfer.bridgeTransferId}
+                                        </Text>
+                                        <Copy size={14} color={themeColors.textSecondary} strokeWidth={3} style={{ marginLeft: 6 }} />
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Status</Text>
+                                    {(() => {
+                                        const status = STATUS_CONFIG[normalizeTransferStatus(selectedTransfer.status)];
+                                        return (
+                                            <View style={[styles.statusBadge, { backgroundColor: `${status.color}20` }]}>
+                                                <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+                                            </View>
+                                        );
+                                    })()}
+                                </View>
+                                <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Source</Text>
+                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                        {selectedTransfer.sourceLabel ||
+                                            (selectedTransfer.sourceType === 'EXTERNAL_ADDRESS'
+                                                ? 'External address'
+                                                : selectedTransfer.sourceType === 'ACH'
+                                                    ? 'ACH transfer'
+                                                    : 'Unknown source')}
+                                    </Text>
+                                </View>
+                                <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
+                                    <View style={styles.chainValue}>
+                                        <Image source={chainIcon} style={styles.smallIcon} />
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{settlementChain}</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            <TouchableOpacity style={styles.viewButton} onPress={() => openTransferExplorer(selectedTransfer)}>
+                                <Text style={styles.viewButtonText}>View on Explorer</Text>
+                            </TouchableOpacity>
+                        </>
+                    ) : null}
+                </BottomSheetView>
+            </BottomSheetModal>
         </SafeAreaView>
     );
 }
@@ -397,6 +679,84 @@ const styles = StyleSheet.create({
     content: { flex: 1 },
     contentContainer: { paddingHorizontal: 20, paddingBottom: 36, gap: 16 },
     contentContainerEmpty: { flexGrow: 1, paddingBottom: 120 },
+    transactionListContent: { paddingHorizontal: 20, paddingBottom: 40 },
+    sectionHeaderContainer: {
+        marginHorizontal: -20,
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 8,
+    },
+    sectionHeaderText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 16,
+    },
+    txItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+    },
+    txIconContainer: {
+        position: 'relative',
+        marginRight: 16,
+    },
+    txTokenIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+    },
+    chainBadge: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+    },
+    chainBadgeIcon: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+    },
+    txContent: { flex: 1 },
+    txTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 16,
+        marginBottom: 2,
+    },
+    txSubtitle: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 13,
+    },
+    txAmountContainer: { alignItems: 'flex-end' },
+    txAmount: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 15,
+    },
+    txFiatAmount: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 13,
+        marginTop: 2,
+    },
+    emptyState: {
+        paddingTop: 80,
+        paddingHorizontal: 16,
+        alignItems: 'center',
+    },
+    emptyTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 18,
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    emptyText: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 15,
+        textAlign: 'center',
+    },
     emptyStateContainer: {
         flex: 1,
         alignItems: 'center',
@@ -591,5 +951,128 @@ const styles = StyleSheet.create({
     learnMoreText: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 16,
+    },
+    modalHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    modalIconContainer: {
+        position: 'relative',
+        marginRight: 12,
+    },
+    modalTokenIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+    },
+    modalStatusBadge: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+    },
+    modalTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 18,
+    },
+    modalSubtitle: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 13,
+        marginTop: 2,
+    },
+    closeButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    amountCard: {
+        borderRadius: 16,
+        padding: 24,
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    amountCardValue: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 32,
+        marginBottom: 8,
+    },
+    amountCardSub: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    amountCardSubText: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 15,
+        marginLeft: 6,
+    },
+    smallIcon: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+    },
+    detailsCard: {
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 20,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
+    },
+    detailDivider: {
+        height: 1,
+    },
+    detailLabel: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 15,
+    },
+    detailValue: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 15,
+    },
+    detailValueRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        maxWidth: '60%',
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    statusText: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 11,
+    },
+    chainValue: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    viewButton: {
+        backgroundColor: Colors.primary,
+        borderRadius: 30,
+        paddingVertical: 16,
+        alignItems: 'center',
+    },
+    viewButtonText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 16,
+        color: '#FFFFFF',
     },
 });

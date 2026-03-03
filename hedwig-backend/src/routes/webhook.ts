@@ -9,6 +9,50 @@ const logger = createLogger('Webhook');
 
 const router = Router();
 
+async function findUserByEvmAddress(address: string) {
+    const normalized = address.toLowerCase();
+    const columns = 'id, privy_id, ethereum_wallet_address, evm_address, wallet_address';
+
+    const attempts = [
+        { column: 'ethereum_wallet_address', value: normalized },
+        { column: 'evm_address', value: normalized },
+        { column: 'wallet_address', value: normalized },
+    ];
+
+    for (const attempt of attempts) {
+        const { data } = await supabase
+            .from('users')
+            .select(columns)
+            .ilike(attempt.column, attempt.value)
+            .maybeSingle();
+        if (data) return data;
+    }
+
+    return null;
+}
+
+async function findUserBySolanaAddress(address: string) {
+    const normalized = address;
+    const columns = 'id, privy_id, solana_wallet_address, solana_address, wallet_address';
+
+    const attempts = [
+        { column: 'solana_wallet_address', value: normalized },
+        { column: 'solana_address', value: normalized },
+        { column: 'wallet_address', value: normalized },
+    ];
+
+    for (const attempt of attempts) {
+        const { data } = await supabase
+            .from('users')
+            .select(columns)
+            .eq(attempt.column, attempt.value)
+            .maybeSingle();
+        if (data) return data;
+    }
+
+    return null;
+}
+
 // NOTE: Paycrest webhooks are handled in paycrestWebhook.ts (/api/webhooks/paycrest)
 
 /**
@@ -286,37 +330,12 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
             // Try explicit match first to avoid potentially buggy complex OR queries with ilike strings
             logger.debug('Looking for recipient user', { toAddress: toAddressLower });
             
-            // First try evm_address
-            let { data: recipientUser, error: recipientError } = await supabase
-                .from('users')
-                .select('id, privy_id, evm_address, wallet_address')
-                .ilike('evm_address', toAddressLower)
-                .single();
-
-            // If not found, try wallet_address
-            if (!recipientUser) {
-                const { data: altRecipient, error: altError } = await supabase
-                    .from('users')
-                    .select('id, privy_id, evm_address, wallet_address')
-                    .ilike('wallet_address', toAddressLower)
-                    .single();
-                
-                if (altRecipient) {
-                    recipientUser = altRecipient;
-                    recipientError = null;
-                } else if (altError) {
-                    // Keep the error from the second attempt if neither succeeded
-                   recipientError = altError; 
-                }
-            }
-
-            if (recipientError) {
-                logger.debug('Recipient lookup error or not found', { error: recipientError.message });
-            }
+            const recipientUser = await findUserByEvmAddress(toAddressLower);
 
             if (recipientUser) {
                 logger.info('Found recipient user', { 
                     userId: recipientUser.id, 
+                    ethereumWalletAddress: (recipientUser as any).ethereum_wallet_address,
                     evmAddress: recipientUser.evm_address,
                     walletAddress: recipientUser.wallet_address
                 });
@@ -420,32 +439,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
             // Find user by wallet address (sender)
             logger.debug('Looking for sender user', { fromAddress: fromAddressLower });
             
-            // First try evm_address
-            let { data: senderUser, error: senderError } = await supabase
-                .from('users')
-                .select('id, privy_id')
-                .ilike('evm_address', fromAddressLower)
-                .single();
-
-            // If not found, try wallet_address
-            if (!senderUser) {
-                const { data: altSender, error: altError } = await supabase
-                    .from('users')
-                    .select('id, privy_id')
-                    .ilike('wallet_address', fromAddressLower)
-                    .single();
-                
-                if (altSender) {
-                    senderUser = altSender;
-                    senderError = null;
-                } else if (altError) {
-                    senderError = altError;
-                }
-            }
-
-            if (senderError) {
-                logger.debug('Sender lookup error or not found', { error: senderError.message });
-            }
+            const senderUser = await findUserByEvmAddress(fromAddressLower);
 
             if (senderUser) {
                 logger.info('Found sender user, sending notification', { userId: senderUser.id });
@@ -523,13 +517,7 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
 
             // Find user by Solana wallet address (recipient)
             if (transfer.to) {
-                const { data: foundRecipient } = await supabase
-                    .from('users')
-                    .select('id, privy_id')
-                    .or(`solana_address.eq.${transfer.to},wallet_address.eq.${transfer.to}`)
-                    .single();
-
-                recipientUser = foundRecipient;
+                recipientUser = (await findUserBySolanaAddress(transfer.to)) as any;
 
                 if (recipientUser) {
                     // Check if this payment is for an invoice or payment link
@@ -599,13 +587,7 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
 
             // Find user by Solana wallet address (sender)
             if (transfer.from) {
-                const { data: foundSender } = await supabase
-                    .from('users')
-                    .select('id, privy_id')
-                    .or(`solana_address.eq.${transfer.from},wallet_address.eq.${transfer.from}`)
-                    .single();
-
-                senderUser = foundSender;
+                senderUser = (await findUserBySolanaAddress(transfer.from)) as any;
 
                 if (senderUser) {
                     await NotificationService.notifyTransaction(senderUser.id, {
