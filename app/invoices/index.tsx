@@ -391,6 +391,55 @@ export default function InvoicesScreen() {
         closeModal();
     };
 
+    const handleMarkInvoicePaid = async () => {
+        if (!selectedInvoice || selectedInvoice.status === 'PAID') return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/documents/${selectedInvoice.id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status: 'PAID' })
+            });
+            const data = await response.json();
+            if (!data.success) {
+                Alert.alert('Error', data.error?.message || 'Failed to mark invoice as paid');
+                return;
+            }
+
+            const paidAt = new Date().toISOString();
+            setInvoices(prev => prev.map(inv => (
+                inv.id === selectedInvoice.id
+                    ? {
+                        ...inv,
+                        status: 'PAID',
+                        content: {
+                            ...(inv.content || {}),
+                            paid_at: (inv.content as any)?.paid_at || paidAt,
+                            manual_mark_paid: true,
+                        }
+                    }
+                    : inv
+            )));
+            setSelectedInvoice((prev: any) => prev ? ({
+                ...prev,
+                status: 'PAID',
+                content: {
+                    ...(prev.content || {}),
+                    paid_at: (prev.content as any)?.paid_at || paidAt,
+                    manual_mark_paid: true,
+                }
+            }) : prev);
+            Alert.alert('Success', 'Invoice marked as paid');
+        } catch (error) {
+            Alert.alert('Error', 'Failed to mark invoice as paid');
+        }
+    };
+
     const getInvoiceUrl = (invoice: any) => {
         const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
         return invoice?.payment_link_url ||
@@ -634,6 +683,14 @@ export default function InvoicesScreen() {
                                                     </ExpoButton>
                                                     {selectedInvoice?.status !== 'PAID' && (
                                                         <ExpoButton
+                                                            onPress={handleMarkInvoicePaid}
+                                                            systemImage="checkmark.circle.fill"
+                                                        >
+                                                            Mark as Paid
+                                                        </ExpoButton>
+                                                    )}
+                                                    {selectedInvoice?.status !== 'PAID' && (
+                                                        <ExpoButton
                                                             onPress={handleSendReminder}
                                                             systemImage="bell.fill"
                                                         >
@@ -670,6 +727,11 @@ export default function InvoicesScreen() {
                                                 },
                                                 ...(selectedInvoice?.status !== 'PAID'
                                                     ? [
+                                                        {
+                                                            label: 'Mark as Paid',
+                                                            onPress: handleMarkInvoicePaid,
+                                                            icon: <CheckCircle size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                                        },
                                                         {
                                                             label: 'Send Reminder',
                                                             onPress: handleSendReminder,

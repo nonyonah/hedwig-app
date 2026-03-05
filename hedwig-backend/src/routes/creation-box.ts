@@ -6,6 +6,25 @@ import { createLogger } from '../utils/logger';
 const logger = createLogger('CreationBox');
 const router = Router();
 
+const unwrapNaturalResponse = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (typeof parsed?.naturalResponse === 'string') return parsed.naturalResponse;
+            if (typeof parsed?.response === 'string') return parsed.response;
+            if (typeof parsed?.message === 'string') return parsed.message;
+        } catch {
+            // Keep original string if it's not valid JSON.
+        }
+    }
+
+    return value;
+};
+
 /**
  * POST /api/creation-box/parse
  * Parse natural language input to extract intent and structured data
@@ -60,6 +79,13 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
         // Use Gemini's chat response which includes system instructions for intent recognition
         // This will properly detect intents like invoice, payment_link, contract, etc.
         const result = await GeminiService.generateChatResponse(enrichedText, [], undefined, {});
+        const topLevelNaturalResponse =
+            (typeof result === 'object' && result && typeof (result as any).naturalResponse === 'string'
+                ? (result as any).naturalResponse
+                : null) ||
+            (typeof result === 'object' && result && typeof (result as any).response === 'string'
+                ? (result as any).response
+                : null);
         
         logger.debug('[CreationBox] Gemini raw response', { result });
 
@@ -73,6 +99,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
             dueDate: string | null;
             priority: string | null;
             title: string | null;
+            naturalResponse: string | null;
             confidence: number;
             clientEmail: string | null;
             items: Array<{ description: string; amount: number }> | null;
@@ -88,6 +115,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
             dueDate: null,
             priority: null,
             title: null,
+            naturalResponse: null,
             items: null,
             recipient: null,
             confidence: 0.5
@@ -108,6 +136,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
 
                 // Map Gemini response to our format
                 parsedData.intent = mode || extracted.intent || parsedData.intent; // Prioritize explicit mode
+                parsedData.naturalResponse = unwrapNaturalResponse(extracted.naturalResponse);
                 
                 // Extract parameters if available
                 if (extracted.parameters) {
@@ -221,6 +250,14 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
             }
         } catch (parseError) {
             logger.error('[CreationBox] Failed to parse Gemini response', { error: parseError, result });
+        }
+
+        // Ensure natural response is always available for chat/general intents
+        if (!parsedData.naturalResponse && topLevelNaturalResponse) {
+            parsedData.naturalResponse = unwrapNaturalResponse(topLevelNaturalResponse);
+        }
+        if (!parsedData.naturalResponse && String(parsedData.intent || '').toLowerCase() === 'general_chat') {
+            parsedData.naturalResponse = "I’m here to help. Tell me what you want to do, and I’ll guide you.";
         }
 
         // FORCE OVERRIDES

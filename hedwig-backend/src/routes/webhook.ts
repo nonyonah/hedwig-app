@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import AlchemyWebhooksService, { AlchemyActivity, AlchemySolanaAddressActivityEvent } from '../services/alchemyWebhooks';
 import NotificationService from '../services/notifications';
 import BackendAnalytics from '../services/analytics';
+import { markCalendarEventCompleted } from './calendar';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Webhook');
@@ -346,7 +347,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                     .select('*')
                     .eq('user_id', recipientUser.id)
                     .eq('status', 'PENDING')
-                    .or(`type.eq.invoice,type.eq.payment_link`)
+                    .or(`type.eq.INVOICE,type.eq.PAYMENT_LINK,type.eq.invoice,type.eq.payment_link`)
                     .order('created_at', { ascending: false })
                     .limit(1)
                     .single();
@@ -385,6 +386,12 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                         logger.error('Failed to update document status', { error: updateError.message });
                     } else {
                         logger.info('Document status updated to PAID', { documentId: document.id });
+                        const normalizedType = String(document.type || '').toLowerCase();
+                        if (normalizedType.includes('payment')) {
+                            await markCalendarEventCompleted('payment_link', document.id);
+                        } else {
+                            await markCalendarEventCompleted('invoice', document.id);
+                        }
                     }
                 }
 
@@ -526,7 +533,7 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
                         .select('*')
                         .eq('user_id', recipientUser.id)
                         .eq('status', 'PENDING')
-                        .or(`type.eq.invoice,type.eq.payment_link`)
+                        .or(`type.eq.INVOICE,type.eq.PAYMENT_LINK,type.eq.invoice,type.eq.payment_link`)
                         .order('created_at', { ascending: false })
                         .limit(1)
                         .single();
@@ -555,6 +562,12 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
                             .from('documents')
                             .update({ status: 'PAID', paid_at: new Date().toISOString(), tx_hash: transfer.signature })
                             .eq('id', document.id);
+                        const normalizedType = String(document.type || '').toLowerCase();
+                        if (normalizedType.includes('payment')) {
+                            await markCalendarEventCompleted('payment_link', document.id);
+                        } else {
+                            await markCalendarEventCompleted('invoice', document.id);
+                        }
                     }
 
                     // Send push notification

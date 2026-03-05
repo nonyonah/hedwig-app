@@ -387,6 +387,55 @@ export default function PaymentLinksScreen() {
         closeModal();
     };
 
+    const handleMarkLinkPaid = async () => {
+        if (!selectedLink || selectedLink.status === 'PAID') return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/documents/${selectedLink.id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status: 'PAID' })
+            });
+            const data = await response.json();
+            if (!data.success) {
+                Alert.alert('Error', data.error?.message || 'Failed to mark payment link as paid');
+                return;
+            }
+
+            const paidAt = new Date().toISOString();
+            setLinks(prev => prev.map(link => (
+                link.id === selectedLink.id
+                    ? {
+                        ...link,
+                        status: 'PAID',
+                        content: {
+                            ...(link.content || {}),
+                            paid_at: (link.content as any)?.paid_at || paidAt,
+                            manual_mark_paid: true,
+                        }
+                    }
+                    : link
+            )));
+            setSelectedLink((prev: any) => prev ? ({
+                ...prev,
+                status: 'PAID',
+                content: {
+                    ...(prev.content || {}),
+                    paid_at: (prev.content as any)?.paid_at || paidAt,
+                    manual_mark_paid: true,
+                }
+            }) : prev);
+            Alert.alert('Success', 'Payment link marked as paid');
+        } catch (error) {
+            Alert.alert('Error', 'Failed to mark payment link as paid');
+        }
+    };
+
     const getPaymentLinkUrl = (link: any) => {
         const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
         return link?.payment_link_url ||
@@ -470,6 +519,14 @@ export default function PaymentLinksScreen() {
                                         </ExpoButton>
                                         {selectedLink?.status !== 'PAID' && (
                                             <ExpoButton
+                                                onPress={handleMarkLinkPaid}
+                                                systemImage="checkmark.circle.fill"
+                                            >
+                                                Mark as Paid
+                                            </ExpoButton>
+                                        )}
+                                        {selectedLink?.status !== 'PAID' && (
+                                            <ExpoButton
                                                 onPress={handleSendReminder}
                                                 systemImage="bell.fill"
                                             >
@@ -506,6 +563,11 @@ export default function PaymentLinksScreen() {
                                     },
                                     ...(selectedLink?.status !== 'PAID'
                                         ? [
+                                            {
+                                                label: 'Mark as Paid',
+                                                onPress: handleMarkLinkPaid,
+                                                icon: <CheckCircle size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                            },
                                             {
                                                 label: 'Send Reminder',
                                                 onPress: handleSendReminder,

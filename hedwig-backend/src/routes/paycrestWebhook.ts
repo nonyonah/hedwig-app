@@ -42,6 +42,8 @@ const mapPaycrestStatus = (event: string, data: any): 'PENDING' | 'PROCESSING' |
         case 'processing':
             return 'PROCESSING';
         case 'validated':
+            // "validated" is an in-progress state; final settlement comes later.
+            return 'PROCESSING';
         case 'settled':
         case 'completed':
         case 'success':

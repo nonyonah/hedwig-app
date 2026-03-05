@@ -480,12 +480,6 @@ export default function WalletScreen() {
                                 </View>
                             </View>
 
-                            <View style={styles.tokenRight}>
-                                <Text style={[styles.tokenBalance, { color: themeColors.textPrimary }]}>
-                                    ${usdAccountBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </Text>
-                                <Text style={[styles.chainLabel, { color: themeColors.textSecondary }]}>USD</Text>
-                            </View>
                         </TouchableOpacity>
 
                         {usdStatus && !usdDetails?.ach?.accountNumberMasked ? (

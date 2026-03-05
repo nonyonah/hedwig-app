@@ -7,6 +7,7 @@ import { createLogger } from '../utils/logger';
 const logger = createLogger('Offramp');
 
 const router = Router();
+const ENABLE_PAYCREST_STATUS_POLLING = process.env.PAYCREST_STATUS_POLLING === 'true';
 
 const mapPaycrestOrderStatus = (rawStatus?: string): 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null => {
     if (!rawStatus) return null;
@@ -14,7 +15,8 @@ const mapPaycrestOrderStatus = (rawStatus?: string): 'PENDING' | 'PROCESSING' | 
 
     if (status === 'initiated') return 'PENDING';
     if (status === 'pending' || status === 'processing') return 'PROCESSING';
-    if (status === 'validated' || status === 'settled' || status === 'completed' || status === 'success') return 'COMPLETED';
+    if (status === 'validated') return 'PROCESSING';
+    if (status === 'settled' || status === 'completed' || status === 'success') return 'COMPLETED';
     if (status === 'expired' || status === 'failed' || status === 'refunded' || status === 'cancelled') return 'FAILED';
     return null;
 };
@@ -301,53 +303,55 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
             throw new Error(`Failed to fetch orders: ${error.message}`);
         }
 
-        // Poll Paycrest for active orders to keep status fresh if webhook delivery is delayed.
-        const activeOrders = (orders || []).filter(
-            order => order.status === 'PENDING' || order.status === 'PROCESSING'
-        ).slice(0, 10);
+        // Webhook-first lifecycle: only poll Paycrest directly if explicitly enabled.
+        if (ENABLE_PAYCREST_STATUS_POLLING) {
+            const activeOrders = (orders || []).filter(
+                order => order.status === 'PENDING' || order.status === 'PROCESSING'
+            ).slice(0, 10);
 
-        await Promise.all(activeOrders.map(async (order) => {
-            try {
-                const paycrestOrder = await PaycrestService.getOrderStatus(order.paycrest_order_id);
-                const statusFromPaycrest = extractPaycrestStatus(paycrestOrder);
-                const mappedStatus = mapPaycrestOrderStatus(statusFromPaycrest);
-                const txHash = extractPaycrestTxHash(paycrestOrder);
+            await Promise.all(activeOrders.map(async (order) => {
+                try {
+                    const paycrestOrder = await PaycrestService.getOrderStatus(order.paycrest_order_id);
+                    const statusFromPaycrest = extractPaycrestStatus(paycrestOrder);
+                    const mappedStatus = mapPaycrestOrderStatus(statusFromPaycrest);
+                    const txHash = extractPaycrestTxHash(paycrestOrder);
 
-                if (mappedStatus && mappedStatus !== order.status) {
-                    const updatePayload: Record<string, any> = {
-                        status: mappedStatus,
-                    };
-                    if (mappedStatus === 'COMPLETED') {
-                        updatePayload.completed_at = new Date().toISOString();
-                    }
-                    if (mappedStatus === 'FAILED') {
-                        updatePayload.error_message = order.error_message || 'Order failed or expired';
-                    }
-                    if (txHash) {
-                        updatePayload.tx_hash = txHash;
-                    }
+                    if (mappedStatus && mappedStatus !== order.status) {
+                        const updatePayload: Record<string, any> = {
+                            status: mappedStatus,
+                        };
+                        if (mappedStatus === 'COMPLETED') {
+                            updatePayload.completed_at = new Date().toISOString();
+                        }
+                        if (mappedStatus === 'FAILED') {
+                            updatePayload.error_message = order.error_message || 'Order failed or expired';
+                        }
+                        if (txHash) {
+                            updatePayload.tx_hash = txHash;
+                        }
 
-                    const { data: updatedOrder } = await supabase
-                        .from('offramp_orders')
-                        .update(updatePayload)
-                        .eq('id', order.id)
-                        .select()
-                        .single();
+                        const { data: updatedOrder } = await supabase
+                            .from('offramp_orders')
+                            .update(updatePayload)
+                            .eq('id', order.id)
+                            .select()
+                            .single();
 
-                    if (updatedOrder) {
-                        Object.assign(order, updatedOrder);
+                        if (updatedOrder) {
+                            Object.assign(order, updatedOrder);
+                        }
+                    } else if (txHash && txHash !== order.tx_hash) {
+                        await supabase
+                            .from('offramp_orders')
+                            .update({ tx_hash: txHash })
+                            .eq('id', order.id);
+                        order.tx_hash = txHash;
                     }
-                } else if (txHash && txHash !== order.tx_hash) {
-                    await supabase
-                        .from('offramp_orders')
-                        .update({ tx_hash: txHash })
-                        .eq('id', order.id);
-                    order.tx_hash = txHash;
+                } catch (pollError) {
+                    logger.warn('Failed to poll Paycrest order status', { orderId: order.id });
                 }
-            } catch (pollError) {
-                logger.warn('Failed to poll Paycrest order status', { orderId: order.id });
-            }
-        }));
+            }));
+        }
 
         // Map to camelCase
         const formattedOrders = orders.map(order => ({
@@ -366,8 +370,11 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
             accountNumber: order.account_number,
             accountName: order.account_name,
             receiveAddress: order.receive_address,
+            txHash: order.tx_hash,
+            errorMessage: order.error_message,
             createdAt: order.created_at,
             updatedAt: order.updated_at,
+            completedAt: order.completed_at,
         }));
 
         res.json({
@@ -418,38 +425,40 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
             return;
         }
 
-        // Get latest status from Paycrest
-        try {
-            const paycrestOrder = await PaycrestService.getOrderStatus(order.paycrest_order_id);
-            const statusFromPaycrest = extractPaycrestStatus(paycrestOrder);
-            const mappedStatus = mapPaycrestOrderStatus(statusFromPaycrest);
-            const txHash = extractPaycrestTxHash(paycrestOrder);
+        // Webhook-first lifecycle: avoid direct provider polling unless explicitly enabled.
+        if (ENABLE_PAYCREST_STATUS_POLLING) {
+            try {
+                const paycrestOrder = await PaycrestService.getOrderStatus(order.paycrest_order_id);
+                const statusFromPaycrest = extractPaycrestStatus(paycrestOrder);
+                const mappedStatus = mapPaycrestOrderStatus(statusFromPaycrest);
+                const txHash = extractPaycrestTxHash(paycrestOrder);
 
-            // Update local status if changed
-            if (mappedStatus && mappedStatus !== order.status) {
-                const { data: updatedOrder } = await supabase
-                    .from('offramp_orders')
-                    .update({
-                        status: mappedStatus,
-                        tx_hash: txHash || order.tx_hash,
-                        completed_at: mappedStatus === 'COMPLETED' ? new Date().toISOString() : order.completed_at,
-                    })
-                    .eq('id', order.id)
-                    .select()
-                    .single();
+                // Update local status if changed
+                if (mappedStatus && mappedStatus !== order.status) {
+                    const { data: updatedOrder } = await supabase
+                        .from('offramp_orders')
+                        .update({
+                            status: mappedStatus,
+                            tx_hash: txHash || order.tx_hash,
+                            completed_at: mappedStatus === 'COMPLETED' ? new Date().toISOString() : order.completed_at,
+                        })
+                        .eq('id', order.id)
+                        .select()
+                        .single();
 
-                if (updatedOrder) {
-                    Object.assign(order, updatedOrder);
+                    if (updatedOrder) {
+                        Object.assign(order, updatedOrder);
+                    }
+                } else if (txHash && txHash !== order.tx_hash) {
+                    await supabase
+                        .from('offramp_orders')
+                        .update({ tx_hash: txHash })
+                        .eq('id', order.id);
+                    order.tx_hash = txHash;
                 }
-            } else if (txHash && txHash !== order.tx_hash) {
-                await supabase
-                    .from('offramp_orders')
-                    .update({ tx_hash: txHash })
-                    .eq('id', order.id);
-                order.tx_hash = txHash;
+            } catch (error) {
+                logger.warn('Failed to fetch Paycrest order status', { error: error instanceof Error ? error.message : 'Unknown' });
             }
-        } catch (error) {
-            logger.warn('Failed to fetch Paycrest order status', { error: error instanceof Error ? error.message : 'Unknown' });
         }
 
         // Map to camelCase
@@ -470,8 +479,10 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
             accountName: order.account_name,
             receiveAddress: order.receive_address,
             txHash: order.tx_hash,
+            errorMessage: order.error_message,
             createdAt: order.created_at,
             updatedAt: order.updated_at,
+            completedAt: order.completed_at,
         };
 
         res.json({

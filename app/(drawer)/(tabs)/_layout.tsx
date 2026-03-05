@@ -3,6 +3,7 @@ import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
 import { Tabs, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Platform, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Receipt, Link2, FileText, Wallet2 } from '../../../components/ui/AppIcon';
 
 import { useThemeColors } from '../../../theme/colors';
@@ -14,7 +15,9 @@ type AndroidTabRouteName = 'index' | 'invoices' | 'links' | 'contracts' | 'walle
 function AndroidTabBar({ state, descriptors, navigation }: any) {
     const themeColors = useThemeColors();
     const { currentTheme } = useSettings();
+    const insets = useSafeAreaInsets();
     const isDark = currentTheme === 'dark';
+    const bottomOffset = Math.max(12, insets.bottom + 8);
 
     const getIconForRoute = (routeName: AndroidTabRouteName, isFocused: boolean) => {
         const color = isFocused ? themeColors.primary : (isDark ? '#9CA3AF' : '#6B7280');
@@ -37,7 +40,7 @@ function AndroidTabBar({ state, descriptors, navigation }: any) {
     };
 
     return (
-        <View style={styles.tabBarWrapper}>
+        <View style={[styles.tabBarWrapper, { bottom: bottomOffset }]}>
             <View
                 style={[
                     styles.tabBar,

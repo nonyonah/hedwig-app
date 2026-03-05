@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { EmailService } from '../services/email';
 import { createLogger } from '../utils/logger';
+import { upsertCalendarEventFromSource, updateCalendarEventStatusBySource } from './calendar';
 
 const logger = createLogger('Projects');
 
@@ -271,7 +272,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
         // Verify client belongs to user (implicit if we just found/created it, but good check if passed externally)
         const { data: client, error: clientError } = await supabase
             .from('clients')
-            .select('id')
+            .select('id, name')
             .eq('id', clientId)
             .eq('user_id', user.id)
             .single();
@@ -300,6 +301,20 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 
         if (error) {
             throw new Error(`Failed to create project: ${error.message}`);
+        }
+
+        // Create or update calendar deadline event for project end date
+        if (project.deadline) {
+            const clientName = (client as any)?.name || 'Client';
+            await upsertCalendarEventFromSource(
+                user.id,
+                `Project ending: ${project.name} (${clientName})`,
+                project.deadline,
+                'project_deadline',
+                'project',
+                project.id,
+                `Project deadline for ${project.name} · Client: ${clientName}`
+            );
         }
 
         // Create milestones if provided
@@ -413,6 +428,33 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
                 error: { message: 'Project not found or update failed' },
             });
             return;
+        }
+
+        // Keep calendar deadline event in sync when deadline/title/status changes
+        const { data: projectClient } = await supabase
+            .from('clients')
+            .select('name')
+            .eq('id', project.client_id)
+            .maybeSingle();
+        const projectClientName = projectClient?.name || 'Client';
+
+        if (project.deadline && project.status !== 'COMPLETED') {
+            await upsertCalendarEventFromSource(
+                user.id,
+                `Project ending: ${project.name} (${projectClientName})`,
+                project.deadline,
+                'project_deadline',
+                'project',
+                project.id,
+                `Project deadline for ${project.name} · Client: ${projectClientName}`
+            );
+        }
+
+        if (project.status === 'COMPLETED') {
+            await updateCalendarEventStatusBySource('project', project.id, 'completed');
+        }
+        if (project.status === 'CANCELLED') {
+            await updateCalendarEventStatusBySource('project', project.id, 'cancelled');
         }
 
         // Handle project completion - send emails and auto-invoice pending milestones
@@ -586,6 +628,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
 router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
+        const projectId = Array.isArray(id) ? id[0] : id;
         const privyId = req.user!.id;
 
         const user = await getOrCreateUser(privyId);
@@ -597,12 +640,15 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next) =>
         const { error } = await supabase
             .from('projects')
             .delete()
-            .eq('id', id)
+            .eq('id', projectId)
             .eq('user_id', user.id);
 
         if (error) {
             throw new Error(`Failed to delete project: ${error.message}`);
         }
+
+        // Ensure related calendar deadline events no longer show as upcoming
+        await updateCalendarEventStatusBySource('project', projectId, 'cancelled');
 
         res.json({
             success: true,

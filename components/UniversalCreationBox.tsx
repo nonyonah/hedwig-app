@@ -801,7 +801,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                 <CaretDown
                                     size={14}
                                     color={secondaryText}
-                                    weight="bold"
+                                    strokeWidth={3}
                                     style={{ transform: [{ rotate: showModeDropdown ? '180deg' : '0deg' }] }}
                                 />
                             </TouchableOpacity>
@@ -854,9 +854,9 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                             }).start(() => setShowModeDropdown(false));
                                         }}
                                     >
-                                        <LinkIcon size={18} color={textColor} weight="regular" />
+                                        <LinkIcon size={18} color={textColor} strokeWidth={2.2} />
                                         <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Payment Link</Text>
-                                        {selectedMode === 'payment_link' && <Check size={14} color={textColor} weight="bold" style={{ marginLeft: 'auto' }} />}
+                                        {selectedMode === 'payment_link' && <Check size={14} color={textColor} strokeWidth={3} style={{ marginLeft: 'auto' }} />}
                                     </TouchableOpacity>
 
                                     {/* Invoice Option - Refined */}
@@ -871,9 +871,9 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                             }).start(() => setShowModeDropdown(false));
                                         }}
                                     >
-                                        <FileText size={18} color={textColor} weight="regular" />
+                                        <FileText size={18} color={textColor} strokeWidth={2.2} />
                                         <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Invoice</Text>
-                                        {selectedMode === 'invoice' && <Check size={14} color={textColor} weight="bold" style={{ marginLeft: 'auto' }} />}
+                                        {selectedMode === 'invoice' && <Check size={14} color={textColor} strokeWidth={3} style={{ marginLeft: 'auto' }} />}
                                     </TouchableOpacity>
 
                                     {/* Transfer Option - Refined */}
@@ -888,9 +888,9 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                             }).start(() => setShowModeDropdown(false));
                                         }}
                                     >
-                                        <PaperPlaneRight size={18} color={textColor} weight="regular" />
+                                        <PaperPlaneRight size={18} color={textColor} strokeWidth={2.2} />
                                         <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Transfer</Text>
-                                        {selectedMode === 'transfer' && <Check size={14} color={textColor} weight="bold" style={{ marginLeft: 'auto' }} />}
+                                        {selectedMode === 'transfer' && <Check size={14} color={textColor} strokeWidth={3} style={{ marginLeft: 'auto' }} />}
                                     </TouchableOpacity>
                                 </Animated.View>
                             )}
@@ -920,7 +920,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                     <ArrowUp
                                         size={20}
                                         color={inputText.trim() ? '#FFFFFF' : secondaryText}
-                                        weight="bold"
+                                        strokeWidth={3}
                                     />
                                 )}
                             </TouchableOpacity>

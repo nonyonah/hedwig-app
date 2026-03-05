@@ -16,6 +16,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
     try {
         const privyId = req.user!.id;
         const { status, from, to, limit = '50' } = req.query;
+        const parsedLimit = Math.max(1, Math.min(200, parseInt(limit as string, 10) || 50));
 
         const user = await getOrCreateUser(privyId);
         if (!user) {
@@ -28,7 +29,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             .select('*')
             .eq('user_id', user.id)
             .order('event_date', { ascending: true })
-            .limit(parseInt(limit as string));
+            .limit(parsedLimit);
 
         // Filter by status
         if (status) {
@@ -67,9 +68,114 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 
         res.json({
             success: true,
-            data: { events: formattedEvents }
+            data: {
+                events: formattedEvents,
+                pagination: {
+                    limit: parsedLimit,
+                    count: formattedEvents.length,
+                }
+            }
         });
 
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * PATCH /api/calendar/:id/complete
+ * Mark an event as completed
+ */
+router.patch('/:id/complete', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const privyId = req.user!.id;
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: 'User not found' });
+            return;
+        }
+
+        const { data: existingEvent, error: fetchEventError } = await supabase
+            .from('calendar_events')
+            .select('*')
+            .eq('id', id)
+            .eq('user_id', user.id)
+            .single();
+
+        if (fetchEventError || !existingEvent) {
+            res.status(404).json({ success: false, error: 'Event not found' });
+            return;
+        }
+
+        const sourceType = String(existingEvent.source_type || '').toLowerCase();
+        const sourceId = existingEvent.source_id as string | null;
+
+        // If this event is linked to an invoice/payment-link, also mark document as PAID.
+        if (sourceId && (sourceType === 'invoice' || sourceType === 'payment_link')) {
+            const { data: linkedDoc, error: fetchDocError } = await supabase
+                .from('documents')
+                .select('id, status, content')
+                .eq('id', sourceId)
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            if (fetchDocError) {
+                logger.warn('Could not fetch linked document while marking calendar event paid');
+            } else if (linkedDoc?.id) {
+                const existingContent = (linkedDoc.content && typeof linkedDoc.content === 'object')
+                    ? linkedDoc.content
+                    : {};
+
+                const { error: updateDocError } = await supabase
+                    .from('documents')
+                    .update({
+                        status: 'PAID',
+                        content: {
+                            ...existingContent,
+                            paid_at: new Date().toISOString(),
+                            manual_mark_paid_from_calendar: true,
+                        },
+                    })
+                    .eq('id', sourceId)
+                    .eq('user_id', user.id);
+
+                if (updateDocError) {
+                    logger.warn('Failed to mark linked document as paid from calendar route');
+                }
+            }
+        }
+
+        const { data: event, error: updateEventError } = await supabase
+            .from('calendar_events')
+            .update({ status: 'completed' })
+            .eq('id', id)
+            .eq('user_id', user.id)
+            .select()
+            .single();
+
+        if (updateEventError || !event) {
+            res.status(400).json({ success: false, error: 'Event update failed' });
+            return;
+        }
+
+        res.json({
+            success: true,
+            data: {
+                event: {
+                    id: event.id,
+                    title: event.title,
+                    description: event.description,
+                    eventDate: event.event_date,
+                    eventType: event.event_type,
+                    status: event.status,
+                    sourceType: event.source_type,
+                    sourceId: event.source_id,
+                    createdAt: event.created_at,
+                }
+            }
+        });
     } catch (error) {
         next(error);
     }
@@ -329,6 +435,63 @@ export async function createCalendarEventFromSource(
 }
 
 /**
+ * Helper function: Create or update calendar event by source reference
+ */
+export async function upsertCalendarEventFromSource(
+    userId: string,
+    title: string,
+    eventDate: string,
+    eventType: 'invoice_due' | 'milestone_due' | 'project_deadline' | 'custom',
+    sourceType: string,
+    sourceId: string,
+    description?: string
+): Promise<{ id: string } | null> {
+    try {
+        const { data: existing } = await supabase
+            .from('calendar_events')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('source_type', sourceType)
+            .eq('source_id', sourceId)
+            .maybeSingle();
+
+        if (existing?.id) {
+            const { data: updated, error: updateError } = await supabase
+                .from('calendar_events')
+                .update({
+                    title,
+                    description: description || null,
+                    event_date: eventDate,
+                    event_type: eventType,
+                    status: 'upcoming',
+                })
+                .eq('id', existing.id)
+                .select('id')
+                .single();
+
+            if (updateError) {
+                logger.error('Failed to update existing source calendar event');
+                return null;
+            }
+            return updated;
+        }
+
+        return await createCalendarEventFromSource(
+            userId,
+            title,
+            eventDate,
+            eventType as 'invoice_due' | 'milestone_due' | 'project_deadline',
+            sourceType,
+            sourceId,
+            description
+        );
+    } catch (error) {
+        logger.error('Error upserting source calendar event');
+        return null;
+    }
+}
+
+/**
  * Helper function: Mark calendar event as completed by source
  * Used when invoice/milestone is paid
  */
@@ -352,6 +515,32 @@ export async function markCalendarEventCompleted(
         return true;
     } catch (error) {
         logger.error('Error marking event completed');
+        return false;
+    }
+}
+
+/**
+ * Helper function: Update calendar event status by source
+ */
+export async function updateCalendarEventStatusBySource(
+    sourceType: string,
+    sourceId: string,
+    status: 'upcoming' | 'completed' | 'cancelled'
+): Promise<boolean> {
+    try {
+        const { error } = await supabase
+            .from('calendar_events')
+            .update({ status })
+            .eq('source_type', sourceType)
+            .eq('source_id', sourceId);
+
+        if (error) {
+            logger.error('Failed to update calendar event status by source');
+            return false;
+        }
+        return true;
+    } catch (error) {
+        logger.error('Error updating calendar event status by source');
         return false;
     }
 }

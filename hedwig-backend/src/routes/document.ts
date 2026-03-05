@@ -961,8 +961,13 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
             logger.error('Failed to send payment notification', { error: notifyError instanceof Error ? notifyError.message : 'Unknown' });
         }
 
-        // Mark associated calendar event as completed
-        await markCalendarEventCompleted('invoice', id as string);
+        // Mark associated calendar event as completed (invoice/payment link)
+        const normalizedType = String(doc.type || '').toLowerCase();
+        if (normalizedType.includes('payment')) {
+            await markCalendarEventCompleted('payment_link', id as string);
+        } else {
+            await markCalendarEventCompleted('invoice', id as string);
+        }
 
         res.json({
             success: true,
