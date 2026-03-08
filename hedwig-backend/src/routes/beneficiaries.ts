@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
+import { getOrCreateUser } from '../utils/userHelper';
 
 const router = Router();
 
@@ -9,13 +10,18 @@ const isMissingColumnError = (error: any) => {
     return error?.code === '42703' || (message.includes('column') && message.includes('does not exist'));
 };
 
+const resolveInternalUserId = async (authUserId: string): Promise<string> => {
+    const user = await getOrCreateUser(authUserId);
+    return user.id;
+};
+
 /**
  * GET /api/beneficiaries
  * List user's saved beneficiaries
  */
 router.get('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const userId = await resolveInternalUserId(req.user!.id);
 
         const { data: beneficiaries, error } = await supabase
             .from('beneficiaries')
@@ -56,7 +62,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
  */
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const userId = await resolveInternalUserId(req.user!.id);
         const {
             bankCode = null,
             bankName,
@@ -210,7 +216,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
  */
 router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const userId = await resolveInternalUserId(req.user!.id);
         const { id } = req.params;
 
         const { error } = await supabase
@@ -238,7 +244,7 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next) =>
  */
 router.put('/:id/default', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const userId = await resolveInternalUserId(req.user!.id);
         const { id } = req.params;
 
         // Unset all defaults first
