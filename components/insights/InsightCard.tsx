@@ -18,6 +18,8 @@ interface InsightCardProps {
 }
 
 export const InsightCard: React.FC<InsightCardProps> = ({ insight, onPress }) => {
+    const accentColor = insight.color || Colors.primary;
+    const insightType = insight.type || 'generic';
 
     const handlePress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -36,9 +38,9 @@ export const InsightCard: React.FC<InsightCardProps> = ({ insight, onPress }) =>
         // Or if you are using expo-symbols for SF Symbols on iOS.
         // For simplicity in this step, let's use a generic container with the type color.
         return (
-            <View style={[styles.iconContainer, { backgroundColor: insight.color + '20' }]}>
+            <View style={[styles.iconContainer, { backgroundColor: accentColor + '20' }]}>
                 {/* Placeholders for actual icons - ideally map insight.icon string to Phosphor */}
-                <Text style={{ fontSize: 20 }}>{insight.type === 'earnings' ? '💰' : insight.type === 'invoice' ? '📄' : '⭐'}</Text>
+                <Text style={{ fontSize: 20 }}>{insightType === 'earnings' ? '💰' : insightType === 'invoice' ? '📄' : '⭐'}</Text>
             </View>
         );
     };
@@ -50,7 +52,7 @@ export const InsightCard: React.FC<InsightCardProps> = ({ insight, onPress }) =>
             style={styles.container}
         >
             <BlurView intensity={20} tint="light" style={styles.blurContainer}>
-                <View style={[styles.accentLine, { backgroundColor: insight.color }]} />
+                <View style={[styles.accentLine, { backgroundColor: accentColor }]} />
 
                 <View style={styles.content}>
                     <View style={styles.header}>
@@ -67,10 +69,10 @@ export const InsightCard: React.FC<InsightCardProps> = ({ insight, onPress }) =>
 
                     {insight.actionLabel && (
                         <View style={styles.footer}>
-                            <Text style={[styles.actionText, { color: insight.color }]}>
+                            <Text style={[styles.actionText, { color: accentColor }]}>
                                 {insight.actionLabel}
                             </Text>
-                            <CaretRight size={14} color={insight.color} strokeWidth={3} />
+                            <CaretRight size={14} color={accentColor} strokeWidth={3} />
                         </View>
                     )}
                 </View>

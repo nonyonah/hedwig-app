@@ -11,7 +11,9 @@ import {
     SectionList,
     Platform,
     Image,
-    LayoutAnimation
+    LayoutAnimation,
+    RefreshControl,
+    ScrollView
 } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
@@ -116,6 +118,8 @@ export default function TransactionsScreen() {
 
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'in' | 'out' | 'failed'>('all');
     const [conversations, setConversations] = useState<any[]>([]);
 
     // Profile Modal
@@ -156,9 +160,11 @@ export default function TransactionsScreen() {
         }
     };
 
-    const fetchTransactions = async () => {
+    const fetchTransactions = async (showLoader = true) => {
         try {
-            setIsLoading(true);
+            if (showLoader) {
+                setIsLoading(true);
+            }
             const token = await getAccessToken();
             if (!token) return;
 
@@ -176,8 +182,16 @@ export default function TransactionsScreen() {
         } catch (error) {
             console.error('Error fetching transactions:', error);
         } finally {
-            setIsLoading(false);
+            if (showLoader) {
+                setIsLoading(false);
+            }
+            setRefreshing(false);
         }
+    };
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchTransactions(false);
     };
 
     // Modal open/close with BottomSheet
@@ -229,8 +243,15 @@ export default function TransactionsScreen() {
         }
     };
 
+    const filteredTransactions = transactions.filter((tx) => {
+        if (statusFilter === 'all') return true;
+        if (statusFilter === 'in') return tx.type === 'IN';
+        if (statusFilter === 'out') return tx.type === 'OUT';
+        return tx.status === 'failed';
+    });
+
     // Grouping logic for SectionList
-    const groupedTransactions = transactions.reduce((acc: any, tx) => {
+    const groupedTransactions = filteredTransactions.reduce((acc: any, tx) => {
         const date = new Date(tx.date);
         let title = format(date, 'MMM d');
         if (isToday(date)) title = 'Today';
@@ -297,15 +318,59 @@ export default function TransactionsScreen() {
                     </View>
                 </View>
 
+                <View style={[styles.filterBarWrapper, { backgroundColor: themeColors.background }]}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.filterRow}
+                        bounces={false}
+                        overScrollMode="never"
+                    >
+                        {[
+                            { key: 'all', label: 'All' },
+                            { key: 'in', label: 'In' },
+                            { key: 'out', label: 'Out' },
+                            { key: 'failed', label: 'Failed' },
+                        ].map((filter) => {
+                            const selected = statusFilter === filter.key;
+                            return (
+                                <TouchableOpacity
+                                    key={filter.key}
+                                    activeOpacity={0.8}
+                                    style={[
+                                        styles.filterChip,
+                                        { backgroundColor: themeColors.surface },
+                                        selected && { backgroundColor: Colors.primary },
+                                    ]}
+                                    onPress={() => {
+                                        Haptics.selectionAsync();
+                                        setStatusFilter(filter.key as any);
+                                    }}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.filterChipText,
+                                            { color: themeColors.textSecondary },
+                                            selected && { color: '#FFFFFF' },
+                                        ]}
+                                    >
+                                        {filter.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
+
                 {isLoading ? (
                     <View style={styles.centered}>
                         <ActivityIndicator size="large" color={Colors.primary} />
                     </View>
-                ) : transactions.length === 0 ? (
+                ) : filteredTransactions.length === 0 ? (
                     <View style={styles.emptyState}>
                         <ArrowsLeftRight size={48} color={themeColors.textTertiary} strokeWidth={3} />
-                        <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No transactions yet</Text>
-                        <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>Your transaction history will appear here.</Text>
+                        <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No matching transactions</Text>
+                        <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>Try a different filter or refresh.</Text>
                     </View>
                 ) : (
                     <SectionList
@@ -323,6 +388,9 @@ export default function TransactionsScreen() {
                         bounces={false}
                         overScrollMode="never"
                         contentInsetAdjustmentBehavior="never"
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+                        }
                     />
                 )}
             </SafeAreaView>
@@ -497,6 +565,24 @@ const styles = StyleSheet.create({
     listContent: {
         paddingHorizontal: 20,
         paddingBottom: 40,
+    },
+    filterBarWrapper: {
+        paddingTop: 4,
+        paddingBottom: 0,
+    },
+    filterRow: {
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+        gap: 8,
+    },
+    filterChip: {
+        borderRadius: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+    },
+    filterChipText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 14,
     },
     sectionHeaderContainer: {
         // backgroundColor: '#FFFFFF', // Overridden

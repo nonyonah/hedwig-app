@@ -122,7 +122,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next) =>
         const user = await getOrCreateUser(authUserId);
         const sandboxMode = bridgeUsdService.isSandbox();
 
-        const enabledForUser = bridgeUsdService.isEnabledForUser(user.id);
+        const enabledForUser = bridgeUsdService.isEnabledForUser(user.id, user.email || null);
         const usdAccount = await getUsdAccountByUser(user.id);
         logger.info('USD status resolved', {
             userId: user.id,
@@ -163,7 +163,7 @@ router.post('/enroll', authenticate, async (req: Request, res: Response, next) =
         const user = await getOrCreateUser(authUserId);
         const sandboxMode = bridgeUsdService.isSandbox();
 
-        if (!bridgeUsdService.isEnabledForUser(user.id)) {
+        if (!bridgeUsdService.isEnabledForUser(user.id, user.email || null)) {
             res.status(403).json({
                 success: false,
                 error: { message: 'USD accounts are not enabled for this user' },
@@ -268,7 +268,7 @@ router.patch('/settlement', authenticate, async (req: Request, res: Response, ne
         const user = await getOrCreateUser(authUserId);
         const account = await ensureUsdAccountRow(user.id);
 
-        if (!bridgeUsdService.isEnabledForUser(user.id)) {
+        if (!bridgeUsdService.isEnabledForUser(user.id, user.email || null)) {
             res.status(403).json({
                 success: false,
                 error: { message: 'USD accounts are not enabled for this user' },
@@ -352,7 +352,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
             hasStoredAchAccountNumber: Boolean(account.ach_account_number_masked),
         });
 
-        if (!bridgeUsdService.isEnabledForUser(user.id)) {
+        if (!bridgeUsdService.isEnabledForUser(user.id, user.email || null)) {
             res.status(403).json({
                 success: false,
                 error: { message: 'USD accounts are not enabled for this user' },

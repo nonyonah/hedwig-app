@@ -120,6 +120,7 @@ export default function WalletScreen() {
     const [usdDetails, setUsdDetails] = useState<UsdAccountDetails | null>(null);
     const [usdTransfers, setUsdTransfers] = useState<UsdTransfer[]>([]);
     const [usdLoading, setUsdLoading] = useState(false);
+    const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
     const fetchUserData = useCallback(async () => {
         if (!user) return;
@@ -188,6 +189,7 @@ export default function WalletScreen() {
             fetchBaseBalances(),
             fetchUsdData()
         ]);
+        setLastUpdatedAt(new Date());
         setRefreshing(false);
     };
 
@@ -196,6 +198,7 @@ export default function WalletScreen() {
             fetchUserData();
             fetchBaseBalances();
             fetchUsdData();
+            setLastUpdatedAt(new Date());
 
             const intervalId = setInterval(() => {
                 fetchBaseBalances();
@@ -273,6 +276,7 @@ export default function WalletScreen() {
     const usdAccountName = usdDetails?.ach?.accountName || usdDetails?.ach?.bankName || 'USD Account';
     const usdAccountNumber = usdDetails?.ach?.accountNumberMasked || 'Tap to complete setup';
     const hasActiveUsdAccountDetails = Boolean(usdDetails?.ach?.accountNumberMasked);
+    const canAccessUsdAccountFeature = Boolean(usdStatus?.featureEnabled);
 
     const baseUSDC = walletBalances.find(b => b.chain === 'base' && b.asset === 'usdc');
     const baseETH = walletBalances.find(b => b.chain === 'base' && b.asset === 'eth');
@@ -421,6 +425,11 @@ export default function WalletScreen() {
                         <Text style={[styles.totalBalance, { color: themeColors.textPrimary }]}>
                             ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </Text>
+                        <Text style={[styles.balanceUpdatedText, { color: themeColors.textSecondary }]}>
+                            {lastUpdatedAt
+                                ? `Updated ${lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                : 'Updated just now'}
+                        </Text>
                     </View>
 
                     <View style={styles.actionButtons}>
@@ -455,6 +464,7 @@ export default function WalletScreen() {
                         </TouchableOpacity>
                     </View>
 
+                    {canAccessUsdAccountFeature ? (
                     <View style={styles.usdAccountSection}>
                         <View style={styles.tokenHeader}>
                             <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>USD Account</Text>
@@ -476,7 +486,9 @@ export default function WalletScreen() {
                                 </View>
                                 <View>
                                     <Text style={[styles.tokenName, { color: themeColors.textPrimary }]}>{usdAccountName}</Text>
-                                    <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary }]}>{usdAccountNumber}</Text>
+                                    <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary }]}>
+                                        {usdLoading ? 'Fetching account details...' : usdAccountNumber}
+                                    </Text>
                                 </View>
                             </View>
 
@@ -498,6 +510,7 @@ export default function WalletScreen() {
                             </View>
                         ) : null}
                     </View>
+                    ) : null}
 
                     <View style={styles.tokenSection}>
                         <View style={styles.tokenHeader}>
@@ -875,6 +888,7 @@ const styles = StyleSheet.create({
     content: { flex: 1, paddingHorizontal: 20 },
     balanceSection: { marginTop: 24, marginBottom: 32, alignItems: 'flex-start' },
     totalBalance: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 42, letterSpacing: -1 },
+    balanceUpdatedText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 12, marginTop: 4 },
     actionButtons: { flexDirection: 'row', justifyContent: 'space-evenly', marginBottom: 32 },
     actionButton: { alignItems: 'center', gap: 8, minWidth: 72 },
     actionIconBox: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },

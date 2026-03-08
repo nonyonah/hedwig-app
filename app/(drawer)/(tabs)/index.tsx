@@ -31,6 +31,7 @@ type SearchResultItem = {
     status?: string;
     data: any;
 };
+type SearchFilterType = 'ALL' | 'INVOICE' | 'CONTRACT' | 'LINK' | 'PROJECT';
 
 export default function HomeDashboard() {
     const themeColors = useThemeColors();
@@ -53,6 +54,7 @@ export default function HomeDashboard() {
     // Search State
     const [allDocuments, setAllDocuments] = useState<SearchResultItem[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [searchTypeFilter, setSearchTypeFilter] = useState<SearchFilterType>('ALL');
     const [filteredResults, setFilteredResults] = useState<SearchResultItem[]>([]);
 
     const [isLoadingData, setIsLoadingData] = useState(true);
@@ -95,13 +97,17 @@ export default function HomeDashboard() {
             return;
         }
         const query = searchQuery.toLowerCase();
-        const results = allDocuments.filter(item =>
-            (item.title ? item.title.toLowerCase().includes(query) : false) ||
-            (item.subtitle && item.subtitle.toLowerCase().includes(query)) ||
-            (item.status && item.status.toLowerCase().includes(query))
-        );
+        const results = allDocuments.filter(item => {
+            const matchesType = searchTypeFilter === 'ALL' || item.type === searchTypeFilter;
+            if (!matchesType) return false;
+            return (
+                (item.title ? item.title.toLowerCase().includes(query) : false) ||
+                (item.subtitle && item.subtitle.toLowerCase().includes(query)) ||
+                (item.status && item.status.toLowerCase().includes(query))
+            );
+        });
         setFilteredResults(results);
-    }, [searchQuery, allDocuments]);
+    }, [searchQuery, allDocuments, searchTypeFilter]);
 
     const fetchUserData = async () => {
         if (!user) return;
@@ -332,6 +338,13 @@ export default function HomeDashboard() {
         );
     };
 
+    const renderSkeletonRow = (idx: number) => (
+        <View key={`skeleton-${idx}`} style={[styles.row, { backgroundColor: themeColors.surface }]}>
+            <View style={[styles.skeletonBar, { width: '48%', backgroundColor: themeColors.border }]} />
+            <View style={[styles.skeletonCircle, { backgroundColor: themeColors.border }]} />
+        </View>
+    );
+
     const handleTransfer = (data: any) => {
         console.log('[Home] Initiating transfer:', data);
         setTransactionData({
@@ -364,6 +377,39 @@ export default function HomeDashboard() {
         }
         if (path) router.push(path);
     };
+
+    const sectionConfigs = [
+        {
+            key: 'reminders',
+            title: 'Reminders',
+            viewAllRoute: '/(tabs)/invoices',
+            rows: [
+                { label: 'Invoices', count: counts.reminders.invoices, badge: getBadgeText('INVOICE', 'reminders'), onPress: () => router.push('/(tabs)/invoices') },
+                { label: 'Awaiting contract signatures', count: counts.reminders.contracts, badge: null, onPress: () => router.push('/(tabs)/contracts?filter=sent') },
+                { label: 'Payment links', count: counts.reminders.links, badge: getBadgeText('LINK', 'reminders'), onPress: () => router.push('/(tabs)/links') },
+            ]
+        },
+        {
+            key: 'in-progress',
+            title: 'In Progress',
+            viewAllRoute: '/(tabs)/projects',
+            rows: [
+                { label: 'Active Projects', count: counts.inProgress.projects, badge: null, onPress: () => router.push('/(tabs)/projects') },
+                { label: 'Milestones in progress', count: counts.inProgress.milestones, badge: null, onPress: () => router.push('/(tabs)/projects') },
+            ]
+        },
+        {
+            key: 'due-soon',
+            title: 'Due Soon',
+            viewAllRoute: '/(tabs)/calendar',
+            rows: [
+                { label: 'Invoices due soon', count: counts.dueSoon.invoices, badge: getBadgeText('INVOICE', 'dueSoon'), onPress: () => router.push('/(tabs)/invoices?filter=due_soon') },
+                { label: 'Projects due soon', count: counts.dueSoon.projects, badge: null, onPress: () => router.push('/(tabs)/projects?filter=due_soon') },
+                { label: 'Payment links due soon', count: counts.dueSoon.links, badge: getBadgeText('LINK', 'dueSoon'), onPress: () => router.push('/(tabs)/links?filter=due_soon') },
+                { label: 'Milestones due soon', count: counts.dueSoon.milestones, badge: null, onPress: () => router.push('/(tabs)/projects?filter=due_soon') },
+            ]
+        }
+    ];
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -407,6 +453,32 @@ export default function HomeDashboard() {
                     </TouchableOpacity>
                 )}
             </View>
+
+            {searchQuery.length > 0 && (
+                <View style={styles.searchFilterRow}>
+                    {(['ALL', 'INVOICE', 'LINK', 'CONTRACT', 'PROJECT'] as SearchFilterType[]).map((type) => {
+                        const selected = searchTypeFilter === type;
+                        const label = type === 'ALL' ? 'All' : type.charAt(0) + type.slice(1).toLowerCase();
+                        return (
+                            <TouchableOpacity
+                                key={type}
+                                style={[
+                                    styles.searchFilterChip,
+                                    {
+                                        backgroundColor: selected ? Colors.primary : themeColors.surface,
+                                        borderColor: selected ? Colors.primary : themeColors.border,
+                                    },
+                                ]}
+                                onPress={() => setSearchTypeFilter(type)}
+                            >
+                                <Text style={[styles.searchFilterText, { color: selected ? '#fff' : themeColors.textSecondary }]}>
+                                    {label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            )}
 
             {searchQuery.length > 0 ? (
                 <FlatList
@@ -462,35 +534,20 @@ export default function HomeDashboard() {
                         </View>
                     ) : (
                         <>
-                            {/* Reminders Section */}
-                            <View style={styles.sectionContainer}>
-                                <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Reminders</Text>
-                                <View style={styles.cardContainer}>
-                                    {renderSummaryRow('Invoices', counts.reminders.invoices, getBadgeText('INVOICE', 'reminders'), () => router.push('/(tabs)/invoices'))}
-                                    {renderSummaryRow('Awaiting contract signatures', counts.reminders.contracts, null, () => router.push('/(tabs)/contracts?filter=sent'))}
-                                    {renderSummaryRow('Payment links', counts.reminders.links, getBadgeText('LINK', 'reminders'), () => router.push('/(tabs)/links'))}
+                            {sectionConfigs.map((section) => (
+                                <View style={styles.sectionContainer} key={section.key}>
+                                    <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>{section.title}</Text>
+                                    <View style={styles.cardContainer}>
+                                        {isLoadingData
+                                            ? [0, 1, 2].map(renderSkeletonRow)
+                                            : section.rows.map((row, idx) => (
+                                                <React.Fragment key={`${section.key}-${idx}`}>
+                                                    {renderSummaryRow(row.label, row.count, row.badge, row.onPress)}
+                                                </React.Fragment>
+                                            ))}
+                                    </View>
                                 </View>
-                            </View>
-
-                            {/* In Progress Section */}
-                            <View style={styles.sectionContainer}>
-                                <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>In Progress</Text>
-                                <View style={styles.cardContainer}>
-                                    {renderSummaryRow('Active Projects', counts.inProgress.projects, null, () => { })}
-                                    {renderSummaryRow('Milestones in progress', counts.inProgress.milestones, null, () => { })}
-                                </View>
-                            </View>
-
-                            {/* Due Soon Section */}
-                            <View style={styles.sectionContainer}>
-                                <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>Due Soon</Text>
-                                <View style={styles.cardContainer}>
-                                    {renderSummaryRow('Invoices due soon', counts.dueSoon.invoices, getBadgeText('INVOICE', 'dueSoon'), () => router.push('/(tabs)/invoices?filter=due_soon'))}
-                                    {renderSummaryRow('Projects due soon', counts.dueSoon.projects, null, () => router.push('/(tabs)/projects?filter=due_soon'))}
-                                    {renderSummaryRow('Payment links due soon', counts.dueSoon.links, getBadgeText('LINK', 'dueSoon'), () => router.push('/(tabs)/links?filter=due_soon'))}
-                                    {renderSummaryRow('Milestones due soon', counts.dueSoon.milestones, null, () => { })}
-                                </View>
-                            </View>
+                            ))}
                         </>
                     )}
                 </ScrollView>
@@ -541,6 +598,9 @@ const styles = StyleSheet.create({
     scrollView: { flex: 1, paddingHorizontal: 20 },
     searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48, borderRadius: 12, marginBottom: 12, marginHorizontal: 20 },
     searchInput: { flex: 1, marginLeft: 12, fontFamily: 'GoogleSansFlex_400Regular', fontSize: 16, height: '100%' },
+    searchFilterRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20, marginBottom: 10, flexWrap: 'wrap' },
+    searchFilterChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+    searchFilterText: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 12 },
     mainHeading: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24, marginBottom: 16, marginTop: 12 },
     sectionContainer: { marginBottom: 24 },
     sectionHeader: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18, marginBottom: 12 },
@@ -559,6 +619,8 @@ const styles = StyleSheet.create({
     searchItemTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 },
     searchItemSubtitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14 },
     emptySearch: { alignItems: 'center', marginTop: 40 },
+    skeletonBar: { height: 12, borderRadius: 6 },
+    skeletonCircle: { width: 26, height: 26, borderRadius: 13 },
     emptyStateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80, paddingHorizontal: 40 },
     emptyStateTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 20, marginTop: 20, marginBottom: 8 },
     emptyStateText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 15, textAlign: 'center', lineHeight: 22 },

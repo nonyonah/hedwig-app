@@ -359,10 +359,12 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                 document = foundDoc;
                 logger.debug('Document found', { documentId: document?.id, type: document?.type });
 
+                const notificationType = document ? 'payment_received' : 'crypto_received';
+
                 // Build notification message with client/document details
                 const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
                 let clientInfo = shortAddress;
-                let notificationTitle = 'Payment Received! 🎉';
+                let notificationTitle = notificationType === 'payment_received' ? 'Payment Received! 🎉' : 'Crypto Received';
                 let notificationMessage = `You received ${transfer.value} ${transfer.asset} from ${shortAddress} on ${network}.`;
 
                 if (document) {
@@ -400,14 +402,14 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                 const notifyResult = await NotificationService.notifyUser(recipientUser.id, {
                     title: notificationTitle,
                     body: notificationMessage,
-                    data: { type: 'payment_received', txHash: transfer.txHash, documentId: document?.id },
+                    data: { type: notificationType, txHash: transfer.txHash, documentId: document?.id },
                 });
                 logger.info('Push notification result', { tickets: notifyResult.length });
 
                 // Create in-app notification
                 const { error: notifError } = await supabase.from('notifications').insert({
                     user_id: recipientUser.id,
-                    type: document ? 'payment_received' : 'crypto_received',
+                    type: notificationType,
                     title: notificationTitle,
                     message: notificationMessage,
                     metadata: {
@@ -540,10 +542,12 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
 
                     document = foundDoc;
 
+                    const notificationType = document ? 'payment_received' : 'crypto_received';
+
                     // Build notification message with client/document details
                     const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
                     let clientInfo = shortAddress;
-                    let notificationTitle = 'Payment Received! 🎉';
+                    let notificationTitle = notificationType === 'payment_received' ? 'Payment Received! 🎉' : 'Crypto Received';
                     let notificationMessage = `You received ${transfer.value.toFixed(6)} ${transfer.asset} from ${shortAddress} on Solana.`;
 
                     if (document) {
@@ -574,13 +578,13 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
                     await NotificationService.notifyUser(recipientUser.id, {
                         title: notificationTitle,
                         body: notificationMessage,
-                        data: { type: 'payment_received', txHash: transfer.signature, documentId: document?.id },
+                        data: { type: notificationType, txHash: transfer.signature, documentId: document?.id },
                     });
 
                     // Create in-app notification
                     await supabase.from('notifications').insert({
                         user_id: recipientUser.id,
-                        type: document ? 'payment_received' : 'crypto_received',
+                        type: notificationType,
                         title: notificationTitle,
                         message: notificationMessage,
                         metadata: {

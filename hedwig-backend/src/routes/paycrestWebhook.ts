@@ -24,7 +24,55 @@ const normalizePaycrestEvent = (rawEvent: unknown, data: any): string => {
         if (status.includes('.')) return status;
         return `payment_order.${status}`;
     }
+    if (typeof data?.order?.status === 'string' && data.order.status.trim().length > 0) {
+        const status = data.order.status.trim().toLowerCase();
+        if (status.includes('.')) return status;
+        return `payment_order.${status}`;
+    }
     return 'payment_order.pending';
+};
+
+const extractOrderId = (payload: any): string | null => {
+    const candidates = [
+        payload?.data?.id,
+        payload?.data?.order?.id,
+        payload?.payload?.id,
+        payload?.payload?.order?.id,
+        payload?.order?.id,
+        payload?.id,
+        payload?.data?.reference,
+        payload?.payload?.reference,
+        payload?.reference,
+    ];
+
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim().length > 0) {
+            return candidate.trim();
+        }
+    }
+
+    return null;
+};
+
+const extractTxHash = (payload: any): string | null => {
+    const candidates = [
+        payload?.data?.txHash,
+        payload?.data?.tx_hash,
+        payload?.data?.order?.txHash,
+        payload?.data?.order?.tx_hash,
+        payload?.payload?.txHash,
+        payload?.payload?.tx_hash,
+        payload?.payload?.order?.txHash,
+        payload?.payload?.order?.tx_hash,
+        payload?.txHash,
+        payload?.tx_hash,
+    ];
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim().length > 0) {
+            return candidate.trim();
+        }
+    }
+    return null;
 };
 
 /**
@@ -100,7 +148,7 @@ const verifyWebhookSignature = (payload: string, signature: string): boolean => 
  */
 router.post('/', async (req: Request, res: Response) => {
     try {
-        const signature = req.headers['x-paycrest-signature'] as string;
+        const signature = (req.headers['x-paycrest-signature'] || req.headers['x-signature']) as string;
         // Use exact raw body for HMAC verification. Fallback to JSON.stringify only for dev if rawBody missing.
         const rawBody = (req as any).rawBody;
         const bodyForVerification = rawBody ?? JSON.stringify(req.body);
@@ -139,33 +187,76 @@ router.post('/', async (req: Request, res: Response) => {
             }
         }
 
-        const { event: rawEvent, data } = req.body;
-        const event = normalizePaycrestEvent(rawEvent, data);
-        logger.info('Received webhook event', { event, rawEvent });
+        const payload = req.body?.payload ?? req.body;
+        const rawEvent = req.body?.event ?? payload?.event;
+        const event = normalizePaycrestEvent(rawEvent, payload);
+        logger.info('Received webhook event', {
+            event,
+            rawEvent,
+            topLevelKeys: Object.keys(req.body || {}),
+            payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : [],
+        });
 
-        if (!event || !data?.id) {
-            res.status(400).json({ error: 'Missing event or order ID' });
+        const paycrestOrderId = extractOrderId(req.body) || extractOrderId(payload);
+
+        if (!event || !paycrestOrderId) {
+            logger.warn('Paycrest webhook missing event/order id', {
+                hasEvent: Boolean(event),
+                hasOrderId: Boolean(paycrestOrderId),
+                bodyKeys: Object.keys(req.body || {}),
+            });
+            // Acknowledge to prevent noisy retries, but do not process.
+            res.status(200).json({ received: true, status: 'ignored_missing_fields' });
             return;
         }
-
-        const paycrestOrderId = data.id;
-        const newStatus = mapPaycrestStatus(event, data);
+        const newStatus = mapPaycrestStatus(event, payload);
+        const txHash = extractTxHash(req.body) || extractTxHash(payload);
 
         // 1. Find the order in our database
         const { data: order, error: findError } = await supabase
             .from('offramp_orders')
             .select('*, users!inner(id, privy_id, email)')
-            .eq('paycrest_order_id', paycrestOrderId)
+            .eq('paycrest_order_id', String(paycrestOrderId))
             .single();
 
-        if (findError || !order) {
-            logger.warn('Order not found for webhook');
+        let resolvedOrder = order;
+        if (findError || !resolvedOrder) {
+            // Fallback: some integrations may send internal Hedwig order id.
+            const { data: orderByInternalId } = await supabase
+                .from('offramp_orders')
+                .select('*, users!inner(id, privy_id, email)')
+                .eq('id', String(paycrestOrderId))
+                .maybeSingle();
+            resolvedOrder = orderByInternalId || null;
+        }
+
+        if (!resolvedOrder) {
+            logger.warn('Order not found for webhook', { paycrestOrderId });
             // Still return 200 to acknowledge webhook
             res.status(200).json({ received: true, status: 'order_not_found' });
             return;
         }
 
-        logger.info('Processing order status update', { currentStatus: order.status, newStatus });
+        logger.info('Processing order status update', {
+            currentStatus: resolvedOrder.status,
+            newStatus,
+            paycrestOrderId,
+            orderId: resolvedOrder.id,
+        });
+
+        const previousStatus = resolvedOrder.status as string;
+
+        // Ignore stale status regressions once terminal state is reached.
+        const terminalStatuses = new Set(['COMPLETED', 'FAILED']);
+        if (terminalStatuses.has(previousStatus) && previousStatus !== newStatus) {
+            logger.info('Ignoring stale Paycrest status update for terminal order', {
+                orderId: resolvedOrder.id,
+                previousStatus,
+                incomingStatus: newStatus,
+            });
+            res.status(200).json({ received: true, orderId: resolvedOrder.id, status: previousStatus, ignored: true });
+            return;
+        }
 
         // 2. Update order status
         const updateData: any = {
@@ -174,8 +265,8 @@ router.post('/', async (req: Request, res: Response) => {
         };
 
         // Add tx_hash if provided
-        if (data.txHash) {
-            updateData.tx_hash = data.txHash;
+        if (txHash) {
+            updateData.tx_hash = txHash;
         }
 
         // Mark completion time
@@ -184,74 +275,105 @@ router.post('/', async (req: Request, res: Response) => {
             
             // Track withdrawal_completed analytics event
             BackendAnalytics.withdrawalCompleted(
-                (order as any).users?.id || order.user_id,
-                order.crypto_amount,
-                order.crypto_currency || 'USDC',
-                order.fiat_amount,
-                order.fiat_currency,
-                data.txHash
+                (resolvedOrder as any).users?.id || resolvedOrder.user_id,
+                resolvedOrder.crypto_amount,
+                resolvedOrder.crypto_currency || 'USDC',
+                resolvedOrder.fiat_amount,
+                resolvedOrder.fiat_currency,
+                txHash || undefined
             );
         }
 
         // Add error message for failed orders
         if (newStatus === 'FAILED') {
-            updateData.error_message = data.reason || `Order ${event.replace('payment_order.', '').replace('order.', '')}`;
+            updateData.error_message =
+                payload?.reason ||
+                payload?.error ||
+                payload?.message ||
+                payload?.data?.reason ||
+                payload?.data?.error ||
+                `Order ${event.replace('payment_order.', '').replace('order.', '')}`;
         }
 
         const { error: updateError } = await supabase
             .from('offramp_orders')
             .update(updateData)
-            .eq('id', order.id);
+            .eq('id', resolvedOrder.id);
 
         if (updateError) {
             logger.error('Failed to update order status', { error: updateError.message });
         }
 
-        // 3. Send user notification only when withdrawal is successfully completed.
-        // The withdrawal history screen tracks in-progress states.
-        const internalUserId = (order as any).users?.id;
+        const statusChanged = previousStatus !== newStatus;
 
-        if (internalUserId && newStatus === 'COMPLETED') {
-            const title = 'Withdrawal Successful';
-            const body = `${Number(order.fiat_amount || 0).toFixed(2)} ${order.fiat_currency} has been sent to your bank account.`;
+        // 3. Notify user when status changes so withdrawal UI stays in sync.
+        const internalUserId = (resolvedOrder as any).users?.id;
 
-            // Create in-app success notification (uses expected frontend type)
-            await supabase
+        if (internalUserId && statusChanged) {
+            const destination = `${resolvedOrder.bank_name} • ****${resolvedOrder.account_number?.slice(-4) || ''}`;
+            const title =
+                newStatus === 'COMPLETED'
+                    ? 'Withdrawal Successful'
+                    : newStatus === 'FAILED'
+                        ? 'Withdrawal Failed'
+                        : 'Withdrawal Update';
+            const body =
+                newStatus === 'COMPLETED'
+                    ? `${Number(resolvedOrder.fiat_amount || 0).toFixed(2)} ${resolvedOrder.fiat_currency} has been sent to your bank account.`
+                    : newStatus === 'FAILED'
+                        ? `Your withdrawal to ${destination} failed. Please try again.`
+                        : `Your withdrawal to ${destination} is now ${newStatus.toLowerCase()}.`;
+
+            const notificationType = newStatus === 'COMPLETED' ? 'offramp_success' : 'offramp';
+
+            // Prevent duplicate status notifications for the same order/state.
+            const { data: existingStatusNotification } = await supabase
                 .from('notifications')
-                .insert({
+                .select('id')
+                .eq('user_id', internalUserId)
+                .eq('type', notificationType)
+                .eq('metadata->>orderId', String(resolvedOrder.id))
+                .eq('metadata->>status', newStatus)
+                .limit(1)
+                .maybeSingle();
+
+            if (!existingStatusNotification) {
+                await supabase.from('notifications').insert({
                     user_id: internalUserId,
                     title,
                     message: body,
-                    type: 'offramp_success',
+                    type: notificationType,
                     metadata: {
-                        orderId: order.id,
+                        orderId: resolvedOrder.id,
                         paycrestOrderId: paycrestOrderId,
-                        event: event,
+                        event,
                         status: newStatus,
-                        amount: order.crypto_amount,
-                        token: order.token,
-                        destination: `${order.bank_name} • ****${order.account_number?.slice(-4) || ''}`,
-                        fiatAmount: order.fiat_amount,
-                        fiatCurrency: order.fiat_currency,
+                        amount: resolvedOrder.crypto_amount,
+                        token: resolvedOrder.token,
+                        destination,
+                        fiatAmount: resolvedOrder.fiat_amount,
+                        fiatCurrency: resolvedOrder.fiat_currency,
+                        txHash,
                     },
                     is_read: false,
                 });
+            }
 
-            // Send push notification with full data for Live Activities/Updates
             try {
                 await NotificationService.notifyUser(internalUserId, {
                     title,
                     body,
                     data: {
                         type: 'offramp_status',
-                        orderId: order.id,
+                        orderId: resolvedOrder.id,
                         status: newStatus,
-                        // Additional fields for Live Activities/Updates
-                        fiatAmount: order.fiat_amount,
-                        fiatCurrency: order.fiat_currency,
-                        bankName: order.bank_name,
-                        accountNumber: order.account_number ? `****${order.account_number.slice(-4)}` : '',
-                        event: event,
+                        fiatAmount: resolvedOrder.fiat_amount,
+                        fiatCurrency: resolvedOrder.fiat_currency,
+                        bankName: resolvedOrder.bank_name,
+                        accountNumber: resolvedOrder.account_number ? `****${resolvedOrder.account_number.slice(-4)}` : '',
+                        event,
+                        paycrestOrderId,
+                        txHash,
                     }
                 });
                 logger.info('Push notification sent for order update');
@@ -263,7 +385,7 @@ router.post('/', async (req: Request, res: Response) => {
         // 4. Return success
         res.status(200).json({
             received: true,
-            orderId: order.id,
+            orderId: resolvedOrder.id,
             status: newStatus
         });
 

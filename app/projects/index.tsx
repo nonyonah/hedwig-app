@@ -117,10 +117,6 @@ export default function ProjectsScreen() {
         fetchProjects();
     }, [user]);
 
-    useEffect(() => {
-        fetchProjects();
-    }, [user]);
-
     // fetchUserData removed
 
     const fetchProjects = async () => {
@@ -358,9 +354,22 @@ export default function ProjectsScreen() {
         return project.status.toLowerCase() === statusFilter;
     });
 
+    const getProjectHealth = (project: Project): { label: string; color: string } => {
+        const status = project.status.toLowerCase();
+        if (['completed', 'paid'].includes(status)) return { label: 'On track', color: '#10B981' };
+        if (project.deadline) {
+            const now = Date.now();
+            const deadline = new Date(project.deadline).getTime();
+            if (deadline < now) return { label: 'Overdue', color: '#EF4444' };
+            if (deadline - now <= 2 * 24 * 60 * 60 * 1000) return { label: 'At risk', color: '#F59E0B' };
+        }
+        return { label: 'On track', color: '#10B981' };
+    };
+
     const renderProjectItem = ({ item }: { item: Project }) => {
         const progress = item.progress;
         const isCompleted = ['completed', 'paid'].includes(item.status.toLowerCase()) || progress.percentage === 100;
+        const health = getProjectHealth(item);
 
         return (
             <TouchableOpacity style={[styles.projectItem, { borderBottomColor: themeColors.border }]} onPress={() => openDetailModal(item)} activeOpacity={0.7}>
@@ -379,6 +388,9 @@ export default function ProjectsScreen() {
                         <Text style={[styles.projectItemTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
                         <Text style={[styles.projectItemMeta, { color: themeColors.textTertiary }]}>
                             ${progress.totalAmount.toLocaleString()} · {progress.completedMilestones}/{progress.totalMilestones} milestones
+                        </Text>
+                        <Text style={[styles.projectHealth, { color: health.color }]}>
+                            {health.label}
                         </Text>
                     </View>
                     {/* Right - Progress circle */}
@@ -878,6 +890,11 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         color: Colors.textTertiary,
+    },
+    projectHealth: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 12,
+        marginTop: 4,
     },
     projectClientRow: {
         flexDirection: 'row',

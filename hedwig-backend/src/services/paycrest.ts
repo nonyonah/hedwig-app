@@ -96,6 +96,19 @@ let cacheTimestamp = 0;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 export class PaycrestService {
+    private static toNumber(value: any): number | null {
+        if (value === null || value === undefined) return null;
+        const num = typeof value === 'number' ? value : parseFloat(String(value));
+        return Number.isFinite(num) ? num : null;
+    }
+
+    private static firstFiniteNumber(...values: any[]): number | null {
+        for (const value of values) {
+            const parsed = this.toNumber(value);
+            if (parsed !== null) return parsed;
+        }
+        return null;
+    }
     /**
      * Get supported institutions for a currency
      * GET /institutions/{currency}
@@ -269,18 +282,45 @@ export class PaycrestService {
                 throw new Error('Paycrest did not return a valid order ID');
             }
 
-            // Calculate estimated fiat amount based on rate
-            const rateVal = parseFloat(orderData.rate);
-            const fiatAmount = orderData.amount * rateVal;
+            // Prefer provider-returned values when available to avoid UI/backend mismatch.
+            const providerRate =
+                this.firstFiniteNumber(apiData.exchangeRate, apiData.exchange_rate, apiData.rate);
+            const rateVal = providerRate ?? parseFloat(orderData.rate);
+
+            const providerFiatAmount =
+                this.firstFiniteNumber(
+                    apiData.fiatAmount,
+                    apiData.fiat_amount,
+                    apiData.recipientAmount,
+                    apiData.recipient_amount,
+                    apiData.payoutAmount,
+                    apiData.payout_amount,
+                    apiData.settlementAmount,
+                    apiData.settlement_amount,
+                    apiData.recipient?.amount
+                );
+            const fiatAmount = providerFiatAmount ?? (orderData.amount * rateVal);
+
+            const senderFee = this.firstFiniteNumber(apiData.senderFee, apiData.sender_fee) ?? 0;
+            const transactionFee = this.firstFiniteNumber(apiData.transactionFee, apiData.transaction_fee) ?? 0;
+            const statusRaw = String(apiData.status || 'PENDING').toUpperCase();
+            const normalizedStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' =
+                statusRaw === 'COMPLETED' || statusRaw === 'SUCCESS'
+                    ? 'COMPLETED'
+                    : statusRaw === 'FAILED' || statusRaw === 'CANCELLED' || statusRaw === 'REFUNDED' || statusRaw === 'EXPIRED'
+                        ? 'FAILED'
+                        : statusRaw === 'PROCESSING'
+                            ? 'PROCESSING'
+                            : 'PENDING';
 
             return {
                 id: apiData.id,
                 orderId: apiData.id,
                 receiveAddress: apiData.receiveAddress,
                 validUntil: apiData.validUntil,
-                senderFee: apiData.senderFee || 0,
-                transactionFee: apiData.transactionFee || 0,
-                status: 'PENDING',
+                senderFee,
+                transactionFee,
+                status: normalizedStatus,
                 amount: orderData.amount,
                 token: orderData.token,
                 network: orderData.network,

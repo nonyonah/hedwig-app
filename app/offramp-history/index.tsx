@@ -528,6 +528,22 @@ export default function OfframpHistoryScreen() {
                                             <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Platform Fee</Text>
                                             <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>1% ({(selectedOrder.cryptoAmount * 0.01).toFixed(2)} {selectedOrder.token})</Text>
                                         </View>
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Quoted Rate</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                                1 {selectedOrder.token} = {selectedOrder.fiatCurrency} {Number(selectedOrder.exchangeRate || 0).toLocaleString()}
+                                            </Text>
+                                        </View>
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Quote Time</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                                {selectedOrder?.createdAt ? format(new Date(selectedOrder.createdAt), 'MMM d, yyyy • h:mm a') : 'N/A'}
+                                            </Text>
+                                        </View>
                                     </View>
                                 </>
                             )}

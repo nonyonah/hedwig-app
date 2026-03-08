@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { BlurView } from 'expo-blur';
@@ -37,6 +37,7 @@ export default function ClientsScreen() {
     const [clients, setClients] = useState<Client[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [sortBy, setSortBy] = useState<'recent' | 'earnings' | 'outstanding'>('recent');
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const detailSheetRef = useRef<BottomSheetModal>(null);
     const formSheetRef = useRef<BottomSheetModal>(null);
@@ -120,6 +121,18 @@ export default function ClientsScreen() {
         setRefreshing(true);
         fetchClients();
     };
+
+    const filteredClients = useMemo(() => {
+        const sorted = [...clients];
+        if (sortBy === 'earnings') {
+            sorted.sort((a, b) => b.totalEarnings - a.totalEarnings);
+        } else if (sortBy === 'outstanding') {
+            sorted.sort((a, b) => b.outstandingBalance - a.outstandingBalance);
+        } else {
+            sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        }
+        return sorted;
+    }, [clients, sortBy]);
 
     const handleDelete = async (clientId: string) => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -371,6 +384,38 @@ export default function ClientsScreen() {
                             </TouchableOpacity>
                         </View>
                     </View>
+                    <View style={styles.controlsRow}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+                            {[
+                                { key: 'recent', label: 'Recent' },
+                                { key: 'earnings', label: 'Top Earners' },
+                                { key: 'outstanding', label: 'Outstanding' },
+                            ].map((option) => {
+                                const selected = sortBy === option.key;
+                                return (
+                                    <TouchableOpacity
+                                        key={option.key}
+                                        style={[
+                                            styles.sortChip,
+                                            { backgroundColor: themeColors.surface },
+                                            selected && { backgroundColor: Colors.primary },
+                                        ]}
+                                        onPress={() => setSortBy(option.key as any)}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.sortChipText,
+                                                { color: themeColors.textSecondary },
+                                                selected && { color: '#FFFFFF' },
+                                            ]}
+                                        >
+                                            {option.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
                 </View>
 
                 {/* Client List */}
@@ -388,7 +433,7 @@ export default function ClientsScreen() {
                     </View>
                 ) : (
                     <FlatList
-                        data={clients}
+                        data={filteredClients}
                         keyExtractor={(item) => item.id}
                         renderItem={renderClientItem}
                         contentContainerStyle={styles.listContent}
@@ -667,6 +712,23 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,
+    },
+    controlsRow: {
+        paddingHorizontal: 16,
+        paddingBottom: 12,
+        gap: 10,
+    },
+    sortRow: {
+        gap: 8,
+    },
+    sortChip: {
+        borderRadius: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+    },
+    sortChipText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 14,
     },
     // profileIcon removed
     profileIcon: {

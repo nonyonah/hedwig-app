@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 28,
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         marginBottom: 8,
     },
     description: {
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     },
     value: {
         fontSize: 56,
-        fontFamily: 'GoogleSansFlex_700Bold',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         lineHeight: 64,
     },
     unit: {

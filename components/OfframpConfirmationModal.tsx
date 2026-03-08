@@ -150,10 +150,14 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                 if (result.success && result.data?.rate) {
                     const rate = result.data.rate;
                     setCurrentRate(rate);
-                    const gross = toNumber(data.amount);
-                    const net = getNetCryptoAmount(gross);
-                    const fiat = net * parseFloat(rate);
-                    setEstimatedFiat(fiat.toFixed(2));
+                    if (typeof result.data?.fiatEstimate === 'number' && Number.isFinite(result.data.fiatEstimate)) {
+                        setEstimatedFiat(result.data.fiatEstimate.toFixed(2));
+                    } else {
+                        const gross = toNumber(data.amount);
+                        const net = getNetCryptoAmount(gross);
+                        const fiat = net * parseFloat(rate);
+                        setEstimatedFiat(fiat.toFixed(2));
+                    }
                     console.log('[OfframpModal] Rate fetched successfully:', rate);
                 } else {
                     console.log('[OfframpModal] Rate fetch failed:', result);
@@ -325,6 +329,15 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
             const order = result.data.order;
             setOrderId(order.id);
             setReceiveAddress(order.receiveAddress);
+            if (order.exchangeRate) {
+                setCurrentRate(String(order.exchangeRate));
+            }
+            if (order.fiatAmount) {
+                const fiat = Number(order.fiatAmount);
+                if (Number.isFinite(fiat) && fiat > 0) {
+                    setEstimatedFiat(fiat.toFixed(2));
+                }
+            }
 
             // 3. Send tokens to Paycrest receive address automatically
             setStatusMessage('Sending tokens to Paycrest...');

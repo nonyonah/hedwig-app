@@ -26,6 +26,7 @@ import paycrestWebhookRoutes from './routes/paycrestWebhook';
 import pdfRoutes from './routes/pdf';
 import walletRoutes from './routes/wallet';
 import notificationRoutes from './routes/notifications';
+import insightsRoutes from './routes/insights';
 import beneficiaryRoutes from './routes/beneficiaries';
 import recipientRoutes from './routes/recipients';
 import calendarRoutes from './routes/calendar';
@@ -195,11 +196,21 @@ app.use('/api/bridge', bridgeRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/milestones', milestoneRoutes);
-app.use('/api/webhooks', webhookRoutes);
+app.use('/api/webhooks/paycrest', (req, _res, next) => {
+    logger.info('Paycrest webhook route hit', {
+        method: req.method,
+        path: req.path,
+        hasSignature: Boolean(req.headers['x-paycrest-signature'] || req.headers['x-signature']),
+        userAgent: req.headers['user-agent'] || null,
+    });
+    next();
+});
 app.use('/api/webhooks/paycrest', paycrestWebhookRoutes);
+app.use('/api/webhooks', webhookRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/insights', insightsRoutes);
 app.use('/api/beneficiaries', beneficiaryRoutes);
 app.use('/api/recipients', recipientRoutes);
 app.use('/api/calendar', calendarRoutes);

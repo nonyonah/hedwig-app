@@ -79,24 +79,26 @@ class BridgeUsdService {
         });
     }
 
-    isEnabledForUser(userId: string): boolean {
+    isEnabledForUser(userId: string, userEmail?: string | null): boolean {
         const forceEnabled = process.env.USD_ACCOUNTS_FORCE_ENABLE === 'true';
         if (forceEnabled) return true;
 
-        const sandboxMode = this.isSandboxMode();
         const globallyEnabled = process.env.USD_ACCOUNTS_ENABLED === 'true';
-
-        // In sandbox, allow testing without requiring production rollout flags.
-        if (!sandboxMode && !globallyEnabled) return false;
+        if (!globallyEnabled) return false;
 
         const allowlistRaw = process.env.USD_ACCOUNTS_BETA_ALLOWLIST || '';
         const allowlist = allowlistRaw
             .split(',')
-            .map((item) => item.trim())
+            .map((item) => item.trim().toLowerCase())
             .filter(Boolean);
 
-        if (allowlist.length === 0) return true;
-        return allowlist.includes(userId);
+        // Explicit allowlist only: if empty, feature is effectively disabled for everyone.
+        if (allowlist.length === 0) return false;
+
+        const normalizedUserId = String(userId || '').trim().toLowerCase();
+        const normalizedEmail = String(userEmail || '').trim().toLowerCase();
+
+        return allowlist.includes(normalizedUserId) || (!!normalizedEmail && allowlist.includes(normalizedEmail));
     }
 
     getFeeConfig() {

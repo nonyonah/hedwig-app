@@ -56,6 +56,8 @@ export default function SettingsScreen() {
     const [biometricsEnabled, setBiometricsEnabled] = useState(false);
     const [isBiometricExporting, setIsBiometricExporting] = useState(false);
     const kycSheetRef = useRef<BottomSheetModal>(null);
+    const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
 
     // KYC status
     const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
@@ -256,6 +258,27 @@ export default function SettingsScreen() {
         }
     };
 
+    const checkConnection = async () => {
+        try {
+            setIsCheckingConnection(true);
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const healthResponse = await fetch(`${apiUrl}/health`);
+            if (healthResponse.ok) {
+                setConnectionStatus('online');
+                return;
+            }
+            const token = await getAccessToken();
+            const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            setConnectionStatus(profileResponse.ok ? 'online' : 'offline');
+        } catch {
+            setConnectionStatus('offline');
+        } finally {
+            setIsCheckingConnection(false);
+        }
+    };
+
 
 
     return (
@@ -345,6 +368,27 @@ export default function SettingsScreen() {
                             onValueChange={setLiveTrackingEnabled}
                         />
                     </View>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <TouchableOpacity style={styles.settingRow} onPress={checkConnection} disabled={isCheckingConnection}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Connection diagnostics</Text>
+                        <Text
+                            style={[
+                                styles.settingValue,
+                                {
+                                    color:
+                                        connectionStatus === 'online'
+                                            ? Colors.success
+                                            : connectionStatus === 'offline'
+                                                ? Colors.error
+                                                : themeColors.textSecondary,
+                                },
+                            ]}
+                        >
+                            {isCheckingConnection ? 'Checking...' : connectionStatus === 'online' ? 'Online' : connectionStatus === 'offline' ? 'Offline' : 'Unknown'}
+                        </Text>
+                    </TouchableOpacity>
                     <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
                     <TouchableOpacity

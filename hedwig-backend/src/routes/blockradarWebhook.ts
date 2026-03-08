@@ -147,10 +147,10 @@ async function handleDeposit(data: any) {
   // Create notification for user
   await supabase.from('notifications').insert({
     user_id: user.id,
-    type: 'PAYMENT_RECEIVED',
+    type: 'payment_received',
     title: 'Payment Received',
     message: `You received ${amount} ${asset.toUpperCase()} on Base`,
-    data: { txHash, amount, asset },
+    metadata: { txHash, amount, asset },
   });
 
   // Also send push notification
@@ -307,10 +307,10 @@ async function handlePaymentLinkDeposit(data: any) {
         // Create notification for user to complete wallet setup
         await supabase.from('notifications').insert({
             user_id: userId,
-            type: 'PAYMENT_RECEIVED',
+            type: 'payment_received',
             title: 'Payment Received - Action Required',
             message: `You received ${amount} ${asset} on ${requiredNetwork} but your wallet is not set up. Please complete your profile setup to receive funds.`,
-            data: { documentId, amount, asset, txHash, network: requiredNetwork }
+            metadata: { documentId, amount, asset, txHash, network: requiredNetwork }
         });
         
         return;
@@ -362,10 +362,10 @@ async function handlePaymentLinkDeposit(data: any) {
                 
                 await supabase.from('notifications').insert({
                     user_id: userId,
-                    type: 'PAYMENT_FAILED',
+                    type: 'announcement',
                     title: 'Solana Payment Received',
                     message: `You received ${amount} ${asset} on Solana, but Solana withdrawals are not yet configured. Please contact support.`,
-                    data: { documentId, amount, asset, txHash, network: 'Solana', error: 'Solana not enabled in wallet' }
+                    metadata: { documentId, amount, asset, txHash, network: 'Solana', error: 'Solana not enabled in wallet' }
                 });
                 
                 return;
@@ -432,10 +432,10 @@ async function handlePaymentLinkDeposit(data: any) {
                      
                      await supabase.from('notifications').insert({
                         user_id: userId,
-                        type: 'PAYMENT_RECEIVED',
+                        type: 'payment_received',
                         title: 'Payment Received - Action Required',
                         message: `You received ${amount} ${asset} on Solana but your Solana wallet is not set up. Please complete your profile setup to receive funds.`,
-                        data: { documentId, amount, asset, txHash, network: 'Solana' }
+                        metadata: { documentId, amount, asset, txHash, network: 'Solana' }
                     });
                      
                      return;
@@ -464,10 +464,10 @@ async function handlePaymentLinkDeposit(data: any) {
         logger.error('Cannot determine asset ID for withdrawal');
         await supabase.from('notifications').insert({
             user_id: userId,
-            type: 'PAYMENT_FAILED',
+            type: 'announcement',
             title: 'Payment Processing Error',
             message: `Received ${amount} ${asset} but cannot process withdrawal. Please contact support.`,
-            data: { documentId, amount, asset, error: 'Invalid asset ID' }
+            metadata: { documentId, amount, asset, error: 'Invalid asset ID' }
         });
         return;
     }
@@ -482,10 +482,10 @@ async function handlePaymentLinkDeposit(data: any) {
         
         await supabase.from('notifications').insert({
             user_id: userId,
-            type: 'PAYMENT_RECEIVED',
+            type: 'payment_received',
             title: 'Payment Received - Action Required',
             message: `You received ${amount} ${asset} on ${requiredNetwork} but your wallet is not set up. Please complete your profile setup to receive funds.`,
-            data: { documentId, amount, asset, txHash, network: requiredNetwork }
+            metadata: { documentId, amount, asset, txHash, network: requiredNetwork }
         });
         
         return;
@@ -570,10 +570,10 @@ async function handlePaymentLinkDeposit(data: any) {
         // Create success notification
         await supabase.from('notifications').insert({
             user_id: userId,
-            type: 'PAYMENT_RECEIVED',
+            type: 'payment_received',
             title: 'Payment Received',
             message: `${freelancerAmount.toFixed(2)} ${asset} is being sent to your wallet`,
-            data: { 
+            metadata: { 
                 documentId, 
                 amount: freelancerAmount, 
                 asset, 
@@ -593,10 +593,10 @@ async function handlePaymentLinkDeposit(data: any) {
         // Create error notification
         await supabase.from('notifications').insert({
             user_id: userId,
-            type: 'PAYMENT_FAILED',
+            type: 'announcement',
             title: 'Payment Processing Error',
             message: `Failed to send ${freelancerAmount.toFixed(2)} ${asset} to your wallet. Please contact support.`,
-            data: { documentId, amount, asset, error: error.message }
+            metadata: { documentId, amount, asset, error: error.message }
         });
     }
 }

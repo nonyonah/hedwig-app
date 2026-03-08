@@ -1,13 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import PaycrestService from '../services/paycrest';
+import NotificationService from '../services/notifications';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Offramp');
 
 const router = Router();
-const ENABLE_PAYCREST_STATUS_POLLING = process.env.PAYCREST_STATUS_POLLING === 'true';
+// Default to enabled so status stays in sync even if webhook delivery is delayed/misconfigured.
+// Set PAYCREST_STATUS_POLLING=false to disable.
+const ENABLE_PAYCREST_STATUS_POLLING = process.env.PAYCREST_STATUS_POLLING !== 'false';
 
 const mapPaycrestOrderStatus = (rawStatus?: string): 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null => {
     if (!rawStatus) return null;
@@ -34,6 +37,63 @@ const extractPaycrestTxHash = (payload: any): string | undefined =>
     payload?.order?.txHash ||
     payload?.order?.tx_hash;
 
+const notifyOfframpCompletedIfNeeded = async (userId: string, order: any): Promise<void> => {
+    const orderId = String(order?.id || '');
+    if (!orderId) return;
+
+    // Prevent duplicate success notifications when both polling and webhook update the same order.
+    const { data: existing } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('type', 'offramp_success')
+        .eq('metadata->>orderId', orderId)
+        .limit(1)
+        .maybeSingle();
+
+    if (existing) return;
+
+    const fiatAmount = Number(order?.fiat_amount || order?.fiatAmount || 0);
+    const fiatCurrency = String(order?.fiat_currency || order?.fiatCurrency || '');
+    const bankName = String(order?.bank_name || order?.bankName || 'your bank');
+    const accountNumber = String(order?.account_number || order?.accountNumber || '');
+    const maskedAccount = accountNumber ? `****${accountNumber.slice(-4)}` : '';
+    const title = 'Withdrawal Successful';
+    const body = `${fiatAmount.toFixed(2)} ${fiatCurrency} has been sent to your bank account.`;
+
+    await supabase.from('notifications').insert({
+        user_id: userId,
+        title,
+        message: body,
+        type: 'offramp_success',
+        metadata: {
+            orderId: orderId,
+            paycrestOrderId: order?.paycrest_order_id || order?.paycrestOrderId || null,
+            status: 'COMPLETED',
+            amount: order?.crypto_amount ?? order?.cryptoAmount ?? null,
+            token: order?.token ?? 'USDC',
+            destination: `${bankName}${maskedAccount ? ` • ${maskedAccount}` : ''}`,
+            fiatAmount: order?.fiat_amount ?? order?.fiatAmount ?? null,
+            fiatCurrency: fiatCurrency || null,
+        },
+        is_read: false,
+    });
+
+    await NotificationService.notifyUser(userId, {
+        title,
+        body,
+        data: {
+            type: 'offramp_status',
+            orderId: orderId,
+            status: 'COMPLETED',
+            fiatAmount: order?.fiat_amount ?? order?.fiatAmount ?? null,
+            fiatCurrency: fiatCurrency || null,
+            bankName,
+            accountNumber: maskedAccount,
+        },
+    });
+};
+
 /**
  * GET /api/offramp/rates
  * Get current exchange rates
@@ -50,16 +110,32 @@ router.get('/rates', authenticate, async (req: Request, res: Response, next) => 
             return;
         }
 
+        const platformFee = amountNum * 0.01;
+        const netCryptoAmount = Math.max(0, amountNum - platformFee);
+        if (netCryptoAmount <= 0) {
+            res.status(400).json({ success: false, error: 'Amount too low after fee deduction' });
+            return;
+        }
+
         const rate = await PaycrestService.getExchangeRate(
             token as string,
-            amountNum,
+            netCryptoAmount,
             currency as string,
             network as string
         );
 
+        const parsedRate = parseFloat(rate);
+        const fiatEstimate = Number.isFinite(parsedRate) ? netCryptoAmount * parsedRate : null;
+
         res.json({
             success: true,
-            data: { rate },
+            data: {
+                rate,
+                grossCryptoAmount: amountNum,
+                platformFee,
+                netCryptoAmount,
+                fiatEstimate,
+            },
         });
     } catch (error) {
         next(error);
@@ -197,7 +273,7 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
                 fiat_currency: order.fiatCurrency!,
                 fiat_amount: order.fiatAmount!,
                 exchange_rate: order.exchangeRate!,
-                service_fee: order.senderFee,
+                service_fee: (order.senderFee || 0) + (order.transactionFee || 0),
                 bank_name: bankName,
                 account_number: accountNumber,
                 account_name: accountName,
@@ -317,6 +393,7 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
                     const txHash = extractPaycrestTxHash(paycrestOrder);
 
                     if (mappedStatus && mappedStatus !== order.status) {
+                        const previousStatus = order.status;
                         const updatePayload: Record<string, any> = {
                             status: mappedStatus,
                         };
@@ -339,6 +416,9 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
 
                         if (updatedOrder) {
                             Object.assign(order, updatedOrder);
+                            if (mappedStatus === 'COMPLETED' && previousStatus !== 'COMPLETED') {
+                                await notifyOfframpCompletedIfNeeded(userId, updatedOrder);
+                            }
                         }
                     } else if (txHash && txHash !== order.tx_hash) {
                         await supabase
@@ -435,6 +515,7 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
 
                 // Update local status if changed
                 if (mappedStatus && mappedStatus !== order.status) {
+                    const previousStatus = order.status;
                     const { data: updatedOrder } = await supabase
                         .from('offramp_orders')
                         .update({
@@ -448,6 +529,9 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
 
                     if (updatedOrder) {
                         Object.assign(order, updatedOrder);
+                        if (mappedStatus === 'COMPLETED' && previousStatus !== 'COMPLETED') {
+                            await notifyOfframpCompletedIfNeeded(userId, updatedOrder);
+                        }
                     }
                 } else if (txHash && txHash !== order.tx_hash) {
                     await supabase

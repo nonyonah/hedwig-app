@@ -89,6 +89,8 @@ export default function CreateWithdrawalScreen() {
     const [isValidatingAccount, setIsValidatingAccount] = useState(false);
     const [accountError, setAccountError] = useState('');
     const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
+    const [fiatEquivalent, setFiatEquivalent] = useState('');
+    const [isFetchingFiatEquivalent, setIsFetchingFiatEquivalent] = useState(false);
 
     // Bank Selection State
     // Removed local bank fetching state
@@ -176,6 +178,58 @@ export default function CreateWithdrawalScreen() {
         setAccountName('');
         setAccountError('');
     }, [selectedCountry]);
+
+    useEffect(() => {
+        const parsedAmount = parseFloat(amount);
+        if (!amount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+            setFiatEquivalent('');
+            setIsFetchingFiatEquivalent(false);
+            return;
+        }
+
+        let isCancelled = false;
+        const timeout = setTimeout(async () => {
+            try {
+                setIsFetchingFiatEquivalent(true);
+                const token = await getAccessToken();
+                if (!token) {
+                    if (!isCancelled) setFiatEquivalent('');
+                    return;
+                }
+
+                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                const rateNetwork = selectedNetwork.id === 'solana' ? 'base' : selectedNetwork.id;
+                const response = await fetch(
+                    `${apiUrl}/api/offramp/rates?token=USDC&amount=${parsedAmount}&currency=${selectedCountry.currency}&network=${rateNetwork}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                );
+                const result = await response.json();
+                const estimate = Number(result?.data?.fiatEstimate);
+
+                if (!isCancelled) {
+                    if (response.ok && Number.isFinite(estimate) && estimate > 0) {
+                        setFiatEquivalent(estimate.toFixed(2));
+                    } else {
+                        setFiatEquivalent('');
+                    }
+                }
+            } catch {
+                if (!isCancelled) setFiatEquivalent('');
+            } finally {
+                if (!isCancelled) setIsFetchingFiatEquivalent(false);
+            }
+        }, 300);
+
+        return () => {
+            isCancelled = true;
+            clearTimeout(timeout);
+        };
+    }, [amount, selectedCountry.currency, selectedNetwork.id, getAccessToken]);
 
     // Validate account when bank and number are present
     useEffect(() => {
@@ -527,6 +581,13 @@ export default function CreateWithdrawalScreen() {
                                 />
                             )}
                         </View>
+                        {(isFetchingFiatEquivalent || fiatEquivalent) ? (
+                            <Text style={[styles.fiatEquivalentText, { color: themeColors.textSecondary }]}>
+                                {isFetchingFiatEquivalent
+                                    ? `Calculating ${selectedCountry.currency} equivalent...`
+                                    : `≈ ${selectedCountry.currency} ${fiatEquivalent}`}
+                            </Text>
+                        ) : null}
 
 
                         {/* Solana Bridge Disclaimer */}
@@ -873,6 +934,13 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginBottom: 24,
         fontFamily: 'GoogleSansFlex_400Regular',
+    },
+    fiatEquivalentText: {
+        fontSize: 13,
+        marginTop: -8,
+        marginBottom: 14,
+        marginLeft: 4,
+        fontFamily: 'GoogleSansFlex_500Medium',
     },
     inputLabel: {
         fontFamily: 'GoogleSansFlex_500Medium',

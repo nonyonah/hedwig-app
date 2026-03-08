@@ -1,26 +1,31 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Dimensions, Image } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    Platform,
+    Dimensions,
+    RefreshControl,
+} from 'react-native';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, Settings as Gear, TrendingUp as TrendUp, TrendingDown as TrendDown, ArrowRight, Sparkles as Sparkle, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
-import Svg, { Circle } from 'react-native-svg';
+import { TrendingUp as TrendUp, TrendingDown as TrendDown, ArrowRight, Sparkles as Sparkle, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
+import Svg, { Circle, Polyline } from 'react-native-svg';
 import { Colors, useThemeColors } from '../../theme/colors';
-import { Typography } from '../../styles/typography';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useInsights } from '../../hooks/useInsights';
-import { Sidebar } from '../../components/Sidebar';
-import { ProfileModal } from '../../components/ProfileModal';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Insight, InsightsRange, useInsights } from '../../hooks/useInsights';
 import { TargetGoalModal } from '../../components/TargetGoalModal';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import { TutorialCard } from '../../components/TutorialCard';
 import { useTutorial } from '../../hooks/useTutorial';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 52) / 2; // 2 columns with gaps
+const CARD_WIDTH = (width - 54) / 2;
+const isAndroid = Platform.OS === 'android';
 
-// Ring Chart Component
 interface RingChartProps {
     value: number;
     total: number;
@@ -29,23 +34,16 @@ interface RingChartProps {
     color?: string;
 }
 
-const RingChart: React.FC<RingChartProps> = ({
-    value,
-    total,
-    size = 140,
-    strokeWidth = 12,
-    color = Colors.primary
-}) => {
+const RingChart: React.FC<RingChartProps> = ({ value, total, size = 140, strokeWidth = 12, color = Colors.primary }) => {
     const themeColors = useThemeColors();
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
-    const progress = Math.min(value / total, 1);
+    const progress = total > 0 ? Math.min(value / total, 1) : 0;
     const strokeDashoffset = circumference * (1 - progress);
 
     return (
         <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
             <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
-                {/* Background circle */}
                 <Circle
                     cx={size / 2}
                     cy={size / 2}
@@ -54,7 +52,6 @@ const RingChart: React.FC<RingChartProps> = ({
                     strokeWidth={strokeWidth}
                     fill="none"
                 />
-                {/* Progress circle */}
                 <Circle
                     cx={size / 2}
                     cy={size / 2}
@@ -71,15 +68,41 @@ const RingChart: React.FC<RingChartProps> = ({
     );
 };
 
-// Stat Card Component (no borders, modal-style)
+const Sparkline: React.FC<{ values: number[]; color: string }> = ({ values, color }) => {
+    const w = 110;
+    const h = 34;
+    if (values.length < 2) {
+        return <View style={{ width: w, height: h }} />;
+    }
+
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+
+    const points = values
+        .map((v, i) => {
+            const x = (i / (values.length - 1)) * w;
+            const y = h - ((v - min) / range) * h;
+            return `${x},${y}`;
+        })
+        .join(' ');
+
+    return (
+        <Svg width={w} height={h}>
+            <Polyline points={points} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+    );
+};
+
 interface StatCardProps {
     label: string;
     value: string;
     comparison?: string;
     trend?: 'up' | 'down' | 'neutral';
+    onPress?: () => void;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ label, value, comparison, trend }) => {
+const StatCard: React.FC<StatCardProps> = ({ label, value, comparison, trend, onPress }) => {
     const themeColors = useThemeColors();
 
     const getTrendColor = () => {
@@ -88,276 +111,169 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, comparison, trend }) 
         return themeColors.textSecondary;
     };
 
-    const getTrendIcon = () => {
-        if (!trend || trend === 'neutral') return null;
-        const color = getTrendColor();
-        return trend === 'up'
-            ? <TrendUp size={14} color={color} strokeWidth={3} />
-            : <TrendDown size={14} color={color} strokeWidth={3} />;
-    };
-
     return (
-        <View style={[styles.statCard, { backgroundColor: themeColors.surface }]}>
+        <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onPress}
+            style={[styles.statCard, { backgroundColor: themeColors.surface }]}
+        >
             <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{label}</Text>
-            <Text style={[styles.statValue, { color: themeColors.textPrimary }]}>{value}</Text>
-            {comparison && (
+            <Text style={[styles.statValue, { color: themeColors.textPrimary }]} numberOfLines={1}>{value}</Text>
+            {comparison ? (
                 <View style={styles.trendRow}>
-                    {getTrendIcon()}
-                    <Text style={[styles.trendText, { color: getTrendColor() }]}>
+                    {trend === 'up' ? <TrendUp size={14} color={Colors.success} strokeWidth={3} /> : null}
+                    {trend === 'down' ? <TrendDown size={14} color={Colors.error} strokeWidth={3} /> : null}
+                    <Text style={[styles.trendText, { color: getTrendColor() }]} numberOfLines={1}>
                         {comparison}
                     </Text>
                 </View>
-            )}
+            ) : null}
+        </TouchableOpacity>
+    );
+};
+
+const SkeletonCard = () => {
+    const themeColors = useThemeColors();
+    return (
+        <View style={[styles.statCard, { backgroundColor: themeColors.surface }]}>
+            <View style={[styles.skeletonLine, { width: '55%', backgroundColor: themeColors.border }]} />
+            <View style={[styles.skeletonLine, { width: '78%', height: 18, backgroundColor: themeColors.border, marginTop: 10 }]} />
+            <View style={[styles.skeletonLine, { width: '70%', backgroundColor: themeColors.border, marginTop: 12 }]} />
         </View>
     );
+};
+
+const rangeLabels: Record<InsightsRange, string> = {
+    '7d': '7D',
+    '30d': '30D',
+    '90d': '90D',
+    '1y': '1 Year',
+};
+
+const formatTimeAgo = (iso: string | null): string => {
+    if (!iso) return 'Not updated';
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const mins = Math.max(0, Math.floor(diffMs / 60000));
+    if (mins < 1) return 'Updated just now';
+    if (mins < 60) return `Updated ${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `Updated ${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `Updated ${days}d ago`;
 };
 
 export default function InsightsScreen() {
     const router = useRouter();
     const themeColors = useThemeColors();
-    const insets = useSafeAreaInsets();
-    const { insights, loading } = useInsights();
     const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
+    const { getAccessToken, user } = useAuth();
+    const {
+        insights,
+        summary,
+        series,
+        range,
+        setRange,
+        lastUpdatedAt,
+        loading,
+        refreshing,
+        error,
+        refetch,
+    } = useInsights('30d');
 
-    // Track page view
+    const targetGoalSheetRef = useRef<BottomSheetModal>(null);
+    const [monthlyTarget, setMonthlyTarget] = React.useState(10000);
+
     useAnalyticsScreen('Insights');
 
-    // Extract data from insights
-    const earningsInsight = insights.find(i => i.type === 'earnings');
-    const invoiceInsight = insights.find(i => i.type === 'invoice');
-    const clientInsight = insights.find(i => i.type === 'client');
-
-    // Calculate earnings values from insight data
-    const monthlyEarnings = earningsInsight?.value ? parseInt(earningsInsight.value.replace(/[$,]/g, '')) : 0;
-    const [monthlyTarget, setMonthlyTarget] = useState(10000);
-
-    // Calculate the remaining amount (don't go negative)
-    const remainingAmount = Math.max(0, monthlyTarget - monthlyEarnings);
-    const hasExceededTarget = monthlyEarnings > monthlyTarget;
-
-    // Get trend info from the earnings insight
-    const earningsTrend = earningsInsight?.trend || 'neutral';
-
-    // Target goal modal state
-    const targetGoalSheetRef = useRef<BottomSheetModal>(null);
-
-    // Profile and Sidebar state
-    const { getAccessToken, user } = useAuth();
-    // Profile state removed
-
-    // Stats data from backend
-    const [statsData, setStatsData] = useState({
-        clientsCount: 0,
-        projectsCount: 0,
-        paymentLinksCount: 0,
-        topClient: null as { name: string, totalEarnings: number } | null,
-        pendingInvoicesCount: 0,
-        pendingInvoicesTotal: 0,
-        paymentRate: 0,
-        totalDocuments: 0,
-        paidDocuments: 0,
-    });
+    useFocusEffect(
+        React.useCallback(() => {
+            refetch();
+        }, [refetch])
+    );
 
     useEffect(() => {
-        // Fetch user data removed as profile modal is removed
-        const fetchUserData = async () => {
-            if (!user) return;
+        const loadTarget = async () => {
             try {
+                if (!user) return;
                 const token = await getAccessToken();
+                if (!token) return;
                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-                const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                const response = await fetch(`${apiUrl}/api/users/profile`, {
+                    headers: { Authorization: `Bearer ${token}` },
                 });
-                const profileData = await profileResponse.json();
-
-                if (profileData.success && profileData.data) {
-                    const userData = profileData.data.user || profileData.data;
-                    // setUserName({ // Removed as profile modal is removed
-                    //     firstName: userData.firstName || '',
-                    //     lastName: userData.lastName || ''
-                    // });
-
-                    // if (userData.avatar) { // Removed as profile modal is removed
-                    //     try {
-                    //         if (userData.avatar.trim().startsWith('{')) {
-                    //             const parsed = JSON.parse(userData.avatar);
-                    //             setProfileIcon(parsed);
-                    //         } else {
-                    //             setProfileIcon({ type: 'image', imageUri: userData.avatar });
-                    //         }
-                    //     } catch (e) {
-                    //         setProfileIcon({ type: 'image', imageUri: userData.avatar });
-                    //     }
-                    // }
-
-                    // setWalletAddresses({ // Removed as profile modal is removed
-                    //     evm: userData.ethereumWalletAddress,
-                    //     solana: userData.solanaWalletAddress
-                    // });
-
-                    // Load monthly target from backend
-                    if (userData.monthlyTarget) {
+                const result = await response.json();
+                if (response.ok && result?.success) {
+                    const userData = result?.data?.user || result?.data;
+                    if (typeof userData?.monthlyTarget === 'number' && userData.monthlyTarget > 0) {
                         setMonthlyTarget(userData.monthlyTarget);
                     }
                 }
-
-                const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-                if (conversationsResponse.ok) {
-                    const conversationsData = await conversationsResponse.json();
-                    if (conversationsData.success && conversationsData.data) {
-                        // setConversations(conversationsData.data.slice(0, 10)); // Removed as sidebar state is removed
-                    }
-                }
-
-                // Fetch clients for stats
-                const clientsResponse = await fetch(`${apiUrl}/api/clients`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-                let clientsCount = 0;
-                let topClient = null;
-                if (clientsResponse.ok) {
-                    const clientsData = await clientsResponse.json();
-                    if (clientsData.success && clientsData.data?.clients) {
-                        const clients = clientsData.data.clients;
-                        clientsCount = clients.length;
-                        // Find top client by totalEarnings
-                        if (clients.length > 0) {
-                            const sorted = [...clients].sort((a: any, b: any) => (b.totalEarnings || 0) - (a.totalEarnings || 0));
-                            if (sorted[0]?.totalEarnings > 0) {
-                                topClient = { name: sorted[0].name, totalEarnings: sorted[0].totalEarnings };
-                            }
-                        }
-                    }
-                }
-
-                // Fetch projects for stats
-                const projectsResponse = await fetch(`${apiUrl}/api/projects`, {
-                    headers: { 'Authorization': `Bearer ${token}` },
-                });
-                let projectsCount = 0;
-                if (projectsResponse.ok) {
-                    const projectsData = await projectsResponse.json();
-                    if (projectsData.success && projectsData.data?.projects) {
-                        // Only count active/ongoing projects, not completed ones
-                        const activeProjects = projectsData.data.projects.filter((p: any) =>
-                            p.status === 'ongoing' || p.status === 'active' || p.status === 'on_hold'
-                        );
-                        projectsCount = activeProjects.length;
-                    }
-                }
-
-                // Fetch documents for payment links count and payment rate
-                const [invoicesRes, linksRes] = await Promise.all([
-                    fetch(`${apiUrl}/api/documents?type=INVOICE`, {
-                        headers: { 'Authorization': `Bearer ${token}` },
-                    }),
-                    fetch(`${apiUrl}/api/documents?type=PAYMENT_LINK`, {
-                        headers: { 'Authorization': `Bearer ${token}` },
-                    }),
-                ]);
-
-                let paymentLinksCount = 0;
-                let pendingInvoicesCount = 0;
-                let pendingInvoicesTotal = 0;
-                let paidDocuments = 0;
-                let totalDocuments = 0;
-
-                if (linksRes.ok) {
-                    const linksData = await linksRes.json();
-                    if (linksData.success && linksData.data?.documents) {
-                        paymentLinksCount = linksData.data.documents.length;
-                        totalDocuments += linksData.data.documents.length;
-                        paidDocuments += linksData.data.documents.filter((d: any) => d.status === 'PAID').length;
-                    }
-                }
-
-                if (invoicesRes.ok) {
-                    const invoicesData = await invoicesRes.json();
-                    if (invoicesData.success && invoicesData.data?.documents) {
-                        const invoices = invoicesData.data.documents;
-                        totalDocuments += invoices.length;
-                        paidDocuments += invoices.filter((d: any) => d.status === 'PAID').length;
-
-                        // Calculate pending invoices
-                        const pending = invoices.filter((d: any) =>
-                            d.status === 'SENT' || d.status === 'VIEWED' || d.status === 'PENDING' || d.status === 'DRAFT'
-                        );
-                        pendingInvoicesCount = pending.length;
-                        pendingInvoicesTotal = pending.reduce((sum: number, doc: any) => {
-                            const amount = typeof doc.amount === 'number' ? doc.amount : parseFloat(String(doc.amount).replace(/[^0-9.]/g, '')) || 0;
-                            return sum + amount;
-                        }, 0);
-                    }
-                }
-
-                const paymentRate = totalDocuments > 0 ? Math.round((paidDocuments / totalDocuments) * 100) : 0;
-
-                setStatsData({
-                    clientsCount,
-                    projectsCount,
-                    paymentLinksCount,
-                    topClient,
-                    pendingInvoicesCount,
-                    pendingInvoicesTotal,
-                    paymentRate,
-                    totalDocuments,
-                    paidDocuments,
-                });
-
-            } catch (error) {
-                console.error('Failed to fetch user data:', error);
+            } catch {
+                // Non-critical; fallback target remains.
             }
         };
-        fetchUserData();
-    }, [user]);
+        loadTarget();
+    }, [user, getAccessToken]);
 
-    // Build stats from real backend data
-    const stats = [
-        {
-            label: 'Monthly Earnings',
-            value: earningsInsight?.value || '$0',
-            comparison: 'vs last month',
-            trend: earningsInsight?.trend || 'neutral' as const
-        },
-        {
-            label: 'Pending Invoices',
-            value: String(statsData.pendingInvoicesCount),
-            comparison: statsData.pendingInvoicesTotal > 0 ? `$${statsData.pendingInvoicesTotal.toLocaleString()} total` : '$0 total',
-            trend: statsData.pendingInvoicesCount > 0 ? 'down' as const : 'neutral' as const
-        },
-        {
-            label: 'Active Clients',
-            value: String(statsData.clientsCount),
-            comparison: statsData.topClient ? `Top: ${statsData.topClient.name}` : '',
-            trend: statsData.clientsCount > 0 ? 'up' as const : 'neutral' as const
-        },
-        {
-            label: 'Payment Rate',
-            value: `${statsData.paymentRate}%`,
-            comparison: `${statsData.paidDocuments}/${statsData.totalDocuments} paid`,
-            trend: statsData.paymentRate >= 80 ? 'up' as const : statsData.paymentRate >= 50 ? 'neutral' as const : 'down' as const
-        },
-        {
-            label: 'Payment Links',
-            value: String(statsData.paymentLinksCount),
-            comparison: 'total created',
-            trend: 'neutral' as const
-        },
-        {
-            label: 'Projects',
-            value: String(statsData.projectsCount),
-            comparison: 'in progress',
-            trend: statsData.projectsCount > 0 ? 'up' as const : 'neutral' as const
-        },
-    ];
+    const monthlyEarnings = summary?.monthlyEarnings || 0;
+    const remainingAmount = Math.max(0, monthlyTarget - monthlyEarnings);
+    const hasExceededTarget = monthlyEarnings > monthlyTarget;
+    const earningsDeltaPct = summary?.earningsDeltaPct || 0;
+    const earningsTrend: 'up' | 'down' | 'neutral' = earningsDeltaPct > 0 ? 'up' : earningsDeltaPct < 0 ? 'down' : 'neutral';
+    const sparkValues = series.earnings.map((p) => p.value);
+
+    const stats = useMemo(() => {
+        if (!summary) return [];
+        return [
+            {
+                label: 'Monthly Earnings',
+                value: `$${summary.monthlyEarnings.toLocaleString()}`,
+                comparison: `${earningsDeltaPct >= 0 ? '+' : ''}${earningsDeltaPct.toFixed(0)}% vs previous`,
+                trend: earningsTrend,
+                route: '/transactions',
+            },
+            {
+                label: 'Pending Invoices',
+                value: String(summary.pendingInvoicesCount),
+                comparison: `$${summary.pendingInvoicesTotal.toLocaleString()} outstanding`,
+                trend: summary.pendingInvoicesCount > 0 ? ('down' as const) : ('neutral' as const),
+                route: '/invoices',
+            },
+            {
+                label: 'Active Clients',
+                value: String(summary.clientsCount),
+                comparison: summary.topClient?.name ? `Top: ${summary.topClient.name}` : 'No top client yet',
+                trend: summary.clientsCount > 0 ? ('up' as const) : ('neutral' as const),
+                route: '/clients',
+            },
+            {
+                label: 'Payment Rate',
+                value: `${summary.paymentRate}%`,
+                comparison: `${summary.paidDocuments}/${summary.totalDocuments} paid`,
+                trend: summary.paymentRate >= 80 ? ('up' as const) : summary.paymentRate >= 50 ? ('neutral' as const) : ('down' as const),
+                route: '/invoices',
+            },
+            {
+                label: 'Payment Links',
+                value: String(summary.paymentLinksCount),
+                comparison: 'Total created',
+                trend: 'neutral' as const,
+                route: '/payment-links',
+            },
+            {
+                label: 'Projects',
+                value: String(summary.activeProjects),
+                comparison: 'In progress',
+                trend: summary.activeProjects > 0 ? ('up' as const) : ('neutral' as const),
+                route: '/projects',
+            },
+        ];
+    }, [summary, earningsDeltaPct, earningsTrend]);
+
+    const isEmpty = !loading && !error && (!summary || (summary.totalDocuments === 0 && summary.transactionsCount === 0 && summary.clientsCount === 0));
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
-            {/* Header */}
-            {/* Header */}
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerTop}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -374,129 +290,169 @@ export default function InsightsScreen() {
                 style={styles.content}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
-                bounces={false}
-                overScrollMode="never"
-                contentInsetAdjustmentBehavior="never"
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={Colors.primary} />
+                }
             >
-                {/* AI Disclaimer */}
                 <View style={[styles.disclaimer, { backgroundColor: themeColors.surface }]}>
                     <Sparkle size={16} color={Colors.primary} fill={Colors.primary} />
                     <Text style={[styles.disclaimerText, { color: themeColors.textSecondary }]}>
-                        Insights are AI-generated based on your activity
+                        Insights are AI-generated from your account activity
                     </Text>
                 </View>
 
-                {/* Ring Chart Section */}
-                <View style={[styles.ringSection, { backgroundColor: themeColors.surface }]}>
-                    <View style={styles.ringSectionHeader}>
-                        <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Monthly Progress</Text>
-                        <TouchableOpacity
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            onPress={() => targetGoalSheetRef.current?.present()}
-                        >
-                            <Gear size={18} color={themeColors.textSecondary} strokeWidth={3} />
+                <View style={styles.filtersRow}>
+                    {(['7d', '30d', '90d', '1y'] as InsightsRange[]).map((key) => {
+                        const selected = range === key;
+                        return (
+                            <TouchableOpacity
+                                key={key}
+                                style={[
+                                    styles.filterChip,
+                                    {
+                                        backgroundColor: selected ? Colors.primary : themeColors.surface,
+                                    },
+                                ]}
+                                onPress={() => setRange(key)}
+                            >
+                                <Text style={[styles.filterChipText, { color: selected ? '#fff' : themeColors.textSecondary }]}>
+                                    {rangeLabels[key]}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+
+                <View style={styles.metaRow}>
+                    <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
+                        {formatTimeAgo(lastUpdatedAt)}
+                    </Text>
+                </View>
+
+                {error ? (
+                    <View style={[styles.emptyState, { backgroundColor: themeColors.surface }]}>
+                        <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>Could not load insights</Text>
+                        <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>{error}</Text>
+                        <TouchableOpacity style={styles.retryButton} onPress={refetch}>
+                            <Text style={styles.retryText}>Try again</Text>
                         </TouchableOpacity>
                     </View>
+                ) : null}
 
-                    <View style={styles.ringContainer}>
-                        <View style={styles.ringStats}>
-                            <Text style={[styles.ringStatValue, { color: hasExceededTarget ? Colors.success : themeColors.textSecondary }]}>
-                                {hasExceededTarget ? '+$' + (monthlyEarnings - monthlyTarget).toLocaleString() : '$' + remainingAmount.toLocaleString()}
-                            </Text>
-                            <Text style={[styles.ringStatLabel, { color: themeColors.textTertiary }]}>
-                                {hasExceededTarget ? 'Exceeded' : 'Remaining'}
-                            </Text>
+                {!error ? (
+                    <View style={[styles.ringSection, { backgroundColor: themeColors.surface }]}>
+                        <View style={styles.ringSectionHeader}>
+                            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Monthly Progress</Text>
+                            <Sparkline values={sparkValues} color={Colors.primary} />
                         </View>
 
-                        <View style={styles.ringCenter}>
-                            <RingChart
-                                value={monthlyEarnings}
-                                total={monthlyTarget}
-                                size={140}
-                                color={Colors.primary}
-                            />
-                            <View style={styles.ringCenterText}>
-                                <Text style={[styles.ringMainValue, { color: themeColors.textPrimary }]}>${monthlyEarnings.toLocaleString()}</Text>
-                                <Text style={[styles.ringMainLabel, { color: themeColors.textSecondary }]}>Earned</Text>
+                        <View style={styles.ringContainer}>
+                            <View style={styles.ringStats}>
+                                <Text style={[styles.ringStatValue, { color: hasExceededTarget ? Colors.success : themeColors.textSecondary }]}>
+                                    {hasExceededTarget ? `+$${(monthlyEarnings - monthlyTarget).toLocaleString()}` : `$${remainingAmount.toLocaleString()}`}
+                                </Text>
+                                <Text style={[styles.ringStatLabel, { color: themeColors.textTertiary }]}>
+                                    {hasExceededTarget ? 'Exceeded' : 'Remaining'}
+                                </Text>
+                            </View>
+
+                            <View style={styles.ringCenter}>
+                                <RingChart value={monthlyEarnings} total={monthlyTarget} size={140} color={Colors.primary} />
+                                <View style={styles.ringCenterText}>
+                                    <Text style={[styles.ringMainValue, { color: themeColors.textPrimary }]}>${monthlyEarnings.toLocaleString()}</Text>
+                                    <Text style={[styles.ringMainLabel, { color: themeColors.textSecondary }]}>Earned</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.ringStats}>
+                                <Text style={[styles.ringStatValue, { color: themeColors.textSecondary }]}>${monthlyTarget.toLocaleString()}</Text>
+                                <Text style={[styles.ringStatLabel, { color: themeColors.textTertiary }]}>Target</Text>
                             </View>
                         </View>
 
-                        <View style={styles.ringStats}>
-                            <Text style={[styles.ringStatValue, { color: themeColors.textSecondary }]}>${monthlyTarget.toLocaleString()}</Text>
-                            <Text style={[styles.ringStatLabel, { color: themeColors.textTertiary }]}>Target</Text>
-                        </View>
+                        <TouchableOpacity
+                            onPress={() => targetGoalSheetRef.current?.present()}
+                            style={[
+                                styles.trendBadge,
+                                { backgroundColor: (earningsTrend === 'up' ? Colors.success : earningsTrend === 'down' ? Colors.error : themeColors.textSecondary) + '14' },
+                            ]}
+                        >
+                            {earningsTrend === 'up' ? <TrendUp size={14} color={Colors.success} strokeWidth={3} /> : null}
+                            {earningsTrend === 'down' ? <TrendDown size={14} color={Colors.error} strokeWidth={3} /> : null}
+                            <Text
+                                style={[
+                                    styles.trendBadgeText,
+                                    {
+                                        color: earningsTrend === 'up'
+                                            ? Colors.success
+                                            : earningsTrend === 'down'
+                                                ? Colors.error
+                                                : themeColors.textSecondary,
+                                    },
+                                ]}
+                            >
+                                {`${earningsDeltaPct >= 0 ? '+' : ''}${earningsDeltaPct.toFixed(0)}% vs previous period`}
+                            </Text>
+                        </TouchableOpacity>
                     </View>
+                ) : null}
 
-                    <View style={[styles.trendBadge, { backgroundColor: (earningsTrend === 'up' ? Colors.success : earningsTrend === 'down' ? Colors.error : themeColors.textSecondary) + '15' }]}>
-                        {earningsTrend === 'up' ? (
-                            <TrendUp size={14} color={Colors.success} strokeWidth={3} />
-                        ) : earningsTrend === 'down' ? (
-                            <TrendDown size={14} color={Colors.error} strokeWidth={3} />
-                        ) : null}
-                        <Text style={[styles.trendBadgeText, { color: earningsTrend === 'up' ? Colors.success : earningsTrend === 'down' ? Colors.error : themeColors.textSecondary }]}>
-                            {earningsTrend === 'up' ? 'Up from last month' : earningsTrend === 'down' ? 'Down from last month' : 'Same as last month'}
-                        </Text>
-                    </View>
-                </View>
-
-                {/* Stats Grid */}
                 <View style={styles.sectionHeader}>
                     <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Overview</Text>
                 </View>
 
                 <View style={styles.statsGrid}>
-                    {stats.map((stat, index) => (
-                        <StatCard
-                            key={index}
-                            label={stat.label}
-                            value={stat.value}
-                            comparison={stat.comparison}
-                            trend={stat.trend}
-                        />
-                    ))}
+                    {loading
+                        ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={`skeleton-${i}`} />)
+                        : stats.map((stat, index) => (
+                            <StatCard
+                                key={index}
+                                label={stat.label}
+                                value={stat.value}
+                                comparison={stat.comparison}
+                                trend={stat.trend}
+                                onPress={() => stat.route && router.push(stat.route as any)}
+                            />
+                        ))}
                 </View>
 
-                {/* Insights Scroll */}
                 <View style={styles.sectionHeader}>
                     <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>AI Insights</Text>
                 </View>
 
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.insightsScroll}
-                    bounces={false}
-                    overScrollMode="never"
-                >
-                    {insights.map((insight) => (
-                        <TouchableOpacity
-                            key={insight.id}
-                            style={[styles.insightCard, { backgroundColor: themeColors.surface }]}
-                            onPress={() => insight.actionRoute && router.push(insight.actionRoute as any)}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={[styles.insightTitle, { color: themeColors.textPrimary }]}>{insight.title}</Text>
-                            <Text style={[styles.insightSubtitle, { color: themeColors.textSecondary }]} numberOfLines={2}>
-                                {insight.description}
-                            </Text>
-                            {insight.actionLabel && (
-                                <View style={styles.insightAction}>
-                                    <Text style={[styles.insightActionText, { color: insight.color || Colors.primary }]}>
-                                        {insight.actionLabel}
-                                    </Text>
-                                    <ArrowRight size={12} color={insight.color || Colors.primary} strokeWidth={3} />
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                {isEmpty ? (
+                    <View style={[styles.emptyState, { backgroundColor: themeColors.surface }]}>
+                        <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No activity yet</Text>
+                        <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
+                            Create an invoice, payment link, or project to start receiving tailored insights.
+                        </Text>
+                    </View>
+                ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.insightsScroll}>
+                        {insights.map((insight: Insight) => (
+                            <TouchableOpacity
+                                key={insight.id}
+                                style={[styles.insightCard, { backgroundColor: themeColors.surface }]}
+                                onPress={() => insight.actionRoute && router.push(insight.actionRoute as any)}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={[styles.insightTitle, { color: themeColors.textPrimary }]}>{insight.title}</Text>
+                                <Text style={[styles.insightSubtitle, { color: themeColors.textSecondary }]} numberOfLines={3}>
+                                    {insight.description}
+                                </Text>
+                                {insight.actionLabel ? (
+                                    <View style={styles.insightAction}>
+                                        <Text style={[styles.insightActionText, { color: Colors.primary }]}>
+                                            {insight.actionLabel}
+                                        </Text>
+                                        <ArrowRight size={12} color={Colors.primary} strokeWidth={3} />
+                                    </View>
+                                ) : null}
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                )}
             </ScrollView>
-
-            {/* Sidebar */}
-
-
-            {/* Profile Modal */}
-
 
             <TargetGoalModal
                 ref={targetGoalSheetRef}
@@ -507,7 +463,7 @@ export default function InsightsScreen() {
                 getAccessToken={getAccessToken}
             />
 
-            {shouldShowOnScreen('insights') && activeStep && (
+            {shouldShowOnScreen('insights') && activeStep ? (
                 <TutorialCard
                     step={activeStepIndex + 1}
                     totalSteps={totalSteps}
@@ -518,212 +474,162 @@ export default function InsightsScreen() {
                     onBack={prevStep}
                     onSkip={skipTutorial}
                 />
-            )}
+            ) : null}
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        backgroundColor: Colors.background,
-    },
+    container: { flex: 1 },
     headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        height: 60,
+        paddingVertical: isAndroid ? 10 : 12,
+        height: isAndroid ? 56 : 60,
     },
-    backButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-    backButtonCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    headerRightPlaceholder: {
-        width: 40,
-    },
-    // menuButton removed
-    // profileIcon removed
+    header: { backgroundColor: Colors.background },
+    backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+    backButtonCircle: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+    headerRightPlaceholder: { width: 40 },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: Platform.OS === 'android' ? 20 : 22,
+        fontSize: isAndroid ? 19 : 21,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,
     },
-    content: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingHorizontal: 20,
-        paddingBottom: 40,
-    },
+    content: { flex: 1 },
+    scrollContent: { paddingHorizontal: 20, paddingBottom: isAndroid ? 34 : 40 },
     disclaimer: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        paddingVertical: 10,
+        paddingVertical: isAndroid ? 9 : 10,
         paddingHorizontal: 14,
         borderRadius: 10,
-        marginBottom: 24,
+        marginBottom: 10,
     },
-    disclaimerText: {
-        fontSize: 13,
-        fontFamily: 'GoogleSansFlex_400Regular',
+    disclaimerText: { fontSize: isAndroid ? 12 : 13, fontFamily: 'GoogleSansFlex_400Regular' },
+    filtersRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+    filterChip: {
+        borderRadius: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 8,
     },
-    // Ring Section
+    filterChipText: { fontSize: 14, fontFamily: 'GoogleSansFlex_600SemiBold' },
+    metaRow: { marginBottom: 12 },
+    metaText: { fontSize: isAndroid ? 11 : 12, fontFamily: 'GoogleSansFlex_400Regular' },
     ringSection: {
         borderRadius: 16,
-        padding: 20,
-        marginBottom: 24,
+        padding: isAndroid ? 16 : 20,
+        marginBottom: 18,
     },
     ringSectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 20,
+        marginBottom: isAndroid ? 14 : 18,
     },
     ringContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 16,
+        marginBottom: isAndroid ? 12 : 16,
     },
-    ringStats: {
-        alignItems: 'center',
-        flex: 1,
-    },
-    ringStatValue: {
-        fontSize: 18,
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-    },
-    ringStatLabel: {
-        fontSize: 12,
-        fontFamily: 'GoogleSansFlex_400Regular',
-        marginTop: 4,
-    },
-    ringCenter: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    ringCenterText: {
-        position: 'absolute',
-        alignItems: 'center',
-    },
-    ringMainValue: {
-        fontSize: 22,
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-    },
-    ringMainLabel: {
-        fontSize: 12,
-        fontFamily: 'GoogleSansFlex_400Regular',
-    },
+    ringStats: { alignItems: 'center', flex: 1 },
+    ringStatValue: { fontSize: isAndroid ? 16 : 18, fontFamily: 'GoogleSansFlex_600SemiBold' },
+    ringStatLabel: { fontSize: isAndroid ? 11 : 12, fontFamily: 'GoogleSansFlex_400Regular', marginTop: 3 },
+    ringCenter: { alignItems: 'center', justifyContent: 'center' },
+    ringCenterText: { position: 'absolute', alignItems: 'center' },
+    ringMainValue: { fontSize: isAndroid ? 18 : 20, fontFamily: 'GoogleSansFlex_600SemiBold' },
+    ringMainLabel: { fontSize: isAndroid ? 11 : 12, fontFamily: 'GoogleSansFlex_400Regular' },
     trendBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
+        marginTop: 0,
         alignSelf: 'center',
-    },
-    trendBadgeText: {
-        fontSize: 13,
-        fontFamily: 'GoogleSansFlex_500Medium',
-    },
-    // Section Header
-    sectionHeader: {
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: isAndroid ? 7 : 8,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 16,
+        gap: 6,
     },
-    sectionTitle: {
-        fontSize: 17,
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-    },
-    seeAllButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-    },
-    seeAllText: {
-        fontSize: 14,
-        fontFamily: 'GoogleSansFlex_500Medium',
-    },
-    // Stats Grid (no borders)
+    trendBadgeText: { fontSize: isAndroid ? 11 : 12, fontFamily: 'GoogleSansFlex_600SemiBold' },
+    sectionHeader: { marginBottom: 9 },
+    sectionTitle: { fontSize: isAndroid ? 17 : 18, fontFamily: 'GoogleSansFlex_600SemiBold' },
     statsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 12,
-        marginBottom: 32,
+        gap: 11,
+        marginBottom: 22,
     },
     statCard: {
         width: CARD_WIDTH,
-        borderRadius: 12,
-        padding: 16,
+        borderRadius: 14,
+        padding: isAndroid ? 12 : 14,
+        minHeight: isAndroid ? 108 : 118,
+        justifyContent: 'space-between',
     },
-    statLabel: {
-        fontSize: 13,
-        fontFamily: 'GoogleSansFlex_400Regular',
-        marginBottom: 8,
-    },
-    statValue: {
-        fontSize: 24,
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        marginBottom: 4,
-    },
+    statLabel: { fontSize: isAndroid ? 11 : 12, fontFamily: 'GoogleSansFlex_500Medium' },
+    statValue: { fontSize: isAndroid ? 19 : 21, fontFamily: 'GoogleSansFlex_600SemiBold', marginTop: 2 },
     trendRow: {
+        marginTop: 6,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
-        marginTop: 4,
     },
     trendText: {
-        fontSize: 12,
-        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: isAndroid ? 11 : 12,
+        fontFamily: 'GoogleSansFlex_500Medium',
+        flexShrink: 1,
     },
-    // Insights Scroll (no borders)
-    insightsScroll: {
-        gap: 12,
-        paddingRight: 20,
-    },
+    skeletonLine: { height: 10, borderRadius: 6 },
+    insightsScroll: { gap: 10, paddingBottom: 6 },
     insightCard: {
-        width: 180,
-        borderRadius: 12,
-        padding: 16,
+        width: width - (isAndroid ? 78 : 72),
+        borderRadius: 14,
+        padding: isAndroid ? 14 : 16,
+        minHeight: isAndroid ? 126 : 134,
+        justifyContent: 'space-between',
     },
-    insightTitle: {
-        fontSize: 15,
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        marginBottom: 6,
-    },
-    insightSubtitle: {
-        fontSize: 13,
-        fontFamily: 'GoogleSansFlex_400Regular',
-        lineHeight: 18,
-        marginBottom: 12,
-    },
+    insightTitle: { fontSize: isAndroid ? 15 : 16, fontFamily: 'GoogleSansFlex_600SemiBold', marginBottom: 6 },
+    insightSubtitle: { fontSize: isAndroid ? 13 : 14, fontFamily: 'GoogleSansFlex_400Regular', lineHeight: isAndroid ? 18 : 20 },
     insightAction: {
+        marginTop: 10,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: 6,
     },
     insightActionText: {
-        fontSize: 13,
-        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: isAndroid ? 12 : 13,
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+    },
+    emptyState: {
+        borderRadius: 14,
+        paddingHorizontal: 16,
+        paddingVertical: isAndroid ? 18 : 20,
+        marginBottom: 18,
+    },
+    emptyTitle: {
+        fontSize: isAndroid ? 16 : 17,
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        marginBottom: 8,
+    },
+    emptySubtitle: {
+        fontSize: isAndroid ? 13 : 14,
+        lineHeight: isAndroid ? 19 : 20,
+        fontFamily: 'GoogleSansFlex_400Regular',
+    },
+    retryButton: {
+        marginTop: 12,
+        backgroundColor: Colors.primary,
+        paddingVertical: isAndroid ? 9 : 10,
+        borderRadius: 999,
+        alignItems: 'center',
+    },
+    retryText: {
+        color: '#fff',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: isAndroid ? 13 : 14,
     },
 });
