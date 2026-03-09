@@ -48,6 +48,13 @@ interface InvoiceData {
         email?: string;
         ethereum_wallet_address?: string;
         solana_wallet_address?: string;
+        usd_account?: {
+            bank_name?: string | null;
+            account_number?: string | null;
+            routing_number?: string | null;
+            rail?: string;
+            currency?: string;
+        };
     };
 }
 
@@ -165,6 +172,7 @@ export default function InvoicePage() {
     const [error, setError] = useState<string | null>(null);
     const [selectedChain, setSelectedChain] = useState<ChainId>('base');
     const [selectedToken] = useState<TokenSymbol>('USDC');
+    const [paymentMethodTab, setPaymentMethodTab] = useState<'crypto' | 'usd'>('crypto');
     const [isPaying, setIsPaying] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
     const [showSuccess, setShowSuccess] = useState(searchParams.get('status') === 'success');
@@ -513,6 +521,38 @@ export default function InvoicePage() {
         return addr ? `${addr.slice(0, 5)}...${addr.slice(-4)}` : 'Not configured';
     };
 
+    const usdAccount = invoice?.user?.usd_account;
+    const hasUsdBankDetails = Boolean(usdAccount?.account_number && usdAccount?.routing_number);
+    const hasCryptoWallet = Boolean(invoice?.user?.ethereum_wallet_address || invoice?.user?.solana_wallet_address);
+
+    useEffect(() => {
+        if (!invoice) return;
+        if (!hasCryptoWallet && hasUsdBankDetails) {
+            setPaymentMethodTab('usd');
+            return;
+        }
+        if (paymentMethodTab === 'usd' && !hasUsdBankDetails) {
+            setPaymentMethodTab('crypto');
+        }
+    }, [invoice, hasCryptoWallet, hasUsdBankDetails, paymentMethodTab]);
+
+    const copyUsdAccountDetails = async () => {
+        if (!hasUsdBankDetails) return;
+        const text = [
+            `Bank: ${usdAccount?.bank_name || 'N/A'}`,
+            `Account Number: ${usdAccount?.account_number || ''}`,
+            `Routing Number: ${usdAccount?.routing_number || ''}`,
+            `Rail: ${usdAccount?.rail || 'ACH'}`,
+            `Currency: ${usdAccount?.currency || 'USD'}`,
+        ].join('\n');
+        try {
+            await navigator.clipboard.writeText(text);
+            alert('USD account details copied.');
+        } catch {
+            alert(text);
+        }
+    };
+
     if (loading) {
         return (
             <div className="page-container" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', backgroundColor: '#FFFFFF', zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
@@ -647,6 +687,51 @@ export default function InvoicePage() {
                     )}
                 </div>
 
+                <div
+                    style={{
+                        backgroundColor: '#F9FAFB',
+                        borderRadius: '999px',
+                        padding: '4px',
+                        display: 'flex',
+                        marginBottom: '24px',
+                        gap: '4px',
+                    }}
+                >
+                    <button
+                        onClick={() => setPaymentMethodTab('crypto')}
+                        style={{
+                            flex: 1,
+                            height: '36px',
+                            borderRadius: '999px',
+                            border: 'none',
+                            backgroundColor: paymentMethodTab === 'crypto' ? 'var(--primary, #2563EB)' : 'transparent',
+                            color: paymentMethodTab === 'crypto' ? '#FFFFFF' : '#6B7280',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Crypto
+                    </button>
+                    <button
+                        onClick={() => hasUsdBankDetails && setPaymentMethodTab('usd')}
+                        disabled={!hasUsdBankDetails}
+                        style={{
+                            flex: 1,
+                            height: '36px',
+                            borderRadius: '999px',
+                            border: 'none',
+                            backgroundColor: paymentMethodTab === 'usd' ? 'var(--primary, #2563EB)' : 'transparent',
+                            color: hasUsdBankDetails ? (paymentMethodTab === 'usd' ? '#FFFFFF' : '#6B7280') : '#9CA3AF',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: hasUsdBankDetails ? 'pointer' : 'not-allowed',
+                        }}
+                    >
+                        USD account
+                    </button>
+                </div>
+
                 {/* Items */}
                 {items.length > 0 && (
                     <div className="items-section" style={{ marginBottom: '24px' }}>
@@ -677,74 +762,107 @@ export default function InvoicePage() {
                     </div>
                 </div>
 
-                {/* Network & Wallet Section (Gray Box) */}
-                <div className="network-section" style={{ backgroundColor: '#F9FAFB', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
-                    {/* Network Row */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <span style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>Network</span>
-                        <div className="network-select-wrapper" style={{ width: 'auto', position: 'relative' }}>
-                            {/* Logo Overlay */}
-                            <img
-                                src={getChainIcon(selectedChain)}
-                                alt="Chain"
-                                style={{
-                                    position: 'absolute',
-                                    left: '10px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    width: '18px',
-                                    height: '18px',
-                                    pointerEvents: 'none',
-                                    zIndex: 1,
-                                    borderRadius: '50%'
-                                }}
-                            />
-                            <select
-                                value={selectedChain}
-                                onChange={(e) => {
-                                    setSelectedChain(e.target.value as ChainId);
-                                }}
-                                style={{
-                                    appearance: 'none',
-                                    backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23333%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E")`,
-                                    backgroundRepeat: 'no-repeat',
-                                    backgroundPosition: 'right 8px center',
-                                    backgroundSize: '12px',
-                                    paddingRight: '28px',
-                                    paddingLeft: '34px',
-                                    paddingTop: '6px',
-                                    paddingBottom: '6px',
-                                    border: '1px solid #E5E7EB',
-                                    borderRadius: '50px',
-                                    fontSize: '13px',
-                                    height: '32px',
-                                    color: '#111827',
-                                    outline: 'none',
-                                    cursor: 'pointer',
-                                    backgroundColor: 'white',
-                                    fontWeight: 500
-                                }}
-                            >
-                                {AVAILABLE_PAYMENT_CHAINS.map((chainOption) => (
-                                    <option key={chainOption.id} value={chainOption.id}>
-                                        {chainOption.label}
-                                    </option>
-                                ))}
-                            </select>
+                {paymentMethodTab === 'crypto' ? (
+                    <div className="network-section" style={{ backgroundColor: '#F9FAFB', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <span style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>Network</span>
+                            <div className="network-select-wrapper" style={{ width: 'auto', position: 'relative' }}>
+                                <img
+                                    src={getChainIcon(selectedChain)}
+                                    alt="Chain"
+                                    style={{
+                                        position: 'absolute',
+                                        left: '10px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        width: '18px',
+                                        height: '18px',
+                                        pointerEvents: 'none',
+                                        zIndex: 1,
+                                        borderRadius: '50%'
+                                    }}
+                                />
+                                <select
+                                    value={selectedChain}
+                                    onChange={(e) => {
+                                        setSelectedChain(e.target.value as ChainId);
+                                    }}
+                                    style={{
+                                        appearance: 'none',
+                                        backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23333%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E")`,
+                                        backgroundRepeat: 'no-repeat',
+                                        backgroundPosition: 'right 8px center',
+                                        backgroundSize: '12px',
+                                        paddingRight: '28px',
+                                        paddingLeft: '34px',
+                                        paddingTop: '6px',
+                                        paddingBottom: '6px',
+                                        border: '1px solid #E5E7EB',
+                                        borderRadius: '50px',
+                                        fontSize: '13px',
+                                        height: '32px',
+                                        color: '#111827',
+                                        outline: 'none',
+                                        cursor: 'pointer',
+                                        backgroundColor: 'white',
+                                        fontWeight: 500
+                                    }}
+                                >
+                                    {AVAILABLE_PAYMENT_CHAINS.map((chainOption) => (
+                                        <option key={chainOption.id} value={chainOption.id}>
+                                            {chainOption.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>Wallet</span>
+                            <span style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>
+                                {getDisplayWalletAddress()}
+                            </span>
                         </div>
                     </div>
-
-                    {/* Wallet Row */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>Wallet</span>
-                        <span style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>
-                            {getDisplayWalletAddress()}
-                        </span>
+                ) : (
+                    <div style={{ backgroundColor: '#F9FAFB', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '12px' }}>
+                            Pay via USD account
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                                <span style={{ color: '#6B7280', fontSize: '13px' }}>Bank</span>
+                                <span style={{ color: '#111827', fontSize: '13px', fontWeight: 500, textAlign: 'right' }}>{usdAccount?.bank_name || 'N/A'}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                                <span style={{ color: '#6B7280', fontSize: '13px' }}>Account number</span>
+                                <span style={{ color: '#111827', fontSize: '13px', fontWeight: 500, textAlign: 'right' }}>{usdAccount?.account_number}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                                <span style={{ color: '#6B7280', fontSize: '13px' }}>Routing number</span>
+                                <span style={{ color: '#111827', fontSize: '13px', fontWeight: 500, textAlign: 'right' }}>{usdAccount?.routing_number}</span>
+                            </div>
+                        </div>
+                        <button
+                            onClick={copyUsdAccountDetails}
+                            style={{
+                                width: '100%',
+                                height: '40px',
+                                borderRadius: '20px',
+                                border: '1px solid #E5E7EB',
+                                backgroundColor: '#FFFFFF',
+                                color: '#111827',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Copy USD account details
+                        </button>
                     </div>
-                </div>
+                )}
 
                 {/* Pay Button */}
-                {invoice.status.toLowerCase() !== 'paid' && (
+                {paymentMethodTab === 'crypto' && invoice.status.toLowerCase() !== 'paid' && (
                     <>
                         {selectedChain === 'solana' ? (
                             <button

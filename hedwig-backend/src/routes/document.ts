@@ -16,6 +16,40 @@ const router = Router();
 // Canonical public web URL for invoice and payment link pages.
 const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwig.money').replace(/\/+$/, '');
 
+const attachUsdAccountDetails = async (doc: any) => {
+    const userId = doc?.user?.id;
+    if (!userId) return doc;
+
+    const { data: usdAccount } = await supabase
+        .from('user_usd_accounts')
+        .select('provider_status, feature_enabled, bank_name, ach_account_number_masked, ach_routing_number_masked')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    const isActive = String(usdAccount?.provider_status || '').toLowerCase() === 'active';
+    const isEnabled = Boolean(usdAccount?.feature_enabled);
+    const accountNumber = usdAccount?.ach_account_number_masked || null;
+    const routingNumber = usdAccount?.ach_routing_number_masked || null;
+
+    if (!isActive || !isEnabled || !accountNumber || !routingNumber) {
+        return doc;
+    }
+
+    return {
+        ...doc,
+        user: {
+            ...doc.user,
+            usd_account: {
+                bank_name: usdAccount?.bank_name || null,
+                account_number: accountNumber,
+                routing_number: routingNumber,
+                rail: 'ACH',
+                currency: 'USD',
+            },
+        },
+    };
+};
+
 /**
  * POST /api/documents/invoice
  * Create a new invoice
@@ -760,10 +794,11 @@ router.get('/:id/public', async (req: Request, res: Response, next) => {
             return;
         }
 
-        logger.debug('Returning public document', { type: doc.type });
+        const documentWithUsdAccount = await attachUsdAccountDetails(doc);
+        logger.debug('Returning public document', { type: documentWithUsdAccount.type });
         res.json({
             success: true,
-            data: { document: doc }
+            data: { document: documentWithUsdAccount }
         });
     } catch (error) {
         logger.error('Unexpected error fetching public document', { error: error instanceof Error ? error.message : 'Unknown' });
@@ -806,10 +841,11 @@ router.get('/:id', async (req: Request, res: Response, next) => {
             return;
         }
 
-        logger.debug('Returning document', { type: doc.type });
+        const documentWithUsdAccount = await attachUsdAccountDetails(doc);
+        logger.debug('Returning document', { type: documentWithUsdAccount.type });
         res.json({
             success: true,
-            data: { document: doc }
+            data: { document: documentWithUsdAccount }
         });
     } catch (error) {
         console.error('[Documents] Unexpected error:', error);

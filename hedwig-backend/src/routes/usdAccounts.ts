@@ -142,7 +142,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next) =>
                 diditKycStatus: user.kyc_status || 'not_started',
                 bridgeKycStatus: usdAccount?.bridge_kyc_status || 'not_started',
                 accountStatus: usdAccount?.provider_status || 'not_started',
-                featureEnabled: enabledForUser && (usdAccount?.feature_enabled || false),
+                featureEnabled: enabledForUser,
                 sandboxMode,
                 settlementChain: usdAccount?.settlement_chain || 'BASE',
                 settlementToken: usdAccount?.settlement_token || 'USDC',
@@ -343,6 +343,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
         const user = await getOrCreateUser(authUserId);
         const account = await ensureUsdAccountRow(user.id);
         const sandboxMode = bridgeUsdService.isSandbox();
+        const enabledForUser = bridgeUsdService.isEnabledForUser(user.id, user.email || null);
         logger.info('USD details requested', {
             userId: user.id,
             sandboxMode,
@@ -352,7 +353,7 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
             hasStoredAchAccountNumber: Boolean(account.ach_account_number_masked),
         });
 
-        if (!bridgeUsdService.isEnabledForUser(user.id, user.email || null)) {
+        if (!enabledForUser) {
             res.status(403).json({
                 success: false,
                 error: { message: 'USD accounts are not enabled for this user' },
@@ -595,7 +596,8 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                 diditKycStatus: user.kyc_status || 'not_started',
                 bridgeKycStatus,
                 accountStatus: providerStatus,
-                featureEnabled: enabled,
+                featureEnabled: enabledForUser,
+                accountReady: enabled,
                 sandboxMode,
                 ach: {
                     bankName,

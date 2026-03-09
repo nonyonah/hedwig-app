@@ -31,6 +31,13 @@ interface PaymentLinkData {
         last_name?: string;
         ethereum_wallet_address?: string;
         solana_wallet_address?: string;
+        usd_account?: {
+            bank_name?: string | null;
+            account_number?: string | null;
+            routing_number?: string | null;
+            rail?: string;
+            currency?: string;
+        };
     };
     content?: {
         blockradar_url?: string;
@@ -153,6 +160,7 @@ export default function PaymentLinkPage() {
     const [txHash, setTxHash] = useState<string | null>(null);
     const [selectedChain, setSelectedChain] = useState<ChainId>('base');
     const [selectedToken, setSelectedToken] = useState<string>('USDC');
+    const [paymentMethodTab, setPaymentMethodTab] = useState<'crypto' | 'usd'>('crypto');
 
     useEffect(() => {
         const fetchPaymentLink = async () => {
@@ -486,6 +494,37 @@ export default function PaymentLinkPage() {
     const merchantName = paymentLink?.user
         ? `${paymentLink.user.first_name || ''} ${paymentLink.user.last_name || ''}`.trim() || 'Merchant'
         : 'Merchant';
+    const usdAccount = paymentLink?.user?.usd_account;
+    const hasUsdBankDetails = Boolean(usdAccount?.account_number && usdAccount?.routing_number);
+    const hasCryptoWallet = Boolean(paymentLink?.user?.ethereum_wallet_address || paymentLink?.user?.solana_wallet_address);
+
+    useEffect(() => {
+        if (!paymentLink) return;
+        if (!hasCryptoWallet && hasUsdBankDetails) {
+            setPaymentMethodTab('usd');
+            return;
+        }
+        if (paymentMethodTab === 'usd' && !hasUsdBankDetails) {
+            setPaymentMethodTab('crypto');
+        }
+    }, [paymentLink, hasCryptoWallet, hasUsdBankDetails, paymentMethodTab]);
+
+    const copyUsdAccountDetails = async () => {
+        if (!hasUsdBankDetails) return;
+        const text = [
+            `Bank: ${usdAccount?.bank_name || 'N/A'}`,
+            `Account Number: ${usdAccount?.account_number || ''}`,
+            `Routing Number: ${usdAccount?.routing_number || ''}`,
+            `Rail: ${usdAccount?.rail || 'ACH'}`,
+            `Currency: ${usdAccount?.currency || 'USD'}`,
+        ].join('\n');
+        try {
+            await navigator.clipboard.writeText(text);
+            alert('USD account details copied.');
+        } catch {
+            alert(text);
+        }
+    };
 
     // Loading state
     if (loading) {
@@ -591,21 +630,68 @@ export default function PaymentLinkPage() {
             >
                 <h1 className="payment-title" style={{ marginBottom: '32px' }}>Payment Link</h1>
 
+                <div
+                    style={{
+                        backgroundColor: '#F9FAFB',
+                        borderRadius: '999px',
+                        padding: '4px',
+                        display: 'flex',
+                        marginBottom: '24px',
+                        gap: '4px',
+                    }}
+                >
+                    <button
+                        onClick={() => setPaymentMethodTab('crypto')}
+                        style={{
+                            flex: 1,
+                            height: '36px',
+                            borderRadius: '999px',
+                            border: 'none',
+                            backgroundColor: paymentMethodTab === 'crypto' ? 'var(--primary, #2563EB)' : 'transparent',
+                            color: paymentMethodTab === 'crypto' ? '#FFFFFF' : '#6B7280',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Crypto
+                    </button>
+                    <button
+                        onClick={() => hasUsdBankDetails && setPaymentMethodTab('usd')}
+                        disabled={!hasUsdBankDetails}
+                        style={{
+                            flex: 1,
+                            height: '36px',
+                            borderRadius: '999px',
+                            border: 'none',
+                            backgroundColor: paymentMethodTab === 'usd' ? 'var(--primary, #2563EB)' : 'transparent',
+                            color: hasUsdBankDetails ? (paymentMethodTab === 'usd' ? '#FFFFFF' : '#6B7280') : '#9CA3AF',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: hasUsdBankDetails ? 'pointer' : 'not-allowed',
+                        }}
+                    >
+                        USD account
+                    </button>
+                </div>
+
                 <div className="info-grid" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                         <span className="info-label" style={{ color: '#6B7280' }}>Sold by</span>
                         <span className="info-value" style={{ fontWeight: 500, color: '#111827' }}>{merchantName}</span>
                     </div>
 
-                    <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                        <span className="info-label" style={{ color: '#6B7280' }}>Wallet</span>
-                        <span className="info-value" style={{ fontWeight: 500, color: '#6B7280' }}>
-                            {selectedChain === 'solana'
-                                ? (paymentLink.user?.solana_wallet_address ? `${paymentLink.user.solana_wallet_address.slice(0, 6)}...${paymentLink.user.solana_wallet_address.slice(-4)}` : 'N/A')
-                                : (paymentLink.user?.ethereum_wallet_address ? `${paymentLink.user.ethereum_wallet_address.slice(0, 6)}...${paymentLink.user.ethereum_wallet_address.slice(-4)}` : 'N/A')
-                            }
-                        </span>
-                    </div>
+                    {paymentMethodTab === 'crypto' && (
+                        <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <span className="info-label" style={{ color: '#6B7280' }}>Wallet</span>
+                            <span className="info-value" style={{ fontWeight: 500, color: '#6B7280' }}>
+                                {selectedChain === 'solana'
+                                    ? (paymentLink.user?.solana_wallet_address ? `${paymentLink.user.solana_wallet_address.slice(0, 6)}...${paymentLink.user.solana_wallet_address.slice(-4)}` : 'N/A')
+                                    : (paymentLink.user?.ethereum_wallet_address ? `${paymentLink.user.ethereum_wallet_address.slice(0, 6)}...${paymentLink.user.ethereum_wallet_address.slice(-4)}` : 'N/A')
+                                }
+                            </span>
+                        </div>
+                    )}
 
                     <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                         <span className="info-label" style={{ color: '#6B7280' }}>For</span>
@@ -620,62 +706,101 @@ export default function PaymentLinkPage() {
                         </div>
                     </div>
 
-                    <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                        <span className="info-label" style={{ color: '#6B7280' }}>Network</span>
-                        <div className="network-select-wrapper" style={{ width: 'auto', position: 'relative' }}>
-                            {/* Logo Overlay */}
-                            <img
-                                src={getChainIcon(selectedChain)}
-                                alt="Chain"
-                                style={{
-                                    position: 'absolute',
-                                    left: '12px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    width: '20px',
-                                    height: '20px',
-                                    pointerEvents: 'none',
-                                    zIndex: 1,
-                                    borderRadius: '50%' /* Rounded Logo */
-                                }}
-                            />
-                            <select
-                                value={selectedChain}
-                                onChange={(e) => {
-                                    setSelectedChain(e.target.value as ChainId);
-                                }}
-                                style={{
-                                    appearance: 'none',
-                                    backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23333%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E")`,
-                                    backgroundRepeat: 'no-repeat',
-                                    backgroundPosition: 'right 12px center',
-                                    backgroundSize: '16px',
-                                    paddingRight: '36px',
-                                    paddingLeft: '40px', /* Space for logo */
-                                    paddingTop: '8px',
-                                    paddingBottom: '8px',
-                                    border: '1px solid #E5E7EB',
-                                    borderRadius: '50px', /* Rounded 50px */
-                                    fontSize: '14px',
-                                    height: '40px',
-                                    color: '#111827',
-                                    outline: 'none',
-                                    cursor: 'pointer',
-                                    backgroundColor: 'white',
-                                    fontWeight: 500
-                                }}
-                            >
-                                {AVAILABLE_PAYMENT_CHAINS.map((chainOption) => (
-                                    <option key={chainOption.id} value={chainOption.id}>
-                                        {chainOption.label}
-                                    </option>
-                                ))}
-                            </select>
+                    {paymentMethodTab === 'crypto' && (
+                        <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <span className="info-label" style={{ color: '#6B7280' }}>Network</span>
+                            <div className="network-select-wrapper" style={{ width: 'auto', position: 'relative' }}>
+                                <img
+                                    src={getChainIcon(selectedChain)}
+                                    alt="Chain"
+                                    style={{
+                                        position: 'absolute',
+                                        left: '12px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        width: '20px',
+                                        height: '20px',
+                                        pointerEvents: 'none',
+                                        zIndex: 1,
+                                        borderRadius: '50%'
+                                    }}
+                                />
+                                <select
+                                    value={selectedChain}
+                                    onChange={(e) => {
+                                        setSelectedChain(e.target.value as ChainId);
+                                    }}
+                                    style={{
+                                        appearance: 'none',
+                                        backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23333%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E")`,
+                                        backgroundRepeat: 'no-repeat',
+                                        backgroundPosition: 'right 12px center',
+                                        backgroundSize: '16px',
+                                        paddingRight: '36px',
+                                        paddingLeft: '40px',
+                                        paddingTop: '8px',
+                                        paddingBottom: '8px',
+                                        border: '1px solid #E5E7EB',
+                                        borderRadius: '50px',
+                                        fontSize: '14px',
+                                        height: '40px',
+                                        color: '#111827',
+                                        outline: 'none',
+                                        cursor: 'pointer',
+                                        backgroundColor: 'white',
+                                        fontWeight: 500
+                                    }}
+                                >
+                                    {AVAILABLE_PAYMENT_CHAINS.map((chainOption) => (
+                                        <option key={chainOption.id} value={chainOption.id}>
+                                            {chainOption.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
-                <div className="action-section" style={{ marginTop: '32px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                {paymentMethodTab === 'usd' && hasUsdBankDetails && (
+                    <div style={{ backgroundColor: '#F9FAFB', borderRadius: '12px', padding: '16px 20px', marginTop: '24px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '12px' }}>
+                            Pay via USD account
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                                <span style={{ color: '#6B7280', fontSize: '13px' }}>Bank</span>
+                                <span style={{ color: '#111827', fontSize: '13px', fontWeight: 500, textAlign: 'right' }}>{usdAccount?.bank_name || 'N/A'}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                                <span style={{ color: '#6B7280', fontSize: '13px' }}>Account number</span>
+                                <span style={{ color: '#111827', fontSize: '13px', fontWeight: 500, textAlign: 'right' }}>{usdAccount?.account_number}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                                <span style={{ color: '#6B7280', fontSize: '13px' }}>Routing number</span>
+                                <span style={{ color: '#111827', fontSize: '13px', fontWeight: 500, textAlign: 'right' }}>{usdAccount?.routing_number}</span>
+                            </div>
+                        </div>
+                        <button
+                            onClick={copyUsdAccountDetails}
+                            style={{
+                                width: '100%',
+                                height: '40px',
+                                borderRadius: '20px',
+                                border: '1px solid #E5E7EB',
+                                backgroundColor: '#FFFFFF',
+                                color: '#111827',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Copy USD account details
+                        </button>
+                    </div>
+                )}
+
+                {paymentMethodTab === 'crypto' && (
+                    <div className="action-section" style={{ marginTop: '32px', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     {selectedChain === 'solana' ? (
                         <button
                             className={`pay-button redesigned ${isPaying ? 'loading' : ''}`}
@@ -747,7 +872,8 @@ export default function PaymentLinkPage() {
                             )}
                         </button>
                     )}
-                </div>
+                    </div>
+                )}
             </div>
 
             <div className="secured-footer" style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.6 }}>

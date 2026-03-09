@@ -92,8 +92,8 @@ class BridgeUsdService {
             .map((item) => item.trim().toLowerCase())
             .filter(Boolean);
 
-        // Explicit allowlist only: if empty, feature is effectively disabled for everyone.
-        if (allowlist.length === 0) return false;
+        // If allowlist is empty, feature is globally enabled.
+        if (allowlist.length === 0) return true;
 
         const normalizedUserId = String(userId || '').trim().toLowerCase();
         const normalizedEmail = String(userEmail || '').trim().toLowerCase();
