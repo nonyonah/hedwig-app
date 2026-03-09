@@ -141,6 +141,7 @@ class BridgeUsdService {
 
     private isSandboxMode(): boolean {
         const bridgeEnv = (process.env.BRIDGE_ENV || '').toLowerCase();
+        if (bridgeEnv === 'production' || bridgeEnv === 'prod' || bridgeEnv === 'live') return false;
         if (bridgeEnv === 'sandbox' || bridgeEnv === 'test') return true;
 
         const apiBase = (this.apiBaseUrl || process.env.BRIDGE_API_BASE_URL || '').toLowerCase();
@@ -153,11 +154,16 @@ class BridgeUsdService {
     }
 
     private resolveApiBaseUrl(): string {
+        const bridgeEnv = (process.env.BRIDGE_ENV || '').toLowerCase();
         const configured = (process.env.BRIDGE_API_BASE_URL || '').trim();
         const apiKey = (process.env.BRIDGE_API_KEY || '').trim().toLowerCase();
         const isTestKey = apiKey.startsWith('sk-test-');
         const sandboxBase = 'https://api.sandbox.bridge.xyz';
         const productionBase = 'https://api.bridge.xyz';
+
+        if (bridgeEnv === 'production' || bridgeEnv === 'prod' || bridgeEnv === 'live') {
+            return configured ? configured.replace(/\/+$/, '') : productionBase;
+        }
 
         if (!configured) {
             return isTestKey ? sandboxBase : productionBase;
@@ -481,18 +487,27 @@ class BridgeUsdService {
         const eventType =
             this.readString(payload, ['type', 'event', 'event_type', 'eventType']) || 'transfer.updated';
 
+        const eventObject =
+            this.readObject(payload, ['event_object', 'eventObject', 'object']) ||
+            this.readObject(payload, ['data']) ||
+            {};
+
         const transferObj =
             this.readObject(payload, ['data', 'transfer']) ||
+            this.readObject(eventObject, ['transfer']) ||
             this.readObject(payload, ['transfer']) ||
+            eventObject ||
             payload;
 
         const transferId =
             this.readString(transferObj, ['id', 'transfer_id', 'transferId']) ||
+            this.readString(eventObject, ['id', 'transfer_id', 'transferId']) ||
             this.readString(payload, ['transfer_id', 'transferId']) ||
             '';
 
         const customerId =
             this.readString(transferObj, ['customer_id', 'customerId']) ||
+            this.readString(eventObject, ['customer_id', 'customerId']) ||
             this.readString(payload, ['customer_id', 'customerId']) ||
             null;
 

@@ -6,6 +6,7 @@ const logger = createLogger('Notifications');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EXPO_RECEIPTS_URL = 'https://exp.host/--/api/v2/push/getReceipts';
+const ONESIGNAL_NOTIFICATIONS_URL = 'https://api.onesignal.com/notifications';
 
 export interface PushNotificationPayload {
     title: string;
@@ -46,6 +47,117 @@ interface ExpoPushReceipt {
  * NotificationService - Sends push notifications via Expo Push API
  */
 class NotificationService {
+    private getOneSignalConfig() {
+        const appId = String(process.env.ONESIGNAL_APP_ID || '').trim();
+        const restApiKey = String(process.env.ONESIGNAL_REST_API_KEY || '').trim();
+        return {
+            appId,
+            restApiKey,
+            enabled: Boolean(appId && restApiKey),
+        };
+    }
+
+    isOneSignalConfigured(): boolean {
+        return this.getOneSignalConfig().enabled;
+    }
+
+    private getOneSignalHeaders(restApiKey: string) {
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Key ${restApiKey}`,
+        };
+    }
+
+    private async getUserPrivyId(userId: string): Promise<string | null> {
+        const { data, error } = await supabase
+            .from('users')
+            .select('privy_id')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (error) {
+            logger.warn('Failed to look up user privy_id for OneSignal', { userId, error: error.message });
+            return null;
+        }
+
+        const privyId = String((data as any)?.privy_id || '').trim();
+        return privyId || null;
+    }
+
+    private async sendOneSignalToExternalUsers(externalUserIds: string[], payload: PushNotificationPayload): Promise<ExpoPushTicket[]> {
+        const { appId, restApiKey, enabled } = this.getOneSignalConfig();
+        if (!enabled || externalUserIds.length === 0) return [];
+
+        try {
+            const response = await axios.post(
+                ONESIGNAL_NOTIFICATIONS_URL,
+                {
+                    app_id: appId,
+                    include_external_user_ids: externalUserIds,
+                    channel_for_external_user_ids: 'push',
+                    headings: { en: payload.title },
+                    contents: { en: payload.body },
+                    data: payload.data || {},
+                },
+                {
+                    headers: this.getOneSignalHeaders(restApiKey),
+                }
+            );
+
+            const notificationId = response.data?.id;
+            return [{
+                status: 'ok',
+                id: notificationId,
+            }];
+        } catch (error: any) {
+            logger.error('Error sending OneSignal notification', {
+                error: error.message,
+                response: error?.response?.data,
+            });
+            return [{
+                status: 'error',
+                message: error.message,
+                details: error?.response?.data,
+            }];
+        }
+    }
+
+    async sendOneSignalBroadcast(payload: PushNotificationPayload): Promise<ExpoPushTicket[]> {
+        const { appId, restApiKey, enabled } = this.getOneSignalConfig();
+        if (!enabled) return [];
+
+        try {
+            const response = await axios.post(
+                ONESIGNAL_NOTIFICATIONS_URL,
+                {
+                    app_id: appId,
+                    included_segments: ['Subscribed Users'],
+                    headings: { en: payload.title },
+                    contents: { en: payload.body },
+                    data: payload.data || {},
+                },
+                {
+                    headers: this.getOneSignalHeaders(restApiKey),
+                }
+            );
+
+            return [{
+                status: 'ok',
+                id: response.data?.id,
+            }];
+        } catch (error: any) {
+            logger.error('Error sending OneSignal broadcast', {
+                error: error.message,
+                response: error?.response?.data,
+            });
+            return [{
+                status: 'error',
+                message: error.message,
+                details: error?.response?.data,
+            }];
+        }
+    }
+
     private isValidExpoToken(expoPushToken: string): boolean {
         return expoPushToken.startsWith('ExponentPushToken[') || expoPushToken.startsWith('ExpoPushToken[');
     }
@@ -286,6 +398,18 @@ class NotificationService {
      */
     async notifyUser(userId: string, payload: PushNotificationPayload): Promise<ExpoPushTicket[]> {
         try {
+            if (this.isOneSignalConfigured()) {
+                const privyId = await this.getUserPrivyId(userId);
+                if (privyId) {
+                    const oneSignalTickets = await this.sendOneSignalToExternalUsers([privyId], payload);
+                    const hasOkTicket = oneSignalTickets.some((ticket) => ticket.status === 'ok');
+                    if (hasOkTicket) {
+                        return oneSignalTickets;
+                    }
+                    logger.warn('OneSignal send failed; falling back to Expo token path', { userId });
+                }
+            }
+
             // Get all device tokens for this user
             const { data: tokens, error } = await supabase
                 .from('device_tokens')

@@ -37,6 +37,7 @@ SplashScreen.setOptions({
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
+const ONESIGNAL_APP_ID = Constants.expoConfig?.extra?.oneSignalAppId || process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID || '';
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || '';
 
 // Sentry Navigation Integration for Expo Router
@@ -135,10 +136,36 @@ import { UserProvider } from '../context/UserContext';
 function PushNotificationBootstrap() {
     const { user, isReady, getAccessToken } = useAuth();
     const { isRegistered, registerForPushNotifications, registerWithBackend } = usePushNotifications();
+    const initializedOneSignalRef = React.useRef(false);
 
     useEffect(() => {
         const setupPushNotifications = async () => {
-            if (!isReady || !user || isRegistered) return;
+            if (!isReady) return;
+
+            // Prefer OneSignal when configured.
+            if (Platform.OS !== 'web' && ONESIGNAL_APP_ID) {
+                try {
+                    const oneSignalModule = require('react-native-onesignal');
+                    const OneSignal = oneSignalModule?.default || oneSignalModule;
+
+                    if (!initializedOneSignalRef.current) {
+                        OneSignal.initialize(ONESIGNAL_APP_ID);
+                        OneSignal.Notifications.requestPermission(true);
+                        initializedOneSignalRef.current = true;
+                    }
+
+                    if (user?.id) {
+                        OneSignal.login(user.id);
+                    } else if (initializedOneSignalRef.current) {
+                        OneSignal.logout();
+                    }
+                } catch (error) {
+                    console.error('[Push] OneSignal initialization failed, falling back to Expo:', error);
+                }
+                return;
+            }
+
+            if (!user || isRegistered) return;
 
             try {
                 const pushToken = await registerForPushNotifications();

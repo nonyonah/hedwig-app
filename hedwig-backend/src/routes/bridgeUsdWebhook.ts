@@ -37,6 +37,8 @@ router.post('/', async (req: Request, res: Response) => {
         const signature =
             (req.headers['x-webhook-signature'] as string | undefined) ||
             (req.headers['x-bridge-signature'] as string | undefined) ||
+            (req.headers['webhook-signature'] as string | undefined) ||
+            (req.headers['bridge-signature'] as string | undefined) ||
             undefined;
         const rawBody = ((req as any).rawBody as string | undefined) || JSON.stringify(req.body || {});
         const signatureValid = bridgeUsdService.verifyWebhookSignature(rawBody, signature);

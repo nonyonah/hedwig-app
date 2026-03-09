@@ -8,6 +8,23 @@ const logger = createLogger('NotificationsRoute');
 
 const router = Router();
 
+const canSendBroadcast = (user: any): boolean => {
+    if (process.env.NOTIFICATION_BROADCAST_ENABLED !== 'true') return false;
+
+    const allowlist = String(process.env.NOTIFICATION_BROADCAST_ALLOWLIST || '')
+        .split(',')
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean);
+
+    if (allowlist.length === 0) return false;
+
+    const userId = String(user?.id || '').toLowerCase();
+    const userEmail = String(user?.email || '').toLowerCase();
+    const userPrivyId = String(user?.privy_id || '').toLowerCase();
+
+    return allowlist.includes(userId) || allowlist.includes(userEmail) || allowlist.includes(userPrivyId);
+};
+
 /**
  * POST /api/notifications/register
  * Register a device push token for the authenticated user
@@ -166,6 +183,159 @@ router.post('/test', authenticate, async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         logger.error('Error sending test');
+        res.status(500).json({
+            success: false,
+            error: { message: error.message || 'Internal server error' },
+        });
+    }
+});
+
+/**
+ * POST /api/notifications/broadcast
+ * Send announcement/highlight notification to all users.
+ * Protected by NOTIFICATION_BROADCAST_ENABLED + NOTIFICATION_BROADCAST_ALLOWLIST.
+ */
+router.post('/broadcast', authenticate, async (req: Request, res: Response) => {
+    try {
+        const privyId = req.user!.id;
+        const sender = await getOrCreateUser(privyId);
+        if (!sender) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'Sender not found' },
+            });
+            return;
+        }
+
+        if (!canSendBroadcast(sender)) {
+            res.status(403).json({
+                success: false,
+                error: { message: 'Broadcast notifications are not enabled for this user' },
+            });
+            return;
+        }
+
+        const {
+            title,
+            body,
+            type = 'announcement',
+            data = {},
+            createInApp = true,
+            sendPush = true,
+        } = req.body || {};
+
+        if (!title || !body) {
+            res.status(400).json({
+                success: false,
+                error: { message: 'title and body are required' },
+            });
+            return;
+        }
+
+        const { data: users, error: usersError } = await supabase
+            .from('users')
+            .select('id')
+            .not('id', 'is', null);
+
+        if (usersError) {
+            throw new Error(`Failed to load users: ${usersError.message}`);
+        }
+
+        const userIds = (users || []).map((u: any) => u.id).filter(Boolean);
+        if (userIds.length === 0) {
+            res.json({
+                success: true,
+                data: { recipients: 0, inAppInserted: 0, pushedToTokens: 0, tickets: [] },
+            });
+            return;
+        }
+
+        let inAppInserted = 0;
+        if (createInApp) {
+            const rows = userIds.map((userId: string) => ({
+                user_id: userId,
+                type,
+                title,
+                message: body,
+                metadata: {
+                    ...data,
+                    broadcast: true,
+                    sentBy: sender.id,
+                    sentAt: new Date().toISOString(),
+                },
+                is_read: false,
+            }));
+
+            const { error: insertError } = await supabase
+                .from('notifications')
+                .insert(rows);
+
+            if (insertError) {
+                throw new Error(`Failed to create in-app broadcast notifications: ${insertError.message}`);
+            }
+            inAppInserted = rows.length;
+        }
+
+        let pushedToTokens = 0;
+        let tickets: any[] = [];
+        if (sendPush) {
+            if (NotificationService.isOneSignalConfigured()) {
+                tickets = await NotificationService.sendOneSignalBroadcast({
+                    title,
+                    body,
+                    data: {
+                        type,
+                        ...data,
+                        broadcast: true,
+                    },
+                });
+                pushedToTokens = userIds.length;
+            } else {
+                const { data: tokens, error: tokenError } = await supabase
+                    .from('device_tokens')
+                    .select('expo_push_token');
+
+                if (tokenError) {
+                    throw new Error(`Failed to load device tokens: ${tokenError.message}`);
+                }
+
+                const uniqueTokens = Array.from(
+                    new Set((tokens || []).map((t: any) => t.expo_push_token).filter(Boolean))
+                );
+
+                if (uniqueTokens.length > 0) {
+                    tickets = await NotificationService.sendBulkNotifications(uniqueTokens, {
+                        title,
+                        body,
+                        data: {
+                            type,
+                            ...data,
+                            broadcast: true,
+                        },
+                    });
+                    pushedToTokens = uniqueTokens.length;
+                }
+            }
+        }
+
+        logger.info('Broadcast notification sent', {
+            senderId: sender.id,
+            recipients: userIds.length,
+            inAppInserted,
+            pushedToTokens,
+        });
+
+        res.json({
+            success: true,
+            data: {
+                recipients: userIds.length,
+                inAppInserted,
+                pushedToTokens,
+                tickets,
+            },
+        });
+    } catch (error: any) {
+        logger.error('Error sending broadcast notification');
         res.status(500).json({
             success: false,
             error: { message: error.message || 'Internal server error' },
