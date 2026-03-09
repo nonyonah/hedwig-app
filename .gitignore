@@ -50,5 +50,7 @@ yarn-error.*
 .env.local
 
 credentials.json
+google-services.json
+GoogleService-Info.plist
 
 setup_eas_secrets.sh
