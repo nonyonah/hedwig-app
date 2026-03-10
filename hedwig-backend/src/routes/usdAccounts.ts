@@ -231,6 +231,7 @@ router.post('/kyc-link', authenticate, async (req: Request, res: Response, next)
         const authUserId = req.user!.id;
         const user = await getOrCreateUser(authUserId);
         const account = await ensureUsdAccountRow(user.id);
+        const sandboxMode = bridgeUsdService.isSandbox();
 
         if (!account.bridge_customer_id) {
             res.status(400).json({
@@ -240,7 +241,91 @@ router.post('/kyc-link', authenticate, async (req: Request, res: Response, next)
             return;
         }
 
-        const link = await bridgeUsdService.createKycLink(account.bridge_customer_id);
+        let bridgeCustomerId = account.bridge_customer_id;
+
+        const relinkBridgeCustomer = async () => {
+            const recreatedCustomer = await bridgeUsdService.createOrGetCustomer({
+                externalUserId: user.id,
+                email: user.email || null,
+                firstName: user.first_name || null,
+                lastName: user.last_name || null,
+            });
+            bridgeCustomerId = recreatedCustomer.id;
+
+            const { error: relinkError } = await supabase
+                .from('user_usd_accounts')
+                .update({
+                    bridge_customer_id: recreatedCustomer.id,
+                    bridge_kyc_status: sandboxMode ? 'approved' : (recreatedCustomer.kycStatus || 'pending'),
+                    provider_status: sandboxMode ? 'active' : (recreatedCustomer.status || 'pending_kyc'),
+                })
+                .eq('id', account.id);
+
+            if (relinkError) {
+                throw new Error(`Failed to relink Bridge customer for KYC link: ${relinkError.message}`);
+            }
+        };
+
+        try {
+            await bridgeUsdService.getCustomer(bridgeCustomerId);
+        } catch (customerError: any) {
+            const status = Number(customerError?.response?.status || 0);
+            if (status === 404) {
+                logger.warn('Stored Bridge customer not found while creating KYC link; recreating linkage', {
+                    userId: user.id,
+                    staleBridgeCustomerId: bridgeCustomerId,
+                    sandboxMode,
+                });
+                await relinkBridgeCustomer();
+            } else if (status === 401) {
+                logger.error('Bridge authentication failed while validating customer for KYC link', {
+                    userId: user.id,
+                    bridgeCustomerId,
+                    sandboxMode,
+                });
+                res.status(502).json({
+                    success: false,
+                    error: {
+                        message: 'Bridge authentication failed. Verify BRIDGE_API_KEY, BRIDGE_API_BASE_URL, and BRIDGE_ENV in backend runtime config.',
+                    },
+                });
+                return;
+            } else {
+                throw customerError;
+            }
+        }
+
+        let link;
+        try {
+            link = await bridgeUsdService.createKycLink(bridgeCustomerId);
+        } catch (kycLinkError: any) {
+            const status = Number(kycLinkError?.response?.status || 0);
+            if (status === 404) {
+                logger.warn('Bridge customer missing while creating KYC link; retrying after relink', {
+                    userId: user.id,
+                    bridgeCustomerId,
+                    sandboxMode,
+                });
+                await relinkBridgeCustomer();
+                link = await bridgeUsdService.createKycLink(bridgeCustomerId);
+            } else if (status === 401) {
+                logger.error('Bridge authentication failed while creating KYC link', {
+                    userId: user.id,
+                    bridgeCustomerId,
+                    sandboxMode,
+                });
+                res.status(502).json({
+                    success: false,
+                    error: {
+                        message: 'Bridge authentication failed. Verify BRIDGE_API_KEY, BRIDGE_API_BASE_URL, and BRIDGE_ENV in backend runtime config.',
+                    },
+                });
+                return;
+            } else {
+                throw kycLinkError;
+            }
+        }
+
         if (!link.url) {
             res.status(502).json({
                 success: false,
