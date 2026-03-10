@@ -378,7 +378,63 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
-        const bridgeCustomer = await bridgeUsdService.getCustomer(account.bridge_customer_id);
+        let bridgeCustomer;
+        try {
+            bridgeCustomer = await bridgeUsdService.getCustomer(account.bridge_customer_id);
+        } catch (bridgeCustomerError: any) {
+            const status = Number(bridgeCustomerError?.response?.status || 0);
+
+            if (status === 404) {
+                logger.warn('Stored Bridge customer not found; recreating customer linkage', {
+                    userId: user.id,
+                    staleBridgeCustomerId: account.bridge_customer_id,
+                    sandboxMode,
+                });
+
+                const recreatedCustomer = await bridgeUsdService.createOrGetCustomer({
+                    externalUserId: user.id,
+                    email: user.email || null,
+                    firstName: user.first_name || null,
+                    lastName: user.last_name || null,
+                });
+
+                bridgeCustomer = recreatedCustomer;
+                account.bridge_customer_id = recreatedCustomer.id;
+
+                const { error: relinkError } = await supabase
+                    .from('user_usd_accounts')
+                    .update({
+                        bridge_customer_id: recreatedCustomer.id,
+                        bridge_kyc_status: sandboxMode ? 'approved' : (recreatedCustomer.kycStatus || 'pending'),
+                        provider_status: sandboxMode ? 'active' : (recreatedCustomer.status || 'pending_kyc'),
+                    })
+                    .eq('id', account.id);
+
+                if (relinkError) {
+                    throw new Error(`Failed to relink Bridge customer after 404: ${relinkError.message}`);
+                }
+            } else if (status === 401) {
+                logger.error('Bridge authentication failed while fetching customer', {
+                    userId: user.id,
+                    bridgeCustomerId: account.bridge_customer_id,
+                    sandboxMode,
+                });
+                res.status(502).json({
+                    success: false,
+                    error: {
+                        message: 'Bridge authentication failed. Verify BRIDGE_API_KEY, BRIDGE_API_BASE_URL, and BRIDGE_ENV in backend runtime config.',
+                    },
+                });
+                return;
+            } else {
+                throw bridgeCustomerError;
+            }
+        }
+
+        if (!bridgeCustomer) {
+            throw new Error('Unable to resolve Bridge customer for USD account');
+        }
+
         let bridgeKycStatus = sandboxMode ? 'approved' : (bridgeCustomer.kycStatus || account.bridge_kyc_status || 'pending');
         let providerStatus = sandboxMode ? 'active' : (bridgeCustomer.status || account.provider_status || 'pending_kyc');
         logger.info('Bridge customer readiness', {

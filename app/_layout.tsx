@@ -13,7 +13,7 @@ import {
     GoogleSansFlex_600SemiBold,
 } from '@expo-google-fonts/google-sans-flex';
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
-import { View, Platform, Image, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Platform, Image, ActivityIndicator, StyleSheet, AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
@@ -137,6 +137,29 @@ function PushNotificationBootstrap() {
     const { user, isReady, getAccessToken } = useAuth();
     const { isRegistered, registerForPushNotifications, registerWithBackend } = usePushNotifications();
     const initializedOneSignalRef = React.useRef(false);
+    const oneSignalRef = React.useRef<any>(null);
+
+    const ensureOneSignalPermission = useCallback(async () => {
+        const OneSignal = oneSignalRef.current;
+        if (!OneSignal) return;
+
+        try {
+            const hasPermission = Boolean(OneSignal.Notifications?.permission);
+            const canRequestPermission = Boolean(OneSignal.Notifications?.canRequestPermission);
+
+            // Ask on first run; if already denied, OneSignal will route user to app settings.
+            if (!hasPermission || canRequestPermission) {
+                await OneSignal.Notifications.requestPermission(true);
+            }
+
+            // Ensure device is opted in on OneSignal side.
+            if (OneSignal.User?.pushSubscription?.optIn) {
+                OneSignal.User.pushSubscription.optIn();
+            }
+        } catch (error) {
+            console.error('[Push] Failed to ensure OneSignal permission:', error);
+        }
+    }, []);
 
     useEffect(() => {
         const setupPushNotifications = async () => {
@@ -147,15 +170,16 @@ function PushNotificationBootstrap() {
                 try {
                     const oneSignalModule = require('react-native-onesignal');
                     const OneSignal = oneSignalModule?.default || oneSignalModule;
+                    oneSignalRef.current = OneSignal;
 
                     if (!initializedOneSignalRef.current) {
                         OneSignal.initialize(ONESIGNAL_APP_ID);
-                        OneSignal.Notifications.requestPermission(true);
                         initializedOneSignalRef.current = true;
                     }
 
                     if (user?.id) {
                         OneSignal.login(user.id);
+                        await ensureOneSignalPermission();
                     } else if (initializedOneSignalRef.current) {
                         OneSignal.logout();
                     }
@@ -181,7 +205,20 @@ function PushNotificationBootstrap() {
         };
 
         setupPushNotifications();
-    }, [isReady, user, isRegistered, getAccessToken, registerForPushNotifications, registerWithBackend]);
+    }, [isReady, user, isRegistered, getAccessToken, registerForPushNotifications, registerWithBackend, ensureOneSignalPermission]);
+
+    useEffect(() => {
+        if (Platform.OS === 'web' || !ONESIGNAL_APP_ID) return;
+        const appStateSubscription = AppState.addEventListener('change', (state) => {
+            if (state === 'active') {
+                void ensureOneSignalPermission();
+            }
+        });
+
+        return () => {
+            appStateSubscription.remove();
+        };
+    }, [ensureOneSignalPermission]);
 
     return null;
 }
