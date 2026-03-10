@@ -321,6 +321,20 @@ router.post('/kyc-link', authenticate, async (req: Request, res: Response, next)
                     },
                 });
                 return;
+            } else if (status === 400 || status === 422) {
+                logger.warn('Bridge rejected KYC link creation', {
+                    userId: user.id,
+                    bridgeCustomerId,
+                    sandboxMode,
+                    response: kycLinkError?.response?.data || null,
+                });
+                res.status(502).json({
+                    success: false,
+                    error: {
+                        message: 'Bridge could not start KYC for this account right now. Please verify the customer is eligible in Bridge and try again.',
+                    },
+                });
+                return;
             } else {
                 throw kycLinkError;
             }

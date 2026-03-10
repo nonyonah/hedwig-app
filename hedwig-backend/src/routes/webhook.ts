@@ -5,6 +5,7 @@ import NotificationService from '../services/notifications';
 import BackendAnalytics from '../services/analytics';
 import { markCalendarEventCompleted } from './calendar';
 import { createLogger } from '../utils/logger';
+import { buildIncomingPaymentCopy } from '../utils/notificationCopy';
 
 const logger = createLogger('Webhook');
 
@@ -364,19 +365,29 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                 // Build notification message with client/document details
                 const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
                 let clientInfo = shortAddress;
-                let notificationTitle = notificationType === 'payment_received' ? 'Payment Received! 🎉' : 'Crypto Received';
-                let notificationMessage = `You received ${transfer.value} ${transfer.asset} from ${shortAddress} on ${network}.`;
+                const amountText = `${transfer.value} ${transfer.asset}`;
+                let copy = buildIncomingPaymentCopy({
+                    kind: 'crypto',
+                    clientOrSender: shortAddress,
+                    reference: 'transfer',
+                    amountText,
+                    networkLabel: network,
+                });
 
                 if (document) {
                     const content = document.content as any;
                     clientInfo = content?.client_name || content?.recipient_email || shortAddress;
-                    const docType = document.type === 'invoice' ? 'Invoice' : 'Payment link';
                     const docNumber = document.type === 'invoice'
                         ? `INV-${document.id.slice(0, 8).toUpperCase()}`
                         : document.title || 'Payment';
 
-                    notificationTitle = `💰 ${docType} Paid!`;
-                    notificationMessage = `${clientInfo} paid ${docNumber} - ${transfer.value} ${transfer.asset} received!`;
+                    copy = buildIncomingPaymentCopy({
+                        kind: document.type === 'invoice' ? 'invoice' : 'payment_link',
+                        clientOrSender: clientInfo,
+                        reference: docNumber,
+                        amountText,
+                        networkLabel: network,
+                    });
 
                     // Update document status to PAID
                     const { error: updateError } = await supabase
@@ -400,8 +411,8 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                 // Send push notification
                 logger.info('Sending push notification to user', { userId: recipientUser.id });
                 const notifyResult = await NotificationService.notifyUser(recipientUser.id, {
-                    title: notificationTitle,
-                    body: notificationMessage,
+                    title: copy.title,
+                    body: copy.body,
                     data: { type: notificationType, txHash: transfer.txHash, documentId: document?.id },
                 });
                 logger.info('Push notification result', { tickets: notifyResult.length });
@@ -410,8 +421,8 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                 const { error: notifError } = await supabase.from('notifications').insert({
                     user_id: recipientUser.id,
                     type: notificationType,
-                    title: notificationTitle,
-                    message: notificationMessage,
+                    title: copy.title,
+                    message: copy.body,
                     metadata: {
                         txHash: transfer.txHash,
                         amount: transfer.value.toString(),
@@ -547,19 +558,29 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
                     // Build notification message with client/document details
                     const shortAddress = `${transfer.from.slice(0, 6)}...${transfer.from.slice(-4)}`;
                     let clientInfo = shortAddress;
-                    let notificationTitle = notificationType === 'payment_received' ? 'Payment Received! 🎉' : 'Crypto Received';
-                    let notificationMessage = `You received ${transfer.value.toFixed(6)} ${transfer.asset} from ${shortAddress} on Solana.`;
+                    const amountText = `${transfer.value.toFixed(6)} ${transfer.asset}`;
+                    let copy = buildIncomingPaymentCopy({
+                        kind: 'crypto',
+                        clientOrSender: shortAddress,
+                        reference: 'transfer',
+                        amountText,
+                        networkLabel: 'Solana',
+                    });
 
                     if (document) {
                         const content = document.content as any;
                         clientInfo = content?.client_name || content?.recipient_email || shortAddress;
-                        const docType = document.type === 'invoice' ? 'Invoice' : 'Payment link';
                         const docNumber = document.type === 'invoice'
                             ? `INV-${document.id.slice(0, 8).toUpperCase()}`
                             : document.title || 'Payment';
 
-                        notificationTitle = `💰 ${docType} Paid!`;
-                        notificationMessage = `${clientInfo} paid ${docNumber} - ${transfer.value.toFixed(6)} ${transfer.asset} received!`;
+                        copy = buildIncomingPaymentCopy({
+                            kind: document.type === 'invoice' ? 'invoice' : 'payment_link',
+                            clientOrSender: clientInfo,
+                            reference: docNumber,
+                            amountText,
+                            networkLabel: 'Solana',
+                        });
 
                         // Update document status to PAID
                         await supabase
@@ -576,8 +597,8 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
 
                     // Send push notification
                     await NotificationService.notifyUser(recipientUser.id, {
-                        title: notificationTitle,
-                        body: notificationMessage,
+                        title: copy.title,
+                        body: copy.body,
                         data: { type: notificationType, txHash: transfer.signature, documentId: document?.id },
                     });
 
@@ -585,8 +606,8 @@ async function processSolanaActivity(event: AlchemySolanaAddressActivityEvent) {
                     await supabase.from('notifications').insert({
                         user_id: recipientUser.id,
                         type: notificationType,
-                        title: notificationTitle,
-                        message: notificationMessage,
+                        title: copy.title,
+                        message: copy.body,
                         metadata: {
                             txHash: transfer.signature,
                             amount: transfer.value.toFixed(6),

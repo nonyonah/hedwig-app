@@ -154,12 +154,23 @@ export default function UsdAccountScreen() {
         setRefreshing(false);
     };
 
+    const openBridgeKycFlow = async () => {
+        const result = await createUsdKycLink(getAccessToken);
+        if (!result.url) {
+            Alert.alert('Unavailable', 'KYC link is not available right now.');
+            return;
+        }
+
+        await WebBrowser.openBrowserAsync(result.url);
+        await loadData();
+        Alert.alert('Under review', 'Your Bridge KYC has been submitted. We will notify you once your USD account is ready.');
+    };
+
     const handleEnroll = async () => {
         try {
             setIsContinuing(true);
             await enrollUsdAccount(getAccessToken);
-            await loadData();
-            Alert.alert('Setup started', 'Fetching your USD account details...');
+            await openBridgeKycFlow();
         } catch (error: any) {
             Alert.alert('Could not start enrollment', error?.message || 'Please try again.');
         } finally {
@@ -169,12 +180,7 @@ export default function UsdAccountScreen() {
 
     const handleBridgeKyc = async () => {
         try {
-            const result = await createUsdKycLink(getAccessToken);
-            if (!result.url) {
-                Alert.alert('Unavailable', 'KYC link is not available right now.');
-                return;
-            }
-            await WebBrowser.openBrowserAsync(result.url);
+            await openBridgeKycFlow();
         } catch (error: any) {
             Alert.alert('Could not open KYC', error?.message || 'Please try again.');
         }

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { bridgeUsdService } from '../services/bridgeUsd';
 import NotificationService from '../services/notifications';
 import { createLogger } from '../utils/logger';
+import { buildUsdDepositCopy } from '../utils/notificationCopy';
 
 const logger = createLogger('BridgeUsdWebhook');
 const router = Router();
@@ -114,6 +115,14 @@ router.post('/', async (req: Request, res: Response) => {
         const feeCalc = bridgeUsdService.calculateFees(event.amountUsd, event.providerFeeUsd);
         const computedUsdcSettled = event.usdcAmountSettled > 0 ? event.usdcAmountSettled : feeCalc.netSettlementUsd;
         const completedAt = isCompletedStatus(event.status) ? new Date().toISOString() : null;
+        const payloadText = JSON.stringify(event.payload || {}).toLowerCase();
+        const sourceType = payloadText.includes('ach') ? 'ach' : payloadText.includes('address') ? 'external_address' : 'unknown';
+        const copy = buildUsdDepositCopy({
+            grossUsd: event.amountUsd,
+            usdcAmount: computedUsdcSettled,
+            walletLabel: settlement.walletLabel,
+            source: sourceType,
+        });
 
         const { data: transfer, error: upsertError } = await supabase
             .from('bridge_usd_transfers')
@@ -165,8 +174,8 @@ router.post('/', async (req: Request, res: Response) => {
                 .from('notifications')
                 .insert({
                     user_id: userId,
-                    title: 'USD Deposit Settled',
-                    message: `$${event.amountUsd.toFixed(2)} received. ${computedUsdcSettled.toFixed(2)} USDC settled to ${settlement.walletLabel}.`,
+                    title: copy.title,
+                    message: copy.body,
                     type: 'usd_deposit_settled',
                     metadata: {
                         transferId: transfer.id,
@@ -202,8 +211,8 @@ router.post('/', async (req: Request, res: Response) => {
 
             try {
                 await NotificationService.notifyUser(userId, {
-                    title: 'USD Deposit Settled',
-                    body: `${computedUsdcSettled.toFixed(2)} USDC has been sent to your ${settlement.walletLabel}.`,
+                    title: copy.title,
+                    body: copy.body,
                     data: {
                         type: 'usd_deposit_settled',
                         transferId: transfer.id,

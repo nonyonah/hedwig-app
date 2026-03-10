@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import NotificationService from '../services/notifications';
 import BackendAnalytics from '../services/analytics';
 import { createLogger } from '../utils/logger';
+import { buildOfframpCopy } from '../utils/notificationCopy';
 
 const logger = createLogger('PaycrestWebhook');
 
@@ -311,18 +312,13 @@ router.post('/', async (req: Request, res: Response) => {
 
         if (internalUserId && statusChanged) {
             const destination = `${resolvedOrder.bank_name} • ****${resolvedOrder.account_number?.slice(-4) || ''}`;
-            const title =
-                newStatus === 'COMPLETED'
-                    ? 'Withdrawal Successful'
-                    : newStatus === 'FAILED'
-                        ? 'Withdrawal Failed'
-                        : 'Withdrawal Update';
-            const body =
-                newStatus === 'COMPLETED'
-                    ? `${Number(resolvedOrder.fiat_amount || 0).toFixed(2)} ${resolvedOrder.fiat_currency} has been sent to your bank account.`
-                    : newStatus === 'FAILED'
-                        ? `Your withdrawal to ${destination} failed. Please try again.`
-                        : `Your withdrawal to ${destination} is now ${newStatus.toLowerCase()}.`;
+            const copy = buildOfframpCopy({
+                status: newStatus,
+                fiatAmount: Number(resolvedOrder.fiat_amount || 0),
+                fiatCurrency: String(resolvedOrder.fiat_currency || ''),
+                bankName: String(resolvedOrder.bank_name || 'your bank'),
+                accountNumber: resolvedOrder.account_number || null,
+            });
 
             const notificationType = newStatus === 'COMPLETED' ? 'offramp_success' : 'offramp';
 
@@ -340,8 +336,8 @@ router.post('/', async (req: Request, res: Response) => {
             if (!existingStatusNotification) {
                 await supabase.from('notifications').insert({
                     user_id: internalUserId,
-                    title,
-                    message: body,
+                    title: copy.title,
+                    message: copy.body,
                     type: notificationType,
                     metadata: {
                         orderId: resolvedOrder.id,
@@ -361,8 +357,8 @@ router.post('/', async (req: Request, res: Response) => {
 
             try {
                 await NotificationService.notifyUser(internalUserId, {
-                    title,
-                    body,
+                    title: copy.title,
+                    body: copy.body,
                     data: {
                         type: 'offramp_status',
                         orderId: resolvedOrder.id,

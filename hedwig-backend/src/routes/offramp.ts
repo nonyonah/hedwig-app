@@ -4,13 +4,13 @@ import PaycrestService from '../services/paycrest';
 import NotificationService from '../services/notifications';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
+import { buildOfframpCopy } from '../utils/notificationCopy';
 
 const logger = createLogger('Offramp');
 
 const router = Router();
-// Default to enabled so status stays in sync even if webhook delivery is delayed/misconfigured.
-// Set PAYCREST_STATUS_POLLING=false to disable.
-const ENABLE_PAYCREST_STATUS_POLLING = process.env.PAYCREST_STATUS_POLLING !== 'false';
+// Webhooks are the source of truth. Enable polling only as an explicit fallback.
+const ENABLE_PAYCREST_STATUS_POLLING = process.env.PAYCREST_STATUS_POLLING === 'true';
 
 const mapPaycrestOrderStatus = (rawStatus?: string): 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null => {
     if (!rawStatus) return null;
@@ -58,13 +58,18 @@ const notifyOfframpCompletedIfNeeded = async (userId: string, order: any): Promi
     const bankName = String(order?.bank_name || order?.bankName || 'your bank');
     const accountNumber = String(order?.account_number || order?.accountNumber || '');
     const maskedAccount = accountNumber ? `****${accountNumber.slice(-4)}` : '';
-    const title = 'Withdrawal Successful';
-    const body = `${fiatAmount.toFixed(2)} ${fiatCurrency} has been sent to your bank account.`;
+    const copy = buildOfframpCopy({
+        status: 'COMPLETED',
+        fiatAmount,
+        fiatCurrency,
+        bankName,
+        accountNumber,
+    });
 
     await supabase.from('notifications').insert({
         user_id: userId,
-        title,
-        message: body,
+        title: copy.title,
+        message: copy.body,
         type: 'offramp_success',
         metadata: {
             orderId: orderId,
@@ -80,8 +85,8 @@ const notifyOfframpCompletedIfNeeded = async (userId: string, order: any): Promi
     });
 
     await NotificationService.notifyUser(userId, {
-        title,
-        body,
+        title: copy.title,
+        body: copy.body,
         data: {
             type: 'offramp_status',
             orderId: orderId,

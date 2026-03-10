@@ -7,6 +7,7 @@ import { getOrCreateUser } from '../utils/userHelper';
 import NotificationService from '../services/notifications';
 import { createCalendarEventFromSource, markCalendarEventCompleted } from './calendar';
 import { createLogger } from '../utils/logger';
+import { buildIncomingPaymentCopy } from '../utils/notificationCopy';
 // import BlockradarService from '../services/blockradar'; // REMOVED: Reverting to direct wallet-to-wallet payments
 
 const logger = createLogger('Documents');
@@ -911,8 +912,6 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
 
         // Send notifications to the document owner
         try {
-            const docType = doc.type === 'INVOICE' ? 'Invoice' : 'Payment Link';
-
             // Get payer display name: prefer client_name, then email, then wallet address
             const content = doc.content as any;
             const clientName = content?.client_name;
@@ -925,15 +924,19 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
                         ? `${payer.slice(0, 6)}...${payer.slice(-4)}`
                         : 'A customer';
 
-            const notificationTitle = `💰 ${docType} Paid!`;
-            const notificationBody = `${payerDisplay} paid "${doc.title}" - ${doc.amount} ${doc.currency || 'USDC'} received!`;
+            const copy = buildIncomingPaymentCopy({
+                kind: doc.type === 'INVOICE' ? 'invoice' : 'payment_link',
+                clientOrSender: payerDisplay,
+                reference: doc.title,
+                amountText: `${doc.amount} ${doc.currency || 'USDC'}`,
+            });
 
             logger.debug('Sending payment notification');
 
             // Send push notification
             await NotificationService.notifyUser(doc.user_id, {
-                title: notificationTitle,
-                body: notificationBody,
+                title: copy.title,
+                body: copy.body,
                 data: {
                     type: 'payment_received',
                     documentId: id,
@@ -949,8 +952,8 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
                 .insert({
                     user_id: doc.user_id,
                     type: 'payment_received',
-                    title: notificationTitle,
-                    message: notificationBody,
+                    title: copy.title,
+                    message: copy.body,
                     metadata: {
                         document_id: id,
                         document_type: doc.type,
