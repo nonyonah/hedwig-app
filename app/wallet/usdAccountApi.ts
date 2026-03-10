@@ -1,21 +1,6 @@
-const normalizeApiUrl = (input: string): string => {
-    const trimmed = input.trim();
-    if (!trimmed) return '';
+import { getApiBaseUrl } from '../../utils/apiBaseUrl';
 
-    if (/^https?:\/\/[^/]+/i.test(trimmed)) {
-        return trimmed.replace(/\/$/, '');
-    }
-
-    // Handle common typo: "http:192.168.0.2:3000"
-    if (/^https?:[^/]/i.test(trimmed)) {
-        const fixed = trimmed.replace(/^https?:/i, (match) => `${match}//`);
-        return fixed.replace(/\/$/, '');
-    }
-
-    return trimmed.replace(/\/$/, '');
-};
-
-const getApiUrl = (): string => normalizeApiUrl(process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000');
+const getApiUrl = (): string => getApiBaseUrl();
 
 const getAuthHeaders = (token: string): Record<string, string> => ({
     Authorization: `Bearer ${token}`,

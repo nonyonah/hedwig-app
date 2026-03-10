@@ -27,6 +27,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../hooks/useAuth';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { getApiBaseUrl, rewriteApiUrlForRuntime } from '../utils/apiBaseUrl';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete
 SplashScreen.preventAutoHideAsync();
@@ -39,6 +40,41 @@ const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
 const ONESIGNAL_APP_ID = Constants.expoConfig?.extra?.oneSignalAppId || process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID || '';
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || '';
+
+declare global {
+    var __hedwigApiFetchPatched: boolean | undefined;
+}
+
+const installApiFetchRewrite = () => {
+    if (globalThis.__hedwigApiFetchPatched || typeof fetch !== 'function') {
+        return;
+    }
+
+    const originalFetch = globalThis.fetch.bind(globalThis);
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (typeof input === 'string') {
+            return originalFetch(rewriteApiUrlForRuntime(input), init);
+        }
+
+        if (input instanceof URL) {
+            return originalFetch(new URL(rewriteApiUrlForRuntime(input.toString())), init);
+        }
+
+        if (typeof Request !== 'undefined' && input instanceof Request) {
+            const rewrittenUrl = rewriteApiUrlForRuntime(input.url);
+            if (rewrittenUrl !== input.url) {
+                return originalFetch(new Request(rewrittenUrl, input), init);
+            }
+        }
+
+        return originalFetch(input as RequestInfo, init);
+    }) as typeof fetch;
+
+    globalThis.__hedwigApiFetchPatched = true;
+};
+
+installApiFetchRewrite();
 
 // Sentry Navigation Integration for Expo Router
 const navigationIntegration = Sentry.reactNavigationIntegration({
@@ -311,8 +347,7 @@ function RootLayout() {
         let cancelled = false;
 
         const warmUpApi = async () => {
-            const configuredApiUrl = (process.env.EXPO_PUBLIC_API_URL || '').trim();
-            const apiUrl = configuredApiUrl.replace(/\/$/, '');
+            const apiUrl = getApiBaseUrl();
             if (!apiUrl) {
                 if (!cancelled) setIsApiWarmed(true);
                 return;
