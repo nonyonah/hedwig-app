@@ -172,6 +172,7 @@ export default function UsdAccountScreen() {
             await enrollUsdAccount(getAccessToken);
             await openBridgeKycFlow();
         } catch (error: any) {
+            await loadData();
             Alert.alert('Could not start enrollment', error?.message || 'Please try again.');
         } finally {
             setIsContinuing(false);

@@ -48,6 +48,15 @@ const logger = createLogger('Server');
 
 const app: Application = express();
 const PORT = process.env.PORT || 8080;
+const trustProxyEnv = process.env.TRUST_PROXY;
+const trustProxySetting =
+    trustProxyEnv !== undefined
+        ? (trustProxyEnv === 'true' || trustProxyEnv === '1' ? 1 : false)
+        : process.env.NODE_ENV === 'production'
+            ? 1
+            : false;
+
+app.set('trust proxy', trustProxySetting);
 
 // Initialize background tasks
 SchedulerService.initScheduler();
@@ -281,6 +290,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 app.listen(Number(PORT), HOST, () => {
     logger.info('Hedwig Backend started', { host: HOST, port: PORT });
     logger.info('Environment', { env: process.env.NODE_ENV });
+    logger.info('Proxy trust configured', { trustProxy: app.get('trust proxy') });
 });
 
 // Graceful shutdown
