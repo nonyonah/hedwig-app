@@ -26,7 +26,7 @@ async function findUserByEvmAddress(address: string) {
         const { data, error } = await supabase
             .from('users')
             .select(columns)
-            .eq(attempt.column, attempt.value)
+            .ilike(attempt.column, attempt.value)
             .maybeSingle();
         if (error) {
             logger.debug('EVM user lookup attempt failed', { column: attempt.column, error: error.message });

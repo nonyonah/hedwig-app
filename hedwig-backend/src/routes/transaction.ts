@@ -41,7 +41,6 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     try {
         logger.debug('Transactions route hit');
         const privyId = req.user!.id;
-        const userId = req.user!.id;
         logger.debug('Processing user request');
 
         const user = await getOrCreateUser(privyId);
@@ -50,6 +49,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
             logger.debug('User not found');
             return res.status(404).json({ success: false, error: 'User not found' });
         }
+        const userId = user.id;
 
         const ethAddress = user.ethereum_wallet_address;
         const solAddress = user.solana_wallet_address;
@@ -309,7 +309,12 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
  */
 router.post('/', authenticate, async (req: Request, res: Response) => {
     try {
-        const userId = req.user!.id;
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        const userId = user.id;
         const {
             type,        // 'PAYMENT_RECEIVED' | 'PAYMENT_SENT' | 'OFFRAMP' | 'FEE_COLLECTION'
             txHash,
@@ -379,7 +384,12 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
  */
 router.patch('/:id', authenticate, async (req: Request, res: Response) => {
     try {
-        const userId = req.user!.id;
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        const userId = user.id;
         const { id } = req.params;
         const { status, txHash, blockNumber, errorMessage } = req.body;
 
