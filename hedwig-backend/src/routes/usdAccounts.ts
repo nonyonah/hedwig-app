@@ -185,12 +185,31 @@ router.post('/enroll', authenticate, async (req: Request, res: Response, next) =
 
         let bridgeCustomerId = account.bridge_customer_id;
         if (!bridgeCustomerId) {
-            const bridgeCustomer = await bridgeUsdService.createOrGetCustomer({
-                externalUserId: user.id,
-                email: user.email || null,
-                firstName: user.first_name || null,
-                lastName: user.last_name || null,
-            });
+            let bridgeCustomer;
+            try {
+                bridgeCustomer = await bridgeUsdService.createOrGetCustomer({
+                    externalUserId: user.id,
+                    email: user.email || null,
+                    firstName: user.first_name || null,
+                    lastName: user.last_name || null,
+                });
+            } catch (bridgeError: any) {
+                const status = Number(bridgeError?.response?.status || 0);
+                if (status === 401) {
+                    logger.error('Bridge authentication failed during enrollment', {
+                        userId: user.id,
+                        sandboxMode,
+                    });
+                    res.status(502).json({
+                        success: false,
+                        error: {
+                            message: 'Bridge authentication failed. Verify BRIDGE_API_KEY, BRIDGE_API_BASE_URL, and BRIDGE_ENV in backend runtime config.',
+                        },
+                    });
+                    return;
+                }
+                throw bridgeError;
+            }
             bridgeCustomerId = bridgeCustomer.id;
 
             const { error: updateError } = await supabase

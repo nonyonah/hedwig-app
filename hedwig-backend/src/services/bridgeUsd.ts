@@ -299,8 +299,10 @@ class BridgeUsdService {
             if (!Number.isFinite(ts)) return false;
 
             // Reject replayed events older than 10 minutes (docs recommendation)
+            // Bridge uses Stripe-style header: t=<unix_seconds>,v0=<sig>
+            // Convert seconds to ms before comparing against Date.now()
             const nowMs = Date.now();
-            if (Math.abs(nowMs - ts) > 10 * 60 * 1000) return false;
+            if (Math.abs(nowMs - ts * 1000) > 10 * 60 * 1000) return false;
 
             const signedPayload = `${timestamp}.${rawBody}`;
 

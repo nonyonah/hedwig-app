@@ -181,10 +181,9 @@ function PushNotificationBootstrap() {
 
         try {
             const hasPermission = Boolean(OneSignal.Notifications?.permission);
-            const canRequestPermission = Boolean(OneSignal.Notifications?.canRequestPermission);
 
             // Ask on first run; if already denied, OneSignal will route user to app settings.
-            if (!hasPermission || canRequestPermission) {
+            if (!hasPermission) {
                 await OneSignal.Notifications.requestPermission(true);
             }
 
@@ -214,7 +213,7 @@ function PushNotificationBootstrap() {
                     }
 
                     if (user?.id) {
-                        OneSignal.login(user.id);
+                        await OneSignal.login(user.id);
                         await ensureOneSignalPermission();
                     } else if (initializedOneSignalRef.current) {
                         OneSignal.logout();
