@@ -119,26 +119,26 @@ class AlchemyWebhooksService {
      */
     getSigningKey(network: string): string | null {
         const networkLower = network.toLowerCase().replace(/[_-]/g, '');
+        const genericKey = process.env.ALCHEMY_SIGNING_KEY || null;
         logger.debug('Looking up signing key', { network });
 
         // Base networks (base, basesepolia, base-sepolia, BASE_SEPOLIA, etc.)
         if (networkLower.includes('base')) {
-            const key = process.env.ALCHEMY_SIGNING_KEY_BASE || null;
+            const key = process.env.ALCHEMY_SIGNING_KEY_BASE || genericKey;
             logger.debug('Using Base signing key', { present: !!key });
             return key;
         }
 
         // Solana networks
         if (networkLower.includes('solana')) {
-            const key = process.env.ALCHEMY_SIGNING_KEY_SOLANA || null;
+            const key = process.env.ALCHEMY_SIGNING_KEY_SOLANA || genericKey;
             logger.debug('Using Solana signing key', { present: !!key });
             return key;
         }
 
         // Fallback to generic key if set
-        const fallbackKey = process.env.ALCHEMY_SIGNING_KEY || null;
-        logger.debug('Using fallback signing key', { present: !!fallbackKey });
-        return fallbackKey;
+        logger.debug('Using fallback signing key', { present: !!genericKey });
+        return genericKey;
     }
 
     /**

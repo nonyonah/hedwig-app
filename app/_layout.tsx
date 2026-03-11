@@ -219,10 +219,12 @@ function PushNotificationBootstrap() {
                     } else if (initializedOneSignalRef.current) {
                         OneSignal.logout();
                     }
+                    // OneSignal handles delivery — no need for Expo token path.
+                    return;
                 } catch (error) {
-                    console.error('[Push] OneSignal initialization failed, falling back to Expo:', error);
+                    console.error('[Push] OneSignal initialization failed, falling back to Expo push tokens:', error);
+                    // Falls through to Expo token registration below.
                 }
-                return;
             }
 
             if (!user || isRegistered) return;

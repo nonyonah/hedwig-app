@@ -99,7 +99,6 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
     const [estimatedFiat, setEstimatedFiat] = useState<string>('');
     const [isLoadingRate, setIsLoadingRate] = useState(false);
     const [tokensSent, setTokensSent] = useState(false); // Track if tokens were sent to Paycrest
-    const [providerOrderStatus, setProviderOrderStatus] = useState<'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null>(null);
     const hasTriggeredSuccessNavigation = useRef(false);
 
     const kycSheetRef = useRef<BottomSheetModal>(null);
@@ -178,7 +177,6 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
         setReceiveAddress(null);
         setStatusMessage('');
         setTokensSent(false);
-        setProviderOrderStatus(null);
         hasTriggeredSuccessNavigation.current = false;
         onClose();
     }, [onClose]);
@@ -196,59 +194,6 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
         return () => clearTimeout(timer);
     }, [modalState, onSuccess, orderId]);
 
-    // Webhook-driven status tracking: keep modal in processing until backend order status is terminal.
-    useEffect(() => {
-        if (modalState !== 'processing' || !orderId) return;
-
-        let mounted = true;
-
-        const pollOrderStatus = async () => {
-            try {
-                const authToken = await getAccessToken();
-                if (!authToken) return;
-                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-                const response = await fetch(`${apiUrl}/api/offramp/orders/${orderId}`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                const result = await response.json();
-                if (!mounted || !result?.success || !result?.data?.order) return;
-
-                const status = result.data.order.status as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-                setProviderOrderStatus(status);
-
-                if (status === 'COMPLETED') {
-                    setStatusMessage('Withdrawal completed successfully.');
-                    setModalState('success');
-                    return;
-                }
-
-                if (status === 'FAILED') {
-                    setStatusMessage(result.data.order.errorMessage || 'Withdrawal failed.');
-                    setModalState('failed');
-                    return;
-                }
-
-                if (status === 'PENDING') {
-                    setStatusMessage('Withdrawal initiated. Waiting for provider update...');
-                } else if (status === 'PROCESSING') {
-                    setStatusMessage('Withdrawal is processing...');
-                }
-            } catch (error) {
-                // Non-fatal. Keep polling.
-                console.log('[Offramp] Status poll failed (non-fatal):', error);
-            }
-        };
-
-        // Initial fetch + polling loop
-        pollOrderStatus();
-        const interval = setInterval(pollOrderStatus, 5000);
-
-        return () => {
-            mounted = false;
-            clearInterval(interval);
-        };
-    }, [modalState, orderId, getAccessToken]);
 
     const handleConfirm = async () => {
         if (!data) return;
@@ -464,10 +409,10 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                 // Non-fatal - don't fail the offramp if live tracking fails
             }
 
-            // 6. Stay in processing state and wait for Paycrest webhook-driven status updates.
-            setProviderOrderStatus('PENDING');
-            setStatusMessage('Withdrawal initiated. Waiting for provider update...');
-            setModalState('processing');
+            // 6. Tokens sent — transition to success immediately.
+            // Real-time status tracking happens in the Withdrawals history screen
+            // via Paycrest webhook updates and polling.
+            setModalState('success');
 
         } catch (error: any) {
             console.error('Offramp Failed:', error);
@@ -534,9 +479,6 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                             style={styles.lottie}
                         />
                         <Text style={styles.statusTitle}>{statusMessage || 'Creating offramp order...'}</Text>
-                        {providerOrderStatus ? (
-                            <Text style={styles.statusSubtitle}>Current status: {providerOrderStatus}</Text>
-                        ) : null}
                     </View>
                 );
 
@@ -582,16 +524,10 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                             loop={false}
                             style={[styles.lottie, { width: 200, height: 200 }]}
                         />
-                        <Text style={styles.statusTitle}>Offramp initiated successfully!</Text>
+                        <Text style={styles.statusTitle}>Withdrawal submitted!</Text>
                         <Text style={styles.statusSubtitle}>
-                            Your {data.fiatCurrency} {estimatedFiat || data.estimatedFiat} will be deposited to {data.bankName} ending in ...{data.accountNumber.slice(-4)}
+                            Your {data.fiatCurrency} {estimatedFiat || data.estimatedFiat} is being sent to {data.bankName} ending in ...{data.accountNumber.slice(-4)}. Track progress in Withdrawals.
                         </Text>
-
-                        <View style={styles.actionButtonsContainer}>
-                            <TouchableOpacity style={styles.closeButtonMain} onPress={handleClose}>
-                                <Text style={styles.closeButtonText}>Close</Text>
-                            </TouchableOpacity>
-                        </View>
                     </View>
                 );
 

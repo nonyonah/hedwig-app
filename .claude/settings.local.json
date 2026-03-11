@@ -3,7 +3,8 @@
     "allow": [
       "Bash(tree:*)",
       "WebSearch",
-      "Bash(node -c:*)"
+      "Bash(node -c:*)",
+      "Bash(find /Users/macintoshhd/Work/hedwig-app/hedwig-backend/src -name *.ts -not -path */node_modules/* -not -path */lib/*)"
     ],
     "deny": [],
     "ask": []

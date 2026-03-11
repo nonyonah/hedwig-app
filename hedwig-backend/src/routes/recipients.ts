@@ -114,13 +114,31 @@ const resolveEnsOrBasename = async (name: string): Promise<string | null> => {
     }
 };
 
+const getInternalUserId = async (authUserId: string): Promise<string> => {
+    const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .or(`privy_id.eq.${authUserId},id.eq.${authUserId}`)
+        .maybeSingle();
+
+    if (error) {
+        throw new Error(`Failed to resolve user: ${error.message}`);
+    }
+
+    if (!data?.id) {
+        throw new Error('User not found');
+    }
+
+    return data.id;
+};
+
 /**
  * GET /api/recipients
  * List user's saved wallet recipients
  */
 router.get('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const userId = await getInternalUserId(req.user!.id);
 
         const { data, error } = await supabase
             .from('wallet_recipients')
@@ -156,7 +174,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
  */
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const userId = await getInternalUserId(req.user!.id);
         const { address, chain, label } = req.body as { address?: string; chain?: RecipientChain; label?: string | null };
 
         if (!address || (chain !== 'base' && chain !== 'solana')) {
@@ -220,7 +238,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
  */
 router.delete('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const userId = req.user!.id;
+        const userId = await getInternalUserId(req.user!.id);
         const { id } = req.params;
 
         const { error } = await supabase
