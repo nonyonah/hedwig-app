@@ -13,20 +13,25 @@ const router = Router();
 
 async function findUserByEvmAddress(address: string) {
     const normalized = address.toLowerCase();
-    const columns = 'id, privy_id, ethereum_wallet_address, evm_address, wallet_address';
+    const columns = 'id, privy_id, ethereum_wallet_address';
 
     const attempts = [
         { column: 'ethereum_wallet_address', value: normalized },
-        { column: 'evm_address', value: normalized },
-        { column: 'wallet_address', value: normalized },
+        // Legacy columns for partially-migrated environments
+        { column: 'base_wallet_address', value: normalized },
+        { column: 'celo_wallet_address', value: normalized },
     ];
 
     for (const attempt of attempts) {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('users')
             .select(columns)
-            .ilike(attempt.column, attempt.value)
+            .eq(attempt.column, attempt.value)
             .maybeSingle();
+        if (error) {
+            logger.debug('EVM user lookup attempt failed', { column: attempt.column, error: error.message });
+            continue;
+        }
         if (data) return data;
     }
 
@@ -35,20 +40,22 @@ async function findUserByEvmAddress(address: string) {
 
 async function findUserBySolanaAddress(address: string) {
     const normalized = address;
-    const columns = 'id, privy_id, solana_wallet_address, solana_address, wallet_address';
+    const columns = 'id, privy_id, solana_wallet_address';
 
     const attempts = [
         { column: 'solana_wallet_address', value: normalized },
-        { column: 'solana_address', value: normalized },
-        { column: 'wallet_address', value: normalized },
     ];
 
     for (const attempt of attempts) {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('users')
             .select(columns)
             .eq(attempt.column, attempt.value)
             .maybeSingle();
+        if (error) {
+            logger.debug('Solana user lookup attempt failed', { column: attempt.column, error: error.message });
+            continue;
+        }
         if (data) return data;
     }
 
@@ -337,9 +344,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
             if (recipientUser) {
                 logger.info('Found recipient user', { 
                     userId: recipientUser.id, 
-                    ethereumWalletAddress: (recipientUser as any).ethereum_wallet_address,
-                    evmAddress: recipientUser.evm_address,
-                    walletAddress: recipientUser.wallet_address
+                    ethereumWalletAddress: (recipientUser as any).ethereum_wallet_address
                 });
 
                 // Check if this payment is for an invoice or payment link
