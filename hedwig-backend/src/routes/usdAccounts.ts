@@ -199,11 +199,26 @@ router.post('/enroll', authenticate, async (req: Request, res: Response, next) =
                     logger.error('Bridge authentication failed during enrollment', {
                         userId: user.id,
                         sandboxMode,
+                        diagnostics: bridgeUsdService.getRuntimeAuthDiagnostics(),
                     });
                     res.status(502).json({
                         success: false,
                         error: {
-                            message: 'Bridge authentication failed. Verify BRIDGE_API_KEY, BRIDGE_API_BASE_URL, and BRIDGE_ENV in backend runtime config.',
+                            message: 'Bridge returned 401 Unauthorized. Check API key validity and that BRIDGE_ENV matches BRIDGE_API_BASE_URL (test keys require sandbox base URL).',
+                        },
+                    });
+                    return;
+                }
+                if (status === 400 || status === 422) {
+                    logger.warn('Bridge rejected enrollment request', {
+                        userId: user.id,
+                        sandboxMode,
+                        response: bridgeError?.response?.data || null,
+                    });
+                    res.status(502).json({
+                        success: false,
+                        error: {
+                            message: 'Bridge could not start enrollment. Please verify profile details (name/email) and try again.',
                         },
                     });
                     return;
@@ -301,11 +316,12 @@ router.post('/kyc-link', authenticate, async (req: Request, res: Response, next)
                     userId: user.id,
                     bridgeCustomerId,
                     sandboxMode,
+                    diagnostics: bridgeUsdService.getRuntimeAuthDiagnostics(),
                 });
                 res.status(502).json({
                     success: false,
                     error: {
-                        message: 'Bridge authentication failed. Verify BRIDGE_API_KEY, BRIDGE_API_BASE_URL, and BRIDGE_ENV in backend runtime config.',
+                        message: 'Bridge returned 401 Unauthorized. Check API key validity and that BRIDGE_ENV matches BRIDGE_API_BASE_URL (test keys require sandbox base URL).',
                     },
                 });
                 return;
@@ -332,11 +348,12 @@ router.post('/kyc-link', authenticate, async (req: Request, res: Response, next)
                     userId: user.id,
                     bridgeCustomerId,
                     sandboxMode,
+                    diagnostics: bridgeUsdService.getRuntimeAuthDiagnostics(),
                 });
                 res.status(502).json({
                     success: false,
                     error: {
-                        message: 'Bridge authentication failed. Verify BRIDGE_API_KEY, BRIDGE_API_BASE_URL, and BRIDGE_ENV in backend runtime config.',
+                        message: 'Bridge returned 401 Unauthorized. Check API key validity and that BRIDGE_ENV matches BRIDGE_API_BASE_URL (test keys require sandbox base URL).',
                     },
                 });
                 return;
@@ -536,11 +553,12 @@ router.get('/details', authenticate, async (req: Request, res: Response, next) =
                     userId: user.id,
                     bridgeCustomerId: account.bridge_customer_id,
                     sandboxMode,
+                    diagnostics: bridgeUsdService.getRuntimeAuthDiagnostics(),
                 });
                 res.status(502).json({
                     success: false,
                     error: {
-                        message: 'Bridge authentication failed. Verify BRIDGE_API_KEY, BRIDGE_API_BASE_URL, and BRIDGE_ENV in backend runtime config.',
+                        message: 'Bridge returned 401 Unauthorized. Check API key validity and that BRIDGE_ENV matches BRIDGE_API_BASE_URL (test keys require sandbox base URL).',
                     },
                 });
                 return;

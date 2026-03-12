@@ -1,8 +1,15 @@
 import axios, { AxiosInstance } from 'axios';
 import crypto from 'crypto';
+import path from 'path';
+import dotenv from 'dotenv';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('BridgeUsd');
+
+// Ensure Bridge service resolves env from hedwig-backend/.env even when process
+// is launched from repository root.
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config();
 
 export interface BridgeUsdCustomer {
     id: string;
@@ -139,6 +146,16 @@ class BridgeUsdService {
         return this.isSandboxMode();
     }
 
+    getRuntimeAuthDiagnostics() {
+        return {
+            hasApiKey: Boolean(this.apiKey),
+            apiKeyPrefix: this.apiKey ? this.apiKey.slice(0, 8) : null,
+            apiBaseUrl: this.apiBaseUrl,
+            bridgeEnv: process.env.BRIDGE_ENV || null,
+            sandboxMode: this.isSandboxMode(),
+        };
+    }
+
     private isSandboxMode(): boolean {
         const bridgeEnv = (process.env.BRIDGE_ENV || '').toLowerCase();
         if (bridgeEnv === 'production' || bridgeEnv === 'prod' || bridgeEnv === 'live') return false;
@@ -192,6 +209,7 @@ class BridgeUsdService {
         const firstName = (params.firstName || 'John').trim();
         const lastName = (params.lastName || 'Doe').trim();
         const email = params.email || `${params.externalUserId}@example.com`;
+        const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
 
         // Bridge sandbox works best with Customers API full payload.
         if (sandboxMode) {
@@ -200,15 +218,19 @@ class BridgeUsdService {
                 last_name: lastName,
                 email,
                 type: 'individual',
+                external_id: params.externalUserId,
                 ...this.buildSandboxCustomerIdentityFields(),
             };
         }
 
-        const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+        // Production: prefer explicit first/last name fields with external ID for stable mapping.
         return {
+            first_name: firstName,
+            last_name: lastName,
             full_name: fullName || undefined,
             email,
             type: 'individual',
+            external_id: params.externalUserId,
         };
     }
 
@@ -343,8 +365,18 @@ class BridgeUsdService {
             const data = this.extractPayload(createResp.data);
             return this.mapCustomer(data);
         } catch (error: any) {
-            const message = String(error?.response?.data?.message || error?.message || '').toLowerCase();
-            if (!message.includes('already') && !message.includes('exists')) {
+            const responseData = error?.response?.data;
+            const message = String(responseData?.message || error?.message || '').toLowerCase();
+            const serialized = JSON.stringify(responseData || {}).toLowerCase();
+            const duplicateEmailError =
+                serialized.includes('email') &&
+                serialized.includes('already exists');
+            const duplicateLike =
+                duplicateEmailError ||
+                (message.includes('already') && message.includes('exists')) ||
+                serialized.includes('customer with this email already exists');
+
+            if (!duplicateLike) {
                 throw error;
             }
         }
@@ -394,12 +426,22 @@ class BridgeUsdService {
 
     async createKycLink(customerId: string): Promise<{ url: string; expiresAt?: string | null }> {
         const client = this.requireClient();
-        const response = await client.post(`/v0/customers/${customerId}/kyc_links`, {}, {
-            headers: {
-                'Idempotency-Key': this.buildIdempotencyKey(`kyc_${customerId}`),
-            },
-        });
-        const data = this.extractPayload(response.data) as Record<string, unknown>;
+        let data: Record<string, unknown> | null = null;
+
+        // Bridge existing-customer hosted KYC flow is exposed as:
+        // GET /v0/customers/{customerId}/kyc_link
+        try {
+            const response = await client.get(`/v0/customers/${customerId}/kyc_link`);
+            data = this.extractPayload(response.data) as Record<string, unknown>;
+        } catch (primaryError: any) {
+            // Backward compatibility for older/private API variants.
+            const fallback = await client.post(`/v0/customers/${customerId}/kyc_links`, {}, {
+                headers: {
+                    'Idempotency-Key': this.buildIdempotencyKey(`kyc_${customerId}`),
+                },
+            });
+            data = this.extractPayload(fallback.data) as Record<string, unknown>;
+        }
 
         return {
             url: this.readString(data, ['url', 'kyc_url', 'link']) || '',
