@@ -1,0 +1,189 @@
+export type EntityId = string;
+
+export interface User {
+  id: EntityId;
+  privyId: string;
+  workspaceId: EntityId;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: 'owner' | 'member';
+  avatarUrl?: string;
+}
+
+export interface Workspace {
+  id: EntityId;
+  name: string;
+  slug: string;
+  plan: 'beta' | 'growth' | 'scale';
+  timezone: string;
+}
+
+export interface WorkspaceMember {
+  id: EntityId;
+  workspaceId: EntityId;
+  userId: EntityId;
+  role: 'owner' | 'finance' | 'ops';
+}
+
+export interface Client {
+  id: EntityId;
+  workspaceId: EntityId;
+  name: string;
+  company?: string;
+  email: string;
+  status: 'active' | 'at_risk' | 'inactive';
+  totalBilledUsd: number;
+  outstandingUsd: number;
+  lastActivityAt: string;
+}
+
+export interface Project {
+  id: EntityId;
+  clientId: EntityId;
+  workspaceId: EntityId;
+  name: string;
+  status: 'active' | 'paused' | 'completed';
+  budgetUsd: number;
+  progress: number;
+  nextDeadlineAt: string;
+  ownerName: string;
+}
+
+export interface Milestone {
+  id: EntityId;
+  projectId: EntityId;
+  name: string;
+  dueAt: string;
+  status: 'upcoming' | 'due_soon' | 'done' | 'late';
+  amountUsd?: number;
+}
+
+export interface Invoice {
+  id: EntityId;
+  clientId: EntityId;
+  projectId?: EntityId;
+  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  amountUsd: number;
+  dueAt: string;
+  number: string;
+}
+
+export interface PaymentLink {
+  id: EntityId;
+  clientId?: EntityId;
+  status: 'active' | 'paid' | 'expired';
+  amountUsd: number;
+  title: string;
+  asset: 'USDC' | 'USDT';
+  chain: 'Base' | 'Solana';
+}
+
+export interface InvoiceDraft {
+  id: EntityId;
+  prompt: string;
+  clientName: string;
+  amountUsd: number;
+  dueAt: string;
+  lineItems: Array<{ label: string; amountUsd: number }>;
+}
+
+export interface PaymentLinkDraft {
+  id: EntityId;
+  prompt: string;
+  title: string;
+  amountUsd: number;
+  asset: 'USDC' | 'USDT';
+  chain: 'Base' | 'Solana';
+  memo?: string;
+}
+
+export interface Contract {
+  id: EntityId;
+  clientId: EntityId;
+  title: string;
+  status: 'draft' | 'review' | 'signed';
+  signedAt?: string;
+}
+
+export interface WalletAccount {
+  id: EntityId;
+  chain: 'Base' | 'Solana';
+  address: string;
+  label: string;
+}
+
+export interface WalletAsset {
+  id: EntityId;
+  symbol: string;
+  name: string;
+  chain: 'Base' | 'Solana';
+  balance: number;
+  valueUsd: number;
+  changePct24h: number;
+}
+
+export interface WalletTransaction {
+  id: EntityId;
+  kind: 'receive' | 'send' | 'payment' | 'settlement';
+  asset: string;
+  amount: number;
+  chain: 'Base' | 'Solana';
+  createdAt: string;
+  counterparty: string;
+}
+
+export interface UsdAccount {
+  id: EntityId;
+  provider: 'Bridge';
+  status: 'not_started' | 'pending_kyc' | 'active';
+  bankName?: string;
+  accountNumberMasked?: string;
+  routingNumberMasked?: string;
+  balanceUsd: number;
+  settlementChain: 'Base' | 'Solana';
+}
+
+export interface AccountTransaction {
+  id: EntityId;
+  type: 'incoming_ach' | 'incoming_wire' | 'usdc_settlement';
+  amountUsd: number;
+  status: 'pending' | 'completed' | 'failed';
+  createdAt: string;
+  description: string;
+}
+
+export interface OfframpTransaction {
+  id: EntityId;
+  asset: string;
+  amount: number;
+  fiatCurrency: string;
+  fiatAmount: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  destinationLabel: string;
+  createdAt: string;
+}
+
+export interface Reminder {
+  id: EntityId;
+  kind: 'deadline' | 'invoice' | 'follow_up';
+  title: string;
+  dueAt: string;
+}
+
+export interface Notification {
+  id: EntityId;
+  type: 'payment' | 'deadline' | 'contract' | 'wallet' | 'account';
+  title: string;
+  body: string;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface Activity {
+  id: EntityId;
+  actor: string;
+  summary: string;
+  createdAt: string;
+  category: 'client' | 'project' | 'payment' | 'wallet';
+}
