@@ -1,14 +1,41 @@
-import { CalendarDays, CircleDollarSign, CreditCard, FolderKanban, Landmark, LayoutDashboard, ReceiptText, Settings2, Users, WalletCards } from 'lucide-react';
+import {
+  CalendarDots,
+  Cards,
+  ChartBar,
+  CreditCard,
+  Faders,
+  FolderSimple,
+  House,
+  UsersThree,
+  Wallet
+} from '@phosphor-icons/react/dist/ssr';
 
-export const navigation = [
-  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { title: 'Clients', href: '/clients', icon: Users },
-  { title: 'Projects', href: '/projects', icon: FolderKanban },
-  { title: 'Payments', href: '/payments', icon: ReceiptText },
-  { title: 'Contracts', href: '/contracts', icon: CreditCard },
-  { title: 'Wallet', href: '/wallet', icon: WalletCards },
-  { title: 'Accounts', href: '/accounts', icon: Landmark },
-  { title: 'Offramp', href: '/offramp', icon: CircleDollarSign },
-  { title: 'Calendar', href: '/calendar', icon: CalendarDays },
-  { title: 'Settings', href: '/settings', icon: Settings2 }
+export const navigationGroups = [
+  {
+    label: 'Overview',
+    items: [
+      { title: 'Dashboard', href: '/dashboard', icon: House, count: null, muted: false },
+      { title: 'Calendar', href: '/calendar', icon: CalendarDots, count: null, muted: false }
+    ]
+  },
+  {
+    label: 'Workspace',
+    items: [
+      { title: 'Clients', href: '/clients', icon: UsersThree, count: null, muted: false },
+      { title: 'Projects', href: '/projects', icon: FolderSimple, count: null, muted: false },
+      { title: 'Contracts', href: '/contracts', icon: CreditCard, count: null, muted: false }
+    ]
+  },
+  {
+    label: 'Money',
+    items: [
+      { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false },
+      { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false },
+      { title: 'Offramp', href: '/offramp', icon: ChartBar, count: null, muted: false }
+    ]
+  },
+  {
+    label: 'System',
+    items: [{ title: 'Settings', href: '/settings', icon: Faders, count: null, muted: false }]
+  }
 ] as const;

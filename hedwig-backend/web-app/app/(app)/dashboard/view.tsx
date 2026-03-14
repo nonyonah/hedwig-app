@@ -1,25 +1,370 @@
 'use client';
 
-import { useState } from 'react';
-import type { InvoiceDraft, PaymentLinkDraft } from '@/lib/models/entities';
-import { PromptComposer } from '@/components/ai/prompt-composer';
-import { DraftPreview } from '@/components/ai/draft-preview';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import {
+  ArrowRight,
+  Bell,
+  CalendarDots,
+  ChartBar,
+  CheckCircle,
+  FileText,
+  IdentificationCard,
+  Link as LinkIcon,
+  Sparkle,
+  Wallet
+} from '@phosphor-icons/react/dist/ssr';
+import { useCurrency } from '@/components/providers/currency-provider';
+import { formatCurrency, formatShortDate } from '@/lib/utils';
+import type { Invoice, Milestone, PaymentLink } from '@/lib/models/entities';
 
-export function DashboardClient({ children }: { children: React.ReactNode }) {
-  const [invoiceDraft, setInvoiceDraft] = useState<InvoiceDraft | null>(null);
-  const [paymentLinkDraft, setPaymentLinkDraft] = useState<PaymentLinkDraft | null>(null);
+type DashboardData = {
+  totals: {
+    inflowUsd: number;
+    outstandingUsd: number;
+    walletUsd: number;
+    usdAccountUsd: number;
+  };
+  reminders: Array<{ id: string; title: string; dueAt: string }>;
+  notifications: Array<{ id: string; title: string; body: string; createdAt: string }>;
+  activities: Array<{ id: string; summary: string; actor: string; createdAt: string }>;
+  projects: Array<{ id: string; name: string; progress: number; nextDeadlineAt: string }>;
+  invoices: Invoice[];
+  paymentLinks: PaymentLink[];
+  milestones: Milestone[];
+};
+
+const ranges = ['30 days', '90 days', '6 months', '1 year'] as const;
+
+type ActionItem = {
+  id: string;
+  title: string;
+  meta: string;
+  href: string;
+  complete?: boolean;
+};
+
+type MetricCard = {
+  id: string;
+  title: string;
+  value: string;
+  helper: string;
+  href: string;
+  icon: typeof FileText;
+};
+
+export function DashboardClient({ greetingName, data }: { greetingName: string; data: DashboardData }) {
+  const { currency } = useCurrency();
+  const [rangeIndex, setRangeIndex] = useState(3);
+
+  const timeRange = ranges[rangeIndex];
+
+  const dashboardState = useMemo(() => {
+    const overdueInvoices = data.invoices.filter((invoice) => invoice.status === 'overdue');
+    const draftInvoices = data.invoices.filter((invoice) => invoice.status === 'draft');
+    const activeLinks = data.paymentLinks.filter((link) => link.status === 'active');
+    const paidLinks = data.paymentLinks.filter((link) => link.status === 'paid');
+    const dueSoonMilestones = data.milestones.filter(
+      (milestone) => milestone.status === 'due_soon' || milestone.status === 'late'
+    );
+    const completedMilestones = data.milestones.filter((milestone) => milestone.status === 'done');
+    const activeProjects = data.projects.filter((project) => project.progress < 100);
+    const completedProjects = data.projects.filter((project) => project.progress >= 100);
+    const latestNotification = data.notifications[0] || null;
+    const latestReminder = data.reminders[0] || null;
+    const latestActivity = data.activities[0] || null;
+
+    const actionItems: ActionItem[] = [
+      {
+        id: 'overdue-invoices',
+        title: overdueInvoices.length > 0 ? 'Follow up on overdue invoices' : 'Overdue invoices are under control',
+        meta:
+          overdueInvoices.length > 0
+            ? `${overdueInvoices.length} invoice${overdueInvoices.length > 1 ? 's' : ''} need attention`
+            : 'No overdue invoice requires action right now',
+        href: '/payments',
+        complete: overdueInvoices.length === 0
+      },
+      {
+        id: 'payment-links',
+        title: activeLinks.length > 0 ? 'Review active payment links' : 'Create your next payment link',
+        meta:
+          activeLinks.length > 0
+            ? `${activeLinks.length} live link${activeLinks.length > 1 ? 's' : ''} collecting payments`
+            : 'Set up a quick checkout for a client without a wallet flow',
+        href: '/payments',
+        complete: false
+      },
+      {
+        id: 'deadlines',
+        title: dueSoonMilestones.length > 0 ? 'Upcoming deadlines need attention' : 'Project delivery is on track',
+        meta:
+          dueSoonMilestones.length > 0
+            ? `${dueSoonMilestones.length} milestone${dueSoonMilestones.length > 1 ? 's are' : ' is'} due soon`
+            : `${completedProjects.length} project${completedProjects.length > 1 ? 's are' : ' is'} already wrapped up`,
+        href: '/projects',
+        complete: dueSoonMilestones.length === 0
+      },
+      {
+        id: 'usd-account',
+        title: data.totals.usdAccountUsd > 0 ? 'Move USD account balance when needed' : 'USD account is ready for clients',
+        meta:
+          data.totals.usdAccountUsd > 0
+            ? `${formatCurrency(data.totals.usdAccountUsd, currency)} available in checking`
+            : 'Share banking details for clients who prefer USD transfers',
+        href: '/wallet',
+        complete: false
+      }
+    ];
+
+    const summaryCards: MetricCard[] = [
+      {
+        id: 'invoices',
+        title: 'Invoices',
+        value: `${data.invoices.length}`,
+        helper: `${draftInvoices.length} drafts, ${overdueInvoices.length} overdue`,
+        href: '/payments',
+        icon: FileText
+      },
+      {
+        id: 'wallet',
+        title: 'Wallet balance',
+        value: formatCurrency(data.totals.walletUsd, currency),
+        helper: 'Base and Solana assets',
+        href: '/wallet',
+        icon: Wallet
+      },
+      {
+        id: 'usd-account',
+        title: 'USD account',
+        value: formatCurrency(data.totals.usdAccountUsd, currency),
+        helper: 'Client-friendly bank transfers',
+        href: '/wallet',
+        icon: IdentificationCard
+      },
+      {
+        id: 'notifications',
+        title: 'Notifications',
+        value: `${data.notifications.length}`,
+        helper: latestNotification ? latestNotification.title : 'No unread alerts',
+        href: '/settings',
+        icon: Bell
+      }
+    ];
+
+    const workstreamCards: MetricCard[] = [
+      {
+        id: 'payment-links',
+        title: 'Payment links',
+        value: `${data.paymentLinks.length}`,
+        helper: `${activeLinks.length} active, ${paidLinks.length} paid`,
+        href: '/payments',
+        icon: LinkIcon
+      },
+      {
+        id: 'projects',
+        title: 'Projects',
+        value: `${data.projects.length}`,
+        helper: `${activeProjects.length} active, ${completedProjects.length} completed`,
+        href: '/projects',
+        icon: CheckCircle
+      },
+      {
+        id: 'milestones',
+        title: 'Milestones',
+        value: `${data.milestones.length}`,
+        helper: `${dueSoonMilestones.length} due soon, ${completedMilestones.length} completed`,
+        href: '/calendar',
+        icon: CalendarDots
+      },
+      {
+        id: 'Outstanding',
+        title: 'Outstanding',
+        value: formatCurrency(data.totals.outstandingUsd, currency),
+        helper: 'Expected across unpaid work',
+        href: '/payments',
+        icon: ChartBar
+      }
+    ];
+
+    return {
+      latestNotification,
+      latestReminder,
+      latestActivity,
+      actionItems,
+      summaryCards,
+      workstreamCards
+    };
+  }, [data]);
 
   return (
-    <div className="space-y-6">
-      {children}
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <PromptComposer
-          onDraft={({ invoiceDraft, paymentLinkDraft }) => {
-            setInvoiceDraft(invoiceDraft ?? null);
-            setPaymentLinkDraft(paymentLinkDraft ?? null);
-          }}
-        />
-        <DraftPreview invoiceDraft={invoiceDraft} paymentLinkDraft={paymentLinkDraft} />
+    <div className="flex flex-col gap-6">
+      {/* Page header — UUI: text-display-xs (24px) font-semibold, text-primary */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-[24px] font-semibold text-[#181d27]">
+            Good morning, {greetingName}
+          </h1>
+          <p className="mt-1 text-[14px] text-[#717680]">
+            Here&rsquo;s what&rsquo;s happening across your work and money today.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* UUI tertiary button: bg-white border border-[#d5d7da] shadow-xs */}
+          <button
+            className="inline-flex h-9 select-none items-center gap-1.5 rounded-lg border border-[#d5d7da] bg-white px-3.5 text-[14px] font-semibold text-[#414651] shadow-xs transition duration-100 ease-linear hover:bg-[#fafafa]"
+            onClick={() => setRangeIndex((current) => (current + 1) % ranges.length)}
+            type="button"
+          >
+            {timeRange}
+          </button>
+          {/* UUI primary button: bg-[#2563eb] shadow-xs-skeumorphic */}
+          <Link
+            className="inline-flex h-9 select-none items-center rounded-lg bg-[#2563eb] px-3.5 text-[14px] font-semibold text-white shadow-xs transition duration-100 ease-linear hover:bg-[#1d4ed8]"
+            href="/payments"
+          >
+            New invoice
+          </Link>
+        </div>
+      </div>
+
+      {/* Financial snapshot — UUI metric card: white bg, shadow-xs, ring-1 ring-[#e9eaeb] */}
+      <div className="grid gap-4 lg:grid-cols-4">
+        {dashboardState.summaryCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Link
+              key={card.id}
+              href={card.href}
+              className="group flex flex-col gap-1 rounded-xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb] transition duration-100 ease-linear hover:shadow-sm"
+            >
+              <div className="flex items-center justify-between">
+                {/* UUI: text-sm font-medium text-tertiary */}
+                <p className="text-[13px] font-medium text-[#535862]">{card.title}</p>
+                {/* UUI featured icon: size-10 rounded-lg bg-tertiary */}
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f5f5f5]">
+                  <Icon className="h-[18px] w-[18px] text-[#717680]" weight="regular" />
+                </div>
+              </div>
+              {/* UUI: text-display-sm (30px) font-semibold text-primary */}
+              <p className="mt-1 text-[28px] font-semibold leading-none text-[#181d27]">{card.value}</p>
+              <p className="mt-1 text-[13px] text-[#a4a7ae]">{card.helper}</p>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Main two-column: action items + workstream stats */}
+      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        {/* Action items card */}
+        <article className="flex flex-col overflow-hidden rounded-xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+          <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
+            <div>
+              {/* UUI: text-md (16px) font-semibold text-primary */}
+              <h2 className="text-[16px] font-semibold text-[#181d27]">Action items</h2>
+              <p className="mt-0.5 text-[13px] text-[#717680]">Next moves across billing, deadlines, and accounts.</p>
+            </div>
+            {dashboardState.actionItems.filter((item) => !item.complete).length > 0 ? (
+              /* UUI badge: error color, pill */
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#fef3f2] px-1.5 text-[11px] font-semibold text-[#d92d20]">
+                {dashboardState.actionItems.filter((item) => !item.complete).length}
+              </span>
+            ) : null}
+          </div>
+          <div className="divide-y divide-[#f5f5f5]">
+            {dashboardState.actionItems.map((item) => (
+              <Link
+                key={item.id}
+                className="group flex items-start gap-3 px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]"
+                href={item.href}
+              >
+                {/* UUI checkbox-style indicator */}
+                <div
+                  className={`mt-[1px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                    item.complete
+                      ? 'border-[#17b26a] bg-[#ecfdf3] text-[#17b26a]'
+                      : 'border-[#d5d7da] bg-white text-transparent'
+                  }`}
+                >
+                  <CheckCircle className="h-3 w-3" weight={item.complete ? 'fill' : 'regular'} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-[14px] font-semibold ${item.complete ? 'text-[#a4a7ae] line-through' : 'text-[#181d27]'}`}>
+                    {item.title}
+                  </p>
+                  <p className="mt-0.5 text-[13px] text-[#717680]">{item.meta}</p>
+                </div>
+                <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[#d5d7da] group-hover:text-[#a4a7ae]" />
+              </Link>
+            ))}
+          </div>
+        </article>
+
+        {/* Right: workstream stat mini-cards */}
+        <div className="grid grid-cols-2 gap-4">
+          {dashboardState.workstreamCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Link
+                key={card.id}
+                href={card.href}
+                className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-xs ring-1 ring-[#e9eaeb] transition duration-100 ease-linear hover:shadow-sm"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f5f5f5]">
+                  <Icon className="h-[16px] w-[16px] text-[#717680]" weight="regular" />
+                </div>
+                <div>
+                  <p className="text-[22px] font-semibold leading-none text-[#181d27]">{card.value}</p>
+                  <p className="mt-1 text-[13px] font-medium text-[#535862]">{card.title}</p>
+                  <p className="mt-0.5 text-[12px] text-[#a4a7ae]">{card.helper}</p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Bottom row: assistant summary + next reminder */}
+      <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+        <article className="rounded-xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+          <div className="mb-3 flex items-center gap-2.5">
+            {/* UUI featured icon: brand color */}
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
+              <Sparkle className="h-4 w-4 text-[#2563eb]" weight="fill" />
+            </div>
+            <p className="text-[16px] font-semibold text-[#181d27]">Assistant summary</p>
+          </div>
+          <p className="text-[14px] leading-relaxed text-[#535862]">
+            {dashboardState.latestNotification?.body ||
+              dashboardState.latestActivity?.summary ||
+              'Payment activity, reminders, contracts, and wallet movements will surface here as a concise operating brief.'}
+          </p>
+        </article>
+
+        <article className="rounded-xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[16px] font-semibold text-[#181d27]">Next reminder</p>
+            <CalendarDots className="h-4 w-4 text-[#a4a7ae]" weight="regular" />
+          </div>
+          {dashboardState.latestReminder ? (
+            <>
+              <p className="text-[14px] font-semibold text-[#181d27]">{dashboardState.latestReminder.title}</p>
+              <p className="mt-1 text-[13px] text-[#717680]">Due {formatShortDate(dashboardState.latestReminder.dueAt)}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-[14px] font-semibold text-[#414651]">No pending reminders</p>
+              <p className="mt-1 text-[13px] text-[#a4a7ae]">You are caught up for now.</p>
+            </>
+          )}
+          {/* UUI secondary button */}
+          <Link
+            className="mt-4 inline-flex h-8 select-none items-center rounded-lg border border-[#d5d7da] bg-white px-3 text-[13px] font-semibold text-[#414651] shadow-xs transition duration-100 ease-linear hover:bg-[#fafafa]"
+            href="/calendar"
+          >
+            View calendar
+          </Link>
+        </article>
       </div>
     </div>
   );

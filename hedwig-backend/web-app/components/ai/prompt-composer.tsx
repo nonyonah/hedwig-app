@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Sparkles, WandSparkles } from 'lucide-react';
+import { MagicWand, Sparkle } from '@phosphor-icons/react/dist/ssr';
 import { hedwigApi } from '@/lib/api/client';
 import type { InvoiceDraft, PaymentLinkDraft } from '@/lib/models/entities';
 import { Button } from '@/components/ui/button';
@@ -46,28 +46,28 @@ export function PromptComposer({ onDraft }: { onDraft: (draft: { invoiceDraft?: 
   });
 
   return (
-    <Card className="bg-hero bg-cover bg-top text-white">
+    <Card>
       <CardHeader>
-        <div className="flex items-center gap-2 text-primary">
-          <Sparkles className="h-4 w-4" />
-          <span className="text-xs uppercase tracking-[0.24em]">AI actions</span>
+        <div className="flex items-center gap-2 text-[#72706b]">
+          <Sparkle className="h-4 w-4" weight="bold" />
+          <span className="text-xs font-semibold uppercase tracking-[0.24em]">AI actions</span>
         </div>
-        <CardTitle className="text-white">Create billing flows from prompts</CardTitle>
-        <CardDescription className="text-slate-300">
+        <CardTitle>Create billing flows from prompts</CardTitle>
+        <CardDescription>
           AI helps draft structured invoices and payment links, but confirmation stays inside the workflow.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1 text-sm">
+        <div className="inline-flex rounded-[15px] border border-border/80 bg-white p-1 shadow-soft text-sm">
           <button
-            className={`rounded-full px-4 py-2 ${mode === 'invoice' ? 'bg-primary text-primary-foreground' : 'text-slate-300'}`}
+            className={`rounded-[15px] px-4 py-2 font-semibold ${mode === 'invoice' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
             onClick={() => form.setValue('mode', 'invoice')}
             type="button"
           >
             Invoice
           </button>
           <button
-            className={`rounded-full px-4 py-2 ${mode === 'payment-link' ? 'bg-primary text-primary-foreground' : 'text-slate-300'}`}
+            className={`rounded-[15px] px-4 py-2 font-semibold ${mode === 'payment-link' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
             onClick={() => form.setValue('mode', 'payment-link')}
             type="button"
           >
@@ -78,15 +78,15 @@ export function PromptComposer({ onDraft }: { onDraft: (draft: { invoiceDraft?: 
           <Textarea
             placeholder={mode === 'invoice' ? 'Invoice Northstar Labs $2,100 for the payout dashboard milestone due next Friday.' : 'Create a Base USDC payment link for $950 for the design QA sprint.'}
             {...form.register('prompt')}
-            className="border-white/10 bg-slate-950/65 text-white placeholder:text-slate-400"
+            className="bg-[#fcfcfd]"
           />
-          {form.formState.errors.prompt ? <p className="text-sm text-amber-200">{form.formState.errors.prompt.message}</p> : null}
+          {form.formState.errors.prompt ? <p className="text-sm text-amber-700">{form.formState.errors.prompt.message}</p> : null}
           <div className="flex flex-wrap gap-3">
-            <Button className="bg-white text-slate-950 hover:bg-slate-100" disabled={loading} type="submit">
-              <WandSparkles className="h-4 w-4" />
+            <Button disabled={loading} type="submit">
+              <MagicWand className="h-4 w-4" weight="bold" />
               {loading ? 'Generating draft...' : 'Generate structured draft'}
             </Button>
-            <Button variant="outline" type="button" className="border-white/10 text-white hover:bg-white/5">
+            <Button variant="secondary" type="button">
               Suggested prompt templates
             </Button>
           </div>

@@ -32,6 +32,9 @@ export interface Client {
   name: string;
   company?: string;
   email: string;
+  phone?: string;
+  address?: string;
+  walletAddress?: string;
   status: 'active' | 'at_risk' | 'inactive';
   totalBilledUsd: number;
   outstandingUsd: number;
@@ -48,6 +51,12 @@ export interface Project {
   progress: number;
   nextDeadlineAt: string;
   ownerName: string;
+  hasContract?: boolean;
+  contract?: {
+    id: EntityId;
+    title: string;
+    status: Contract['status'];
+  } | null;
 }
 
 export interface Milestone {
@@ -104,6 +113,8 @@ export interface Contract {
   title: string;
   status: 'draft' | 'review' | 'signed';
   signedAt?: string;
+  clientName?: string;
+  projectId?: EntityId;
 }
 
 export interface WalletAccount {

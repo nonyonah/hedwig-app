@@ -12,6 +12,7 @@
     "bridge:webhook:test": "tsx scripts/bridgeWebhook.ts test",
     "bridge:webhook:logs": "tsx scripts/bridgeWebhook.ts logs",
     "bridge:webhook:events": "tsx scripts/bridgeWebhook.ts events",
+    "backfill:document-relations": "tsx scripts/backfillDocumentRelations.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

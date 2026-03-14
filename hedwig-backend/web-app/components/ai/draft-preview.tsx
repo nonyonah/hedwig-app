@@ -18,7 +18,7 @@ export function DraftPreview({ invoiceDraft, paymentLinkDraft }: DraftPreviewPro
           <CardDescription>Prompt-generated billing drafts appear here before confirmation.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-3xl border border-dashed border-border p-8 text-sm text-muted-foreground">
+          <div className="rounded-[15px] border border-dashed border-border bg-secondary/40 p-8 text-sm leading-6 text-muted-foreground">
             Start with a prompt like “Invoice Northstar Labs $2,100 for March milestone due next Friday.”
           </div>
         </CardContent>
@@ -45,11 +45,11 @@ export function DraftPreview({ invoiceDraft, paymentLinkDraft }: DraftPreviewPro
               <Stat label="Amount" value={formatCurrency(invoiceDraft.amountUsd)} />
               <Stat label="Due" value={formatShortDate(invoiceDraft.dueAt)} />
             </div>
-            <div className="space-y-3 rounded-3xl border border-border p-4">
+            <div className="space-y-3 rounded-[15px] border border-[#e9eaeb] bg-[#fcfcfd] p-4">
               {invoiceDraft.lineItems.map((item) => (
                 <div key={item.label} className="flex items-center justify-between gap-4 text-sm">
                   <span className="text-muted-foreground">{item.label}</span>
-                  <span className="font-medium text-foreground">{formatCurrency(item.amountUsd)}</span>
+                  <span className="font-semibold text-foreground">{formatCurrency(item.amountUsd)}</span>
                 </div>
               ))}
             </div>
@@ -77,8 +77,8 @@ export function DraftPreview({ invoiceDraft, paymentLinkDraft }: DraftPreviewPro
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-background/60 p-4">
-      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+    <div className="rounded-[15px] border border-[#e9eaeb] bg-[#fcfcfd] p-4 shadow-xs">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#717680]">{label}</p>
       <p className="mt-2 text-sm font-semibold text-foreground">{value}</p>
     </div>
   );

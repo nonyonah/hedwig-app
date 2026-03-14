@@ -180,6 +180,27 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
             .filter((m: any) => m.status === 'paid')
             .reduce((sum: number, m: any) => sum + parseFloat(m.amount || 0), 0);
 
+        const { data: relatedDocuments } = await supabase
+            .from('documents')
+            .select('id, title, amount, status, type, client_id, project_id, created_at, updated_at, description, content')
+            .eq('user_id', user.id)
+            .or(`project_id.eq.${id},client_id.eq.${project.client_id}`);
+
+        const contractDoc = (relatedDocuments || []).find((doc: any) => doc.type === 'CONTRACT' && doc.project_id === id) || null;
+        const invoiceDocs = (relatedDocuments || []).filter((doc: any) => {
+            if (doc.type !== 'INVOICE') return false;
+            if (doc.project_id === id) return true;
+
+            const content = doc.content && typeof doc.content === 'object' ? doc.content : {};
+            const invoiceDescription = String(doc.description || '').toLowerCase();
+            const projectName = String(project.name || '').toLowerCase();
+
+            return (
+                content.project_id === id ||
+                (projectName && invoiceDescription.includes(projectName))
+            );
+        });
+
         const formattedProject = {
             id: project.id,
             clientId: project.client_id,
@@ -193,6 +214,14 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
             deadline: project.deadline || project.end_date,
             createdAt: project.created_at,
             updatedAt: project.updated_at,
+            hasContract: !!contractDoc,
+            contract: contractDoc
+                ? {
+                    id: contractDoc.id,
+                    title: contractDoc.title,
+                    status: contractDoc.status?.toLowerCase() || 'draft',
+                }
+                : null,
             milestones: milestones.map((m: any) => ({
                 id: m.id,
                 title: m.title,
@@ -206,10 +235,17 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
             progress: {
                 totalMilestones,
                 completedMilestones,
-                percentage: totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0,
-                totalAmount,
-                paidAmount,
-            },
+                    percentage: totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0,
+                    totalAmount,
+                    paidAmount,
+                },
+            invoices: invoiceDocs.map((doc: any) => ({
+                id: doc.id,
+                title: doc.title,
+                amount: parseFloat(doc.amount || 0),
+                status: doc.status?.toLowerCase() || 'draft',
+                dueDate: doc.content?.due_date || doc.updated_at || doc.created_at,
+            })),
         };
 
         res.json({

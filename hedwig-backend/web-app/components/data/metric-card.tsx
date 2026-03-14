@@ -1,22 +1,30 @@
 import { ReactNode } from 'react';
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight } from '@phosphor-icons/react/dist/ssr';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export function MetricCard({ label, value, change, trend = 'up', icon }: { label: string; value: string; change?: string; trend?: 'up' | 'down'; icon?: ReactNode; }) {
   return (
-    <Card className="overflow-hidden">
+    <Card>
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="mt-3 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+            <p className="text-[13px] font-medium text-[#535862]">{label}</p>
+            <p className="mt-2 text-[28px] font-semibold leading-none text-[#181d27]">{value}</p>
           </div>
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/5 text-primary">{icon}</div>
+          {icon ? (
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f5f5f5] text-[#717680]">
+              {icon}
+            </div>
+          ) : null}
         </div>
         {change ? (
-          <div className={cn('mt-4 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium', trend === 'up' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-200')}>
-            {trend === 'up' ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+          <div className={cn('mt-3 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12px] font-medium',
+            trend === 'up'
+              ? 'border-[#abefc6] bg-[#ecfdf3] text-[#067647]'
+              : 'border-[#fedf89] bg-[#fffaeb] text-[#b54708]'
+          )}>
+            {trend === 'up' ? <ArrowUpRight className="h-3.5 w-3.5" weight="bold" /> : <ArrowDownRight className="h-3.5 w-3.5" weight="bold" />}
             {change}
           </div>
         ) : null}

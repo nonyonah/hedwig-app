@@ -27,6 +27,7 @@ import type {
   Contract,
   Invoice,
   InvoiceDraft,
+  Milestone,
   Notification,
   OfframpTransaction,
   PaymentLink,
@@ -51,6 +52,53 @@ interface ApiEnvelope<T> {
   success: boolean;
   data: T;
   error?: { message?: string } | string;
+}
+
+export interface CreateClientInput {
+  name: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  address?: string;
+  walletAddress?: string;
+}
+
+export interface CreateProjectMilestoneInput {
+  title: string;
+  amount: number;
+  dueDate?: string;
+}
+
+export interface CreateProjectFlowInput {
+  title: string;
+  description?: string;
+  budget?: number;
+  currency?: string;
+  deadline: string;
+  startDate?: string;
+  clientId?: string;
+  clientName?: string;
+  clientEmail?: string;
+  milestones: CreateProjectMilestoneInput[];
+}
+
+export interface UpdateClientInput {
+  name?: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  address?: string;
+  walletAddress?: string;
+}
+
+export interface UpdateProjectInput {
+  title?: string;
+  description?: string;
+  budget?: number;
+  currency?: string;
+  deadline?: string;
+  startDate?: string;
+  status?: 'active' | 'paused' | 'completed';
 }
 
 const normalizeClientStatus = (value?: string | null): Client['status'] => {
@@ -83,6 +131,28 @@ const normalizeNotificationType = (value?: string | null): Notification['type'] 
   return 'payment';
 };
 
+const normalizeInvoiceStatus = (value?: string | null): Invoice['status'] => {
+  const status = String(value || '').toLowerCase();
+  if (status === 'paid') return 'paid';
+  if (status === 'overdue') return 'overdue';
+  if (status === 'sent') return 'sent';
+  return 'draft';
+};
+
+const normalizePaymentLinkStatus = (value?: string | null): PaymentLink['status'] => {
+  const status = String(value || '').toLowerCase();
+  if (status === 'paid') return 'paid';
+  if (status === 'expired') return 'expired';
+  return 'active';
+};
+
+const normalizeContractStatus = (value?: string | null): Contract['status'] => {
+  const status = String(value || '').toLowerCase();
+  if (status === 'approved' || status === 'signed' || status === 'completed') return 'signed';
+  if (status === 'draft') return 'draft';
+  return 'review';
+};
+
 const normalizeWalletTransactionKind = (value?: string | null): WalletTransaction['kind'] => {
   const kind = String(value || '').toLowerCase();
   if (kind.includes('receive') || kind === 'in' || kind.includes('received')) return 'receive';
@@ -90,6 +160,15 @@ const normalizeWalletTransactionKind = (value?: string | null): WalletTransactio
   if (kind.includes('payment')) return 'payment';
   return 'send';
 };
+
+const assetNameBySymbol: Record<string, string> = {
+  USDC: 'USD Coin',
+  USDT: 'Tether USD',
+  ETH: 'Ethereum',
+  SOL: 'Solana'
+};
+
+const supportedWalletAssets = new Set(['Base:ETH', 'Base:USDC', 'Solana:SOL', 'Solana:USDC']);
 
 const mapBackendUser = (user: any): User => ({
   id: String(user?.id ?? currentUser.id),
@@ -108,7 +187,25 @@ const mapBackendClient = (client: any): Client => ({
   name: String(client.name || 'Unnamed client'),
   company: client.company || undefined,
   email: String(client.email || 'unknown@client.com'),
+  phone: client.phone || undefined,
+  address: client.address || undefined,
+  walletAddress: client.walletAddress || client.wallet_address || undefined,
   status: normalizeClientStatus(client.status),
+  totalBilledUsd: Number(client.totalBilledUsd ?? client.totalEarnings ?? 0),
+  outstandingUsd: Number(client.outstandingUsd ?? client.outstandingBalance ?? 0),
+  lastActivityAt: String(client.updatedAt ?? client.createdAt ?? new Date().toISOString())
+});
+
+const mapCreatedClient = (client: any): Client => ({
+  id: String(client.id),
+  workspaceId: workspace.id,
+  name: String(client.name || 'Unnamed client'),
+  company: client.company || undefined,
+  email: String(client.email || 'unknown@client.com'),
+  phone: client.phone || undefined,
+  address: client.address || undefined,
+  walletAddress: client.walletAddress || client.wallet_address || undefined,
+  status: 'active',
   totalBilledUsd: Number(client.totalBilledUsd ?? client.totalEarnings ?? 0),
   outstandingUsd: Number(client.outstandingUsd ?? client.outstandingBalance ?? 0),
   lastActivityAt: String(client.updatedAt ?? client.createdAt ?? new Date().toISOString())
@@ -123,8 +220,142 @@ const mapBackendProject = (project: any): Project => ({
   budgetUsd: Number(project.budget ?? project.progress?.totalAmount ?? 0),
   progress: Number(project.progress?.percentage ?? project.progress ?? 0),
   nextDeadlineAt: String(project.deadline || project.nextDeadlineAt || project.startDate || new Date().toISOString()),
-  ownerName: currentUser.firstName + ' ' + currentUser.lastName
+  ownerName: currentUser.firstName + ' ' + currentUser.lastName,
+  hasContract: Boolean(project.hasContract || project.contract),
+  contract: project.contract
+    ? {
+        id: String(project.contract.id),
+        title: String(project.contract.title || 'Contract'),
+        status: normalizeContractStatus(project.contract.status)
+      }
+    : null
 });
+
+const mapCreatedProject = (project: any, clientId: string): Project => ({
+  id: String(project.id),
+  clientId: String(project.clientId || clientId || ''),
+  workspaceId: workspace.id,
+  name: String(project.title || project.name || 'Untitled project'),
+  status: normalizeProjectStatus(project.status),
+  budgetUsd: Number(project.budget ?? 0),
+  progress: Number(project.progress?.percentage ?? 0),
+  nextDeadlineAt: String(project.deadline || project.nextDeadlineAt || new Date().toISOString()),
+  ownerName: currentUser.firstName + ' ' + currentUser.lastName,
+  hasContract: false,
+  contract: null
+});
+
+const getDocumentContent = (document: any) =>
+  document?.content && typeof document.content === 'object' ? document.content : {};
+
+const deriveDocumentDueAt = (document: any) => {
+  const content = getDocumentContent(document);
+  return String(
+    content.due_date ||
+      content.dueAt ||
+      document.due_at ||
+      document.updated_at ||
+      document.created_at ||
+      new Date().toISOString()
+  );
+};
+
+const documentMatchesClient = (document: any, client: Client) => {
+  const content = getDocumentContent(document);
+  const clientId = document.client_id ? String(document.client_id) : '';
+  const emails = [content.recipient_email, content.client_email, document.recipient_email]
+    .filter(Boolean)
+    .map((value: string) => String(value).toLowerCase());
+  const names = [content.client_name, document.client_name]
+    .filter(Boolean)
+    .map((value: string) => String(value).toLowerCase());
+
+  return (
+    clientId === client.id ||
+    emails.includes(client.email.toLowerCase()) ||
+    names.includes(client.name.toLowerCase())
+  );
+};
+
+const mapBackendInvoice = (document: any): Invoice => ({
+  id: String(document.id),
+  clientId: String(document.client_id || ''),
+  projectId: document.project_id ? String(document.project_id) : undefined,
+  status: normalizeInvoiceStatus(document.status),
+  amountUsd: Number(document.amount || 0),
+  dueAt: deriveDocumentDueAt(document),
+  number: String(document.title || `Invoice ${String(document.id).slice(0, 8)}`)
+});
+
+const mapBackendPaymentLink = (document: any): PaymentLink => {
+  const content = getDocumentContent(document);
+  const currency = String(document.currency || content.currency || 'USDC').toUpperCase();
+  const chainValue = String(content.chain || content.network || document.network || 'BASE').toUpperCase();
+
+  return {
+    id: String(document.id),
+    clientId: document.client_id ? String(document.client_id) : undefined,
+    status: normalizePaymentLinkStatus(document.status),
+    amountUsd: Number(document.amount || 0),
+    title: String(document.title || 'Payment link'),
+    asset: currency === 'USDT' ? 'USDT' : 'USDC',
+    chain: chainValue === 'SOLANA' ? 'Solana' : 'Base'
+  };
+};
+
+const mapBackendContract = (document: any): Contract => {
+  const content = getDocumentContent(document);
+  const status = normalizeContractStatus(document.status);
+  return {
+    id: String(document.id),
+    clientId: String(document.client_id || ''),
+    title: String(document.title || 'Contract'),
+    status,
+    signedAt:
+      status === 'signed'
+        ? String(content.signed_at || content.approved_at || document.updated_at || document.created_at)
+        : undefined,
+    clientName: content.client_name || undefined,
+    projectId: document.project_id ? String(document.project_id) : undefined
+  };
+};
+
+const mapBackendReminder = (event: any): Reminder => ({
+  id: String(event.id),
+  kind:
+    String(event.eventType || '').toLowerCase().includes('invoice')
+      ? 'invoice'
+      : String(event.eventType || '').toLowerCase().includes('follow')
+        ? 'follow_up'
+        : 'deadline',
+  title: String(event.title || 'Reminder'),
+  dueAt: String(event.eventDate || new Date().toISOString())
+});
+
+const mapBackendMilestone = (milestone: any, projectId: string): Milestone => {
+  const status = String(milestone.status || '').toLowerCase();
+  return {
+    id: String(milestone.id),
+    projectId,
+    name: String(milestone.title || 'Milestone'),
+    dueAt: String(milestone.dueDate || milestone.due_date || new Date().toISOString()),
+    status:
+      status === 'paid' || status === 'done'
+        ? 'done'
+        : status === 'late'
+          ? 'late'
+          : status === 'due_soon'
+            ? 'due_soon'
+            : 'upcoming',
+    amountUsd: Number(milestone.amount || 0)
+  };
+};
+
+async function fetchDocuments(options?: ApiOptions, type?: string) {
+  const query = type ? `/api/documents?type=${encodeURIComponent(type)}` : '/api/documents';
+  const data = await request<{ documents: any[] }>(query, options);
+  return data.documents || [];
+}
 
 const mapBackendNotification = (notification: any): Notification => ({
   id: String(notification.id),
@@ -145,15 +376,16 @@ const mapBackendTransaction = (transaction: any): WalletTransaction => ({
   counterparty: String(transaction.description || transaction.to || transaction.from || 'Counterparty')
 });
 
-const mapBackendUsdAccount = (details: any): UsdAccount => ({
-  id: String(details.bridgeVirtualAccountId || details.bridgeCustomerId || mockUsdAccount.id),
+const mapBackendUsdAccount = (details: any, balanceUsd = 0): UsdAccount => ({
+  id: String(details.bridgeVirtualAccountId || details.bridgeCustomerId || 'usd-account'),
   provider: 'Bridge',
   status: normalizeUsdStatus(details.accountStatus),
   bankName: details.ach?.bankName || undefined,
   accountNumberMasked: details.ach?.accountNumberMasked || undefined,
   routingNumberMasked: details.ach?.routingNumberMasked || undefined,
-  balanceUsd: 0,
-  settlementChain: String(details.settlement?.chain || 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base'
+  balanceUsd,
+  settlementChain:
+    String(details.settlement?.chain || details.settlementChain || 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base'
 });
 
 const mapBackendUsdTransfer = (transfer: any): AccountTransaction => ({
@@ -187,8 +419,8 @@ const mapBackendOfframp = (order: any): OfframpTransaction => ({
 });
 
 const shouldUseMockFallback = (options?: ApiOptions) => {
-  if (options?.disableMockFallback) return false;
-  return backendConfig.useMockData || !options?.accessToken;
+  void options;
+  return false;
 };
 
 const authHeaders = (accessToken: string) => ({
@@ -222,18 +454,13 @@ async function request<T>(path: string, options?: ApiOptions, init?: RequestInit
 }
 
 async function withFallback<T>(loader: () => Promise<T>, fallback: () => T | Promise<T>, options?: ApiOptions): Promise<T> {
-  if (shouldUseMockFallback(options)) {
-    await wait();
-    return fallback();
+  void fallback;
+
+  if (shouldUseMockFallback(options) || backendConfig.useMockData) {
+    throw new Error('Mock data mode is disabled. Connect the shared backend to load live Hedwig data.');
   }
 
-  try {
-    return await loader();
-  } catch {
-    if (options?.disableMockFallback) throw new Error('Backend request failed and mock fallback is disabled');
-    await wait();
-    return fallback();
-  }
+  return loader();
 }
 
 export const hedwigApi = {
@@ -265,27 +492,26 @@ export const hedwigApi = {
   async dashboard(options?: ApiOptions) {
     return withFallback(
       async () => {
-        const [clientsData, projectsData, walletData, accountsData, notificationsData, shellData] = await Promise.all([
+        const [clientsData, projectsData, walletData, accountsData, notificationsData, shellData, paymentsData, calendarData] = await Promise.all([
           this.clients(options),
           this.projects(options),
           this.wallet(options),
           this.accounts(options),
           this.notifications(options),
-          this.shell(options)
+          this.shell(options),
+          this.payments(options),
+          this.calendar(options)
         ]);
 
-        const reminders = projectsData
-          .filter((project) => project.nextDeadlineAt)
-          .slice(0, 3)
-          .map((project) => ({
-            id: `project-${project.id}`,
-            kind: 'deadline' as const,
-            title: `${project.name} deadline approaching`,
-            dueAt: project.nextDeadlineAt
-          }));
-
         const outstandingUsd = clientsData.reduce((sum, client) => sum + client.outstandingUsd, 0);
-        const inflowUsd = mockInvoices.filter((invoice) => invoice.status !== 'paid').reduce((sum, invoice) => sum + invoice.amountUsd, 0);
+        const inflowUsd = paymentsData.invoices
+          .filter((invoice) => invoice.status !== 'paid')
+          .reduce((sum, invoice) => sum + invoice.amountUsd, 0);
+        const milestones = projectsData.flatMap((project: any) =>
+          Array.isArray(project.milestones)
+            ? project.milestones.map((milestone: any) => mapBackendMilestone(milestone, project.id))
+            : []
+        );
 
         return {
           totals: {
@@ -294,7 +520,6 @@ export const hedwigApi = {
             walletUsd: walletData.walletAssets.reduce((sum, asset) => sum + asset.valueUsd, 0),
             usdAccountUsd: accountsData.usdAccount.balanceUsd
           },
-          reminders,
           notifications: notificationsData,
           activities: [
             {
@@ -306,10 +531,11 @@ export const hedwigApi = {
             },
             ...mockActivities
           ].slice(0, 5),
-          invoices: mockInvoices,
-          paymentLinks: mockPaymentLinks,
+          invoices: paymentsData.invoices,
+          paymentLinks: paymentsData.paymentLinks,
           projects: projectsData,
-          milestones: mockMilestones
+          milestones,
+          reminders: calendarData.reminders
         };
       },
       () => ({
@@ -342,21 +568,55 @@ export const hedwigApi = {
     );
   },
 
+  async createClient(input: CreateClientInput, options?: ApiOptions): Promise<Client> {
+    return withFallback(
+      async () => {
+        const data = await request<{ client: any }>('/api/clients', options, {
+          method: 'POST',
+          body: JSON.stringify(input)
+        });
+        return mapCreatedClient(data.client);
+      },
+      async () => {
+        await wait();
+        return mapCreatedClient({
+          id: `client_${Date.now()}`,
+          ...input,
+          totalEarnings: 0,
+          outstandingBalance: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      },
+      options
+    );
+  },
+
   async client(id: string, options?: ApiOptions) {
     return withFallback(
       async () => {
-        const [clientData, projectsData] = await Promise.all([
+        const [clientData, projectsData, documents] = await Promise.all([
           request<{ client: any }>(`/api/clients/${id}`, options),
-          this.projects(options)
+          this.projects(options),
+          fetchDocuments(options)
         ]);
         const client = mapBackendClient(clientData.client);
+        const invoices = documents
+          .filter((document) => String(document.type || '').toUpperCase() === 'INVOICE' && documentMatchesClient(document, client))
+          .map(mapBackendInvoice);
+        const paymentLinks = documents
+          .filter((document) => String(document.type || '').toUpperCase() === 'PAYMENT_LINK' && documentMatchesClient(document, client))
+          .map(mapBackendPaymentLink);
+        const contracts = documents
+          .filter((document) => String(document.type || '').toUpperCase() === 'CONTRACT' && documentMatchesClient(document, client))
+          .map(mapBackendContract);
 
         return {
           client,
           projects: projectsData.filter((project) => project.clientId === id),
-          invoices: mockInvoices.filter((item) => item.clientId === id),
-          paymentLinks: mockPaymentLinks.filter((item) => item.clientId === id),
-          contracts: mockContracts.filter((item) => item.clientId === id)
+          invoices,
+          paymentLinks,
+          contracts
         };
       },
       () => ({
@@ -381,70 +641,349 @@ export const hedwigApi = {
     );
   },
 
-  async project(id: string, options?: ApiOptions) {
+  async updateClient(id: string, input: UpdateClientInput, options?: ApiOptions): Promise<Client> {
     return withFallback(
       async () => {
-        const data = await request<{ project: any }>(`/api/projects/${id}`, options);
-        const project = mapBackendProject(data.project);
-        const milestones = (data.project?.milestones || []).map((milestone: any) => ({
-          id: String(milestone.id),
-          projectId: String(id),
-          name: String(milestone.title || 'Milestone'),
-          dueAt: String(milestone.dueDate || new Date().toISOString()),
-          status: String(milestone.status || 'upcoming').toLowerCase() === 'paid'
-            ? 'done'
-            : String(milestone.status || '').toLowerCase() === 'late'
-              ? 'late'
-              : String(milestone.status || '').toLowerCase() === 'due_soon'
-                ? 'due_soon'
-                : 'upcoming',
-          amountUsd: Number(milestone.amount || 0)
-        }));
+        const data = await request<{ client: any }>(`/api/clients/${id}`, options, {
+          method: 'PUT',
+          body: JSON.stringify(input)
+        });
+        return mapCreatedClient(data.client);
+      },
+      async () => {
+        await wait();
+        return mapCreatedClient({
+          id,
+          ...input,
+          name: input.name || 'Updated client',
+          email: input.email || 'unknown@client.com',
+          totalEarnings: 0,
+          outstandingBalance: 0,
+          updatedAt: new Date().toISOString()
+        });
+      },
+      options
+    );
+  },
+
+  async createProjectFlow(
+    input: CreateProjectFlowInput,
+    options?: ApiOptions
+  ): Promise<{ project: Project; contractId: string | null; createdInvoiceCount: number }> {
+    return withFallback(
+      async () => {
+        const projectPayload = {
+          clientId: input.clientId,
+          clientName: input.clientName,
+          clientEmail: input.clientEmail,
+          title: input.title,
+          description: input.description,
+          budget: input.budget ?? 0,
+          currency: input.currency ?? 'USD',
+          status: 'active',
+          startDate: input.startDate ?? new Date().toISOString().split('T')[0],
+          deadline: input.deadline,
+          milestones: input.milestones.map((milestone) => ({
+            title: milestone.title,
+            amount: milestone.amount,
+            dueDate: milestone.dueDate
+          }))
+        };
+
+        const projectResponse = await request<{ project: any }>(
+          '/api/projects',
+          options,
+          {
+            method: 'POST',
+            body: JSON.stringify(projectPayload)
+          }
+        );
+
+        const createdProject = projectResponse.project;
+        const resolvedClientName = input.clientName || '';
+        const resolvedClientEmail = input.clientEmail || '';
+
+        const contractResponse = await request<{ document: any }>(
+          '/api/documents',
+          options,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              type: 'CONTRACT',
+              title: `${input.title} Contract`,
+              description: `Contract for project: ${input.title}`,
+              amount: input.milestones.reduce((sum, milestone) => sum + (Number(milestone.amount) || 0), 0),
+              clientName: resolvedClientName,
+              recipientEmail: resolvedClientEmail,
+              projectId: createdProject.id,
+              items: input.milestones.map((milestone) => ({
+                description: milestone.title,
+                amount: Number(milestone.amount) || 0
+              }))
+            })
+          }
+        );
+
+        let createdInvoiceCount = 0;
+
+        for (const milestone of input.milestones) {
+          if (!milestone.title || !milestone.amount) continue;
+
+          await request<{ document: any }>(
+            '/api/documents/invoice',
+            options,
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                title: `Invoice: ${milestone.title}`,
+                description: `Milestone for ${input.title}`,
+                amount: Number(milestone.amount),
+                projectId: createdProject.id,
+                clientName: resolvedClientName,
+                recipientEmail: resolvedClientEmail,
+                dueDate: milestone.dueDate || input.deadline,
+                items: [{ description: milestone.title, amount: Number(milestone.amount) }]
+              })
+            }
+          );
+          createdInvoiceCount += 1;
+        }
+
+        return {
+          project: mapCreatedProject(createdProject, createdProject.clientId || input.clientId || ''),
+          contractId: contractResponse.document?.id ? String(contractResponse.document.id) : null,
+          createdInvoiceCount
+        };
+      },
+      async () => {
+        await wait();
+        return {
+          project: mapCreatedProject(
+            {
+              id: `project_${Date.now()}`,
+              clientId: input.clientId || `client_${Date.now()}`,
+              title: input.title,
+              description: input.description,
+              status: 'active',
+              budget: input.budget ?? 0,
+              deadline: input.deadline
+            },
+            input.clientId || `client_${Date.now()}`
+          ),
+          contractId: `contract_${Date.now()}`,
+          createdInvoiceCount: input.milestones.length
+        };
+      },
+      options
+    );
+  },
+
+  async project(
+    id: string,
+    options?: ApiOptions
+  ): Promise<{ project: Project | null; milestones: Milestone[]; invoices: Invoice[]; contract: Contract | null }> {
+    return withFallback(
+      async () => {
+        const [data, documents] = await Promise.all([
+          request<{ project: any }>(`/api/projects/${id}`, options),
+          fetchDocuments(options)
+        ]);
+        const project = data.project ? mapBackendProject(data.project) : null;
+        const milestones = (data.project?.milestones || []).map((milestone: any) => mapBackendMilestone(milestone, id));
+        const directContract = data.project?.contract
+          ? {
+              id: String(data.project.contract.id),
+              clientId: String(data.project.clientId || data.project.client?.id || ''),
+              title: String(data.project.contract.title || 'Contract'),
+              status: normalizeContractStatus(data.project.contract.status),
+              projectId: id
+            }
+          : null;
+        const contract = directContract || documents
+          .filter((document) => String(document.type || '').toUpperCase() === 'CONTRACT')
+          .map(mapBackendContract)
+          .find((item) => item.projectId === id) || null;
+        const projectTitle = String(data.project?.title || data.project?.name || '');
+        const projectClient = data.project?.client;
+        const invoices = Array.isArray(data.project?.invoices) && data.project.invoices.length > 0
+          ? data.project.invoices.map((invoice: any) => ({
+              id: String(invoice.id),
+              clientId: String(data.project.clientId || data.project.client?.id || ''),
+              projectId: id,
+              status: normalizeInvoiceStatus(invoice.status),
+              amountUsd: Number(invoice.amount || 0),
+              dueAt: String(invoice.dueDate || new Date().toISOString()),
+              number: String(invoice.title || `Invoice ${String(invoice.id).slice(0, 8)}`)
+            }))
+          : documents
+              .filter((document) => {
+                if (String(document.type || '').toUpperCase() !== 'INVOICE') return false;
+                const content = getDocumentContent(document);
+                const description = String(document.description || '');
+                return (
+                  String(document.project_id || '') === id ||
+                  String(content.project_id || '') === id ||
+                  (projectTitle && description.toLowerCase().includes(projectTitle.toLowerCase())) ||
+                  (projectClient?.email && [content.recipient_email, content.client_email].filter(Boolean).map((value: string) => String(value).toLowerCase()).includes(String(projectClient.email).toLowerCase()))
+                );
+              })
+              .map(mapBackendInvoice);
 
         return {
           project,
           milestones,
-          invoices: mockInvoices.filter((invoice) => invoice.projectId === id)
+          invoices,
+          contract
         };
       },
       () => ({
         project: mockProjects.find((item) => item.id === id) ?? null,
         milestones: mockMilestones.filter((item) => item.projectId === id),
-        invoices: mockInvoices.filter((item) => item.projectId === id)
+        invoices: mockInvoices.filter((item) => item.projectId === id),
+        contract: mockContracts.find((item) => item.clientId === mockProjects.find((project) => project.id === id)?.clientId) ?? null
       }),
       options
     );
   },
 
-  async payments(_options?: ApiOptions) {
-    await wait();
-    return {
-      invoices: mockInvoices,
-      paymentLinks: mockPaymentLinks,
-      invoiceDrafts,
-      paymentLinkDrafts
-    };
+  async updateProject(id: string, input: UpdateProjectInput, options?: ApiOptions): Promise<Project> {
+    return withFallback(
+      async () => {
+        const data = await request<{ project: any }>(`/api/projects/${id}`, options, {
+          method: 'PUT',
+          body: JSON.stringify({
+            title: input.title,
+            description: input.description,
+            budget: input.budget,
+            currency: input.currency,
+            deadline: input.deadline,
+            startDate: input.startDate,
+            status:
+              input.status === 'completed'
+                ? 'COMPLETED'
+                : input.status === 'paused'
+                  ? 'PAUSED'
+                  : input.status === 'active'
+                    ? 'ACTIVE'
+                    : undefined
+          })
+        });
+        return mapBackendProject(data.project);
+      },
+      async () => {
+        await wait();
+        return mapCreatedProject(
+          {
+            id,
+            title: input.title || 'Updated project',
+            status: input.status || 'active',
+            budget: input.budget || 0,
+            deadline: input.deadline || new Date().toISOString()
+          },
+          ''
+        );
+      },
+      options
+    );
   },
 
-  async contracts(_options?: ApiOptions): Promise<Contract[]> {
-    await wait();
-    return mockContracts;
+  async payments(options?: ApiOptions) {
+    return withFallback(
+      async () => {
+        const [invoiceDocuments, paymentLinkDocuments] = await Promise.all([
+          fetchDocuments(options, 'INVOICE'),
+          fetchDocuments(options, 'PAYMENT_LINK')
+        ]);
+
+        return {
+          invoices: invoiceDocuments.map(mapBackendInvoice),
+          paymentLinks: paymentLinkDocuments.map(mapBackendPaymentLink),
+          invoiceDrafts,
+          paymentLinkDrafts
+        };
+      },
+      async () => {
+        await wait();
+        return {
+          invoices: mockInvoices,
+          paymentLinks: mockPaymentLinks,
+          invoiceDrafts,
+          paymentLinkDrafts
+        };
+      },
+      options
+    );
+  },
+
+  async contracts(options?: ApiOptions): Promise<Contract[]> {
+    return withFallback(
+      async () => {
+        const documents = await fetchDocuments(options, 'CONTRACT');
+        return documents.map(mapBackendContract);
+      },
+      async () => {
+        await wait();
+        return mockContracts;
+      },
+      options
+    );
   },
 
   async wallet(options?: ApiOptions): Promise<{ walletAccounts: WalletAccount[]; walletAssets: WalletAsset[]; walletTransactions: WalletTransaction[] }> {
     return withFallback(
       async () => {
-        const transactions = await request<any[]>('/api/transactions', options);
+        const [transactions, walletBalance] = await Promise.all([
+          request<any[]>('/api/transactions', options),
+          request<{ balances: any[]; address: string | null; solanaAddress: string | null }>('/api/wallet/balance', options)
+        ]);
+
+        const walletAccounts: WalletAccount[] = [
+          walletBalance.address
+            ? {
+                id: 'wallet-base',
+                chain: 'Base',
+                address: walletBalance.address,
+                label: 'Primary Base wallet'
+              }
+            : null,
+          walletBalance.solanaAddress
+            ? {
+                id: 'wallet-solana',
+                chain: 'Solana',
+                address: walletBalance.solanaAddress,
+                label: 'Primary Solana wallet'
+              }
+            : null
+        ].filter(Boolean) as WalletAccount[];
+
+        const walletAssets: WalletAsset[] = (walletBalance.balances || []).map((balance, index) => {
+          const symbol = String(balance.asset || '').toUpperCase();
+          const chain: WalletAsset['chain'] =
+            String(balance.chain || '').toLowerCase() === 'solana' ? 'Solana' : 'Base';
+          const tokenBalance = Number(balance.display_values?.token || 0);
+          const usdValue = Number(balance.display_values?.usd || 0);
+
+          return {
+            id: `${chain.toLowerCase()}-${symbol}-${index}`,
+            symbol,
+            name: assetNameBySymbol[symbol] || symbol,
+            chain,
+            balance: tokenBalance,
+            valueUsd: usdValue,
+            changePct24h: 0
+          };
+        }).filter((asset) => supportedWalletAssets.has(`${asset.chain}:${asset.symbol}`));
+
         return {
-          walletAccounts: mockWalletAccounts,
-          walletAssets: mockWalletAssets,
+          walletAccounts,
+          walletAssets,
           walletTransactions: (transactions || []).map(mapBackendTransaction)
         };
       },
       () => ({
-        walletAccounts: mockWalletAccounts,
-        walletAssets: mockWalletAssets,
-        walletTransactions: mockWalletTransactions
+        walletAccounts: [],
+        walletAssets: [],
+        walletTransactions: []
       }),
       options
     );
@@ -453,19 +992,36 @@ export const hedwigApi = {
   async accounts(options?: ApiOptions): Promise<{ usdAccount: UsdAccount; accountTransactions: AccountTransaction[] }> {
     return withFallback(
       async () => {
-        const [details, transfers] = await Promise.all([
+        const [statusResult, detailsResult, transfersResult] = await Promise.allSettled([
+          request<any>('/api/usd-accounts/status', options),
           request<any>('/api/usd-accounts/details', options),
           request<{ transfers: any[] }>('/api/usd-accounts/transfers', options)
         ]);
 
+        const statusData = statusResult.status === 'fulfilled' ? statusResult.value : null;
+        const detailsData = detailsResult.status === 'fulfilled' ? detailsResult.value : null;
+        const transfersData = transfersResult.status === 'fulfilled' ? transfersResult.value : { transfers: [] };
+        const accountTransactions = (transfersData.transfers || []).map(mapBackendUsdTransfer);
+        const derivedBalance = accountTransactions
+          .filter((transfer) => transfer.status === 'completed')
+          .reduce((sum, transfer) => sum + transfer.amountUsd, 0);
+
+        const accountSource = detailsData || statusData || { accountStatus: 'not_started', settlementChain: 'BASE' };
+
         return {
-          usdAccount: mapBackendUsdAccount(details),
-          accountTransactions: (transfers.transfers || []).map(mapBackendUsdTransfer)
+          usdAccount: mapBackendUsdAccount(accountSource, derivedBalance),
+          accountTransactions
         };
       },
       () => ({
-        usdAccount: mockUsdAccount,
-        accountTransactions: mockAccountTransactions
+        usdAccount: {
+          id: 'usd-account',
+          provider: 'Bridge',
+          status: 'not_started',
+          balanceUsd: 0,
+          settlementChain: 'Base'
+        },
+        accountTransactions: []
       }),
       options
     );
@@ -482,9 +1038,131 @@ export const hedwigApi = {
     );
   },
 
-  async calendar(_options?: ApiOptions) {
-    await wait();
-    return { reminders: mockReminders, milestones: mockMilestones, invoices: mockInvoices, projects: mockProjects };
+  async offrampInstitutions(currency: string, options?: ApiOptions): Promise<Array<{ code: string; name: string }>> {
+    const data = await request<{ banks: any[] }>(`/api/offramp/institutions?currency=${currency}`, options);
+    return (data.banks || []).map((b: any) => ({ code: b.code || b.id || b.institution_id, name: b.name }));
+  },
+
+  async offrampRates(
+    token: string,
+    amount: number,
+    currency: string,
+    network: string,
+    options?: ApiOptions
+  ): Promise<{ rate: string; fiatEstimate: number | null; platformFee: number; netCryptoAmount: number }> {
+    return request(
+      `/api/offramp/rates?token=${token}&amount=${amount}&currency=${currency}&network=${network}`,
+      options
+    );
+  },
+
+  async createOfframp(
+    payload: {
+      amount: number;
+      token: 'USDC' | 'USDT';
+      network: 'base' | 'solana';
+      currency: string;
+      bankName: string;
+      accountNumber: string;
+      accountName: string;
+      returnAddress: string;
+      memo?: string;
+    },
+    options?: ApiOptions
+  ): Promise<{ orderId: string }> {
+    return request('/api/offramp/create', options, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async verifyOfframpAccount(
+    payload: { bankName: string; accountNumber: string; currency: string },
+    options?: ApiOptions
+  ): Promise<{ accountName: string; accountNumber: string }> {
+    return request('/api/offramp/verify-account', options, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async bridgeAndOfframp(
+    payload: {
+      solanaAddress: string;
+      baseAddress: string;
+      token: string;
+      amount: number;
+      bankDetails: { bankName: string; accountNumber: string; accountName: string; currency: string };
+    },
+    options?: ApiOptions
+  ): Promise<{ step: string; quote: any; bridgeTransaction: any; offrampDetails: any }> {
+    return request('/api/bridge/bridge-and-offramp', options, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async calendar(options?: ApiOptions) {
+    return withFallback(
+      async () => {
+        const [calendarData, projectsData, invoiceDocuments] = await Promise.all([
+          request<{ events: any[] }>('/api/calendar?limit=200', options),
+          this.projects(options),
+          fetchDocuments(options, 'INVOICE')
+        ]);
+
+        const reminders = (calendarData.events || [])
+          .filter((event) => {
+            const sourceType = String(event.sourceType || '').toLowerCase();
+            return !sourceType || (sourceType !== 'invoice' && sourceType !== 'payment_link' && sourceType !== 'project');
+          })
+          .map(mapBackendReminder);
+
+        const milestones = projectsData.flatMap((project: any) =>
+          Array.isArray(project.milestones)
+            ? project.milestones.map((milestone: any) => mapBackendMilestone(milestone, project.id))
+            : []
+        );
+
+        return {
+          reminders,
+          milestones,
+          invoices: invoiceDocuments.map(mapBackendInvoice),
+          projects: projectsData
+        };
+      },
+      async () => {
+        await wait();
+        return { reminders: mockReminders, milestones: mockMilestones, invoices: mockInvoices, projects: mockProjects };
+      },
+      options
+    );
+  },
+
+  async updateCalendarEvent(
+    id: string,
+    input: { title?: string; eventDate?: string; status?: string; description?: string },
+    options?: ApiOptions
+  ): Promise<Reminder> {
+    return withFallback(
+      async () => {
+        const data = await request<{ event: any }>(`/api/calendar/${id}`, options, {
+          method: 'PATCH',
+          body: JSON.stringify(input)
+        });
+        return mapBackendReminder(data.event);
+      },
+      async () => {
+        await wait();
+        return {
+          id,
+          kind: 'follow_up',
+          title: input.title || 'Updated reminder',
+          dueAt: input.eventDate || new Date().toISOString()
+        };
+      },
+      options
+    );
   },
 
   async notifications(options?: ApiOptions): Promise<Notification[]> {

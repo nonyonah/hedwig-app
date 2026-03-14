@@ -1,13 +1,20 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
-const badgeVariants = cva('inline-flex items-center rounded-full px-3 py-1 text-xs font-medium', {
+/* UUI badge: rounded-full (pill), text-xs font-medium, border */
+const badgeVariants = cva('inline-flex items-center rounded-full border px-2.5 py-0.5 text-[12px] font-medium', {
   variants: {
     variant: {
-      default: 'bg-primary/12 text-primary',
-      neutral: 'bg-muted text-muted-foreground',
-      success: 'bg-emerald-500/15 text-emerald-400',
-      warning: 'bg-amber-500/15 text-amber-300'
+      /* UUI brand: #eff4ff bg, #2563eb border light, #2563eb text */
+      default: 'border-[#c7d7f8] bg-[#eff4ff] text-[#2563eb]',
+      /* UUI gray: gray-100 bg, gray-200 border, gray-700 text */
+      neutral: 'border-[#e9eaeb] bg-[#f5f5f5] text-[#414651]',
+      /* UUI success: #ecfdf3 bg, #17b26a border, #067647 text */
+      success: 'border-[#abefc6] bg-[#ecfdf3] text-[#067647]',
+      /* UUI warning: #fffaeb bg, #fedf89 border, #b54708 text */
+      warning: 'border-[#fedf89] bg-[#fffaeb] text-[#b54708]',
+      /* UUI error: #fef3f2 bg, #fda29b border, #d92d20 text */
+      error: 'border-[#fda29b] bg-[#fef3f2] text-[#d92d20]'
     }
   },
   defaultVariants: {

@@ -57,7 +57,7 @@ const attachUsdAccountDetails = async (doc: any) => {
  */
 router.post('/invoice', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled } = req.body;
+        const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled, projectId } = req.body;
         const privyId = req.user!.id;
 
         // Validate required fields
@@ -96,6 +96,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             .insert({
                 user_id: user.id,
                 client_id: clientId, // Use the resolved clientId here
+                project_id: projectId || null,
                 type: 'INVOICE',
                 title: `Invoice for ${clientName || description || 'Services'}`,
                 amount: parseFloat(amount),
@@ -214,24 +215,16 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             return;
         }
 
-        // Auto-create client if email is provided and client doesn't exist
-        if (recipientEmail) {
-            const { data: existingClient } = await supabase
-                .from('clients')
-                .select('id')
-                .eq('user_id', user.id)
-                .eq('email', recipientEmail)
-                .single();
-
-            if (!existingClient) {
-                logger.info('[Documents] Auto-creating client', { email: recipientEmail, name: clientName });
-                await supabase.from('clients').insert({
-                    user_id: user.id,
-                    name: clientName || recipientEmail.split('@')[0],
-                    email: recipientEmail,
-                    created_from: 'payment_link_creation'
-                });
-            }
+        let clientId = null;
+        if (recipientEmail || clientName) {
+            const { ClientService } = await import('../services/clientService');
+            const { id } = await ClientService.getOrCreateClient(
+                user.id,
+                clientName,
+                recipientEmail,
+                { createdFrom: 'payment_link_creation' }
+            );
+            clientId = id;
         }
 
         // Create payment link record (payment_link_url will be updated after we have the ID)
@@ -239,6 +232,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             .from('documents')
             .insert({
                 user_id: user.id,
+                client_id: clientId,
                 type: 'PAYMENT_LINK',
                 title: description || 'Payment Link',
                 amount: parseFloat(amount),
@@ -347,7 +341,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             // Ideally we'd refactor to controllers.
             
             // Re-using logic from /invoice route
-            const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled, title } = req.body;
+            const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled, title, projectId } = req.body;
             const privyId = req.user!.id;
             
             // Validate required fields
@@ -362,22 +356,24 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
-            // Unique Client Check via Service
+            let clientId = null;
             if (recipientEmail || clientName) {
                 const { ClientService } = await import('../services/clientService');
-                await ClientService.getOrCreateClient(
+                const { id } = await ClientService.getOrCreateClient(
                     user.id,
                     clientName,
                     recipientEmail,
                     { createdFrom: 'invoice_creation' }
                 );
-                // We ensure the client exists and is deduplicated
+                clientId = id;
             }
 
             const { data: doc, error } = await supabase
                 .from('documents')
                 .insert({
                     user_id: user.id,
+                    client_id: clientId,
+                    project_id: projectId || null,
                     type: 'INVOICE',
                     title: title || `Invoice for ${clientName || description || 'Services'}`,
                     amount: parseFloat(amount),
@@ -459,10 +455,23 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
+            let clientId = null;
+            if (recipientEmail || clientName) {
+                const { ClientService } = await import('../services/clientService');
+                const { id } = await ClientService.getOrCreateClient(
+                    user.id,
+                    clientName,
+                    recipientEmail,
+                    { createdFrom: 'payment_link_creation' }
+                );
+                clientId = id;
+            }
+
             const { data: doc, error } = await supabase
                 .from('documents')
                 .insert({
                     user_id: user.id,
+                    client_id: clientId,
                     type: 'PAYMENT_LINK',
                     title: title || description || 'Payment Link',
                     amount: parseFloat(amount),
@@ -505,6 +514,18 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             if (!user) {
                 res.status(404).json({ success: false, error: { message: 'User not found' } });
                 return;
+            }
+
+            let clientId = null;
+            if (recipientEmail || clientName) {
+                const { ClientService } = await import('../services/clientService');
+                const { id } = await ClientService.getOrCreateClient(
+                    user.id,
+                    clientName,
+                    recipientEmail,
+                    { createdFrom: 'contract_creation' }
+                );
+                clientId = id;
             }
 
             // Generate AI contract content if we have enough information
@@ -622,6 +643,7 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
                 .from('documents')
                 .insert({
                     user_id: user.id,
+                    client_id: clientId,
                     project_id: projectId || null,
                     type: 'CONTRACT',
                     title: title || 'Contract',

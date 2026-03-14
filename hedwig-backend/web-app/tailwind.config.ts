@@ -39,20 +39,30 @@ const config: Config = {
         warning: 'hsl(var(--warning))'
       },
       borderRadius: {
-        xl: '1rem',
-        '2xl': '1.5rem'
+        /* Untitled UI radius scale — matches Tailwind defaults exactly */
+        /* rounded-md=6px, rounded-lg=8px, rounded-xl=12px, rounded-2xl=16px, rounded-3xl=24px */
+        '3xl': '1.5rem'
       },
       boxShadow: {
-        panel: '0 20px 60px -24px rgba(7, 9, 20, 0.35)',
-        inset: 'inset 0 1px 0 rgba(255,255,255,0.03)'
+        /* Untitled UI shadow scale — exact values from theme.css */
+        'xs': '0px 1px 2px rgba(10, 13, 18, 0.05)',
+        'sm': '0px 1px 3px rgba(10, 13, 18, 0.1), 0px 1px 2px -1px rgba(10, 13, 18, 0.1)',
+        'md': '0px 4px 6px -1px rgba(10, 13, 18, 0.1), 0px 2px 4px -2px rgba(10, 13, 18, 0.06)',
+        'lg': '0px 12px 16px -4px rgba(10, 13, 18, 0.08), 0px 4px 6px -2px rgba(10, 13, 18, 0.03)',
+        'xl': '0px 20px 24px -4px rgba(10, 13, 18, 0.08), 0px 8px 8px -4px rgba(10, 13, 18, 0.03)',
+        '2xl': '0px 24px 48px -12px rgba(10, 13, 18, 0.18)',
+        'skeumorphic': '0px 0px 0px 1px rgba(10, 13, 18, 0.18) inset, 0px -2px 0px 0px rgba(10, 13, 18, 0.05) inset',
+        /* Legacy aliases */
+        panel: '0px 12px 16px -4px rgba(10, 13, 18, 0.08)',
+        soft: '0px 1px 2px rgba(10, 13, 18, 0.05)'
       },
-      backgroundImage: {
-        grid: 'linear-gradient(to right, rgba(148,163,184,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.08) 1px, transparent 1px)',
-        hero: 'radial-gradient(circle at top left, rgba(20,184,166,0.22), transparent 28%), radial-gradient(circle at top right, rgba(59,130,246,0.18), transparent 24%), linear-gradient(180deg, rgba(15,23,42,0.94) 0%, rgba(2,6,23,1) 100%)'
+      fontFamily: {
+        sans: ['"Google Sans Flex"', '"Google Sans Text"', '"Google Sans"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        mono: ['ui-monospace', 'Roboto Mono', 'SFMono-Regular', 'Menlo', 'Monaco', 'monospace']
       }
     }
   },
-  plugins: []
+  plugins: [require('tailwindcss-animate')]
 };
 
 export default config;

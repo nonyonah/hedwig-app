@@ -1,22 +1,23 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
+/* UUI card: white bg, shadow-xs, ring-1 ring-[#e9eaeb], rounded-xl */
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('rounded-3xl border border-border bg-card/90 shadow-panel backdrop-blur', className)} {...props} />;
+  return <div className={cn('rounded-xl bg-white text-[#181d27] shadow-xs ring-1 ring-[#e9eaeb]', className)} {...props} />;
 }
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex flex-col gap-2 p-6', className)} {...props} />;
+  return <div className={cn('flex flex-col gap-1 p-5', className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn('text-lg font-semibold tracking-tight text-foreground', className)} {...props} />;
+  return <h3 className={cn('text-[16px] font-semibold text-[#181d27]', className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn('text-sm text-muted-foreground', className)} {...props} />;
+  return <p className={cn('text-[14px] leading-5 text-[#717680]', className)} {...props} />;
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('px-6 pb-6', className)} {...props} />;
+  return <div className={cn('px-5 pb-5', className)} {...props} />;
 }
