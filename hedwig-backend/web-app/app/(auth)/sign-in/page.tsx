@@ -2,7 +2,7 @@
 
 import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function getIdentityDetails(user: any) {
   const email =
@@ -30,37 +30,41 @@ export default function SignInPage() {
   const { login, authenticated, ready, user, getAccessToken } = usePrivy();
   const router = useRouter();
   const [settling, setSettling] = useState(false);
+  const autoOpened = useRef(false);
 
+  // Auto-open Privy modal as soon as SDK is ready
+  useEffect(() => {
+    if (!ready || authenticated || autoOpened.current) return;
+    autoOpened.current = true;
+    login();
+  }, [ready, authenticated, login]);
+
+  // After Privy login succeeds, exchange for a session cookie
   useEffect(() => {
     if (!ready || !authenticated || settling) return;
 
     async function settle() {
       setSettling(true);
       try {
-        // getAccessToken() returns the Privy JWT that privy.verifyAuthToken() on the
-        // backend can verify. It auto-refreshes when near expiry.
         const token = await getAccessToken();
-        if (!token) {
-          setSettling(false);
-          return;
-        }
+        if (!token) { setSettling(false); return; }
 
         const identity = getIdentityDetails(user);
-
-        const hedwigUser = {
-          id: user?.id ?? '',
-          privyId: user?.id ?? '',
-          email: identity.email,
-          firstName: identity.firstName,
-          lastName: identity.lastName,
-          workspaceId: 'hedwig',
-          role: 'owner'
-        };
-
         await fetch('/api/auth/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, user: hedwigUser })
+          body: JSON.stringify({
+            token,
+            user: {
+              id: user?.id ?? '',
+              privyId: user?.id ?? '',
+              email: identity.email,
+              firstName: identity.firstName,
+              lastName: identity.lastName,
+              workspaceId: 'hedwig',
+              role: 'owner'
+            }
+          })
         });
 
         router.replace('/dashboard');
@@ -84,27 +88,34 @@ export default function SignInPage() {
           <div className="text-center">
             <h1 className="text-[22px] font-semibold text-[#181d27]">Sign in to Hedwig</h1>
             <p className="mt-1.5 text-[14px] text-[#717680]">
-              Continue with Google, Apple, or email using the same Hedwig identity layer.
+              Continue with Google, Apple, or email.
             </p>
           </div>
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow-xs ring-1 ring-[#e9eaeb]">
-          <button
-            type="button"
-            onClick={login}
-            disabled={!ready || settling}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2563eb] px-4 py-2.5 text-[14px] font-semibold text-white shadow-xs transition duration-100 ease-linear hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {settling ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                Signing in…
-              </>
-            ) : (
-              'Continue to sign in'
-            )}
-          </button>
+          {settling ? (
+            <div className="flex items-center justify-center gap-3 rounded-lg bg-[#f8f9fc] px-4 py-3 text-[14px] font-medium text-[#344054]">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d0d5dd] border-t-[#2563eb]" />
+              Signing you in…
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={login}
+              disabled={!ready}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2563eb] px-4 py-2.5 text-[14px] font-semibold text-white shadow-xs transition duration-100 ease-linear hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {!ready ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Loading…
+                </>
+              ) : (
+                'Continue to sign in'
+              )}
+            </button>
+          )}
 
           <p className="mt-4 text-center text-[12px] text-[#a4a7ae]">
             Secured by <span className="font-medium text-[#717680]">Privy</span> — same auth as the mobile app

@@ -5,7 +5,7 @@ import { ReactNode } from 'react';
 import { privyConfig } from '@/lib/auth/config';
 
 export function HedwigPrivyProvider({ children }: { children: ReactNode }) {
-  if (!privyConfig.appId || !privyConfig.clientId) {
+  if (!privyConfig.appId) {
     return <>{children}</>;
   }
 

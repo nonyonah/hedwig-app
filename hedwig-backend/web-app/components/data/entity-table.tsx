@@ -12,7 +12,7 @@ export function EntityTable({
 }: {
   title: string;
   columns: string[];
-  rows: Array<Array<{ value: string; href?: string; tone?: 'default' | 'success' | 'warning' | 'neutral'; badge?: boolean }>>;
+  rows: Array<Array<{ value: string; href?: string; onClick?: () => void; tone?: 'default' | 'success' | 'warning' | 'neutral'; badge?: boolean }>>;
   highlightedRowIndex?: number | null;
 }) {
   return (
@@ -46,8 +46,18 @@ export function EntityTable({
                           <Badge variant={cell.tone ?? 'neutral'}>{cell.value}</Badge>
                           <ArrowUpRight className="h-4 w-4 text-[#72706b]" weight="bold" />
                         </Link>
+                      ) : cell.badge && cell.onClick ? (
+                        <button type="button" onClick={cell.onClick} className="inline-flex items-center gap-1">
+                          <Badge variant={cell.tone ?? 'neutral'}>{cell.value}</Badge>
+                          <ArrowUpRight className="h-4 w-4 text-[#72706b]" weight="bold" />
+                        </button>
                       ) : cell.badge ? (
                         <Badge variant={cell.tone ?? 'neutral'}>{cell.value}</Badge>
+                      ) : cell.onClick ? (
+                        <button type="button" onClick={cell.onClick} className="inline-flex items-center gap-1 font-semibold text-primary">
+                          {cell.value}
+                          <ArrowUpRight className="h-4 w-4 text-[#72706b]" weight="bold" />
+                        </button>
                       ) : cell.href ? (
                         <Link href={cell.href} className="inline-flex items-center gap-1 font-semibold text-primary">
                           {cell.value}

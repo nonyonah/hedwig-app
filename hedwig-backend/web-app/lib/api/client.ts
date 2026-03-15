@@ -443,7 +443,25 @@ async function request<T>(path: string, options?: ApiOptions, init?: RequestInit
     }
   });
 
-  const payload = (await response.json()) as ApiEnvelope<T>;
+  const contentType = response.headers.get('content-type') || '';
+  const rawBody = await response.text();
+
+  if (!contentType.includes('application/json')) {
+    const snippet = rawBody.slice(0, 120).replace(/\s+/g, ' ').trim();
+    throw new Error(
+      `Expected JSON from ${backendConfig.apiBaseUrl}${path}, but received ${contentType || 'unknown content type'} instead. ` +
+      `This usually means the web app is pointing to the wrong server or port. Response started with: ${snippet}`
+    );
+  }
+
+  let payload: ApiEnvelope<T>;
+
+  try {
+    payload = JSON.parse(rawBody) as ApiEnvelope<T>;
+  } catch {
+    const snippet = rawBody.slice(0, 120).replace(/\s+/g, ' ').trim();
+    throw new Error(`Failed to parse JSON from ${backendConfig.apiBaseUrl}${path}. Response started with: ${snippet}`);
+  }
 
   if (!response.ok || !payload?.success) {
     const message = typeof payload?.error === 'string' ? payload.error : payload?.error?.message;
@@ -1040,7 +1058,12 @@ export const hedwigApi = {
 
   async offrampInstitutions(currency: string, options?: ApiOptions): Promise<Array<{ code: string; name: string }>> {
     const data = await request<{ banks: any[] }>(`/api/offramp/institutions?currency=${currency}`, options);
-    return (data.banks || []).map((b: any) => ({ code: b.code || b.id || b.institution_id, name: b.name }));
+    return (data.banks || [])
+      .map((bank: any) => ({
+        code: String(bank?.code || bank?.id || bank?.institution_id || bank?.institutionCode || '').trim(),
+        name: String(bank?.name || bank?.institution_name || bank?.displayName || '').trim()
+      }))
+      .filter((bank) => bank.code && bank.name);
   },
 
   async offrampRates(

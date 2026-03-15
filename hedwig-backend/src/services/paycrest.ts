@@ -96,6 +96,57 @@ let cacheTimestamp = 0;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 export class PaycrestService {
+    private static isLikelyInstitutionCode(value: string): boolean {
+        const normalized = String(value || '').trim();
+        if (!normalized) return false;
+        return /^[A-Z0-9]{6,}$/.test(normalized);
+    }
+
+    private static normalizeInstitutions(payload: any): Array<{ code: string; name: string }> {
+        const rawInstitutions =
+            (Array.isArray(payload?.data) && payload.data) ||
+            payload?.data?.institutions ||
+            payload?.data?.banks ||
+            payload?.institutions ||
+            payload?.banks ||
+            [];
+
+        if (!Array.isArray(rawInstitutions)) {
+            return [];
+        }
+
+        return rawInstitutions
+            .map((institution: any) => ({
+                code: String(
+                    institution?.code ||
+                    institution?.id ||
+                    institution?.institution_id ||
+                    institution?.institutionCode ||
+                    ''
+                ).trim(),
+                name: String(
+                    institution?.name ||
+                    institution?.institution_name ||
+                    institution?.displayName ||
+                    ''
+                ).trim(),
+            }))
+            .filter((institution) => institution.code && institution.name);
+    }
+
+    private static getNetworkCandidates(network: string): string[] {
+        const normalized = String(network || '').toLowerCase();
+
+        if (normalized === 'base') {
+            // Paycrest docs currently show `ethereum` in sender order examples.
+            // We still try `base` first to preserve the current integration, then
+            // fall back to `ethereum` if the provider rejects the network value.
+            return ['base', 'ethereum'];
+        }
+
+        return [normalized];
+    }
+
     private static toNumber(value: any): number | null {
         if (value === null || value === undefined) return null;
         const num = typeof value === 'number' ? value : parseFloat(String(value));
@@ -122,13 +173,21 @@ export class PaycrestService {
 
         try {
             const response = await paycrestClient.get(`/institutions/${currency.toUpperCase()}`);
+            const institutions = this.normalizeInstitutions(response.data);
 
-            if (response.data?.status === 'success' && response.data?.data) {
-                institutionsCache[currency] = response.data.data;
+            if (institutions.length > 0) {
+                institutionsCache[currency] = institutions;
                 cacheTimestamp = now;
-                logger.debug('Fetched institutions', { count: response.data.data.length, currency });
-                return response.data.data;
+                logger.debug('Fetched institutions', { count: institutions.length, currency });
+                return institutions;
             }
+
+            logger.warn('Paycrest institutions response did not contain usable bank entries', {
+                currency,
+                hasData: Boolean(response.data),
+                status: response.data?.status || null,
+            });
+
             return [];
         } catch (error: any) {
             logger.error('Error fetching institutions', { error: error.response?.data?.message || error.message });
@@ -143,6 +202,10 @@ export class PaycrestService {
     static async findInstitutionCode(bankName: string, currency: string = 'NGN'): Promise<string> {
         const normalizedName = bankName.toLowerCase().trim();
 
+        if (this.isLikelyInstitutionCode(bankName)) {
+            return bankName.toUpperCase();
+        }
+
         // First check our static map for quick lookup
         if (BANK_CODE_MAP[normalizedName]) {
             return BANK_CODE_MAP[normalizedName];
@@ -154,6 +217,11 @@ export class PaycrestService {
         for (const inst of institutions) {
             const instName = (inst.name || '').toLowerCase();
             const instCode = inst.code || '';
+
+            if (instCode.toLowerCase() === normalizedName) {
+                logger.debug('Matched institution code directly');
+                return instCode;
+            }
 
             // Match by name containing the bank name or vice versa
             if (instName.includes(normalizedName) || normalizedName.includes(instName)) {
@@ -177,20 +245,30 @@ export class PaycrestService {
         fiatCurrency: string = 'NGN',
         network: string = 'base'
     ): Promise<string> {
-        try {
-            const response = await paycrestClient.get(
-                `/rates/${token.toUpperCase()}/${amount}/${fiatCurrency.toUpperCase()}`,
-                {
-                    params: { network: network.toLowerCase() },
-                }
-            );
+        const networkCandidates = this.getNetworkCandidates(network);
+        let lastError: any = null;
 
-            // API returns { status, message, data: "rate_string" }
-            return response.data.data;
-        } catch (error: any) {
-            logger.error('Error fetching rate', { error: error.response?.data?.message || error.message });
-            throw new Error('Failed to fetch exchange rate from Paycrest: ' + (error.response?.data?.message || error.message));
+        for (const networkCandidate of networkCandidates) {
+            try {
+                const response = await paycrestClient.get(
+                    `/rates/${token.toUpperCase()}/${amount}/${fiatCurrency.toUpperCase()}`,
+                    {
+                        params: { network: networkCandidate },
+                    }
+                );
+
+                // API returns { status, message, data: "rate_string" }
+                return response.data.data;
+            } catch (error: any) {
+                lastError = error;
+                logger.warn('Error fetching rate from Paycrest', {
+                    network: networkCandidate,
+                    error: error.response?.data?.message || error.message
+                });
+            }
         }
+
+        throw new Error('Failed to fetch exchange rate from Paycrest: ' + (lastError?.response?.data?.message || lastError?.message || 'Unknown error'));
     }
 
     /**
@@ -254,23 +332,41 @@ export class PaycrestService {
                 orderData.recipient.currency || 'NGN'
             );
 
-            const payload = {
-                amount: orderData.amount,
-                token: orderData.token.toUpperCase(),
-                network: orderData.network.toLowerCase(),
-                rate: orderData.rate,
-                recipient: {
-                    institution: institutionCode,  // Use the looked-up code
-                    accountIdentifier: orderData.recipient.accountIdentifier,
-                    accountName: orderData.recipient.accountName,
-                    currency: orderData.recipient.currency || 'NGN',
-                    memo: orderData.recipient.memo || 'Payment',
-                },
-                returnAddress: orderData.returnAddress,
-                reference: orderData.reference || `ref-${Date.now()}`,
-            };
+            let response: any = null;
+            let lastError: any = null;
 
-            const response = await paycrestClient.post('/sender/orders', payload);
+            for (const networkCandidate of this.getNetworkCandidates(orderData.network)) {
+                const payload = {
+                    amount: orderData.amount,
+                    token: orderData.token.toUpperCase(),
+                    network: networkCandidate,
+                    rate: orderData.rate,
+                    recipient: {
+                        institution: institutionCode,
+                        accountIdentifier: orderData.recipient.accountIdentifier,
+                        accountName: orderData.recipient.accountName,
+                        currency: orderData.recipient.currency || 'NGN',
+                        memo: orderData.recipient.memo || 'Payment',
+                    },
+                    returnAddress: orderData.returnAddress,
+                    reference: orderData.reference || `ref-${Date.now()}`,
+                };
+
+                try {
+                    response = await paycrestClient.post('/sender/orders', payload);
+                    break;
+                } catch (error: any) {
+                    lastError = error;
+                    logger.warn('Paycrest order creation failed for network candidate', {
+                        network: networkCandidate,
+                        error: error.response?.data?.message || error.message
+                    });
+                }
+            }
+
+            if (!response) {
+                throw lastError || new Error('Paycrest order creation failed');
+            }
 
             logger.info('Created offramp order');
 

@@ -1,7 +1,8 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   ArrowRight,
   Bell,
@@ -34,8 +35,6 @@ type DashboardData = {
   milestones: Milestone[];
 };
 
-const ranges = ['30 days', '90 days', '6 months', '1 year'] as const;
-
 type ActionItem = {
   id: string;
   title: string;
@@ -55,9 +54,6 @@ type MetricCard = {
 
 export function DashboardClient({ greetingName, data }: { greetingName: string; data: DashboardData }) {
   const { currency } = useCurrency();
-  const [rangeIndex, setRangeIndex] = useState(3);
-
-  const timeRange = ranges[rangeIndex];
 
   const dashboardState = useMemo(() => {
     const overdueInvoices = data.invoices.filter((invoice) => invoice.status === 'overdue');
@@ -195,12 +191,12 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
       summaryCards,
       workstreamCards
     };
-  }, [data]);
+  }, [currency, data]);
 
   return (
     <div className="flex flex-col gap-6">
       {/* Page header — UUI: text-display-xs (24px) font-semibold, text-primary */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-[24px] font-semibold text-[#181d27]">
             Good morning, {greetingName}
@@ -208,23 +204,6 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
           <p className="mt-1 text-[14px] text-[#717680]">
             Here&rsquo;s what&rsquo;s happening across your work and money today.
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* UUI tertiary button: bg-white border border-[#d5d7da] shadow-xs */}
-          <button
-            className="inline-flex h-9 select-none items-center gap-1.5 rounded-lg border border-[#d5d7da] bg-white px-3.5 text-[14px] font-semibold text-[#414651] shadow-xs transition duration-100 ease-linear hover:bg-[#fafafa]"
-            onClick={() => setRangeIndex((current) => (current + 1) % ranges.length)}
-            type="button"
-          >
-            {timeRange}
-          </button>
-          {/* UUI primary button: bg-[#2563eb] shadow-xs-skeumorphic */}
-          <Link
-            className="inline-flex h-9 select-none items-center rounded-lg bg-[#2563eb] px-3.5 text-[14px] font-semibold text-white shadow-xs transition duration-100 ease-linear hover:bg-[#1d4ed8]"
-            href="/payments"
-          >
-            New invoice
-          </Link>
         </div>
       </div>
 
@@ -243,7 +222,26 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
                 <p className="text-[13px] font-medium text-[#535862]">{card.title}</p>
                 {/* UUI featured icon: size-10 rounded-lg bg-tertiary */}
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f5f5f5]">
-                  <Icon className="h-[18px] w-[18px] text-[#717680]" weight="regular" />
+                  {card.id === 'wallet' ? (
+                    <div className="flex items-center pl-0.5">
+                      <Image
+                        src="/icons/networks/base.png"
+                        alt="Base"
+                        width={16}
+                        height={16}
+                        className="rounded-full ring-1 ring-white"
+                      />
+                      <Image
+                        src="/icons/networks/solana.png"
+                        alt="Solana"
+                        width={16}
+                        height={16}
+                        className="-ml-1.5 rounded-full ring-1 ring-white"
+                      />
+                    </div>
+                  ) : (
+                    <Icon className="h-[18px] w-[18px] text-[#717680]" weight="regular" />
+                  )}
                 </div>
               </div>
               {/* UUI: text-display-sm (30px) font-semibold text-primary */}

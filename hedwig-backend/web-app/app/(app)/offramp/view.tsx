@@ -1,8 +1,9 @@
 'use client';
 
+import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, ArrowsDownUp, CheckCircle, ClockCountdown, Coin, SpinnerGap, Warning } from '@phosphor-icons/react/dist/ssr';
-import { useWallets } from '@privy-io/react-auth';
+import { ArrowRight, ArrowsDownUp, CheckCircle, ClockCountdown, SpinnerGap, Warning } from '@phosphor-icons/react/dist/ssr';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import type { OfframpTransaction } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
@@ -24,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/providers/toast-provider';
 import { cn, formatCurrency, formatShortDate } from '@/lib/utils';
 
-const TOKENS = ['USDC', 'USDT'] as const;
+const TOKENS = ['USDC'] as const;
 const NETWORKS = [
   { id: 'base', label: 'Base', desc: 'EVM / Base network' },
   { id: 'solana', label: 'Solana', desc: 'SPL → Bridge to Base' }
@@ -63,13 +64,25 @@ const initialForm: OfframpForm = {
   memo: ''
 };
 
+const TOKEN_ICON_BY_KEY: Record<string, string> = {
+  'base:USDC': '/icons/tokens/usdc.png',
+  'base:ETH': '/icons/tokens/eth.png',
+  'solana:USDC': '/icons/tokens/usdc.png',
+  'solana:SOL': '/icons/networks/solana.png'
+};
+
+const CHAIN_ICON_BY_KEY: Record<Network, string> = {
+  base: '/icons/networks/base.png',
+  solana: '/icons/networks/solana.png'
+};
+
 /* ── Pill selector ─────────────────────────────────────────────── */
 function SelectPill<T extends string>({
   options,
   value,
   onChange
 }: {
-  options: readonly { id: T; label: string; sub?: string }[];
+  options: readonly { id: T; label: string; sub?: string; iconSrc?: string }[];
   value: T;
   onChange: (v: T) => void;
 }) {
@@ -87,7 +100,10 @@ function SelectPill<T extends string>({
               : 'border-[#e9eaeb] bg-white text-[#414651] hover:border-[#d5d7da] hover:bg-[#fafafa]'
           )}
         >
-          <span className="text-[13px] font-semibold">{o.label}</span>
+          <span className="flex items-center gap-2 text-[13px] font-semibold">
+            {o.iconSrc ? <Image src={o.iconSrc} alt={`${o.label} icon`} width={18} height={18} className="rounded-full" /> : null}
+            {o.label}
+          </span>
           {o.sub && <span className="text-[11px] text-[#a4a7ae]">{o.sub}</span>}
         </button>
       ))}
@@ -141,14 +157,25 @@ function RateChip({
 
 export function OfframpClient({
   initialTransactions,
-  accessToken
+  accessToken: serverAccessToken
 }: {
   initialTransactions: OfframpTransaction[];
   accessToken: string | null;
 }) {
   const { toast } = useToast();
+  const { getAccessToken } = usePrivy();
   const { wallets: evmWallets } = useWallets();
   const { wallets: solanaWallets } = useSolanaWallets();
+
+  /* Always get a fresh Privy access token — falls back to the server-rendered one */
+  const getFreshToken = useCallback(async (): Promise<string | null> => {
+    try {
+      const t = await getAccessToken();
+      return t ?? serverAccessToken;
+    } catch {
+      return serverAccessToken;
+    }
+  }, [getAccessToken, serverAccessToken]);
 
   /* Wallet addresses — prefer the embedded (privy) wallet */
   const evmAddress = (evmWallets.find((w) => w.walletClientType === 'privy') ?? evmWallets[0])?.address ?? '';
@@ -161,9 +188,11 @@ export function OfframpClient({
 
   const [institutions, setInstitutions] = useState<Array<{ code: string; name: string }>>([]);
   const [loadingInstitutions, setLoadingInstitutions] = useState(false);
+  const [institutionsError, setInstitutionsError] = useState<string | null>(null);
 
   const [rateInfo, setRateInfo] = useState<{ rate: string; fiatEstimate: number | null; fee: number } | null>(null);
   const [loadingRate, setLoadingRate] = useState(false);
+  const [rateError, setRateError] = useState<string | null>(null);
 
   const [verifyingAccount, setVerifyingAccount] = useState(false);
   const [accountVerified, setAccountVerified] = useState(false);
@@ -182,32 +211,46 @@ export function OfframpClient({
 
   /* Fetch institutions when currency or dialog opens */
   useEffect(() => {
-    if (!open || !accessToken) return;
+    if (!open) return;
     setLoadingInstitutions(true);
     setInstitutions([]);
-    hedwigApi
-      .offrampInstitutions(form.currency, { accessToken })
-      .then(setInstitutions)
-      .catch(() => setInstitutions([]))
-      .finally(() => setLoadingInstitutions(false));
-  }, [open, form.currency, accessToken]);
+    setInstitutionsError(null);
+    getFreshToken().then((token) => {
+      if (!token) { setLoadingInstitutions(false); return; }
+      hedwigApi
+        .offrampInstitutions(form.currency, { accessToken: token, disableMockFallback: true })
+        .then(setInstitutions)
+        .catch((error: any) => {
+          setInstitutions([]);
+          setInstitutionsError(error?.message || 'Unable to load bank institutions right now.');
+        })
+        .finally(() => setLoadingInstitutions(false));
+    });
+  }, [open, form.currency]);
 
   /* Debounced live rate fetch — runs whenever amount/token/network/currency changes */
   const fetchRate = useCallback(() => {
-    if (!accessToken) return;
     const amountNum = parseFloat(form.amount);
     if (isNaN(amountNum) || amountNum <= 0) {
       setRateInfo(null);
+      setRateError(null);
       return;
     }
     setLoadingRate(true);
     setRateInfo(null);
-    hedwigApi
-      .offrampRates(form.token, amountNum, form.currency, form.network, { accessToken })
-      .then((r) => setRateInfo({ rate: r.rate, fiatEstimate: r.fiatEstimate, fee: r.platformFee }))
-      .catch(() => setRateInfo(null))
-      .finally(() => setLoadingRate(false));
-  }, [form.amount, form.token, form.network, form.currency, accessToken]);
+    setRateError(null);
+    getFreshToken().then((token) => {
+      if (!token) { setLoadingRate(false); return; }
+      hedwigApi
+        .offrampRates(form.token, amountNum, form.currency, form.network, { accessToken: token, disableMockFallback: true })
+        .then((r) => setRateInfo({ rate: r.rate, fiatEstimate: r.fiatEstimate, fee: r.platformFee }))
+        .catch((error: any) => {
+          setRateInfo(null);
+          setRateError(error?.message || 'Unable to fetch a live rate right now.');
+        })
+        .finally(() => setLoadingRate(false));
+    });
+  }, [form.amount, form.token, form.network, form.currency, getFreshToken]);
 
   useEffect(() => {
     if (!open) return;
@@ -224,7 +267,7 @@ export function OfframpClient({
 
   /* Auto-verify account name when bank + account number are ready */
   useEffect(() => {
-    if (!open || !accessToken || !form.bankCode || form.accountNumber.length < 10) return;
+    if (!open || !form.bankCode || form.accountNumber.length < 10) return;
 
     if (verifyDebounceRef.current) clearTimeout(verifyDebounceRef.current);
     setAccountVerified(false);
@@ -233,12 +276,14 @@ export function OfframpClient({
     verifyDebounceRef.current = setTimeout(async () => {
       setVerifyingAccount(true);
       try {
+        const token = await getFreshToken();
+        if (!token) return;
         const result = await hedwigApi.verifyOfframpAccount(
-          { bankName: form.bankCode, accountNumber: form.accountNumber.trim(), currency: form.currency },
-          { accessToken }
+          { bankName: form.bankCode || form.bankName, accountNumber: form.accountNumber.trim(), currency: form.currency },
+          { accessToken: token, disableMockFallback: true }
         );
         update('accountName', result.accountName || '');
-        setAccountVerified(true);
+        setAccountVerified(Boolean(result.accountName));
       } catch {
         /* Let user type manually */
       } finally {
@@ -247,7 +292,7 @@ export function OfframpClient({
     }, 800);
 
     return () => { if (verifyDebounceRef.current) clearTimeout(verifyDebounceRef.current); };
-  }, [open, form.bankCode, form.accountNumber, form.currency, accessToken]);
+  }, [open, form.bankCode, form.accountNumber, form.currency]);
 
   const resetDialog = () => {
     setForm(initialForm);
@@ -287,7 +332,8 @@ export function OfframpClient({
   };
 
   const handleSubmit = async () => {
-    if (!accessToken) {
+    const token = await getFreshToken();
+    if (!token) {
       toast({ type: 'error', title: 'Session expired', message: 'Please sign in again.' });
       return;
     }
@@ -315,7 +361,7 @@ export function OfframpClient({
               currency: form.currency
             }
           },
-          { accessToken, disableMockFallback: true }
+          { accessToken: token, disableMockFallback: true }
         );
         toast({
           type: 'success',
@@ -336,7 +382,7 @@ export function OfframpClient({
             returnAddress,
             memo: form.memo.trim() || undefined
           },
-          { accessToken, disableMockFallback: true }
+          { accessToken: token, disableMockFallback: true }
         );
         toast({
           type: 'success',
@@ -346,7 +392,9 @@ export function OfframpClient({
       }
 
       resetDialog();
-      hedwigApi.offramp({ accessToken }).then(setTransactions).catch(() => {});
+      getFreshToken().then((t) => {
+        if (t) hedwigApi.offramp({ accessToken: t }).then(setTransactions).catch(() => {});
+      });
     } catch (error: any) {
       toast({ type: 'error', title: 'Offramp failed', message: error?.message || 'Please try again.' });
     } finally {
@@ -436,7 +484,7 @@ export function OfframpClient({
                     Amount <span className="text-[#f04438]">*</span>
                   </label>
                   <div className="relative">
-                    <Coin className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a4a7ae]" weight="regular" />
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] font-medium text-[#717680] select-none pointer-events-none">$</span>
                     <Input
                       type="number"
                       placeholder="0.00"
@@ -447,13 +495,14 @@ export function OfframpClient({
                   </div>
                   <p className="mt-1 text-[12px] text-[#a4a7ae]">1% platform fee is deducted from the entered amount.</p>
                   <RateChip loading={loadingRate} rateInfo={rateInfo} currency={form.currency} token={form.token} />
+                  {rateError ? <p className="mt-1 text-[12px] text-[#f04438]">{rateError}</p> : null}
                 </div>
 
                 {/* Token */}
                 <div>
                   <label className="mb-2 block text-[13px] font-semibold text-[#414651]">Token</label>
                   <SelectPill
-                    options={TOKENS.map((t) => ({ id: t, label: t }))}
+                    options={TOKENS.map((t) => ({ id: t, label: t, iconSrc: TOKEN_ICON_BY_KEY[`${form.network}:${t}`] }))}
                     value={form.token}
                     onChange={(v) => update('token', v)}
                   />
@@ -463,7 +512,7 @@ export function OfframpClient({
                 <div>
                   <label className="mb-2 block text-[13px] font-semibold text-[#414651]">Chain</label>
                   <SelectPill
-                    options={NETWORKS.map((n) => ({ id: n.id, label: n.label, sub: n.desc }))}
+                    options={NETWORKS.map((n) => ({ id: n.id, label: n.label, sub: n.desc, iconSrc: CHAIN_ICON_BY_KEY[n.id] }))}
                     value={form.network}
                     onChange={(v) => update('network', v as Network)}
                   />
@@ -569,6 +618,7 @@ export function OfframpClient({
                       onChange={(e) => { update('bankName', e.target.value); update('bankCode', e.target.value); }}
                     />
                   )}
+                  {institutionsError ? <p className="mt-1 text-[12px] text-[#f04438]">{institutionsError}</p> : null}
                 </div>
 
                 {/* Account number */}
