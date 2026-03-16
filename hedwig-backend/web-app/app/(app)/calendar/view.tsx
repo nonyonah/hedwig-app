@@ -266,14 +266,14 @@ export function CalendarClient({
         actions={
           <>
             <button
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d5d7da] bg-white px-3.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+              className="inline-flex h-9 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-3.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
               type="button"
             >
               <CalendarPlus className="h-4 w-4 text-[#8d9096]" weight="bold" />
               Connect calendar
             </button>
             <button
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#d5d7da] bg-white px-3.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+              className="inline-flex h-9 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-3.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
               type="button"
             >
               <Eye className="h-4 w-4 text-[#8d9096]" weight="bold" />
@@ -283,14 +283,14 @@ export function CalendarClient({
         }
       />
 
-      <section className="rounded-xl bg-white px-6 py-5 shadow-xs ring-1 ring-[#e9eaeb]">
+      <section className="rounded-2xl bg-white px-6 py-5 shadow-xs ring-1 ring-[#e9eaeb]">
         <div className="flex flex-col gap-4 border-b border-[#f2f4f7] pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
             {filters.map((filter) => (
               <button
                 key={filter.value}
                 className={cn(
-                  'rounded-lg px-3 py-2 text-[13px] font-semibold transition',
+                  'rounded-full px-3 py-2 text-[13px] font-semibold transition',
                   activeFilter === filter.value
                     ? 'bg-[#ececec] text-[#181d27]'
                     : 'text-[#717680] hover:bg-[#fafafa] hover:text-[#414651]'
@@ -305,19 +305,19 @@ export function CalendarClient({
 
           <div className="flex items-center gap-2">
             <button
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#d5d7da] bg-white text-[#8d9096] shadow-xs transition hover:bg-[#fafafa]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white text-[#8d9096] shadow-xs transition hover:bg-[#fafafa]"
               type="button"
             >
               <CaretLeft className="h-4 w-4" weight="bold" />
             </button>
             <button
-              className="inline-flex h-9 items-center rounded-lg border border-[#d5d7da] bg-white px-3.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+              className="inline-flex h-9 items-center rounded-full border border-[#d5d7da] bg-white px-3.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
               type="button"
             >
               Today
             </button>
             <button
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#d5d7da] bg-white text-[#8d9096] shadow-xs transition hover:bg-[#fafafa]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white text-[#8d9096] shadow-xs transition hover:bg-[#fafafa]"
               type="button"
             >
               <CaretRight className="h-4 w-4" weight="bold" />
@@ -336,7 +336,7 @@ export function CalendarClient({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl bg-[#fcfcfd] px-3 py-2 ring-1 ring-[#eaecf0]">
+          <div className="flex items-center gap-2 rounded-full bg-[#fcfcfd] px-3 py-2 ring-1 ring-[#eaecf0]">
             <CalendarBlank className="h-4.5 w-4.5 text-[#8d9096]" weight="bold" />
             <span className="text-[13px] font-medium text-[#535862]">
               {calendarState.stats.total} scheduled item{calendarState.stats.total === 1 ? '' : 's'}
@@ -392,7 +392,7 @@ export function CalendarClient({
               ))}
 
               {calendarState.filteredItems.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[#d5d7da] px-4 py-10 text-center text-[14px] text-[#717680]">
+                <div className="rounded-2xl border border-dashed border-[#d5d7da] px-4 py-10 text-center text-[14px] text-[#717680]">
                   No calendar items match this filter right now.
                 </div>
               ) : null}
@@ -400,7 +400,7 @@ export function CalendarClient({
           </div>
 
           {calendarState.selectedReminder ? (
-            <aside className="h-fit rounded-xl border border-[#e9eaeb] bg-white p-5 shadow-xs">
+            <aside className="h-fit rounded-2xl border border-[#e9eaeb] bg-white p-5 shadow-xs">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a4a7ae]">Reminder detail</p>
@@ -411,7 +411,7 @@ export function CalendarClient({
                   </p>
                 </div>
                 <button
-                  className="inline-flex h-8 items-center rounded-lg border border-[#d5d7da] bg-white px-3 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+                  className="inline-flex h-8 items-center rounded-full border border-[#d5d7da] bg-white px-3 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
                   onClick={() => router.push('/calendar')}
                   type="button"
                 >
@@ -419,9 +419,9 @@ export function CalendarClient({
                 </button>
               </div>
 
-              <div className="mt-5 space-y-3 rounded-[15px] border border-[#e9eaeb] bg-[#fcfcfd] p-4">
+              <div className="mt-5 space-y-3 rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] p-4">
                 {reminderFeedback ? (
-                  <div className="rounded-[12px] border border-[#d5d7da] bg-white px-3 py-2 text-sm text-[#414651]">
+                  <div className="rounded-2xl border border-[#d5d7da] bg-white px-3 py-2 text-sm text-[#414651]">
                     {reminderFeedback}
                   </div>
                 ) : null}
@@ -589,7 +589,7 @@ function TaskRow({ item, onNavigate }: { item: PlannerItem; onNavigate: (href: s
   return (
     <div
       className={cn(
-        'grid gap-3 rounded-lg py-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center',
+        'grid gap-3 rounded-2xl py-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center',
         isClickable ? 'cursor-pointer transition hover:bg-[#fafafa]' : ''
       )}
       onClick={() => {
@@ -632,7 +632,7 @@ function TaskRow({ item, onNavigate }: { item: PlannerItem; onNavigate: (href: s
           <span className="truncate">{item.kind}</span>
           {item.href ? (
             <button
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#d5d7da] bg-white px-2.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+              className="inline-flex h-8 items-center gap-1 rounded-full border border-[#d5d7da] bg-white px-2.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
               onClick={(event) => {
                 event.stopPropagation();
                 onNavigate(item.href!);
@@ -645,7 +645,7 @@ function TaskRow({ item, onNavigate }: { item: PlannerItem; onNavigate: (href: s
           ) : null}
           <button
             aria-label="More"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#98a2b3] transition hover:bg-[#f9fafb] hover:text-[#667085]"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#98a2b3] transition hover:bg-[#f9fafb] hover:text-[#667085]"
             onClick={(event) => event.stopPropagation()}
             type="button"
           >

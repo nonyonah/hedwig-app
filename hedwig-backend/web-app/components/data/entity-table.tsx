@@ -12,7 +12,7 @@ export function EntityTable({
 }: {
   title: string;
   columns: string[];
-  rows: Array<Array<{ value: string; href?: string; onClick?: () => void; tone?: 'default' | 'success' | 'warning' | 'neutral'; badge?: boolean }>>;
+  rows: Array<Array<{ value: string; href?: string; onClick?: () => void; tone?: 'default' | 'success' | 'warning' | 'neutral'; badge?: boolean; destructive?: boolean; render?: React.ReactNode }>>;
   highlightedRowIndex?: number | null;
 }) {
   return (
@@ -41,7 +41,9 @@ export function EntityTable({
                 >
                   {row.map((cell, cellIndex) => (
                     <td key={`cell-${rowIndex}-${cellIndex}`} className="py-3 pr-6 align-top text-foreground">
-                      {cell.badge && cell.href ? (
+                      {cell.render ? (
+                        cell.render
+                      ) : cell.badge && cell.href ? (
                         <Link href={cell.href} className="inline-flex items-center gap-1">
                           <Badge variant={cell.tone ?? 'neutral'}>{cell.value}</Badge>
                           <ArrowUpRight className="h-4 w-4 text-[#72706b]" weight="bold" />
@@ -54,9 +56,16 @@ export function EntityTable({
                       ) : cell.badge ? (
                         <Badge variant={cell.tone ?? 'neutral'}>{cell.value}</Badge>
                       ) : cell.onClick ? (
-                        <button type="button" onClick={cell.onClick} className="inline-flex items-center gap-1 font-semibold text-primary">
+                        <button
+                          type="button"
+                          onClick={cell.onClick}
+                          className={cn(
+                            'inline-flex items-center gap-1 font-semibold',
+                            cell.destructive ? 'text-[#d92d20]' : 'text-primary'
+                          )}
+                        >
                           {cell.value}
-                          <ArrowUpRight className="h-4 w-4 text-[#72706b]" weight="bold" />
+                          {!cell.destructive ? <ArrowUpRight className="h-4 w-4 text-[#72706b]" weight="bold" /> : null}
                         </button>
                       ) : cell.href ? (
                         <Link href={cell.href} className="inline-flex items-center gap-1 font-semibold text-primary">

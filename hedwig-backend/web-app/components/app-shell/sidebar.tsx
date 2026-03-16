@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Question } from '@phosphor-icons/react/dist/ssr';
@@ -14,12 +15,17 @@ export function AppSidebar() {
       {/* Workspace header — logo + name (UUI: px-5, gap-5) */}
       <div className="flex flex-col gap-6 px-5">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#2563eb] text-[12px] font-bold text-white shadow-xs">
-            H
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+            <Image
+              src="/hedwig-logo.png"
+              alt="Hedwig logo"
+              width={32}
+              height={32}
+              className="h-full w-full object-cover"
+            />
           </div>
           <div>
             <p className="text-[14px] font-semibold leading-none text-[#181d27]">Hedwig</p>
-            <p className="mt-[3px] text-[11px] leading-none text-[#a4a7ae]">Freelancer OS</p>
           </div>
         </div>
       </div>

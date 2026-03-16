@@ -17,10 +17,12 @@ const STORAGE_KEY = 'hedwig-web-theme';
 
 export function AccountMenu({
   fullName,
-  email
+  email,
+  avatarUrl
 }: {
   fullName: string;
   email: string;
+  avatarUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeOption>('light');
@@ -71,7 +73,7 @@ export function AccountMenu({
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
-        <Avatar label={fullName || email} />
+        <Avatar label={fullName || email} src={avatarUrl} />
       </button>
 
       {open ? (

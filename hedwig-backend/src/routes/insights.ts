@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
+import { GeminiService } from '../services/gemini';
 
 const logger = createLogger('Insights');
 const router = Router();
@@ -30,6 +31,106 @@ const getRangeStart = (range: RangeKey): Date => {
 };
 
 const monthKey = (d: Date): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+router.get('/assistant-summary', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const [docsRes, projectsRes, calendarRes, notificationsRes, offrampsRes] = await Promise.all([
+            supabase
+                .from('documents')
+                .select('id,type,status,amount,title,content,created_at,updated_at')
+                .eq('user_id', user.id),
+            supabase
+                .from('projects')
+                .select('id,title,status')
+                .eq('user_id', user.id),
+            supabase
+                .from('calendar_events')
+                .select('id,title,event_date,status')
+                .eq('user_id', user.id)
+                .neq('status', 'cancelled')
+                .order('event_date', { ascending: true })
+                .limit(5),
+            supabase
+                .from('notifications')
+                .select('id,title,message,created_at')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(5),
+            supabase
+                .from('offramp_orders')
+                .select('id,status')
+                .eq('user_id', user.id),
+        ]);
+
+        const docs = docsRes.data || [];
+        const projects = projectsRes.data || [];
+        const calendarEvents = calendarRes.data || [];
+        const notifications = notificationsRes.data || [];
+        const offramps = offrampsRes.data || [];
+
+        const overdueInvoices = docs.filter((document: any) =>
+            normalizeStatus(document.type) === 'INVOICE' && normalizeStatus(document.status) === 'OVERDUE'
+        );
+        const outstandingUsd = docs
+            .filter((document: any) =>
+                normalizeStatus(document.type) === 'INVOICE' &&
+                normalizeStatus(document.status) !== 'PAID'
+            )
+            .reduce((sum: number, document: any) => sum + toNumber(document.amount), 0);
+        const activePaymentLinks = docs.filter((document: any) =>
+            normalizeStatus(document.type) === 'PAYMENT_LINK' &&
+            ['ACTIVE', 'SENT', 'PENDING'].includes(normalizeStatus(document.status))
+        ).length;
+        const activeProjects = projects.filter((project: any) =>
+            ['ACTIVE', 'ONGOING', 'ON_HOLD', 'PAUSED'].includes(normalizeStatus(project.status))
+        ).length;
+        const upcomingEvent = calendarEvents.find((event: any) => new Date(event.event_date) >= new Date()) || null;
+        const latestNotification = notifications[0] || null;
+        const pendingWithdrawals = offramps.filter((order: any) =>
+            ['PENDING', 'PROCESSING'].includes(normalizeStatus(order.status))
+        ).length;
+
+        const summary = await GeminiService.generateDashboardAssistantSummary({
+            firstName: user.first_name || null,
+            overdueInvoices: overdueInvoices.length,
+            outstandingUsd,
+            activePaymentLinks,
+            activeProjects,
+            upcomingEventTitle: upcomingEvent?.title || null,
+            upcomingEventDate: upcomingEvent?.event_date || null,
+            latestNotificationTitle: latestNotification?.title || null,
+            latestNotificationMessage: latestNotification?.message || null,
+            pendingWithdrawals,
+        });
+
+        res.json({
+            success: true,
+            data: {
+                summary,
+                snapshot: {
+                    overdueInvoices: overdueInvoices.length,
+                    outstandingUsd,
+                    activePaymentLinks,
+                    activeProjects,
+                    upcomingEventTitle: upcomingEvent?.title || null,
+                    upcomingEventDate: upcomingEvent?.event_date || null,
+                    latestNotificationTitle: latestNotification?.title || null,
+                    pendingWithdrawals,
+                },
+            },
+        });
+    } catch (error) {
+        logger.error('Failed to build assistant summary', { error: error instanceof Error ? error.message : 'Unknown' });
+        next(error);
+    }
+});
 
 router.get('/summary', authenticate, async (req: Request, res: Response, next) => {
     try {

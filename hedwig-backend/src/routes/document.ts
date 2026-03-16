@@ -57,7 +57,7 @@ const attachUsdAccountDetails = async (doc: any) => {
  */
 router.post('/invoice', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled, projectId } = req.body;
+        const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled, projectId, chain } = req.body;
         const privyId = req.user!.id;
 
         // Validate required fields
@@ -102,6 +102,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                 amount: parseFloat(amount),
                 description: description,
                 status: 'DRAFT',
+                chain: String(chain || 'BASE').toUpperCase(),
                 content: {
                     recipient_email: recipientEmail,
                     client_name: clientName,
@@ -187,7 +188,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
  */
 router.post('/payment-link', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, currency, description, remindersEnabled, recipientEmail, clientName, dueDate } = req.body;
+        const { amount, currency, description, remindersEnabled, recipientEmail, clientName, dueDate, chain } = req.body;
         const privyId = req.user!.id;
 
         // Validate required fields
@@ -237,6 +238,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 title: description || 'Payment Link',
                 amount: parseFloat(amount),
                 currency: currency || 'USDC',
+                chain: String(chain || 'BASE').toUpperCase(),
                 status: 'DRAFT',
                 content: {
                     recipient_email: recipientEmail,
@@ -291,7 +293,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 currency: currency || 'USDC',
                 description: description || 'Payment Request',
                 linkId: doc.id,
-                network: 'Base', // defaulting to Base since we mostly support valid tokens there for now, or could extract from currency
+                network: String(chain || 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base',
                 paymentUrl: shareableUrl
             }));
 
@@ -805,7 +807,9 @@ router.get('/:id/public', async (req: Request, res: Response, next) => {
                     id,
                     first_name,
                     last_name,
-                    email
+                    email,
+                    ethereum_wallet_address,
+                    solana_wallet_address
                 )
             `)
             .eq('id', id)

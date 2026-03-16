@@ -13,6 +13,7 @@ export default async function PaymentsPage({
 
   return (
     <PaymentsClient
+      accessToken={session.accessToken}
       highlightedInvoiceId={params.invoice ?? null}
       invoices={data.invoices}
       paymentLinks={data.paymentLinks}

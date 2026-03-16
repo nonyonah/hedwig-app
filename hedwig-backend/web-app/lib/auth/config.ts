@@ -18,6 +18,9 @@ export const backendConfig = {
   },
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001',
   webClientUrl: process.env.NEXT_PUBLIC_WEB_CLIENT_URL ?? 'http://localhost:5173',
+  get publicPagesUrl(): string {
+    return this.appUrl;
+  },
   useMockAuth: process.env.NEXT_PUBLIC_HEDWIG_USE_MOCK_AUTH !== 'false',
   useMockData: process.env.NEXT_PUBLIC_HEDWIG_USE_MOCK_DATA === 'true'
 };

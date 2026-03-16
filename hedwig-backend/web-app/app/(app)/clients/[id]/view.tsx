@@ -127,8 +127,7 @@ export function ClientDetailClient({
     email: initialClient.email,
     company: initialClient.company || '',
     phone: initialClient.phone || '',
-    address: initialClient.address || '',
-    walletAddress: initialClient.walletAddress || ''
+    address: initialClient.address || ''
   });
 
   const updateField = (field: keyof typeof form, value: string) =>
@@ -140,8 +139,7 @@ export function ClientDetailClient({
       email: client.email,
       company: client.company || '',
       phone: client.phone || '',
-      address: client.address || '',
-      walletAddress: client.walletAddress || ''
+      address: client.address || ''
     });
     setEditOpen(true);
   };
@@ -160,8 +158,7 @@ export function ClientDetailClient({
           email: form.email.trim(),
           company: form.company.trim() || undefined,
           phone: form.phone.trim() || undefined,
-          address: form.address.trim() || undefined,
-          walletAddress: form.walletAddress.trim() || undefined
+          address: form.address.trim() || undefined
         },
         { accessToken, disableMockFallback: true }
       );
@@ -380,8 +377,7 @@ export function ClientDetailClient({
               { label: 'Email', field: 'email' as const, placeholder: 'jane@example.com', required: true },
               { label: 'Company', field: 'company' as const, placeholder: 'Acme Corp' },
               { label: 'Phone', field: 'phone' as const, placeholder: '+1 555 000 0000' },
-              { label: 'Address', field: 'address' as const, placeholder: '123 Main St, New York' },
-              { label: 'Wallet address', field: 'walletAddress' as const, placeholder: '0x…' }
+              { label: 'Address', field: 'address' as const, placeholder: '123 Main St, New York' }
             ].map(({ label, field, placeholder, required }) => (
               <div key={field}>
                 <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">

@@ -76,6 +76,7 @@ export interface Invoice {
   amountUsd: number;
   dueAt: string;
   number: string;
+  remindersEnabled?: boolean;
 }
 
 export interface PaymentLink {
@@ -86,6 +87,7 @@ export interface PaymentLink {
   title: string;
   asset: 'USDC' | 'USDT';
   chain: 'Base' | 'Solana';
+  remindersEnabled?: boolean;
 }
 
 export interface InvoiceDraft {

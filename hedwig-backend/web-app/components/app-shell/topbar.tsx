@@ -16,7 +16,11 @@ export async function AppTopbar() {
 
       <div className="flex items-center gap-1">
         <NotificationBell unreadCount={unread} />
-        <AccountMenu email={user.email} fullName={`${user.firstName} ${user.lastName}`.trim() || user.email} />
+        <AccountMenu
+          avatarUrl={user.avatarUrl}
+          email={user.email}
+          fullName={`${user.firstName} ${user.lastName}`.trim() || user.email}
+        />
       </div>
     </div>
   );

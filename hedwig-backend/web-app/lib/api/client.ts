@@ -169,6 +169,70 @@ const assetNameBySymbol: Record<string, string> = {
 };
 
 const supportedWalletAssets = new Set(['Base:ETH', 'Base:USDC', 'Solana:SOL', 'Solana:USDC']);
+const walletAssetDecimals: Record<string, number> = {
+  ETH: 18,
+  USDC: 6,
+  USDT: 6,
+  SOL: 9
+};
+
+const parseNumericValue = (value: unknown): number => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.replace(/,/g, '').trim();
+    if (!normalized) return 0;
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+};
+
+const rawUnitsToTokenAmount = (rawValue: unknown, decimals: number): number => {
+  if (rawValue === null || rawValue === undefined) return 0;
+
+  const rawString = String(rawValue).trim();
+  if (!rawString || !/^\d+$/.test(rawString)) return 0;
+
+  const isNegative = rawString.startsWith('-');
+  const digits = isNegative ? rawString.slice(1) : rawString;
+  const padded = digits.padStart(decimals + 1, '0');
+  const whole = padded.slice(0, -decimals) || '0';
+  const fractional = padded.slice(-decimals).replace(/0+$/, '');
+  const normalized = fractional ? `${whole}.${fractional}` : whole;
+  const parsed = Number(`${isNegative ? '-' : ''}${normalized}`);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getWalletTokenBalance = (balance: any, symbol: string): number => {
+  const displayToken =
+    parseNumericValue(balance?.display_values?.token) ||
+    parseNumericValue(balance?.displayValues?.token) ||
+    parseNumericValue(balance?.display_value?.token) ||
+    parseNumericValue(balance?.displayValue?.amount) ||
+    parseNumericValue(balance?.formatted_balance);
+
+  if (displayToken > 0) {
+    return displayToken;
+  }
+
+  const decimals = walletAssetDecimals[symbol];
+  if (decimals === undefined) return 0;
+
+  return rawUnitsToTokenAmount(balance?.raw_value ?? balance?.rawValue, decimals);
+};
+
+const getWalletUsdValue = (balance: any): number =>
+  parseNumericValue(balance?.display_values?.usd) ||
+  parseNumericValue(balance?.displayValues?.usd) ||
+  parseNumericValue(balance?.display_value?.usd) ||
+  parseNumericValue(balance?.usd_value) ||
+  parseNumericValue(balance?.usdValue);
 
 const mapBackendUser = (user: any): User => ({
   id: String(user?.id ?? currentUser.id),
@@ -241,8 +305,14 @@ const mapCreatedProject = (project: any, clientId: string): Project => ({
   progress: Number(project.progress?.percentage ?? 0),
   nextDeadlineAt: String(project.deadline || project.nextDeadlineAt || new Date().toISOString()),
   ownerName: currentUser.firstName + ' ' + currentUser.lastName,
-  hasContract: false,
-  contract: null
+  hasContract: Boolean(project.hasContract || project.contract),
+  contract: project.contract
+    ? {
+        id: String(project.contract.id),
+        title: String(project.contract.title || 'Contract'),
+        status: normalizeContractStatus(project.contract.status)
+      }
+    : null
 });
 
 const getDocumentContent = (document: any) =>
@@ -284,7 +354,8 @@ const mapBackendInvoice = (document: any): Invoice => ({
   status: normalizeInvoiceStatus(document.status),
   amountUsd: Number(document.amount || 0),
   dueAt: deriveDocumentDueAt(document),
-  number: String(document.title || `Invoice ${String(document.id).slice(0, 8)}`)
+  number: String(document.title || `Invoice ${String(document.id).slice(0, 8)}`),
+  remindersEnabled: getDocumentContent(document).reminders_enabled !== false
 });
 
 const mapBackendPaymentLink = (document: any): PaymentLink => {
@@ -299,7 +370,8 @@ const mapBackendPaymentLink = (document: any): PaymentLink => {
     amountUsd: Number(document.amount || 0),
     title: String(document.title || 'Payment link'),
     asset: currency === 'USDT' ? 'USDT' : 'USDC',
-    chain: chainValue === 'SOLANA' ? 'Solana' : 'Base'
+    chain: chainValue === 'SOLANA' ? 'Solana' : 'Base',
+    remindersEnabled: content.reminders_enabled !== false
   };
 };
 
@@ -510,15 +582,17 @@ export const hedwigApi = {
   async dashboard(options?: ApiOptions) {
     return withFallback(
       async () => {
-        const [clientsData, projectsData, walletData, accountsData, notificationsData, shellData, paymentsData, calendarData] = await Promise.all([
+        const [clientsData, projectsData, contractsData, walletData, accountsData, notificationsData, shellData, paymentsData, calendarData, assistantSummaryData] = await Promise.all([
           this.clients(options),
           this.projects(options),
+          this.contracts(options),
           this.wallet(options),
           this.accounts(options),
           this.notifications(options),
           this.shell(options),
           this.payments(options),
-          this.calendar(options)
+          this.calendar(options),
+          request<{ summary?: string }>('/api/insights/assistant-summary', options).catch(() => ({ summary: undefined }))
         ]);
 
         const outstandingUsd = clientsData.reduce((sum, client) => sum + client.outstandingUsd, 0);
@@ -538,6 +612,7 @@ export const hedwigApi = {
             walletUsd: walletData.walletAssets.reduce((sum, asset) => sum + asset.valueUsd, 0),
             usdAccountUsd: accountsData.usdAccount.balanceUsd
           },
+          assistantSummary: assistantSummaryData?.summary || null,
           notifications: notificationsData,
           activities: [
             {
@@ -549,6 +624,7 @@ export const hedwigApi = {
             },
             ...mockActivities
           ].slice(0, 5),
+          contracts: contractsData,
           invoices: paymentsData.invoices,
           paymentLinks: paymentsData.paymentLinks,
           projects: projectsData,
@@ -563,9 +639,11 @@ export const hedwigApi = {
           walletUsd: mockWalletAssets.reduce((sum, asset) => sum + asset.valueUsd, 0),
           usdAccountUsd: mockUsdAccount.balanceUsd
         },
+        assistantSummary: null,
         reminders: mockReminders,
         notifications: mockNotifications,
         activities: mockActivities,
+        contracts: mockContracts,
         invoices: mockInvoices,
         paymentLinks: mockPaymentLinks,
         projects: mockProjects,
@@ -684,10 +762,24 @@ export const hedwigApi = {
     );
   },
 
+  async deleteClient(id: string, options?: ApiOptions): Promise<void> {
+    return withFallback(
+      async () => {
+        await request<{ message?: string }>(`/api/clients/${id}`, options, {
+          method: 'DELETE'
+        });
+      },
+      async () => {
+        await wait();
+      },
+      options
+    );
+  },
+
   async createProjectFlow(
     input: CreateProjectFlowInput,
     options?: ApiOptions
-  ): Promise<{ project: Project; contractId: string | null; createdInvoiceCount: number }> {
+  ): Promise<{ project: Project; contractId: string | null; createdInvoiceCount: number; contractEmailSent: boolean }> {
     return withFallback(
       async () => {
         const projectPayload = {
@@ -718,59 +810,12 @@ export const hedwigApi = {
         );
 
         const createdProject = projectResponse.project;
-        const resolvedClientName = input.clientName || '';
-        const resolvedClientEmail = input.clientEmail || '';
-
-        const contractResponse = await request<{ document: any }>(
-          '/api/documents',
-          options,
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              type: 'CONTRACT',
-              title: `${input.title} Contract`,
-              description: `Contract for project: ${input.title}`,
-              amount: input.milestones.reduce((sum, milestone) => sum + (Number(milestone.amount) || 0), 0),
-              clientName: resolvedClientName,
-              recipientEmail: resolvedClientEmail,
-              projectId: createdProject.id,
-              items: input.milestones.map((milestone) => ({
-                description: milestone.title,
-                amount: Number(milestone.amount) || 0
-              }))
-            })
-          }
-        );
-
-        let createdInvoiceCount = 0;
-
-        for (const milestone of input.milestones) {
-          if (!milestone.title || !milestone.amount) continue;
-
-          await request<{ document: any }>(
-            '/api/documents/invoice',
-            options,
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                title: `Invoice: ${milestone.title}`,
-                description: `Milestone for ${input.title}`,
-                amount: Number(milestone.amount),
-                projectId: createdProject.id,
-                clientName: resolvedClientName,
-                recipientEmail: resolvedClientEmail,
-                dueDate: milestone.dueDate || input.deadline,
-                items: [{ description: milestone.title, amount: Number(milestone.amount) }]
-              })
-            }
-          );
-          createdInvoiceCount += 1;
-        }
 
         return {
           project: mapCreatedProject(createdProject, createdProject.clientId || input.clientId || ''),
-          contractId: contractResponse.document?.id ? String(contractResponse.document.id) : null,
-          createdInvoiceCount
+          contractId: createdProject.contract?.id ? String(createdProject.contract.id) : null,
+          createdInvoiceCount: Number(createdProject.createdInvoiceCount || 0),
+          contractEmailSent: Boolean(createdProject.contractEmailSent)
         };
       },
       async () => {
@@ -789,7 +834,8 @@ export const hedwigApi = {
             input.clientId || `client_${Date.now()}`
           ),
           contractId: `contract_${Date.now()}`,
-          createdInvoiceCount: input.milestones.length
+          createdInvoiceCount: input.milestones.length,
+          contractEmailSent: false
         };
       },
       options
@@ -905,6 +951,20 @@ export const hedwigApi = {
     );
   },
 
+  async deleteProject(id: string, options?: ApiOptions): Promise<void> {
+    return withFallback(
+      async () => {
+        await request<{ message?: string }>(`/api/projects/${id}`, options, {
+          method: 'DELETE'
+        });
+      },
+      async () => {
+        await wait();
+      },
+      options
+    );
+  },
+
   async payments(options?: ApiOptions) {
     return withFallback(
       async () => {
@@ -947,6 +1007,174 @@ export const hedwigApi = {
     );
   },
 
+  async deleteDocument(id: string, options?: ApiOptions): Promise<void> {
+    return withFallback(
+      async () => {
+        await request<{ message?: string }>(`/api/documents/${id}`, options, {
+          method: 'DELETE'
+        });
+      },
+      async () => {
+        await wait();
+      },
+      options
+    );
+  },
+
+  async updateDocumentStatus(id: string, status: string, options?: ApiOptions): Promise<void> {
+    return withFallback(
+      async () => {
+        await request<{ document?: any }>(`/api/documents/${id}/status`, options, {
+          method: 'PATCH',
+          body: JSON.stringify({ status })
+        });
+      },
+      async () => {
+        await wait();
+      },
+      options
+    );
+  },
+
+  async remindDocument(id: string, options?: ApiOptions): Promise<void> {
+    return withFallback(
+      async () => {
+        await request<{ message?: string }>(`/api/documents/${id}/remind`, options, {
+          method: 'POST'
+        });
+      },
+      async () => {
+        await wait();
+      },
+      options
+    );
+  },
+
+  async createInvoice(
+    data: {
+      clientName?: string;
+      amount: number;
+      description?: string;
+      dueDate: string;
+      recipientEmail?: string;
+    },
+    options?: ApiOptions
+  ): Promise<Invoice> {
+    const result = await request<{ document?: any; invoice?: any }>('/api/documents/invoice', options, {
+      method: 'POST',
+      body: JSON.stringify({
+        clientName: data.clientName,
+        amount: data.amount,
+        description: data.description,
+        dueDate: data.dueDate,
+        recipientEmail: data.recipientEmail
+      })
+    });
+    const doc = result.document ?? result.invoice ?? result;
+    return {
+      id: doc.id,
+      clientId: doc.clientId ?? '',
+      projectId: doc.projectId,
+      status: (doc.status?.toLowerCase() ?? 'draft') as Invoice['status'],
+      amountUsd: doc.amount ?? doc.amountUsd ?? data.amount,
+      dueAt: doc.dueDate ?? doc.dueAt ?? data.dueDate,
+      number: doc.number ?? doc.invoiceNumber ?? `INV-${doc.id?.slice(-6).toUpperCase()}`
+    };
+  },
+
+  async createPaymentLink(
+    data: {
+      clientName: string;
+      amount: number;
+      description?: string;
+      dueDate: string;
+      recipientEmail?: string;
+      currency?: string;
+    },
+    options?: ApiOptions
+  ): Promise<PaymentLink> {
+    const result = await request<{ document?: any; paymentLink?: any }>('/api/documents/payment-link', options, {
+      method: 'POST',
+      body: JSON.stringify({
+        clientName: data.clientName,
+        amount: data.amount,
+        description: data.description,
+        dueDate: data.dueDate,
+        recipientEmail: data.recipientEmail,
+        currency: data.currency ?? 'USDC'
+      })
+    });
+    const doc = result.document ?? result.paymentLink ?? result;
+    return {
+      id: doc.id,
+      clientId: doc.clientId,
+      status: (doc.status?.toLowerCase() ?? 'active') as PaymentLink['status'],
+      amountUsd: doc.amount ?? doc.amountUsd ?? data.amount,
+      title: doc.title ?? doc.description ?? data.description ?? data.clientName,
+      asset: (doc.currency ?? doc.asset ?? 'USDC') as PaymentLink['asset'],
+      chain: (doc.chain ?? 'Base') as PaymentLink['chain']
+    };
+  },
+
+  async parseCreationBox(
+    text: string,
+    mode: 'auto' | 'payment_link' | 'invoice' | undefined,
+    options?: ApiOptions
+  ): Promise<{
+    intent: 'invoice' | 'payment_link' | 'unknown';
+    clientName: string | null;
+    clientEmail: string | null;
+    amount: number | null;
+    dueDate: string | null;
+    title: string | null;
+    items?: Array<{ description: string; amount: number }>;
+    confidence: number;
+  } | null> {
+    try {
+      const result = await request<{ success: boolean; data: any }>('/api/creation-box/parse', options, {
+        method: 'POST',
+        body: JSON.stringify({ text, currentDate: new Date().toISOString(), mode: mode !== 'auto' ? mode : undefined })
+      });
+      return (result as any)?.data ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  async toggleDocumentReminders(id: string, enabled: boolean, options?: ApiOptions): Promise<void> {
+    return withFallback(
+      async () => {
+        await request<{ remindersEnabled?: boolean }>(`/api/documents/${id}/toggle-reminders`, options, {
+          method: 'POST',
+          body: JSON.stringify({ enabled })
+        });
+      },
+      async () => {
+        await wait();
+      },
+      options
+    );
+  },
+
+  async sendContract(id: string, options?: ApiOptions): Promise<{ emailSent: boolean; clientEmail?: string }> {
+    return withFallback(
+      async () => {
+        const data = await request<{ contract?: any; emailSent?: boolean; clientEmail?: string }>(`/api/documents/${id}/send`, options, {
+          method: 'POST'
+        });
+        return {
+          emailSent: Boolean(data.emailSent),
+          clientEmail: data.clientEmail
+        };
+      },
+      async () => {
+        await wait();
+        return { emailSent: false, clientEmail: undefined };
+      },
+      options
+    );
+  },
+
   async wallet(options?: ApiOptions): Promise<{ walletAccounts: WalletAccount[]; walletAssets: WalletAsset[]; walletTransactions: WalletTransaction[] }> {
     return withFallback(
       async () => {
@@ -978,8 +1206,8 @@ export const hedwigApi = {
           const symbol = String(balance.asset || '').toUpperCase();
           const chain: WalletAsset['chain'] =
             String(balance.chain || '').toLowerCase() === 'solana' ? 'Solana' : 'Base';
-          const tokenBalance = Number(balance.display_values?.token || 0);
-          const usdValue = Number(balance.display_values?.usd || 0);
+          const tokenBalance = getWalletTokenBalance(balance, symbol);
+          const usdValue = getWalletUsdValue(balance);
 
           return {
             id: `${chain.toLowerCase()}-${symbol}-${index}`,

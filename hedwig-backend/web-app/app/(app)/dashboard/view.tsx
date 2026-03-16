@@ -17,7 +17,7 @@ import {
 } from '@phosphor-icons/react/dist/ssr';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
-import type { Invoice, Milestone, PaymentLink } from '@/lib/models/entities';
+import type { Contract, Invoice, Milestone, PaymentLink } from '@/lib/models/entities';
 
 type DashboardData = {
   totals: {
@@ -26,10 +26,12 @@ type DashboardData = {
     walletUsd: number;
     usdAccountUsd: number;
   };
+  assistantSummary?: string | null;
   reminders: Array<{ id: string; title: string; dueAt: string }>;
   notifications: Array<{ id: string; title: string; body: string; createdAt: string }>;
   activities: Array<{ id: string; summary: string; actor: string; createdAt: string }>;
   projects: Array<{ id: string; name: string; progress: number; nextDeadlineAt: string }>;
+  contracts: Contract[];
   invoices: Invoice[];
   paymentLinks: PaymentLink[];
   milestones: Milestone[];
@@ -60,6 +62,8 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
     const draftInvoices = data.invoices.filter((invoice) => invoice.status === 'draft');
     const activeLinks = data.paymentLinks.filter((link) => link.status === 'active');
     const paidLinks = data.paymentLinks.filter((link) => link.status === 'paid');
+    const signedContracts = data.contracts.filter((contract) => contract.status === 'signed');
+    const reviewContracts = data.contracts.filter((contract) => contract.status === 'review' || contract.status === 'draft');
     const dueSoonMilestones = data.milestones.filter(
       (milestone) => milestone.status === 'due_soon' || milestone.status === 'late'
     );
@@ -166,6 +170,14 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
         icon: CheckCircle
       },
       {
+        id: 'contracts',
+        title: 'Contracts',
+        value: `${data.contracts.length}`,
+        helper: `${reviewContracts.length} in review, ${signedContracts.length} signed`,
+        href: '/contracts',
+        icon: IdentificationCard
+      },
+      {
         id: 'milestones',
         title: 'Milestones',
         value: `${data.milestones.length}`,
@@ -207,46 +219,31 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
         </div>
       </div>
 
-      {/* Financial snapshot — UUI metric card: white bg, shadow-xs, ring-1 ring-[#e9eaeb] */}
-      <div className="grid gap-4 lg:grid-cols-4">
+      {/* Financial snapshot — gap-px stats bar */}
+      <div className="grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
         {dashboardState.summaryCards.map((card) => {
           const Icon = card.icon;
           return (
             <Link
               key={card.id}
               href={card.href}
-              className="group flex flex-col gap-1 rounded-xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb] transition duration-100 ease-linear hover:shadow-sm"
+              className="group flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]"
             >
-              <div className="flex items-center justify-between">
-                {/* UUI: text-sm font-medium text-tertiary */}
-                <p className="text-[13px] font-medium text-[#535862]">{card.title}</p>
-                {/* UUI featured icon: size-10 rounded-lg bg-tertiary */}
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f5f5f5]">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[12px] font-medium text-[#717680]">{card.title}</p>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
                   {card.id === 'wallet' ? (
                     <div className="flex items-center pl-0.5">
-                      <Image
-                        src="/icons/networks/base.png"
-                        alt="Base"
-                        width={16}
-                        height={16}
-                        className="rounded-full ring-1 ring-white"
-                      />
-                      <Image
-                        src="/icons/networks/solana.png"
-                        alt="Solana"
-                        width={16}
-                        height={16}
-                        className="-ml-1.5 rounded-full ring-1 ring-white"
-                      />
+                      <Image src="/icons/networks/base.png" alt="Base" width={13} height={13} className="rounded-full ring-1 ring-white" />
+                      <Image src="/icons/networks/solana.png" alt="Solana" width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
                     </div>
                   ) : (
-                    <Icon className="h-[18px] w-[18px] text-[#717680]" weight="regular" />
+                    <Icon className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
                   )}
                 </div>
               </div>
-              {/* UUI: text-display-sm (30px) font-semibold text-primary */}
-              <p className="mt-1 text-[28px] font-semibold leading-none text-[#181d27]">{card.value}</p>
-              <p className="mt-1 text-[13px] text-[#a4a7ae]">{card.helper}</p>
+              <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{card.value}</p>
+              <p className="mt-1.5 text-[11px] text-[#a4a7ae]">{card.helper}</p>
             </Link>
           );
         })}
@@ -255,7 +252,7 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
       {/* Main two-column: action items + workstream stats */}
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         {/* Action items card */}
-        <article className="flex flex-col overflow-hidden rounded-xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+        <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
           <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
             <div>
               {/* UUI: text-md (16px) font-semibold text-primary */}
@@ -306,14 +303,14 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
               <Link
                 key={card.id}
                 href={card.href}
-                className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-xs ring-1 ring-[#e9eaeb] transition duration-100 ease-linear hover:shadow-sm"
+                className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-xs ring-1 ring-[#e9eaeb] transition duration-100 ease-linear hover:bg-[#fafafa]"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f5f5f5]">
                   <Icon className="h-[16px] w-[16px] text-[#717680]" weight="regular" />
                 </div>
                 <div>
-                  <p className="text-[22px] font-semibold leading-none text-[#181d27]">{card.value}</p>
-                  <p className="mt-1 text-[13px] font-medium text-[#535862]">{card.title}</p>
+                  <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{card.value}</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#535862]">{card.title}</p>
                   <p className="mt-0.5 text-[12px] text-[#a4a7ae]">{card.helper}</p>
                 </div>
               </Link>
@@ -324,7 +321,7 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
 
       {/* Bottom row: assistant summary + next reminder */}
       <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-        <article className="rounded-xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+        <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
           <div className="mb-3 flex items-center gap-2.5">
             {/* UUI featured icon: brand color */}
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
@@ -333,13 +330,14 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
             <p className="text-[16px] font-semibold text-[#181d27]">Assistant summary</p>
           </div>
           <p className="text-[14px] leading-relaxed text-[#535862]">
-            {dashboardState.latestNotification?.body ||
+            {data.assistantSummary ||
+              dashboardState.latestNotification?.body ||
               dashboardState.latestActivity?.summary ||
               'Payment activity, reminders, contracts, and wallet movements will surface here as a concise operating brief.'}
           </p>
         </article>
 
-        <article className="rounded-xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+        <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-[16px] font-semibold text-[#181d27]">Next reminder</p>
             <CalendarDots className="h-4 w-4 text-[#a4a7ae]" weight="regular" />

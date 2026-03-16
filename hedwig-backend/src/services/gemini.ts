@@ -1122,6 +1122,91 @@ If certain fields are not mentioned, set them to null or empty array.
   }
 
   /**
+   * Generate a concise dashboard operating summary for the user.
+   */
+  static async generateDashboardAssistantSummary(input: {
+    firstName?: string | null;
+    overdueInvoices: number;
+    outstandingUsd: number;
+    activePaymentLinks: number;
+    activeProjects: number;
+    upcomingEventTitle?: string | null;
+    upcomingEventDate?: string | null;
+    latestNotificationTitle?: string | null;
+    latestNotificationMessage?: string | null;
+    pendingWithdrawals: number;
+  }): Promise<string> {
+    const fallbackParts: string[] = [];
+
+    if (input.overdueInvoices > 0) {
+      fallbackParts.push(`${input.overdueInvoices} overdue invoice${input.overdueInvoices === 1 ? '' : 's'} need attention`);
+    } else if (input.outstandingUsd > 0) {
+      fallbackParts.push(`$${input.outstandingUsd.toLocaleString()} is still outstanding`);
+    }
+
+    if (input.upcomingEventTitle) {
+      fallbackParts.push(`Next up is ${input.upcomingEventTitle}`);
+    } else if (input.activeProjects > 0) {
+      fallbackParts.push(`${input.activeProjects} project${input.activeProjects === 1 ? '' : 's'} are currently active`);
+    }
+
+    if (input.pendingWithdrawals > 0) {
+      fallbackParts.push(
+        input.pendingWithdrawals === 1
+          ? '1 withdrawal is processing'
+          : `${input.pendingWithdrawals} withdrawals are processing`
+      );
+    } else if (input.activePaymentLinks > 0) {
+      fallbackParts.push(`${input.activePaymentLinks} payment link${input.activePaymentLinks === 1 ? '' : 's'} are still live`);
+    }
+
+    const fallbackSummary =
+      fallbackParts.join('. ').trim() ||
+      input.latestNotificationMessage ||
+      input.latestNotificationTitle ||
+      `You’re set up for the day. Keep an eye on payments, project deadlines, and incoming activity.`;
+
+    try {
+      const prompt = `
+You are Hedwig, a warm AI operating assistant for freelancers.
+
+Write one short dashboard summary for the user. It should sound like a calm operating brief, not marketing copy.
+
+Rules:
+- Maximum 2 sentences
+- Maximum 45 words
+- No markdown
+- No bullet points
+- Mention only the most important priorities
+- Be specific when useful
+
+Context:
+- User first name: ${input.firstName || 'there'}
+- Overdue invoices: ${input.overdueInvoices}
+- Outstanding USD: ${input.outstandingUsd}
+- Active payment links: ${input.activePaymentLinks}
+- Active projects: ${input.activeProjects}
+- Upcoming calendar event: ${input.upcomingEventTitle || 'none'}
+- Upcoming calendar event date: ${input.upcomingEventDate || 'none'}
+- Pending withdrawals: ${input.pendingWithdrawals}
+- Latest notification title: ${input.latestNotificationTitle || 'none'}
+- Latest notification message: ${input.latestNotificationMessage || 'none'}
+
+Return only the final summary text.
+`;
+
+      const text = (await this.generateText(prompt)).trim();
+      const cleaned = text.replace(/\s+/g, ' ').replace(/^["']|["']$/g, '').trim();
+      return cleaned || fallbackSummary;
+    } catch (error) {
+      logger.error('Error generating dashboard assistant summary', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
+      return fallbackSummary;
+    }
+  }
+
+  /**
    * Generate follow-up questions to fill missing data
    */
   static async generateFollowUpQuestions(

@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
@@ -308,7 +309,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
         // Verify client belongs to user (implicit if we just found/created it, but good check if passed externally)
         const { data: client, error: clientError } = await supabase
             .from('clients')
-            .select('id, name')
+            .select('id, name, email, company')
             .eq('id', clientId)
             .eq('user_id', user.id)
             .single();
@@ -355,6 +356,9 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 
         // Create milestones if provided
         let createdMilestones: any[] = [];
+        let createdInvoiceCount = 0;
+        let createdContract: { id: string; title: string; status: string } | null = null;
+        let contractEmailSent = false;
         if (milestones && Array.isArray(milestones) && milestones.length > 0) {
             logger.info('Creating milestones', { count: milestones.length, projectId: project.id });
             
@@ -387,9 +391,180 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             }
         }
 
+        if (createdMilestones.length > 0) {
+            const milestoneItems = createdMilestones.map((milestone: any) => ({
+                title: milestone.title,
+                amount: parseFloat(milestone.amount || 0),
+                dueDate: milestone.due_date || null,
+                description: milestone.title,
+            }));
+
+            const totalAmount = milestoneItems.reduce((sum, item) => sum + item.amount, 0);
+            const approvalToken = crypto.randomBytes(32).toString('hex');
+
+            let generatedContent = '';
+            try {
+                const { GeminiService } = await import('../services/gemini');
+                const { data: fullUser } = await supabase
+                    .from('users')
+                    .select('first_name, last_name, email')
+                    .eq('id', user.id)
+                    .single();
+
+                const freelancerName = fullUser
+                    ? (fullUser.first_name
+                        ? `${fullUser.first_name} ${fullUser.last_name || ''}`.trim()
+                        : fullUser.email)
+                    : 'Freelancer';
+                const freelancerEmail = fullUser?.email || '';
+                const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+                const contractPrompt = `You are an expert legal contract generator.
+CRITICAL INSTRUCTIONS:
+1. USE '${today}' as the "Date of Agreement". Do NOT use placeholders like "[Date]" or "[Insert Date]".
+2. Parties:
+   - Client: ${client.name} ${client.company ? `(${client.company})` : ''}
+   - Freelancer: ${freelancerName} (${freelancerEmail})
+3. ADDRESS RULE: NO addresses are provided. DO NOT invent addresses. DO NOT use placeholders like "[Address]". Simply state the names and emails.
+4. FORMAT: Markdown ONLY. No HTML. No conversational text.
+
+Project Details:
+Project Name: ${project.name}
+Scope: ${description || title}
+Total Value: $${totalAmount}
+Milestones:
+${milestoneItems.map((item) => `- ${item.title}: $${item.amount}`).join('\n')}
+
+GENERATE THE CONTRACT NOW, starting with the title.`;
+
+                generatedContent = (await GeminiService.generateText(contractPrompt) || '')
+                    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+                    .replace(/```(json|markdown)?\n?|\n?```/g, '')
+                    .replace(/^(Here is|Sure|Certainly).+?\n\n/si, '')
+                    .trim();
+            } catch (contractError) {
+                logger.warn('Project creation contract generation fell back to basic content', {
+                    error: contractError instanceof Error ? contractError.message : String(contractError),
+                    projectId: project.id,
+                });
+            }
+
+            const contractContent = {
+                client_name: client.name,
+                client_email: client.email || req.body.clientEmail || null,
+                scope_of_work: description || title,
+                milestones: milestoneItems,
+                payment_amount: totalAmount.toString(),
+                payment_terms: 'Milestone-based payments',
+                generated_content: generatedContent,
+                html_content: generatedContent,
+                approval_token: approvalToken,
+            };
+
+            const { data: contractDoc, error: contractError } = await supabase
+                .from('documents')
+                .insert({
+                    user_id: user.id,
+                    client_id: clientId,
+                    project_id: project.id,
+                    type: 'CONTRACT',
+                    title: `${project.name} Contract`,
+                    amount: totalAmount,
+                    description: description || `Contract for project: ${project.name}`,
+                    status: 'DRAFT',
+                    content: contractContent,
+                })
+                .select()
+                .single();
+
+            if (contractError) {
+                logger.error('Failed to auto-create contract for project', {
+                    error: contractError.message,
+                    projectId: project.id,
+                });
+            } else if (contractDoc) {
+                createdContract = {
+                    id: contractDoc.id,
+                    title: contractDoc.title,
+                    status: 'draft',
+                };
+
+                if (client.email) {
+                    try {
+                        const { data: senderProfile } = await supabase
+                            .from('users')
+                            .select('first_name, last_name')
+                            .eq('id', user.id)
+                            .single();
+
+                        const senderName = senderProfile
+                            ? `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User'
+                            : 'Hedwig User';
+
+                        const emailSent = await EmailService.sendContractEmail({
+                            to: client.email,
+                            senderName,
+                            contractTitle: contractDoc.title,
+                            contractId: contractDoc.id,
+                            approvalToken,
+                            totalAmount: totalAmount.toString(),
+                            milestoneCount: milestoneItems.length,
+                        });
+
+                        if (emailSent) {
+                            await supabase.from('documents').update({ status: 'SENT' }).eq('id', contractDoc.id);
+                            createdContract.status = 'sent';
+                            contractEmailSent = true;
+                        }
+                    } catch (emailError) {
+                        logger.error('Failed to send auto-created project contract email', {
+                            error: emailError instanceof Error ? emailError.message : String(emailError),
+                            projectId: project.id,
+                        });
+                    }
+                }
+            }
+
+            for (const milestone of milestoneItems) {
+                const { error: invoiceError } = await supabase
+                    .from('documents')
+                    .insert({
+                        user_id: user.id,
+                        client_id: clientId,
+                        project_id: project.id,
+                        type: 'INVOICE',
+                        title: `Invoice: ${milestone.title}`,
+                        amount: milestone.amount,
+                        description: `Milestone for ${project.name}`,
+                        status: 'DRAFT',
+                        content: {
+                            recipient_email: client.email || req.body.clientEmail || null,
+                            client_name: client.name,
+                            due_date: milestone.dueDate || project.deadline,
+                            items: [{ description: milestone.title, amount: milestone.amount }],
+                            reminders_enabled: true,
+                        },
+                    });
+
+                if (invoiceError) {
+                    logger.error('Failed to auto-create milestone invoice', {
+                        error: invoiceError.message,
+                        projectId: project.id,
+                        milestoneTitle: milestone.title,
+                    });
+                    continue;
+                }
+
+                createdInvoiceCount += 1;
+            }
+        }
+
         logger.info('Project created successfully', { 
             projectId: project.id,
-            milestonesCreated: createdMilestones.length 
+            milestonesCreated: createdMilestones.length,
+            contractCreated: Boolean(createdContract),
+            contractEmailSent,
+            createdInvoiceCount,
         });
 
         res.json({
@@ -407,6 +582,10 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     deadline: project.deadline,
                     createdAt: project.created_at,
                     updatedAt: project.updated_at,
+                    hasContract: Boolean(createdContract),
+                    contract: createdContract,
+                    contractEmailSent,
+                    createdInvoiceCount,
                     milestones: createdMilestones.map((m: any) => ({
                         id: m.id,
                         title: m.title,

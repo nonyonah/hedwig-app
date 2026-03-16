@@ -7,7 +7,12 @@ import { ToastProvider } from '@/components/providers/toast-provider';
 
 export const metadata: Metadata = {
   title: 'Hedwig Web',
-  description: 'Freelancer operating system for work, payments, deadlines, wallet activity, and AI-assisted billing.'
+  description: 'Freelancer operating system for work, payments, deadlines, wallet activity, and AI-assisted billing.',
+  icons: {
+    icon: '/hedwig-icon.png',
+    shortcut: '/hedwig-icon.png',
+    apple: '/hedwig-icon.png'
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
