@@ -57,7 +57,7 @@ const attachUsdAccountDetails = async (doc: any) => {
  */
 router.post('/invoice', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled, projectId, chain } = req.body;
+        const { amount, description, title: providedTitle, recipientEmail, items, dueDate, clientName, remindersEnabled, projectId, chain } = req.body;
         const privyId = req.user!.id;
 
         // Validate required fields
@@ -79,15 +79,18 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
 
         // Unique Client Check & Creation via centralized service
         let clientId = null;
+        let resolvedEmail = recipientEmail || null;
         if (recipientEmail || clientName) {
             const { ClientService } = await import('../services/clientService');
-            const { id } = await ClientService.getOrCreateClient(
+            const { id, client } = await ClientService.getOrCreateClient(
                 user.id,
                 clientName,
                 recipientEmail,
                 { createdFrom: 'invoice_creation' }
             );
             clientId = id;
+            // Use client's saved email if none was explicitly provided
+            if (!resolvedEmail && client?.email) resolvedEmail = client.email;
         }
 
         // Create invoice record
@@ -95,16 +98,16 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             .from('documents')
             .insert({
                 user_id: user.id,
-                client_id: clientId, // Use the resolved clientId here
+                client_id: clientId,
                 project_id: projectId || null,
                 type: 'INVOICE',
-                title: `Invoice for ${clientName || description || 'Services'}`,
+                title: providedTitle || `Invoice for ${clientName || 'Services'}`,
                 amount: parseFloat(amount),
                 description: description,
                 status: 'DRAFT',
                 chain: String(chain || 'BASE').toUpperCase(),
                 content: {
-                    recipient_email: recipientEmail,
+                    recipient_email: resolvedEmail,
                     client_name: clientName,
                     due_date: dueDate,
                     items: items || [],
@@ -131,17 +134,17 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
 
         // Generate shareable Vercel URL for the invoice
         const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
-        
+
         // Update document with payment link URL
         await supabase
             .from('documents')
-            .update({ 
+            .update({
                 payment_link_url: shareableUrl
             })
             .eq('id', doc.id);
 
         // Send email if recipient provided
-        if (doc && recipientEmail) {
+        if (doc && resolvedEmail) {
             // Fetch user name for email sender
             const { data: senderProfile } = await supabase
                 .from('users')
@@ -154,13 +157,13 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                 : 'Hedwig User';
 
             const emailSent = await import('../services/email').then(m => m.EmailService.sendInvoiceEmail({
-                to: recipientEmail,
+                to: resolvedEmail!,
                 senderName,
                 amount: amount.toString(),
                 currency: 'USD',
-                description: description || 'Invoice for services',
+                description: providedTitle || clientName || undefined,
                 linkId: doc.id,
-                paymentUrl: shareableUrl // Use internal link
+                paymentUrl: shareableUrl
             }));
 
             if (emailSent) {
@@ -172,9 +175,9 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
 
         res.json({
             success: true,
-            data: { 
+            data: {
                 document: doc,
-                shareableUrl 
+                shareableUrl
             }
         });
     } catch (error) {
@@ -188,17 +191,8 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
  */
 router.post('/payment-link', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, currency, description, remindersEnabled, recipientEmail, clientName, dueDate, chain } = req.body;
+        const { amount, currency, description, title: providedTitle, remindersEnabled, recipientEmail, clientName, dueDate, chain } = req.body;
         const privyId = req.user!.id;
-
-        // Validate required fields
-        if (!clientName || clientName.trim() === '') {
-            res.status(400).json({
-                success: false,
-                error: { message: 'Client name is required for payment links' }
-            });
-            return;
-        }
 
         if (!dueDate) {
             res.status(400).json({
@@ -217,15 +211,18 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
         }
 
         let clientId = null;
+        let resolvedEmail = recipientEmail || null;
         if (recipientEmail || clientName) {
             const { ClientService } = await import('../services/clientService');
-            const { id } = await ClientService.getOrCreateClient(
+            const { id, client } = await ClientService.getOrCreateClient(
                 user.id,
                 clientName,
                 recipientEmail,
                 { createdFrom: 'payment_link_creation' }
             );
             clientId = id;
+            // Use client's saved email if none was explicitly provided
+            if (!resolvedEmail && client?.email) resolvedEmail = client.email;
         }
 
         // Create payment link record (payment_link_url will be updated after we have the ID)
@@ -235,13 +232,13 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 user_id: user.id,
                 client_id: clientId,
                 type: 'PAYMENT_LINK',
-                title: description || 'Payment Link',
+                title: providedTitle || (clientName ? `Payment Link for ${clientName}` : null) || (resolvedEmail ? `Payment Link for ${resolvedEmail.split('@')[0]}` : null) || 'Payment Link',
                 amount: parseFloat(amount),
                 currency: currency || 'USDC',
                 chain: String(chain || 'BASE').toUpperCase(),
                 status: 'DRAFT',
                 content: {
-                    recipient_email: recipientEmail,
+                    recipient_email: resolvedEmail,
                     client_name: clientName,
                     due_date: dueDate,
                     reminders_enabled: remindersEnabled !== false // Default to true
@@ -254,10 +251,10 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
 
         // Generate shareable Vercel URL
         const shareableUrl = `${WEB_CLIENT_URL}/pay/${doc.id}`;
-        
+
         await supabase
             .from('documents')
-            .update({ 
+            .update({
                 payment_link_url: shareableUrl
             })
             .eq('id', doc.id);
@@ -265,7 +262,7 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
         // Auto-create calendar event for payment link
         await createCalendarEventFromSource(
             user.id,
-            `Payment due: ${clientName}`,
+            `Payment due: ${clientName || resolvedEmail || description || 'Payment Link'}`,
             dueDate,
             'invoice_due',
             'payment_link',
@@ -274,24 +271,24 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
         );
 
         // Send email if recipient provided
-        if (doc && recipientEmail) {
+        if (doc && resolvedEmail) {
             // Fetch user name for email sender
             const { data: senderProfile } = await supabase
                 .from('users')
                 .select('first_name, last_name')
                 .eq('id', user.id)
                 .single();
-                
-            const senderName = senderProfile ? 
-                `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User' 
+
+            const senderName = senderProfile ?
+                `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User'
                 : 'Hedwig User';
 
             const emailSent = await import('../services/email').then(m => m.EmailService.sendPaymentLinkEmail({
-                to: recipientEmail,
+                to: resolvedEmail!,
                 senderName,
                 amount: amount.toString(),
                 currency: currency || 'USDC',
-                description: description || 'Payment Request',
+                description: providedTitle || clientName || undefined,
                 linkId: doc.id,
                 network: String(chain || 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base',
                 paymentUrl: shareableUrl
@@ -359,15 +356,17 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             }
 
             let clientId = null;
+            let resolvedEmailInv = recipientEmail || null;
             if (recipientEmail || clientName) {
                 const { ClientService } = await import('../services/clientService');
-                const { id } = await ClientService.getOrCreateClient(
+                const { id, client } = await ClientService.getOrCreateClient(
                     user.id,
                     clientName,
                     recipientEmail,
                     { createdFrom: 'invoice_creation' }
                 );
                 clientId = id;
+                if (!resolvedEmailInv && client?.email) resolvedEmailInv = client.email;
             }
 
             const { data: doc, error } = await supabase
@@ -377,12 +376,12 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     client_id: clientId,
                     project_id: projectId || null,
                     type: 'INVOICE',
-                    title: title || `Invoice for ${clientName || description || 'Services'}`,
+                    title: title || `Invoice for ${clientName || 'Services'}`,
                     amount: parseFloat(amount),
                     description: description,
                     status: 'DRAFT',
                     content: {
-                        recipient_email: recipientEmail,
+                        recipient_email: resolvedEmailInv,
                         client_name: clientName,
                         due_date: dueDate,
                         items: items || [],
@@ -406,25 +405,29 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 );
             }
 
-            // Send email if recipient provided
-            if (doc && recipientEmail) {
+            const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
+            await supabase.from('documents').update({ payment_link_url: shareableUrl }).eq('id', doc.id);
+
+            // Send email if recipient available
+            if (doc && resolvedEmailInv) {
                 const { data: senderProfile } = await supabase
                     .from('users')
                     .select('first_name, last_name')
                     .eq('id', user.id)
                     .single();
-                    
-                const senderName = senderProfile ? 
-                    `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User' 
+
+                const senderName = senderProfile ?
+                    `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User'
                     : 'Hedwig User';
 
                 const emailSent = await import('../services/email').then(m => m.EmailService.sendInvoiceEmail({
-                    to: recipientEmail,
+                    to: resolvedEmailInv!,
                     senderName,
                     amount: amount.toString(),
                     currency: 'USD',
-                    description: description || 'Invoice for services',
-                    linkId: doc.id
+                    description: title || clientName || undefined,
+                    linkId: doc.id,
+                    paymentUrl: shareableUrl
                 }));
 
                 if (emailSent) {
@@ -433,7 +436,6 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 }
             }
 
-            const shareableUrl = `${WEB_CLIENT_URL}/invoice/${doc.id}`;
             res.json({ success: true, data: { document: doc, shareableUrl } });
             return;
 
@@ -442,10 +444,6 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             const { amount, currency, description, remindersEnabled, recipientEmail, clientName, dueDate, title } = req.body;
             const privyId = req.user!.id;
 
-            if (!clientName || clientName.trim() === '') {
-                res.status(400).json({ success: false, error: { message: 'Client name is required' } });
-                return;
-            }
             if (!dueDate) {
                 res.status(400).json({ success: false, error: { message: 'Due date is required' } });
                 return;
@@ -458,15 +456,17 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             }
 
             let clientId = null;
+            let resolvedEmailPl = recipientEmail || null;
             if (recipientEmail || clientName) {
                 const { ClientService } = await import('../services/clientService');
-                const { id } = await ClientService.getOrCreateClient(
+                const { id, client } = await ClientService.getOrCreateClient(
                     user.id,
                     clientName,
                     recipientEmail,
                     { createdFrom: 'payment_link_creation' }
                 );
                 clientId = id;
+                if (!resolvedEmailPl && client?.email) resolvedEmailPl = client.email;
             }
 
             const { data: doc, error } = await supabase
@@ -475,12 +475,12 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     user_id: user.id,
                     client_id: clientId,
                     type: 'PAYMENT_LINK',
-                    title: title || description || 'Payment Link',
+                    title: title || (clientName ? `Payment Link for ${clientName}` : null) || (resolvedEmailPl ? `Payment Link for ${resolvedEmailPl.split('@')[0]}` : null) || 'Payment Link',
                     amount: parseFloat(amount),
                     currency: currency || 'USDC',
                     status: 'DRAFT',
                     content: {
-                        recipient_email: recipientEmail,
+                        recipient_email: resolvedEmailPl,
                         client_name: clientName,
                         due_date: dueDate,
                         reminders_enabled: remindersEnabled !== false
@@ -496,13 +496,42 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 
             await createCalendarEventFromSource(
                 user.id,
-                `Payment due: ${clientName}`,
+                `Payment due: ${clientName || resolvedEmailPl || description || 'Payment Link'}`,
                 dueDate,
                 'invoice_due',
                 'payment_link',
                 doc.id,
                 `Payment link for ${doc.amount} ${currency || 'USDC'}`
             );
+
+            // Send email if recipient available
+            if (doc && resolvedEmailPl) {
+                const { data: senderProfile } = await supabase
+                    .from('users')
+                    .select('first_name, last_name')
+                    .eq('id', user.id)
+                    .single();
+
+                const senderName = senderProfile ?
+                    `${senderProfile.first_name || ''} ${senderProfile.last_name || ''}`.trim() || 'Hedwig User'
+                    : 'Hedwig User';
+
+                const emailSent = await import('../services/email').then(m => m.EmailService.sendPaymentLinkEmail({
+                    to: resolvedEmailPl!,
+                    senderName,
+                    amount: amount.toString(),
+                    currency: currency || 'USDC',
+                    description: title || clientName || undefined,
+                    linkId: doc.id,
+                    network: String(doc.chain || 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base',
+                    paymentUrl: shareableUrl
+                }));
+
+                if (emailSent) {
+                    await supabase.from('documents').update({ status: 'SENT' }).eq('id', doc.id);
+                    doc.status = 'SENT';
+                }
+            }
 
             res.json({ success: true, data: { document: { ...doc, payment_link_url: shareableUrl } } });
             return;

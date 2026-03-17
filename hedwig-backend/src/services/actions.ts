@@ -267,10 +267,6 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
             return { text: '' }; // Empty text signals Gemini to collect this field
         }
 
-        if (!clientName) {
-            return { text: '' }; // Client name also required
-        }
-
         // Map network to chain enum
         let chain = 'BASE';
         if (network.includes('solana')) chain = 'SOLANA';
@@ -298,7 +294,12 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
                 currency: token,
                 chain: chain,
                 status: 'DRAFT',
-                payment_link_url: `https://pay.hedwigbot.xyz/pay/${Date.now()}` // Simulated URL
+                payment_link_url: `https://pay.hedwigbot.xyz/pay/${Date.now()}`, // Simulated URL
+                content: {
+                    client_name: clientName || null,
+                    recipient_email: params.recipient_email || params.client_email || null,
+                    due_date: dueDate,
+                }
             })
             .select()
             .single();
@@ -326,7 +327,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         if (dueDate && doc) {
             await createCalendarEventFromSource(
                 userData.id,
-                `Payment due: ${clientName}`,
+                `Payment due: ${clientName || recipientEmail || description || 'Payment Link'}`,
                 dueDate,
                 'invoice_due',
                 'payment_link',
@@ -336,7 +337,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
         }
 
         return {
-            text: `Done! I've created a payment link for ${amount} ${token}${description && description !== 'Payment' ? ` for ${description}` : ''}. Here's the link: /payment-link/${doc.id}\n\nYou can share this with your client to collect payment.${emailSent ? `\n\n✅ I also sent the link to ${recipientEmail}.` : ''}\n\n💡 Note: A 0.5-1% platform fee will be deducted when payment is received.`,
+            text: `Done! I've created a payment link for ${amount} ${token}${description && description !== 'Payment' ? ` for ${description}` : ''}. Here's the link: /payment-link/${doc.id}\n\nYou can share this to collect payment.${emailSent ? `\n\n✅ I also sent the link to ${recipientEmail}.` : ''}\n\n💡 Note: A 0.5-1% platform fee will be deducted when payment is received.`,
             data: { documentId: doc.id, type: 'PAYMENT_LINK' }
         };
     } catch (error) {

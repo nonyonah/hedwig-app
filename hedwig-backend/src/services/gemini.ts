@@ -138,7 +138,7 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
 5. **SILENT FILLING**: If a field is missing but you can reasonably infer it or it's optional, skip it or fill it with a default/placeholder rather than blocking the user.
 
 1. CREATE_PAYMENT_LINK
-   ⚠️ CRITICAL: Use ONLY when user provides amount, network, client_name AND due_date
+   ⚠️ CRITICAL: Use ONLY when user provides amount, network, AND due_date
    Parameters: { amount, token, network, title, description, recipient_email, client_name, due_date }
    
    **INSTRUCTIONS:**
@@ -147,24 +147,25 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
      Example: User says "create payment link for $500 for website design for John" → title: "Website Design" (NOT "create payment link for...")
    - Extract 'recipient_email' if provided (e.g., "send to bob@email.com")
    - 'due_date' is REQUIRED - ask "When is this payment due?" if not provided
-   - 'client_name' is REQUIRED - extract from "for [Name]" or inferred from email/context.
+   - 'client_name' is OPTIONAL - extract it when available, but do NOT block creation if it is missing
+   - 'recipient_email' is OPTIONAL - extract it when available, but do NOT block creation if it is missing
    
    **STRICT REQUIREMENTS TO USE THIS INTENT:**
    ✅ MUST have amount (e.g., "50", "100")
    ✅ MUST have network ("base" or "solana")
-   ✅ MUST have client_name (if not explicitly stated, ask for it!)
    ✅ MUST have due_date (e.g., "January 15", "next week", "in 7 days")
    
    **Decision Tree with conversation awareness:**
    - NO amount & first mention of payment link → COLLECT_PAYMENT_INFO
    - Has amount but NO network → COLLECT_NETWORK_INFO  
-   - Has amount + network but NO client_name → COLLECT_CLIENT_NAME
+   - Has amount + network but NO due_date → COLLECT_PAYMENT_INFO with a natural response asking when it is due
    - Has ALL fields → CREATE_PAYMENT_LINK
    
    **Examples:**
    ✅ "Create payment link for $50 on base for John for logo design" → CREATE_PAYMENT_LINK { title: "Logo Design", client_name: "John" }
    ✅ "Payment link for 100 USDC on base to bob@gmail.com for consulting" → CREATE_PAYMENT_LINK { title: "Consulting", client_name: "Bob", recipient_email: "bob@gmail.com" }
-   ❌ "Create payment link for $50 on Base" → COLLECT_CLIENT_NAME (missing who it is for)
+   ✅ "Create payment link for $50 on Base due next Friday" → CREATE_PAYMENT_LINK { amount: "50", token: "USDC", network: "base", due_date: "next Friday" }
+   ❌ "Create payment link for $50 on Base" → COLLECT_PAYMENT_INFO (missing due date)
    ❌ "Create payment link for $50" → COLLECT_NETWORK_INFO (missing network)
    ❌ "I want to create a payment link" → COLLECT_PAYMENT_INFO (missing everything)
 
@@ -172,22 +173,21 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    Triggers: "invoice", "bill", "create invoice", "send invoice", "invoice for"
    
    ⚠️ CRITICAL: Use ONLY when user provides ALL required info INCLUDING network/chain
-   Parameters: { client_name, client_email, items, network, token, currency }
+   Parameters: { client_name, client_email, items, network, token, currency, due_date }
    
    **STRICT REQUIREMENTS TO USE THIS INTENT:**
-   ✅ MUST have client_name
-   ✅ MUST have client_email
    ✅ MUST have at least one item with amount
-   ✅ MUST have network ("base")
+   ✅ MUST have network ("base" or "solana")
    ✅ MUST have due_date (e.g., "January 15", "next Friday", "in 14 days")
    ❌ If ANY is missing → DO NOT USE THIS INTENT
    
    **Try to extract ALL information from user's message first!**
    Look for:
-   - Client name (who is it for?)
-   - Client email (email address)
+   - Client name (who is it for?) - OPTIONAL
+   - Client email (email address) - OPTIONAL
    - Items: Array of objects { description: string, amount: number }
-   - Network/chain (base)
+   - Network/chain (base or solana)
+   - Due date
    - Currency (USD, NGN, GHS, KES) - default to USD if symbol is $
 
    **CRITICAL: MULTIPLE ITEMS EXTRACTION**
@@ -198,13 +198,13 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    - Currency (USD, NGN, GHS, KES) - default to USD if symbol is $
    
    **Parsing Examples:**
-   "Invoice for John at john@email.com for $500 web design on base" → Extract all fields including network
-   "Create invoice for Sarah (sarah@test.com) with $300 logo design on base" → All info present
+   "Invoice for John at john@email.com for $500 web design on base due Friday" → Extract all fields including network
+   "Create invoice for $300 logo design on base due Friday" → Valid even without client name or email
    
    **Decision Tree:**
-   - Missing client info or items → COLLECT_INVOICE_INFO
-   - Have client_name, client_email, items BUT missing network → COLLECT_INVOICE_NETWORK (ask "Which blockchain network should this invoice accept payment on - Base or Solana?")
-   - Have ALL fields including network → CREATE_INVOICE
+   - Missing items or due_date → COLLECT_INVOICE_INFO
+   - Have items + due_date BUT missing network → COLLECT_INVOICE_NETWORK (ask "Which blockchain network should this invoice accept payment on - Base or Solana?")
+   - Have items + due_date + network → CREATE_INVOICE
 
 3. COLLECT_INVOICE_INFO
    Use when creating invoice but missing required info.
@@ -214,23 +214,26 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    "💡 Tip: You can provide everything at once like: 'Invoice for [Name] at [email] for $[amount] [service] on [network]'"
    
    **Required fields:**
-   1. client_name
-   2. client_email
-   3. items (at least one with description and amount)
-   4. network (base)
+   1. items (at least one with description and amount)
+   2. network (base or solana)
+   3. due_date
+
+   **Helpful optional fields:**
+   - client_name
+   - client_email
    
    **Collection strategy:**
    - Ask for missing fields one at a time
    - Extract any info from user's previous messages
    - Include ALL collected data in parameters
-   - After collecting client info and items, if network is missing → ask for network
-   - Once you have all 4 required fields → CREATE_INVOICE
+   - After collecting items and due date, if network is missing → ask for network
+   - Once you have all required fields → CREATE_INVOICE
    
    **Helpful responses:**
-   - Missing everything: "Sure! Who is this invoice for? 💡 Tip: You can say 'Invoice for John at john@email.com for $500 web design on base' to provide everything at once."
-   - Have client name: "What's their email address?"
-   - Have client + email: "What service or product is this invoice for, and what's the amount?"
-   - Have client + email + items BUT no network: "Which blockchain network should this invoice accept payment on - Base or Solana?"
+   - Missing everything: "Sure. What should I invoice for, how much is it, and when is it due? 💡 Tip: You can say 'Invoice for $500 web design on Base due Friday' to provide everything at once."
+   - Have items but no due date: "When is this invoice due?"
+   - Have items + due date but no network: "Which blockchain network should this invoice accept payment on - Base or Solana?"
+   - Have client info too: include it, but do not stop to ask for it if the invoice can already be created
    
    **Multi-item parsing from single message:**
    If user says something like "web design for $500 and logo for $200":
@@ -367,10 +370,11 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
 
 
 4a. COLLECT_CLIENT_NAME
-   Triggers: When creating payment link but missing client name
+   This is a legacy fallback and should be used RARELY.
    Parameters: { amount, token, network, description }
-   Use when: User provided amount and network but didn't say who it is for
-   Response: Ask "Who is this payment link for?" or "What's the client's name?"
+   Use ONLY when the user explicitly says they want the link addressed to a specific person but has not provided the person's name.
+   Do NOT use this just because client_name is missing.
+   Response: Ask "Who should I address this payment link to?"
 
 5. CONFIRM_TRANSACTION
    Triggers: "send", "pay", "transfer", "send money"
@@ -784,8 +788,8 @@ RULES:
 - If user says "dollars" or uses "$", convert to USDC
 
 CRITICAL PAYMENT LINK LOGIC:
-⚠️ NEVER use CREATE_PAYMENT_LINK intent if amount OR network is missing!
-⚠️ ALWAYS check for BOTH amount AND network before using CREATE_PAYMENT_LINK!
+⚠️ NEVER use CREATE_PAYMENT_LINK intent if amount OR network OR due_date is missing!
+⚠️ ALWAYS check for amount, network, and due_date before using CREATE_PAYMENT_LINK!
 
 **Step-by-step validation:**
 1. Check: Does message have an amount (number with $ or USDC)? 
@@ -793,6 +797,9 @@ CRITICAL PAYMENT LINK LOGIC:
    - YES → Go to step 2
 2. Check: Does message specify "base" or "solana"?
    - NO → Use COLLECT_NETWORK_INFO
+   - YES → Go to step 3
+3. Check: Does message specify when payment is due?
+   - NO → Use COLLECT_PAYMENT_INFO and ask for the due date
    - YES → Use CREATE_PAYMENT_LINK
 
 **Common phrases and correct intents:**
@@ -800,13 +807,14 @@ CRITICAL PAYMENT LINK LOGIC:
 "Create a payment link" → COLLECT_PAYMENT_INFO (no amount)
 "Payment link please" → COLLECT_PAYMENT_INFO (no amount)  
 "Create payment link for $50" → COLLECT_NETWORK_INFO (has amount, no network)
-"Create payment link for $50 on base" → CREATE_PAYMENT_LINK (has both!)
+"Create payment link for $50 on base" → COLLECT_PAYMENT_INFO (missing due date)
+"Create payment link for $50 on base due Friday" → CREATE_PAYMENT_LINK (has all required fields)
 
 NETWORK SELECTION FOR PAYMENT LINKS:
 - If user specifies "base" or "solana" → use that network
 - If user does NOT specify network → Use COLLECT_NETWORK_INFO intent
 - Response should ask: "Which network would you like - Base or Solana?"
-- Once network is chosen, switch to CREATE_PAYMENT_LINK
+- Once network is chosen, check whether due_date is already known before switching to CREATE_PAYMENT_LINK
 
 RESPONSE EXAMPLES:
 
@@ -827,9 +835,16 @@ User: "$50" (or "50" or "fifty dollars")
 
 User: "Base"
 {
-  "intent": "CREATE_PAYMENT_LINK",
+  "intent": "COLLECT_PAYMENT_INFO",
   "parameters": {"amount": "50", "token": "USDC", "network": "base"},
-  "naturalResponse": "Perfect! I'll create a payment link for $50 USDC on Base."
+  "naturalResponse": "Perfect. When should this payment link be due?"
+}
+
+User: "Next Friday"
+{
+  "intent": "CREATE_PAYMENT_LINK",
+  "parameters": {"amount": "50", "token": "USDC", "network": "base", "due_date": "next Friday"},
+  "naturalResponse": "Perfect! I'll create a payment link for $50 USDC on Base due next Friday."
 }
 
 **Conversation Flow Example 2:**
@@ -857,16 +872,16 @@ User: "Create payment link for $50"
 
 User: "Create payment link for $50 on base"
 {
-  "intent": "CREATE_PAYMENT_LINK",
+  "intent": "COLLECT_PAYMENT_INFO",
   "parameters": {"amount": "50", "token": "USDC", "network": "base"},
-  "naturalResponse": "I'll create a payment link for $50 (50 USDC) on Base for you!"
+  "naturalResponse": "I'll create a payment link for $50 USDC on Base. When should it be due?"
 }
 
-User: "Invoice for 500 dollars for web design"
+User: "Invoice for 500 dollars for web design due Friday"
 {
   "intent": "CREATE_INVOICE",
-  "parameters": {"amount": "500", "for": "web design", "token": "USDC"},
-  "naturalResponse": "I'll create an invoice for $500 for web design!"
+  "parameters": {"items": [{"description": "web design", "amount": "500"}], "network": "base", "token": "USDC", "currency": "USD", "due_date": "Friday"},
+  "naturalResponse": "I'll create an invoice for $500 for web design due Friday."
 }
 
  User: "Send 20 USDC to 0x123... on Base"

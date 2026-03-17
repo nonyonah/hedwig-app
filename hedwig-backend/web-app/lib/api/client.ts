@@ -351,10 +351,11 @@ const mapBackendInvoice = (document: any): Invoice => ({
   id: String(document.id),
   clientId: String(document.client_id || ''),
   projectId: document.project_id ? String(document.project_id) : undefined,
+  title: document.title ? String(document.title) : undefined,
   status: normalizeInvoiceStatus(document.status),
   amountUsd: Number(document.amount || 0),
   dueAt: deriveDocumentDueAt(document),
-  number: String(document.title || `Invoice ${String(document.id).slice(0, 8)}`),
+  number: `INV-${String(document.id).slice(-6).toUpperCase()}`,
   remindersEnabled: getDocumentContent(document).reminders_enabled !== false
 });
 
@@ -877,7 +878,8 @@ export const hedwigApi = {
               status: normalizeInvoiceStatus(invoice.status),
               amountUsd: Number(invoice.amount || 0),
               dueAt: String(invoice.dueDate || new Date().toISOString()),
-              number: String(invoice.title || `Invoice ${String(invoice.id).slice(0, 8)}`)
+              title: invoice.title ? String(invoice.title) : undefined,
+              number: `INV-${String(invoice.id).slice(-6).toUpperCase()}`
             }))
           : documents
               .filter((document) => {
@@ -1084,7 +1086,7 @@ export const hedwigApi = {
 
   async createPaymentLink(
     data: {
-      clientName: string;
+      clientName?: string;
       amount: number;
       description?: string;
       dueDate: string;

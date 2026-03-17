@@ -6,20 +6,24 @@ const logger = createLogger('EmailService');
 // Initialize Resend lazily inside functions to ensure env vars are loaded
 
 const SHARED_STYLES = `
-    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; margin-bottom: 40px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-    .header { background-color: #ffffff; padding: 24px; text-align: center; border-bottom: 1px solid #f3f4f6; }
-    .logo { font-size: 24px; font-weight: bold; color: #4F46E5; text-decoration: none; }
-    .content { padding: 32px 24px; }
-    .card { background-color: #f9fafb; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px; border: 1px solid #e5e7eb; }
-    .amount-label { font-size: 14px; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-    .amount-value { font-size: 36px; color: #111827; font-weight: 700; margin: 0; }
-    .description { color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 24px; text-align: center; }
-    .btn-container { text-align: center; margin-top: 32px; }
-    .btn { display: inline-block; background-color: #2563EB; color: #ffffff !important; font-weight: 600; padding: 12px 32px; line-height: 1.5; border-radius: 50px; text-decoration: none; font-size: 16px; transition: background-color 0.2s; mso-padding-alt: 0; }
-    .btn:hover { background-color: #1D4ED8; }
-    .footer { background-color: #f9fafb; padding: 24px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
-    .footer a { color: #6b7280; text-decoration: underline; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    .container { max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; margin-bottom: 40px; border: 1px solid #e9eaeb; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.06); }
+    .header { background-color: #ffffff; padding: 20px 28px; border-bottom: 1px solid #f1f2f4; }
+    .logo { font-size: 20px; font-weight: 700; color: #2563eb; text-decoration: none; letter-spacing: -0.02em; }
+    .content { padding: 28px 28px 32px; }
+    .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #a4a7ae; margin-bottom: 6px; }
+    .heading { font-size: 22px; font-weight: 700; color: #181d27; letter-spacing: -0.02em; margin: 0 0 20px; }
+    .card { background-color: #f9fafb; border-radius: 12px; padding: 24px; text-align: center; margin: 20px 0; border: 1px solid #e9eaeb; }
+    .amount-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #a4a7ae; margin-bottom: 8px; }
+    .amount-value { font-size: 40px; color: #181d27; font-weight: 700; margin: 0; letter-spacing: -0.03em; line-height: 1.1; }
+    .amount-currency { font-size: 20px; color: #535862; font-weight: 600; letter-spacing: -0.01em; }
+    .description { color: #535862; font-size: 15px; line-height: 1.6; margin-bottom: 20px; }
+    .divider { border: none; border-top: 1px solid #f1f2f4; margin: 24px 0; }
+    .btn-container { text-align: center; margin-top: 28px; }
+    .btn { display: inline-block; background-color: #2563eb; color: #ffffff !important; font-weight: 600; padding: 13px 32px; line-height: 1.4; border-radius: 50px; text-decoration: none; font-size: 15px; letter-spacing: -0.01em; mso-padding-alt: 0; }
+    .footer { background-color: #f9fafb; padding: 20px 28px; text-align: center; font-size: 12px; color: #a4a7ae; border-top: 1px solid #f1f2f4; }
+    .footer a { color: #717680; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
 `;
 
 interface EmailData {
@@ -49,6 +53,7 @@ export const EmailService = {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Invoice from ${data.senderName}</title>
             <style>${SHARED_STYLES}</style>
         </head>
         <body>
@@ -57,21 +62,23 @@ export const EmailService = {
                     <span class="logo">Hedwig</span>
                 </div>
                 <div class="content">
-                    <p class="description"><strong>${data.senderName}</strong> has sent you an invoice.</p>
-                    
+                    <p class="eyebrow">Invoice</p>
+                    <h1 class="heading">You have a new invoice</h1>
+                    <p class="description"><strong style="color:#181d27;">${data.senderName}</strong> has sent you an invoice. Please review it and pay by the due date.</p>
+
                     <div class="card">
                         <p class="amount-label">Amount Due</p>
-                        <h1 class="amount-value">${data.amount} ${data.currency}</h1>
+                        <p class="amount-value">$${data.amount} <span class="amount-currency">${data.currency}</span></p>
                     </div>
 
-                    ${data.description ? `<p class="description">${data.description}</p>` : ''}
-                    
+                    ${data.description ? `<p class="description" style="text-align:center;">${data.description}</p>` : ''}
+
                     <div class="btn-container">
-                        <a href="${invoiceUrl}" class="btn">View Invoice</a>
+                        <a href="${invoiceUrl}" class="btn">View &amp; Pay Invoice</a>
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
                 </div>
             </div>
         </body>
@@ -109,6 +116,7 @@ export const EmailService = {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Payment request from ${data.senderName}</title>
             <style>${SHARED_STYLES}</style>
         </head>
         <body>
@@ -117,22 +125,24 @@ export const EmailService = {
                     <span class="logo">Hedwig</span>
                 </div>
                 <div class="content">
-                    <p class="description"><strong>${data.senderName}</strong> has requested a payment.</p>
-                    
+                    <p class="eyebrow">Payment Request</p>
+                    <h1 class="heading">You have a payment request</h1>
+                    <p class="description"><strong style="color:#181d27;">${data.senderName}</strong> has sent you a payment request.</p>
+
                     <div class="card">
                         <p class="amount-label">Amount Requested</p>
-                        <h1 class="amount-value">${data.amount} ${data.currency}</h1>
-                        ${data.network ? `<p style="margin-top: 8px; color: #6b7280; font-size: 14px;">on ${data.network}</p>` : ''}
+                        <p class="amount-value">$${data.amount} <span class="amount-currency">${data.currency}</span></p>
+                        ${data.network ? `<p style="margin-top: 8px; color: #a4a7ae; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;">${data.network}</p>` : ''}
                     </div>
 
-                    ${data.description ? `<p class="description">${data.description}</p>` : ''}
-                    
+                    ${data.description ? `<p class="description" style="text-align:center;">${data.description}</p>` : ''}
+
                     <div class="btn-container">
                         <a href="${paymentUrl}" class="btn">Pay Now</a>
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
                 </div>
             </div>
         </body>
@@ -178,6 +188,7 @@ export const EmailService = {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Payment received</title>
             <style>${SHARED_STYLES}</style>
         </head>
         <body>
@@ -186,23 +197,26 @@ export const EmailService = {
                     <span class="logo">Hedwig</span>
                 </div>
                 <div class="content">
-                    <p class="description">Hi <strong>${data.recipientName}</strong>,</p>
-                    <p class="description">You've successfully received a payment${data.senderName ? ` from <strong>${data.senderName}</strong>` : ''}.</p>
-                    
+                    <p class="eyebrow">Payment Received</p>
+                    <h1 class="heading">You got paid!</h1>
+                    <p class="description">Hi <strong style="color:#181d27;">${data.recipientName}</strong>, you've successfully received a payment${data.senderName ? ` from <strong style="color:#181d27;">${data.senderName}</strong>` : ''}.</p>
+
                     <div class="card">
-                        <p class="amount-label">Payment Received</p>
-                        <h1 class="amount-value">${data.amount} ${data.currency}</h1>
-                        ${data.documentTitle ? `<p style="margin-top: 8px; color: #6b7280; font-size: 14px;">For: ${data.documentTitle}</p>` : ''}
+                        <p class="amount-label">Amount Received</p>
+                        <p class="amount-value">$${data.amount} <span class="amount-currency">${data.currency}</span></p>
+                        ${data.documentTitle ? `<p style="margin-top: 10px; color: #717680; font-size: 13px;">For: ${data.documentTitle}</p>` : ''}
                     </div>
 
-                    <p class="description" style="font-size: 14px; text-align: center;">Transaction Hash: <a href="https://basescan.org/tx/${data.txHash}" style="color: #4F46E5;">${data.txHash.substring(0, 8)}...${data.txHash.substring(data.txHash.length - 6)}</a></p>
-                    
+                    <p style="text-align:center; font-size: 13px; color: #a4a7ae; margin: 0 0 24px;">
+                        Tx: <a href="https://basescan.org/tx/${data.txHash}" style="color: #2563eb; text-decoration: none; font-family: monospace;">${data.txHash.substring(0, 10)}...${data.txHash.substring(data.txHash.length - 6)}</a>
+                    </p>
+
                     <div class="btn-container">
                         <a href="${receiptUrl}" class="btn">View Receipt</a>
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
                 </div>
             </div>
         </body>
@@ -238,6 +252,7 @@ export const EmailService = {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${subject}</title>
             <style>${SHARED_STYLES}</style>
         </head>
         <body>
@@ -247,7 +262,7 @@ export const EmailService = {
                 </div>
                 <div class="content">
                     ${htmlContent}
-                    
+
                     ${actionLink ? `
                     <div class="btn-container">
                         <a href="${actionLink}" class="btn">${actionText || 'View Details'}</a>
@@ -255,7 +270,7 @@ export const EmailService = {
                     ` : ''}
                 </div>
                 <div class="footer">
-                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
                 </div>
             </div>
         </body>
@@ -301,10 +316,10 @@ export const EmailService = {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Contract from ${data.senderName}</title>
             <style>
                 ${SHARED_STYLES}
-                .milestone-info { background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 16px 0; }
-                .milestone-info p { margin: 0; color: #166534; font-size: 14px; }
+                .milestone-pill { display: inline-block; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 50px; padding: 5px 14px; font-size: 13px; color: #2563eb; font-weight: 600; margin-top: 14px; }
             </style>
         </head>
         <body>
@@ -313,28 +328,25 @@ export const EmailService = {
                     <span class="logo">Hedwig</span>
                 </div>
                 <div class="content">
-                    <p class="description"><strong>${data.senderName}</strong> has sent you a contract for review and approval.</p>
-                    
+                    <p class="eyebrow">Contract</p>
+                    <h1 class="heading">You have a contract to review</h1>
+                    <p class="description"><strong style="color:#181d27;">${data.senderName}</strong> has sent you a contract for review and approval.</p>
+
                     <div class="card">
                         <p class="amount-label">Contract</p>
-                        <h1 style="font-size: 24px; color: #111827; font-weight: 700; margin: 0;">${data.contractTitle}</h1>
-                        ${data.totalAmount ? `<p style="margin-top: 12px; font-size: 20px; color: #059669; font-weight: 600;">$${data.totalAmount}</p>` : ''}
+                        <p style="font-size: 20px; color: #181d27; font-weight: 700; margin: 0; letter-spacing: -0.02em;">${data.contractTitle}</p>
+                        ${data.totalAmount ? `<p style="margin-top: 10px; font-size: 28px; color: #181d27; font-weight: 700; letter-spacing: -0.03em;">$${data.totalAmount}</p>` : ''}
+                        ${data.milestoneCount ? `<span class="milestone-pill">${data.milestoneCount} milestone${data.milestoneCount > 1 ? 's' : ''}</span>` : ''}
                     </div>
 
-                    ${data.milestoneCount ? `
-                    <div class="milestone-info">
-                        <p>📋 This contract includes <strong>${data.milestoneCount} milestone${data.milestoneCount > 1 ? 's' : ''}</strong></p>
-                    </div>
-                    ` : ''}
-                    
-                    <p class="description">Click the button below to review the full contract and approve it.</p>
-                    
+                    <p class="description">Review the full contract and approve it when you're ready to proceed.</p>
+
                     <div class="btn-container">
-                        <a href="${contractUrl}" class="btn" style="background-color: #059669;">Review & Approve Contract</a>
+                        <a href="${contractUrl}" class="btn">Review &amp; Approve Contract</a>
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
                 </div>
             </div>
         </body>
@@ -378,10 +390,10 @@ export const EmailService = {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Contract approved</title>
             <style>
                 ${SHARED_STYLES}
-                .success-card { background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px; }
-                .success-icon { font-size: 48px; margin-bottom: 12px; }
+                .success-badge { display: inline-block; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 50px; padding: 6px 16px; font-size: 13px; font-weight: 700; color: #16a34a; letter-spacing: 0.02em; }
             </style>
         </head>
         <body>
@@ -390,27 +402,26 @@ export const EmailService = {
                     <span class="logo">Hedwig</span>
                 </div>
                 <div class="content">
-                    <div class="success-card">
-                        <div class="success-icon">🎉</div>
-                        <h2 style="margin: 0; color: #166534; font-size: 20px;">Contract Approved!</h2>
-                    </div>
-                    
-                    <p class="description"><strong>${data.clientName}</strong> has approved your contract:</p>
-                    
+                    <p class="eyebrow">Contract Update</p>
+                    <h1 class="heading">Contract approved</h1>
+                    <p class="description"><strong style="color:#181d27;">${data.clientName}</strong> has approved your contract.</p>
+
                     <div class="card">
-                        <h1 style="font-size: 20px; color: #111827; font-weight: 700; margin: 0;">${data.contractTitle}</h1>
+                        <p class="amount-label">Contract</p>
+                        <p style="font-size: 18px; color: #181d27; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.02em;">${data.contractTitle}</p>
+                        <span class="success-badge">Approved</span>
                     </div>
 
                     ${data.invoiceCount ? `
-                    <p class="description">✨ <strong>${data.invoiceCount} milestone invoice${data.invoiceCount > 1 ? 's have' : ' has'}</strong> been automatically generated and sent to your client.</p>
+                    <p class="description"><strong style="color:#181d27;">${data.invoiceCount} milestone invoice${data.invoiceCount > 1 ? 's' : ''}</strong> ${data.invoiceCount > 1 ? 'have' : 'has'} been automatically generated and sent to your client.</p>
                     ` : ''}
-                    
+
                     <div class="btn-container">
                         <a href="${contractUrl}" class="btn">View Contract</a>
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
                 </div>
             </div>
         </body>
@@ -419,9 +430,9 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <noreply@resend.dev>',
+                from: 'Hedwig <team@hedwigbot.xyz>',
                 to: [data.to],
-                subject: `🎉 Contract Approved: ${data.contractTitle}`,
+                subject: `Contract Approved: ${data.contractTitle}`,
                 html: html,
             });
             logger.info('Contract approved notification sent');
@@ -455,6 +466,7 @@ export const EmailService = {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Proposal from ${data.freelancerName}</title>
             <style>${SHARED_STYLES}</style>
         </head>
         <body>
@@ -463,27 +475,24 @@ export const EmailService = {
                     <span class="logo">Hedwig</span>
                 </div>
                 <div class="content">
-                    <h2 style="text-align: center; color: #111827; margin-bottom: 24px;">New Proposal</h2>
-                    
-                    <p class="description">
-                        Hi ${data.clientName},<br><br>
-                        <strong>${data.freelancerName}</strong> has sent you a proposal.
-                    </p>
-                    
+                    <p class="eyebrow">Proposal</p>
+                    <h1 class="heading">You have a new proposal</h1>
+                    <p class="description">Hi <strong style="color:#181d27;">${data.clientName}</strong>, <strong style="color:#181d27;">${data.freelancerName}</strong> has sent you a project proposal.</p>
+
                     <div class="card">
                         <p class="amount-label">Project Proposal</p>
-                        <h1 class="amount-value" style="font-size: 24px;">${data.proposalTitle}</h1>
-                        ${data.totalCost ? `<p style="color: #4F46E5; font-weight: 600; margin-top: 16px;">Estimated: ${data.totalCost}</p>` : ''}
+                        <p style="font-size: 20px; color: #181d27; font-weight: 700; margin: 0; letter-spacing: -0.02em;">${data.proposalTitle}</p>
+                        ${data.totalCost ? `<p style="margin-top: 10px; font-size: 28px; color: #181d27; font-weight: 700; letter-spacing: -0.03em;">${data.totalCost}</p>` : ''}
                     </div>
-                    
+
                     <p class="description">Review the full proposal to see the scope, timeline, and deliverables.</p>
-                    
+
                     <div class="btn-container">
                         <a href="${proposalUrl}" class="btn">View Proposal</a>
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
                 </div>
             </div>
         </body>
@@ -492,9 +501,9 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <noreply@resend.dev>',
+                from: 'Hedwig <team@hedwigbot.xyz>',
                 to: [data.to],
-                subject: `📋 New Proposal: ${data.proposalTitle}`,
+                subject: `New Proposal: ${data.proposalTitle}`,
                 html: html,
             });
             logger.info('Proposal email sent');
@@ -526,7 +535,11 @@ export const EmailService = {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>${SHARED_STYLES}</style>
+            <title>Proposal accepted</title>
+            <style>
+                ${SHARED_STYLES}
+                .success-badge { display: inline-block; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 50px; padding: 6px 16px; font-size: 13px; font-weight: 700; color: #16a34a; letter-spacing: 0.02em; }
+            </style>
         </head>
         <body>
             <div class="container">
@@ -534,32 +547,24 @@ export const EmailService = {
                     <span class="logo">Hedwig</span>
                 </div>
                 <div class="content">
-                    <div style="text-align: center; margin-bottom: 24px;">
-                        <div style="width: 64px; height: 64px; background-color: #D1FAE5; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-                            <svg style="width: 32px; height: 32px; color: #059669;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        </div>
-                        <h2 style="color: #059669; font-size: 24px; margin: 0;">Proposal Accepted!</h2>
-                    </div>
-                    
-                    <p class="description">
-                        Great news! <strong>${data.clientName}</strong> has accepted your proposal.
-                    </p>
-                    
+                    <p class="eyebrow">Proposal Update</p>
+                    <h1 class="heading">Proposal accepted</h1>
+                    <p class="description"><strong style="color:#181d27;">${data.clientName}</strong> has accepted your proposal. You can now proceed with the project.</p>
+
                     <div class="card">
                         <p class="amount-label">Accepted Proposal</p>
-                        <h1 class="amount-value" style="font-size: 20px;">${data.proposalTitle}</h1>
+                        <p style="font-size: 18px; color: #181d27; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.02em;">${data.proposalTitle}</p>
+                        <span class="success-badge">Accepted</span>
                     </div>
-                    
-                    <p class="description">You can now proceed with the project. Consider sending a contract to formalize the agreement.</p>
-                    
+
+                    <p class="description">Consider sending a contract to formalize the agreement and protect both parties.</p>
+
                     <div class="btn-container">
-                        <a href="${proposalUrl}" class="btn" style="background-color: #059669;">View Proposal</a>
+                        <a href="${proposalUrl}" class="btn">View Proposal</a>
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Powered by <a href="https://hedwig.app">Hedwig</a> — The AI Agent for Freelancers</p>
+                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
                 </div>
             </div>
         </body>
@@ -568,9 +573,9 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <noreply@resend.dev>',
+                from: 'Hedwig <team@hedwigbot.xyz>',
                 to: [data.to],
-                subject: `🎉 Proposal Accepted: ${data.proposalTitle}`,
+                subject: `Proposal Accepted: ${data.proposalTitle}`,
                 html: html,
             });
             logger.info('Proposal accepted notification sent');

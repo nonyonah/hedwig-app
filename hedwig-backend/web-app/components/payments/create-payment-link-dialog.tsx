@@ -33,7 +33,6 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.clientName.trim()) e.clientName = 'Client name is required.';
     if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0)
       e.amount = 'Enter a valid amount.';
     if (!form.dueDate) e.dueDate = 'Expiry date is required.';
@@ -49,7 +48,7 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
     try {
       const link = await hedwigApi.createPaymentLink(
         {
-          clientName: form.clientName,
+          clientName: form.clientName || undefined,
           amount: Number(form.amount),
           description: form.description || undefined,
           dueDate: form.dueDate,
@@ -105,18 +104,16 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
               {/* Client name */}
               <div>
                 <label className="mb-1.5 block text-[12px] font-semibold text-[#344054]">
-                  Client / payer name <span className="text-[#f04438]">*</span>
+                  Client / payer name
                 </label>
                 <input
                   type="text"
                   placeholder="Acme Corp"
                   value={form.clientName}
                   onChange={(e) => set('clientName', e.target.value)}
-                  className={`w-full rounded-full border px-4 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:ring-2 focus:ring-[#2563eb]/30 ${
-                    errors.clientName ? 'border-[#f04438] focus:border-[#f04438]' : 'border-[#d5d7da] focus:border-[#2563eb]'
-                  }`}
+                  className="w-full rounded-full border border-[#d5d7da] px-4 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/30"
                 />
-                {errors.clientName && <p className="mt-1 text-[11px] text-[#f04438]">{errors.clientName}</p>}
+                <p className="mt-1 text-[11px] text-[#a4a7ae]">Optional, but useful for labeling the link.</p>
               </div>
 
               {/* Amount */}

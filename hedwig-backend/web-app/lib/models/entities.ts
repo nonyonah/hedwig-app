@@ -72,6 +72,7 @@ export interface Invoice {
   id: EntityId;
   clientId: EntityId;
   projectId?: EntityId;
+  title?: string;
   status: 'draft' | 'sent' | 'paid' | 'overdue';
   amountUsd: number;
   dueAt: string;

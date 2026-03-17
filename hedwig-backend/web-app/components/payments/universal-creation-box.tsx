@@ -17,16 +17,12 @@ import {
   LinkSimple,
   FileText,
   SpinnerGap,
-  CaretDown,
-  Tray,
 } from '@phosphor-icons/react/dist/ssr';
-import { hedwigApi } from '@/lib/api/client';
+import { backendConfig } from '@/lib/auth/config';
 import { useToast } from '@/components/providers/toast-provider';
 import type { Invoice, PaymentLink } from '@/lib/models/entities';
 
 /* ── types ── */
-type Mode = 'auto' | 'payment_link' | 'invoice';
-
 interface LineItem {
   description: string;
   amount: number;
@@ -40,7 +36,6 @@ interface ParsedData {
   dueDate: string | null;
   title: string | null;
   items?: LineItem[];
-  confidence: number;
 }
 
 interface Props {
@@ -49,18 +44,6 @@ interface Props {
 }
 
 /* ── helpers ── */
-const MODE_LABELS: Record<Mode, string> = {
-  auto: 'General',
-  payment_link: 'Payment Link',
-  invoice: 'Invoice',
-};
-
-const PLACEHOLDERS: Record<Mode, string> = {
-  auto: 'Select a mode below or describe what you need…',
-  payment_link: 'e.g. Design Retainer $500 for john@acme.com',
-  invoice: 'e.g. Web Design Project $2 000 for Sarah, 3 milestones',
-};
-
 function formatDateChip(d: Date | null): string {
   if (!d) return 'Date';
   const today = new Date();
@@ -74,6 +57,13 @@ function formatDateChip(d: Date | null): string {
     return d.toLocaleDateString('en-US', { weekday: 'short' });
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
+
+const EXAMPLES = [
+  'Invoice for Acme Corp $1 200 web design due Friday',
+  'Payment link for logo design $350 for john@acme.com due next week',
+  'Invoice for Sarah $500 brand strategy + $200 deck design due Mar 30',
+  'Payment link for consulting fee $800 due tomorrow',
+];
 
 /* ── component ── */
 export function UniversalCreationBox({ accessToken, onCreated }: Props) {
@@ -103,18 +93,22 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
   const [itemDesc, setItemDesc] = useState('');
   const [itemAmt, setItemAmt] = useState('');
 
-  /* mode */
-  const [mode, setMode] = useState<Mode>('auto');
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-
   /* submit */
   const [isCreating, setIsCreating] = useState(false);
+
+  /* cycling placeholder */
+  const [exampleIdx, setExampleIdx] = useState(0);
+  useEffect(() => {
+    if (text) return;
+    const t = setInterval(() => setExampleIdx((i) => (i + 1) % EXAMPLES.length), 3500);
+    return () => clearInterval(t);
+  }, [text]);
 
   /* derived */
   const effectiveDate =
     selectedDate ?? (parsed?.dueDate ? new Date(parsed.dueDate) : null);
-  const detectedMode: 'invoice' | 'payment_link' | 'unknown' =
-    mode !== 'auto' ? mode : (parsed?.intent ?? 'unknown');
+  const resolvedIntent: 'invoice' | 'payment_link' =
+    parsed?.intent === 'payment_link' ? 'payment_link' : 'invoice';
 
   /* ── auto-grow textarea ── */
   useEffect(() => {
@@ -131,12 +125,36 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
       if (value.length < 3) { setParsed(null); return; }
       parseTimer.current = setTimeout(async () => {
         setIsParsing(true);
-        const result = await hedwigApi.parseCreationBox(value, mode, { accessToken });
-        if (result) setParsed(result);
-        setIsParsing(false);
+        try {
+          const res = await fetch(`${backendConfig.apiBaseUrl}/api/creation-box/parse`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: value, currentDate: new Date().toISOString() }),
+            cache: 'no-store',
+          });
+          const json = await res.json();
+          if (json?.success && json.data) {
+            setParsed({
+              intent: json.data.intent === 'payment_link' ? 'payment_link' : 'invoice',
+              clientName: json.data.clientName ?? null,
+              clientEmail: json.data.clientEmail ?? null,
+              amount: json.data.amount ?? null,
+              dueDate: json.data.dueDate ?? null,
+              title: json.data.title ?? null,
+              items: Array.isArray(json.data.items) ? json.data.items : undefined,
+            });
+          }
+        } catch {
+          // silent — user can still submit manually
+        } finally {
+          setIsParsing(false);
+        }
       }, 800);
     },
-    [accessToken, mode]
+    [accessToken]
   );
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -159,7 +177,6 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
     setSelectedDate(new Date(e.target.value + 'T12:00:00'));
   };
 
-  /* ── shake date chip ── */
   const shakeDate = () => {
     setShakingDate(true);
     setTimeout(() => setShakingDate(false), 600);
@@ -187,19 +204,11 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
     if (e.key === 'Escape') { setAddingItem(false); }
   };
 
-  /* ── mode change ── */
-  const chooseMode = (m: Mode) => {
-    setMode(m);
-    setDropdownOpen(false);
-    textareaRef.current?.focus();
-  };
-
   /* ── submit ── */
   const handleCreate = async () => {
-    if (!text.trim() || isCreating) return;
+    if (!text.trim() || isCreating || isParsing) return;
 
-    const needsDate = detectedMode !== 'unknown';
-    if (needsDate && !effectiveDate) {
+    if (!effectiveDate) {
       shakeDate();
       toast({ type: 'error', title: 'Date required', message: 'Please pick a due date.' });
       return;
@@ -207,51 +216,44 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
 
     setIsCreating(true);
     try {
-      const isPaymentLink = detectedMode === 'payment_link';
+      const isPaymentLink = resolvedIntent === 'payment_link';
       const endpoint = isPaymentLink
         ? '/api/documents/payment-link'
         : '/api/documents/invoice';
 
-      let finalItems = items.length > 0
-        ? items
-        : parsed?.items ?? [];
+      const finalItems =
+        items.length > 0 ? items : (parsed?.items ?? []);
 
-      let totalAmount =
+      const totalAmount =
         items.length > 0
           ? items.reduce((s, i) => s + i.amount, 0)
           : (parsed?.amount ?? 0);
 
-      if (totalAmount === 0 && finalItems.length === 0) {
-        // No amount parsed — let backend reject with a clear error
-      }
+      // Build a clean title — never use raw prompt text
+      const typeLabel = isPaymentLink ? 'Payment Link' : 'Invoice';
+      const finalTitle =
+        parsed?.title ||
+        (parsed?.clientName ? `${typeLabel} for ${parsed.clientName}` : null) ||
+        (parsed?.clientEmail ? `${typeLabel} for ${parsed.clientEmail.split('@')[0]}` : null) ||
+        typeLabel;
 
-      const cleanDesc = text
-        .replace(/^(?:create\s+)?(?:invoice|bill|pay link|payment link)\s+(?:for\s+)?/i, '')
-        .replace(/\s+(?:due|at)\s+.*$/i, '')
-        .replace(/\s+(?:\$|USD).*$/i, '')
-        .trim() || 'Professional Services';
-
-      let finalTitle = parsed?.title;
-      if (!finalTitle || finalTitle.length > 50 || finalTitle === text.trim()) {
-        finalTitle = parsed?.clientName
-          ? `${isPaymentLink ? 'Payment Link' : 'Invoice'} for ${parsed.clientName}`
-          : cleanDesc;
-      }
-
+      // Use the finalTitle as description too — clean and consistent, never the raw prompt
       const body: Record<string, unknown> = {
         title: finalTitle,
-        description: cleanDesc,
-        clientName: parsed?.clientName ?? undefined,
+        description: finalTitle,
         amount: totalAmount,
-        currency: 'USD',
-        recipientEmail: parsed?.clientEmail ?? undefined,
-        items: finalItems,
+        currency: isPaymentLink ? 'USDC' : 'USD',
         remindersEnabled: true,
+        items: finalItems,
+        dueDate: effectiveDate.toISOString(),
       };
-      if (effectiveDate) body.dueDate = effectiveDate.toISOString();
+
+      // Only include optional fields if we have real values
+      if (parsed?.clientName) body.clientName = parsed.clientName;
+      if (parsed?.clientEmail) body.recipientEmail = parsed.clientEmail;
 
       const response = await fetch(
-        `${(await import('@/lib/auth/config')).backendConfig.apiBaseUrl}${endpoint}`,
+        `${backendConfig.apiBaseUrl}${endpoint}`,
         {
           method: 'POST',
           headers: {
@@ -271,26 +273,38 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
       const doc = result.data?.document ?? result.data ?? {};
 
       if (isPaymentLink) {
+        const rawStatus = String(doc.status ?? '').toLowerCase();
+        const linkStatus: PaymentLink['status'] =
+          rawStatus === 'paid' ? 'paid' : rawStatus === 'expired' ? 'expired' : 'active';
+        const rawCurrency = String(doc.currency ?? 'USDC').toUpperCase();
         const link: PaymentLink = {
           id: doc.id,
-          clientId: doc.clientId,
-          status: ((doc.status ?? 'active') as string).toLowerCase() as PaymentLink['status'],
+          clientId: doc.clientId ?? doc.client_id ?? null,
+          status: linkStatus,
           amountUsd: doc.amount ?? totalAmount,
-          title: doc.title ?? finalTitle ?? 'Payment Link',
-          asset: (doc.currency ?? doc.asset ?? 'USDC') as PaymentLink['asset'],
-          chain: (doc.chain ?? 'Base') as PaymentLink['chain'],
+          title: doc.title ?? finalTitle,
+          asset: rawCurrency === 'USDT' ? 'USDT' : 'USDC',
+          chain: String(doc.chain ?? 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base',
+          remindersEnabled: true,
         };
         toast({ type: 'success', title: 'Payment link created', message: link.title });
         onCreated({ paymentLink: link });
       } else {
+        const rawInvStatus = String(doc.status ?? '').toLowerCase();
+        const invStatus: Invoice['status'] =
+          rawInvStatus === 'paid' ? 'paid' :
+          rawInvStatus === 'overdue' ? 'overdue' :
+          rawInvStatus === 'sent' ? 'sent' : 'draft';
         const invoice: Invoice = {
           id: doc.id,
-          clientId: doc.clientId ?? '',
-          projectId: doc.projectId,
-          status: ((doc.status ?? 'draft') as string).toLowerCase() as Invoice['status'],
+          clientId: doc.clientId ?? doc.client_id ?? '',
+          projectId: doc.projectId ?? doc.project_id,
+          title: doc.title ?? finalTitle,
+          status: invStatus,
           amountUsd: doc.amount ?? totalAmount,
-          dueAt: doc.dueDate ?? doc.dueAt ?? effectiveDate?.toISOString() ?? '',
-          number: doc.number ?? doc.invoiceNumber ?? `INV-${doc.id?.slice(-6).toUpperCase()}`,
+          dueAt: doc.dueDate ?? doc.due_date ?? effectiveDate.toISOString(),
+          number: `INV-${String(doc.id).slice(-6).toUpperCase()}`,
+          remindersEnabled: true,
         };
         toast({ type: 'success', title: 'Invoice created', message: invoice.number });
         onCreated({ invoice });
@@ -302,7 +316,6 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
       setSelectedDate(null);
       setFileName(null);
       setItems([]);
-      setMode('auto');
     } catch (err: any) {
       toast({ type: 'error', title: 'Creation failed', message: err?.message ?? 'Please try again.' });
     } finally {
@@ -316,17 +329,6 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
       handleCreate();
     }
   };
-
-  /* ── close dropdown on outside click ── */
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (!dropdownRef.current?.contains(e.target as Node)) setDropdownOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [dropdownOpen]);
 
   /* ── render ── */
   return (
@@ -357,12 +359,49 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
         value={text}
         onChange={handleTextChange}
         onKeyDown={handleKeyDown}
-        placeholder={PLACEHOLDERS[mode]}
+        placeholder={EXAMPLES[exampleIdx]}
         rows={2}
-        className="w-full resize-none bg-transparent px-5 pt-4 pb-2 text-[14px] text-[#181d27] placeholder:text-[#a4a7ae] outline-none"
+        className="w-full resize-none bg-transparent px-5 pt-4 pb-1 text-[14px] text-[#181d27] placeholder:text-[#b8bdc7] outline-none transition-[placeholder] duration-500"
       />
 
-      {/* Line items (invoice mode) */}
+      {/* Example hint — tap to fill, only shown when empty */}
+      {!text && (
+        <div className="flex items-center gap-1.5 px-5 pb-2">
+          <span className="text-[11px] text-[#b8bdc7]">e.g.</span>
+          <button
+            type="button"
+            onClick={() => { setText(EXAMPLES[exampleIdx]); triggerParse(EXAMPLES[exampleIdx]); textareaRef.current?.focus(); }}
+            className="text-[11px] text-[#a4a7ae] hover:text-[#2563eb] transition-colors truncate max-w-[340px] text-left"
+          >
+            {EXAMPLES[exampleIdx]}
+          </button>
+        </div>
+      )}
+
+      {/* Detected intent + parsed summary */}
+      {parsed && text.length > 3 && (
+        <div className="flex flex-wrap items-center gap-2 px-5 pb-2">
+          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+            resolvedIntent === 'payment_link'
+              ? 'bg-[#f0fdf4] text-[#16a34a]'
+              : 'bg-[#eff4ff] text-[#2563eb]'
+          }`}>
+            {resolvedIntent === 'payment_link'
+              ? <><LinkSimple className="h-3 w-3" weight="bold" /> Payment Link</>
+              : <><FileText className="h-3 w-3" weight="bold" /> Invoice</>}
+          </span>
+          {parsed.amount != null && parsed.amount > 0 && (
+            <span className="text-[12px] font-medium text-[#344054]">
+              ${parsed.amount.toLocaleString()}
+            </span>
+          )}
+          {parsed.clientName && (
+            <span className="text-[12px] text-[#717680]">→ {parsed.clientName}</span>
+          )}
+        </div>
+      )}
+
+      {/* Line items */}
       {items.length > 0 && (
         <div className="flex flex-wrap gap-2 px-5 pb-2">
           {items.map((item, i) => (
@@ -420,117 +459,82 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
         </div>
       )}
 
-      {/* Chips row */}
-      <div className="flex items-center gap-2 border-t border-[#f2f4f7] px-5 py-2.5">
-        {/* Date chip */}
-        <button
-          type="button"
-          onClick={openDatePicker}
-          className={[
-            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
-            shakingDate ? 'animate-shake' : '',
-            effectiveDate
-              ? 'border-[#2563eb] bg-[#eff4ff] text-[#2563eb]'
-              : 'border-[#d5d7da] bg-[#f9fafb] text-[#717680] hover:border-[#2563eb] hover:text-[#2563eb]',
-          ].join(' ')}
-        >
-          <CalendarBlank className="h-3.5 w-3.5" weight="bold" />
-          {formatDateChip(effectiveDate)}
-          {effectiveDate && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setSelectedDate(null); setParsed((p) => p ? { ...p, dueDate: null } : p); }}
-              className="ml-0.5 rounded-full hover:text-[#1d4ed8]"
-            >
-              <X className="h-3 w-3" weight="bold" />
-            </button>
-          )}
-        </button>
-
-        {/* Add Item chip — invoice mode only */}
-        {mode === 'invoice' && !addingItem && (
+      {/* Chips + action row */}
+      <div className="flex items-center justify-between border-t border-[#f2f4f7] px-5 py-2.5">
+        <div className="flex items-center gap-2">
+          {/* Date chip */}
           <button
             type="button"
-            onClick={() => setAddingItem(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-[#f9fafb] px-3 py-1.5 text-[12px] font-medium text-[#717680] transition-colors hover:border-[#2563eb] hover:text-[#2563eb]"
+            onClick={openDatePicker}
+            className={[
+              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
+              shakingDate ? 'animate-shake' : '',
+              effectiveDate
+                ? 'border-[#2563eb] bg-[#eff4ff] text-[#2563eb]'
+                : 'border-[#d5d7da] bg-[#f9fafb] text-[#717680] hover:border-[#2563eb] hover:text-[#2563eb]',
+            ].join(' ')}
           >
-            <ListPlus className="h-3.5 w-3.5" weight="bold" />
-            Add Item
+            <CalendarBlank className="h-3.5 w-3.5" weight="bold" />
+            {formatDateChip(effectiveDate)}
+            {effectiveDate && (
+              <span
+                role="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedDate(null);
+                  setParsed((p) => p ? { ...p, dueDate: null } : p);
+                }}
+                className="ml-0.5 rounded-full hover:text-[#1d4ed8]"
+              >
+                <X className="h-3 w-3" weight="bold" />
+              </span>
+            )}
           </button>
-        )}
 
-        {/* Attachment chip */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className={[
-            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
-            fileName
-              ? 'border-[#2563eb] bg-[#eff4ff] text-[#2563eb]'
-              : 'border-[#d5d7da] bg-[#f9fafb] text-[#717680] hover:border-[#2563eb] hover:text-[#2563eb]',
-          ].join(' ')}
-        >
-          <Paperclip className="h-3.5 w-3.5" weight="bold" />
-          {fileName ? (
-            <span className="max-w-[120px] truncate">{fileName}</span>
-          ) : null}
-          {fileName && (
+          {/* Add Item chip */}
+          {!addingItem && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setFileName(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-              className="ml-0.5 hover:text-[#1d4ed8]"
+              onClick={() => setAddingItem(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-[#f9fafb] px-3 py-1.5 text-[12px] font-medium text-[#717680] transition-colors hover:border-[#2563eb] hover:text-[#2563eb]"
             >
-              <X className="h-3 w-3" weight="bold" />
+              <ListPlus className="h-3.5 w-3.5" weight="bold" />
+              Add Item
             </button>
           )}
-        </button>
-      </div>
 
-      {/* Bottom action row */}
-      <div className="flex items-center justify-between border-t border-[#e9eaeb] px-5 py-3">
-        {/* Mode dropdown */}
-        <div ref={dropdownRef} className="relative">
+          {/* Attachment chip */}
           <button
             type="button"
-            onClick={() => setDropdownOpen((v) => !v)}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium text-[#717680] transition-colors hover:bg-[#f2f4f7]"
+            onClick={() => fileInputRef.current?.click()}
+            className={[
+              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
+              fileName
+                ? 'border-[#2563eb] bg-[#eff4ff] text-[#2563eb]'
+                : 'border-[#d5d7da] bg-[#f9fafb] text-[#717680] hover:border-[#2563eb] hover:text-[#2563eb]',
+            ].join(' ')}
           >
-            {mode === 'auto'         && <Tray className="h-4 w-4" weight="bold" />}
-            {mode === 'payment_link' && <LinkSimple className="h-4 w-4" weight="bold" />}
-            {mode === 'invoice'      && <FileText className="h-4 w-4" weight="bold" />}
-            <span>{MODE_LABELS[mode]}</span>
-            <CaretDown
-              className={`h-3.5 w-3.5 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
-              weight="bold"
-            />
-          </button>
-
-          {/* Dropdown menu — opens upward */}
-          {dropdownOpen && (
-            <div className="absolute bottom-full left-0 z-50 mb-2 w-48 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[#e9eaeb]">
-              {([ 'auto', 'payment_link', 'invoice' ] as Mode[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => chooseMode(m)}
-                  className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-[13px] font-medium transition-colors ${
-                    mode === m
-                      ? 'bg-[#eff4ff] text-[#2563eb]'
-                      : 'text-[#344054] hover:bg-[#f9fafb]'
-                  }`}
+            <Paperclip className="h-3.5 w-3.5" weight="bold" />
+            {fileName ? (
+              <>
+                <span className="max-w-[100px] truncate">{fileName}</span>
+                <span
+                  role="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFileName(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  className="ml-0.5 hover:text-[#1d4ed8]"
                 >
-                  {m === 'auto'         && <Tray className="h-4 w-4 shrink-0" weight="bold" />}
-                  {m === 'payment_link' && <LinkSimple className="h-4 w-4 shrink-0" weight="bold" />}
-                  {m === 'invoice'      && <FileText className="h-4 w-4 shrink-0" weight="bold" />}
-                  {MODE_LABELS[m]}
-                  {mode === m && <Check className="ml-auto h-3.5 w-3.5" weight="bold" />}
-                </button>
-              ))}
-            </div>
-          )}
+                  <X className="h-3 w-3" weight="bold" />
+                </span>
+              </>
+            ) : null}
+          </button>
         </div>
 
-        {/* Right side: AI spinner + submit */}
+        {/* Right: spinner + send */}
         <div className="flex items-center gap-2.5">
           {isParsing && (
             <SpinnerGap className="h-4 w-4 animate-spin text-[#a4a7ae]" weight="bold" />
@@ -538,10 +542,10 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
           <button
             type="button"
             onClick={handleCreate}
-            disabled={!text.trim() || isCreating}
+            disabled={!text.trim() || isCreating || isParsing}
             title="Create (⌘↵)"
             className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
-              text.trim() && !isCreating
+              text.trim() && !isCreating && !isParsing
                 ? 'bg-[#2563eb] text-white hover:bg-[#1d4ed8]'
                 : 'bg-[#f2f4f7] text-[#a4a7ae]'
             }`}
@@ -555,7 +559,6 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
         </div>
       </div>
 
-      {/* Shake keyframe injected via style tag */}
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }

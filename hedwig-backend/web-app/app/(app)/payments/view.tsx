@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
@@ -54,6 +55,36 @@ function StatusPill({ dot, label, bg, text }: { dot: string; label: string; bg: 
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${bg} ${text}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {label}
+    </span>
+  );
+}
+
+function MultiChainStack({ size = 16 }: { size?: number }) {
+  return (
+    <div className="flex items-center pl-0.5">
+      <Image
+        src="/icons/networks/base.png"
+        alt="Base"
+        width={size}
+        height={size}
+        className="rounded-full ring-1 ring-white"
+      />
+      <Image
+        src="/icons/networks/solana.png"
+        alt="Solana"
+        width={size}
+        height={size}
+        className="-ml-1 rounded-full ring-1 ring-white"
+      />
+    </div>
+  );
+}
+
+function MultiChainInline({ muted = false }: { muted?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <MultiChainStack size={14} />
+      <span className={muted ? 'text-[#717680]' : 'text-[#344054]'}>Base &amp; Solana</span>
     </span>
   );
 }
@@ -333,8 +364,14 @@ export function PaymentsClient({
                     className={`group grid cursor-pointer grid-cols-[1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa] ${selectedInvoice?.id === inv.id ? 'bg-[#f5f8ff]' : ''}`}
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-[#181d27]">{inv.number}</p>
-                      <p className="text-[11px] text-[#a4a7ae]">Due {formatShortDate(inv.dueAt)}</p>
+                      <p className="truncate text-[13px] font-semibold text-[#181d27]">
+                        {inv.title || inv.number}
+                      </p>
+                      <p className="flex items-center gap-2 text-[11px] text-[#a4a7ae]">
+                        <span>{inv.number} · Due {formatShortDate(inv.dueAt)}</span>
+                        <span className="text-[#d0d5dd]">•</span>
+                        <MultiChainStack size={12} />
+                      </p>
                     </div>
                     <StatusPill {...s} />
                     <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">
@@ -363,13 +400,19 @@ export function PaymentsClient({
                 >
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-semibold text-[#181d27]">{link.title}</p>
-                    <p className="text-[11px] text-[#a4a7ae]">{link.asset} · {link.chain}</p>
+                    <p className="flex items-center gap-2 text-[11px] text-[#a4a7ae]">
+                      <span>{link.asset}</span>
+                      <span className="text-[#d0d5dd]">•</span>
+                      <MultiChainStack size={12} />
+                    </p>
                   </div>
                   <StatusPill {...s} />
                   <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">
                     {formatCompactCurrency(link.amountUsd, currency)}
                   </p>
-                  <p className="text-right text-[12px] text-[#717680]">{link.chain}</p>
+                  <div className="flex justify-end">
+                    <MultiChainStack size={16} />
+                  </div>
                   <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                     <RowActionsMenu items={linkActions(link)} />
                   </div>
@@ -427,7 +470,7 @@ export function PaymentsClient({
         <DialogContent className="max-w-[540px] overflow-visible p-0">
           <DialogHeader>
             <DialogTitle>New invoice or payment link</DialogTitle>
-            <DialogDescription>Describe what you need — select a mode below to get started.</DialogDescription>
+            <DialogDescription>Describe what you need — the AI detects invoice vs. payment link automatically.</DialogDescription>
           </DialogHeader>
           <UniversalCreationBox
             accessToken={accessToken}
@@ -473,12 +516,16 @@ function InvoicePanel({
   const s = INV_STATUS[invoice.status];
   return (
     <>
-      <PanelHeader label="Invoice" id={invoice.number} onClose={onClose} />
+      <PanelHeader label={invoice.title || 'Invoice'} id={invoice.number} onClose={onClose} />
       <PanelHero amount={formatCompactCurrency(invoice.amountUsd, currency)} status={<StatusPill {...s} />} />
       <div className="flex-1 overflow-y-auto">
         <div className="divide-y divide-[#f2f4f7] px-6 py-2">
           <PanelRow label="Invoice number" value={invoice.number} />
           <PanelRow label="Due date" value={formatShortDate(invoice.dueAt)} />
+          <PanelCustomRow
+            label="Settlement networks"
+            value={<MultiChainInline />}
+          />
           <PanelRow label="Auto-reminders" value={invoice.remindersEnabled === false ? 'Off' : 'On'} />
           <PanelRow label="Public page" value={publicUrl} mono />
         </div>
@@ -540,7 +587,10 @@ function PaymentLinkPanel({
         <div className="divide-y divide-[#f2f4f7] px-6 py-2">
           <PanelRow label="Title" value={link.title} />
           <PanelRow label="Asset" value={link.asset} />
-          <PanelRow label="Chain" value={link.chain} />
+          <PanelCustomRow
+            label="Settlement networks"
+            value={<MultiChainInline />}
+          />
           <PanelRow label="Auto-reminders" value={link.remindersEnabled === false ? 'Off' : 'On'} />
           <PanelRow label="Public page" value={publicUrl} mono />
         </div>
@@ -618,6 +668,15 @@ function PanelRow({ label, value, mono }: { label: string; value: string; mono?:
     <div className="py-3.5">
       <p className="text-[11px] font-medium text-[#a4a7ae] mb-0.5">{label}</p>
       <p className={`text-[13px] font-semibold text-[#344054] ${mono ? 'break-all font-mono text-[11px]' : ''}`}>{value}</p>
+    </div>
+  );
+}
+
+function PanelCustomRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="py-3.5">
+      <p className="mb-0.5 text-[11px] font-medium text-[#a4a7ae]">{label}</p>
+      <div className="text-[13px] font-semibold text-[#344054]">{value}</div>
     </div>
   );
 }

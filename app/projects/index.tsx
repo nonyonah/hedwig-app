@@ -82,9 +82,11 @@ export default function ProjectsScreen() {
     const bottomSheetRef = useRef<BottomSheetModal>(null);
     const params = useLocalSearchParams();
     const [statusFilter, setStatusFilter] = useState<StatusFilter>((params.filter as any) || 'all');
+    const [highlightedMilestoneId, setHighlightedMilestoneId] = useState<string | null>(null);
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [completingMilestone, setCompletingMilestone] = useState<string | null>(null);
     const milestonesScrollRef = useRef<any>(null);
+    const handledNavigationTargetRef = useRef<string | null>(null);
     const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
 
     // Track page view
@@ -116,6 +118,33 @@ export default function ProjectsScreen() {
     useEffect(() => {
         fetchProjects();
     }, [user]);
+
+    useEffect(() => {
+        const nextFilter = typeof params.filter === 'string' ? (params.filter as StatusFilter) : 'all';
+        setStatusFilter(nextFilter);
+    }, [params.filter]);
+
+    useEffect(() => {
+        if (isLoading || projects.length === 0) return;
+
+        const projectId = typeof params.projectId === 'string' ? params.projectId : null;
+        const milestoneId = typeof params.milestoneId === 'string' ? params.milestoneId : null;
+        if (!projectId && !milestoneId) return;
+
+        const targetKey = `${projectId || 'none'}:${milestoneId || 'none'}`;
+        if (handledNavigationTargetRef.current === targetKey) return;
+
+        let targetProject = projectId ? projects.find((project) => project.id === projectId) : null;
+        if (!targetProject && milestoneId) {
+            targetProject = projects.find((project) => (project.milestones || []).some((milestone) => milestone.id === milestoneId)) || null;
+        }
+
+        if (!targetProject) return;
+
+        handledNavigationTargetRef.current = targetKey;
+        setHighlightedMilestoneId(milestoneId);
+        openDetailModal(targetProject);
+    }, [isLoading, projects, params.projectId, params.milestoneId]);
 
     // fetchUserData removed
 
@@ -161,6 +190,7 @@ export default function ProjectsScreen() {
 
     const closeDetailModal = () => {
         setShowActionMenu(false);
+        setHighlightedMilestoneId(null);
         modalHaptic('close', true);
         bottomSheetRef.current?.dismiss();
         setSelectedProject(null);
@@ -708,7 +738,11 @@ export default function ProjectsScreen() {
                                             key={milestone.id}
                                             style={[
                                                 styles.milestoneCard,
-                                                { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 },
+                                                {
+                                                    backgroundColor: milestone.id === highlightedMilestoneId ? `${Colors.primary}10` : themeColors.background,
+                                                    borderColor: milestone.id === highlightedMilestoneId ? Colors.primary : themeColors.border,
+                                                    borderWidth: 1
+                                                },
                                                 index === (selectedProject.milestones?.length ?? 0) - 1 && { marginBottom: 0 },
                                             ]}
                                         >

@@ -285,7 +285,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                 'Projects Only',
                 'Contracts must now be created from the Projects page to ensure proper milestone setup.',
                 [
-                    { text: 'Go to Projects', onPress: () => router.push('/(tabs)/projects') },
+                    { text: 'Go to Projects', onPress: () => router.push('/projects') },
                     { text: 'Cancel', style: 'cancel', onPress: () => setParsedData(null) }
                 ]
             );
@@ -439,6 +439,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
 
             // Improve title fallback - STRICT SANITIZATION
             let finalTitle = parsedData?.title;
+            const baseLabel = detectedIntent === 'payment_link' ? 'Payment Link' : 'Invoice';
             // If title is missing, matches input, or is just too long/messy
             const isTitleBad = !finalTitle ||
                 finalTitle.trim() === inputText.trim() ||
@@ -447,10 +448,10 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
 
             if (isTitleBad) {
                 if (parsedData?.clientName) {
-                    finalTitle = `Invoice for ${parsedData.clientName}`;
+                    finalTitle = `${baseLabel} for ${parsedData.clientName}`;
                 } else if (parsedData?.clientEmail) {
                     const nameFromEmail = parsedData.clientEmail.split('@')[0];
-                    finalTitle = `Invoice for ${nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1)}`;
+                    finalTitle = `${baseLabel} for ${nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1)}`;
                 } else {
                     // Use the clean description for title if no client
                     finalTitle = cleanDesc === 'Professional Services' ? (detectedIntent === 'payment_link' ? 'Payment Link' : 'Service Invoice') : cleanDesc;

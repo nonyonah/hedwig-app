@@ -2,6 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from '../middleware/auth';
 import { GeminiService } from '../services/gemini';
 import { createLogger } from '../utils/logger';
+import { supabase } from '../lib/supabase';
+import { getOrCreateUser } from '../utils/userHelper';
 
 const logger = createLogger('CreationBox');
 const router = Router();
@@ -23,6 +25,68 @@ const unwrapNaturalResponse = (value: unknown): string | null => {
     }
 
     return value;
+};
+
+const buildFallbackDocumentTitle = (
+    intent: string | null | undefined,
+    clientName: string | null | undefined,
+    clientEmail: string | null | undefined,
+    text: string
+): string | null => {
+    const normalizedIntent = String(intent || '').toLowerCase();
+    const baseLabel = normalizedIntent === 'payment_link' ? 'Payment Link' : 'Invoice';
+
+    if (clientName) {
+        return `${baseLabel} for ${clientName}`;
+    }
+
+    if (clientEmail) {
+        const namePart = clientEmail.split('@')[0]?.trim();
+        if (namePart) {
+            return `${baseLabel} for ${namePart.charAt(0).toUpperCase() + namePart.slice(1)}`;
+        }
+    }
+
+    if (normalizedIntent === 'invoice') {
+        const forMatch = text.match(/invoice\s+for\s+(.+?)(\s+(?:\$|due|at)|$)/i);
+        if (forMatch) {
+            return `Invoice for ${forMatch[1].trim()}`;
+        }
+    }
+
+    if (normalizedIntent === 'payment_link') {
+        const linkForMatch = text.match(/(?:payment link|pay link)\s+for\s+(.+?)(\s+(?:\$|due|at)|$)/i);
+        if (linkForMatch) {
+            return `Payment Link for ${linkForMatch[1].trim()}`;
+        }
+    }
+
+    return null;
+};
+
+/**
+ * Reject a title that is just the user's raw prompt echoed back.
+ * Accepts only short, descriptive labels (≤ 60 chars, no action verbs at the start,
+ * and not a substring match of the original input).
+ */
+const sanitizeTitle = (candidate: string | null | undefined, originalText: string): string | null => {
+    if (!candidate) return null;
+    const t = candidate.trim();
+    if (!t) return null;
+
+    // Too long to be a useful label
+    if (t.length > 60) return null;
+
+    // Starts with action verbs typically copied from the prompt
+    if (/^(create|make|send|generate|build|please|i need|i want)/i.test(t)) return null;
+
+    // Nearly identical to the original input (case-insensitive)
+    if (t.toLowerCase() === originalText.toLowerCase().trim()) return null;
+
+    // The original text contains the candidate verbatim (it's just a slice of the prompt)
+    if (originalText.toLowerCase().includes(t.toLowerCase()) && t.split(' ').length > 6) return null;
+
+    return t;
 };
 
 /**
@@ -49,7 +113,32 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
 
         // Build prompt with date context for accurate relative date parsing
         const dateContext = `Today is ${referenceDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Current time: ${referenceDate.toLocaleTimeString('en-US')}.`;
-        
+
+        // Load user's existing clients so Gemini can match names intelligently
+        let clientsContext: { id: string; name: string; email: string | null; phone: string | null; company: string | null }[] = [];
+        try {
+            const user = await getOrCreateUser(req.user!.id);
+            if (user?.id) {
+                const { data: clients } = await supabase
+                    .from('clients')
+                    .select('id, name, email, phone, company')
+                    .eq('user_id', user.id)
+                    .limit(50);
+                if (clients) clientsContext = clients;
+            }
+        } catch (e) {
+            logger.warn('[CreationBox] Could not load clients context', { error: e });
+        }
+
+        // CREATION BOX OVERRIDES: network defaults to base — never ask for it
+        const networkDefault = `
+CREATION BOX RULES (override chat rules):
+- Network/chain is ALWAYS "base" unless the user explicitly says "solana". NEVER ask for network.
+- client_name and client_email are OPTIONAL. NEVER block creation if they are missing.
+- If the user mentions a client by first name only, match it against saved clients intelligently.
+- Always respond with CREATE_INVOICE or CREATE_PAYMENT_LINK (never COLLECT_INVOICE_NETWORK or COLLECT_INVOICE_INFO) when amount and due_date are present.
+`;
+
         let modeInstruction = '';
         if (mode === 'payment_link') {
             modeInstruction = `
@@ -74,11 +163,12 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
 `;
         }
 
-        const enrichedText = `${dateContext}\n${modeInstruction}\nUser input: ${text}`;
-        
-        // Use Gemini's chat response which includes system instructions for intent recognition
-        // This will properly detect intents like invoice, payment_link, contract, etc.
-        const result = await GeminiService.generateChatResponse(enrichedText, [], undefined, {});
+        const enrichedText = `${dateContext}\n${networkDefault}\n${modeInstruction}\nUser input: ${text}`;
+
+        // Use Gemini's chat response with the user's saved clients so names are matched intelligently
+        const result = await GeminiService.generateChatResponse(enrichedText, [], undefined, {
+            clients: clientsContext,
+        });
         const topLevelNaturalResponse =
             (typeof result === 'object' && result && typeof (result as any).naturalResponse === 'string'
                 ? (result as any).naturalResponse
@@ -203,8 +293,8 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
                         }
                     }
                     
-                    // Title - Do NOT default to text
-                    parsedData.title = params.title || params.description || null;
+                    // Title - validate it's a short descriptive label, not the raw prompt
+                    parsedData.title = sanitizeTitle(params.title || params.description || null, text);
                 } else {
                     // Fallback: try to extract from top-level fields
                     parsedData.clientName = extracted.clientName || extracted.client_name || null;
@@ -215,7 +305,7 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
                     parsedData.recipient = extracted.recipient || extracted.to_address || extracted.toAddress || null;
                     parsedData.dueDate = extracted.dueDate || extracted.due_date || null;
                     parsedData.priority = extracted.priority || null;
-                    parsedData.title = extracted.title || null;
+                    parsedData.title = sanitizeTitle(extracted.title || null, text);
                 }
                 
                 parsedData.confidence = extracted.confidence || 0.7;
@@ -262,18 +352,32 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
 
         // FORCE OVERRIDES
         const lowerText = text.toLowerCase();
-        
-        // 1. Force Mode if provided
+
+        // 1. Normalize intent — Gemini may return 'CREATE_INVOICE', 'CREATE_PAYMENT_LINK', etc.
+        const rawIntent = String(parsedData.intent || '').toLowerCase();
+        if (rawIntent === 'invoice' || rawIntent === 'create_invoice' || rawIntent.startsWith('invoice')) {
+            parsedData.intent = 'invoice';
+        } else if (rawIntent === 'payment_link' || rawIntent === 'create_payment_link' || rawIntent.startsWith('payment_link')) {
+            parsedData.intent = 'payment_link';
+        }
+        // COLLECT_* intents → leave amount/date intact, just normalize to the right creation intent
+        if (rawIntent.startsWith('collect_invoice') || rawIntent === 'collect_invoice_info' || rawIntent === 'collect_invoice_network') {
+            parsedData.intent = 'invoice';
+        } else if (rawIntent.startsWith('collect_payment') || rawIntent === 'collect_payment_info' || rawIntent === 'collect_network_info') {
+            parsedData.intent = 'payment_link';
+        }
+
+        // 2. Force Mode if explicitly selected — always wins
         if (mode) {
             parsedData.intent = mode;
         } else {
-             // Legacy detection
+            // Legacy detection from text keywords
             if (lowerText.includes('payment link') || lowerText.includes('pay link')) {
                 parsedData.intent = 'payment_link';
             }
         }
-        
-        // 2. Disable Contracts (Strict)
+
+        // 3. Disable Contracts (Strict)
         if (parsedData.intent === 'contract' || lowerText.includes('contract')) {
              parsedData.intent = 'contract_disabled'; 
              parsedData.items = []; 
@@ -323,21 +427,21 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
             }
         }
 
-        // Fallback: Improve title if it's missing or valid
+        // Fallback: Improve title if it's missing
         if (!parsedData.title) {
-            if (parsedData.clientName) {
-                parsedData.title = `Invoice for ${parsedData.clientName}`;
-            } else if (parsedData.intent === 'invoice') {
-                // Try to find "for [Something]"
+            parsedData.title = buildFallbackDocumentTitle(
+                parsedData.intent,
+                parsedData.clientName,
+                parsedData.clientEmail,
+                text
+            );
+
+            if (!parsedData.clientName && parsedData.intent === 'invoice') {
                 const forMatch = text.match(/invoice\s+for\s+(.+?)(\s+(?:\$|due|at)|$)/i);
                 if (forMatch) {
                     const extractedName = forMatch[1].trim();
-                    parsedData.title = `Invoice for ${extractedName}`;
-                    // Also set client name if missing
-                    if (!parsedData.clientName) {
-                        parsedData.clientName = extractedName;
-                        logger.info('[CreationBox] Extracted client name via regex fallback (invoice)', { extracted: extractedName });
-                    }
+                    parsedData.clientName = extractedName;
+                    logger.info('[CreationBox] Extracted client name via regex fallback (invoice)', { extracted: extractedName });
                 }
             }
         }

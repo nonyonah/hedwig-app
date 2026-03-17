@@ -50,6 +50,14 @@ export default function HomeDashboard() {
         inProgress: { projects: 0, milestones: 0 },
         dueSoon: { invoices: 0, milestones: 0, projects: 0, links: 0 }
     });
+    const [activityTargets, setActivityTargets] = useState<{
+        activeProjectId?: string;
+        activeMilestoneProjectId?: string;
+        activeMilestoneId?: string;
+        dueSoonProjectId?: string;
+        dueSoonMilestoneProjectId?: string;
+        dueSoonMilestoneId?: string;
+    }>({});
 
     // Search State
     const [allDocuments, setAllDocuments] = useState<SearchResultItem[]>([]);
@@ -158,6 +166,14 @@ export default function HomeDashboard() {
                 inProgress: { projects: 0, milestones: 0 },
                 dueSoon: { invoices: 0, milestones: 0, projects: 0, links: 0 }
             };
+            const nextTargets: {
+                activeProjectId?: string;
+                activeMilestoneProjectId?: string;
+                activeMilestoneId?: string;
+                dueSoonProjectId?: string;
+                dueSoonMilestoneProjectId?: string;
+                dueSoonMilestoneId?: string;
+            } = {};
 
             const allDocs: SearchResultItem[] = [];
 
@@ -239,18 +255,36 @@ export default function HomeDashboard() {
 
                     if (['ongoing', 'active'].includes(proj.status?.toLowerCase())) {
                         newCounts.inProgress.projects++;
+                        if (!nextTargets.activeProjectId) {
+                            nextTargets.activeProjectId = proj.id;
+                        }
                         if (proj.deadline) {
                             const deadline = new Date(proj.deadline);
-                            if (deadline <= nextWeek && deadline >= today) newCounts.dueSoon.projects++;
+                            if (deadline <= nextWeek && deadline >= today) {
+                                newCounts.dueSoon.projects++;
+                                if (!nextTargets.dueSoonProjectId) {
+                                    nextTargets.dueSoonProjectId = proj.id;
+                                }
+                            }
                         }
                     }
                     if (proj.milestones) {
                         proj.milestones.forEach((m: any) => {
                             if (['pending', 'in_progress'].includes(m.status)) {
                                 newCounts.inProgress.milestones++;
+                                if (!nextTargets.activeMilestoneId) {
+                                    nextTargets.activeMilestoneId = m.id;
+                                    nextTargets.activeMilestoneProjectId = proj.id;
+                                }
                                 if (m.dueDate) {
                                     const due = new Date(m.dueDate);
-                                    if (due <= nextWeek && due >= today) newCounts.dueSoon.milestones++;
+                                    if (due <= nextWeek && due >= today) {
+                                        newCounts.dueSoon.milestones++;
+                                        if (!nextTargets.dueSoonMilestoneId) {
+                                            nextTargets.dueSoonMilestoneId = m.id;
+                                            nextTargets.dueSoonMilestoneProjectId = proj.id;
+                                        }
+                                    }
                                 }
                             }
                         });
@@ -260,6 +294,7 @@ export default function HomeDashboard() {
 
             setCounts(newCounts);
             setAllDocuments(allDocs);
+            setActivityTargets(nextTargets);
 
         } catch (error) {
             console.error('Failed to fetch data', error);
@@ -378,6 +413,17 @@ export default function HomeDashboard() {
         if (path) router.push(path);
     };
 
+    const openProjectActivity = (projectId?: string, milestoneId?: string, fallbackFilter?: string) => {
+        router.push({
+            pathname: '/projects',
+            params: {
+                ...(projectId ? { projectId } : {}),
+                ...(milestoneId ? { milestoneId } : {}),
+                ...(fallbackFilter ? { filter: fallbackFilter } : {})
+            }
+        } as any);
+    };
+
     const sectionConfigs = [
         {
             key: 'reminders',
@@ -394,8 +440,18 @@ export default function HomeDashboard() {
             title: 'In Progress',
             viewAllRoute: '/(tabs)/projects',
             rows: [
-                { label: 'Active Projects', count: counts.inProgress.projects, badge: null, onPress: () => router.push('/(tabs)/projects') },
-                { label: 'Milestones in progress', count: counts.inProgress.milestones, badge: null, onPress: () => router.push('/(tabs)/projects') },
+                {
+                    label: 'Active Projects',
+                    count: counts.inProgress.projects,
+                    badge: null,
+                    onPress: () => openProjectActivity(activityTargets.activeProjectId, undefined, 'ongoing')
+                },
+                {
+                    label: 'Milestones in progress',
+                    count: counts.inProgress.milestones,
+                    badge: null,
+                    onPress: () => openProjectActivity(activityTargets.activeMilestoneProjectId, activityTargets.activeMilestoneId, 'ongoing')
+                },
             ]
         },
         {
@@ -404,9 +460,19 @@ export default function HomeDashboard() {
             viewAllRoute: '/(tabs)/calendar',
             rows: [
                 { label: 'Invoices due soon', count: counts.dueSoon.invoices, badge: getBadgeText('INVOICE', 'dueSoon'), onPress: () => router.push('/(tabs)/invoices?filter=due_soon') },
-                { label: 'Projects due soon', count: counts.dueSoon.projects, badge: null, onPress: () => router.push('/(tabs)/projects?filter=due_soon') },
+                {
+                    label: 'Projects due soon',
+                    count: counts.dueSoon.projects,
+                    badge: null,
+                    onPress: () => openProjectActivity(activityTargets.dueSoonProjectId, undefined, 'due_soon')
+                },
                 { label: 'Payment links due soon', count: counts.dueSoon.links, badge: getBadgeText('LINK', 'dueSoon'), onPress: () => router.push('/(tabs)/links?filter=due_soon') },
-                { label: 'Milestones due soon', count: counts.dueSoon.milestones, badge: null, onPress: () => router.push('/(tabs)/projects?filter=due_soon') },
+                {
+                    label: 'Milestones due soon',
+                    count: counts.dueSoon.milestones,
+                    badge: null,
+                    onPress: () => openProjectActivity(activityTargets.dueSoonMilestoneProjectId, activityTargets.dueSoonMilestoneId, 'due_soon')
+                },
             ]
         }
     ];
