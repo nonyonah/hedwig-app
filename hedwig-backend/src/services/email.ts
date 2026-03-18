@@ -4,9 +4,16 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('EmailService');
 
+const EMAIL_FONT_FAMILY = `'Google Sans Flex', 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
+const EMAIL_FONT_HEAD = `
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,300..700&display=swap" rel="stylesheet">
+`;
+
 const SHARED_STYLES = `
-    @import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&display=swap');
-    body { font-family: 'Google Sans Flex', 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    body, table, tbody, tr, td, div, p, a, span, h1, h2, h3 { font-family: ${EMAIL_FONT_FAMILY} !important; }
+    body { font-family: ${EMAIL_FONT_FAMILY}; background-color: #f8fafc; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
     .container { max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; margin-bottom: 40px; border: 1px solid #e9eaeb; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.06); }
     .header { background-color: #ffffff; padding: 20px 28px; border-bottom: 1px solid #f1f2f4; }
     .content { padding: 28px 28px 32px; }
@@ -37,7 +44,7 @@ const LOGO_HTML = `
         </div>
       </td>
       <td style="vertical-align:middle;">
-        <span style="font-family:'Google Sans Flex','Google Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:18px;font-weight:700;color:#181d27;letter-spacing:-0.02em;">Hedwig</span>
+        <span style="font-family:${EMAIL_FONT_FAMILY};font-size:18px;font-weight:700;color:#181d27;letter-spacing:-0.02em;">Hedwig</span>
       </td>
     </tr>
   </table>
@@ -74,9 +81,10 @@ export const EmailService = {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Invoice from ${data.senderName}</title>
+            ${EMAIL_FONT_HEAD}
             <style>${SHARED_STYLES}</style>
         </head>
-        <body>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
             <div class="container">
                 <div class="header">
                     ${LOGO_HTML}
@@ -136,9 +144,10 @@ export const EmailService = {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Payment request from ${data.senderName}</title>
+            ${EMAIL_FONT_HEAD}
             <style>${SHARED_STYLES}</style>
         </head>
-        <body>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
             <div class="container">
                 <div class="header">
                     ${LOGO_HTML}
@@ -208,9 +217,10 @@ export const EmailService = {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Payment received</title>
+            ${EMAIL_FONT_HEAD}
             <style>${SHARED_STYLES}</style>
         </head>
-        <body>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
             <div class="container">
                 <div class="header">
                     ${LOGO_HTML}
@@ -272,9 +282,10 @@ export const EmailService = {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>${subject}</title>
+            ${EMAIL_FONT_HEAD}
             <style>${SHARED_STYLES}</style>
         </head>
-        <body>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
             <div class="container">
                 <div class="header">
                     ${LOGO_HTML}
@@ -336,12 +347,13 @@ export const EmailService = {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Contract from ${data.senderName}</title>
+            ${EMAIL_FONT_HEAD}
             <style>
                 ${SHARED_STYLES}
                 .milestone-pill { display: inline-block; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 50px; padding: 5px 14px; font-size: 13px; color: #2563eb; font-weight: 600; margin-top: 14px; }
             </style>
         </head>
-        <body>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
             <div class="container">
                 <div class="header">
                     ${LOGO_HTML}
@@ -410,12 +422,13 @@ export const EmailService = {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Contract approved</title>
+            ${EMAIL_FONT_HEAD}
             <style>
                 ${SHARED_STYLES}
                 .success-badge { display: inline-block; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 50px; padding: 6px 16px; font-size: 13px; font-weight: 700; color: #16a34a; letter-spacing: 0.02em; }
             </style>
         </head>
-        <body>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
             <div class="container">
                 <div class="header">
                     ${LOGO_HTML}
@@ -486,9 +499,10 @@ export const EmailService = {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Proposal from ${data.freelancerName}</title>
+            ${EMAIL_FONT_HEAD}
             <style>${SHARED_STYLES}</style>
         </head>
-        <body>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
             <div class="container">
                 <div class="header">
                     ${LOGO_HTML}
@@ -555,12 +569,13 @@ export const EmailService = {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Proposal accepted</title>
+            ${EMAIL_FONT_HEAD}
             <style>
                 ${SHARED_STYLES}
                 .success-badge { display: inline-block; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 50px; padding: 6px 16px; font-size: 13px; font-weight: 700; color: #16a34a; letter-spacing: 0.02em; }
             </style>
         </head>
-        <body>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
             <div class="container">
                 <div class="header">
                     ${LOGO_HTML}

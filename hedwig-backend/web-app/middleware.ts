@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const PUBLIC_PATHS = [
+  '/',
   '/sign-in',
   '/sign-out',
   '/api/auth/session',

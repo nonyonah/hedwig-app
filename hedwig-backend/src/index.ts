@@ -149,9 +149,21 @@ app.use(
 );
 
 // CORS configuration
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:8081')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
 app.use(
     cors({
-        origin: process.env.CORS_ORIGIN || 'http://localhost:8081',
+        origin: (origin, callback) => {
+            // Allow server-to-server (no origin) and any listed origin
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error(`Origin ${origin} not allowed by CORS`));
+            }
+        },
         credentials: true,
     })
 );
