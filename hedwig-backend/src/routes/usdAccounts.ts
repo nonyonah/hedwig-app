@@ -142,6 +142,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next) =>
                 diditKycStatus: user.kyc_status || 'not_started',
                 bridgeKycStatus: usdAccount?.bridge_kyc_status || 'not_started',
                 accountStatus: usdAccount?.provider_status || 'not_started',
+                bridgeCustomerId: usdAccount?.bridge_customer_id || null,
                 featureEnabled: enabledForUser,
                 sandboxMode,
                 settlementChain: usdAccount?.settlement_chain || 'BASE',

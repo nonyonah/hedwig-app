@@ -9,6 +9,9 @@ export interface User {
   lastName: string;
   role: 'owner' | 'member';
   avatarUrl?: string;
+  ethereumWalletAddress?: string;
+  solanaWalletAddress?: string;
+  monthlyTarget?: number;
 }
 
 export interface Workspace {
@@ -151,11 +154,18 @@ export interface UsdAccount {
   id: EntityId;
   provider: 'Bridge';
   status: 'not_started' | 'pending_kyc' | 'active';
+  featureEnabled?: boolean;
+  diditKycStatus?: string;
+  bridgeKycStatus?: string;
+  accountStatusRaw?: string;
+  bridgeCustomerId?: string;
   bankName?: string;
   accountNumberMasked?: string;
   routingNumberMasked?: string;
   balanceUsd: number;
   settlementChain: 'Base' | 'Solana';
+  settlementToken?: 'USDC';
+  hasAssignedAccount?: boolean;
 }
 
 export interface AccountTransaction {
@@ -169,6 +179,7 @@ export interface AccountTransaction {
 
 export interface OfframpTransaction {
   id: EntityId;
+  paycrestOrderId?: string;
   asset: string;
   amount: number;
   fiatCurrency: string;
@@ -176,6 +187,8 @@ export interface OfframpTransaction {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   destinationLabel: string;
   createdAt: string;
+  txHash?: string;
+  errorMessage?: string;
 }
 
 export interface Reminder {

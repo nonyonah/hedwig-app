@@ -54,6 +54,19 @@ interface ApiEnvelope<T> {
   error?: { message?: string } | string;
 }
 
+export interface UpdateUserProfileInput {
+  firstName?: string;
+  lastName?: string;
+  avatar?: string | null;
+}
+
+export interface KycStatusSummary {
+  status: 'not_started' | 'pending' | 'approved' | 'rejected' | 'retry_required';
+  sessionId?: string | null;
+  reviewedAt?: string | null;
+  isApproved: boolean;
+}
+
 export interface CreateClientInput {
   name: string;
   email?: string;
@@ -242,7 +255,14 @@ const mapBackendUser = (user: any): User => ({
   firstName: String(user?.firstName ?? user?.first_name ?? currentUser.firstName),
   lastName: String(user?.lastName ?? user?.last_name ?? currentUser.lastName),
   role: 'owner',
-  avatarUrl: user?.avatar ?? user?.avatarUrl ?? undefined
+  avatarUrl: user?.avatar ?? user?.avatarUrl ?? undefined,
+  ethereumWalletAddress: user?.ethereumWalletAddress ?? user?.ethereum_wallet_address ?? user?.baseWalletAddress ?? undefined,
+  solanaWalletAddress: user?.solanaWalletAddress ?? user?.solana_wallet_address ?? undefined,
+  monthlyTarget: typeof user?.monthlyTarget === 'number'
+    ? user.monthlyTarget
+    : typeof user?.monthly_target === 'number'
+      ? user.monthly_target
+      : undefined
 });
 
 const mapBackendClient = (client: any): Client => ({
@@ -452,13 +472,26 @@ const mapBackendTransaction = (transaction: any): WalletTransaction => ({
 const mapBackendUsdAccount = (details: any, balanceUsd = 0): UsdAccount => ({
   id: String(details.bridgeVirtualAccountId || details.bridgeCustomerId || 'usd-account'),
   provider: 'Bridge',
-  status: normalizeUsdStatus(details.accountStatus),
+  status: normalizeUsdStatus(details.accountStatus || details.provider_status),
+  featureEnabled: details.featureEnabled !== false,
+  diditKycStatus: String(details.diditKycStatus || 'not_started').toLowerCase(),
+  bridgeKycStatus: String(details.bridgeKycStatus || details.bridge_kyc_status || 'not_started').toLowerCase(),
+  accountStatusRaw: String(details.accountStatus || details.provider_status || 'not_started').toLowerCase(),
+  bridgeCustomerId: details.bridgeCustomerId || details.bridge_customer_id ? String(details.bridgeCustomerId || details.bridge_customer_id) : undefined,
   bankName: details.ach?.bankName || undefined,
   accountNumberMasked: details.ach?.accountNumberMasked || undefined,
   routingNumberMasked: details.ach?.routingNumberMasked || undefined,
   balanceUsd,
   settlementChain:
-    String(details.settlement?.chain || details.settlementChain || 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base'
+    String(details.settlement?.chain || details.settlementChain || 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base',
+  settlementToken:
+    String(details.settlement?.token || details.settlementToken || 'USDC').toUpperCase() === 'USDC' ? 'USDC' : 'USDC',
+  hasAssignedAccount: Boolean(
+    details.ach?.accountNumberMasked ||
+    details.ach?.routingNumberMasked ||
+    details.ach_account_number_masked ||
+    details.ach_routing_number_masked
+  )
 });
 
 const mapBackendUsdTransfer = (transfer: any): AccountTransaction => ({
@@ -476,6 +509,7 @@ const mapBackendUsdTransfer = (transfer: any): AccountTransaction => ({
 
 const mapBackendOfframp = (order: any): OfframpTransaction => ({
   id: String(order.id),
+  paycrestOrderId: order.paycrestOrderId || order.paycrest_order_id ? String(order.paycrestOrderId || order.paycrest_order_id) : undefined,
   asset: String(order.token || 'USDC'),
   amount: Number(order.cryptoAmount || 0),
   fiatCurrency: String(order.fiatCurrency || 'USD'),
@@ -488,7 +522,9 @@ const mapBackendOfframp = (order: any): OfframpTransaction => ({
         ? 'failed'
         : 'pending',
   destinationLabel: `${order.bankName || 'Bank'}${order.accountNumber ? ` • ${String(order.accountNumber).slice(-4)}` : ''}`,
-  createdAt: String(order.createdAt || new Date().toISOString())
+  createdAt: String(order.createdAt || new Date().toISOString()),
+  txHash: order.txHash || order.tx_hash || undefined,
+  errorMessage: order.errorMessage || order.error_message || undefined
 });
 
 const shouldUseMockFallback = (options?: ApiOptions) => {
@@ -1254,10 +1290,18 @@ export const hedwigApi = {
           .filter((transfer) => transfer.status === 'completed')
           .reduce((sum, transfer) => sum + transfer.amountUsd, 0);
 
-        const accountSource = detailsData || statusData || { accountStatus: 'not_started', settlementChain: 'BASE' };
+        const accountSource = {
+          ...(statusData || {}),
+          ...(detailsData || {}),
+          settlement: detailsData?.settlement || statusData?.settlement,
+          ach: detailsData?.ach || statusData?.ach
+        };
 
         return {
-          usdAccount: mapBackendUsdAccount(accountSource, derivedBalance),
+          usdAccount: mapBackendUsdAccount(
+            Object.keys(accountSource).length ? accountSource : { accountStatus: 'not_started', settlementChain: 'BASE' },
+            derivedBalance
+          ),
           accountTransactions
         };
       },
@@ -1273,6 +1317,31 @@ export const hedwigApi = {
       }),
       options
     );
+  },
+
+  async enrollUsdAccount(
+    options?: ApiOptions
+  ): Promise<{
+    bridgeCustomerId?: string;
+    diditKycStatus?: string;
+    bridgeKycStatus?: string;
+    accountStatus?: string;
+    nextAction?: 'fetch_account_details' | 'complete_bridge_kyc';
+  }> {
+    return request('/api/usd-accounts/enroll', options, {
+      method: 'POST'
+    });
+  },
+
+  async createUsdAccountKycLink(options?: ApiOptions): Promise<{ url: string; expiresAt?: string | null }> {
+    const data = await request<{ url?: string; expiresAt?: string | null }>('/api/usd-accounts/kyc-link', options, {
+      method: 'POST'
+    });
+
+    return {
+      url: String(data?.url || ''),
+      expiresAt: data?.expiresAt ?? null
+    };
   },
 
   async offramp(options?: ApiOptions): Promise<OfframpTransaction[]> {
@@ -1352,6 +1421,99 @@ export const hedwigApi = {
     return request('/api/bridge/bridge-and-offramp', options, {
       method: 'POST',
       body: JSON.stringify(payload)
+    });
+  },
+
+  async insights(range: string = '30d', options?: ApiOptions) {
+    const safeRange = ['7d', '30d', '90d', '1y'].includes(range) ? range : '30d';
+    return request<{
+      range: string;
+      lastUpdatedAt: string;
+      summary: {
+        monthlyEarnings: number;
+        previousPeriodEarnings: number;
+        earningsDeltaPct: number;
+        pendingInvoicesCount: number;
+        pendingInvoicesTotal: number;
+        paymentRate: number;
+        paidDocuments: number;
+        totalDocuments: number;
+        clientsCount: number;
+        activeProjects: number;
+        paymentLinksCount: number;
+        topClient: { name: string; totalEarnings: number } | null;
+        transactionsCount: number;
+        receivedAmount: number;
+        withdrawalsPending: number;
+        withdrawalsCompletedAmount: number;
+      };
+      series: { earnings: { key: string; value: number }[] };
+      insights: Array<{
+        id: string;
+        title: string;
+        description: string;
+        priority: number;
+        actionLabel?: string;
+        actionRoute?: string;
+        trend: 'up' | 'down' | 'neutral';
+      }>;
+    }>(`/api/insights/summary?range=${safeRange}`, options);
+  },
+
+  async userProfile(options?: ApiOptions): Promise<{ monthlyTarget?: number }> {
+    try {
+      const data = await request<{ user?: any }>('/api/auth/me', options);
+      const user = data.user || data;
+      return { monthlyTarget: typeof user?.monthlyTarget === 'number' ? user.monthlyTarget : undefined };
+    } catch {
+      return {};
+    }
+  },
+
+  async getUserProfile(options?: ApiOptions): Promise<User> {
+    const data = await request<{ user?: any }>('/api/users/profile', options);
+    return mapBackendUser(data.user || data);
+  },
+
+  async updateUserProfile(input: UpdateUserProfileInput, options?: ApiOptions): Promise<User> {
+    const payload = {
+      ...(input.firstName !== undefined ? { firstName: input.firstName } : {}),
+      ...(input.lastName !== undefined ? { lastName: input.lastName } : {}),
+      ...(input.avatar !== undefined ? { avatar: input.avatar } : {})
+    };
+
+    const data = await request<{ user?: any }>('/api/users/profile', options, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    });
+
+    return mapBackendUser(data.user || data);
+  },
+
+  async getKycStatus(options?: ApiOptions): Promise<KycStatusSummary> {
+    return request<KycStatusSummary>('/api/kyc/status', options);
+  },
+
+  async startKyc(options?: ApiOptions): Promise<{ url?: string; sessionId?: string; status: KycStatusSummary['status']; message?: string }> {
+    return request<{ url?: string; sessionId?: string; status: KycStatusSummary['status']; message?: string }>(
+      '/api/kyc/start',
+      options,
+      { method: 'POST' }
+    );
+  },
+
+  async checkKycStatus(options?: ApiOptions): Promise<{ status: KycStatusSummary['status']; isApproved: boolean }> {
+    return request<{ status: KycStatusSummary['status']; isApproved: boolean }>(
+      '/api/kyc/check',
+      options,
+      { method: 'POST' }
+    );
+  },
+
+  async updateMonthlyTarget(target: number, options?: ApiOptions): Promise<void> {
+    await request('/api/users/profile', options, {
+      method: 'PATCH',
+      body: JSON.stringify({ monthlyTarget: target })
     });
   },
 

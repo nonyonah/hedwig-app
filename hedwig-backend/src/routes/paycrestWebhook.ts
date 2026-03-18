@@ -20,13 +20,23 @@ const normalizePaycrestEvent = (rawEvent: unknown, data: any): string => {
     if (typeof data?.event === 'string' && data.event.trim().length > 0) {
         return data.event.trim().toLowerCase();
     }
-    if (typeof data?.status === 'string' && data.status.trim().length > 0) {
-        const status = data.status.trim().toLowerCase();
+    if (typeof data?.order?.status === 'string' && data.order.status.trim().length > 0) {
+        const status = data.order.status.trim().toLowerCase();
         if (status.includes('.')) return status;
         return `payment_order.${status}`;
     }
-    if (typeof data?.order?.status === 'string' && data.order.status.trim().length > 0) {
-        const status = data.order.status.trim().toLowerCase();
+    if (typeof data?.data?.order?.status === 'string' && data.data.order.status.trim().length > 0) {
+        const status = data.data.order.status.trim().toLowerCase();
+        if (status.includes('.')) return status;
+        return `payment_order.${status}`;
+    }
+    if (typeof data?.data?.status === 'string' && data.data.status.trim().length > 0) {
+        const status = data.data.status.trim().toLowerCase();
+        if (status.includes('.')) return status;
+        return `payment_order.${status}`;
+    }
+    if (typeof data?.status === 'string' && data.status.trim().length > 0) {
+        const status = data.status.trim().toLowerCase();
         if (status.includes('.')) return status;
         return `payment_order.${status}`;
     }
@@ -41,9 +51,6 @@ const extractOrderId = (payload: any): string | null => {
         payload?.payload?.order?.id,
         payload?.order?.id,
         payload?.id,
-        payload?.data?.reference,
-        payload?.payload?.reference,
-        payload?.reference,
     ];
 
     for (const candidate of candidates) {
@@ -91,8 +98,8 @@ const mapPaycrestStatus = (event: string, data: any): 'PENDING' | 'PROCESSING' |
         case 'processing':
             return 'PROCESSING';
         case 'validated':
-            // "validated" is an in-progress state; final settlement comes later.
-            return 'PROCESSING';
+            // Paycrest treats "validated" as the successful sender-side completion state.
+            return 'COMPLETED';
         case 'settled':
         case 'completed':
         case 'success':

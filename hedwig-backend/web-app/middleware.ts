@@ -11,7 +11,8 @@ const PUBLIC_PATHS = [
   '/payment-link',
   '/contract',
   '/contracts',
-  '/success'
+  '/success',
+  '/export-wallet'
 ];
 
 export function middleware(request: NextRequest) {

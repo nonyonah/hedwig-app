@@ -9,8 +9,9 @@ import { buildOfframpCopy } from '../utils/notificationCopy';
 const logger = createLogger('Offramp');
 
 const router = Router();
-// Webhooks are the source of truth. Enable polling only as an explicit fallback.
-const ENABLE_PAYCREST_STATUS_POLLING = process.env.PAYCREST_STATUS_POLLING === 'true';
+// Keep status reconciliation on by default so delayed/missed webhooks do not leave
+// active orders stuck in a stale state. Set PAYCREST_STATUS_POLLING=false to disable.
+const ENABLE_PAYCREST_STATUS_POLLING = process.env.PAYCREST_STATUS_POLLING !== 'false';
 
 const mapPaycrestOrderStatus = (rawStatus?: string): 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null => {
     if (!rawStatus) return null;
@@ -18,16 +19,19 @@ const mapPaycrestOrderStatus = (rawStatus?: string): 'PENDING' | 'PROCESSING' | 
 
     if (status === 'initiated') return 'PENDING';
     if (status === 'pending' || status === 'processing') return 'PROCESSING';
-    if (status === 'validated') return 'PROCESSING';
+    if (status === 'validated') return 'COMPLETED';
     if (status === 'settled' || status === 'completed' || status === 'success') return 'COMPLETED';
     if (status === 'expired' || status === 'failed' || status === 'refunded' || status === 'cancelled') return 'FAILED';
     return null;
 };
 
 const extractPaycrestStatus = (payload: any): string | undefined =>
-    payload?.status ||
+    payload?.data?.order?.status ||
+    payload?.order?.status ||
     payload?.data?.status ||
-    payload?.order?.status;
+    payload?.payload?.order?.status ||
+    payload?.payload?.status ||
+    payload?.status;
 
 const extractPaycrestTxHash = (payload: any): string | undefined =>
     payload?.txHash ||

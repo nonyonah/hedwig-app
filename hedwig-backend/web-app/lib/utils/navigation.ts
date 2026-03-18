@@ -6,6 +6,7 @@ import {
   Faders,
   FolderSimple,
   House,
+  Sparkle,
   UsersThree,
   Wallet
 } from '@phosphor-icons/react/dist/ssr';
@@ -15,6 +16,7 @@ export const navigationGroups = [
     label: 'Overview',
     items: [
       { title: 'Dashboard', href: '/dashboard', icon: House, count: null, muted: false },
+      { title: 'Insights', href: '/insights', icon: Sparkle, count: null, muted: false },
       { title: 'Calendar', href: '/calendar', icon: CalendarDots, count: null, muted: false }
     ]
   },

@@ -203,7 +203,16 @@ export function OfframpClient({
 
   const pendingCount = transactions.filter((tx) => tx.status !== 'completed' && tx.status !== 'failed').length;
   const completedCount = transactions.filter((tx) => tx.status === 'completed').length;
-  const totalFiat = transactions.reduce((s, tx) => s + tx.fiatAmount, 0);
+  const totalVolumeUsd = transactions.reduce((sum, tx) => {
+    const asset = String(tx.asset || '').toUpperCase();
+    if (asset === 'USDC' || asset === 'USDT') {
+      return sum + tx.amount;
+    }
+    if (String(tx.fiatCurrency || '').toUpperCase() === 'USD') {
+      return sum + tx.fiatAmount;
+    }
+    return sum;
+  }, 0);
 
   const update = <K extends keyof OfframpForm>(key: K, val: OfframpForm[K]) =>
     setForm((cur) => ({ ...cur, [key]: val }));
@@ -421,8 +430,8 @@ export function OfframpClient({
       <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
         <div className="bg-white px-5 py-4">
           <div className="flex items-center gap-2 mb-2"><ArrowsDownUp className="h-4 w-4 text-[#2563eb]" weight="bold" /><span className="text-[12px] font-medium text-[#717680]">Total volume</span></div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCurrency(totalFiat)}</p>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">across all offramp orders</p>
+          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCurrency(totalVolumeUsd, 'USD')}</p>
+          <p className="mt-1 text-[11px] text-[#a4a7ae]">USD-equivalent across all offramp orders</p>
         </div>
         <div className="bg-white px-5 py-4">
           <div className="flex items-center gap-2 mb-2"><ClockCountdown className="h-4 w-4 text-[#f59e0b]" weight="bold" /><span className="text-[12px] font-medium text-[#717680]">Pending</span></div>
@@ -872,7 +881,8 @@ function OfframpDetailPanel({ tx, onClose }: { tx: OfframpTransaction; onClose: 
   const s = OFFRAMP_STATUS[tx.status] ?? OFFRAMP_STATUS.pending;
   const { Icon } = s;
   const rate = tx.amount > 0 ? (tx.fiatAmount / tx.amount).toFixed(2) : null;
-  const shortRef = `${tx.id.slice(0, 8)}…${tx.id.slice(-6)}`;
+  const orderId = tx.paycrestOrderId || tx.id;
+  const shortOrderId = orderId.length > 14 ? `${orderId.slice(0, 8)}…${orderId.slice(-6)}` : orderId;
 
   const date = new Date(tx.createdAt);
   const fullDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -927,10 +937,10 @@ function OfframpDetailPanel({ tx, onClose }: { tx: OfframpTransaction; onClose: 
             <PanelRow label="Date">{fullDate}</PanelRow>
             <PanelRow label="Time">{fullTime}</PanelRow>
             <div className="flex items-center justify-between py-3 text-[13px]">
-              <span className="text-[#717680]">Reference</span>
+              <span className="text-[#717680]">Order ID</span>
               <span className="flex items-center font-mono text-[12px] font-semibold text-[#181d27]">
-                {shortRef}
-                <CopyInline text={tx.id} />
+                {shortOrderId}
+                <CopyInline text={orderId} />
               </span>
             </div>
           </div>

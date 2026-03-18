@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check } from '@phosphor-icons/react/dist/ssr';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog';
+import { backendConfig } from '@/lib/auth/config';
 
 type Chain = 'Base' | 'Solana';
 
@@ -24,7 +25,7 @@ const chainOptions: Array<{ value: Chain; label: string; icon: string; descripti
 ];
 
 async function updateSettlementChain(chain: Chain, accessToken: string) {
-  const res = await fetch('/api/usd-accounts/settlement', {
+  const res = await fetch(`${backendConfig.apiBaseUrl}/api/usd-accounts/settlement`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -36,15 +37,18 @@ async function updateSettlementChain(chain: Chain, accessToken: string) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as any)?.error?.message || 'Failed to update settlement chain');
   }
-  return res.json();
+  const body = await res.json().catch(() => ({}));
+  return (body as any)?.data ?? body;
 }
 
 export function ChangeSettlementDialog({
   currentChain,
-  accessToken
+  accessToken,
+  onUpdated
 }: {
   currentChain: Chain;
   accessToken: string;
+  onUpdated?: () => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Chain>(currentChain);
@@ -57,6 +61,9 @@ export function ChangeSettlementDialog({
     startTransition(async () => {
       try {
         await updateSettlementChain(selected, accessToken);
+        if (onUpdated) {
+          await onUpdated();
+        }
         setOpen(false);
         router.refresh();
       } catch (e) {

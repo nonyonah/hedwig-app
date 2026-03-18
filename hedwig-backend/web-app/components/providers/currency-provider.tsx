@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext } from 'react';
 
-export type Currency = 'USD' | 'NGN' | 'KES';
+export type Currency = 'USD';
 
 interface CurrencyContextValue {
   currency: Currency;
@@ -13,12 +13,8 @@ interface CurrencyContextValue {
 }
 
 export const currencyMeta: Record<Currency, { symbol: string; label: string; flag: string; locale: string }> = {
-  USD: { symbol: '$', label: 'US Dollar', flag: '🇺🇸', locale: 'en-US' },
-  NGN: { symbol: '₦', label: 'Nigerian Naira', flag: '🇳🇬', locale: 'en-NG' },
-  KES: { symbol: 'KSh', label: 'Kenyan Shilling', flag: '🇰🇪', locale: 'en-KE' }
+  USD: { symbol: '$', label: 'US Dollar', flag: '🇺🇸', locale: 'en-US' }
 };
-
-const STORAGE_KEY = 'hedwig-currency';
 
 const CurrencyContext = createContext<CurrencyContextValue>({
   currency: 'USD',
@@ -29,24 +25,18 @@ const CurrencyContext = createContext<CurrencyContextValue>({
 });
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const [currency, setCurrencyState] = useState<Currency>('USD');
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Currency | null;
-    if (stored && stored in currencyMeta) {
-      setCurrencyState(stored);
-    }
-  }, []);
-
-  const setCurrency = (c: Currency) => {
-    setCurrencyState(c);
-    localStorage.setItem(STORAGE_KEY, c);
-  };
-
-  const meta = currencyMeta[currency];
+  const meta = currencyMeta.USD;
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, symbol: meta.symbol, label: meta.label, locale: meta.locale }}>
+    <CurrencyContext.Provider
+      value={{
+        currency: 'USD',
+        setCurrency: () => {},
+        symbol: meta.symbol,
+        label: meta.label,
+        locale: meta.locale
+      }}
+    >
       {children}
     </CurrencyContext.Provider>
   );

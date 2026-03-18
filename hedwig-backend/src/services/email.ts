@@ -3,13 +3,12 @@ import { Resend } from 'resend';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('EmailService');
-// Initialize Resend lazily inside functions to ensure env vars are loaded
 
 const SHARED_STYLES = `
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    @import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@100..900&display=swap');
+    body { font-family: 'Google Sans Flex', 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
     .container { max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; margin-bottom: 40px; border: 1px solid #e9eaeb; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.06); }
     .header { background-color: #ffffff; padding: 20px 28px; border-bottom: 1px solid #f1f2f4; }
-    .logo { font-size: 20px; font-weight: 700; color: #2563eb; text-decoration: none; letter-spacing: -0.02em; }
     .content { padding: 28px 28px 32px; }
     .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #a4a7ae; margin-bottom: 6px; }
     .heading { font-size: 22px; font-weight: 700; color: #181d27; letter-spacing: -0.02em; margin: 0 0 20px; }
@@ -25,6 +24,27 @@ const SHARED_STYLES = `
     .footer a { color: #717680; text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
 `;
+
+const LOGO_HTML = `
+<a href="https://hedwig.money" style="display:inline-block;text-decoration:none;">
+  <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+    <tr>
+      <td style="vertical-align:middle;padding-right:9px;">
+        <div style="background-color:#2563eb;border-radius:9px;width:32px;height:32px;text-align:center;line-height:32px;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="white" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;margin-top:-1px;">
+            <path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm0 4.236l-8 4.882-8-4.882V6h16v2.236z"/>
+          </svg>
+        </div>
+      </td>
+      <td style="vertical-align:middle;">
+        <span style="font-family:'Google Sans Flex','Google Sans',-apple-system,BlinkMacSystemFont,sans-serif;font-size:18px;font-weight:700;color:#181d27;letter-spacing:-0.02em;">Hedwig</span>
+      </td>
+    </tr>
+  </table>
+</a>
+`;
+
+const FOOTER_NOTE = `Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; Payments built for freelancers`;
 
 interface EmailData {
     to: string;
@@ -59,7 +79,7 @@ export const EmailService = {
         <body>
             <div class="container">
                 <div class="header">
-                    <span class="logo">Hedwig</span>
+                    ${LOGO_HTML}
                 </div>
                 <div class="content">
                     <p class="eyebrow">Invoice</p>
@@ -68,7 +88,7 @@ export const EmailService = {
 
                     <div class="card">
                         <p class="amount-label">Amount Due</p>
-                        <p class="amount-value">$${data.amount} <span class="amount-currency">${data.currency}</span></p>
+                        <p class="amount-value">${data.amount} <span class="amount-currency">${data.currency}</span></p>
                     </div>
 
                     ${data.description ? `<p class="description" style="text-align:center;">${data.description}</p>` : ''}
@@ -78,7 +98,7 @@ export const EmailService = {
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
+                    <p>${FOOTER_NOTE}</p>
                 </div>
             </div>
         </body>
@@ -87,7 +107,7 @@ export const EmailService = {
 
         try {
             await resend.emails.send({
-                from: 'Hedwig <team@hedwigbot.xyz>', // Updated to verified domain
+                from: 'Hedwig <team@hedwigbot.xyz>',
                 to: [data.to],
                 subject: `New Invoice from ${data.senderName}`,
                 html: html,
@@ -101,7 +121,6 @@ export const EmailService = {
     },
 
     async sendPaymentLinkEmail(data: EmailData): Promise<boolean> {
-        // ... existing implementation ...
         if (!process.env.RESEND_API_KEY) {
             logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
             return false;
@@ -122,7 +141,7 @@ export const EmailService = {
         <body>
             <div class="container">
                 <div class="header">
-                    <span class="logo">Hedwig</span>
+                    ${LOGO_HTML}
                 </div>
                 <div class="content">
                     <p class="eyebrow">Payment Request</p>
@@ -131,7 +150,7 @@ export const EmailService = {
 
                     <div class="card">
                         <p class="amount-label">Amount Requested</p>
-                        <p class="amount-value">$${data.amount} <span class="amount-currency">${data.currency}</span></p>
+                        <p class="amount-value">${data.amount} <span class="amount-currency">${data.currency}</span></p>
                         ${data.network ? `<p style="margin-top: 8px; color: #a4a7ae; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;">${data.network}</p>` : ''}
                     </div>
 
@@ -142,7 +161,7 @@ export const EmailService = {
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
+                    <p>${FOOTER_NOTE}</p>
                 </div>
             </div>
         </body>
@@ -194,7 +213,7 @@ export const EmailService = {
         <body>
             <div class="container">
                 <div class="header">
-                    <span class="logo">Hedwig</span>
+                    ${LOGO_HTML}
                 </div>
                 <div class="content">
                     <p class="eyebrow">Payment Received</p>
@@ -203,7 +222,7 @@ export const EmailService = {
 
                     <div class="card">
                         <p class="amount-label">Amount Received</p>
-                        <p class="amount-value">$${data.amount} <span class="amount-currency">${data.currency}</span></p>
+                        <p class="amount-value">${data.amount} <span class="amount-currency">${data.currency}</span></p>
                         ${data.documentTitle ? `<p style="margin-top: 10px; color: #717680; font-size: 13px;">For: ${data.documentTitle}</p>` : ''}
                     </div>
 
@@ -216,7 +235,7 @@ export const EmailService = {
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
+                    <p>${FOOTER_NOTE}</p>
                 </div>
             </div>
         </body>
@@ -258,7 +277,7 @@ export const EmailService = {
         <body>
             <div class="container">
                 <div class="header">
-                    <span class="logo">Hedwig</span>
+                    ${LOGO_HTML}
                 </div>
                 <div class="content">
                     ${htmlContent}
@@ -270,7 +289,7 @@ export const EmailService = {
                     ` : ''}
                 </div>
                 <div class="footer">
-                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
+                    <p>${FOOTER_NOTE}</p>
                 </div>
             </div>
         </body>
@@ -325,7 +344,7 @@ export const EmailService = {
         <body>
             <div class="container">
                 <div class="header">
-                    <span class="logo">Hedwig</span>
+                    ${LOGO_HTML}
                 </div>
                 <div class="content">
                     <p class="eyebrow">Contract</p>
@@ -335,7 +354,7 @@ export const EmailService = {
                     <div class="card">
                         <p class="amount-label">Contract</p>
                         <p style="font-size: 20px; color: #181d27; font-weight: 700; margin: 0; letter-spacing: -0.02em;">${data.contractTitle}</p>
-                        ${data.totalAmount ? `<p style="margin-top: 10px; font-size: 28px; color: #181d27; font-weight: 700; letter-spacing: -0.03em;">$${data.totalAmount}</p>` : ''}
+                        ${data.totalAmount ? `<p style="margin-top: 10px; font-size: 28px; color: #181d27; font-weight: 700; letter-spacing: -0.03em;">${data.totalAmount}</p>` : ''}
                         ${data.milestoneCount ? `<span class="milestone-pill">${data.milestoneCount} milestone${data.milestoneCount > 1 ? 's' : ''}</span>` : ''}
                     </div>
 
@@ -346,7 +365,7 @@ export const EmailService = {
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
+                    <p>${FOOTER_NOTE}</p>
                 </div>
             </div>
         </body>
@@ -399,7 +418,7 @@ export const EmailService = {
         <body>
             <div class="container">
                 <div class="header">
-                    <span class="logo">Hedwig</span>
+                    ${LOGO_HTML}
                 </div>
                 <div class="content">
                     <p class="eyebrow">Contract Update</p>
@@ -421,7 +440,7 @@ export const EmailService = {
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
+                    <p>${FOOTER_NOTE}</p>
                 </div>
             </div>
         </body>
@@ -472,7 +491,7 @@ export const EmailService = {
         <body>
             <div class="container">
                 <div class="header">
-                    <span class="logo">Hedwig</span>
+                    ${LOGO_HTML}
                 </div>
                 <div class="content">
                     <p class="eyebrow">Proposal</p>
@@ -492,7 +511,7 @@ export const EmailService = {
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
+                    <p>${FOOTER_NOTE}</p>
                 </div>
             </div>
         </body>
@@ -544,7 +563,7 @@ export const EmailService = {
         <body>
             <div class="container">
                 <div class="header">
-                    <span class="logo">Hedwig</span>
+                    ${LOGO_HTML}
                 </div>
                 <div class="content">
                     <p class="eyebrow">Proposal Update</p>
@@ -564,7 +583,7 @@ export const EmailService = {
                     </div>
                 </div>
                 <div class="footer">
-                    <p>Sent via <a href="https://hedwig.money">Hedwig</a> &mdash; The AI Agent for Freelancers</p>
+                    <p>${FOOTER_NOTE}</p>
                 </div>
             </div>
         </body>
