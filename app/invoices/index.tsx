@@ -441,10 +441,10 @@ export default function InvoicesScreen() {
     };
 
     const getInvoiceUrl = (invoice: any) => {
-        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+        const webUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'https://hedwig.money';
         return invoice?.payment_link_url ||
             invoice?.content?.blockradar_url ||
-            `${apiUrl}/invoice/${invoice?.id}`;
+            `${webUrl}/invoice/${invoice?.id}`;
     };
 
     const handleShareInvoice = async () => {

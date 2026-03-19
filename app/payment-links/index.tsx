@@ -437,10 +437,10 @@ export default function PaymentLinksScreen() {
     };
 
     const getPaymentLinkUrl = (link: any) => {
-        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+        const webUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'https://hedwig.money';
         return link?.payment_link_url ||
             link?.content?.blockradar_url ||
-            `${apiUrl}/pay/${link?.id}`;
+            `${webUrl}/pay/${link?.id}`;
     };
 
     const handleShareLink = async () => {
