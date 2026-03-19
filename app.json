@@ -9,12 +9,12 @@
     "scheme": "hedwig",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash-icon-transparent.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF",
+      "backgroundColor": "#2563EB",
       "dark": {
-        "image": "./assets/splash-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "image": "./assets/splash-icon-transparent.png",
+        "backgroundColor": "#2563EB"
       }
     },
     "ios": {
@@ -36,9 +36,9 @@
         "backgroundColor": "#000000"
       },
       "splash": {
-        "image": "./assets/splash-icon.png",
+        "image": "./assets/splash-icon-transparent.png",
         "resizeMode": "contain",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#2563EB"
       },
       "package": "com.hedwig.app",
       "edgeToEdgeEnabled": true,

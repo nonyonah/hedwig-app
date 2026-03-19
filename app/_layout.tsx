@@ -2,7 +2,7 @@
 import 'react-native-get-random-values';
 import 'fast-text-encoding';
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Stack, useNavigationContainerRef } from 'expo-router';
 import { PrivyProvider } from '@privy-io/expo';
 import Constants from 'expo-constants';
@@ -14,6 +14,8 @@ import {
 } from '@expo-google-fonts/google-sans-flex';
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
 import { View, Platform, Image, ActivityIndicator, StyleSheet, AppState } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { LockScreen } from '../components/LockScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
@@ -260,6 +262,46 @@ function PushNotificationBootstrap() {
     return null;
 }
 
+// Handles app-lock when returning from background
+function AppLockGate({ children }: { children: React.ReactNode }) {
+    const { user, isReady } = useAuth();
+    const [isLocked, setIsLocked] = useState(false);
+    const hasBeenToBackground = React.useRef(false);
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', async (nextState) => {
+            if (nextState === 'background') {
+                // Only true background (not inactive, which happens during biometric prompts)
+                if (user) hasBeenToBackground.current = true;
+            } else if (nextState === 'active' && hasBeenToBackground.current && user && isReady) {
+                hasBeenToBackground.current = false;
+                // Only show lock if a method is available
+                try {
+                    const [hasHw, isEnrolled] = await Promise.all([
+                        LocalAuthentication.hasHardwareAsync(),
+                        LocalAuthentication.isEnrolledAsync(),
+                    ]);
+                    if (hasHw && isEnrolled) {
+                        setIsLocked(true);
+                    }
+                } catch {
+                    // Don't block on error
+                }
+            }
+        });
+        return () => subscription.remove();
+    }, [user, isReady]);
+
+    return (
+        <View style={{ flex: 1 }}>
+            {children}
+            {isLocked && (
+                <LockScreen user={user} onUnlock={() => setIsLocked(false)} />
+            )}
+        </View>
+    );
+}
+
 // Native layout with Privy
 function NativeLayout() {
     return (
@@ -268,8 +310,10 @@ function NativeLayout() {
             clientId={PRIVY_CLIENT_ID}
         >
             <UserProvider>
-                <PushNotificationBootstrap />
-                <ThemedStack />
+                <AppLockGate>
+                    <PushNotificationBootstrap />
+                    <ThemedStack />
+                </AppLockGate>
             </UserProvider>
         </PrivyProvider>
     );
@@ -298,8 +342,8 @@ function StartupGate({ children, isApiWarmed }: { children: React.ReactNode; isA
 
     return (
         <View style={styles.startupOverlay}>
-            <Image source={require('../assets/splash-icon.png')} style={styles.startupLogo} resizeMode="contain" />
-            <ActivityIndicator size="small" color="#FFFFFF" style={styles.startupSpinner} />
+            <Image source={require('../assets/splash-icon-transparent.png')} style={styles.startupLogo} resizeMode="contain" tintColor="#FFFFFF" />
+            <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" style={styles.startupSpinner} />
         </View>
     );
 }
@@ -414,7 +458,7 @@ export default Sentry.wrap(RootLayout);
 const styles = StyleSheet.create({
     startupOverlay: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#2563EB',
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 32,

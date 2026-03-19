@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, TouchableWithoutFeedback, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, TouchableWithoutFeedback, Platform, Animated, ActivityIndicator } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -56,6 +56,7 @@ export default function SettingsScreen() {
     // Security state
     const [biometricsEnabled, setBiometricsEnabled] = useState(false);
     const [isBiometricExporting, setIsBiometricExporting] = useState(false);
+
     const kycSheetRef = useRef<BottomSheetModal>(null);
     const [isCheckingConnection, setIsCheckingConnection] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
@@ -743,6 +744,11 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: Colors.textPrimary,
     },
+    settingSubLabel: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 12,
+        marginTop: 2,
+    },
     settingValueContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -964,3 +970,4 @@ const styles = StyleSheet.create({
         color: '#6B7280',
     },
 });
+
