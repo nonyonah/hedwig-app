@@ -460,18 +460,6 @@ export default function InsightsScreen() {
                 getAccessToken={getAccessToken}
             />
 
-            {shouldShowOnScreen('insights') && activeStep ? (
-                <TutorialCard
-                    step={activeStepIndex + 1}
-                    totalSteps={totalSteps}
-                    title={activeStep.title}
-                    body={activeStep.body}
-                    anchorPosition={activeStep.anchorPosition}
-                    onNext={nextStep}
-                    onBack={prevStep}
-                    onSkip={skipTutorial}
-                />
-            ) : null}
         </SafeAreaView>
     );
 }
