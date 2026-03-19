@@ -177,13 +177,30 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiting - increased to handle multiple API calls per page load
+const createLimiter = (max: number, message: string) =>
+    rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message,
+    });
+
+// Baseline API protection; skip webhook delivery so providers are not throttled.
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 500, // Limit each IP to 500 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
     message: 'Too many requests from this IP, please try again later.',
+    skip: (req) => req.originalUrl.startsWith('/api/webhooks/'),
 });
 app.use('/api/', limiter);
+
+const authLimiter = createLimiter(60, 'Too many authentication requests. Please try again shortly.');
+const aiLimiter = createLimiter(40, 'Too many AI requests. Please slow down and try again.');
+const documentLimiter = createLimiter(180, 'Too many document requests. Please try again later.');
+const financialLimiter = createLimiter(120, 'Too many financial requests. Please try again later.');
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
@@ -195,7 +212,7 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // API Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 
 // Add logging middleware for chat routes
@@ -208,11 +225,11 @@ app.use('/api/chat', (req, _res, next) => {
     next();
 });
 
-app.use('/api/chat', chatRoutes);
-app.use('/api/documents', documentRoutes);
+app.use('/api/chat', aiLimiter, chatRoutes);
+app.use('/api/documents', documentLimiter, documentRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/conversations', conversationsRoutes);
-app.use('/api/offramp', offrampRoutes);
+app.use('/api/offramp', financialLimiter, offrampRoutes);
 app.use('/api/bridge', bridgeRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
@@ -238,7 +255,7 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use('/api/webhooks/didit', diditWebhookRoutes);
 app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);
-app.use('/api/creation-box', creationBoxRoutes);
+app.use('/api/creation-box', aiLimiter, creationBoxRoutes);
 app.use('/api/solana/rpc', solanaRpcRoutes);
 app.use('/api/usd-accounts', (req, _res, next) => {
     logger.info('USD account route hit', {
@@ -250,7 +267,7 @@ app.use('/api/usd-accounts', (req, _res, next) => {
     });
     next();
 });
-app.use('/api/usd-accounts', usdAccountRoutes);
+app.use('/api/usd-accounts', financialLimiter, usdAccountRoutes);
 app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 
 // Serve static files from legacy public folder (for assets)

@@ -51,7 +51,7 @@ export default function SignInPage() {
         if (!token) { setSettling(false); return; }
 
         const identity = getIdentityDetails(user);
-        await fetch('/api/auth/session', {
+        const response = await fetch('/api/auth/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -67,6 +67,11 @@ export default function SignInPage() {
             }
           })
         });
+
+        if (!response.ok) {
+          setSettling(false);
+          return;
+        }
 
         router.replace('/dashboard');
       } catch {

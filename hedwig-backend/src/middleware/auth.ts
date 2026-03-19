@@ -84,11 +84,13 @@ export const authenticate = async (
             first10Chars: token?.substring(0, 10) 
         });
 
-        // Check if this is a demo token
+        // Only allow demo tokens when explicitly enabled outside production.
+        const demoAuthEnabled =
+            process.env.ENABLE_DEMO_AUTH === 'true' && process.env.NODE_ENV !== 'production';
         const DEMO_EMAIL = process.env.DEMO_ACCOUNT_EMAIL || 'demo@hedwig.app';
-        
+
         // Demo tokens don't have dots, JWTs always have dots
-        if (!token.includes('.')) {
+        if (demoAuthEnabled && !token.includes('.')) {
             logger.info('Token has no dots - checking if demo token');
             try {
                 const decoded = Buffer.from(token, 'base64').toString('utf-8');
