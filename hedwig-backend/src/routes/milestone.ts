@@ -453,7 +453,7 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
         // Generate BlockRadar payment link if network/token are provided
         if (network && token) {
             try {
-                const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwig.money').replace(/\/+$/, '');
+                const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
                 
                 // Create payment link via BlockRadar (matching document.ts implementation)
                 const paymentLink = await BlockradarService.createPaymentLink({

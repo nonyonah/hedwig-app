@@ -5,6 +5,7 @@ import { createCalendarEventFromSource } from '../routes/calendar';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Actions');
+const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
 
 export interface ActionParams {
     [key: string]: any;
@@ -294,7 +295,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
                 currency: token,
                 chain: chain,
                 status: 'DRAFT',
-                payment_link_url: `https://pay.hedwigbot.xyz/pay/${Date.now()}`, // Simulated URL
+                payment_link_url: `${WEB_CLIENT_URL}/pay/${Date.now()}`, // Placeholder — updated after insert
                 content: {
                     client_name: clientName || null,
                     recipient_email: params.recipient_email || params.client_email || null,
@@ -306,6 +307,13 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
 
         if (error) throw error;
         logger.info('Created payment link document');
+
+        // Update with correct ID-based URL
+        await supabase
+            .from('documents')
+            .update({ payment_link_url: `${WEB_CLIENT_URL}/pay/${doc.id}` })
+            .eq('id', doc.id);
+        doc.payment_link_url = `${WEB_CLIENT_URL}/pay/${doc.id}`;
 
         // Send email if recipient provided
         let emailSent = false;

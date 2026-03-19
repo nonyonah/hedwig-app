@@ -15,7 +15,7 @@ const logger = createLogger('Documents');
 const router = Router();
 
 // Canonical public web URL for invoice and payment link pages.
-const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwig.money').replace(/\/+$/, '');
+const WEB_CLIENT_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
 
 const attachUsdAccountDetails = async (doc: any) => {
     const userId = doc?.user?.id;
