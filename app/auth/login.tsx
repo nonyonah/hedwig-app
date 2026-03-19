@@ -51,6 +51,13 @@ export default function LoginScreen() {
     const { getAccessToken, user, isReady } = usePrivy();
     const { login: oauthLogin } = useLoginWithOAuth();
 
+    // Redirect already-authenticated users
+    useEffect(() => {
+        if (isReady && user) {
+            router.replace('/');
+        }
+    }, [isReady, user]);
+
     // Detect demo email
     useEffect(() => {
         setIsDemo(email.toLowerCase().trim() === DEMO_EMAIL);

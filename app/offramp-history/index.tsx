@@ -30,8 +30,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useSettings } from '../../context/SettingsContext';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
-import { TutorialCard } from '../../components/TutorialCard';
-import { useTutorial } from '../../hooks/useTutorial';
 
 const { width } = Dimensions.get('window');
 
@@ -108,7 +106,6 @@ export default function OfframpHistoryScreen() {
     const { getAccessToken } = useAuth();
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
-    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
 
     // Track page view
     useAnalyticsScreen('Offramp History');
@@ -551,18 +548,6 @@ export default function OfframpHistoryScreen() {
                     </BottomSheetView>
                 </BottomSheetModal>
 
-                {shouldShowOnScreen('withdrawals') && activeStep && (
-                    <TutorialCard
-                        step={activeStepIndex + 1}
-                        totalSteps={totalSteps}
-                        title={activeStep.title}
-                        body={activeStep.body}
-                        anchorPosition={activeStep.anchorPosition}
-                        onNext={nextStep}
-                        onBack={prevStep}
-                        onSkip={skipTutorial}
-                    />
-                )}
             </SafeAreaView>
         </View>
     );

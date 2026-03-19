@@ -32,8 +32,6 @@ import { getUserGradient } from '../../utils/gradientUtils';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
-import { TutorialCard } from '../../components/TutorialCard';
-import { useTutorial } from '../../hooks/useTutorial';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
 
@@ -78,7 +76,6 @@ export default function PaymentLinksScreen() {
     const currency = settings?.currency || 'USD';
     const themeColors = useThemeColors();
     const bottomSheetRef = React.useRef<BottomSheetModal>(null);
-    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
     const [links, setLinks] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -837,17 +834,6 @@ export default function PaymentLinksScreen() {
             </View >
 
             {/* Tutorial card for links step */}
-            {shouldShowOnScreen('links') && activeStep && (
-                <TutorialCard
-                    step={activeStepIndex + 1}
-                    totalSteps={totalSteps}
-                    title={activeStep.title}
-                    body={activeStep.body}
-                    anchorPosition={activeStep.anchorPosition}
-                    onNext={nextStep}
-                    onBack={prevStep}
-                    onSkip={skipTutorial}
-                />)}
         </>
     );
 }

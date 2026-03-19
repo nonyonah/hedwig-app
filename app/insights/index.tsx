@@ -19,8 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Insight, InsightsRange, useInsights } from '../../hooks/useInsights';
 import { TargetGoalModal } from '../../components/TargetGoalModal';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
-import { TutorialCard } from '../../components/TutorialCard';
-import { useTutorial } from '../../hooks/useTutorial';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 54) / 2;
@@ -165,7 +163,6 @@ const formatTimeAgo = (iso: string | null): string => {
 export default function InsightsScreen() {
     const router = useRouter();
     const themeColors = useThemeColors();
-    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
     const { getAccessToken, user } = useAuth();
     const {
         insights,

@@ -7,8 +7,6 @@ import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
-import { TutorialCard } from '../../components/TutorialCard';
-import { useTutorial } from '../../hooks/useTutorial';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -97,7 +95,6 @@ export default function CalendarScreen() {
     useAnalyticsScreen('Calendar');
     const { getAccessToken } = useAuth();
     const themeColors = useThemeColors();
-    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
 
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -663,18 +660,6 @@ export default function CalendarScreen() {
                     </View>
                 </Modal>
 
-                {shouldShowOnScreen('calendar') && activeStep && (
-                    <TutorialCard
-                        step={activeStepIndex + 1}
-                        totalSteps={totalSteps}
-                        title={activeStep.title}
-                        body={activeStep.body}
-                        anchorPosition={activeStep.anchorPosition}
-                        onNext={nextStep}
-                        onBack={prevStep}
-                        onSkip={skipTutorial}
-                    />
-                )}
             </SafeAreaView>
         </View>
     );

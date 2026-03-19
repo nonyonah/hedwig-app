@@ -34,8 +34,6 @@ import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
-import { TutorialCard } from '../../components/TutorialCard';
-import { useTutorial } from '../../hooks/useTutorial';
 
 const { width } = Dimensions.get('window');
 
@@ -114,7 +112,6 @@ export default function TransactionsScreen() {
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
     const hapticsEnabled = settings?.hapticsEnabled ?? true;
-    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
 
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -500,18 +497,6 @@ export default function TransactionsScreen() {
                     </BottomSheetView>
                 </BottomSheetModal>
 
-            {shouldShowOnScreen('transactions') && activeStep && (
-                <TutorialCard
-                    step={activeStepIndex + 1}
-                    totalSteps={totalSteps}
-                    title={activeStep.title}
-                    body={activeStep.body}
-                    anchorPosition={activeStep.anchorPosition}
-                    onNext={nextStep}
-                    onBack={prevStep}
-                    onSkip={skipTutorial}
-                />
-            )}
         </View>
     );
 }

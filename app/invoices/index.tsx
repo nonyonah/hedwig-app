@@ -34,8 +34,6 @@ import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency, getCurrencySymbol } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import Analytics from '../../services/analytics';
-import { TutorialCard } from '../../components/TutorialCard';
-import { useTutorial } from '../../hooks/useTutorial';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
 
 // Icons for tokens and chains
@@ -85,7 +83,6 @@ export default function InvoicesScreen() {
     const currency = settings?.currency || 'USD';
     const themeColors = useThemeColors();
     const [invoices, setInvoices] = useState<any[]>([]);
-    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
@@ -830,17 +827,6 @@ export default function InvoicesScreen() {
             </View >
 
             {/* Tutorial card for invoices step */}
-            {shouldShowOnScreen('invoices') && activeStep && (
-                <TutorialCard
-                    step={activeStepIndex + 1}
-                    totalSteps={totalSteps}
-                    title={activeStep.title}
-                    body={activeStep.body}
-                    anchorPosition={activeStep.anchorPosition}
-                    onNext={nextStep}
-                    onBack={prevStep}
-                    onSkip={skipTutorial}
-                />)}
         </>
     );
 }

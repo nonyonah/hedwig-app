@@ -9,7 +9,6 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { UniversalCreationBox } from '../../../components/UniversalCreationBox';
 import { AnimatedListItem } from '../../../components/AnimatedListItem';
 import { TransactionConfirmationModal } from '../../../components/TransactionConfirmationModal';
-import { TutorialCard } from '../../../components/TutorialCard';
 import { useTutorial } from '../../../hooks/useTutorial';
 import { useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
@@ -73,7 +72,7 @@ export default function HomeDashboard() {
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [transactionData, setTransactionData] = useState<any>(null);
     const transactionModalRef = React.useRef<any>(null);
-    const { isLoaded: tutorialLoaded, isCompleted: tutorialCompleted, shouldShowOnScreen, nextStep, prevStep, skipTutorial, startTutorial, activeStep, activeStepIndex, totalSteps } = useTutorial();
+    const { isLoaded: tutorialLoaded, isCompleted: tutorialCompleted, startTutorial } = useTutorial();
 
     useEffect(() => {
         if (isReady && user) {
@@ -636,19 +635,6 @@ export default function HomeDashboard() {
                 }}
             />
 
-            {/* Tutorial cards for home screen steps */}
-            {shouldShowOnScreen('home') && activeStep && (
-                <TutorialCard
-                    step={activeStepIndex + 1}
-                    totalSteps={totalSteps}
-                    title={activeStep.title}
-                    body={activeStep.body}
-                    anchorPosition={activeStep.anchorPosition}
-                    onNext={nextStep}
-                    onBack={prevStep}
-                    onSkip={skipTutorial}
-                />
-            )}
         </SafeAreaView>
     );
 }

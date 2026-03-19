@@ -2,9 +2,11 @@ import { Drawer } from 'expo-router/drawer';
 import { useRouter } from 'expo-router';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useThemeColors } from '../../theme/colors';
-import { useAuth } from '../../hooks/useAuth';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { TutorialCard } from '../../components/TutorialCard';
+import { useTutorial } from '../../hooks/useTutorial';
+import { TUTORIAL_STEPS } from '../../constants/tutorialSteps';
 import {
     BarChart3 as ChartBar,
     ArrowLeftRight as ArrowsLeftRight,
@@ -127,11 +129,59 @@ function CustomDrawerContent(props: any) {
     );
 }
 
+// Maps tutorial screenId → the route to navigate to when that step becomes active
+const SCREEN_ROUTES: Record<string, string> = {
+    home: '/(tabs)',
+    invoices: '/(tabs)/invoices',
+    links: '/(tabs)/links',
+    wallet: '/(tabs)/wallet',
+    insights: '/insights',
+    transactions: '/transactions',
+    withdrawals: '/offramp-history',
+    calendar: '/calendar',
+    projects: '/projects',
+    clients: '/clients',
+    settings: '/settings',
+};
+
+function GlobalTutorial() {
+    const router = useRouter();
+    const { isVisible, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
+    const prevIndexRef = useRef(activeStepIndex);
+
+    // Auto-navigate when the step's screenId changes
+    useEffect(() => {
+        if (!isVisible || !activeStep) return;
+        const prevStep_ = TUTORIAL_STEPS[prevIndexRef.current];
+        if (prevStep_?.screenId !== activeStep.screenId) {
+            const route = SCREEN_ROUTES[activeStep.screenId];
+            if (route) router.push(route as any);
+        }
+        prevIndexRef.current = activeStepIndex;
+    }, [activeStepIndex, isVisible, activeStep]);
+
+    if (!isVisible || !activeStep) return null;
+
+    return (
+        <TutorialCard
+            step={activeStepIndex + 1}
+            totalSteps={totalSteps}
+            title={activeStep.title}
+            body={activeStep.body}
+            anchorPosition={activeStep.anchorPosition}
+            onNext={nextStep}
+            onBack={prevStep}
+            onSkip={skipTutorial}
+        />
+    );
+}
+
 export default function DrawerLayout() {
     const themeColors = useThemeColors();
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
+            <GlobalTutorial />
             <Drawer
                 drawerContent={(props) => <CustomDrawerContent {...props} />}
                 screenOptions={{

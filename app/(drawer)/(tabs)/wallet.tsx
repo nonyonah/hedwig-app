@@ -30,8 +30,6 @@ import { DrawerActions } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import { getUserGradient } from '../../../utils/gradientUtils';
-import { TutorialCard } from '../../../components/TutorialCard';
-import { useTutorial } from '../../../hooks/useTutorial';
 import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
 import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, updateUsdSettlement, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 
@@ -85,7 +83,6 @@ export default function WalletScreen() {
         getTotalUsd: getBaseTotalUsd,
         fetchBalances: fetchBaseBalances
     } = useWallet();
-    const { shouldShowOnScreen, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
 
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
@@ -860,18 +857,6 @@ export default function WalletScreen() {
                 </BottomSheetModal>
             </SafeAreaView>
 
-            {/* Tutorial card for wallet step */}
-            {shouldShowOnScreen('wallet') && activeStep && (
-                <TutorialCard
-                    step={activeStepIndex + 1}
-                    totalSteps={totalSteps}
-                    title={activeStep.title}
-                    body={activeStep.body}
-                    anchorPosition={activeStep.anchorPosition}
-                    onNext={nextStep}
-                    onBack={prevStep}
-                    onSkip={skipTutorial}
-                />)}
         </>
     );
 }

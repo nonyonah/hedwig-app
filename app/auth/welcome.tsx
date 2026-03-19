@@ -1,10 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import { useAuth } from '../../hooks/useAuth';
+import { Link as LinkIcon, FileText, Users, FolderOpen, Wallet, BarChart3 } from '../../components/ui/AppIcon';
 
 export default function WelcomeScreen() {
     const router = useRouter();
@@ -12,28 +14,60 @@ export default function WelcomeScreen() {
     const themeColors = useThemeColors();
     const scrollViewRef = useRef<ScrollView>(null);
     const positionRef = useRef(0);
+    const { user, isReady } = useAuth();
 
     // Track page view
     useAnalyticsScreen('Welcome');
 
+    // Redirect already-authenticated users so back navigation doesn't strand them here
+    useEffect(() => {
+        if (isReady && user) {
+            router.replace('/');
+        }
+    }, [isReady, user]);
+
     const features = [
         {
-            text: <>Create <Text style={styles.highlight}>payment links</Text> and <Text style={styles.highlight}>invoices</Text> in seconds with AI-powered assistance.</>,
+            icon: LinkIcon,
+            iconColor: '#2563eb',
+            iconBg: '#eff6ff',
+            title: 'Invoices & payment links',
+            text: 'Create professional invoices and shareable payment links in seconds — AI fills in the details for you.',
         },
         {
-            text: <>Manage <Text style={styles.highlight}>clients</Text>, <Text style={styles.highlight}>projects</Text>, and track your <Text style={styles.highlight}>milestones</Text> effortlessly.</>,
+            icon: Users,
+            iconColor: '#7c3aed',
+            iconBg: '#f5f3ff',
+            title: 'Client management',
+            text: 'Keep all your client info, history, and earnings in one place. Never lose track of who owes you.',
         },
         {
-            text: <>Get paid in <Text style={styles.highlight}>crypto</Text> and <Text style={styles.highlight}>withdraw</Text> to your local bank account.</>,
+            icon: FolderOpen,
+            iconColor: '#d97706',
+            iconBg: '#fffbeb',
+            title: 'Projects & milestones',
+            text: 'Organize work into projects, break it into milestones, and convert completed work into invoices instantly.',
         },
         {
-            text: <>Chat with <Text style={styles.highlight}>Hedwig AI</Text> to generate contracts, proposals, and business documents.</>,
+            icon: Wallet,
+            iconColor: '#059669',
+            iconBg: '#ecfdf5',
+            title: 'Crypto wallet & offramp',
+            text: 'Get paid in USDC or USDT on any chain. Withdraw to your local bank account without leaving the app.',
         },
         {
-            text: <>Track your <Text style={styles.highlight}>earnings</Text> and get <Text style={styles.highlight}>insights</Text> on your freelance business.</>,
+            icon: FileText,
+            iconColor: '#0891b2',
+            iconBg: '#ecfeff',
+            title: 'Contracts & proposals',
+            text: 'Generate contracts and proposals with Hedwig AI. Send for signature and track when clients view them.',
         },
         {
-            text: <>Set <Text style={styles.highlight}>monthly goals</Text> and monitor your <Text style={styles.highlight}>progress</Text> with smart analytics.</>,
+            icon: BarChart3,
+            iconColor: '#db2777',
+            iconBg: '#fdf2f8',
+            title: 'Insights & goals',
+            text: 'See your earnings trends, invoice performance, and set monthly targets to grow your freelance business.',
         },
     ];
 
@@ -74,21 +108,20 @@ export default function WelcomeScreen() {
                 showsVerticalScrollIndicator={false}
                 scrollEnabled={false}
             >
-                {features.map((feature, index) => (
-                    <View key={index} style={[styles.featureCard, { backgroundColor: themeColors.surface, borderLeftColor: Colors.primary }]}>
-                        <Text style={[styles.featureText, { color: themeColors.textPrimary }]}>
-                            {feature.text}
-                        </Text>
-                    </View>
-                ))}
-                {/* Duplicate first few items for seamless loop */}
-                {features.slice(0, 3).map((feature, index) => (
-                    <View key={`dup-${index}`} style={[styles.featureCard, { backgroundColor: themeColors.surface, borderLeftColor: Colors.primary }]}>
-                        <Text style={[styles.featureText, { color: themeColors.textPrimary }]}>
-                            {feature.text}
-                        </Text>
-                    </View>
-                ))}
+                {[...features, ...features.slice(0, 3)].map((feature, index) => {
+                    const Icon = feature.icon;
+                    return (
+                        <View key={index} style={[styles.featureCard, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
+                            <View style={[styles.iconWrap, { backgroundColor: feature.iconBg }]}>
+                                <Icon size={18} color={feature.iconColor} />
+                            </View>
+                            <View style={styles.cardBody}>
+                                <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>{feature.title}</Text>
+                                <Text style={[styles.featureText, { color: themeColors.textSecondary }]}>{feature.text}</Text>
+                            </View>
+                        </View>
+                    );
+                })}
             </ScrollView>
 
             {/* Bottom Button */}
@@ -122,34 +155,55 @@ const styles = StyleSheet.create({
     },
     title: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 32,
+        fontSize: 34,
+        letterSpacing: -0.5,
         color: Colors.textPrimary,
-        marginBottom: 16,
+        marginBottom: 10,
     },
     subtitle: {
         fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 17,
+        fontSize: 16,
         color: Colors.textSecondary,
-        lineHeight: 26,
+        lineHeight: 24,
     },
     featureCard: {
-        backgroundColor: '#FAFAFA',
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 16,
-        borderLeftWidth: 3,
-        borderLeftColor: Colors.primary,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 14,
+        borderRadius: 20,
+        padding: 18,
+        marginBottom: 12,
+        borderWidth: 1,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.06,
+                shadowRadius: 4,
+            },
+            android: { elevation: 1 },
+        }),
+    },
+    iconWrap: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexShrink: 0,
+    },
+    cardBody: {
+        flex: 1,
+    },
+    cardTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 15,
+        marginBottom: 4,
     },
     featureText: {
         fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 17,
-        color: Colors.textPrimary,
-        lineHeight: 26,
-    },
-    highlight: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        textDecorationLine: 'underline',
-        textDecorationColor: Colors.primary,
+        fontSize: 14,
+        lineHeight: 21,
     },
     buttonContainer: {
         paddingHorizontal: 24,
