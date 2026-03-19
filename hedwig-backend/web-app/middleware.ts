@@ -6,6 +6,7 @@ const PUBLIC_PATHS = [
   '/sign-in',
   '/sign-out',
   '/api/auth/session',
+  '/api/auth/sign-out',
   '/invoice',
   '/invoices',
   '/pay',

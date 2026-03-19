@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
 const ITEMS = [
@@ -38,6 +38,14 @@ const ITEMS = [
 
 export function FeaturesShowcase() {
   const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setActive((current) => (current + 1) % ITEMS.length);
+    }, 3800);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   return (
     <section className="border-t border-[#f1f2f4] bg-white px-8 py-24">

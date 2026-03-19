@@ -272,14 +272,14 @@ function LandingPage() {
                 </div>
 
                 {/* Phone screenshot */}
-                <div className="relative flex items-center justify-center bg-[linear-gradient(145deg,#eff6ff,#f8fbff)] px-8 py-10">
+                <div className="relative flex items-center justify-center bg-[linear-gradient(145deg,#eff6ff,#f8fbff)] px-4 py-6 md:px-6 md:py-4">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_30%,rgba(37,99,235,0.12),transparent_65%)]" />
                   <Image
-                    src="/mobile-preview.png"
+                    src="/mobile-preview-20260319c.png"
                     alt="Hedwig mobile app"
-                    width={320}
-                    height={660}
-                    className="relative drop-shadow-2xl"
+                    width={460}
+                    height={948}
+                    className="relative w-full max-w-[460px] drop-shadow-2xl"
                   />
                 </div>
               </div>
@@ -338,16 +338,18 @@ function LandingPage() {
 function AppStoreButton() {
   return (
     <a
-      href="#"
+      href="https://testflight.apple.com/join/aKXnyjP4"
+      target="_blank"
+      rel="noreferrer"
       className="flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl border border-[#181d27] bg-[#181d27] px-5 transition-all duration-200 hover:bg-[#0e1521] sm:w-auto"
-      aria-label="Download on the App Store"
+      aria-label="Join our TestFlight"
     >
       <svg viewBox="0 0 24 24" className="h-5 w-5 fill-white" xmlns="http://www.w3.org/2000/svg">
         <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98l-.09.06c-.22.14-2.22 1.31-2.2 3.91.03 3.02 2.65 4.03 2.68 4.04l-.03.17zM13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
       </svg>
       <div className="text-left">
-        <p className="text-[10px] font-medium leading-none text-white/70">Download on the</p>
-        <p className="text-[13px] font-semibold leading-tight text-white">App Store</p>
+        <p className="text-[10px] font-medium leading-none text-white/70">Join our</p>
+        <p className="text-[13px] font-semibold leading-tight text-white">TestFlight</p>
       </div>
     </a>
   );
@@ -356,16 +358,13 @@ function AppStoreButton() {
 function GooglePlayButton() {
   return (
     <a
-      href="#"
+      href="https://play.google.com/store/apps/details?id=com.hedwig.app"
+      target="_blank"
+      rel="noreferrer"
       className="flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl border border-[#181d27] bg-[#181d27] px-5 transition-all duration-200 hover:bg-[#0e1521] sm:w-auto"
       aria-label="Get it on Google Play"
     >
-      <svg viewBox="0 0 24 24" className="h-5 w-5" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#EA4335" d="M12.954 11.558L3.283 1.887a2.033 2.033 0 01.538-.088c.676 0 1.285.258 1.743.683l9.39 5.42-2 3.656z" />
-        <path fill="#FBBC04" d="M21.8 10.404l-2.684 1.55-2.468-2.468 2.468-2.468 2.7 1.559a1.987 1.987 0 010 3.427z" />
-        <path fill="#34A853" d="M3.283 22.113a2.033 2.033 0 01-.538-.338L12.954 12.44l2.001 2.001-9.405 7.438a2.033 2.033 0 01-.267.234z" />
-        <path fill="#4285F4" d="M16.614 11.998l-3.66 3.66-9.389 5.42a2.045 2.045 0 01-1.744.683l9.671-9.671 4.122.908z" />
-      </svg>
+      <Image src="/google-play-icon.svg" alt="" width={20} height={20} className="h-5 w-5" />
       <div className="text-left">
         <p className="text-[10px] font-medium leading-none text-white/70">Get it on</p>
         <p className="text-[13px] font-semibold leading-tight text-white">Google Play</p>

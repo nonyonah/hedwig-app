@@ -6,7 +6,7 @@ import { CurrencyProvider } from '@/components/providers/currency-provider';
 import { ToastProvider } from '@/components/providers/toast-provider';
 
 export const metadata: Metadata = {
-  title: 'Hedwig Web',
+  title: 'Hedwig',
   description: 'Freelancer operating system for work, payments, deadlines, wallet activity, and AI-assisted billing.',
   icons: {
     icon: '/hedwig-icon.png',
