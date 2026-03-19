@@ -105,6 +105,7 @@ export default function CreateProjectScreen() {
                     description: `Contract for project: ${title}`,
                     amount: milestones.reduce((sum, m) => sum + (parseFloat(m.amount) || 0), 0),
                     clientName,
+                    clientId,
                     recipientEmail: clientEmail, // Auto-send enabled by backend logic
                     projectId,
                     items: milestones.map(m => ({ description: m.title, amount: parseFloat(m.amount) || 0 }))
@@ -132,6 +133,7 @@ export default function CreateProjectScreen() {
                         description: `Milestone for ${title}`,
                         amount: parseFloat(mAmount),
                         clientName,
+                        clientId,
                         recipientEmail: clientEmail, // Auto-send enabled
                         projectId,
                         items: [{ description: mTitle, amount: parseFloat(mAmount), milestone_id: mId }] // Pass milestone_id link if available

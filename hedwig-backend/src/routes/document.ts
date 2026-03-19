@@ -57,7 +57,7 @@ const attachUsdAccountDetails = async (doc: any) => {
  */
 router.post('/invoice', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, description, title: providedTitle, recipientEmail, items, dueDate, clientName, remindersEnabled, projectId, chain } = req.body;
+        const { amount, description, title: providedTitle, recipientEmail, items, dueDate, clientName, clientId: clientIdParam, remindersEnabled, projectId, chain } = req.body;
         const privyId = req.user!.id;
 
         // Validate required fields
@@ -78,9 +78,16 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
         }
 
         // Unique Client Check & Creation via centralized service
-        let clientId = null;
+        let clientId: string | null = clientIdParam || null;
         let resolvedEmail = recipientEmail || null;
-        if (recipientEmail || clientName) {
+        if (clientId) {
+            // Client already known — just fetch email if not provided
+            if (!resolvedEmail) {
+                const { data: existingClient } = await supabase
+                    .from('clients').select('email').eq('id', clientId).single();
+                if (existingClient?.email) resolvedEmail = existingClient.email;
+            }
+        } else if (recipientEmail || clientName) {
             const { ClientService } = await import('../services/clientService');
             const { id, client } = await ClientService.getOrCreateClient(
                 user.id,
@@ -191,7 +198,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
  */
 router.post('/payment-link', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, currency, description, title: providedTitle, remindersEnabled, recipientEmail, clientName, dueDate, chain } = req.body;
+        const { amount, currency, description, title: providedTitle, remindersEnabled, recipientEmail, clientName, clientId: clientIdParam, dueDate, chain } = req.body;
         const privyId = req.user!.id;
 
         if (!dueDate) {
@@ -210,9 +217,15 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
             return;
         }
 
-        let clientId = null;
+        let clientId: string | null = clientIdParam || null;
         let resolvedEmail = recipientEmail || null;
-        if (recipientEmail || clientName) {
+        if (clientId) {
+            if (!resolvedEmail) {
+                const { data: existingClient } = await supabase
+                    .from('clients').select('email').eq('id', clientId).single();
+                if (existingClient?.email) resolvedEmail = existingClient.email;
+            }
+        } else if (recipientEmail || clientName) {
             const { ClientService } = await import('../services/clientService');
             const { id, client } = await ClientService.getOrCreateClient(
                 user.id,
@@ -340,7 +353,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             // Ideally we'd refactor to controllers.
             
             // Re-using logic from /invoice route
-            const { amount, description, recipientEmail, items, dueDate, clientName, remindersEnabled, title, projectId } = req.body;
+            const { amount, description, recipientEmail, items, dueDate, clientName, clientId: clientIdParam, remindersEnabled, title, projectId } = req.body;
             const privyId = req.user!.id;
             
             // Validate required fields
@@ -355,9 +368,15 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
-            let clientId = null;
+            let clientId: string | null = clientIdParam || null;
             let resolvedEmailInv = recipientEmail || null;
-            if (recipientEmail || clientName) {
+            if (clientId) {
+                if (!resolvedEmailInv) {
+                    const { data: existingClient } = await supabase
+                        .from('clients').select('email').eq('id', clientId).single();
+                    if (existingClient?.email) resolvedEmailInv = existingClient.email;
+                }
+            } else if (recipientEmail || clientName) {
                 const { ClientService } = await import('../services/clientService');
                 const { id, client } = await ClientService.getOrCreateClient(
                     user.id,
@@ -441,7 +460,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 
         } else if (docType === 'PAYMENT_LINK' || docType === 'PAYMENT-LINK') {
             // Re-using logic from /payment-link route
-            const { amount, currency, description, remindersEnabled, recipientEmail, clientName, dueDate, title } = req.body;
+            const { amount, currency, description, remindersEnabled, recipientEmail, clientName, clientId: clientIdParam, dueDate, title } = req.body;
             const privyId = req.user!.id;
 
             if (!dueDate) {
@@ -455,9 +474,15 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
-            let clientId = null;
+            let clientId: string | null = clientIdParam || null;
             let resolvedEmailPl = recipientEmail || null;
-            if (recipientEmail || clientName) {
+            if (clientId) {
+                if (!resolvedEmailPl) {
+                    const { data: existingClient } = await supabase
+                        .from('clients').select('email').eq('id', clientId).single();
+                    if (existingClient?.email) resolvedEmailPl = existingClient.email;
+                }
+            } else if (recipientEmail || clientName) {
                 const { ClientService } = await import('../services/clientService');
                 const { id, client } = await ClientService.getOrCreateClient(
                     user.id,
@@ -538,7 +563,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 
         } else if (docType === 'CONTRACT') {
             // Enhanced contract creation with AI-generated content
-            const { title, description, clientName, recipientEmail, content, amount, projectId, items } = req.body;
+            const { title, description, clientName, clientId: clientIdParam, recipientEmail, content, amount, projectId, items } = req.body;
             const privyId = req.user!.id;
 
             const user = await getOrCreateUser(privyId);
@@ -547,8 +572,15 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 return;
             }
 
-            let clientId = null;
-            if (recipientEmail || clientName) {
+            let clientId: string | null = clientIdParam || null;
+            let resolvedContractEmail = recipientEmail || null;
+            if (clientId) {
+                if (!resolvedContractEmail) {
+                    const { data: existingClient } = await supabase
+                        .from('clients').select('email').eq('id', clientId).single();
+                    if (existingClient?.email) resolvedContractEmail = existingClient.email;
+                }
+            } else if (recipientEmail || clientName) {
                 const { ClientService } = await import('../services/clientService');
                 const { id } = await ClientService.getOrCreateClient(
                     user.id,
@@ -586,13 +618,22 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     // 2. Fetch Client Details
                     // We already have clientName, but let's see if we have more info in DB if client exists
                     let clientCompany = '';
-                    let clientEmail = recipientEmail || '';
-                    
+                    let clientEmail = resolvedContractEmail || recipientEmail || '';
+
                     try {
-                        const { client } = await ClientService.getOrCreateClient(user.id, clientName, recipientEmail);
-                        if (client) {
-                            clientCompany = client.company || '';
-                            if (!clientEmail && client.email) clientEmail = client.email;
+                        if (clientId) {
+                            const { data: existingClient } = await supabase
+                                .from('clients').select('email, company').eq('id', clientId).single();
+                            if (existingClient) {
+                                clientCompany = existingClient.company || '';
+                                if (!clientEmail && existingClient.email) clientEmail = existingClient.email;
+                            }
+                        } else {
+                            const { client } = await ClientService.getOrCreateClient(user.id, clientName, recipientEmail);
+                            if (client) {
+                                clientCompany = client.company || '';
+                                if (!clientEmail && client.email) clientEmail = client.email;
+                            }
                         }
                     } catch (e) {
                         logger.warn('Could not fetch full client details for contract', { error: e });

@@ -283,11 +283,21 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
 
         if (!userData) throw new Error('User not found');
 
+        // Link to existing client or create new one
+        let clientId: string | null = null;
+        const recipientEmail = params.recipient_email || params.client_email || null;
+        if (clientName || recipientEmail) {
+            const { ClientService } = await import('./clientService');
+            const { id } = await ClientService.getOrCreateClient(userData.id, clientName, recipientEmail, { createdFrom: 'payment_link_creation' });
+            clientId = id;
+        }
+
         // Create payment link record
         const { data: doc, error } = await supabase
             .from('documents')
             .insert({
                 user_id: userData.id,
+                client_id: clientId,
                 type: 'PAYMENT_LINK',
                 title: title,
                 description: description,
@@ -298,7 +308,7 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
                 payment_link_url: `${WEB_CLIENT_URL}/pay/${Date.now()}`, // Placeholder — updated after insert
                 content: {
                     client_name: clientName || null,
-                    recipient_email: params.recipient_email || params.client_email || null,
+                    recipient_email: recipientEmail,
                     due_date: dueDate,
                 }
             })
@@ -317,7 +327,6 @@ async function handleCreatePaymentLink(params: ActionParams, user: any): Promise
 
         // Send email if recipient provided
         let emailSent = false;
-        const recipientEmail = params.recipient_email || params.client_email;
         if (recipientEmail) {
             const senderName = userData.first_name ? `${userData.first_name} ${userData.last_name || ''}`.trim() : 'A Hedwig User';
             emailSent = await EmailService.sendPaymentLinkEmail({
@@ -403,11 +412,20 @@ async function handleCreateInvoice(params: ActionParams, user: any): Promise<Act
 
         if (!userData) throw new Error('User not found');
 
+        // Link to existing client or create new one
+        let clientId: string | null = null;
+        if (clientName || clientEmail) {
+            const { ClientService } = await import('./clientService');
+            const { id } = await ClientService.getOrCreateClient(userData.id, clientName, clientEmail || undefined, { createdFrom: 'invoice_creation' });
+            clientId = id;
+        }
+
         // Create invoice record
         const { data: doc, error } = await supabase
             .from('documents')
             .insert({
                 user_id: userData.id,
+                client_id: clientId,
                 type: 'INVOICE',
                 title: `Invoice for ${clientName}`,
                 amount: totalAmount,
