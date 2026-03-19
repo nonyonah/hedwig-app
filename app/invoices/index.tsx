@@ -36,6 +36,7 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import Analytics from '../../services/analytics';
 import { TutorialCard } from '../../components/TutorialCard';
 import { useTutorial } from '../../hooks/useTutorial';
+import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
 
 // Icons for tokens and chains
 const ICONS = {
@@ -441,10 +442,12 @@ export default function InvoicesScreen() {
     };
 
     const getInvoiceUrl = (invoice: any) => {
-        const webUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'https://hedwig.money';
-        return invoice?.payment_link_url ||
+        const webUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL);
+        return normalizePublicWebUrl(
+            invoice?.payment_link_url ||
             invoice?.content?.blockradar_url ||
-            `${webUrl}/invoice/${invoice?.id}`;
+            `${webUrl}/invoice/${invoice?.id}`
+        );
     };
 
     const handleShareInvoice = async () => {

@@ -21,6 +21,7 @@ import Analytics from '../../services/analytics';
 import { useKYC } from '../../hooks/useKYC';
 import KYCVerificationModal from '../../components/KYCVerificationModal';
 import { useTutorial } from '../../hooks/useTutorial';
+import { getPublicWebBaseUrl } from '../../utils/publicWebUrl';
 
 
 
@@ -616,7 +617,7 @@ export default function SettingsScreen() {
                                     // Build URL first - fallback to API host in production if web client URL isn't set
                                     const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
                                     const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
-                                    const webClientUrl = (process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl).replace(/\/$/, '');
+                                    const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
                                     const exportUrl = `${webClientUrl}/export-wallet`;
 
                                     // Close modal AFTER a small delay to let browser open

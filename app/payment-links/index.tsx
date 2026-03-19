@@ -35,6 +35,7 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import { TutorialCard } from '../../components/TutorialCard';
 import { useTutorial } from '../../hooks/useTutorial';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
+import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
 
 // Icons for tokens, networks, and status
 const ICONS = {
@@ -437,10 +438,12 @@ export default function PaymentLinksScreen() {
     };
 
     const getPaymentLinkUrl = (link: any) => {
-        const webUrl = process.env.EXPO_PUBLIC_WEB_CLIENT_URL || 'https://hedwig.money';
-        return link?.payment_link_url ||
+        const webUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL);
+        return normalizePublicWebUrl(
+            link?.payment_link_url ||
             link?.content?.blockradar_url ||
-            `${webUrl}/pay/${link?.id}`;
+            `${webUrl}/pay/${link?.id}`
+        );
     };
 
     const handleShareLink = async () => {
