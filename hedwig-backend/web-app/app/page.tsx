@@ -279,6 +279,8 @@ function LandingPage() {
                     alt="Hedwig mobile app"
                     width={460}
                     height={948}
+                    priority
+                    sizes="(max-width: 768px) 90vw, 460px"
                     className="relative w-full max-w-[460px] drop-shadow-2xl"
                   />
                 </div>
