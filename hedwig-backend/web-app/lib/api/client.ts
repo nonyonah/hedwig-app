@@ -1429,7 +1429,7 @@ export const hedwigApi = {
 
   async insights(range: string = '30d', options?: ApiOptions) {
     const safeRange = ['7d', '30d', '90d', '1y'].includes(range) ? range : '30d';
-    return request<{
+    type InsightsResult = {
       range: string;
       lastUpdatedAt: string;
       summary: {
@@ -1460,10 +1460,50 @@ export const hedwigApi = {
         actionRoute?: string;
         trend: 'up' | 'down' | 'neutral';
       }>;
-    }>(`/api/insights/summary?range=${safeRange}`, options);
+    };
+    return withFallback(
+      () => request<InsightsResult>(`/api/insights/summary?range=${safeRange}`, options),
+      (): InsightsResult => ({
+        range: safeRange,
+        lastUpdatedAt: new Date().toISOString(),
+        summary: {
+          monthlyEarnings: 12480,
+          previousPeriodEarnings: 10200,
+          earningsDeltaPct: 22.4,
+          pendingInvoicesCount: 2,
+          pendingInvoicesTotal: 3200,
+          paymentRate: 94,
+          paidDocuments: 17,
+          totalDocuments: 18,
+          clientsCount: mockClients.length,
+          activeProjects: mockProjects.filter((p) => p.status === 'active').length,
+          paymentLinksCount: mockPaymentLinks.length,
+          topClient: { name: 'Aisha Bello', totalEarnings: 18450 },
+          transactionsCount: mockWalletTransactions.length,
+          receivedAmount: 8240,
+          withdrawalsPending: 0,
+          withdrawalsCompletedAmount: 3200,
+        },
+        series: {
+          earnings: [
+            { key: 'Week 1', value: 2800 },
+            { key: 'Week 2', value: 3100 },
+            { key: 'Week 3', value: 3400 },
+            { key: 'Week 4', value: 3180 },
+          ],
+        },
+        insights: [
+          { id: 'i1', title: 'Payment rate is strong', description: '94% of invoices paid on time this period. Keep the momentum.', priority: 1, trend: 'up' },
+          { id: 'i2', title: 'Two invoices pending', description: '$3,200 is outstanding. Consider sending a reminder.', priority: 2, actionLabel: 'View payments', actionRoute: '/payments', trend: 'neutral' },
+          { id: 'i3', title: 'Earnings up 22% vs last period', description: 'Your strongest month yet. Top client: Aisha Bello.', priority: 3, trend: 'up' },
+        ],
+      }),
+      options
+    );
   },
 
   async userProfile(options?: ApiOptions): Promise<{ monthlyTarget?: number }> {
+    if (shouldUseMockFallback(options)) return { monthlyTarget: undefined };
     try {
       const data = await request<{ user?: any }>('/api/auth/me', options);
       const user = data.user || data;
@@ -1474,6 +1514,7 @@ export const hedwigApi = {
   },
 
   async getUserProfile(options?: ApiOptions): Promise<User> {
+    if (shouldUseMockFallback(options)) return currentUser;
     const data = await request<{ user?: any }>('/api/users/profile', options);
     return mapBackendUser(data.user || data);
   },
@@ -1494,6 +1535,7 @@ export const hedwigApi = {
   },
 
   async getKycStatus(options?: ApiOptions): Promise<KycStatusSummary> {
+    if (shouldUseMockFallback(options)) return { status: 'not_started', isApproved: false, sessionId: null, reviewedAt: null };
     return request<KycStatusSummary>('/api/kyc/status', options);
   },
 
