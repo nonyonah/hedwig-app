@@ -34,12 +34,20 @@ function LandingPage() {
           <Link href="/">
             <Image src="/hedwig-logo.png" alt="Hedwig" width={38} height={38} priority />
           </Link>
-          <Link
-            href="/sign-in"
-            className="inline-flex h-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white px-5 text-[13px] font-semibold text-[#344054] transition-all duration-200 hover:bg-[#f9fafb] hover:border-[#c0c3c9]"
-          >
-            Sign in
-          </Link>
+          <div className="flex items-center gap-2">
+            <a
+              href="/api/auth/demo"
+              className="inline-flex h-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white px-5 text-[13px] font-semibold text-[#344054] transition-all duration-200 hover:bg-[#f9fafb] hover:border-[#c0c3c9]"
+            >
+              Try demo
+            </a>
+            <Link
+              href="/sign-in"
+              className="inline-flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white transition-all duration-200 hover:bg-[#1d4ed8]"
+            >
+              Sign in
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -82,6 +90,12 @@ function LandingPage() {
                 Start using Hedwig
                 <ArrowRight className="h-4 w-4" weight="bold" />
               </Link>
+              <a
+                href="/api/auth/demo"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-8 text-[14px] font-semibold text-[#344054] transition-all duration-200 hover:bg-[#f9fafb] hover:border-[#c0c3c9]"
+              >
+                Try demo
+              </a>
             </div>
           </div>
 

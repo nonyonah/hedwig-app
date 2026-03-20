@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
   '/sign-out',
   '/api/auth/session',
   '/api/auth/sign-out',
+  '/api/auth/demo',
   '/invoice',
   '/invoices',
   '/pay',
@@ -53,6 +54,15 @@ async function isValidAccessToken(token: string) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('hedwig_access_token')?.value;
+  const isDemo = request.cookies.get('hedwig_demo')?.value === 'true';
+
+  // Demo sessions bypass backend token validation entirely
+  if (isDemo && token === 'demo') {
+    if (pathname === '/sign-in') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    return NextResponse.next();
+  }
 
   const isPublic = isPublicPath(pathname);
 
