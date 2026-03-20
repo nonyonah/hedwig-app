@@ -8,12 +8,6 @@
     "userInterfaceStyle": "automatic",
     "scheme": "hedwig",
     "newArchEnabled": true,
-    "splash": {
-      "backgroundColor": "#2563EB",
-      "dark": {
-        "backgroundColor": "#2563EB"
-      }
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hedwig.app",
@@ -31,9 +25,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
-      },
-      "splash": {
-        "backgroundColor": "#2563EB"
       },
       "package": "com.hedwig.app",
       "edgeToEdgeEnabled": true,
@@ -57,7 +48,6 @@
       "bundleIdentifier": "com.hedwig.app"
     },
     "plugins": [
-      "expo-splash-screen",
       [
         "onesignal-expo-plugin",
         {
