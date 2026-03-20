@@ -71,7 +71,7 @@ export const WEB_TUTORIAL_STEPS: WebTutorialStep[] = [
   {
     id: 'accounts_intro',
     screenId: 'accounts',
-    route: '/accounts',
+    route: '/wallet',
     title: 'USD account for bank transfers',
     body: 'Set up a virtual USD account to receive ACH and wire payments. Funds settle automatically to your wallet.',
     position: 'center',

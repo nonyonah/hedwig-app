@@ -1268,9 +1268,9 @@ export const hedwigApi = {
         };
       },
       () => ({
-        walletAccounts: [],
-        walletAssets: [],
-        walletTransactions: []
+        walletAccounts: mockWalletAccounts,
+        walletAssets: mockWalletAssets,
+        walletTransactions: mockWalletTransactions
       }),
       options
     );
