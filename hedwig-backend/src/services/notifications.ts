@@ -93,8 +93,10 @@ class NotificationService {
                 ONESIGNAL_NOTIFICATIONS_URL,
                 {
                     app_id: appId,
-                    include_external_user_ids: externalUserIds,
-                    channel_for_external_user_ids: 'push',
+                    include_aliases: {
+                        external_id: externalUserIds,
+                    },
+                    target_channel: 'push',
                     headings: { en: payload.title },
                     contents: { en: payload.body },
                     data: payload.data || {},
@@ -105,9 +107,25 @@ class NotificationService {
             );
 
             const notificationId = response.data?.id;
+            const recipients = Number(response.data?.recipients || 0);
+
+            if (!notificationId || recipients < 1) {
+                logger.warn('OneSignal notification accepted but no subscribed recipients were found', {
+                    externalUserIds,
+                    response: response.data,
+                });
+
+                return [{
+                    status: 'error',
+                    message: 'No subscribed OneSignal recipients found',
+                    details: response.data,
+                }];
+            }
+
             return [{
                 status: 'ok',
                 id: notificationId,
+                details: { recipients },
             }];
         } catch (error: any) {
             logger.error('Error sending OneSignal notification', {

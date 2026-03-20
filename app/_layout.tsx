@@ -25,18 +25,10 @@ import * as Sentry from '@sentry/react-native';
 import { isRunningInExpoGo } from 'expo';
 import { initializeAnalytics, trackScreen } from '../services/analytics';
 import Analytics from '../services/analytics';
-import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../hooks/useAuth';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { getApiBaseUrl, rewriteApiUrlForRuntime } from '../utils/apiBaseUrl';
-
-// Prevent the splash screen from auto-hiding before asset loading is complete
-SplashScreen.preventAutoHideAsync();
-SplashScreen.setOptions({
-    fade: true,
-    duration: 250,
-});
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
@@ -220,11 +212,8 @@ function PushNotificationBootstrap() {
                     } else if (initializedOneSignalRef.current) {
                         OneSignal.logout();
                     }
-                    // OneSignal handles delivery — no need for Expo token path.
-                    return;
                 } catch (error) {
-                    console.error('[Push] OneSignal initialization failed, falling back to Expo push tokens:', error);
-                    // Falls through to Expo token registration below.
+                    console.error('[Push] OneSignal initialization failed, continuing with Expo push fallback:', error);
                 }
             }
 
@@ -422,27 +411,17 @@ function RootLayout() {
         };
     }, []);
 
-    // Hide splash screen once fonts are ready; API warmup continues in the app gate.
-    const onLayoutRootView = useCallback(async () => {
-        if (fontsLoaded) {
-            await SplashScreen.hideAsync();
-        }
-    }, [fontsLoaded]);
-
-    // Keep native splash for initial boot until fonts are available.
-    if (!fontsLoaded) {
-        return null;
-    }
+    const appReady = fontsLoaded && isApiWarmed;
 
     const isWeb = Platform.OS === 'web';
 
     return (
         <SettingsProvider>
             <TutorialProvider>
-                <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+                <GestureHandlerRootView style={{ flex: 1 }}>
                     <ThemeAwareStatusBar />
                     <BottomSheetModalProvider>
-                        <StartupGate isApiWarmed={isApiWarmed}>
+                        <StartupGate isApiWarmed={appReady}>
                             {isWeb ? <WebLayout /> : <NativeLayout />}
                         </StartupGate>
                     </BottomSheetModalProvider>
