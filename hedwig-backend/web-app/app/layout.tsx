@@ -4,6 +4,7 @@ import { HedwigPrivyProvider } from '@/components/providers/privy-provider';
 import { AuthGate } from '@/components/providers/auth-gate';
 import { CurrencyProvider } from '@/components/providers/currency-provider';
 import { ToastProvider } from '@/components/providers/toast-provider';
+import { HedwigPostHogProvider } from '@/components/providers/posthog-provider';
 
 export const metadata: Metadata = {
   title: 'Hedwig',
@@ -20,11 +21,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <HedwigPrivyProvider>
-          <CurrencyProvider>
-            <ToastProvider>
-              <AuthGate>{children}</AuthGate>
-            </ToastProvider>
-          </CurrencyProvider>
+          <HedwigPostHogProvider>
+            <CurrencyProvider>
+              <ToastProvider>
+                <AuthGate>{children}</AuthGate>
+              </ToastProvider>
+            </CurrencyProvider>
+          </HedwigPostHogProvider>
         </HedwigPrivyProvider>
       </body>
     </html>
