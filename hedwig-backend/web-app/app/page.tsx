@@ -328,6 +328,8 @@ function LandingPage() {
           <div className="flex items-center gap-5">
             <Link href="/sign-in" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Sign in</Link>
             <a href="mailto:support@hedwigbot.xyz" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Support</a>
+            <a href="https://x.com/hedwigagent" target="_blank" rel="noreferrer" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">X</a>
+            <a href="https://t.me/hedwigofficial" target="_blank" rel="noreferrer" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Telegram</a>
           </div>
         </div>
       </footer>
