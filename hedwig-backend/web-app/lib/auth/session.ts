@@ -15,12 +15,13 @@ export interface HedwigSession {
 export const getCurrentSession = cache(async (): Promise<HedwigSession> => {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('hedwig_access_token')?.value ?? null;
+  const isDemo = cookieStore.get('hedwig_demo')?.value === 'true';
 
-  if (backendConfig.useMockAuth) {
+  if (isDemo || backendConfig.useMockAuth) {
     return {
       user: currentUser,
       workspaceId: currentUser.workspaceId,
-      accessToken,
+      accessToken: isDemo ? 'demo' : accessToken,
       isMockSession: true
     };
   }

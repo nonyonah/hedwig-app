@@ -527,10 +527,7 @@ const mapBackendOfframp = (order: any): OfframpTransaction => ({
   errorMessage: order.errorMessage || order.error_message || undefined
 });
 
-const shouldUseMockFallback = (options?: ApiOptions) => {
-  void options;
-  return false;
-};
+const shouldUseMockFallback = (options?: ApiOptions) => options?.accessToken === 'demo';
 
 const authHeaders = (accessToken: string) => ({
   Authorization: `Bearer ${accessToken}`,
@@ -541,6 +538,10 @@ const authHeaders = (accessToken: string) => ({
 async function request<T>(path: string, options?: ApiOptions, init?: RequestInit): Promise<T> {
   if (!options?.accessToken) {
     throw new Error(`Missing access token for ${path}`);
+  }
+
+  if (options.accessToken === 'demo') {
+    throw new Error('This action is not available in demo mode. Sign in to use it.');
   }
 
   const response = await fetch(`${backendConfig.apiBaseUrl}${path}`, {
@@ -581,9 +582,11 @@ async function request<T>(path: string, options?: ApiOptions, init?: RequestInit
 }
 
 async function withFallback<T>(loader: () => Promise<T>, fallback: () => T | Promise<T>, options?: ApiOptions): Promise<T> {
-  void fallback;
+  if (shouldUseMockFallback(options)) {
+    return fallback();
+  }
 
-  if (shouldUseMockFallback(options) || backendConfig.useMockData) {
+  if (backendConfig.useMockData) {
     throw new Error('Mock data mode is disabled. Connect the shared backend to load live Hedwig data.');
   }
 

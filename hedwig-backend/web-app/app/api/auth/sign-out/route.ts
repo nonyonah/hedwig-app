@@ -5,6 +5,7 @@ export async function POST() {
 
   response.cookies.set('hedwig_access_token', '', { expires: new Date(0), path: '/' });
   response.cookies.set('hedwig_user', '', { expires: new Date(0), path: '/' });
+  response.cookies.set('hedwig_demo', '', { expires: new Date(0), path: '/' });
 
   return response;
 }

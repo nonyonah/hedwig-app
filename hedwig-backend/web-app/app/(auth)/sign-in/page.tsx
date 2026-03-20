@@ -85,11 +85,20 @@ export default function SignInPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-7 bg-white">
       <Image src="/hedwig-logo.png" alt="Hedwig" width={44} height={44} priority />
-      <div
-        className="h-5 w-5 animate-spin rounded-full border-2 border-[#e9eaeb] border-t-[#2563eb]"
-        role="status"
-        aria-label="Loading"
-      />
+      {settling ? (
+        <div
+          className="h-5 w-5 animate-spin rounded-full border-2 border-[#e9eaeb] border-t-[#2563eb]"
+          role="status"
+          aria-label="Loading"
+        />
+      ) : (
+        <a
+          href="/api/auth/demo"
+          className="text-sm text-[#6b7280] underline-offset-4 hover:text-[#2563eb] hover:underline"
+        >
+          Try demo
+        </a>
+      )}
     </main>
   );
 }

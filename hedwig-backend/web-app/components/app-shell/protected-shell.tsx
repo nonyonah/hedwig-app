@@ -11,6 +11,7 @@ export async function ProtectedShell({ children }: { children: ReactNode }) {
   return (
     <ShellLayout
       unreadCount={shell.unreadCount}
+      isDemo={session.isMockSession}
       user={{
         avatarUrl: user.avatarUrl,
         email: user.email,

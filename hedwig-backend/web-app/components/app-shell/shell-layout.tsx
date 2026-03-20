@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { AppSidebar } from '@/components/app-shell/sidebar';
 import { AppTopbar } from '@/components/app-shell/topbar';
 import { TokenRefresher } from '@/components/app-shell/token-refresher';
@@ -10,6 +11,7 @@ const STORAGE_KEY = 'hedwig-web-sidebar-collapsed';
 type ShellLayoutProps = {
   children: ReactNode;
   unreadCount: number;
+  isDemo?: boolean;
   user: {
     avatarUrl?: string | null;
     email: string;
@@ -17,7 +19,7 @@ type ShellLayoutProps = {
   };
 };
 
-export function ShellLayout({ children, unreadCount, user }: ShellLayoutProps) {
+export function ShellLayout({ children, unreadCount, user, isDemo }: ShellLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -35,6 +37,17 @@ export function ShellLayout({ children, unreadCount, user }: ShellLayoutProps) {
 
   return (
     <div className="min-h-screen bg-[#fafafa] text-foreground">
+      {isDemo && (
+        <div className="flex items-center justify-center gap-3 bg-[#2563eb] px-4 py-2 text-center text-sm font-medium text-white">
+          <span>You are viewing a demo. Data shown is sample data only.</span>
+          <Link
+            href="/sign-in"
+            className="rounded-full bg-white px-3 py-0.5 text-xs font-semibold text-[#2563eb] transition-opacity hover:opacity-90"
+          >
+            Sign in
+          </Link>
+        </div>
+      )}
       <TokenRefresher />
       <div className="flex min-h-screen">
         <AppSidebar collapsed={collapsed} onToggle={toggleSidebar} />
