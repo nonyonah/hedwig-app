@@ -1,10 +1,12 @@
 import { ReactNode } from 'react';
+import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/lib/auth/session';
 import { hedwigApi } from '@/lib/api/client';
 import { ShellLayout } from '@/components/app-shell/shell-layout';
 
 export async function ProtectedShell({ children }: { children: ReactNode }) {
   const session = await getCurrentSession();
+  if (!session.accessToken) redirect('/sign-in');
   const shell = await hedwigApi.shell({ accessToken: session.accessToken });
   const user = shell.currentUser;
 
@@ -12,6 +14,7 @@ export async function ProtectedShell({ children }: { children: ReactNode }) {
     <ShellLayout
       unreadCount={shell.unreadCount}
       isDemo={session.isMockSession}
+      accessToken={session.accessToken}
       user={{
         avatarUrl: user.avatarUrl,
         email: user.email,

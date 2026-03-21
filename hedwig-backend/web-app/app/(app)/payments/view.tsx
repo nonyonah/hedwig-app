@@ -10,24 +10,19 @@ import {
   CheckCircle,
   CopySimple,
   CurrencyDollar,
+  Envelope,
   FileText,
   LinkSimple,
+  Repeat,
   Trash,
   X,
   Info
 } from '@phosphor-icons/react/dist/ssr';
-import type { Invoice, PaymentLink } from '@/lib/models/entities';
+import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
+import { RecurringInvoicesSection } from '@/components/payments/recurring-invoices-section';
 import { hedwigApi } from '@/lib/api/client';
 import { PageHeader } from '@/components/data/page-header';
 import { Button } from '@/components/ui/button';
-import { UniversalCreationBox } from '@/components/payments/universal-creation-box';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import type { RowActionItem } from '@/components/data/row-actions-menu';
@@ -43,6 +38,8 @@ const INV_STATUS: Record<Invoice['status'], { dot: string; label: string; bg: st
   paid:    { dot: 'bg-[#12b76a]', label: 'Paid',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
   overdue: { dot: 'bg-[#f04438]', label: 'Overdue', bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
 };
+
+const RECURRING_TEMPLATE_PREFIX = 'rtpl_';
 
 const LINK_STATUS: Record<PaymentLink['status'], { dot: string; label: string; bg: string; text: string }> = {
   active:  { dot: 'bg-[#12b76a]', label: 'Active',  bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
@@ -94,25 +91,60 @@ export function PaymentsClient({
   accessToken,
   invoices,
   paymentLinks,
-  highlightedInvoiceId
+  highlightedInvoiceId,
+  recurringInvoices = [],
+  clients = [],
 }: {
   accessToken: string | null;
   invoices: Invoice[];
   paymentLinks: PaymentLink[];
   highlightedInvoiceId?: string | null;
+  recurringInvoices?: RecurringInvoice[];
+  clients?: Client[];
 }) {
   const { currency } = useCurrency();
   const { toast } = useToast();
 
-  const [showCreationBox, setShowCreationBox] = useState(false);
   const [invoiceItems, setInvoiceItems] = useState(invoices);
   const [paymentLinkItems, setPaymentLinkItems] = useState(paymentLinks);
-  const [activeTab, setActiveTab] = useState<'invoices' | 'payment-links'>('invoices');
+
+  // Map active/paused recurring templates into invoice rows (prefixed IDs so we know they're templates)
+  const recurringTemplateRows = useMemo((): Invoice[] =>
+    recurringInvoices
+      .filter((r) => r.status === 'active' || r.status === 'paused')
+      .map((r) => ({
+        id: `${RECURRING_TEMPLATE_PREFIX}${r.id}`,
+        clientId: r.clientId ?? '',
+        title: r.title,
+        status: 'draft' as const,
+        amountUsd: r.amountUsd,
+        dueAt: r.nextDueDate,
+        number: `REC-${r.id.slice(-6).toUpperCase()}`,
+        remindersEnabled: false,
+        recurringInvoiceId: r.id,
+        clientEmail: r.clientEmail,
+      })),
+    [recurringInvoices]
+  );
+
+  const allInvoiceItems = useMemo(() => {
+    const templateIds = new Set(recurringTemplateRows.map((r) => r.recurringInvoiceId));
+    // Only show template rows for recurring invoices that haven't generated a real document yet
+    const existingRecurringIds = new Set(invoiceItems.filter((i) => i.recurringInvoiceId).map((i) => i.recurringInvoiceId));
+    const unseenTemplates = recurringTemplateRows.filter((r) => !existingRecurringIds.has(r.recurringInvoiceId));
+    return [...invoiceItems, ...unseenTemplates];
+  }, [invoiceItems, recurringTemplateRows]);
+  const [activeTab, setActiveTab] = useState<'invoices' | 'payment-links' | 'recurring'>('invoices');
+  const [selectedRecurring, setSelectedRecurring] = useState<RecurringInvoice | null>(null);
   const [invoiceFilter, setInvoiceFilter] = useState('all');
   const [linkFilter, setLinkFilter] = useState('all');
+  const [recurringFilter, setRecurringFilter] = useState<'all' | 'active' | 'paused'>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [selectedPaymentLink, setSelectedPaymentLink] = useState<PaymentLink | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string; kind: 'invoice' | 'payment-link' } | null>(null);
+  const [emailTarget, setEmailTarget] = useState<{ id: string; kind: 'invoice' | 'payment-link'; current?: string } | null>(null);
+  const [emailInput, setEmailInput] = useState('');
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
@@ -122,15 +154,15 @@ export function PaymentsClient({
   );
 
   const stats = useMemo(() => {
-    const paid = invoiceItems.filter((i) => i.status === 'paid').reduce((s, i) => s + i.amountUsd, 0);
-    const outstanding = invoiceItems.filter((i) => i.status !== 'paid').reduce((s, i) => s + i.amountUsd, 0);
+    const paid = allInvoiceItems.filter((i) => i.status === 'paid').reduce((s, i) => s + i.amountUsd, 0);
+    const outstanding = allInvoiceItems.filter((i) => i.status !== 'paid' && !i.id.startsWith(RECURRING_TEMPLATE_PREFIX)).reduce((s, i) => s + i.amountUsd, 0);
     const activeLinks = paymentLinkItems.filter((l) => l.status === 'active').length;
     return { paid, outstanding, activeLinks };
-  }, [invoiceItems, paymentLinkItems]);
+  }, [allInvoiceItems, paymentLinkItems]);
 
   const filteredInvoices = useMemo(
-    () => (invoiceFilter === 'all' ? invoiceItems : invoiceItems.filter((i) => i.status === invoiceFilter)),
-    [invoiceItems, invoiceFilter]
+    () => (invoiceFilter === 'all' ? allInvoiceItems : allInvoiceItems.filter((i) => i.status === invoiceFilter)),
+    [allInvoiceItems, invoiceFilter]
   );
   const filteredLinks = useMemo(
     () => (linkFilter === 'all' ? paymentLinkItems : paymentLinkItems.filter((l) => l.status === linkFilter)),
@@ -224,9 +256,36 @@ export function PaymentsClient({
     }
   };
 
+  const openEmailDialog = (id: string, kind: 'invoice' | 'payment-link', current?: string) => {
+    setEmailInput(current ?? '');
+    setEmailTarget({ id, kind, current });
+  };
+
+  const saveRecipientEmail = async () => {
+    if (!emailTarget || !accessToken) return;
+    setIsSavingEmail(true);
+    try {
+      await hedwigApi.updateDocumentRecipientEmail(emailTarget.id, emailInput, { accessToken, disableMockFallback: true });
+      if (emailTarget.kind === 'invoice') {
+        setInvoiceItems((cur) => cur.map((i) => i.id === emailTarget.id ? { ...i, clientEmail: emailInput.trim().toLowerCase() } : i));
+        if (selectedInvoice?.id === emailTarget.id) setSelectedInvoice((c) => c ? { ...c, clientEmail: emailInput.trim().toLowerCase() } : c);
+      } else {
+        setPaymentLinkItems((cur) => cur.map((l) => l.id === emailTarget.id ? { ...l, clientEmail: emailInput.trim().toLowerCase() } : l));
+        if (selectedPaymentLink?.id === emailTarget.id) setSelectedPaymentLink((c) => c ? { ...c, clientEmail: emailInput.trim().toLowerCase() } : c);
+      }
+      toast({ type: 'success', title: 'Email saved', message: 'Recipient email updated.' });
+      setEmailTarget(null);
+    } catch (e: any) {
+      toast({ type: 'error', title: 'Failed', message: e?.message || 'Please try again.' });
+    } finally {
+      setIsSavingEmail(false);
+    }
+  };
+
   const invoiceActions = (inv: Invoice): RowActionItem[] => {
     const items: RowActionItem[] = [
-      { label: 'Copy link', onClick: () => copyText(`${backendConfig.publicPagesUrl}/invoice/${inv.id}`, 'Invoice link copied') }
+      { label: 'Copy link', onClick: () => copyText(`${backendConfig.publicPagesUrl}/invoice/${inv.id}`, 'Invoice link copied') },
+      { label: inv.clientEmail ? 'Change recipient email' : 'Add recipient email', onClick: () => openEmailDialog(inv.id, 'invoice', inv.clientEmail) },
     ];
     if (inv.status !== 'paid') {
       items.push(
@@ -241,7 +300,8 @@ export function PaymentsClient({
 
   const linkActions = (link: PaymentLink): RowActionItem[] => {
     const items: RowActionItem[] = [
-      { label: 'Copy link', onClick: () => copyText(`${backendConfig.publicPagesUrl}/pay/${link.id}`, 'Payment link copied') }
+      { label: 'Copy link', onClick: () => copyText(`${backendConfig.publicPagesUrl}/pay/${link.id}`, 'Payment link copied') },
+      { label: link.clientEmail ? 'Change recipient email' : 'Add recipient email', onClick: () => openEmailDialog(link.id, 'payment-link', link.clientEmail) },
     ];
     if (link.status !== 'paid') {
       items.push(
@@ -263,11 +323,6 @@ export function PaymentsClient({
         eyebrow="Payments"
         title="Invoices & payment links"
         description="Collect stablecoins or bank payments through one workflow."
-        actions={
-          <Button onClick={() => setShowCreationBox(true)}>
-            <FileText className="h-4 w-4" weight="bold" /> New
-          </Button>
-        }
       />
 
       {/* Stats bar */}
@@ -313,11 +368,16 @@ export function PaymentsClient({
         <div className="flex items-center border-b border-[#e9eaeb] px-5">
           <TabBtn active={activeTab === 'invoices'} onClick={() => setActiveTab('invoices')}>
             Invoices
-            <CountBadge n={invoiceItems.length} />
+            <CountBadge n={allInvoiceItems.length} />
           </TabBtn>
           <TabBtn active={activeTab === 'payment-links'} onClick={() => setActiveTab('payment-links')}>
             Payment links
             <CountBadge n={paymentLinkItems.length} />
+          </TabBtn>
+          <TabBtn active={activeTab === 'recurring'} onClick={() => setActiveTab('recurring')}>
+            <Repeat className="h-3.5 w-3.5" />
+            Recurring
+            <CountBadge n={recurringInvoices.length} />
           </TabBtn>
         </div>
 
@@ -329,27 +389,47 @@ export function PaymentsClient({
                   {s === 'all' ? 'All' : INV_STATUS[s]?.label ?? s}
                 </FilterChip>
               ))
-            : (['all', 'active', 'paid', 'expired'] as const).map((s) => (
+            : activeTab === 'payment-links'
+            ? (['all', 'active', 'paid', 'expired'] as const).map((s) => (
                 <FilterChip key={s} active={linkFilter === s} onClick={() => setLinkFilter(s)}>
                   {s === 'all' ? 'All' : LINK_STATUS[s]?.label ?? s}
+                </FilterChip>
+              ))
+            : (['all', 'active', 'paused'] as const).map((s) => (
+                <FilterChip key={s} active={recurringFilter === s} onClick={() => setRecurringFilter(s)}>
+                  {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
                 </FilterChip>
               ))}
         </div>
 
-        {/* Table header */}
-        <div className="grid grid-cols-[1fr_120px_110px_100px_44px] gap-3 border-b border-[#f2f4f7] px-5 py-2">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
-            {activeTab === 'invoices' ? 'Invoice' : 'Title'}
-          </span>
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Status</span>
-          <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Amount</span>
-          <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
-            {activeTab === 'invoices' ? 'Due' : 'Chain'}
-          </span>
-          <span />
-        </div>
+        {/* Table header — hidden on recurring tab (it has its own headers) */}
+        {activeTab !== 'recurring' && (
+          <div className="grid grid-cols-[1fr_120px_110px_100px_44px] gap-3 border-b border-[#f2f4f7] px-5 py-2">
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              {activeTab === 'invoices' ? 'Invoice' : 'Title'}
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Status</span>
+            <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Amount</span>
+            <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              {activeTab === 'invoices' ? 'Due' : 'Chain'}
+            </span>
+            <span />
+          </div>
+        )}
 
-        {/* Rows */}
+        {/* Recurring tab content */}
+        {activeTab === 'recurring' && (
+          <RecurringInvoicesSection
+            initialItems={recurringInvoices}
+            clients={clients}
+            accessToken={accessToken}
+            asTabContent
+            statusFilter={recurringFilter}
+            onRowClick={(r) => setSelectedRecurring(r)}
+          />
+        )}
+
+        {/* Rows — invoices/payment-links tabs only */}
         {activeTab === 'invoices' ? (
           filteredInvoices.length === 0 ? (
             <EmptyState icon={<FileText className="h-8 w-8 text-[#d0d5dd]" weight="duotone" />} text="No invoices match this filter." />
@@ -360,18 +440,30 @@ export function PaymentsClient({
                 return (
                   <div
                     key={inv.id}
-                    onClick={() => { setSelectedPaymentLink(null); setSelectedInvoice(inv); }}
+                    onClick={() => {
+                      if (inv.id.startsWith(RECURRING_TEMPLATE_PREFIX)) {
+                        const r = recurringInvoices.find((ri) => ri.id === inv.recurringInvoiceId);
+                        if (r) { setSelectedRecurring(r); setSelectedInvoice(null); setSelectedPaymentLink(null); }
+                        return;
+                      }
+                      setSelectedRecurring(null); setSelectedPaymentLink(null); setSelectedInvoice(inv);
+                    }}
                     className={`group grid cursor-pointer grid-cols-[1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa] ${selectedInvoice?.id === inv.id ? 'bg-[#f5f8ff]' : ''}`}
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-[#181d27]">
-                        {inv.title || inv.number}
-                      </p>
-                      <p className="flex items-center gap-2 text-[11px] text-[#a4a7ae]">
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-[13px] font-semibold text-[#181d27]">
+                          {inv.title || inv.number}
+                        </p>
+                        {inv.recurringInvoiceId && (
+                          <span className="shrink-0 rounded-full bg-[#fdf4ff] px-1.5 py-0.5 text-[10px] font-semibold text-[#9333ea]">Recurring</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-[#a4a7ae]">
                         <span>{inv.number} · Due {formatShortDate(inv.dueAt)}</span>
                         <span className="text-[#d0d5dd]">•</span>
                         <MultiChainStack size={12} />
-                      </p>
+                      </div>
                     </div>
                     <StatusPill {...s} />
                     <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">
@@ -386,9 +478,9 @@ export function PaymentsClient({
               })}
             </div>
           )
-        ) : filteredLinks.length === 0 ? (
+        ) : activeTab === 'payment-links' && filteredLinks.length === 0 ? (
           <EmptyState icon={<LinkSimple className="h-8 w-8 text-[#d0d5dd]" weight="duotone" />} text="No payment links match this filter." />
-        ) : (
+        ) : activeTab === 'payment-links' ? (
           <div className="divide-y divide-[#f9fafb]">
             {filteredLinks.map((link) => {
               const s = LINK_STATUS[link.status];
@@ -400,11 +492,11 @@ export function PaymentsClient({
                 >
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-semibold text-[#181d27]">{link.title}</p>
-                    <p className="flex items-center gap-2 text-[11px] text-[#a4a7ae]">
+                    <div className="flex items-center gap-2 text-[11px] text-[#a4a7ae]">
                       <span>{link.asset}</span>
                       <span className="text-[#d0d5dd]">•</span>
                       <MultiChainStack size={12} />
-                    </p>
+                    </div>
                   </div>
                   <StatusPill {...s} />
                   <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">
@@ -420,21 +512,27 @@ export function PaymentsClient({
               );
             })}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Detail side panel */}
-      {hasPanel && (
+      {(hasPanel || !!selectedRecurring) && (
         <>
           {/* Backdrop */}
           <div
             className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]"
-            onClick={() => { setSelectedInvoice(null); setSelectedPaymentLink(null); }}
+            onClick={() => { setSelectedInvoice(null); setSelectedPaymentLink(null); setSelectedRecurring(null); }}
           />
 
           {/* Panel */}
           <div className="fixed inset-y-0 right-0 z-50 flex w-[440px] flex-col overflow-hidden bg-white shadow-2xl ring-1 ring-[#e9eaeb]">
-            {selectedInvoice ? (
+            {selectedRecurring ? (
+              <RecurringPanel
+                item={selectedRecurring}
+                currency={currency}
+                onClose={() => setSelectedRecurring(null)}
+              />
+            ) : selectedInvoice ? (
               <InvoicePanel
                 invoice={selectedInvoice}
                 publicUrl={publicInvoiceUrl}
@@ -465,31 +563,6 @@ export function PaymentsClient({
         </>
       )}
 
-      {/* Creation box dialog */}
-      <Dialog open={showCreationBox} onOpenChange={setShowCreationBox}>
-        <DialogContent className="max-w-[540px] overflow-visible p-0">
-          <DialogHeader>
-            <DialogTitle>New invoice or payment link</DialogTitle>
-            <DialogDescription>Describe what you need — the AI detects invoice vs. payment link automatically.</DialogDescription>
-          </DialogHeader>
-          <UniversalCreationBox
-            accessToken={accessToken}
-            onCreated={({ invoice, paymentLink }) => {
-              setShowCreationBox(false);
-              if (invoice) {
-                setInvoiceItems((cur) => [invoice, ...cur]);
-                setActiveTab('invoices');
-                setSelectedInvoice(invoice);
-              } else if (paymentLink) {
-                setPaymentLinkItems((cur) => [paymentLink, ...cur]);
-                setActiveTab('payment-links');
-                setSelectedPaymentLink(paymentLink);
-              }
-            }}
-          />
-        </DialogContent>
-      </Dialog>
-
       <DeleteDialog
         open={!!deleteTarget}
         title={`Delete ${deleteTarget?.kind === 'invoice' ? 'invoice' : 'payment link'}`}
@@ -499,6 +572,56 @@ export function PaymentsClient({
         onConfirm={handleDelete}
         onOpenChange={(open) => { if (!open && !isDeleting && !isActionLoading) setDeleteTarget(null); }}
       />
+
+      {/* Recipient email dialog */}
+      {emailTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setEmailTarget(null)} />
+          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-[#e9eaeb]">
+            <div className="flex items-center justify-between border-b border-[#f2f4f7] px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eff4ff]">
+                  <Envelope className="h-4 w-4 text-[#2563eb]" weight="bold" />
+                </div>
+                <div>
+                  <p className="text-[14px] font-semibold text-[#181d27]">
+                    {emailTarget.current ? 'Change recipient email' : 'Add recipient email'}
+                  </p>
+                  <p className="text-[11px] text-[#a4a7ae]">
+                    {emailTarget.kind === 'invoice' ? 'Invoice' : 'Payment link'} recipient
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEmailTarget(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-[#a4a7ae] hover:bg-[#f2f4f7] transition-colors"
+              >
+                <X className="h-4 w-4" weight="bold" />
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+                Email address
+              </label>
+              <input
+                type="email"
+                autoFocus
+                placeholder="client@example.com"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveRecipientEmail(); }}
+                className="w-full rounded-xl border border-[#e9eaeb] px-3 py-2.5 text-[14px] text-[#181d27] placeholder-[#a4a7ae] focus:border-[#2563eb] focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-[#f2f4f7] px-5 py-4">
+              <Button variant="outline" onClick={() => setEmailTarget(null)} disabled={isSavingEmail}>Cancel</Button>
+              <Button onClick={saveRecipientEmail} disabled={isSavingEmail || !emailInput.trim()}>
+                {isSavingEmail ? 'Saving…' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
@@ -522,6 +645,16 @@ function InvoicePanel({
         <div className="divide-y divide-[#f2f4f7] px-6 py-2">
           <PanelRow label="Invoice number" value={invoice.number} />
           <PanelRow label="Due date" value={formatShortDate(invoice.dueAt)} />
+          {invoice.recurringInvoiceId && (
+            <PanelCustomRow
+              label="Recurring"
+              value={
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#fdf4ff] px-2.5 py-1 text-[11px] font-semibold text-[#9333ea]">
+                  <span>&#x21bb;</span> Auto-generated
+                </span>
+              }
+            />
+          )}
           <PanelCustomRow
             label="Settlement networks"
             value={<MultiChainInline />}
@@ -629,6 +762,49 @@ function PaymentLinkPanel({
         >
           <Trash className="h-4 w-4" /> Delete link
         </Button>
+      </div>
+    </>
+  );
+}
+
+/* ─── Recurring invoice detail panel ─── */
+const FREQ_LABELS: Record<string, string> = {
+  weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly', quarterly: 'Quarterly', annual: 'Annual',
+};
+
+function RecurringPanel({
+  item, currency, onClose
+}: {
+  item: RecurringInvoice; currency: any; onClose: () => void;
+}) {
+  return (
+    <>
+      <PanelHeader label="Recurring template" id={item.title || 'Recurring invoice'} onClose={onClose} />
+      <div className="border-b border-[#e9eaeb] bg-[#f8f9fc] px-6 py-5">
+        <p className="text-[11px] font-medium text-[#a4a7ae] mb-1">Amount per cycle</p>
+        <p className="text-[32px] font-bold tracking-[-0.03em] text-[#181d27] leading-none mb-3">
+          {formatCompactCurrency(item.amountUsd, currency)}
+        </p>
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold bg-[#fdf4ff] text-[#9333ea]">
+          <Repeat className="h-3 w-3" /> {FREQ_LABELS[item.frequency] || item.frequency}
+        </span>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="divide-y divide-[#f2f4f7] px-6 py-2">
+          <PanelRow label="Status" value={item.status.charAt(0).toUpperCase() + item.status.slice(1)} />
+          <PanelRow label="Frequency" value={FREQ_LABELS[item.frequency] || item.frequency} />
+          <PanelRow label="Next due date" value={item.status === 'cancelled' ? 'Cancelled' : formatShortDate(item.nextDueDate)} />
+          <PanelRow label="Client" value={item.clientName || item.clientEmail || 'No client assigned'} />
+          <PanelRow label="Invoices generated" value={`${item.generatedCount}`} />
+          {item.autoSend !== undefined && (
+            <PanelRow label="Auto-send" value={item.autoSend ? 'Enabled' : 'Disabled'} />
+          )}
+        </div>
+      </div>
+      <div className="border-t border-[#e9eaeb] px-6 py-5">
+        <p className="text-[11px] text-[#a4a7ae]">
+          Manage this template from the <button className="font-semibold text-[#2563eb] hover:underline" onClick={onClose}>Recurring tab</button> above.
+        </p>
       </div>
     </>
   );

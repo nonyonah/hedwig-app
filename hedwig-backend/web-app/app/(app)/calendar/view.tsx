@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
@@ -10,13 +10,16 @@ import {
   CaretDown,
   CaretLeft,
   CaretRight,
+  Check,
   ClockCountdown,
+  CopySimple,
   DotsThreeOutline,
   Eye,
   FlagPennant,
   FolderSimple,
   NotePencil,
-  Receipt
+  Receipt,
+  X
 } from '@phosphor-icons/react/dist/ssr';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,6 +94,118 @@ const badgeToneByKind: Record<PlannerItem['kind'], string> = {
   project: 'bg-[#f4f3ff] text-[#6941c6]'
 };
 
+function ConnectCalendarDialog({ accessToken, onClose }: { accessToken: string | null; onClose: () => void }) {
+  const [subscribeUrl, setSubscribeUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!accessToken) { setError('Sign in required'); setLoading(false); return; }
+    hedwigApi.calendarIcsToken({ accessToken, disableMockFallback: true })
+      .then((d) => setSubscribeUrl(d.subscribeUrl))
+      .catch(() => setError('Failed to generate subscribe link.'))
+      .finally(() => setLoading(false));
+  }, [accessToken]);
+
+  const copyUrl = async () => {
+    if (!subscribeUrl) return;
+    await navigator.clipboard.writeText(subscribeUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const webcalUrl = subscribeUrl ? subscribeUrl.replace(/^https?:\/\//, 'webcal://') : null;
+  const googleUrl = webcalUrl
+    ? `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`
+    : null;
+
+  return (
+    <div
+      ref={overlayRef}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-[#e9eaeb]">
+        <div className="flex items-start justify-between gap-3 border-b border-[#f2f4f7] px-6 py-5">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a4a7ae]">Calendar integration</p>
+            <h2 className="mt-1 text-[18px] font-semibold text-[#181d27]">Connect your calendar</h2>
+          </div>
+          <button
+            className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full text-[#8d9096] transition hover:bg-[#f9fafb]"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="h-4 w-4" weight="bold" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-[14px] text-[#717680] leading-6">
+            Subscribe to your Hedwig calendar feed in any calendar app. Invoice due dates, milestones, and reminders will sync automatically.
+          </p>
+
+          {loading && (
+            <div className="flex items-center justify-center py-6 text-[14px] text-[#a4a7ae]">Generating link…</div>
+          )}
+
+          {error && (
+            <div className="rounded-2xl bg-[#fff1f0] px-4 py-3 text-[13px] text-[#b42318]">{error}</div>
+          )}
+
+          {subscribeUrl && (
+            <>
+              <div className="rounded-2xl bg-[#f9fafb] ring-1 ring-[#e9eaeb]">
+                <div className="flex items-center gap-2 px-4 py-3">
+                  <p className="flex-1 truncate text-[12px] font-mono text-[#535862]">{subscribeUrl}</p>
+                  <button
+                    className="shrink-0 inline-flex h-7 items-center gap-1.5 rounded-full border border-[#d5d7da] bg-white px-2.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+                    onClick={copyUrl}
+                    type="button"
+                  >
+                    {copied ? <Check className="h-3.5 w-3.5 text-[#16a34a]" weight="bold" /> : <CopySimple className="h-3.5 w-3.5" weight="bold" />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a4a7ae]">Add to your calendar app</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {googleUrl && (
+                    <a
+                      href={googleUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-2 rounded-full border border-[#d5d7da] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+                    >
+                      <img src="/icons/google-calendar.svg" alt="Google Calendar" className="h-4 w-4" />
+                      Google Calendar
+                    </a>
+                  )}
+                  <a
+                    href={webcalUrl ?? '#'}
+                    className="flex items-center justify-center gap-2 rounded-full border border-[#d5d7da] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+                  >
+                    <img src="/icons/apple-logo.svg" alt="Apple" className="h-4 w-4" />
+                    Apple / Outlook
+                  </a>
+                </div>
+              </div>
+
+              <p className="text-[12px] text-[#a4a7ae]">
+                This is a personal, read-only feed. Keep the URL private — anyone with it can view your schedule.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CalendarClient({
   data,
   accessToken,
@@ -100,6 +215,7 @@ export function CalendarClient({
   accessToken: string | null;
   selectedReminderId?: string | null;
 }) {
+  const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]['value']>('all');
   const [editableReminders, setEditableReminders] = useState<Reminder[]>(data.reminders);
   const [isEditingReminder, setIsEditingReminder] = useState(false);
@@ -259,6 +375,9 @@ export function CalendarClient({
 
   return (
     <div className="space-y-6">
+      {showConnectDialog && (
+        <ConnectCalendarDialog accessToken={accessToken} onClose={() => setShowConnectDialog(false)} />
+      )}
       <PageHeader
         eyebrow="Calendar"
         title="Upcoming"
@@ -268,6 +387,7 @@ export function CalendarClient({
             <button
               className="inline-flex h-9 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-3.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
               type="button"
+              onClick={() => setShowConnectDialog(true)}
             >
               <CalendarPlus className="h-4 w-4 text-[#8d9096]" weight="bold" />
               Connect calendar

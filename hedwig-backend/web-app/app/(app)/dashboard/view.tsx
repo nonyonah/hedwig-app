@@ -12,6 +12,7 @@ import {
   FileText,
   IdentificationCard,
   Link as LinkIcon,
+  Repeat,
   Sparkle,
   Wallet
 } from '@phosphor-icons/react/dist/ssr';
@@ -35,6 +36,7 @@ type DashboardData = {
   invoices: Invoice[];
   paymentLinks: PaymentLink[];
   milestones: Milestone[];
+  recurringCount: number;
 };
 
 type ActionItem = {
@@ -184,6 +186,14 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
         helper: `${dueSoonMilestones.length} due soon, ${completedMilestones.length} completed`,
         href: '/calendar',
         icon: CalendarDots
+      },
+      {
+        id: 'recurring',
+        title: 'Recurring invoices',
+        value: `${data.recurringCount}`,
+        helper: data.recurringCount === 1 ? '1 active schedule' : `${data.recurringCount} active schedules`,
+        href: '/payments',
+        icon: Repeat
       },
       {
         id: 'Outstanding',

@@ -33,6 +33,8 @@ import type {
   PaymentLink,
   PaymentLinkDraft,
   Project,
+  RecurringFrequency,
+  RecurringInvoice,
   Reminder,
   UsdAccount,
   User,
@@ -40,6 +42,25 @@ import type {
   WalletAsset,
   WalletTransaction
 } from '@/lib/models/entities';
+
+export type { RecurringInvoice, RecurringFrequency };
+
+export interface CreateRecurringInvoiceInput {
+  clientId?: string;
+  clientName?: string;
+  clientEmail?: string;
+  projectId?: string;
+  title?: string;
+  amount: number;
+  currency?: string;
+  chain?: string;
+  memo?: string;
+  items?: any[];
+  frequency: RecurringFrequency;
+  startDate: string;
+  endDate?: string;
+  autoSend: boolean;
+}
 
 const wait = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -367,17 +388,22 @@ const documentMatchesClient = (document: any, client: Client) => {
   );
 };
 
-const mapBackendInvoice = (document: any): Invoice => ({
-  id: String(document.id),
-  clientId: String(document.client_id || ''),
-  projectId: document.project_id ? String(document.project_id) : undefined,
-  title: document.title ? String(document.title) : undefined,
-  status: normalizeInvoiceStatus(document.status),
-  amountUsd: Number(document.amount || 0),
-  dueAt: deriveDocumentDueAt(document),
-  number: `INV-${String(document.id).slice(-6).toUpperCase()}`,
-  remindersEnabled: getDocumentContent(document).reminders_enabled !== false
-});
+const mapBackendInvoice = (document: any): Invoice => {
+  const content = getDocumentContent(document);
+  return {
+    id: String(document.id),
+    clientId: String(document.client_id || ''),
+    projectId: document.project_id ? String(document.project_id) : undefined,
+    title: document.title ? String(document.title) : undefined,
+    status: normalizeInvoiceStatus(document.status),
+    amountUsd: Number(document.amount || 0),
+    dueAt: deriveDocumentDueAt(document),
+    number: `INV-${String(document.id).slice(-6).toUpperCase()}`,
+    remindersEnabled: content.reminders_enabled !== false,
+    recurringInvoiceId: content.recurring_invoice_id || undefined,
+    clientEmail: content.recipient_email || content.client_email || undefined,
+  };
+};
 
 const mapBackendPaymentLink = (document: any): PaymentLink => {
   const content = getDocumentContent(document);
@@ -392,7 +418,8 @@ const mapBackendPaymentLink = (document: any): PaymentLink => {
     title: String(document.title || 'Payment link'),
     asset: currency === 'USDT' ? 'USDT' : 'USDC',
     chain: chainValue === 'SOLANA' ? 'Solana' : 'Base',
-    remindersEnabled: content.reminders_enabled !== false
+    remindersEnabled: content.reminders_enabled !== false,
+    clientEmail: content.recipient_email || content.client_email || undefined,
   };
 };
 
@@ -443,6 +470,28 @@ const mapBackendMilestone = (milestone: any, projectId: string): Milestone => {
     amountUsd: Number(milestone.amount || 0)
   };
 };
+
+const mapRecurringInvoice = (r: any): RecurringInvoice => ({
+  id: String(r.id),
+  clientId: r.clientId || r.client_id || undefined,
+  clientName: r.clientName || r.client_name || undefined,
+  clientEmail: r.clientEmail || r.client_email || undefined,
+  projectId: r.projectId || r.project_id || undefined,
+  title: String(r.title || ''),
+  amountUsd: Number(r.amountUsd || r.amount || 0),
+  currency: String(r.currency || 'USDC'),
+  chain: String(r.chain || 'BASE'),
+  memo: r.memo || undefined,
+  items: r.items || [],
+  frequency: r.frequency as RecurringFrequency,
+  startDate: String(r.startDate || r.start_date || ''),
+  endDate: r.endDate || r.end_date || undefined,
+  nextDueDate: String(r.nextDueDate || r.next_due_date || ''),
+  status: r.status as RecurringInvoice['status'],
+  autoSend: Boolean(r.autoSend ?? r.auto_send),
+  generatedCount: Number(r.generatedCount ?? r.generated_count ?? 0),
+  createdAt: String(r.createdAt || r.created_at || new Date().toISOString()),
+});
 
 async function fetchDocuments(options?: ApiOptions, type?: string) {
   const query = type ? `/api/documents?type=${encodeURIComponent(type)}` : '/api/documents';
@@ -622,7 +671,7 @@ export const hedwigApi = {
   async dashboard(options?: ApiOptions) {
     return withFallback(
       async () => {
-        const [clientsData, projectsData, contractsData, walletData, accountsData, notificationsData, shellData, paymentsData, calendarData, assistantSummaryData] = await Promise.all([
+        const [clientsData, projectsData, contractsData, walletData, accountsData, notificationsData, shellData, paymentsData, calendarData, assistantSummaryData, recurringData] = await Promise.all([
           this.clients(options),
           this.projects(options),
           this.contracts(options),
@@ -632,7 +681,8 @@ export const hedwigApi = {
           this.shell(options),
           this.payments(options),
           this.calendar(options),
-          request<{ summary?: string }>('/api/insights/assistant-summary', options).catch(() => ({ summary: undefined }))
+          request<{ summary?: string }>('/api/insights/assistant-summary', options).catch(() => ({ summary: undefined })),
+          this.recurringInvoices(options).catch(() => [])
         ]);
 
         const outstandingUsd = clientsData.reduce((sum, client) => sum + client.outstandingUsd, 0);
@@ -669,7 +719,8 @@ export const hedwigApi = {
           paymentLinks: paymentsData.paymentLinks,
           projects: projectsData,
           milestones,
-          reminders: calendarData.reminders
+          reminders: calendarData.reminders,
+          recurringCount: (recurringData as any[]).filter((r: any) => r.status === 'active').length
         };
       },
       () => ({
@@ -687,7 +738,8 @@ export const hedwigApi = {
         invoices: mockInvoices,
         paymentLinks: mockPaymentLinks,
         projects: mockProjects,
-        milestones: mockMilestones
+        milestones: mockMilestones,
+        recurringCount: 0
       }),
       options
     );
@@ -1060,6 +1112,13 @@ export const hedwigApi = {
       },
       options
     );
+  },
+
+  async updateDocumentRecipientEmail(id: string, email: string, options?: ApiOptions): Promise<void> {
+    await request<{ document?: any }>(`/api/documents/${id}`, options, {
+      method: 'PUT',
+      body: JSON.stringify({ content: { recipient_email: email.trim().toLowerCase() } })
+    });
   },
 
   async updateDocumentStatus(id: string, status: string, options?: ApiOptions): Promise<void> {
@@ -1649,6 +1708,49 @@ export const hedwigApi = {
         { label: 'Review and QA', amountUsd: 400 }
       ]
     };
+  },
+
+  // ── Recurring Invoices ──────────────────────────────────────────────────────
+
+  async recurringInvoices(options?: ApiOptions): Promise<RecurringInvoice[]> {
+    if (shouldUseMockFallback(options)) return [];
+    const data = await request<{ recurringInvoices: any[] }>('/api/recurring-invoices', options);
+    return (data.recurringInvoices || []).map(mapRecurringInvoice);
+  },
+
+  async createRecurringInvoice(input: CreateRecurringInvoiceInput, options?: ApiOptions): Promise<RecurringInvoice> {
+    const data = await request<{ recurringInvoice: any }>('/api/recurring-invoices', options, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    return mapRecurringInvoice(data.recurringInvoice);
+  },
+
+  async updateRecurringInvoice(id: string, input: Partial<CreateRecurringInvoiceInput>, options?: ApiOptions): Promise<RecurringInvoice> {
+    const data = await request<{ recurringInvoice: any }>(`/api/recurring-invoices/${id}`, options, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+    return mapRecurringInvoice(data.recurringInvoice);
+  },
+
+  async setRecurringInvoiceStatus(id: string, status: 'active' | 'paused' | 'cancelled', options?: ApiOptions): Promise<RecurringInvoice> {
+    const data = await request<{ recurringInvoice: any }>(`/api/recurring-invoices/${id}/status`, options, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    return mapRecurringInvoice(data.recurringInvoice);
+  },
+
+  async triggerRecurringInvoice(id: string, options?: ApiOptions): Promise<Invoice> {
+    const data = await request<{ document: any }>(`/api/recurring-invoices/${id}/trigger`, options, { method: 'POST' });
+    return mapBackendInvoice(data.document);
+  },
+
+  // ── Calendar ICS ────────────────────────────────────────────────────────────
+
+  async calendarIcsToken(options?: ApiOptions): Promise<{ token: string; subscribeUrl: string }> {
+    return request<{ token: string; subscribeUrl: string }>('/api/calendar/ics-token', options);
   },
 
   async createPaymentLinkDraft(prompt: string): Promise<PaymentLinkDraft> {

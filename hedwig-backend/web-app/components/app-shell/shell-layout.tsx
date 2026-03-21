@@ -7,6 +7,7 @@ import { AppTopbar } from '@/components/app-shell/topbar';
 import { TokenRefresher } from '@/components/app-shell/token-refresher';
 import { TutorialProvider } from '@/components/tutorial/tutorial-provider';
 import { TutorialCard } from '@/components/tutorial/tutorial-card';
+import { HedwigChatBubble } from '@/components/ai/hedwig-chat-bubble';
 
 const STORAGE_KEY = 'hedwig-web-sidebar-collapsed';
 
@@ -14,6 +15,7 @@ type ShellLayoutProps = {
   children: ReactNode;
   unreadCount: number;
   isDemo?: boolean;
+  accessToken?: string | null;
   user: {
     avatarUrl?: string | null;
     email: string;
@@ -21,7 +23,7 @@ type ShellLayoutProps = {
   };
 };
 
-export function ShellLayout({ children, unreadCount, user, isDemo }: ShellLayoutProps) {
+export function ShellLayout({ children, unreadCount, user, isDemo, accessToken }: ShellLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -59,12 +61,14 @@ export function ShellLayout({ children, unreadCount, user, isDemo }: ShellLayout
               collapsed={collapsed}
               onToggleSidebar={toggleSidebar}
               unreadCount={unreadCount}
+              accessToken={accessToken}
               user={user}
             />
             <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
           </div>
         </div>
         <TutorialCard />
+        <HedwigChatBubble accessToken={accessToken ?? null} />
       </div>
     </TutorialProvider>
   );

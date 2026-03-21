@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { CalendarBlank, User } from '@phosphor-icons/react/dist/ssr';
+import { CalendarBlank, Repeat, User } from '@phosphor-icons/react/dist/ssr';
 import { PublicDocumentFrame } from '@/components/public/public-document-frame';
 import { PublicCheckoutPanel } from '@/components/public/public-checkout-panel';
 import { PublicResultCard } from '@/components/public/public-result-card';
@@ -63,6 +63,8 @@ export default async function PublicInvoicePage({
   const statusKey = String(document.status || 'draft').toLowerCase();
   const statusStyle = STATUS_STYLE[statusKey] ?? STATUS_STYLE.draft;
 
+  const isRecurring = !!(document.content as any)?.recurring_invoice_id;
+
   const subtotal = invoiceItems.length > 0
     ? invoiceItems.reduce((sum: number, item: any) => sum + Number(item.amount || 0) * Number(item.quantity || 1), 0)
     : Number(document.amount || 0);
@@ -93,8 +95,15 @@ export default async function PublicInvoicePage({
           <div className="border-b border-[#e9eaeb] px-6 py-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Invoice</p>
-                <h1 className="mt-1 truncate text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{document.title}</h1>
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Invoice</p>
+                  {isRecurring && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#fdf4ff] px-2 py-0.5 text-[10px] font-semibold text-[#9333ea]">
+                      <Repeat className="h-2.5 w-2.5" /> Recurring
+                    </span>
+                  )}
+                </div>
+                <h1 className="truncate text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{document.title}</h1>
                 <p className="mt-1 font-mono text-[11px] text-[#a4a7ae]"># {document.id}</p>
               </div>
               <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyle.bg} ${statusStyle.text}`}>
@@ -181,6 +190,12 @@ export default async function PublicInvoicePage({
               <p className="mt-1.5 text-[34px] font-bold tracking-[-0.04em] leading-none text-[#181d27]">
                 {formatCurrency(Number(document.amount || 0))}
               </p>
+              {isRecurring && (
+                <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#9333ea]">
+                  <Repeat className="h-3 w-3" />
+                  This is a recurring invoice — auto-generated on a scheduled basis.
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2 px-5 py-3.5">
               <div className="flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-[#fafafa] px-3 py-1.5 text-[12px] font-medium text-[#414651]">

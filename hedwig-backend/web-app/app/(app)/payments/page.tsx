@@ -1,6 +1,6 @@
 import { hedwigApi } from '@/lib/api/client';
 import { getCurrentSession } from '@/lib/auth/session';
-import { invoices as mockInvoices, paymentLinks as mockPaymentLinks, invoiceDrafts, paymentLinkDrafts } from '@/lib/mock/data';
+import { invoices as mockInvoices, paymentLinks as mockPaymentLinks, invoiceDrafts, paymentLinkDrafts, clients as mockClients } from '@/lib/mock/data';
 import { PaymentsClient } from './view';
 
 export default async function PaymentsPage({
@@ -15,6 +15,12 @@ export default async function PaymentsPage({
   } catch {
     // Fall back to mock payments if the API call fails
   }
+
+  const [recurringInvoices, clients] = await Promise.all([
+    hedwigApi.recurringInvoices({ accessToken: session.accessToken }).catch(() => []),
+    hedwigApi.clients({ accessToken: session.accessToken }).catch(() => mockClients),
+  ]);
+
   const params = (await searchParams) ?? {};
 
   return (
@@ -23,6 +29,8 @@ export default async function PaymentsPage({
       highlightedInvoiceId={params.invoice ?? null}
       invoices={data.invoices}
       paymentLinks={data.paymentLinks}
+      recurringInvoices={recurringInvoices}
+      clients={clients}
     />
   );
 }

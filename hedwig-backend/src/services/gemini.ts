@@ -12,8 +12,8 @@ const genAI = process.env.GEMINI_API_KEY
   ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
   : null;
 
-// Use Gemini 2.0 Flash model
-const model = genAI?.getGenerativeModel({ model: 'gemini-2.5-flash' }) || {
+// Use Gemini 3.1 Flash Lite model
+const model = genAI?.getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' }) || {
   generateContent: async () => {
     throw new Error('Gemini model unavailable: GEMINI_API_KEY is not configured');
   },
@@ -596,7 +596,42 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    - total_cost: Specific amount or range (e.g. "$1,500" or "$1,000 - $2,000")
    - pricing_breakdown: Array of {item: string, cost: string} for line items
 
-11. GENERAL_CHAT
+11. CREATE_RECURRING_INVOICE
+   Triggers: "recurring invoice", "repeat invoice", "monthly invoice", "weekly invoice", "auto-invoice", "schedule invoice", "recurring bill", "set up recurring", "automatic invoice"
+
+   ⚠️ **IMPORTANT:** Use this intent INSTEAD of CREATE_INVOICE when the user wants an invoice to repeat automatically on a schedule.
+
+   Parameters: { client_name, client_email, amount, frequency, start_date, end_date, title, auto_send }
+
+   **FREQUENCY VALUES (use exact string):**
+   - "weekly"    → every 7 days
+   - "biweekly"  → every 14 days
+   - "monthly"   → same day each month (DEFAULT if user says "monthly" or doesn't specify)
+   - "quarterly" → every 3 months
+   - "annual"    → once a year
+
+   **REQUIREMENTS:**
+   ✅ MUST have amount
+   ✅ MUST have frequency (infer from context: "monthly" → "monthly", "every week" → "weekly", "yearly" → "annual")
+   ❌ client_name, client_email, start_date, end_date, auto_send are all OPTIONAL
+
+   **auto_send:** Set to true if user says "automatically send", "auto-send", "send automatically". Default false.
+
+   **Decision Tree:**
+   - Has amount + frequency → CREATE_RECURRING_INVOICE
+   - Missing amount → ask "How much should each invoice be for?"
+   - Missing frequency → ask "How often? (weekly, monthly, quarterly, annually)"
+
+   **Examples:**
+   ✅ "Set up a monthly invoice for $500 for John" → CREATE_RECURRING_INVOICE { amount: "500", frequency: "monthly", client_name: "John" }
+   ✅ "Recurring invoice $1000 weekly for Acme Corp, auto-send" → CREATE_RECURRING_INVOICE { amount: "1000", frequency: "weekly", client_name: "Acme Corp", auto_send: true }
+   ✅ "Schedule quarterly invoice for $2000 retainer" → CREATE_RECURRING_INVOICE { amount: "2000", frequency: "quarterly", title: "Retainer" }
+   ✅ "I want to invoice Sarah $300 every month" → CREATE_RECURRING_INVOICE { amount: "300", frequency: "monthly", client_name: "Sarah" }
+   ❌ "Create invoice for $500 due Friday" → CREATE_INVOICE (one-time, not recurring)
+
+   **Response:** "I'll set up a [frequency] recurring invoice for $[amount][to client if known]. Each invoice will be saved as a draft for you to review, unless you'd like me to send them automatically — just say 'auto-send' if so!"
+
+12. GENERAL_CHAT
    Triggers: greetings, questions, help requests
    Parameters: {}
    Example: "Hi", "How are you?", "What can you do?"
@@ -607,6 +642,7 @@ Before selecting any intent, scan the user's message for these keywords IN THIS 
    💳 **Payment Links & Invoices**
    • *\"Create a payment link for $100 on Base\"*
    • *\"Invoice John at john@email.com for $500\"*
+   • *\"Set up a monthly recurring invoice for $500 for Acme Corp\"*
 
    📁 **Project & Client Management**
    • *\"Create a project for Acme Corp called Website Redesign\"*

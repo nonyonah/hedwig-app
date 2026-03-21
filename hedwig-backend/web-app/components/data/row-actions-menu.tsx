@@ -18,7 +18,9 @@ export function RowActionsMenu({
   align?: 'left' | 'right';
 }) {
   const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -45,7 +47,14 @@ export function RowActionsMenu({
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        ref={btnRef}
+        onClick={() => {
+          if (!open && btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect();
+            setDropUp(window.innerHeight - rect.bottom < 220);
+          }
+          setOpen((current) => !current);
+        }}
         className="flex h-8 w-8 items-center justify-center rounded-md text-[#a4a7ae] transition duration-100 hover:bg-[#f5f5f5] hover:text-[#717680]"
       >
         <DotsThreeOutline className="h-4 w-4" weight="fill" />
@@ -54,7 +63,7 @@ export function RowActionsMenu({
       {open ? (
         <div
           className={cn(
-            'absolute top-[calc(100%+6px)] z-30 min-w-[200px] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[#e9eaeb]',
+            `absolute z-[9999] min-w-[200px] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[#e9eaeb] ${dropUp ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'}`,
             align === 'right' ? 'right-0' : 'left-0'
           )}
         >

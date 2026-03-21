@@ -81,6 +81,8 @@ export interface Invoice {
   dueAt: string;
   number: string;
   remindersEnabled?: boolean;
+  recurringInvoiceId?: string;
+  clientEmail?: string;
 }
 
 export interface PaymentLink {
@@ -92,6 +94,7 @@ export interface PaymentLink {
   asset: 'USDC' | 'USDT';
   chain: 'Base' | 'Solana';
   remindersEnabled?: boolean;
+  clientEmail?: string;
 }
 
 export interface InvoiceDraft {
@@ -111,6 +114,30 @@ export interface PaymentLinkDraft {
   asset: 'USDC' | 'USDT';
   chain: 'Base' | 'Solana';
   memo?: string;
+}
+
+export type RecurringFrequency = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual';
+
+export interface RecurringInvoice {
+  id: EntityId;
+  clientId?: EntityId;
+  clientName?: string;
+  clientEmail?: string;
+  projectId?: EntityId;
+  title: string;
+  amountUsd: number;
+  currency: string;
+  chain: string;
+  memo?: string;
+  items: any[];
+  frequency: RecurringFrequency;
+  startDate: string;
+  endDate?: string;
+  nextDueDate: string;
+  status: 'active' | 'paused' | 'cancelled';
+  autoSend: boolean;
+  generatedCount: number;
+  createdAt: string;
 }
 
 export interface Contract {

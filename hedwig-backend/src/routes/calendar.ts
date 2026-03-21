@@ -1,8 +1,33 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
+
+const ICS_SECRET = process.env.ICS_SECRET || 'hedwig-ics-secret-change-in-production';
+
+/** Deterministic token so the subscribe URL is stable */
+function icsTokenForUser(userId: string): string {
+    return crypto.createHmac('sha256', ICS_SECRET).update(userId).digest('hex');
+}
+
+function escapeIcs(str: string): string {
+    return String(str || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+}
+
+function toIcsDate(dateStr: string): string {
+    // Input: ISO date or datetime string; output: YYYYMMDD for all-day events
+    const d = new Date(dateStr);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}${m}${day}`;
+}
+
+function toIcsDatetime(d: Date): string {
+    return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+}
 
 const logger = createLogger('Calendar');
 
@@ -179,6 +204,93 @@ router.patch('/:id/complete', authenticate, async (req: Request, res: Response, 
     } catch (error) {
         next(error);
     }
+});
+
+/**
+ * GET /api/calendar/ics-token
+ * Returns a stable subscribe token for the authenticated user.
+ * The client uses this to construct the public /api/calendar/ics?token=... URL.
+ * MUST be registered before /:id to avoid being swallowed by the wildcard.
+ */
+router.get('/ics-token', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const user = await getOrCreateUser(req.user!.id);
+        if (!user) { res.status(404).json({ success: false, error: 'User not found' }); return; }
+
+        const token = icsTokenForUser(user.id);
+        const host = process.env.APP_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz';
+        const subscribeUrl = `${host}/api/calendar/ics?token=${token}&uid=${user.id}`;
+
+        res.json({ success: true, data: { token, subscribeUrl } });
+    } catch (err) { next(err); }
+});
+
+/**
+ * GET /api/calendar/ics?token=...&uid=...
+ * Public (no auth header) iCalendar feed. Validated via HMAC token.
+ * MUST be registered before /:id to avoid being swallowed by the wildcard.
+ */
+router.get('/ics', async (req: Request, res: Response, next) => {
+    try {
+        const { token, uid } = req.query as { token?: string; uid?: string };
+
+        if (!token || !uid) {
+            res.status(400).send('Missing token or uid');
+            return;
+        }
+
+        const expected = icsTokenForUser(uid);
+        if (!crypto.timingSafeEqual(Buffer.from(token, 'hex'), Buffer.from(expected, 'hex'))) {
+            res.status(401).send('Invalid token');
+            return;
+        }
+
+        const { data: events, error } = await supabase
+            .from('calendar_events')
+            .select('*')
+            .eq('user_id', uid)
+            .neq('status', 'cancelled')
+            .order('event_date', { ascending: true })
+            .limit(500);
+
+        if (error) { res.status(500).send('Failed to load events'); return; }
+
+        const now = toIcsDatetime(new Date());
+        const lines: string[] = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//Hedwig//Calendar Feed//EN',
+            'CALSCALE:GREGORIAN',
+            'METHOD:PUBLISH',
+            'X-WR-CALNAME:Hedwig',
+            'X-WR-CALDESC:Your Hedwig invoices\\, milestones and reminders',
+            'X-WR-TIMEZONE:UTC',
+        ];
+
+        for (const e of events || []) {
+            const startDate = toIcsDate(e.event_date);
+            const endD = new Date(e.event_date);
+            endD.setUTCDate(endD.getUTCDate() + 1);
+            const endDate = `${endD.getUTCFullYear()}${String(endD.getUTCMonth() + 1).padStart(2, '0')}${String(endD.getUTCDate()).padStart(2, '0')}`;
+
+            lines.push('BEGIN:VEVENT');
+            lines.push(`UID:${e.id}@hedwig`);
+            lines.push(`DTSTAMP:${now}`);
+            lines.push(`DTSTART;VALUE=DATE:${startDate}`);
+            lines.push(`DTEND;VALUE=DATE:${endDate}`);
+            lines.push(`SUMMARY:${escapeIcs(e.title)}`);
+            if (e.description) lines.push(`DESCRIPTION:${escapeIcs(e.description)}`);
+            lines.push(`STATUS:${e.status === 'completed' ? 'COMPLETED' : 'CONFIRMED'}`);
+            lines.push('END:VEVENT');
+        }
+
+        lines.push('END:VCALENDAR');
+
+        res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="hedwig.ics"');
+        res.setHeader('Cache-Control', 'no-cache, no-store');
+        res.send(lines.join('\r\n'));
+    } catch (err) { next(err); }
 });
 
 /**
@@ -391,6 +503,7 @@ router.delete('/:id', authenticate, async (req: Request, res: Response, next) =>
         next(error);
     }
 });
+
 
 /**
  * Helper function: Create calendar event from source
