@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, SectionList, Dimensions, FlatList, LayoutAnimation, Platform, UIManager, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, SectionList, Dimensions, FlatList, LayoutAnimation, Platform, UIManager, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ChevronLeft as CaretLeft, Calendar as CalendarBlank, ChevronRight as CaretRight, CheckCircle, Clock, Tag } from '../../components/ui/AppIcon';
@@ -7,6 +7,8 @@ import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
+import { Typography } from '../../styles/typography';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -108,7 +110,7 @@ export default function CalendarScreen() {
     const [daysPastWindow, setDaysPastWindow] = useState(21);
     const [daysFutureWindow, setDaysFutureWindow] = useState(90);
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-    const [showEventDetails, setShowEventDetails] = useState(false);
+    const eventSheetRef = useRef<BottomSheetModal>(null);
 
     const flatListRef = useRef<FlatList<Date>>(null);
     const sectionListRef = useRef<SectionList<CalendarEvent, Section>>(null);
@@ -301,12 +303,13 @@ export default function CalendarScreen() {
 
     const openEventDetails = (event: CalendarEvent) => {
         setSelectedEvent(event);
-        setShowEventDetails(true);
+        requestAnimationFrame(() => {
+            eventSheetRef.current?.present();
+        });
     };
 
     const closeEventDetails = () => {
-        setShowEventDetails(false);
-        setSelectedEvent(null);
+        eventSheetRef.current?.dismiss();
     };
 
     const openEventSource = (event: CalendarEvent) => {
@@ -334,13 +337,6 @@ export default function CalendarScreen() {
 
     const formatEventType = (value: string) =>
         value.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-
-    const jumpToToday = () => {
-        const today = new Date();
-        setSelectedDate(today);
-        setViewDate(today);
-        scrollToDateSection(today);
-    };
 
     const renderDayItem = ({ item }: { item: Date }) => {
         const isSelected = isSameDay(item, selectedDate);
@@ -492,16 +488,8 @@ export default function CalendarScreen() {
                             </View>
                         </TouchableOpacity>
 
-                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary, fontFamily: 'GoogleSansFlex_600SemiBold' }]}>Upcoming</Text>
-
-                        <View style={styles.headerActions}>
-                            <TouchableOpacity
-                                style={[styles.headerActionBtn, { backgroundColor: themeColors.surface }]}
-                                onPress={jumpToToday}
-                            >
-                                <Text style={[styles.headerActionText, { color: themeColors.textPrimary, fontFamily: 'GoogleSansFlex_600SemiBold' }]}>Today</Text>
-                            </TouchableOpacity>
-                        </View>
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
+                        <View style={styles.headerSpacer} />
                     </View>
                 </View>
 
@@ -606,59 +594,63 @@ export default function CalendarScreen() {
                     />
                 )}
 
-                <Modal
-                    visible={showEventDetails}
-                    transparent
-                    animationType="fade"
-                    onRequestClose={closeEventDetails}
+                <BottomSheetModal
+                    ref={eventSheetRef}
+                    index={0}
+                    enableDynamicSizing
+                    enablePanDownToClose
+                    onDismiss={() => setSelectedEvent(null)}
+                    backdropComponent={(props) => (
+                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                    )}
+                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
                 >
-                    <View style={styles.modalOverlay}>
-                        <View style={[styles.eventDetailsCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-                            {selectedEvent && (
-                                <ScrollView showsVerticalScrollIndicator={false}>
-                                    <Text style={[styles.detailsTitle, { color: themeColors.textPrimary, fontFamily: 'GoogleSansFlex_600SemiBold' }]}>
-                                        {selectedEvent.title}
+                    <BottomSheetView style={styles.eventSheetContent}>
+                        {selectedEvent ? (
+                            <ScrollView showsVerticalScrollIndicator={false}>
+                                <Text style={[styles.detailsTitle, { color: themeColors.textPrimary }]}>
+                                    {selectedEvent.title}
+                                </Text>
+                                {!!selectedEvent.description && (
+                                    <Text style={[styles.detailsDescription, { color: themeColors.textSecondary }]}>
+                                        {selectedEvent.description}
                                     </Text>
-                                    {!!selectedEvent.description && (
-                                        <Text style={[styles.detailsDescription, { color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_400Regular' }]}>
-                                            {selectedEvent.description}
-                                        </Text>
-                                    )}
-                                    <View style={styles.detailsMetaRow}>
-                                        <Clock size={16} color={themeColors.textSecondary} strokeWidth={2.8} />
-                                        <Text style={[styles.detailsMetaText, { color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_500Medium' }]}>
-                                            {new Date(selectedEvent.eventDate).toLocaleString()}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.detailsActions}>
-                                        <TouchableOpacity
-                                            style={[styles.detailsActionPrimary, { backgroundColor: Colors.primary }]}
-                                            onPress={async () => {
-                                                await handleMarkAsPaid(selectedEvent);
-                                                closeEventDetails();
-                                            }}
-                                        >
-                                            <CheckCircle size={16} color="#FFFFFF" strokeWidth={2.8} />
-                                            <Text style={[styles.detailsActionText, { color: '#FFFFFF', fontFamily: 'GoogleSansFlex_600SemiBold' }]}>Mark as paid</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={[styles.detailsActionAlt, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
-                                            onPress={() => openEventSource(selectedEvent)}
-                                        >
-                                            <Text style={[styles.detailsActionText, { color: themeColors.textPrimary, fontFamily: 'GoogleSansFlex_600SemiBold' }]}>Open source</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={[styles.detailsActionAlt, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
-                                            onPress={closeEventDetails}
-                                        >
-                                            <Text style={[styles.detailsActionText, { color: themeColors.textPrimary, fontFamily: 'GoogleSansFlex_600SemiBold' }]}>Close</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </ScrollView>
-                            )}
-                        </View>
-                    </View>
-                </Modal>
+                                )}
+                                <View style={styles.detailsMetaRow}>
+                                    <Clock size={16} color={themeColors.textSecondary} strokeWidth={2.8} />
+                                    <Text style={[styles.detailsMetaText, { color: themeColors.textSecondary }]}>
+                                        {new Date(selectedEvent.eventDate).toLocaleString()}
+                                    </Text>
+                                </View>
+                                <View style={styles.detailsActions}>
+                                    <TouchableOpacity
+                                        style={[styles.detailsActionPrimary, { backgroundColor: Colors.primary }]}
+                                        onPress={async () => {
+                                            await handleMarkAsPaid(selectedEvent);
+                                            closeEventDetails();
+                                        }}
+                                    >
+                                        <CheckCircle size={16} color="#FFFFFF" strokeWidth={2.8} />
+                                        <Text style={[styles.detailsActionText, { color: '#FFFFFF' }]}>Mark as paid</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.detailsActionAlt, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
+                                        onPress={() => openEventSource(selectedEvent)}
+                                    >
+                                        <Text style={[styles.detailsActionText, { color: themeColors.textPrimary }]}>Open source</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.detailsActionAlt, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
+                                        onPress={closeEventDetails}
+                                    >
+                                        <Text style={[styles.detailsActionText, { color: themeColors.textPrimary }]}>Close</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </ScrollView>
+                        ) : null}
+                    </BottomSheetView>
+                </BottomSheetModal>
 
             </SafeAreaView>
         </View>
@@ -697,24 +689,11 @@ const styles = StyleSheet.create({
         // No border
     },
     headerTitle: {
-        fontSize: 18,
+        ...Typography.h4,
         textAlign: 'center',
     },
-    headerActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        position: 'absolute',
-        right: 16,
-        zIndex: 2,
-    },
-    headerActionBtn: {
-        paddingHorizontal: 10,
-        paddingVertical: 7,
-        borderRadius: 999,
-    },
-    headerActionText: {
-        fontSize: 12,
+    headerSpacer: {
+        width: 40,
     },
     calendarContainer: {
         borderBottomWidth: StyleSheet.hairlineWidth,
@@ -925,23 +904,16 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         alignItems: 'center',
     },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'center',
-        paddingHorizontal: 18,
-    },
-    eventDetailsCard: {
-        borderRadius: 18,
-        borderWidth: StyleSheet.hairlineWidth,
-        padding: 16,
-        maxHeight: '70%',
+    eventSheetContent: {
+        padding: 24,
+        paddingBottom: 40,
     },
     detailsTitle: {
-        fontSize: 20,
+        ...Typography.h3,
         marginBottom: 8,
     },
     detailsDescription: {
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         lineHeight: 20,
         marginBottom: 10,
@@ -953,6 +925,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     detailsMetaText: {
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 13,
         flex: 1,
     },
@@ -976,6 +949,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     detailsActionText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 14,
     },
 });

@@ -1,29 +1,76 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+/**
+ * UniversalCreationBox — full-screen AI composer
+ *
+ * Uses a native full-screen modal so the experience feels closer to
+ * a dedicated workspace than a bottom sheet.
+ */
+
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
     TextInput,
     StyleSheet,
     TouchableOpacity,
-    Animated,
-    Keyboard,
     ActivityIndicator,
     Alert,
-    LayoutAnimation,
-    useColorScheme,
     Platform,
-    Linking,
+    Keyboard,
+    useColorScheme,
+    Modal,
+    ScrollView,
+    KeyboardAvoidingView,
 } from 'react-native';
-import CreationSuccessModal from './CreationSuccessModal';
-import * as WebBrowser from 'expo-web-browser';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { BottomSheetTextInput, BottomSheetBackdrop, BottomSheetView, BottomSheetModal } from '@gorhom/bottom-sheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/colors';
-import { Calendar as CalendarBlank, ArrowUp, Paperclip, ListPlus, CircleX as XCircle, Check, Trash, Inbox as Tray, ChevronDown as CaretDown, Link as LinkIcon, FileText, Send as PaperPlaneRight } from './ui/AppIcon';
-
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
-import * as DocumentPicker from 'expo-document-picker';
+import { ChevronLeft as CaretLeft } from './ui/AppIcon';
+import {
+    Receipt,
+    LinkSimple,
+    FileText,
+    PencilSimple,
+    Plus,
+    SlidersHorizontal,
+    ArrowUp,
+    Copy,
+    ThumbsUp,
+    ThumbsDown,
+    CheckCircle,
+    XCircle,
+} from 'phosphor-react-native';
+
+/* ─────────────────────────────────────────── types */
+
+interface ParsedData {
+    intent: 'invoice' | 'payment_link' | 'contract' | 'transfer' | 'recurring_invoice' | 'unknown';
+    clientName: string | null;
+    clientEmail: string | null;
+    amount: number | null;
+    currency: string | null;
+    chain: string | null;
+    dueDate: string | null;
+    priority: 'low' | 'medium' | 'high' | null;
+    title: string | null;
+    items?: Array<{ description: string; amount: number }>;
+    recipient?: string | null;
+    frequency?: string | null;
+    autoSend?: boolean;
+    startDate?: string | null;
+    endDate?: string | null;
+    naturalResponse?: string;
+    confidence: number;
+}
+
+interface Message {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    parsed?: ParsedData;
+    actionState?: 'pending' | 'creating' | 'done' | 'error';
+    actionResult?: string;
+}
 
 interface UniversalCreationBoxProps {
     visible: boolean;
@@ -31,1021 +78,501 @@ interface UniversalCreationBoxProps {
     onTransfer?: (data: any) => void;
 }
 
-interface ParsedData {
-    intent: 'invoice' | 'payment_link' | 'contract' | 'transfer' | 'unknown';
-    clientName: string | null;
-    clientEmail: string | null;
-    amount: number | null;
-    currency: string | null; // Token for transfers
-    chain: string | null;    // Network for transfers
-    dueDate: string | null;
-    priority: 'low' | 'medium' | 'high' | null;
-    title: string | null;
-    items?: Array<{ description: string; amount: number }>;
-    recipient?: string | null;
-    confidence: number;
-}
+/* ─────────────────────────────────────────── suggestions */
 
-// Suggestion examples
-// Suggestion examples - more instructional for General mode
-const SUGGESTIONS = [
-    "Please select an option from the dropdown to start...",
-    "Choose 'Payment Link' or 'Invoice' from the menu below...",
-    "Tap 'General' to switch modes..."
+type IconComponent = React.ComponentType<{ size: number; color: string }>;
+
+const SUGGESTIONS: Array<{ label: string; prompt: string; Icon: IconComponent }> = [
+    { label: 'Create an invoice',   prompt: 'Create an invoice for ',   Icon: Receipt as IconComponent },
+    { label: 'Send a payment link', prompt: 'Send a payment link for ', Icon: LinkSimple as IconComponent },
+    { label: 'Draft a contract',    prompt: 'Draft a contract for ',    Icon: FileText as IconComponent },
+    { label: 'Write a proposal',    prompt: 'Write a proposal for ',    Icon: PencilSimple as IconComponent },
 ];
 
-
-
-export function UniversalCreationBox({ visible, onClose, onTransfer }: UniversalCreationBoxProps) {
-    const themeColors = useThemeColors();
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
-    const router = useRouter();
-    const { getAccessToken } = useAuth();
-
-    // Bottom sheet ref
-    const bottomSheetRef = useRef<BottomSheetModal>(null);
-    const inputRef = useRef<any>(null);
-
-    // Input state
-    const [inputText, setInputText] = useState('');
-
-    // Parsed data from AI (Gemini)
-    const [parsedData, setParsedData] = useState<ParsedData | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-
-    // Manually selected date override
-    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-    const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
-
-    // Manual items state
-    const [manualItems, setManualItems] = useState<Array<{ description: string; amount: number }>>([]);
-    const [isAddingItem, setIsAddingItem] = useState(false);
-    const [newItemDesc, setNewItemDesc] = useState('');
-    const [newItemAmount, setNewItemAmount] = useState('');
-
-    // UI state
-    const [isCreating, setIsCreating] = useState(false);
-
-    // Suggestion rotation
-    const [suggestionIndex, setSuggestionIndex] = useState(0);
-    const suggestionFadeAnim = useRef(new Animated.Value(1)).current;
-    const dateShakeAnim = useRef(new Animated.Value(0)).current;
-
-    // Debounce timer
-    const parseTimer = useRef<any>(null);
-
-    // Mode state
-    const [selectedMode, setSelectedMode] = useState<'auto' | 'payment_link' | 'invoice' | 'transfer'>('auto');
-    const [showModeDropdown, setShowModeDropdown] = useState(false);
-    const modeDropdownAnimation = useRef(new Animated.Value(0)).current;
-    const [showDatePicker, setShowDatePicker] = useState(false);
-
-    // State for Success Modal
-    const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const [createdItemData, setCreatedItemData] = useState<{
-        type: 'invoice' | 'payment_link' | 'contract';
-        amount?: number;
-        title?: string;
-    } | null>(null);
-
-    // Derived placeholder
-    const getPlaceholder = () => {
-        switch (selectedMode) {
-            case 'payment_link': return "E.g., Design Retainer $500 for john@acme.com";
-            case 'invoice': return "E.g., Web Design Project $2000 for Sarah (incl. 3 milestones)";
-            case 'transfer': return "E.g., Send 100 USDC to 0x123... or bob.eth";
-            default: return "Select an option from the menu or type natural language...";
-        }
-    };
-    // Derived intent
-    // CRITICAL FIX: If selectedMode is explicit, we MUST use it. parsing should only enrich data, not override intent.
-    const detectedIntent = selectedMode !== 'auto' ? selectedMode : (parsedData?.intent || 'unknown');
-
-    // Effective date (manual override > AI parsed)
-    const effectiveDate = selectedDate || (parsedData?.dueDate ? new Date(parsedData.dueDate) : null);
-
-    // Handle sheet changes
-    const handleSheetChanges = useCallback((index: number) => {
-        if (index === -1) {
-            // Dismiss keyboard immediately when sheet closes
-            Keyboard.dismiss();
-            onClose();
-        }
-    }, [onClose]);
-
-    // Open/close sheet based on visible prop
-    useEffect(() => {
-        if (visible) {
-            // Reset state
-            setInputText('');
-            setSuggestionIndex(0);
-            suggestionFadeAnim.setValue(1);
-            setParsedData(null);
-            setSelectedDate(null);
-            setSelectedFile(null);
-            setManualItems([]);
-            setIsAddingItem(false);
-            setNewItemDesc('');
-            setNewItemAmount('');
-            setIsLoading(false);
-            setIsCreating(false);
-            setSelectedMode('auto');
-            setShowModeDropdown(false);
-
-            bottomSheetRef.current?.present();
-        } else {
-            // Dismiss keyboard immediately and forcefully before closing sheet
-            Keyboard.dismiss();
-            inputRef.current?.blur();
-
-            // Add a small delay to ensure keyboard is dismissed before sheet closes
-            setTimeout(() => {
-                bottomSheetRef.current?.dismiss();
-            }, 50);
-        }
-    }, [visible]);
-
-    // Add keyboard listener to handle lingering keyboard
-    useEffect(() => {
-        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-            if (!visible) {
-                // Ensure sheet is dismissed if keyboard hides while sheet should be closed
-                bottomSheetRef.current?.dismiss();
-            }
-        });
-
-        return () => {
-            keyboardDidHideListener.remove();
-        };
-    }, [visible]);
-
-    // Suggestion rotation animation
-    useEffect(() => {
-        let rotationInterval: ReturnType<typeof setInterval>;
-
-        if (visible && !inputText && selectedMode === 'auto') {
-            rotationInterval = setInterval(() => {
-                // Fade out
-                Animated.timing(suggestionFadeAnim, {
-                    toValue: 0,
-                    duration: 500,
-                    useNativeDriver: true,
-                }).start(() => {
-                    // Change text
-                    setSuggestionIndex((prev) => (prev + 1) % SUGGESTIONS.length);
-                    // Fade in
-                    Animated.timing(suggestionFadeAnim, {
-                        toValue: 1,
-                        duration: 500,
-                        useNativeDriver: true,
-                    }).start();
-                });
-            }, 4000);
-        }
-
-        return () => {
-            if (rotationInterval) clearInterval(rotationInterval);
-        };
-    }, [visible, inputText, selectedMode]);
-
-    // Parse input with Gemini (debounced)
-    const parseInput = useCallback(async (text: string) => {
-        if (text.length < 3) {
-            setParsedData(null);
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-            // Pass the explicit mode if set
-            const mode = selectedMode !== 'auto' ? selectedMode : undefined;
-
-            console.log('[UniversalCreationBox] Parsing with Gemini:', text, 'Mode:', mode);
-            const response = await fetch(`${apiUrl}/api/creation-box/parse`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    text,
-                    currentDate: new Date().toISOString(),
-                    mode
-                }),
-            });
-
-            const result = await response.json();
-
-            if (result.success && result.data) {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                setParsedData(result.data);
-            }
-        } catch (error) {
-            console.error('[UniversalCreationBox] Gemini parse error:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [getAccessToken, selectedDate, selectedMode]);
-
-    // Handle text change with debounce
-    const handleTextChange = (text: string) => {
-        setInputText(text);
-
-        if (parseTimer.current) {
-            clearTimeout(parseTimer.current);
-        }
-
-        parseTimer.current = setTimeout(() => {
-            parseInput(text);
-        }, 800);
-    };
-
-    // Handle date selection with picker
-    const handleDateTap = () => {
-        setShowDatePicker(true);
-    };
-
-    const handleDateChange = (event: any, date?: Date) => {
-        setShowDatePicker(false);
-        if (date) {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setSelectedDate(date);
-        }
-    };
-
-    // Handle disabled contract intent
-    useEffect(() => {
-        if (parsedData?.intent === 'contract_disabled' as any) {
-            Alert.alert(
-                'Projects Only',
-                'Contracts must now be created from the Projects page to ensure proper milestone setup.',
-                [
-                    { text: 'Go to Projects', onPress: () => router.push('/projects') },
-                    { text: 'Cancel', style: 'cancel', onPress: () => setParsedData(null) }
-                ]
-            );
-        }
-    }, [parsedData]);
-
-    // Trigger shake animation for Date chip
-    const shakeDate = () => {
-        Animated.sequence([
-            Animated.timing(dateShakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-            Animated.timing(dateShakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-            Animated.timing(dateShakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-            Animated.timing(dateShakeAnim, { toValue: 0, duration: 50, useNativeDriver: true })
-        ]).start();
-    };
-
-    // Handle file selection
-    const handleFileSelect = async () => {
-        try {
-            const result = await DocumentPicker.getDocumentAsync({
-                type: '*/*',
-                copyToCacheDirectory: true,
-            });
-
-            if (!result.canceled && result.assets && result.assets.length > 0) {
-                setSelectedFile(result.assets[0]);
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            }
-        } catch (error) {
-            console.error('[UniversalCreationBox] File selection error:', error);
-            Alert.alert('Error', 'Failed to select file');
-        }
-    };
-
-    const handleAddItem = () => {
-        if (!newItemDesc.trim() || !newItemAmount.trim()) return;
-
-        const amount = parseFloat(newItemAmount.replace(/[^0-9.]/g, ''));
-        if (isNaN(amount) || amount <= 0) return;
-
-        setManualItems(prev => [...prev, { description: newItemDesc.trim(), amount }]);
-        setNewItemDesc('');
-        setNewItemAmount('');
-        setIsAddingItem(false);
-
-        // Keep keyboard active for continued entry in the main prompt.
-        setTimeout(() => {
-            inputRef.current?.focus();
-        }, 50);
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    };
-
-    const removeManualItem = (index: number) => {
-        setManualItems(prev => prev.filter((_, i) => i !== index));
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    };
-
-    // Format date for display
-    const formatDateDisplay = (date: Date | null): string => {
-        if (!date) return 'Date';
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const dateNormalized = new Date(date);
-        dateNormalized.setHours(0, 0, 0, 0);
-
-        const daysDiff = Math.floor((dateNormalized.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-        if (daysDiff === 0) return 'Today';
-        if (daysDiff === 1) return 'Tomorrow';
-        if (daysDiff <= 7) return date.toLocaleDateString('en-US', { weekday: 'short' });
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    };
-
-    // Handle create
-    const handleCreate = async () => {
-        if (!inputText.trim()) return;
-
-        // Special handling for transfer intent
-        if (detectedIntent === 'transfer') {
-            if (onTransfer) {
-                onTransfer({
-                    amount: parsedData?.amount,
-                    token: parsedData?.currency || 'USDC',
-                    recipient: parsedData?.recipient,
-                    network: parsedData?.chain || 'base',
-                    description: inputText // Use full text as fallback description if needed
-                });
-                onClose();
-            } else {
-                console.error('[UniversalCreationBox] onTransfer prop missing!');
-                Alert.alert("Feature Not Available", "Transfer functionality is not yet connected.");
-            }
-            return;
-        }
-
-        const requiresDate = (detectedIntent === 'payment_link' || detectedIntent === 'invoice' || detectedIntent === 'unknown') && selectedMode !== 'transfer';
-
-        if (requiresDate && !effectiveDate) {
-            shakeDate();
-            Alert.alert("Date Required", "Please set a due date for this item.");
-            return;
-        }
-
-        setIsCreating(true);
-
-        try {
-            const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-
-            let endpoint = '/api/documents/invoice';
-
-            if (detectedIntent === 'payment_link') {
-                endpoint = '/api/documents/payment-link';
-            } else if (detectedIntent === 'contract') {
-                endpoint = '/api/documents';
-            }
-
-            let calculatedAmount = parsedData?.amount || 0;
-            let finalItems = parsedData?.items || [];
-
-            // Helper to clean text for description
-            const getCleanDescription = (text: string, clientName?: string) => {
-                let clean = text;
-                // Remove command prefixes (only if auto mode, or if strictly needed)
-                clean = clean.replace(/^(?:create\s+)?(?:invoice|bill|pay link|payment link)\s+(?:for\s+)?/i, '');
-                // Remove date/amount suffixes if possible (simple heuristic)
-                clean = clean.replace(/\s+(?:due|at)\s+.*$/i, '');
-                clean = clean.replace(/\s+(?:\$|USD).*$/i, '');
-
-                clean = clean.trim();
-
-                // If clean text is just the client name, return generic
-                if (clientName && clean.toLowerCase().includes(clientName.toLowerCase())) {
-                    return 'Professional Services';
-                }
-
-                return clean.length > 0 ? clean : 'Professional Services';
-            };
-
-            const cleanDesc = getCleanDescription(inputText, parsedData?.clientName || undefined);
-
-            // Prioritize manual items if present
-            if (manualItems.length > 0) {
-                finalItems = manualItems;
-                calculatedAmount = manualItems.reduce((sum, item) => sum + item.amount, 0);
-            } else if (parsedData?.amount && (!parsedData.items || parsedData.items.length === 0)) {
-                // Determine implicit item using CLEAN description
-                finalItems = [{ description: cleanDesc, amount: parsedData.amount }];
-            }
-
-            // Improve title fallback - STRICT SANITIZATION
-            let finalTitle = parsedData?.title;
-            const baseLabel = detectedIntent === 'payment_link' ? 'Payment Link' : 'Invoice';
-            // If title is missing, matches input, or is just too long/messy
-            const isTitleBad = !finalTitle ||
-                finalTitle.trim() === inputText.trim() ||
-                (finalTitle.length > 20 && inputText.includes(finalTitle)) ||
-                finalTitle.length > 50;
-
-            if (isTitleBad) {
-                if (parsedData?.clientName) {
-                    finalTitle = `${baseLabel} for ${parsedData.clientName}`;
-                } else if (parsedData?.clientEmail) {
-                    const nameFromEmail = parsedData.clientEmail.split('@')[0];
-                    finalTitle = `${baseLabel} for ${nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1)}`;
-                } else {
-                    // Use the clean description for title if no client
-                    finalTitle = cleanDesc === 'Professional Services' ? (detectedIntent === 'payment_link' ? 'Payment Link' : 'Service Invoice') : cleanDesc;
-                }
-            }
-
-            const content: any = {
-                title: finalTitle,
-                description: cleanDesc, // User requested clean description, not full prompt
-                clientName: parsedData?.clientName,
-                amount: calculatedAmount,
-                currency: parsedData?.currency || 'USD',
-                recipientEmail: parsedData?.clientEmail,
-                items: finalItems,
-                remindersEnabled: true,
-                type: detectedIntent === 'contract' ? 'CONTRACT' : undefined
-            };
-
-            if (effectiveDate) {
-                content.dueDate = effectiveDate.toISOString();
-            }
-
-            console.log('[UniversalCreationBox] Creating document:', { endpoint, content });
-
-            const response = await fetch(`${apiUrl}${endpoint}`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(content),
-            });
-
-            const result = await response.json();
-            console.log('[UniversalCreationBox] Create result:', result);
-
-            if (result.success && result.data) {
-                // Success Modal Logic
-                const docId = result.data.document?.id || result.data.id;
-                const paymentUrl = result.data.document?.payment_link_url || result.data.document?.content?.blockradar_url;
-
-                setCreatedItemData({
-                    type: detectedIntent as any,
-                    amount: calculatedAmount,
-                    title: finalTitle || undefined
-                });
-
-                setShowSuccessModal(true);
-
-                // Clear state but don't close sheet yet - modal is above
-                setInputText('');
-                setParsedData(null);
-                setManualItems([]);
-
-                if (paymentUrl && paymentUrl.startsWith('http')) {
-                    // Optional: still open browser if it was a direct BlockRadar link creation?
-                    // For now, let's stick to the modal as requested.
-                }
-
-            } else {
-                throw new Error(result.error?.message || 'Failed to create document');
-            }
-        } catch (error: any) {
-            console.error('[UniversalCreationBox] Create error:', error);
-            Alert.alert('Error', error?.message || 'Failed to create document. Please try again.');
-        } finally {
-            setIsCreating(false);
-        }
-    };
-
-    const handleSuccessClose = () => {
-        setShowSuccessModal(false);
-        setCreatedItemData(null);
-        onClose(); // Close the main sheet
-    };
-
-
-    // Backdrop component
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.4}
-                pressBehavior="close"
-            />
-        ),
-        []
-    );
-
-    // Colors based on theme
-    const sheetBg = isDark ? '#1C1C1E' : '#FFFFFF';
-    const textColor = isDark ? '#FFFFFF' : '#000000';
-    const secondaryText = isDark ? '#8E8E93' : '#8E8E93';
-    const brandColor = themeColors.primary;
+/* ─────────────────────────────────────────── intent meta */
+
+const INTENT_META: Record<string, { label: string; bg: string; color: string }> = {
+    invoice:           { label: 'Invoice',          bg: '#EFF4FF', color: '#2563EB' },
+    payment_link:      { label: 'Payment Link',      bg: '#F0FDF4', color: '#16A34A' },
+    recurring_invoice: { label: 'Recurring Invoice', bg: '#FDF4FF', color: '#9333EA' },
+};
+
+/* ─────────────────────────────────────────── action card */
+
+function ActionCard({ parsed, onConfirm, onDismiss, colors }: {
+    parsed: ParsedData;
+    onConfirm: () => void;
+    onDismiss: () => void;
+    colors: ReturnType<typeof useThemeColors>;
+}) {
+    const meta = INTENT_META[parsed.intent] ?? INTENT_META.invoice;
+    const rows: { label: string; value: string }[] = [];
+    if (parsed.amount != null) rows.push({ label: 'Amount', value: `$${parsed.amount.toLocaleString()}` });
+    if (parsed.clientName)     rows.push({ label: 'Client', value: parsed.clientName });
+    if (parsed.clientEmail)    rows.push({ label: 'Email',  value: parsed.clientEmail });
+    if (parsed.dueDate)        rows.push({ label: 'Due',    value: new Date(parsed.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) });
+    if (parsed.frequency)      rows.push({ label: 'Every',  value: parsed.frequency.charAt(0).toUpperCase() + parsed.frequency.slice(1) });
+    if (parsed.title)          rows.push({ label: 'For',    value: parsed.title });
 
     return (
-        <>
-            <BottomSheetModal
-                ref={bottomSheetRef}
-                index={0}
-                onChange={handleSheetChanges}
-                backdropComponent={renderBackdrop}
-                enablePanDownToClose
-                enableDynamicSizing={true}
-                android_keyboardInputMode="adjustPan"
-                keyboardBehavior="interactive"
-                keyboardBlurBehavior="restore"
-                backgroundStyle={{
-                    backgroundColor: sheetBg,
-                    borderTopLeftRadius: 16,
-                    borderTopRightRadius: 16,
-                }}
-                handleIndicatorStyle={{
-                    backgroundColor: isDark ? '#3A3A3C' : '#C7C7CC',
-                    width: 40,
-                }}
-            >
-                <BottomSheetView style={styles.contentContainer}>
-                    {/* Text Input */}
-                    <BottomSheetTextInput
-                        ref={inputRef}
-                        value={inputText}
-                        onChangeText={handleTextChange}
-                        placeholder={getPlaceholder()}
-                        placeholderTextColor={secondaryText}
-                        style={[styles.input, { color: textColor }]}
-                        multiline
-                    />
-
-                    {/* Manual Items List */}
-                    {manualItems.length > 0 && !isAddingItem && (
-                        <View style={styles.itemsList}>
-                            {manualItems.map((item, index) => (
-                                <View key={index} style={[styles.itemChip, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]}>
-                                    <Text style={[styles.itemText, { color: textColor }]}>
-                                        {item.description} (${item.amount})
-                                    </Text>
-                                    <TouchableOpacity onPress={() => removeManualItem(index)}>
-                                        <XCircle size={16} color={secondaryText} fill={secondaryText} />
-                                    </TouchableOpacity>
-                                </View>
-                            ))}
-                        </View>
-                    )}
-
-                    {/* Add Item Form */}
-                    {isAddingItem ? (
-                        <View style={styles.addItemForm}>
-                            <BottomSheetTextInput
-                                value={newItemDesc}
-                                onChangeText={setNewItemDesc}
-                                placeholder="Item description (e.g. Web Design)"
-                                placeholderTextColor={secondaryText}
-                                style={[styles.miniInput, { color: textColor, flex: 2 }]}
-                                autoFocus
-                            />
-                            <BottomSheetTextInput
-                                value={newItemAmount}
-                                onChangeText={setNewItemAmount}
-                                placeholder="$0.00"
-                                placeholderTextColor={secondaryText}
-                                keyboardType="numeric"
-                                style={[styles.miniInput, { color: textColor, flex: 1 }]}
-                            />
-                            <TouchableOpacity
-                                style={[styles.miniButton, { backgroundColor: brandColor }]}
-                                onPress={handleAddItem}
-                            >
-                                <Check size={16} color="#FFFFFF" strokeWidth={3} />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.miniButton, { backgroundColor: isDark ? '#3A3A3C' : '#E5E5EA' }]}
-                                onPress={() => {
-                                    setIsAddingItem(false);
-                                    setTimeout(() => {
-                                        inputRef.current?.focus();
-                                    }, 50);
-                                }}
-                            >
-                                <XCircle size={16} color={secondaryText} strokeWidth={3} />
-                            </TouchableOpacity>
-                        </View>
-                    ) : null}
-
-                    {/* Rotating AI Suggestions (Ghost Text) */}
-                    {!inputText && (
-                        <TouchableOpacity
-                            activeOpacity={0.7}
-                            onPress={() => setInputText(SUGGESTIONS[suggestionIndex])}
-                            style={styles.suggestionContainer}
-                        >
-                            <Text style={[styles.suggestionLabel, { color: brandColor }]}>Try: </Text>
-                            <Animated.Text
-                                style={[
-                                    styles.suggestionText,
-                                    {
-                                        color: secondaryText,
-                                        opacity: suggestionFadeAnim
-                                    }
-                                ]}
-                                numberOfLines={1}
-                                ellipsizeMode="tail"
-                            >
-                                {SUGGESTIONS[suggestionIndex]}
-                            </Animated.Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Chips Row: Date + Add Item + File */}
-                    <View style={[styles.bottomRow, { marginBottom: 12, borderTopWidth: 0, paddingTop: 0 }]}>
-                        {/* Date Chip (Rounded Pill) - Hide for Transfer */}
-                        {detectedIntent !== 'transfer' && (
-                            <Animated.View style={{ transform: [{ translateX: dateShakeAnim }] }}>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.datePill,
-                                        {
-                                            backgroundColor: effectiveDate ? `${brandColor}15` : (isDark ? '#2C2C2E' : '#F2F2F7'),
-                                            borderColor: effectiveDate ? brandColor : (isDark ? '#3A3A3C' : '#E5E5EA'),
-                                        }
-                                    ]}
-                                    onPress={handleDateTap}
-                                >
-                                    <CalendarBlank
-                                        size={16}
-                                        color={effectiveDate ? brandColor : secondaryText}
-                                        strokeWidth={3}
-                                    />
-                                    <Text style={[
-                                        styles.datePillText,
-                                        { color: effectiveDate ? brandColor : secondaryText }
-                                    ]}>
-                                        {formatDateDisplay(effectiveDate)}
-                                    </Text>
-                                </TouchableOpacity>
-                            </Animated.View>
-                        )}
-
-                        {/* Add Item Pill - Only for Invoice */}
-                        {selectedMode === 'invoice' && (
-                            <TouchableOpacity
-                                style={[
-                                    styles.datePill,
-                                    {
-                                        backgroundColor: isAddingItem ? `${brandColor}15` : (isDark ? '#2C2C2E' : '#F2F2F7'),
-                                        borderColor: isAddingItem ? brandColor : (isDark ? '#3A3A3C' : '#E5E5EA'),
-                                        marginLeft: 8
-                                    }
-                                ]}
-                                onPress={() => {
-                                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                    setIsAddingItem(true);
-                                }}
-                            >
-                                <ListPlus
-                                    size={16}
-                                    color={isAddingItem ? brandColor : secondaryText}
-                                    strokeWidth={3}
-                                />
-                                <Text style={[
-                                    styles.datePillText,
-                                    { color: isAddingItem ? brandColor : secondaryText }
-                                ]}>
-                                    Add Item
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-
-                        {/* File Upload Chip */}
-                        <TouchableOpacity
-                            style={[
-                                styles.datePill,
-                                {
-                                    backgroundColor: selectedFile ? `${brandColor}15` : (isDark ? '#2C2C2E' : '#F2F2F7'),
-                                    borderColor: selectedFile ? brandColor : (isDark ? '#3A3A3C' : '#E5E5EA'),
-                                    marginLeft: 8
-                                }
-                            ]}
-                            onPress={handleFileSelect}
-                        >
-                            <Paperclip
-                                size={16}
-                                color={selectedFile ? brandColor : secondaryText}
-                                strokeWidth={3}
-                            />
-                            {selectedFile ? (
-                                <Text style={[
-                                    styles.datePillText,
-                                    { color: brandColor, maxWidth: 100 }
-                                ]} numberOfLines={1} ellipsizeMode="middle">
-                                    {selectedFile.name}
-                                </Text>
-                            ) : null}
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Bottom Action Row: Inbox Selector (Left) + Submit (Right) */}
-                    <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingTop: 12,
-                        borderTopWidth: 1,
-                        borderTopColor: isDark ? '#3A3A3C' : '#E5E5EA',
-                        zIndex: 20
-                    }}>
-                        {/* Inbox Selector with Dropdown */}
-                        <View>
-                            <TouchableOpacity
-                                style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    padding: 8,
-                                    borderRadius: 8,
-                                    backgroundColor: showModeDropdown ? (isDark ? '#2C2C2E' : '#F2F2F7') : 'transparent'
-                                }}
-                                onPress={() => {
-                                    if (!showModeDropdown) {
-                                        setShowModeDropdown(true);
-                                        Animated.spring(modeDropdownAnimation, {
-                                            toValue: 1,
-                                            damping: 15,
-                                            stiffness: 150,
-                                            useNativeDriver: true,
-                                        }).start();
-                                    } else {
-                                        Animated.timing(modeDropdownAnimation, {
-                                            toValue: 0,
-                                            duration: 200,
-                                            useNativeDriver: true,
-                                        }).start(() => setShowModeDropdown(false));
-                                    }
-                                }}
-                                activeOpacity={0.7}
-                            >
-                                {/* Icon for mode - Subtle */}
-                                {selectedMode === 'auto' && <Tray size={18} color={secondaryText} />}
-                                {selectedMode === 'payment_link' && <LinkIcon size={18} color={secondaryText} />}
-                                {selectedMode === 'invoice' && <FileText size={18} color={secondaryText} />}
-
-                                {/* Text - Subtle System Font */}
-                                <Text style={{ fontSize: 16, fontWeight: '500', color: secondaryText }}>
-                                    {selectedMode === 'auto' ? 'General' : selectedMode === 'payment_link' ? 'Payment Link' : selectedMode === 'invoice' ? 'Invoice' : 'Transfer'}
-                                </Text>
-                                <CaretDown
-                                    size={14}
-                                    color={secondaryText}
-                                    strokeWidth={3}
-                                    style={{ transform: [{ rotate: showModeDropdown ? '180deg' : '0deg' }] }}
-                                />
-                            </TouchableOpacity>
-
-                            {/* Mode Dropdown (Opens Upwards) */}
-                            {showModeDropdown && (
-                                <Animated.View style={{
-                                    position: 'absolute',
-                                    bottom: '100%', // Open upwards
-                                    left: 0,
-                                    marginBottom: 8,
-                                    backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
-                                    borderRadius: 12,
-                                    width: 200,
-                                    shadowColor: "#000",
-                                    shadowOffset: { width: 0, height: 4 }, // Standard shadow
-                                    shadowOpacity: 0.15,
-                                    shadowRadius: 12,
-                                    elevation: 5,
-                                    borderWidth: 1,
-                                    borderColor: isDark ? '#3A3A3C' : '#E5E5EA',
-                                    padding: 4,
-                                    opacity: modeDropdownAnimation,
-                                    transform: [
-                                        {
-                                            scale: modeDropdownAnimation.interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [0.95, 1],
-                                            }),
-                                        },
-                                        {
-                                            translateY: modeDropdownAnimation.interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [10, 0],
-                                            }),
-                                        },
-                                    ],
-                                }}>
-
-
-                                    {/* Payment Link Option - Refined */}
-                                    <TouchableOpacity
-                                        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'payment_link' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
-                                        onPress={() => {
-                                            setSelectedMode('payment_link');
-                                            Animated.timing(modeDropdownAnimation, {
-                                                toValue: 0,
-                                                duration: 200,
-                                                useNativeDriver: true,
-                                            }).start(() => setShowModeDropdown(false));
-                                        }}
-                                    >
-                                        <LinkIcon size={18} color={textColor} strokeWidth={2.2} />
-                                        <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Payment Link</Text>
-                                        {selectedMode === 'payment_link' && <Check size={14} color={textColor} strokeWidth={3} style={{ marginLeft: 'auto' }} />}
-                                    </TouchableOpacity>
-
-                                    {/* Invoice Option - Refined */}
-                                    <TouchableOpacity
-                                        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'invoice' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
-                                        onPress={() => {
-                                            setSelectedMode('invoice');
-                                            Animated.timing(modeDropdownAnimation, {
-                                                toValue: 0,
-                                                duration: 200,
-                                                useNativeDriver: true,
-                                            }).start(() => setShowModeDropdown(false));
-                                        }}
-                                    >
-                                        <FileText size={18} color={textColor} strokeWidth={2.2} />
-                                        <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Invoice</Text>
-                                        {selectedMode === 'invoice' && <Check size={14} color={textColor} strokeWidth={3} style={{ marginLeft: 'auto' }} />}
-                                    </TouchableOpacity>
-
-                                    {/* Transfer Option - Refined */}
-                                    <TouchableOpacity
-                                        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: selectedMode === 'transfer' ? (isDark ? '#3A3A3C' : '#F2F2F7') : 'transparent' }}
-                                        onPress={() => {
-                                            setSelectedMode('transfer');
-                                            Animated.timing(modeDropdownAnimation, {
-                                                toValue: 0,
-                                                duration: 200,
-                                                useNativeDriver: true,
-                                            }).start(() => setShowModeDropdown(false));
-                                        }}
-                                    >
-                                        <PaperPlaneRight size={18} color={textColor} strokeWidth={2.2} />
-                                        <Text style={{ color: textColor, fontSize: 15, fontWeight: '500' }}>Transfer</Text>
-                                        {selectedMode === 'transfer' && <Check size={14} color={textColor} strokeWidth={3} style={{ marginLeft: 'auto' }} />}
-                                    </TouchableOpacity>
-                                </Animated.View>
-                            )}
-                        </View>
-
-                        {/* Right Side: Loading or Submit */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            {/* Loading Indicator */}
-                            {isLoading && (
-                                <ActivityIndicator size="small" color={brandColor} style={{ marginRight: 12 }} />
-                            )}
-
-                            {/* Submit Button (Brand Color) */}
-                            <TouchableOpacity
-                                style={[
-                                    styles.submitButton,
-                                    {
-                                        backgroundColor: inputText.trim() ? brandColor : (isDark ? '#2C2C2E' : '#F2F2F7'),
-                                    }
-                                ]}
-                                onPress={handleCreate}
-                                disabled={!inputText.trim() || isCreating}
-                            >
-                                {isCreating ? (
-                                    <ActivityIndicator size="small" color="#FFFFFF" />
-                                ) : (
-                                    <ArrowUp
-                                        size={20}
-                                        color={inputText.trim() ? '#FFFFFF' : secondaryText}
-                                        strokeWidth={3}
-                                    />
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    {/* Date Picker */}
-                    {showDatePicker && (
-                        <DateTimePicker
-                            value={effectiveDate || new Date()}
-                            mode="date"
-                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                            onChange={handleDateChange}
-                            textColor={textColor}
-                            themeVariant={isDark ? 'dark' : 'light'}
-                        />
-                    )}
-                </BottomSheetView>
-            </BottomSheetModal>
-
-            {/* Success Modal */}
-            <CreationSuccessModal
-                visible={showSuccessModal}
-                onClose={handleSuccessClose}
-                type={createdItemData?.type || 'invoice'}
-                amount={createdItemData?.amount}
-                title={createdItemData?.title}
-            />
-        </>
+        <View style={[a.card, { backgroundColor: colors.surface }]}>
+            <View style={[a.badge, { backgroundColor: meta.bg }]}>
+                <Text style={[a.badgeText, { color: meta.color }]}>{meta.label}</Text>
+            </View>
+            {rows.map((r) => (
+                <View key={r.label} style={a.row}>
+                    <Text style={[a.label, { color: colors.textSecondary }]}>{r.label}</Text>
+                    <Text style={[a.value, { color: colors.textPrimary }]} numberOfLines={1}>{r.value}</Text>
+                </View>
+            ))}
+            <View style={a.btns}>
+                <TouchableOpacity style={[a.confirm, { backgroundColor: colors.primary }]} onPress={onConfirm} activeOpacity={0.8}>
+                    <Text style={a.confirmText}>
+                        {parsed.intent === 'recurring_invoice' ? 'Review & Set up' : 'Create'}
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[a.dismiss, { borderColor: colors.border }]} onPress={onDismiss} activeOpacity={0.7}>
+                    <Text style={[a.dismissText, { color: colors.textSecondary }]}>Dismiss</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
     );
 }
 
-const styles = StyleSheet.create({
-    contentContainer: {
+const a = StyleSheet.create({
+    card:        { borderRadius: 16, padding: 14, gap: 8 },
+    badge:       { alignSelf: 'flex-start', borderRadius: 100, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 2 },
+    badgeText:   { fontSize: 11, fontFamily: 'GoogleSansFlex_600SemiBold' },
+    row:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+    label:       { fontSize: 13, fontFamily: 'GoogleSansFlex_400Regular', flexShrink: 0 },
+    value:       { fontSize: 13, fontFamily: 'GoogleSansFlex_500Medium', flex: 1, textAlign: 'right' },
+    btns:        { flexDirection: 'row', gap: 8, marginTop: 6 },
+    confirm:     { flex: 1, borderRadius: 100, paddingVertical: 10, alignItems: 'center' },
+    confirmText: { fontSize: 13, fontFamily: 'GoogleSansFlex_600SemiBold', color: '#FFFFFF' },
+    dismiss:     { borderRadius: 100, borderWidth: 1, paddingHorizontal: 18, paddingVertical: 10, alignItems: 'center' },
+    dismissText: { fontSize: 13, fontFamily: 'GoogleSansFlex_600SemiBold' },
+});
+
+/* ─────────────────────────────────────────── main */
+
+export function UniversalCreationBox({ visible, onClose, onTransfer }: UniversalCreationBoxProps) {
+    const colors  = useThemeColors();
+    const isDark  = useColorScheme() === 'dark';
+    const router  = useRouter();
+    const { getAccessToken } = useAuth();
+    const insets  = useSafeAreaInsets();
+
+    const scrollRef = useRef<ScrollView>(null);
+    const inputRef  = useRef<TextInput>(null);
+
+    const [messages,  setMessages]  = useState<Message[]>([]);
+    const [input,     setInput]     = useState('');
+    const [isParsing, setIsParsing] = useState(false);
+    const [kbOpen,    setKbOpen]    = useState(false);
+
+    /* ── keyboard visibility tracking (for bottom padding) ── */
+    useEffect(() => {
+        const show = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+        const s = Keyboard.addListener(show, () => setKbOpen(true));
+        const h = Keyboard.addListener(hide, () => setKbOpen(false));
+        return () => { s.remove(); h.remove(); };
+    }, []);
+
+    /* ── open / close ── */
+    useEffect(() => {
+        if (visible) {
+            setMessages([]);
+            setInput('');
+            setIsParsing(false);
+            setTimeout(() => inputRef.current?.focus(), 380);
+        } else {
+            Keyboard.dismiss();
+        }
+    }, [visible]);
+
+    /* ── scroll to bottom on new content ── */
+    useEffect(() => {
+        const t = setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), 120);
+        return () => clearTimeout(t);
+    }, [messages, isParsing]);
+
+    const handleClose = useCallback(() => {
+        Keyboard.dismiss();
+        onClose();
+    }, [onClose]);
+
+    /* ── send ── */
+    const sendMessage = useCallback(async () => {
+        const text = input.trim();
+        if (!text || isParsing) return;
+
+        setMessages((p) => [...p, { id: `u-${Date.now()}`, role: 'user', content: text }]);
+        setInput('');
+        setIsParsing(true);
+        Keyboard.dismiss();
+
+        try {
+            const token  = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const res    = await fetch(`${apiUrl}/api/creation-box/parse`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, currentDate: new Date().toISOString() }),
+            });
+            const json = await res.json();
+
+            if (json?.success && json.data) {
+                const raw = json.data;
+                const parsed: ParsedData = {
+                    intent: raw.intent ?? 'unknown', clientName: raw.clientName ?? null,
+                    clientEmail: raw.clientEmail ?? null, amount: raw.amount ?? null,
+                    currency: raw.currency ?? null, chain: raw.chain ?? null,
+                    dueDate: raw.dueDate ?? null, priority: raw.priority ?? null,
+                    title: raw.title ?? null, items: Array.isArray(raw.items) ? raw.items : undefined,
+                    recipient: raw.recipient ?? null, frequency: raw.frequency ?? null,
+                    autoSend: raw.autoSend, startDate: raw.startDate ?? null,
+                    endDate: raw.endDate ?? null, naturalResponse: raw.naturalResponse,
+                    confidence: raw.confidence ?? 0,
+                };
+                const actionable = parsed.intent !== 'unknown';
+                setMessages((p) => [...p, {
+                    id: `a-${Date.now()}`, role: 'assistant',
+                    content: raw.naturalResponse || (actionable
+                        ? "Here's what I found — confirm to create:"
+                        : "I'm not sure what you need. Try describing an invoice, payment link, or contract."),
+                    parsed: actionable ? parsed : undefined,
+                    actionState: actionable ? 'pending' : undefined,
+                }]);
+            } else {
+                setMessages((p) => [...p, {
+                    id: `a-${Date.now()}`, role: 'assistant',
+                    content: 'Try: "Invoice for $500 web design for john@acme.com due Friday".',
+                }]);
+            }
+        } catch {
+            setMessages((p) => [...p, { id: `a-${Date.now()}`, role: 'assistant', content: 'Something went wrong. Please try again.' }]);
+        } finally {
+            setIsParsing(false);
+            setTimeout(() => inputRef.current?.focus(), 350);
+        }
+    }, [input, isParsing, getAccessToken]);
+
+    /* ── confirm action ── */
+    const confirmAction = useCallback(async (msgId: string, parsed: ParsedData) => {
+        if (parsed.intent === 'recurring_invoice') {
+            onClose();
+            router.push({ pathname: '/invoice/create-recurring' as any, params: { prefillAmount: parsed.amount ? String(parsed.amount) : '', prefillClientName: parsed.clientName || '', prefillClientEmail: parsed.clientEmail || '', prefillFrequency: parsed.frequency || 'monthly', prefillTitle: parsed.title || '' } });
+            return;
+        }
+        if (parsed.intent === 'transfer') {
+            if (onTransfer) { onTransfer({ amount: parsed.amount, token: parsed.currency || 'USDC', recipient: parsed.recipient, network: parsed.chain || 'base' }); onClose(); }
+            else Alert.alert('Not Available', 'Transfer is not available here.');
+            return;
+        }
+
+        setMessages((p) => p.map((m) => m.id === msgId ? { ...m, actionState: 'creating' } : m));
+        try {
+            const token       = await getAccessToken();
+            const apiUrl      = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const isLink      = parsed.intent === 'payment_link';
+            const endpoint    = isLink ? '/api/documents/payment-link' : '/api/documents/invoice';
+            const typeLabel   = isLink ? 'Payment Link' : 'Invoice';
+            const totalAmount = parsed.items?.length ? parsed.items.reduce((s, i) => s + i.amount, 0) : (parsed.amount ?? 0);
+            const title       = parsed.title || (parsed.clientName ? `${typeLabel} for ${parsed.clientName}` : typeLabel);
+            const dueDate     = parsed.dueDate ? new Date(parsed.dueDate).toISOString() : new Date(Date.now() + 7 * 86_400_000).toISOString();
+            const body: Record<string, unknown> = { title, description: title, amount: totalAmount, currency: isLink ? 'USDC' : 'USD', remindersEnabled: true, items: parsed.items ?? [], dueDate };
+            if (parsed.clientName)  body.clientName     = parsed.clientName;
+            if (parsed.clientEmail) body.recipientEmail = parsed.clientEmail;
+
+            const res    = await fetch(`${apiUrl}${endpoint}`, { method: 'POST', headers: { Authorization: `Bearer ${await getAccessToken()}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const result = await res.json();
+            if (!res.ok || !result.success) throw new Error(result.error?.message ?? 'Failed');
+            setMessages((p) => p.map((m) => m.id === msgId ? { ...m, actionState: 'done', actionResult: `${typeLabel} created successfully.` } : m));
+        } catch (err: any) {
+            setMessages((p) => p.map((m) => m.id === msgId ? { ...m, actionState: 'error', actionResult: err?.message ?? 'Failed.' } : m));
+        }
+    }, [getAccessToken, onClose, onTransfer, router]);
+
+    const hasMessages = messages.length > 0 || isParsing;
+    const canSend     = input.trim().length > 0 && !isParsing;
+    const bottomPad   = kbOpen ? 8 : Math.max(insets.bottom, 12);
+    const topPad      = Math.max(insets.top, 16);
+
+    /* ─── colour tokens ─── */
+    const textPri    = colors.textPrimary;
+    const textSec    = colors.textSecondary;
+    const primary    = colors.primary;
+    const userBubble = isDark ? '#1B1B1D' : '#F2F4F7';
+    const shellBg    = isDark ? '#050505' : '#FFFFFF';
+    const panelBg    = isDark ? '#141414' : '#FFFFFF';
+    const panelBorder = isDark ? '#202020' : '#E5E7EB';
+    const iconBtnBg  = colors.surface;
+    const inputBg    = isDark ? '#151515' : '#F7F7F8';
+    const sendDisBg  = isDark ? '#2B2B2D' : '#E5E7EB';
+    const placeholder= isDark ? '#666666' : '#A1A1AA';
+    const inputShadow = isDark ? '#000000' : '#111827';
+
+    return (
+        <Modal
+            visible={visible}
+            animationType="slide"
+            presentationStyle="fullScreen"
+            statusBarTranslucent
+            onRequestClose={handleClose}
+        >
+            <KeyboardAvoidingView
+                style={[s.modalRoot, { backgroundColor: shellBg }]}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                <View
+                    style={[
+                        s.panel,
+                        {
+                            backgroundColor: panelBg,
+                            paddingTop: topPad,
+                        },
+                    ]}
+                >
+                    {/* ── Top bar ── */}
+                    <View style={s.topBar}>
+                        <TouchableOpacity
+                            style={s.backButton}
+                            onPress={handleClose}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <View style={[s.backButtonCircle, { backgroundColor: iconBtnBg }]}>
+                                <CaretLeft size={20} color={textPri} strokeWidth={3} />
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* ── Scrollable content ── */}
+                    <ScrollView
+                        ref={scrollRef}
+                        style={s.scroll}
+                        contentContainerStyle={[
+                            s.scrollContent,
+                            !hasMessages && s.scrollGrow,
+                            kbOpen ? s.scrollContentKeyboard : s.scrollContentResting,
+                        ]}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {!hasMessages ? (
+                            /* ── Empty state ── */
+                            <View style={[s.empty, kbOpen && s.emptyKeyboard]}>
+                                <Text style={[s.heading, { color: textPri }]}>
+                                    How can I help you today?
+                                </Text>
+
+                                {SUGGESTIONS.map(({ label, prompt, Icon }) => (
+                                    <TouchableOpacity
+                                        key={label}
+                                        style={[s.suggRow, kbOpen && s.suggRowKeyboard]}
+                                        onPress={() => { setInput(prompt); inputRef.current?.focus(); }}
+                                        activeOpacity={0.55}
+                                    >
+                                        <Icon size={21} color={textSec} />
+                                        <Text style={[s.suggText, { color: textPri }]}>{label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        ) : (
+                            /* ── Messages ── */
+                            <>
+                                {messages.map((msg) => (
+                                    <View key={msg.id} style={s.msgBlock}>
+                                        {msg.role === 'user' ? (
+                                            <View style={s.userRow}>
+                                                <View style={[s.userBubble, { backgroundColor: userBubble }]}>
+                                                    <Text style={[s.userText, { color: textPri }]}>{msg.content}</Text>
+                                                </View>
+                                            </View>
+                                        ) : (
+                                            <View style={s.aiBlock}>
+                                                <Text style={[s.aiText, { color: textPri }]}>{msg.content}</Text>
+
+                                                {msg.parsed && msg.actionState === 'pending' && (
+                                                    <ActionCard
+                                                        parsed={msg.parsed}
+                                                        colors={colors}
+                                                        onConfirm={() => confirmAction(msg.id, msg.parsed!)}
+                                                        onDismiss={() => setMessages((p) => p.map((m) =>
+                                                            m.id === msg.id ? { ...m, actionState: undefined, parsed: undefined } : m
+                                                        ))}
+                                                    />
+                                                )}
+
+                                                {msg.actionState === 'creating' && (
+                                                    <View style={s.statusRow}>
+                                                        <ActivityIndicator size="small" color={primary} />
+                                                        <Text style={[s.statusText, { color: textSec }]}>Creating…</Text>
+                                                    </View>
+                                                )}
+                                                {msg.actionState === 'done' && (
+                                                    <View style={s.statusRow}>
+                                                        <CheckCircle size={14} color="#16A34A" weight="fill" />
+                                                        <Text style={[s.statusText, { color: '#16A34A' }]}>{msg.actionResult}</Text>
+                                                    </View>
+                                                )}
+                                                {msg.actionState === 'error' && (
+                                                    <View style={s.statusRow}>
+                                                        <XCircle size={14} color="#B42318" weight="fill" />
+                                                        <Text style={[s.statusText, { color: '#B42318' }]}>{msg.actionResult}</Text>
+                                                    </View>
+                                                )}
+
+                                                {msg.actionState !== 'creating' && (
+                                                    <View style={s.aiActions}>
+                                                        <TouchableOpacity style={s.aiActionBtn} activeOpacity={0.55}>
+                                                            <Copy size={15} color={textSec} />
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity style={s.aiActionBtn} activeOpacity={0.55}>
+                                                            <ThumbsUp size={15} color={textSec} />
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity style={s.aiActionBtn} activeOpacity={0.55}>
+                                                            <ThumbsDown size={15} color={textSec} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
+                                ))}
+
+                                {isParsing && (
+                                    <View style={s.aiBlock}>
+                                        <View style={s.typingRow}>
+                                            <View style={[s.dot, { backgroundColor: textSec }]} />
+                                            <View style={[s.dot, { backgroundColor: textSec }]} />
+                                            <View style={[s.dot, { backgroundColor: textSec }]} />
+                                        </View>
+                                    </View>
+                                )}
+                            </>
+                        )}
+                    </ScrollView>
+
+                    {/* ── Fixed input ── */}
+                    <View style={[s.inputOuter, { paddingBottom: bottomPad }]}>
+                        <View
+                            style={[
+                                s.inputBox,
+                                {
+                                    backgroundColor: inputBg,
+                                    shadowColor: inputShadow,
+                                    borderColor: panelBorder,
+                                },
+                            ]}
+                        >
+                            <TextInput
+                                ref={inputRef}
+                                value={input}
+                                onChangeText={setInput}
+                                placeholder="Ask, search, or make anything..."
+                                placeholderTextColor={placeholder}
+                                style={[s.textInput, { color: textPri }]}
+                                multiline
+                                blurOnSubmit={false}
+                                autoCapitalize="sentences"
+                            />
+                            <View style={s.inputFooter}>
+                                <View style={s.inputLeft}>
+                                    <TouchableOpacity style={s.inputIconBtn} activeOpacity={0.7}>
+                                        <Plus size={22} color={textSec} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={s.inputIconBtn} activeOpacity={0.7}>
+                                        <SlidersHorizontal size={21} color={textSec} />
+                                    </TouchableOpacity>
+                                </View>
+                                <TouchableOpacity
+                                    style={[s.sendBtn, { backgroundColor: canSend ? primary : sendDisBg }]}
+                                    onPress={sendMessage}
+                                    disabled={!canSend}
+                                    activeOpacity={0.85}
+                                >
+                                    <ArrowUp
+                                        size={18}
+                                        color={canSend ? '#FFF' : (isDark ? '#555' : '#9CA3AF')}
+                                        weight="bold"
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+            </KeyboardAvoidingView>
+        </Modal>
+    );
+}
+
+/* ─────────────────────────────────────────── styles */
+
+const s = StyleSheet.create({
+    modalRoot: { flex: 1 },
+    panel: {
         flex: 1,
+        width: '100%',
+    },
+
+    topBar: {
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        alignItems: 'center',
         paddingHorizontal: 16,
-        paddingTop: 8,
-        paddingBottom: 32, // Extra padding for safety
+        paddingBottom: 12,
     },
-    input: {
-        fontSize: 17,
-        fontFamily: 'GoogleSansFlex_500Medium',
-        marginBottom: 16,
-        minHeight: 44,
-    },
-    suggestionContainer: {
-        marginBottom: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    suggestionLabel: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 14,
-        marginRight: 4,
-    },
-    suggestionText: {
-        fontFamily: 'GoogleSansFlex_500Medium',
-        fontSize: 14,
-        flex: 1,
-    },
-    bottomRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingBottom: 16,
-    },
-    datePill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 50,
+    backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    backButtonCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+
+    scroll:       { flex: 1 },
+    scrollContent: { paddingHorizontal: 24, paddingBottom: 18, gap: 26 },
+    scrollContentResting: { paddingBottom: 24 },
+    scrollContentKeyboard: { paddingBottom: 156 },
+    scrollGrow:   { flexGrow: 1 },
+
+    /* Empty */
+    empty:   { flex: 1, paddingTop: 72 },
+    emptyKeyboard: { paddingTop: 20 },
+    heading: { fontSize: 24, fontFamily: 'GoogleSansFlex_700Bold', letterSpacing: -0.7, lineHeight: 31, marginBottom: 18, maxWidth: '88%' },
+    suggRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14 },
+    suggRowKeyboard: { paddingVertical: 10 },
+    suggText: { fontSize: 16, fontFamily: 'GoogleSansFlex_500Medium', lineHeight: 23 },
+
+    /* Messages */
+    msgBlock:   {},
+    userRow:    { alignItems: 'flex-end' },
+    userBubble: { borderRadius: 22, paddingHorizontal: 18, paddingVertical: 12, maxWidth: '78%' },
+    userText:   { fontSize: 15, fontFamily: 'GoogleSansFlex_400Regular', lineHeight: 22 },
+    aiBlock:    { gap: 12 },
+    aiText:     { fontSize: 16, fontFamily: 'GoogleSansFlex_500Medium', lineHeight: 29 },
+    aiActions:  { flexDirection: 'row', gap: 2, marginTop: -2 },
+    aiActionBtn:{ padding: 6 },
+    typingRow:  { flexDirection: 'row', gap: 5, paddingVertical: 8 },
+    dot:        { width: 7, height: 7, borderRadius: 4, opacity: 0.4 },
+    statusRow:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -4 },
+    statusText: { fontSize: 13, fontFamily: 'GoogleSansFlex_500Medium' },
+
+    /* Input */
+    inputOuter:   { paddingHorizontal: 16, paddingTop: 8 },
+    inputBox:     {
+        borderRadius: 26,
+        paddingHorizontal: 18,
+        paddingTop: 16,
+        paddingBottom: 12,
         borderWidth: 1,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
+        elevation: 6,
     },
-    datePillText: {
-        fontSize: 14,
-        fontFamily: 'GoogleSansFlex_500Medium',
-    },
-    submitButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    itemsList: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        marginBottom: 16,
-    },
-    itemChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
-        gap: 6,
-    },
-    itemText: {
-        fontSize: 13,
-        fontFamily: 'GoogleSansFlex_500Medium',
-    },
-    addItemForm: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 16,
-    },
-    miniInput: {
-        height: 36,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        backgroundColor: 'rgba(120, 120, 128, 0.12)',
-        fontSize: 14,
-        fontFamily: 'GoogleSansFlex_400Regular',
-    },
-    miniButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    textInput:    { fontSize: 15, fontFamily: 'GoogleSansFlex_500Medium', lineHeight: 22, minHeight: 22, maxHeight: 120, marginBottom: 12, textAlignVertical: 'top' },
+    inputFooter:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    inputLeft:    { flexDirection: 'row', gap: 4 },
+    inputIconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
+    sendBtn:      { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
 });
 
 export default UniversalCreationBox;

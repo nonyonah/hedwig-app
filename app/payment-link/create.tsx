@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft as CaretLeft, DollarSign as CurrencyDollar, FileText, Coins } from '../../components/ui/AppIcon';
 import { usePrivy } from '@privy-io/expo';
@@ -9,14 +9,15 @@ import { Typography } from '../../styles/typography';
 
 export default function CreatePaymentLinkScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams<{ amount?: string; description?: string }>();
     const { getAccessToken } = usePrivy();
     const [isLoading, setIsLoading] = useState(false);
     const themeColors = useThemeColors();
 
     const [formData, setFormData] = useState({
-        amount: '',
-        description: '',
-        currency: 'USDC'
+        amount:      params.amount      || '',
+        description: params.description || '',
+        currency:    'USDC',
     });
 
     const handleCreate = async () => {

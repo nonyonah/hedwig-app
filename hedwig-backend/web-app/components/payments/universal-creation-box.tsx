@@ -20,7 +20,8 @@ import {
 } from '@phosphor-icons/react/dist/ssr';
 import { backendConfig } from '@/lib/auth/config';
 import { useToast } from '@/components/providers/toast-provider';
-import type { Invoice, PaymentLink } from '@/lib/models/entities';
+import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
+import { CreateRecurringInvoiceDialog } from './create-recurring-invoice-dialog';
 
 /* ── types ── */
 interface LineItem {
@@ -29,18 +30,23 @@ interface LineItem {
 }
 
 interface ParsedData {
-  intent: 'invoice' | 'payment_link' | 'unknown';
+  intent: 'invoice' | 'payment_link' | 'recurring_invoice' | 'unknown';
   clientName: string | null;
   clientEmail: string | null;
   amount: number | null;
   dueDate: string | null;
   title: string | null;
   items?: LineItem[];
+  frequency?: string;
+  autoSend?: boolean;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 interface Props {
   accessToken: string | null;
-  onCreated: (result: { invoice?: Invoice; paymentLink?: PaymentLink }) => void;
+  clients?: Client[];
+  onCreated: (result: { invoice?: Invoice; paymentLink?: PaymentLink; recurringInvoice?: RecurringInvoice }) => void;
 }
 
 /* ── helpers ── */
@@ -66,7 +72,7 @@ const EXAMPLES = [
 ];
 
 /* ── component ── */
-export function UniversalCreationBox({ accessToken, onCreated }: Props) {
+export function UniversalCreationBox({ accessToken, clients = [], onCreated }: Props) {
   const { toast } = useToast();
 
   /* input */
@@ -96,6 +102,9 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
   /* submit */
   const [isCreating, setIsCreating] = useState(false);
 
+  /* recurring invoice dialog */
+  const [showRecurring, setShowRecurring] = useState(false);
+
   /* cycling placeholder */
   const [exampleIdx, setExampleIdx] = useState(0);
   useEffect(() => {
@@ -107,8 +116,9 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
   /* derived */
   const effectiveDate =
     selectedDate ?? (parsed?.dueDate ? new Date(parsed.dueDate) : null);
-  const resolvedIntent: 'invoice' | 'payment_link' =
-    parsed?.intent === 'payment_link' ? 'payment_link' : 'invoice';
+  const resolvedIntent: 'invoice' | 'payment_link' | 'recurring_invoice' =
+    parsed?.intent === 'payment_link' ? 'payment_link' :
+    parsed?.intent === 'recurring_invoice' ? 'recurring_invoice' : 'invoice';
 
   /* ── auto-grow textarea ── */
   useEffect(() => {
@@ -207,6 +217,12 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
   /* ── submit ── */
   const handleCreate = async () => {
     if (!text.trim() || isCreating || isParsing) return;
+
+    // Recurring invoice: open the dedicated dialog pre-filled with AI-parsed data
+    if (resolvedIntent === 'recurring_invoice') {
+      setShowRecurring(true);
+      return;
+    }
 
     if (!effectiveDate) {
       shakeDate();
@@ -384,10 +400,14 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
             resolvedIntent === 'payment_link'
               ? 'bg-[#f0fdf4] text-[#16a34a]'
+              : resolvedIntent === 'recurring_invoice'
+              ? 'bg-[#fdf4ff] text-[#9333ea]'
               : 'bg-[#eff4ff] text-[#2563eb]'
           }`}>
             {resolvedIntent === 'payment_link'
               ? <><LinkSimple className="h-3 w-3" weight="bold" /> Payment Link</>
+              : resolvedIntent === 'recurring_invoice'
+              ? <><ArrowUp className="h-3 w-3" weight="bold" /> Recurring Invoice</>
               : <><FileText className="h-3 w-3" weight="bold" /> Invoice</>}
           </span>
           {parsed.amount != null && parsed.amount > 0 && (
@@ -569,6 +589,32 @@ export function UniversalCreationBox({ accessToken, onCreated }: Props) {
         }
         .animate-shake { animation: shake 0.5s ease-in-out; }
       `}</style>
+
+      {/* Recurring invoice dialog — opened when AI detects recurring intent */}
+      <CreateRecurringInvoiceDialog
+        open={showRecurring}
+        clients={clients}
+        accessToken={accessToken}
+        onOpenChange={setShowRecurring}
+        prefill={{
+          clientName: parsed?.clientName ?? '',
+          clientEmail: parsed?.clientEmail ?? '',
+          amount: parsed?.amount != null ? String(parsed.amount) : '',
+          frequency: (parsed?.frequency as any) ?? 'monthly',
+          title: parsed?.title ?? '',
+          startDate: parsed?.startDate ?? new Date().toISOString().split('T')[0],
+          endDate: parsed?.endDate ?? '',
+          autoSend: parsed?.autoSend ?? false,
+        }}
+        onCreated={(r) => {
+          setShowRecurring(false);
+          setText('');
+          setParsed(null);
+          setSelectedDate(null);
+          setItems([]);
+          onCreated({ recurringInvoice: r });
+        }}
+      />
     </div>
   );
 }

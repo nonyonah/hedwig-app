@@ -30,6 +30,7 @@ import insightsRoutes from './routes/insights';
 import beneficiaryRoutes from './routes/beneficiaries';
 import recipientRoutes from './routes/recipients';
 import calendarRoutes from './routes/calendar';
+import recurringRoutes from './routes/recurring';
 import kycRoutes from './routes/kyc';
 import diditWebhookRoutes from './routes/diditWebhook';
 import blockradarWebhookRoutes from './routes/blockradarWebhook';
@@ -149,7 +150,7 @@ app.use(
 );
 
 // CORS configuration
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:8081')
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:8081,http://localhost:3001')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
@@ -252,6 +253,7 @@ app.use('/api/insights', insightsRoutes);
 app.use('/api/beneficiaries', beneficiaryRoutes);
 app.use('/api/recipients', recipientRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/recurring-invoices', documentLimiter, recurringRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use('/api/webhooks/didit', diditWebhookRoutes);
 app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);

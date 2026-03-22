@@ -359,12 +359,23 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
             parsedData.intent = 'invoice';
         } else if (rawIntent === 'payment_link' || rawIntent === 'create_payment_link' || rawIntent.startsWith('payment_link')) {
             parsedData.intent = 'payment_link';
+        } else if (rawIntent === 'create_recurring_invoice' || rawIntent === 'recurring_invoice' || rawIntent.startsWith('recurring')) {
+            parsedData.intent = 'recurring_invoice';
         }
         // COLLECT_* intents → leave amount/date intact, just normalize to the right creation intent
         if (rawIntent.startsWith('collect_invoice') || rawIntent === 'collect_invoice_info' || rawIntent === 'collect_invoice_network') {
             parsedData.intent = 'invoice';
         } else if (rawIntent.startsWith('collect_payment') || rawIntent === 'collect_payment_info' || rawIntent === 'collect_network_info') {
             parsedData.intent = 'payment_link';
+        }
+
+        // Also extract recurring-specific params from Gemini parameters
+        if (parsedData.intent === 'recurring_invoice' && parsedData.parameters) {
+            const params = parsedData.parameters;
+            (parsedData as any).frequency = params.frequency || 'monthly';
+            (parsedData as any).autoSend = params.auto_send === true || params.autoSend === true;
+            (parsedData as any).startDate = params.start_date || params.startDate || null;
+            (parsedData as any).endDate = params.end_date || params.endDate || null;
         }
 
         // 2. Force Mode if explicitly selected — always wins
@@ -374,6 +385,10 @@ EXPECTED INPUT FORMAT: [Title] [Amount] [Recipient] [Milestones/Items].
             // Legacy detection from text keywords
             if (lowerText.includes('payment link') || lowerText.includes('pay link')) {
                 parsedData.intent = 'payment_link';
+            }
+            // Recurring keyword detection as fallback
+            if (!mode && (lowerText.includes('recurring') || lowerText.includes('repeat invoice') || lowerText.includes('monthly invoice') || lowerText.includes('weekly invoice'))) {
+                parsedData.intent = 'recurring_invoice';
             }
         }
 

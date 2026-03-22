@@ -4,6 +4,7 @@ import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as WebBrowser from 'expo-web-browser';
+import * as Clipboard from 'expo-clipboard';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ChevronRight as CaretRight, List, ChevronDown as CaretDown, Check, ShieldAlert as ShieldWarning, Lock, Copy, CircleAlert as WarningCircle, SquareCheck as CheckSquare, Square, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +23,7 @@ import { useKYC } from '../../hooks/useKYC';
 import KYCVerificationModal from '../../components/KYCVerificationModal';
 import { useTutorial } from '../../hooks/useTutorial';
 import { getPublicWebBaseUrl } from '../../utils/publicWebUrl';
+import { Linking } from 'react-native';
 
 
 
@@ -51,7 +53,10 @@ export default function SettingsScreen() {
     // Modals refs
     const themeSheetRef = useRef<BottomSheetModal>(null);
     const recoverySheetRef = useRef<BottomSheetModal>(null);
+    const calendarSheetRef = useRef<BottomSheetModal>(null);
     const [recoveryAcknowledged, setRecoveryAcknowledged] = useState(false);
+    const [calendarSubscribeUrl, setCalendarSubscribeUrl] = useState<string | null>(null);
+    const [isFetchingCalendarLink, setIsFetchingCalendarLink] = useState(false);
 
     // Security state
     const [biometricsEnabled, setBiometricsEnabled] = useState(false);
@@ -281,6 +286,35 @@ export default function SettingsScreen() {
         }
     };
 
+    const fetchCalendarSubscribeLink = async () => {
+        try {
+            setIsFetchingCalendarLink(true);
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const res = await fetch(`${apiUrl}/api/calendar/ics-token`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (data.success && data.data?.subscribeUrl) {
+                setCalendarSubscribeUrl(data.data.subscribeUrl);
+            } else {
+                Alert.alert('Error', 'Failed to fetch calendar subscribe link');
+            }
+        } catch (error) {
+            console.error('Failed to fetch calendar subscribe link:', error);
+            Alert.alert('Error', 'Failed to fetch calendar subscribe link');
+        } finally {
+            setIsFetchingCalendarLink(false);
+        }
+    };
+
+    const openCalendarSheet = async () => {
+        calendarSheetRef.current?.present();
+        if (!calendarSubscribeUrl && !isFetchingCalendarLink) {
+            await fetchCalendarSubscribeLink();
+        }
+    };
+
 
 
     return (
@@ -401,6 +435,13 @@ export default function SettingsScreen() {
                         }}
                     >
                         <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Show app tutorial</Text>
+                        <CaretRight size={20} color={themeColors.textSecondary} />
+                    </TouchableOpacity>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <TouchableOpacity style={styles.settingRow} onPress={openCalendarSheet}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Connect calendar</Text>
                         <CaretRight size={20} color={themeColors.textSecondary} />
                     </TouchableOpacity>
                 </View>
@@ -657,6 +698,83 @@ export default function SettingsScreen() {
                 }}
             />
 
+            <BottomSheetModal
+                ref={calendarSheetRef}
+                index={0}
+                enableDynamicSizing={true}
+                enablePanDownToClose={true}
+                backdropComponent={(props) => (
+                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                )}
+                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+            >
+                <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
+                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
+                    <Text style={[styles.calendarSheetSubtitle, { color: themeColors.textSecondary }]}>
+                        Subscribe to your Hedwig calendar in any calendar app to see invoice due dates and reminders.
+                    </Text>
+
+                    {isFetchingCalendarLink ? (
+                        <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
+                    ) : calendarSubscribeUrl ? (
+                        <>
+                            <View style={[styles.calendarLinkBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                                <Text
+                                    style={[styles.calendarLinkText, { color: themeColors.textSecondary }]}
+                                    numberOfLines={2}
+                                    ellipsizeMode="middle"
+                                >
+                                    {calendarSubscribeUrl}
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.calendarCopyBtn, { backgroundColor: Colors.primary }]}
+                                    onPress={async () => {
+                                        await Clipboard.setStringAsync(calendarSubscribeUrl);
+                                        Alert.alert('Copied', 'Subscribe link copied to clipboard');
+                                    }}
+                                >
+                                    <Text style={styles.calendarCopyBtnText}>Copy</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <TouchableOpacity
+                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                                onPress={() => {
+                                    const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
+                                    const googleUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`;
+                                    Linking.openURL(googleUrl);
+                                }}
+                                activeOpacity={0.75}
+                            >
+                                <Text style={styles.calendarOptionEmoji}>📅</Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Add to Google Calendar</Text>
+                                    <Text style={[styles.calendarOptionSubtitle, { color: themeColors.textSecondary }]}>Opens Google Calendar to subscribe</Text>
+                                </View>
+                                <Text style={{ color: themeColors.textSecondary, fontSize: 18 }}>›</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                                onPress={() => {
+                                    const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
+                                    Linking.openURL(webcalUrl);
+                                }}
+                                activeOpacity={0.75}
+                            >
+                                <Text style={styles.calendarOptionEmoji}>🍎</Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Add to Apple Calendar</Text>
+                                    <Text style={[styles.calendarOptionSubtitle, { color: themeColors.textSecondary }]}>Subscribe directly in Calendar app</Text>
+                                </View>
+                                <Text style={{ color: themeColors.textSecondary, fontSize: 18 }}>›</Text>
+                            </TouchableOpacity>
+                        </>
+                    ) : null}
+                </BottomSheetView>
+            </BottomSheetModal>
+
         </View>
     );
 }
@@ -843,6 +961,57 @@ const styles = StyleSheet.create({
         color: Colors.primary,
         fontFamily: 'GoogleSansFlex_600SemiBold',
     },
+    calendarSheetSubtitle: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 18,
+    },
+    calendarLinkBox: {
+        borderRadius: 12,
+        borderWidth: 1,
+        padding: 12,
+        gap: 10,
+        marginBottom: 14,
+    },
+    calendarLinkText: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 12,
+        lineHeight: 16,
+    },
+    calendarCopyBtn: {
+        alignSelf: 'flex-start',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+    },
+    calendarCopyBtnText: {
+        color: '#FFFFFF',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 13,
+    },
+    calendarOptionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 14,
+        borderWidth: 1,
+        padding: 14,
+        gap: 12,
+        marginBottom: 12,
+    },
+    calendarOptionEmoji: {
+        fontSize: 24,
+    },
+    calendarOptionTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 14,
+    },
+    calendarOptionSubtitle: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 12,
+        lineHeight: 16,
+        marginTop: 2,
+    },
     // Recovery Warning Modal Styles
     recoveryModalContent: {
         backgroundColor: 'white',
@@ -970,4 +1139,3 @@ const styles = StyleSheet.create({
         color: '#6B7280',
     },
 });
-

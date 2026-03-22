@@ -71,6 +71,22 @@ const PROFILE_COLOR_OPTIONS = [
     ['#1F2937', '#111827', '#030712'], // Dark
 ] as const;
 
+const FREQ_DISPLAY: Record<string, string> = {
+    weekly:    'per week',
+    biweekly:  'every 2 weeks',
+    monthly:   'per month',
+    quarterly: 'per quarter',
+    annual:    'per year',
+};
+
+const FREQ_COLORS: Record<string, { bg: string; text: string }> = {
+    weekly:    { bg: '#CCFBF1', text: '#0F766E' },
+    biweekly:  { bg: '#CFFAFE', text: '#0E7490' },
+    monthly:   { bg: '#DBEAFE', text: '#1D4ED8' },
+    quarterly: { bg: '#EDE9FE', text: '#6D28D9' },
+    annual:    { bg: '#FEF3C7', text: '#B45309' },
+};
+
 export default function InvoicesScreen() {
     const navigation = useNavigation();
     // Track screen view
@@ -94,7 +110,13 @@ export default function InvoicesScreen() {
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string }>({});
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
-    const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'due_soon'>((useLocalSearchParams().filter as any) || 'all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'due_soon' | 'recurring'>((useLocalSearchParams().filter as any) || 'all');
+
+    // Recurring invoices state
+    const [recurringItems, setRecurringItems] = useState<any[]>([]);
+    const [recurringLoading, setRecurringLoading] = useState(false);
+    const [selectedRecurring, setSelectedRecurring] = useState<any>(null);
+    const recurringSheetRef = useRef<BottomSheetModal>(null);
 
     // Filter invoices based on status
     const filteredInvoices = useMemo(() => {
@@ -138,6 +160,7 @@ export default function InvoicesScreen() {
 
     useEffect(() => {
         fetchInvoices();
+        fetchRecurring();
     }, [user]);
 
     const fetchUserData = async () => {
@@ -234,6 +257,65 @@ export default function InvoicesScreen() {
     const onRefresh = () => {
         setRefreshing(true);
         fetchInvoices();
+        fetchRecurring();
+    };
+
+    const fetchRecurring = async () => {
+        setRecurringLoading(true);
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const res = await fetch(`${apiUrl}/api/recurring-invoices`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (data.success) setRecurringItems(data.data?.recurringInvoices || []);
+        } catch (e) {
+            console.error('Failed to fetch recurring invoices:', e);
+        } finally {
+            setRecurringLoading(false);
+        }
+    };
+
+    const handleRecurringStatus = async (id: string, status: 'active' | 'paused' | 'cancelled') => {
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const res = await fetch(`${apiUrl}/api/recurring-invoices/${id}/status`, {
+                method: 'PATCH',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setRecurringItems((prev) => prev.map((r) => r.id === id ? { ...r, status } : r));
+                if (selectedRecurring?.id === id) setSelectedRecurring((p: any) => p ? { ...p, status } : p);
+            } else {
+                Alert.alert('Error', data.error?.message || 'Failed to update status');
+            }
+        } catch {
+            Alert.alert('Error', 'Failed to update status');
+        }
+    };
+
+    const handleRecurringTrigger = async (id: string) => {
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const res = await fetch(`${apiUrl}/api/recurring-invoices/${id}/trigger`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (data.success) {
+                Alert.alert('Success', 'Invoice generated successfully.');
+                fetchInvoices();
+            } else {
+                Alert.alert('Error', data.error?.message || 'Failed to generate invoice');
+            }
+        } catch {
+            Alert.alert('Error', 'Failed to generate invoice');
+        }
     };
 
     const handleDelete = async (invoiceId: string) => {
@@ -578,7 +660,7 @@ export default function InvoicesScreen() {
                             contentContainerStyle={styles.filterContent}
                             style={styles.filterScrollView}
                         >
-                            {(['all', 'paid', 'pending', 'due_soon'] as const).map(filter => (
+                            {(['all', 'paid', 'pending', 'due_soon', 'recurring'] as const).map(filter => (
                                 <TouchableOpacity
                                     key={filter}
                                     style={[styles.filterChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
@@ -592,7 +674,96 @@ export default function InvoicesScreen() {
                         </ScrollView>
                     </View>
 
-                    {isLoading ? (
+                    {statusFilter === 'recurring' ? (
+                        recurringLoading ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color={Colors.primary} />
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={recurringItems}
+                                keyExtractor={(item) => item.id}
+                                contentContainerStyle={styles.listContent}
+                                showsVerticalScrollIndicator={false}
+                                refreshControl={
+                                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+                                }
+                                ListEmptyComponent={
+                                    <View style={styles.emptyState}>
+                                        <Image source={require('../../assets/images/hedwig-logo.png')} style={{ width: 64, height: 64, opacity: 0.4 }} />
+                                        <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Recurring Invoices</Text>
+                                        <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+                                            Set up a recurring invoice to auto-bill clients on a schedule
+                                        </Text>
+                                    </View>
+                                }
+                                renderItem={({ item: r }) => {
+                                    const statusColors: Record<string, { bg: string; text: string }> = {
+                                        active:    { bg: '#DCFCE7', text: '#16A34A' },
+                                        paused:    { bg: '#FEF3C7', text: '#D97706' },
+                                        cancelled: { bg: '#F3F4F6', text: '#6B7280' },
+                                    };
+                                    const freq = FREQ_COLORS[r.frequency] ?? { bg: '#F2F4F7', text: '#717680' };
+                                    const stat = statusColors[r.status] ?? statusColors.cancelled;
+                                    const nextDate = r.nextDueDate
+                                        ? new Date(r.nextDueDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })
+                                        : '—';
+                                    return (
+                                        <TouchableOpacity
+                                            style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                                            onPress={() => {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                setSelectedRecurring(r);
+                                                recurringSheetRef.current?.present();
+                                            }}
+                                            activeOpacity={0.75}
+                                        >
+                                            {/* Card header: ID + title + recurring icon */}
+                                            <View style={styles.cardHeader}>
+                                                <View style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                                                    <Text style={[styles.invoiceId, { color: themeColors.textSecondary }]}>
+                                                        REC-{r.id?.substring(0, 8).toUpperCase()}
+                                                    </Text>
+                                                    <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>
+                                                        {r.title || 'Recurring invoice'}
+                                                    </Text>
+                                                </View>
+                                                <View style={styles.iconContainer}>
+                                                    <View style={[styles.cardTokenIcon, { backgroundColor: freq.bg, alignItems: 'center', justifyContent: 'center' }]}>
+                                                        <Image source={require('../../assets/images/hedwig-logo.png')} style={{ width: 22, height: 22, tintColor: freq.text }} />
+                                                    </View>
+                                                </View>
+                                            </View>
+
+                                            {/* Amount */}
+                                            <Text style={[styles.amount, { color: themeColors.textPrimary }]}>
+                                                ${(r.amountUsd || 0).toLocaleString()}
+                                            </Text>
+
+                                            {/* Footer: frequency + status + next date */}
+                                            <View style={styles.cardFooter}>
+                                                <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>
+                                                    {r.status === 'cancelled' ? 'Cancelled' : `Next: ${nextDate}`}
+                                                </Text>
+                                                <View style={styles.recurringFooterRight}>
+                                                    <View style={[styles.statusBadge, { backgroundColor: freq.bg }]}>
+                                                        <Text style={[styles.statusText, { color: freq.text }]}>
+                                                            {FREQ_DISPLAY[r.frequency] ?? r.frequency ?? 'Monthly'}
+                                                        </Text>
+                                                    </View>
+                                                    <View style={[styles.statusBadge, { backgroundColor: stat.bg }]}>
+                                                        <Text style={[styles.statusText, { color: stat.text }]}>
+                                                            {r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : 'Active'}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        </TouchableOpacity>
+                                    );
+                                }}
+                            />
+                        )
+                    ) : isLoading ? (
                         <View style={styles.loadingContainer}>
                             <ActivityIndicator size="large" color={Colors.primary} />
                         </View>
@@ -824,6 +995,209 @@ export default function InvoicesScreen() {
                         </TouchableOpacity>
                     </BottomSheetView>
                 </BottomSheetModal>
+                {/* Recurring Detail Sheet */}
+                <BottomSheetModal
+                    ref={recurringSheetRef}
+                    index={0}
+                    enableDynamicSizing={true}
+                    enablePanDownToClose={true}
+                    backdropComponent={(props) => (
+                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                    )}
+                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                >
+                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                        {selectedRecurring && (() => {
+                            const r = selectedRecurring;
+                            const statusColors: Record<string, { bg: string; text: string }> = {
+                                active:    { bg: '#DCFCE7', text: '#16A34A' },
+                                paused:    { bg: '#FEF3C7', text: '#D97706' },
+                                cancelled: { bg: '#F3F4F6', text: '#6B7280' },
+                            };
+                            const freq = FREQ_COLORS[r.frequency] ?? { bg: '#F2F4F7', text: '#717680' };
+                            const stat = statusColors[r.status] ?? statusColors.cancelled;
+
+                            const recurringMenuActions = [
+                                ...(r.status === 'active' ? [{
+                                    label: 'Generate Now',
+                                    onPress: () => { recurringSheetRef.current?.dismiss(); handleRecurringTrigger(r.id); },
+                                    icon: <Image source={require('../../assets/images/hedwig-logo.png')} style={{ width: 16, height: 16, tintColor: themeColors.textPrimary }} />,
+                                }] : []),
+                                ...(r.status === 'active' ? [{
+                                    label: 'Pause',
+                                    onPress: () => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'paused'); },
+                                    icon: <Clock size={16} color={themeColors.textPrimary} strokeWidth={3} />,
+                                }] : []),
+                                ...(r.status === 'paused' ? [{
+                                    label: 'Resume',
+                                    onPress: () => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'active'); },
+                                    icon: <Image source={require('../../assets/images/hedwig-logo.png')} style={{ width: 16, height: 16, tintColor: themeColors.textPrimary }} />,
+                                }] : []),
+                                ...(r.status !== 'cancelled' ? [{
+                                    label: 'Cancel Recurring',
+                                    destructive: true,
+                                    onPress: () => {
+                                        Alert.alert('Cancel Recurring Invoice', 'This will stop future invoice generation.', [
+                                            { text: 'Keep', style: 'cancel' },
+                                            { text: 'Cancel Invoice', style: 'destructive', onPress: () => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'cancelled'); } },
+                                        ]);
+                                    },
+                                    icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
+                                }] : []),
+                            ];
+
+                            return (
+                                <>
+                                    {/* Header — identical structure to invoice sheet */}
+                                    <View style={styles.modalHeader}>
+                                        <View style={styles.modalHeaderLeft}>
+                                            <View style={styles.modalIconContainer}>
+                                                <View style={[styles.modalTokenIcon, { backgroundColor: freq.bg, alignItems: 'center', justifyContent: 'center' }]}>
+                                                    <Image source={require('../../assets/images/hedwig-logo.png')} style={{ width: 22, height: 22, tintColor: freq.text }} />
+                                                </View>
+                                                <View style={[styles.modalStatusBadge, { backgroundColor: stat.bg, borderColor: themeColors.background, alignItems: 'center', justifyContent: 'center' }]}>
+                                                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: stat.text }} />
+                                                </View>
+                                            </View>
+                                            <View>
+                                                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                                                    {r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : 'Active'}
+                                                </Text>
+                                                <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                                    {r.createdAt
+                                                        ? `${new Date(r.createdAt).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })} • ${new Date(r.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}`
+                                                        : 'Recurring invoice'}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.modalHeaderRight}>
+                                            <>
+                                                {Platform.OS === 'ios' && Host ? (
+                                                    <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
+                                                        <ContextMenu>
+                                                            <ContextMenu.Trigger>
+                                                                <ExpoButton variant="borderless" systemImage="ellipsis">
+                                                                    {' '}
+                                                                </ExpoButton>
+                                                            </ContextMenu.Trigger>
+                                                            <ContextMenu.Items>
+                                                                {r.status === 'active' && (
+                                                                    <ExpoButton onPress={() => { recurringSheetRef.current?.dismiss(); handleRecurringTrigger(r.id); }} systemImage="arrow.clockwise">
+                                                                        Generate Now
+                                                                    </ExpoButton>
+                                                                )}
+                                                                {r.status === 'active' && (
+                                                                    <ExpoButton onPress={() => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'paused'); }} systemImage="pause.fill">
+                                                                        Pause
+                                                                    </ExpoButton>
+                                                                )}
+                                                                {r.status === 'paused' && (
+                                                                    <ExpoButton onPress={() => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'active'); }} systemImage="play.fill">
+                                                                        Resume
+                                                                    </ExpoButton>
+                                                                )}
+                                                                {r.status !== 'cancelled' && (
+                                                                    <ExpoButton
+                                                                        onPress={() => {
+                                                                            Alert.alert('Cancel Recurring Invoice', 'This will stop future invoice generation.', [
+                                                                                { text: 'Keep', style: 'cancel' },
+                                                                                { text: 'Cancel Invoice', style: 'destructive', onPress: () => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'cancelled'); } },
+                                                                            ]);
+                                                                        }}
+                                                                        systemImage="trash.fill"
+                                                                    >
+                                                                        Cancel Recurring
+                                                                    </ExpoButton>
+                                                                )}
+                                                            </ContextMenu.Items>
+                                                        </ContextMenu>
+                                                    </Host>
+                                                ) : (
+                                                    <AndroidDropdownMenu
+                                                        width={240}
+                                                        options={recurringMenuActions}
+                                                        trigger={
+                                                            <View style={{ padding: 4, marginRight: 8 }}>
+                                                                <DotsThree size={24} color={themeColors.textSecondary} />
+                                                            </View>
+                                                        }
+                                                    />
+                                                )}
+                                            </>
+                                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={() => recurringSheetRef.current?.dismiss()}>
+                                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+
+                                    {/* Amount card */}
+                                    <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                                        <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                                            ${(r.amountUsd || 0).toLocaleString()}
+                                        </Text>
+                                        <View style={styles.amountCardSub}>
+                                            <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>
+                                                {FREQ_DISPLAY[r.frequency] ?? `per ${r.frequency}` ?? 'per month'}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Details card */}
+                                    <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Template ID</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>REC-{r.id?.slice(0, 8).toUpperCase()}</Text>
+                                        </View>
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Description</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]} numberOfLines={1}>{r.title || '—'}</Text>
+                                        </View>
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Client</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.clientName || r.clientEmail || 'N/A'}</Text>
+                                        </View>
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Next date</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                                {r.status === 'cancelled' ? '—' : r.nextDueDate
+                                                    ? new Date(r.nextDueDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' })
+                                                    : '—'}
+                                            </Text>
+                                        </View>
+                                        <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Generated</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{r.generatedCount ?? 0} invoice{r.generatedCount !== 1 ? 's' : ''}</Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Primary action button */}
+                                    {r.status === 'active' && (
+                                        <TouchableOpacity
+                                            style={styles.viewButton}
+                                            onPress={() => { recurringSheetRef.current?.dismiss(); handleRecurringTrigger(r.id); }}
+                                        >
+                                            <Text style={styles.viewButtonText}>Generate Now</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    {r.status === 'paused' && (
+                                        <TouchableOpacity
+                                            style={styles.viewButton}
+                                            onPress={() => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'active'); }}
+                                        >
+                                            <Text style={styles.viewButtonText}>Resume</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </>
+                            );
+                        })()}
+                    </BottomSheetView>
+                </BottomSheetModal>
+
             </View >
 
             {/* Tutorial card for invoices step */}
@@ -1035,23 +1409,6 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
         maxHeight: '80%',
     },
-    nudgeButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.surface,
-        borderWidth: 1,
-        borderColor: Colors.primary,
-        paddingVertical: 14,
-        borderRadius: 12,
-        marginTop: 12,
-        gap: 8,
-    },
-    nudgeButtonText: {
-        ...Typography.button,
-        color: Colors.primary,
-        fontSize: 16,
-    },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -1248,5 +1605,10 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: '#FFFFFF',
+    },
+    recurringFooterRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
     },
 });

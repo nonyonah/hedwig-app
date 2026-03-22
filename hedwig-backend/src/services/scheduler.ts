@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { GeminiService } from './gemini';
 import { EmailService } from './email';
 import NotificationService from './notifications';
-import { differenceInDays, parseISO, addDays, isSameDay } from 'date-fns';
+import { differenceInDays, parseISO, addDays, isSameDay, isAfter, format } from 'date-fns';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Scheduler');
@@ -29,6 +29,54 @@ export const SchedulerService = {
             logger.debug('Running Expo token cleanup job');
             await NotificationService.cleanupExpoDeviceTokens();
         });
+
+        // Run every day at 8:00 AM UTC - generate due recurring invoices
+        cron.schedule('0 8 * * *', async () => {
+            logger.debug('Running recurring invoice generation job');
+            await this.checkRecurringInvoices();
+        });
+    },
+
+    /**
+     * Find all active recurring invoices whose next_due_date is today or in the past,
+     * generate an invoice document for each, then advance next_due_date.
+     */
+    async checkRecurringInvoices() {
+        try {
+            const today = format(new Date(), 'yyyy-MM-dd');
+
+            const { data: templates, error } = await supabase
+                .from('recurring_invoices')
+                .select('*')
+                .eq('status', 'active')
+                .lte('next_due_date', today);
+
+            if (error) { logger.error('Failed to fetch recurring invoices'); return; }
+            if (!templates || templates.length === 0) { logger.debug('No recurring invoices due'); return; }
+
+            logger.info('Processing recurring invoices', { count: templates.length });
+
+            const { generateInvoiceFromTemplate } = await import('../routes/recurring');
+
+            for (const template of templates) {
+                try {
+                    const doc = await generateInvoiceFromTemplate(template, template.user_id);
+
+                    // Push notification to the freelancer
+                    await NotificationService.notifyUser(template.user_id, {
+                        title: template.auto_send ? 'Recurring invoice sent' : 'Recurring invoice ready',
+                        body: template.auto_send
+                            ? `Your invoice to ${template.client_name || 'client'} for $${template.amount} has been sent automatically.`
+                            : `A draft invoice to ${template.client_name || 'client'} for $${template.amount} is ready to review and send.`,
+                        data: { type: 'recurring_invoice_generated', documentId: doc.id, recurringId: template.id },
+                    });
+                } catch (err) {
+                    logger.error('Failed to process recurring invoice template', { templateId: template.id });
+                }
+            }
+        } catch (err) {
+            logger.error('Error in checkRecurringInvoices');
+        }
     },
 
     /**

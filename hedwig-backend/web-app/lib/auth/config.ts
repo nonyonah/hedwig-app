@@ -4,7 +4,7 @@ export const privyConfig = {
   loginMethods: ['email', 'google', 'apple'] as const
 };
 
-const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.hedwigbot.xyz';
+const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://hedwigbot.xyz';
 
 export const backendConfig = {
   /**

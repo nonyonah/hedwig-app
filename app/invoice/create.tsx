@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft as CaretLeft, DollarSign as CurrencyDollar, Calendar as CalendarBlank, User, Mail as Envelope, FileText } from '../../components/ui/AppIcon';
 import { usePrivy } from '@privy-io/expo';
@@ -10,6 +10,13 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 
 export default function CreateInvoiceScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams<{
+        clientName?: string;
+        amount?: string;
+        description?: string;
+        dueDate?: string;
+        recipientEmail?: string;
+    }>();
     const { getAccessToken } = usePrivy();
     const [isLoading, setIsLoading] = useState(false);
     const themeColors = useThemeColors();
@@ -18,11 +25,11 @@ export default function CreateInvoiceScreen() {
     useAnalyticsScreen('Create Invoice');
 
     const [formData, setFormData] = useState({
-        clientName: '',
-        amount: '',
-        description: '',
-        dueDate: '',
-        recipientEmail: ''
+        clientName:     params.clientName     || '',
+        amount:         params.amount         || '',
+        description:    params.description    || '',
+        dueDate:        params.dueDate        || '',
+        recipientEmail: params.recipientEmail || '',
     });
 
     const handleCreate = async () => {

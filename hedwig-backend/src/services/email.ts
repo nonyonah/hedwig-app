@@ -4,6 +4,8 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('EmailService');
 
+const APP_URL = process.env.APP_URL || 'https://hedwigbot.xyz';
+
 const EMAIL_FONT_FAMILY = `'Google Sans Flex', 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
 const EMAIL_FONT_HEAD = `
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -64,7 +66,119 @@ interface EmailData {
     paymentUrl?: string;
 }
 
+const FREQ_LABELS: Record<string, string> = {
+    weekly: 'weekly', biweekly: 'bi-weekly', monthly: 'monthly',
+    quarterly: 'quarterly', annual: 'annual',
+};
+
+const FREQ_DESCRIPTIONS: Record<string, string> = {
+    weekly:    'every week',
+    biweekly:  'every two weeks',
+    monthly:   'every month',
+    quarterly: 'every three months',
+    annual:    'once a year',
+};
+
 export const EmailService = {
+    async sendRecurringSetupEmail(data: {
+        to: string;
+        senderName: string;
+        amount: string;
+        currency: string;
+        frequency: string;
+        title?: string;
+        startDate?: string;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const freqLabel = FREQ_LABELS[data.frequency] || data.frequency;
+        const freqDesc = FREQ_DESCRIPTIONS[data.frequency] || data.frequency;
+        const capFreq = freqLabel.charAt(0).toUpperCase() + freqLabel.slice(1);
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Recurring invoice from ${data.senderName}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>
+                ${SHARED_STYLES}
+                .recurring-badge { display: inline-block; background-color: #fdf4ff; border: 1px solid #e9d5ff; border-radius: 50px; padding: 5px 14px; font-size: 12px; font-weight: 700; color: #9333ea; letter-spacing: 0.04em; text-transform: uppercase; }
+                .info-row { padding: 10px 0; border-bottom: 1px solid #f1f2f4; }
+                .info-row:last-child { border-bottom: none; }
+                .info-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #a4a7ae; margin-bottom: 3px; }
+                .info-value { font-size: 14px; color: #181d27; font-weight: 600; }
+            </style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">
+                    ${LOGO_HTML}
+                </div>
+                <div class="content">
+                    <p class="eyebrow">Recurring Invoice</p>
+                    <h1 class="heading">You're on a recurring invoice</h1>
+                    <p class="description">
+                        <strong style="color:#181d27;">${data.senderName}</strong> has set up a recurring invoice with you.
+                        You'll be invoiced <strong style="color:#181d27;">${freqDesc}</strong> — here's what to expect.
+                    </p>
+
+                    <div class="card" style="text-align:left;">
+                        <div style="text-align:center; margin-bottom: 20px;">
+                            <span class="recurring-badge">&#x21bb;&nbsp; ${capFreq} recurring</span>
+                        </div>
+                        <div class="info-row">
+                            <p class="info-label">Amount per invoice</p>
+                            <p class="info-value">${data.amount} <span style="color:#717680;font-weight:500;">${data.currency}</span></p>
+                        </div>
+                        <div class="info-row">
+                            <p class="info-label">Frequency</p>
+                            <p class="info-value">${capFreq}</p>
+                        </div>
+                        ${data.title ? `
+                        <div class="info-row">
+                            <p class="info-label">For</p>
+                            <p class="info-value">${data.title}</p>
+                        </div>` : ''}
+                        ${data.startDate ? `
+                        <div class="info-row">
+                            <p class="info-label">First invoice</p>
+                            <p class="info-value">${data.startDate}</p>
+                        </div>` : ''}
+                    </div>
+
+                    <p class="description">Each invoice will arrive on schedule with a payment link. You don't need to do anything right now — just watch for your first invoice.</p>
+                    <p class="description" style="font-size:13px; color:#a4a7ae;">To opt out or discuss this arrangement, reply to this email or contact ${data.senderName} directly.</p>
+                </div>
+                <div class="footer">
+                    <p>${FOOTER_NOTE}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: `${capFreq} invoicing set up by ${data.senderName}`,
+                html,
+            });
+            logger.info('Recurring setup email sent', { frequency: data.frequency });
+            return true;
+        } catch (error) {
+            logger.error('Recurring setup email failed', { error: error instanceof Error ? error.message : 'Unknown', to: data.to });
+            return false;
+        }
+    },
+
     async sendInvoiceEmail(data: EmailData): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
             logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
@@ -72,7 +186,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const invoiceUrl = data.paymentUrl || `https://hedwig.app/invoice/${data.linkId}`;
+        const invoiceUrl = data.paymentUrl || `${APP_URL}/invoice/${data.linkId}`;
 
         const html = `
         <!DOCTYPE html>
@@ -135,7 +249,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const paymentUrl = data.paymentUrl || `https://hedwig.app/pay/${data.linkId}`;
+        const paymentUrl = data.paymentUrl || `${APP_URL}/pay/${data.linkId}`;
 
         const html = `
         <!DOCTYPE html>
@@ -208,7 +322,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const receiptUrl = `https://hedwig.app/receipt/${data.linkId}`;
+        const receiptUrl = `${APP_URL}/receipt/${data.linkId}`;
 
         const html = `
         <!DOCTYPE html>
@@ -337,8 +451,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const baseUrl = process.env.API_URL || 'https://hedwig.app';
-        const contractUrl = `${baseUrl}/contract/${data.contractId}?token=${data.approvalToken}`;
+        const contractUrl = `${APP_URL}/contract/${data.contractId}?token=${data.approvalToken}`;
 
         const html = `
         <!DOCTYPE html>
@@ -412,8 +525,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const baseUrl = process.env.API_URL || 'https://hedwig.app';
-        const contractUrl = `${baseUrl}/contract/${data.contractId}`;
+        const contractUrl = `${APP_URL}/contract/${data.contractId}`;
 
         const html = `
         <!DOCTYPE html>
@@ -489,8 +601,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const baseUrl = process.env.API_URL || 'http://localhost:3000';
-        const proposalUrl = `${baseUrl}/proposal/${data.proposalId}`;
+        const proposalUrl = `${APP_URL}/proposal/${data.proposalId}`;
 
         const html = `
         <!DOCTYPE html>
@@ -547,6 +658,81 @@ export const EmailService = {
         }
     },
 
+    async sendRecurringInvoiceEmail(data: EmailData & {
+        frequency: string;
+        generationNumber: number;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping email sending.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const invoiceUrl = data.paymentUrl || `${APP_URL}/invoice/${data.linkId}`;
+        const freqLabel = FREQ_LABELS[data.frequency] || data.frequency;
+        const ordinal = (n: number) => {
+            const s = ['th','st','nd','rd'], v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        };
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Invoice from ${data.senderName}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>
+                ${SHARED_STYLES}
+                .recurring-badge { display: inline-block; background-color: #fdf4ff; border: 1px solid #e9d5ff; border-radius: 50px; padding: 5px 14px; font-size: 12px; font-weight: 700; color: #9333ea; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 16px; }
+            </style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">
+                    ${LOGO_HTML}
+                </div>
+                <div class="content">
+                    <p class="eyebrow">Recurring Invoice</p>
+                    <h1 class="heading">Your ${ordinal(data.generationNumber)} ${freqLabel} invoice</h1>
+                    <p class="description"><strong style="color:#181d27;">${data.senderName}</strong> has sent you a recurring invoice. This is the ${ordinal(data.generationNumber)} invoice in your ${freqLabel} arrangement.</p>
+
+                    <div class="card">
+                        <span class="recurring-badge">&#x21bb;&nbsp; ${freqLabel.charAt(0).toUpperCase() + freqLabel.slice(1)}</span>
+                        <p class="amount-label" style="margin-top:12px;">Amount Due</p>
+                        <p class="amount-value">${data.amount} <span class="amount-currency">${data.currency}</span></p>
+                    </div>
+
+                    ${data.description ? `<p class="description" style="text-align:center;">${data.description}</p>` : ''}
+
+                    <div class="btn-container">
+                        <a href="${invoiceUrl}" class="btn">View &amp; Pay Invoice</a>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>${FOOTER_NOTE}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: `${ordinal(data.generationNumber)} ${freqLabel.charAt(0).toUpperCase() + freqLabel.slice(1)} Invoice from ${data.senderName}`,
+                html: html,
+            });
+            logger.info('Recurring invoice email sent', { generationNumber: data.generationNumber, frequency: data.frequency });
+            return true;
+        } catch (error) {
+            logger.error('Recurring invoice email failed', { error: error instanceof Error ? error.message : 'Unknown', to: data.to });
+            return false;
+        }
+    },
+
     async sendProposalAcceptedNotification(data: {
         to: string;
         clientName: string;
@@ -559,8 +745,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const baseUrl = process.env.API_URL || 'http://localhost:3000';
-        const proposalUrl = `${baseUrl}/proposal/${data.proposalId}`;
+        const proposalUrl = `${APP_URL}/proposal/${data.proposalId}`;
 
         const html = `
         <!DOCTYPE html>
