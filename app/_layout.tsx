@@ -251,11 +251,31 @@ function PushNotificationBootstrap() {
     return null;
 }
 
-// Handles app-lock when returning from background
+// Handles app-lock on launch and when returning from background
 function AppLockGate({ children }: { children: React.ReactNode }) {
     const { user, isReady } = useAuth();
     const [isLocked, setIsLocked] = useState(false);
     const hasBeenToBackground = React.useRef(false);
+    const initialLockChecked = React.useRef(false);
+
+    // Lock on fresh app open (killed + reopened)
+    useEffect(() => {
+        if (!user || !isReady || initialLockChecked.current) return;
+        initialLockChecked.current = true;
+        (async () => {
+            try {
+                const [hasHw, isEnrolled] = await Promise.all([
+                    LocalAuthentication.hasHardwareAsync(),
+                    LocalAuthentication.isEnrolledAsync(),
+                ]);
+                if (hasHw && isEnrolled) {
+                    setIsLocked(true);
+                }
+            } catch {
+                // Don't block on error
+            }
+        })();
+    }, [user, isReady]);
 
     useEffect(() => {
         const subscription = AppState.addEventListener('change', async (nextState) => {

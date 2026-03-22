@@ -46,7 +46,7 @@ export default function HomeDashboard() {
     // Dashboard Data
     const [counts, setCounts] = useState({
         reminders: { invoices: 0, contracts: 0, links: 0 },
-        inProgress: { projects: 0, milestones: 0 },
+        inProgress: { projects: 0, milestones: 0, recurringInvoices: 0 },
         dueSoon: { invoices: 0, milestones: 0, projects: 0, links: 0 }
     });
     const [activityTargets, setActivityTargets] = useState<{
@@ -148,11 +148,12 @@ export default function HomeDashboard() {
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
             const headers = { 'Authorization': `Bearer ${t}` };
 
-            const [invoicesRes, contractsRes, linksRes, projectsRes] = await Promise.all([
+            const [invoicesRes, contractsRes, linksRes, projectsRes, recurringRes] = await Promise.all([
                 fetch(`${apiUrl}/api/documents?type=INVOICE`, { headers }).then(r => r.json()).catch(() => ({})),
                 fetch(`${apiUrl}/api/documents?type=CONTRACT`, { headers }).then(r => r.json()).catch(() => ({})),
                 fetch(`${apiUrl}/api/documents?type=PAYMENT_LINK`, { headers }).then(r => r.json()).catch(() => ({})),
                 fetch(`${apiUrl}/api/projects`, { headers }).then(r => r.json()).catch(() => ({})),
+                fetch(`${apiUrl}/api/recurring-invoices`, { headers }).then(r => r.json()).catch(() => ({})),
             ]);
 
             const today = new Date();
@@ -162,7 +163,7 @@ export default function HomeDashboard() {
 
             const newCounts = {
                 reminders: { invoices: 0, contracts: 0, links: 0 },
-                inProgress: { projects: 0, milestones: 0 },
+                inProgress: { projects: 0, milestones: 0, recurringInvoices: 0 },
                 dueSoon: { invoices: 0, milestones: 0, projects: 0, links: 0 }
             };
             const nextTargets: {
@@ -287,6 +288,15 @@ export default function HomeDashboard() {
                                 }
                             }
                         });
+                    }
+                });
+            }
+
+            // Process Recurring Invoices
+            if (recurringRes.success && recurringRes.data?.recurringInvoices) {
+                recurringRes.data.recurringInvoices.forEach((ri: any) => {
+                    if (ri.status === 'active' || ri.status === 'paused') {
+                        newCounts.inProgress.recurringInvoices++;
                     }
                 });
             }
@@ -451,6 +461,12 @@ export default function HomeDashboard() {
                     badge: null,
                     onPress: () => openProjectActivity(activityTargets.activeMilestoneProjectId, activityTargets.activeMilestoneId, 'ongoing')
                 },
+                {
+                    label: 'Recurring invoices',
+                    count: counts.inProgress.recurringInvoices,
+                    badge: null,
+                    onPress: () => router.push('/(tabs)/invoices' as any)
+                },
             ]
         },
         {
@@ -586,7 +602,7 @@ export default function HomeDashboard() {
 
                     {/* Check if there is any activity at all */}
                     {(counts.reminders.invoices + counts.reminders.contracts + counts.reminders.links +
-                        counts.inProgress.projects + counts.inProgress.milestones +
+                        counts.inProgress.projects + counts.inProgress.milestones + counts.inProgress.recurringInvoices +
                         counts.dueSoon.invoices + counts.dueSoon.projects + counts.dueSoon.links + counts.dueSoon.milestones) === 0 && !isLoadingData ? (
                         <View style={styles.emptyStateContainer}>
                             <Inbox size={64} color={themeColors.textSecondary} strokeWidth={1} />

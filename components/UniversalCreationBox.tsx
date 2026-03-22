@@ -20,6 +20,7 @@ import {
     Modal,
     ScrollView,
     KeyboardAvoidingView,
+    Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/colors';
@@ -152,6 +153,26 @@ const a = StyleSheet.create({
     dismiss:     { borderRadius: 100, borderWidth: 1, paddingHorizontal: 18, paddingVertical: 10, alignItems: 'center' },
     dismissText: { fontSize: 13, fontFamily: 'GoogleSansFlex_600SemiBold' },
 });
+
+/* ─────────────────────────────────────────── animated message wrapper */
+
+function AnimatedMessage({ children }: { children: React.ReactNode }) {
+    const opacity = useRef(new Animated.Value(0)).current;
+    const translateY = useRef(new Animated.Value(10)).current;
+
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(opacity, { toValue: 1, duration: 260, useNativeDriver: true }),
+            Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 160, useNativeDriver: true }),
+        ]).start();
+    }, []);
+
+    return (
+        <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+            {children}
+        </Animated.View>
+    );
+}
 
 /* ─────────────────────────────────────────── main */
 
@@ -383,7 +404,8 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                             /* ── Messages ── */
                             <>
                                 {messages.map((msg) => (
-                                    <View key={msg.id} style={s.msgBlock}>
+                                    <AnimatedMessage key={msg.id}>
+                                    <View style={s.msgBlock}>
                                         {msg.role === 'user' ? (
                                             <View style={s.userRow}>
                                                 <View style={[s.userBubble, { backgroundColor: userBubble }]}>
@@ -440,6 +462,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                             </View>
                                         )}
                                     </View>
+                                    </AnimatedMessage>
                                 ))}
 
                                 {isParsing && (

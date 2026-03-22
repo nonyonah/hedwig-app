@@ -24,6 +24,25 @@ import KYCVerificationModal from '../../components/KYCVerificationModal';
 import { useTutorial } from '../../hooks/useTutorial';
 import { getPublicWebBaseUrl } from '../../utils/publicWebUrl';
 import { Linking } from 'react-native';
+import { SvgXml } from 'react-native-svg';
+
+const GOOGLE_CALENDAR_SVG = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(3.75 3.75)">
+    <path fill="#FFFFFF" d="M148.882,43.618l-47.368-5.263l-57.895,5.263L38.355,96.25l5.263,52.632l52.632,6.579l52.632-6.579l5.263-53.947L148.882,43.618z"/>
+    <path fill="#1A73E8" d="M65.211,125.276c-3.934-2.658-6.658-6.539-8.145-11.671l9.132-3.763c0.829,3.158,2.276,5.605,4.342,7.342c2.053,1.737,4.553,2.592,7.474,2.592c2.987,0,5.553-0.908,7.697-2.724s3.224-4.132,3.224-6.934c0-2.868-1.132-5.211-3.395-7.026s-5.105-2.724-8.5-2.724h-5.276v-9.039H76.5c2.921,0,5.382-0.789,7.382-2.368c2-1.579,3-3.737,3-6.487c0-2.447-0.895-4.395-2.684-5.855s-4.053-2.197-6.803-2.197c-2.684,0-4.816,0.711-6.395,2.145s-2.724,3.197-3.447,5.276l-9.039-3.763c1.197-3.395,3.395-6.395,6.618-8.987c3.224-2.592,7.342-3.895,12.342-3.895c3.697,0,7.026,0.711,9.974,2.145c2.947,1.434,5.263,3.421,6.934,5.947c1.671,2.539,2.5,5.382,2.5,8.539c0,3.224-0.776,5.947-2.329,8.184c-1.553,2.237-3.461,3.947-5.724,5.145v0.539c2.987,1.25,5.421,3.158,7.342,5.724c1.908,2.566,2.868,5.632,2.868,9.211s-0.908,6.776-2.724,9.579c-1.816,2.803-4.329,5.013-7.513,6.618c-3.197,1.605-6.789,2.421-10.776,2.421C73.408,129.263,69.145,127.934,65.211,125.276z"/>
+    <path fill="#1A73E8" d="M121.25,79.961l-9.974,7.25l-5.013-7.605l17.987-12.974h6.895v61.197h-9.895L121.25,79.961z"/>
+    <path fill="#EA4335" d="M148.882,196.25l47.368-47.368l-23.684-10.526l-23.684,10.526l-10.526,23.684L148.882,196.25z"/>
+    <path fill="#34A853" d="M33.092,172.566l10.526,23.684h105.263v-47.368H43.618L33.092,172.566z"/>
+    <path fill="#4285F4" d="M12.039-3.75C3.316-3.75-3.75,3.316-3.75,12.039v136.842l23.684,10.526l23.684-10.526V43.618h105.263l10.526-23.684L148.882-3.75H12.039z"/>
+    <path fill="#188038" d="M-3.75,148.882v31.579c0,8.724,7.066,15.789,15.789,15.789h31.579v-47.368H-3.75z"/>
+    <path fill="#FBBC04" d="M148.882,43.618v105.263h47.368V43.618l-23.684-10.526L148.882,43.618z"/>
+    <path fill="#1967D2" d="M196.25,43.618V12.039c0-8.724-7.066-15.789-15.789-15.789h-31.579v47.368H196.25z"/>
+  </g>
+</svg>`;
+
+const APPLE_CALENDAR_SVG = `<svg viewBox="0 0 41.5 51" xmlns="http://www.w3.org/2000/svg">
+  <path d="M40.2,17.4c-3.4,2.1-5.5,5.7-5.5,9.7c0,4.5,2.7,8.6,6.8,10.3c-0.8,2.6-2,5-3.5,7.2c-2.2,3.1-4.5,6.3-7.9,6.3s-4.4-2-8.4-2c-3.9,0-5.3,2.1-8.5,2.1s-5.4-2.9-7.9-6.5C2,39.5,0.1,33.7,0,27.6c0-9.9,6.4-15.2,12.8-15.2c3.4,0,6.2,2.2,8.3,2.2c2,0,5.2-2.3,9-2.3C34.1,12.2,37.9,14.1,40.2,17.4z M28.3,8.1C30,6.1,30.9,3.6,31,1c0-0.3,0-0.7-0.1-1c-2.9,0.3-5.6,1.7-7.5,3.9c-1.7,1.9-2.7,4.3-2.8,6.9c0,0.3,0,0.6,0.1,0.9c0.2,0,0.5,0.1,0.7,0.1C24.1,11.6,26.6,10.2,28.3,8.1z" fill="black"/>
+</svg>`;
 
 
 
@@ -710,19 +729,27 @@ export default function SettingsScreen() {
                 handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
             >
                 <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
-                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
-                    <Text style={[styles.calendarSheetSubtitle, { color: themeColors.textSecondary }]}>
-                        Subscribe to your Hedwig calendar in any calendar app to see invoice due dates and reminders.
+                    {/* Icon */}
+                    <View style={styles.shieldIconContainer}>
+                        <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
+                            <Text style={{ fontSize: 28 }}>📆</Text>
+                        </View>
+                    </View>
+
+                    <Text style={[styles.recoveryTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
+                    <Text style={[styles.recoverySubtitle, { color: themeColors.textSecondary }]}>
+                        Subscribe to your Hedwig calendar to see invoice due dates and reminders in your calendar app.
                     </Text>
 
                     {isFetchingCalendarLink ? (
                         <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
                     ) : calendarSubscribeUrl ? (
                         <>
+                            {/* URL copy row */}
                             <View style={[styles.calendarLinkBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                                 <Text
                                     style={[styles.calendarLinkText, { color: themeColors.textSecondary }]}
-                                    numberOfLines={2}
+                                    numberOfLines={1}
                                     ellipsizeMode="middle"
                                 >
                                     {calendarSubscribeUrl}
@@ -734,10 +761,11 @@ export default function SettingsScreen() {
                                         Alert.alert('Copied', 'Subscribe link copied to clipboard');
                                     }}
                                 >
-                                    <Text style={styles.calendarCopyBtnText}>Copy</Text>
+                                    <Text style={styles.calendarCopyBtnText}>Copy link</Text>
                                 </TouchableOpacity>
                             </View>
 
+                            {/* Google Calendar */}
                             <TouchableOpacity
                                 style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                                 onPress={() => {
@@ -747,14 +775,17 @@ export default function SettingsScreen() {
                                 }}
                                 activeOpacity={0.75}
                             >
-                                <Text style={styles.calendarOptionEmoji}>📅</Text>
+                                <View style={styles.calendarLogoBox}>
+                                    <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
+                                </View>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Add to Google Calendar</Text>
+                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Google Calendar</Text>
                                     <Text style={[styles.calendarOptionSubtitle, { color: themeColors.textSecondary }]}>Opens Google Calendar to subscribe</Text>
                                 </View>
-                                <Text style={{ color: themeColors.textSecondary, fontSize: 18 }}>›</Text>
+                                <CaretRight size={18} color={themeColors.textSecondary} />
                             </TouchableOpacity>
 
+                            {/* Apple Calendar */}
                             <TouchableOpacity
                                 style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                                 onPress={() => {
@@ -763,12 +794,14 @@ export default function SettingsScreen() {
                                 }}
                                 activeOpacity={0.75}
                             >
-                                <Text style={styles.calendarOptionEmoji}>🍎</Text>
+                                <View style={[styles.calendarLogoBox, { backgroundColor: '#FFFFFF' }]}>
+                                    <SvgXml xml={APPLE_CALENDAR_SVG} width={22} height={26} />
+                                </View>
                                 <View style={{ flex: 1 }}>
-                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Add to Apple Calendar</Text>
+                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Apple Calendar</Text>
                                     <Text style={[styles.calendarOptionSubtitle, { color: themeColors.textSecondary }]}>Subscribe directly in Calendar app</Text>
                                 </View>
-                                <Text style={{ color: themeColors.textSecondary, fontSize: 18 }}>›</Text>
+                                <CaretRight size={18} color={themeColors.textSecondary} />
                             </TouchableOpacity>
                         </>
                     ) : null}
@@ -993,14 +1026,19 @@ const styles = StyleSheet.create({
     calendarOptionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 14,
+        borderRadius: 16,
         borderWidth: 1,
         padding: 14,
         gap: 12,
         marginBottom: 12,
     },
-    calendarOptionEmoji: {
-        fontSize: 24,
+    calendarLogoBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 10,
+        backgroundColor: '#F1F3F4',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     calendarOptionTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
