@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TUTORIAL_STEPS, TutorialStep, TOTAL_STEPS } from '../constants/tutorialSteps';
 
-const STORAGE_KEY = '@hedwig_tutorial_v1_completed';
+const STORAGE_KEY = '@hedwig_tutorial_v2_completed';
 
 interface TutorialContextType {
     /** Index of the currently active step (0-based) */
@@ -38,6 +38,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [isVisible, setIsVisible] = useState(false);
     const [isCompleted, setIsCompleted] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
+    const hasAutoStartedRef = useRef(false);
 
     // Load persisted completion state on mount
     useEffect(() => {
@@ -63,9 +64,18 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, []);
 
     const startTutorial = useCallback(() => {
+        hasAutoStartedRef.current = true;
         setActiveStepIndex(0);
         setIsVisible(true);
     }, []);
+
+    // Fail-safe: auto-start for users who have not completed the tutorial.
+    useEffect(() => {
+        if (!isLoaded || isCompleted || hasAutoStartedRef.current) return;
+        hasAutoStartedRef.current = true;
+        setActiveStepIndex(0);
+        setIsVisible(true);
+    }, [isLoaded, isCompleted]);
 
     const nextStep = useCallback(() => {
         setActiveStepIndex(prev => {
@@ -97,6 +107,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         } catch {
             // non-fatal
         }
+        hasAutoStartedRef.current = false;
         setIsCompleted(false);
         setActiveStepIndex(0);
         setIsVisible(false);

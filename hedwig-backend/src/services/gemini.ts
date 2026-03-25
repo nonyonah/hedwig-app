@@ -1173,6 +1173,120 @@ If certain fields are not mentioned, set them to null or empty array.
   }
 
   /**
+   * Generate creative re-engagement nudge copy for push + email channels.
+   * Falls back to deterministic copy if Gemini is unavailable.
+   */
+  static async generateReengagementNudge(input: {
+    kind: 'dormant_3day' | 'kyc_24h';
+    variant?: string;
+  }): Promise<{
+    pushTitle: string;
+    pushBody: string;
+    emailSubject: string;
+    emailHeading: string;
+    emailBody: string;
+    ctaText: string;
+  }> {
+    const fallbackDormant = {
+      pushTitle: 'We miss you at Hedwig',
+      pushBody: 'Pick up where you left off and get paid faster.',
+      emailSubject: 'Come back to Hedwig',
+      emailHeading: 'Ready to continue where you paused?',
+      emailBody: 'Open Hedwig to continue your projects, invoices, and withdrawals.',
+      ctaText: 'Open Hedwig',
+    };
+
+    const fallbackKycControl = {
+      pushTitle: 'Complete your KYC verification',
+      pushBody: 'Verify your identity to unlock withdrawals and USD account features.',
+      emailSubject: 'Complete your KYC on Hedwig',
+      emailHeading: 'Complete your KYC',
+      emailBody: 'Finish identity verification to unlock full account functionality.',
+      ctaText: 'Complete Verification',
+    };
+
+    const fallbackKycValueFirst = {
+      pushTitle: 'Unlock withdrawals in minutes',
+      pushBody: 'Complete KYC to cash out and receive payouts to your bank account.',
+      emailSubject: 'Unlock withdrawals with quick verification',
+      emailHeading: 'Finish KYC to unlock payouts',
+      emailBody: 'Complete identity verification to start withdrawing directly to your bank account.',
+      ctaText: 'Complete Verification',
+    };
+
+    const fallback =
+      input.kind === 'dormant_3day'
+        ? fallbackDormant
+        : input.variant === 'value_first'
+          ? fallbackKycValueFirst
+          : fallbackKycControl;
+
+    try {
+      const prompt = `
+You are Hedwig's lifecycle copywriter.
+
+Generate concise, human, creative nudge copy for a freelancer fintech app.
+
+Context:
+- Nudge kind: ${input.kind}
+- Variant: ${input.variant || 'control'}
+
+Rules:
+- Keep push title <= 45 characters.
+- Keep push body <= 110 characters.
+- Keep email subject <= 65 characters.
+- Email heading max 8 words.
+- Email body max 20 words.
+- No hype words, no emojis, no markdown.
+- Be action-oriented and clear.
+- Mention KYC only when nudge kind is kyc_24h.
+
+Return ONLY valid JSON with this exact shape:
+{
+  "pushTitle": "...",
+  "pushBody": "...",
+  "emailSubject": "...",
+  "emailHeading": "...",
+  "emailBody": "...",
+  "ctaText": "..."
+}
+`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return fallback;
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      const output = {
+        pushTitle: String(parsed?.pushTitle || '').trim(),
+        pushBody: String(parsed?.pushBody || '').trim(),
+        emailSubject: String(parsed?.emailSubject || '').trim(),
+        emailHeading: String(parsed?.emailHeading || '').trim(),
+        emailBody: String(parsed?.emailBody || '').trim(),
+        ctaText: String(parsed?.ctaText || '').trim(),
+      };
+
+      if (!output.pushTitle || !output.pushBody || !output.emailSubject || !output.emailHeading || !output.emailBody) {
+        return fallback;
+      }
+
+      return {
+        ...output,
+        ctaText: output.ctaText || fallback.ctaText,
+      };
+    } catch (error) {
+      logger.error('Error generating re-engagement nudge copy', {
+        error: error instanceof Error ? error.message : 'Unknown',
+        kind: input.kind,
+        variant: input.variant,
+      });
+      return fallback;
+    }
+  }
+
+  /**
    * Generate a concise dashboard operating summary for the user.
    */
   static async generateDashboardAssistantSummary(input: {

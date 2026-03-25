@@ -84,6 +84,25 @@ class NotificationService {
         return privyId || null;
     }
 
+    private async getUserOneSignalSubscriptionIds(userId: string): Promise<string[]> {
+        const { data, error } = await supabase
+            .from('onesignal_subscriptions')
+            .select('subscription_id')
+            .eq('user_id', userId);
+
+        if (error) {
+            logger.warn('Failed to load OneSignal subscription IDs', {
+                userId,
+                error: error.message,
+            });
+            return [];
+        }
+
+        return (data || [])
+            .map((row: any) => String(row.subscription_id || '').trim())
+            .filter(Boolean);
+    }
+
     private async sendOneSignalToExternalUsers(externalUserIds: string[], payload: PushNotificationPayload): Promise<ExpoPushTicket[]> {
         const { appId, restApiKey, enabled } = this.getOneSignalConfig();
         if (!enabled || externalUserIds.length === 0) return [];
@@ -129,6 +148,59 @@ class NotificationService {
             }];
         } catch (error: any) {
             logger.error('Error sending OneSignal notification', {
+                error: error.message,
+                response: error?.response?.data,
+            });
+            return [{
+                status: 'error',
+                message: error.message,
+                details: error?.response?.data,
+            }];
+        }
+    }
+
+    private async sendOneSignalToSubscriptionIds(subscriptionIds: string[], payload: PushNotificationPayload): Promise<ExpoPushTicket[]> {
+        const { appId, restApiKey, enabled } = this.getOneSignalConfig();
+        if (!enabled || subscriptionIds.length === 0) return [];
+
+        try {
+            const response = await axios.post(
+                ONESIGNAL_NOTIFICATIONS_URL,
+                {
+                    app_id: appId,
+                    include_subscription_ids: subscriptionIds,
+                    headings: { en: payload.title },
+                    contents: { en: payload.body },
+                    data: payload.data || {},
+                    target_channel: 'push',
+                },
+                {
+                    headers: this.getOneSignalHeaders(restApiKey),
+                }
+            );
+
+            const notificationId = response.data?.id;
+            const recipients = Number(response.data?.recipients || 0);
+
+            if (!notificationId || recipients < 1) {
+                logger.warn('OneSignal subscription-id send returned zero recipients', {
+                    subscriptionIdsCount: subscriptionIds.length,
+                    response: response.data,
+                });
+                return [{
+                    status: 'error',
+                    message: 'No subscribed OneSignal recipients found',
+                    details: response.data,
+                }];
+            }
+
+            return [{
+                status: 'ok',
+                id: notificationId,
+                details: { recipients },
+            }];
+        } catch (error: any) {
+            logger.error('Error sending OneSignal notification by subscription IDs', {
                 error: error.message,
                 response: error?.response?.data,
             });
@@ -426,6 +498,19 @@ class NotificationService {
                     }
                     logger.warn('OneSignal send failed; falling back to Expo token path', { userId });
                 }
+
+                const subscriptionIds = await this.getUserOneSignalSubscriptionIds(userId);
+                if (subscriptionIds.length > 0) {
+                    const oneSignalSubscriptionTickets = await this.sendOneSignalToSubscriptionIds(subscriptionIds, payload);
+                    const hasOkTicket = oneSignalSubscriptionTickets.some((ticket) => ticket.status === 'ok');
+                    if (hasOkTicket) {
+                        return oneSignalSubscriptionTickets;
+                    }
+                    logger.warn('OneSignal subscription-id send failed; falling back to Expo token path', {
+                        userId,
+                        subscriptionCount: subscriptionIds.length,
+                    });
+                }
             }
 
             // Get all device tokens for this user
@@ -534,6 +619,51 @@ class NotificationService {
             return true;
         } catch (error: any) {
             logger.error('Error removing device token', { error: error.message });
+            return false;
+        }
+    }
+
+    async registerOneSignalSubscription(
+        userId: string,
+        params: {
+            externalId: string;
+            subscriptionId: string;
+            platform?: string;
+            token?: string | null;
+        }
+    ): Promise<boolean> {
+        try {
+            const { error } = await supabase
+                .from('onesignal_subscriptions')
+                .upsert(
+                    {
+                        user_id: userId,
+                        external_id: params.externalId,
+                        subscription_id: params.subscriptionId,
+                        onesignal_token: params.token || null,
+                        platform: params.platform || null,
+                        last_seen_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    },
+                    { onConflict: 'subscription_id' }
+                );
+
+            if (error) {
+                logger.error('Failed to register OneSignal subscription', {
+                    userId,
+                    subscriptionId: params.subscriptionId,
+                    error: error.message,
+                });
+                return false;
+            }
+
+            return true;
+        } catch (error: any) {
+            logger.error('Error registering OneSignal subscription', {
+                userId,
+                subscriptionId: params.subscriptionId,
+                error: error.message,
+            });
             return false;
         }
     }

@@ -9,11 +9,11 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { UniversalCreationBox } from '../../../components/UniversalCreationBox';
 import { AnimatedListItem } from '../../../components/AnimatedListItem';
 import { TransactionConfirmationModal } from '../../../components/TransactionConfirmationModal';
-import { useTutorial } from '../../../hooks/useTutorial';
 import { useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../../utils/gradientUtils';
+import { joinApiUrl } from '../../../utils/apiBaseUrl';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -72,7 +72,6 @@ export default function HomeDashboard() {
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [transactionData, setTransactionData] = useState<any>(null);
     const transactionModalRef = React.useRef<any>(null);
-    const { isLoaded: tutorialLoaded, isCompleted: tutorialCompleted, startTutorial } = useTutorial();
 
     useEffect(() => {
         if (isReady && user) {
@@ -80,13 +79,6 @@ export default function HomeDashboard() {
             fetchDashboardData();
         }
     }, [isReady, user]);
-
-    // Auto-start tutorial for new users once data has loaded
-    useEffect(() => {
-        if (tutorialLoaded && !tutorialCompleted && isReady && user && !isLoadingData) {
-            startTutorial();
-        }
-    }, [tutorialLoaded, tutorialCompleted, isReady, user, isLoadingData]);
 
     // Refetch profile data when screen comes into focus
     useFocusEffect(
@@ -120,8 +112,7 @@ export default function HomeDashboard() {
         if (!user) return;
         try {
             const t = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const profileResponse = await fetch(`${apiUrl}/api/users/profile`, { headers: { 'Authorization': `Bearer ${t}` } });
+            const profileResponse = await fetch(joinApiUrl('/api/users/profile'), { headers: { 'Authorization': `Bearer ${t}` } });
             const profileData = await profileResponse.json();
             if (profileData.success && profileData.data) {
                 const userData = profileData.data.user || profileData.data;
@@ -145,15 +136,14 @@ export default function HomeDashboard() {
         if (!isRefresh) setIsLoadingData(true);
         try {
             const t = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
             const headers = { 'Authorization': `Bearer ${t}` };
 
             const [invoicesRes, contractsRes, linksRes, projectsRes, recurringRes] = await Promise.all([
-                fetch(`${apiUrl}/api/documents?type=INVOICE`, { headers }).then(r => r.json()).catch(() => ({})),
-                fetch(`${apiUrl}/api/documents?type=CONTRACT`, { headers }).then(r => r.json()).catch(() => ({})),
-                fetch(`${apiUrl}/api/documents?type=PAYMENT_LINK`, { headers }).then(r => r.json()).catch(() => ({})),
-                fetch(`${apiUrl}/api/projects`, { headers }).then(r => r.json()).catch(() => ({})),
-                fetch(`${apiUrl}/api/recurring-invoices`, { headers }).then(r => r.json()).catch(() => ({})),
+                fetch(joinApiUrl('/api/documents?type=INVOICE'), { headers }).then(r => r.json()).catch(() => ({})),
+                fetch(joinApiUrl('/api/documents?type=CONTRACT'), { headers }).then(r => r.json()).catch(() => ({})),
+                fetch(joinApiUrl('/api/documents?type=PAYMENT_LINK'), { headers }).then(r => r.json()).catch(() => ({})),
+                fetch(joinApiUrl('/api/projects'), { headers }).then(r => r.json()).catch(() => ({})),
+                fetch(joinApiUrl('/api/recurring-invoices'), { headers }).then(r => r.json()).catch(() => ({})),
             ]);
 
             const today = new Date();

@@ -26,6 +26,7 @@ import paycrestWebhookRoutes from './routes/paycrestWebhook';
 import pdfRoutes from './routes/pdf';
 import walletRoutes from './routes/wallet';
 import notificationRoutes from './routes/notifications';
+import engagementRoutes from './routes/engagement';
 import insightsRoutes from './routes/insights';
 import beneficiaryRoutes from './routes/beneficiaries';
 import recipientRoutes from './routes/recipients';
@@ -249,6 +250,7 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/engagement', engagementRoutes);
 app.use('/api/insights', insightsRoutes);
 app.use('/api/beneficiaries', beneficiaryRoutes);
 app.use('/api/recipients', recipientRoutes);

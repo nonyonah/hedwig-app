@@ -43,6 +43,7 @@ import { useEmbeddedSolanaWallet, useEmbeddedEthereumWallet } from '@privy-io/ex
 import { useWallet } from '../../hooks/useWallet';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
+import Analytics from '../../services/analytics';
 
 // Network options
 const NETWORKS = [
@@ -130,6 +131,11 @@ export default function CreateWithdrawalScreen() {
     // Load supported banks
     useEffect(() => {
         console.log('CreateWithdrawalScreen mounted - Version: 4.0 (Multi-currency)');
+        Analytics.withdrawalFlowStarted(selectedNetwork.id, selectedCountry.currency);
+        Analytics.withdrawalFlowStep('screen_opened', {
+            network: selectedNetwork.id,
+            fiat_currency: selectedCountry.currency,
+        });
 
         // Listen for bank selection
         const subscription = DeviceEventEmitter.addListener('onBankSelected', (bank: Bank) => {
@@ -140,6 +146,34 @@ export default function CreateWithdrawalScreen() {
             subscription.remove();
         };
     }, []);
+
+    useEffect(() => {
+        Analytics.withdrawalFlowStep('network_selected', {
+            network: selectedNetwork.id,
+        });
+    }, [selectedNetwork.id]);
+
+    useEffect(() => {
+        Analytics.withdrawalFlowStep('country_selected', {
+            country: selectedCountry.id,
+            fiat_currency: selectedCountry.currency,
+        });
+    }, [selectedCountry.id, selectedCountry.currency]);
+
+    useEffect(() => {
+        if (!selectedBank) return;
+        Analytics.withdrawalFlowStep('bank_selected', {
+            bank_name: selectedBank.name,
+            currency: selectedCountry.currency,
+        });
+    }, [selectedBank, selectedCountry.currency]);
+
+    useEffect(() => {
+        if (accountNumber.length !== 10) return;
+        Analytics.withdrawalFlowStep('account_number_entered', {
+            currency: selectedCountry.currency,
+        });
+    }, [accountNumber, selectedCountry.currency]);
 
     const loadBeneficiaries = useCallback(async () => {
         try {
@@ -271,12 +305,24 @@ export default function CreateWithdrawalScreen() {
 
             if (data.success && data.data?.verified) {
                 setAccountName(data.data.accountName);
+                Analytics.withdrawalFlowStep('account_verified', {
+                    bank_name: selectedBank.name,
+                    currency: selectedCountry.currency,
+                });
             } else {
                 setAccountError('Could not verify account details');
+                Analytics.withdrawalFlowFailed('account_verification', 'verification_failed', {
+                    bank_name: selectedBank.name,
+                    currency: selectedCountry.currency,
+                });
             }
         } catch (error) {
             console.error('Validation error:', error);
             setAccountError('Validation failed');
+            Analytics.withdrawalFlowFailed('account_verification', 'validation_error', {
+                bank_name: selectedBank?.name,
+                currency: selectedCountry.currency,
+            });
         } finally {
             setIsValidatingAccount(false);
         }
@@ -352,6 +398,11 @@ export default function CreateWithdrawalScreen() {
         setAccountNumber(beneficiary.accountNumber);
         setAccountName(beneficiary.accountName);
         setAccountError('');
+        Analytics.withdrawalFlowStep('beneficiary_selected', {
+            beneficiary_id: beneficiary.id,
+            network: network.id,
+            fiat_currency: country.currency,
+        });
     }, [selectedNetwork]);
 
     const handleDeleteBeneficiary = useCallback(async (beneficiaryId: string) => {
@@ -388,14 +439,31 @@ export default function CreateWithdrawalScreen() {
             bridgeModalRef: !!bridgeModalRef.current,
             confirmModalRef: !!confirmModalRef.current
         });
+        Analytics.withdrawalFlowStep('review_tapped', {
+            network: selectedNetwork.id,
+            fiat_currency: selectedCountry.currency,
+            has_amount: Boolean(amount),
+            has_bank: Boolean(selectedBank),
+            has_account_number: Boolean(accountNumber),
+            has_account_name: Boolean(accountName),
+        });
 
         if (!amount || !selectedBank || !accountNumber || !accountName) {
+            Analytics.withdrawalFlowFailed('review', 'missing_fields', {
+                has_amount: Boolean(amount),
+                has_bank: Boolean(selectedBank),
+                has_account_number: Boolean(accountNumber),
+                has_account_name: Boolean(accountName),
+            });
             Alert.alert('Missing Fields', 'Please fill in all fields and ensure account is verified.');
             return;
         }
 
         const numAmount = parseFloat(amount);
         if (isNaN(numAmount) || numAmount <= 0) {
+            Analytics.withdrawalFlowFailed('review', 'invalid_amount', {
+                amount,
+            });
             Alert.alert('Invalid Amount', 'Please enter a valid amount greater than 0.');
             return;
         }
@@ -409,17 +477,23 @@ export default function CreateWithdrawalScreen() {
             });
 
             if (!solanaAddress) {
+                Analytics.withdrawalFlowFailed('bridge_prerequisite', 'missing_solana_wallet');
                 console.log('[CreateWithdrawal] No Solana address - showing alert');
                 Alert.alert('No Solana Wallet', 'Please create a Solana wallet to bridge funds.');
                 return;
             }
             if (!evmAddress) {
+                Analytics.withdrawalFlowFailed('bridge_prerequisite', 'missing_base_wallet');
                 console.log('[CreateWithdrawal] No EVM address - showing alert');
                 Alert.alert('No Base Address', 'Could not determine your Base address. Please try again.');
                 return;
             }
 
             console.log('[CreateWithdrawal] Opening bridge modal...');
+            Analytics.withdrawalFlowStep('bridge_modal_opened', {
+                network: selectedNetwork.id,
+                amount: numAmount,
+            });
             console.log('[CreateWithdrawal] Bridge modal ref exists:', !!bridgeModalRef.current);
             setIsBridgeModalVisible(true);
 
@@ -434,11 +508,21 @@ export default function CreateWithdrawalScreen() {
         }
 
         console.log('[CreateWithdrawal] Opening offramp confirmation modal...');
+        Analytics.withdrawalFlowStep('review_opened', {
+            network: selectedNetwork.id,
+            fiat_currency: selectedCountry.currency,
+            amount: numAmount,
+        });
         setIsConfirmModalVisible(true);
         confirmModalRef.current?.present();
     };
 
     const handleSuccess = (orderId: string) => {
+        Analytics.withdrawalFlowStep('review_success_closed', {
+            order_id: orderId,
+            network: selectedNetwork.id,
+            fiat_currency: selectedCountry.currency,
+        });
         void saveCurrentAsBeneficiary(true);
         if (navigation.canGoBack()) {
             router.back();
@@ -484,6 +568,9 @@ export default function CreateWithdrawalScreen() {
     }, [isNetworkSelectorVisible, networkDropdownAnimation]);
 
     const handleOpenBankSheet = useCallback(() => {
+        Analytics.withdrawalFlowStep('bank_selector_opened', {
+            currency: selectedCountry.currency,
+        });
         router.push({ pathname: '/offramp-history/bank-selection', params: { currency: selectedCountry.currency } });
     }, [selectedCountry]);
 
@@ -852,6 +939,12 @@ export default function CreateWithdrawalScreen() {
                 baseAddress={evmAddress}
                 getAccessToken={getAccessToken}
                 onBridgeComplete={(toAddress, token, bridgedAmount) => {
+                    Analytics.withdrawalFlowStep('bridge_completed', {
+                        from_network: 'solana',
+                        to_network: 'base',
+                        token,
+                        bridged_amount: bridgedAmount,
+                    });
                     // Close bridge modal first
                     setIsBridgeModalVisible(false);
                     bridgeModalRef.current?.dismiss();
@@ -877,6 +970,11 @@ export default function CreateWithdrawalScreen() {
                                         onPress: () => {
                                             // Open offramp confirmation modal
                                             console.log('[Bridge] Opening offramp modal with Base network');
+                                            Analytics.withdrawalFlowStep('review_opened_after_bridge', {
+                                                network: 'base',
+                                                fiat_currency: selectedCountry.currency,
+                                                amount: bridgedAmount,
+                                            });
                                             setIsConfirmModalVisible(true);
                                             confirmModalRef.current?.present();
                                         }

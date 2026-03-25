@@ -253,6 +253,11 @@ router.post('/', async (req: Request, res: Response) => {
         });
 
         const previousStatus = resolvedOrder.status as string;
+        const analyticsDistinctId = String(
+            (resolvedOrder as any).users?.privy_id ||
+            (resolvedOrder as any).users?.id ||
+            resolvedOrder.user_id
+        );
 
         // Ignore stale status regressions once terminal state is reached.
         const terminalStatuses = new Set(['COMPLETED', 'FAILED']);
@@ -283,7 +288,7 @@ router.post('/', async (req: Request, res: Response) => {
             
             // Track withdrawal_completed analytics event
             BackendAnalytics.withdrawalCompleted(
-                (resolvedOrder as any).users?.id || resolvedOrder.user_id,
+                analyticsDistinctId,
                 resolvedOrder.crypto_amount,
                 resolvedOrder.crypto_currency || 'USDC',
                 resolvedOrder.fiat_amount,
@@ -313,6 +318,30 @@ router.post('/', async (req: Request, res: Response) => {
         }
 
         const statusChanged = previousStatus !== newStatus;
+
+        if (statusChanged) {
+            await BackendAnalytics.capture(analyticsDistinctId, 'withdrawal_status_changed', {
+                user_id: resolvedOrder.user_id,
+                order_id: resolvedOrder.id,
+                paycrest_order_id: paycrestOrderId,
+                previous_status: previousStatus,
+                status: newStatus,
+                fiat_amount: resolvedOrder.fiat_amount,
+                fiat_currency: resolvedOrder.fiat_currency,
+                crypto_amount: resolvedOrder.crypto_amount,
+                crypto_currency: resolvedOrder.crypto_currency || resolvedOrder.token,
+                tx_hash: txHash || null,
+            });
+
+            if (newStatus === 'FAILED') {
+                await BackendAnalytics.capture(analyticsDistinctId, 'withdrawal_failed', {
+                    user_id: resolvedOrder.user_id,
+                    order_id: resolvedOrder.id,
+                    paycrest_order_id: paycrestOrderId,
+                    reason: updateData.error_message || null,
+                });
+            }
+        }
 
         // 3. Notify user when status changes so withdrawal UI stays in sync.
         const internalUserId = (resolvedOrder as any).users?.id;

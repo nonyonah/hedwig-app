@@ -114,6 +114,25 @@ export const useKYC = () => {
                     url: data.data.url,
                     sessionId: data.data.sessionId,
                 };
+
+                try {
+                    await fetch(`${API_URL}/api/engagement/events`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            event: 'kyc_started',
+                            properties: {
+                                source: 'mobile_useKYC',
+                                session_id: data.data.sessionId,
+                            },
+                        }),
+                    });
+                } catch (engagementError) {
+                    console.error('Failed to record kyc_started engagement event:', engagementError);
+                }
             }
 
             return null;

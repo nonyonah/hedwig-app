@@ -87,7 +87,7 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
     const ethereumWallet = useEmbeddedEthereumWallet();
-    const { getAccessToken } = useAuth();
+    const { user, getAccessToken } = useAuth();
     const { startTracking } = useLiveTracking();
     const evmWallets = (ethereumWallet as any)?.wallets || [];
 
@@ -197,10 +197,24 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
 
     const handleConfirm = async () => {
         if (!data) return;
+        let createdOrderId: string | null = null;
+        let submittedTxHash: string | null = null;
+        let tokensSentInAttempt = false;
+
+        Analytics.withdrawalFlowStep('confirm_tapped', {
+            network: data.network,
+            token: data.token,
+            amount: toNumber(data.amount),
+            fiat_currency: data.fiatCurrency,
+        });
 
         // 0. Check KYC status first
         if (!isKYCApproved) {
             Analytics.offrampBlockedKyc();
+            Analytics.withdrawalFlowFailed('confirm', 'kyc_required', {
+                network: data.network,
+                fiat_currency: data.fiatCurrency,
+            });
             kycSheetRef.current?.present();
             return;
         }
@@ -209,18 +223,22 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
         try {
             const hasHardware = await LocalAuthentication.hasHardwareAsync();
             if (hasHardware) {
+                Analytics.withdrawalFlowStep('biometric_prompted');
                 const authResult = await LocalAuthentication.authenticateAsync({
                     promptMessage: 'Authenticate to confirm offramp',
                     fallbackLabel: 'Use Passcode'
                 });
 
                 if (!authResult.success) {
+                    Analytics.withdrawalFlowFailed('biometric_auth', authResult.error || 'cancelled');
                     Alert.alert('Authentication Failed', 'Please try again.');
                     return;
                 }
+                Analytics.withdrawalFlowStep('biometric_verified');
             }
         } catch (e) {
             console.log('Biometric error:', e);
+            Analytics.withdrawalFlowFailed('biometric_auth', 'biometric_error');
             Alert.alert('Error', 'Biometric authentication failed.');
             return;
         }
@@ -229,9 +247,16 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
         try {
             setModalState('processing');
             setStatusMessage('Creating offramp order...');
+            Analytics.withdrawalFlowStep('order_create_started', {
+                network: data.network,
+                token: data.token,
+                amount: toNumber(data.amount),
+                fiat_currency: data.fiatCurrency,
+            });
 
             // Get wallet address for return address
             if (!evmWallets || evmWallets.length === 0) {
+                Analytics.withdrawalFlowFailed('order_create', 'missing_wallet');
                 throw new Error('No wallet available. Please ensure you are logged in.');
             }
 
@@ -273,7 +298,13 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
 
             const order = result.data.order;
             setOrderId(order.id);
+            createdOrderId = String(order.id);
             setReceiveAddress(order.receiveAddress);
+            Analytics.withdrawalFlowStep('order_created', {
+                order_id: order.id,
+                network: data.network,
+                fiat_currency: data.fiatCurrency,
+            });
             if (order.exchangeRate) {
                 setCurrentRate(String(order.exchangeRate));
             }
@@ -286,6 +317,11 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
 
             // 3. Send tokens to Paycrest receive address automatically
             setStatusMessage('Sending tokens to Paycrest...');
+            Analytics.withdrawalFlowStep('token_transfer_started', {
+                order_id: order.id,
+                network: data.network,
+                token: data.token,
+            });
 
             const network = data.network.toLowerCase();
             const tokenSymbol = data.token.toUpperCase();
@@ -346,9 +382,25 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                 method: 'eth_sendTransaction',
                 params: [txParams]
             }) as string;
+            submittedTxHash = txHash;
 
             // Mark that tokens have been sent (for error message differentiation)
             setTokensSent(true);
+            tokensSentInAttempt = true;
+            Analytics.withdrawalFlowStep('token_transfer_submitted', {
+                order_id: order.id,
+                tx_hash: txHash,
+                network: data.network,
+                token: data.token,
+                amount: transferAmount,
+            });
+
+            Analytics.offrampInitiated(
+                String(user?.id || 'unknown'),
+                transferAmount,
+                data.token,
+                data.fiatCurrency
+            );
 
             console.log('[Offramp] Token transfer tx:', txHash);
             setStatusMessage('Waiting for confirmation...');
@@ -413,11 +465,33 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
             // Real-time status tracking happens in the Withdrawals history screen
             // via Paycrest webhook updates and polling.
             setModalState('success');
+            Analytics.withdrawalFlowStep('withdrawal_submitted', {
+                order_id: order.id,
+                tx_hash: txHash,
+                network: data.network,
+                fiat_currency: data.fiatCurrency,
+                amount: transferAmount,
+            });
 
         } catch (error: any) {
             console.error('Offramp Failed:', error);
             setStatusMessage(error.message || 'Unknown error');
             setModalState('failed');
+            const errorType =
+                String(
+                    error?.response?.data?.error?.message ||
+                    error?.response?.data?.error ||
+                    error?.message ||
+                    'unknown_error'
+                ).slice(0, 120);
+            Analytics.withdrawalFlowFailed('submit', errorType, {
+                order_id: createdOrderId,
+                tx_hash: submittedTxHash,
+                tokens_sent: tokensSentInAttempt,
+                network: data.network,
+                fiat_currency: data.fiatCurrency,
+            });
+            Analytics.offrampFailed(errorType);
         }
     };
 

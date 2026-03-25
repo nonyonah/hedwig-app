@@ -83,6 +83,63 @@ async function sendEvent(event: PostHogEvent): Promise<boolean> {
  * Backend Analytics Events
  */
 const BackendAnalytics = {
+    capture: (distinctId: string, event: string, properties: Record<string, any> = {}) =>
+        sendEvent({
+            event,
+            distinct_id: distinctId,
+            properties,
+        }),
+
+    getFeatureFlagVariant: async (
+        distinctId: string,
+        flagKey: string,
+        fallback: string = 'control'
+    ): Promise<string> => {
+        if (!POSTHOG_API_KEY || !flagKey || !distinctId) {
+            return fallback;
+        }
+
+        try {
+            const response = await axios.post(
+                `${POSTHOG_HOST}/decide/?v=3`,
+                {
+                    api_key: POSTHOG_API_KEY,
+                    distinct_id: distinctId,
+                    disable_flags: false,
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    timeout: 5000,
+                }
+            );
+
+            const featureFlags =
+                response.data?.featureFlags ||
+                response.data?.feature_flags ||
+                {};
+
+            const value = featureFlags?.[flagKey];
+
+            if (typeof value === 'string' && value.trim().length > 0) {
+                return value;
+            }
+            if (typeof value === 'boolean') {
+                return value ? 'on' : fallback;
+            }
+
+            return fallback;
+        } catch (error: any) {
+            logger.warn('Failed to fetch PostHog feature flag variant', {
+                flagKey,
+                distinctId,
+                error: error?.message,
+            });
+            return fallback;
+        }
+    },
+
     // Payment received via webhook (Alchemy or Paycrest)
     paymentReceived: (userId: string, amount: number, currency: string, txHash?: string, invoiceId?: string, projectId?: string, clientId?: string) =>
         sendEvent({

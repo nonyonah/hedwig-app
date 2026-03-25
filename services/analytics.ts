@@ -506,6 +506,28 @@ const Analytics = {
         }),
 
     // ==================== WITHDRAWAL & OFFRAMP EVENTS ====================
+    withdrawalFlowStarted: (network: string, fiatCurrency: string) =>
+        trackEvent('withdrawal_flow_started', {
+            network,
+            fiat_currency: fiatCurrency,
+            timestamp: new Date().toISOString(),
+        }),
+
+    withdrawalFlowStep: (step: string, properties: Record<string, any> = {}) =>
+        trackEvent('withdrawal_flow_step', {
+            step,
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+
+    withdrawalFlowFailed: (step: string, errorType?: string, properties: Record<string, any> = {}) =>
+        trackEvent('withdrawal_flow_failed', {
+            step,
+            error_type: errorType,
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+
     offrampInitiated: (userId: string, amount: number, currency: string, fiatCurrency?: string) =>
         trackEvent('offramp_initiated', { 
             user_id: userId,
@@ -608,4 +630,3 @@ const Analytics = {
 };
 
 export default Analytics;
-

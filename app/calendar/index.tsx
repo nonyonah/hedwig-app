@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import { Typography } from '../../styles/typography';
+import { joinApiUrl } from '../../utils/apiBaseUrl';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -234,13 +235,12 @@ export default function CalendarScreen() {
     const fetchEvents = async () => {
         try {
             const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
             const rangeFrom = new Date(selectedDate);
             rangeFrom.setDate(rangeFrom.getDate() - daysPastWindow);
             const rangeTo = new Date(selectedDate);
             rangeTo.setDate(rangeTo.getDate() + daysFutureWindow);
             const response = await fetch(
-                `${apiUrl}/api/calendar?status=upcoming&from=${encodeURIComponent(rangeFrom.toISOString())}&to=${encodeURIComponent(rangeTo.toISOString())}&limit=200`,
+                joinApiUrl(`/api/calendar?from=${encodeURIComponent(rangeFrom.toISOString())}&to=${encodeURIComponent(rangeTo.toISOString())}&limit=200`),
                 {
                 headers: { 'Authorization': `Bearer ${token}` }
                 }
@@ -284,8 +284,7 @@ export default function CalendarScreen() {
 
         try {
             const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const response = await fetch(`${apiUrl}/api/calendar/${event.id}/complete`, {
+            const response = await fetch(joinApiUrl(`/api/calendar/${event.id}/complete`), {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,

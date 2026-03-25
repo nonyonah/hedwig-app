@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth';
 import NotificationService from '../services/notifications';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
+import { supabase } from '../lib/supabase';
 
 const logger = createLogger('NotificationsRoute');
 
@@ -89,6 +90,60 @@ router.post('/register', authenticate, async (req: Request, res: Response) => {
         res.status(500).json({
             success: false,
             error: { message: 'Internal server error', details: error.message },
+        });
+    }
+});
+
+/**
+ * POST /api/notifications/register-onesignal
+ * Register OneSignal subscription metadata for the authenticated user.
+ */
+router.post('/register-onesignal', authenticate, async (req: Request, res: Response) => {
+    try {
+        const privyId = req.user!.id;
+        const { externalId, subscriptionId, token, platform } = req.body || {};
+
+        if (!subscriptionId || typeof subscriptionId !== 'string') {
+            res.status(400).json({
+                success: false,
+                error: { message: 'subscriptionId is required' },
+            });
+            return;
+        }
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                error: { message: 'User not found' },
+            });
+            return;
+        }
+
+        const ok = await NotificationService.registerOneSignalSubscription(user.id, {
+            externalId: String(externalId || user.privy_id || privyId).trim(),
+            subscriptionId: String(subscriptionId).trim(),
+            token: token ? String(token) : null,
+            platform: platform ? String(platform) : undefined,
+        });
+
+        if (!ok) {
+            res.status(500).json({
+                success: false,
+                error: { message: 'Failed to register OneSignal subscription' },
+            });
+            return;
+        }
+
+        res.json({
+            success: true,
+            data: { message: 'OneSignal subscription registered' },
+        });
+    } catch (error: any) {
+        logger.error('Error registering OneSignal subscription');
+        res.status(500).json({
+            success: false,
+            error: { message: 'Internal server error', details: error?.message },
         });
     }
 });
@@ -344,8 +399,6 @@ router.post('/broadcast', authenticate, async (req: Request, res: Response) => {
 });
 
 // ========== IN-APP NOTIFICATIONS ==========
-
-import { supabase } from '../lib/supabase';
 
 /**
  * GET /api/notifications

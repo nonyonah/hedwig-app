@@ -56,6 +56,26 @@ export const getApiBaseUrl = (): string => {
     return configured;
 };
 
+/**
+ * Joins API base + path while safely handling envs where base already ends with /api.
+ * Example:
+ * - base=https://example.com, path=/api/calendar -> https://example.com/api/calendar
+ * - base=https://example.com/api, path=/api/calendar -> https://example.com/api/calendar
+ */
+export const joinApiUrl = (path: string): string => {
+    const base = getApiBaseUrl().replace(/\/+$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const baseHasApiSuffix = /\/api$/i.test(base);
+    const pathHasApiPrefix = /^\/api(\/|$)/i.test(normalizedPath);
+
+    if (baseHasApiSuffix && pathHasApiPrefix) {
+        const trimmedPath = normalizedPath.replace(/^\/api/i, '');
+        return `${base}${trimmedPath || '/'}`;
+    }
+
+    return `${base}${normalizedPath}`;
+};
+
 export const rewriteApiUrlForRuntime = (input: string): string => {
     const normalized = normalizeApiUrl(input);
     if (__DEV__ || !normalized || !isUnsafeReleaseApiUrl(normalized)) {

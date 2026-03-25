@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import DiditService from '../services/didit';
 import { getOrCreateUser } from '../utils/userHelper';
+import BackendAnalytics from '../services/analytics';
 
 const logger = createLogger('KYC');
 const router = Router();
@@ -93,10 +94,18 @@ router.post('/start', authenticate, async (req: Request, res: Response, next) =>
             .update({
                 kyc_session_id: session.id,
                 kyc_status: 'pending',
+                kyc_started_at: new Date().toISOString(),
             })
             .eq('id', user.id);
 
         logger.info('Updated user with Didit session ID', { userId: user.id, sessionId: session.id });
+
+        await BackendAnalytics.capture(String(user.privy_id || privyId), 'kyc_started', {
+            user_id: user.id,
+            session_id: session.id,
+            provider: 'didit',
+            source: 'backend_kyc_start',
+        });
 
         res.json({
             success: true,

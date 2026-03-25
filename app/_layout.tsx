@@ -28,7 +28,7 @@ import Analytics from '../services/analytics';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../hooks/useAuth';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import { getApiBaseUrl, rewriteApiUrlForRuntime } from '../utils/apiBaseUrl';
+import { getApiBaseUrl, joinApiUrl, rewriteApiUrlForRuntime } from '../utils/apiBaseUrl';
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
@@ -167,7 +167,88 @@ function PushNotificationBootstrap() {
     const { user, isReady, getAccessToken } = useAuth();
     const { isRegistered, registerForPushNotifications, registerWithBackend } = usePushNotifications();
     const initializedOneSignalRef = React.useRef(false);
+    const trackedAppOpenedRef = React.useRef(false);
     const oneSignalRef = React.useRef<any>(null);
+    const oneSignalSubscriptionListenerRef = React.useRef<any>(null);
+    const lastSyncedSubscriptionIdRef = React.useRef<string | null>(null);
+
+    const registerEngagementEvent = useCallback(async (event: string, properties: Record<string, any> = {}) => {
+        try {
+            if (!user?.id) return;
+            const authToken = await getAccessToken();
+            if (!authToken) return;
+
+            await fetch(joinApiUrl('/api/engagement/events'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({
+                    event,
+                    properties,
+                }),
+            });
+        } catch (error) {
+            console.error('[Engagement] Failed to register event with backend:', error);
+        }
+    }, [user?.id, getAccessToken]);
+
+    const registerOneSignalSubscriptionWithBackend = useCallback(async (payload: {
+        externalId: string;
+        subscriptionId: string;
+        token?: string | null;
+    }) => {
+        try {
+            const authToken = await getAccessToken();
+            if (!authToken) return;
+
+            await fetch(joinApiUrl('/api/notifications/register-onesignal'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({
+                    externalId: payload.externalId,
+                    subscriptionId: payload.subscriptionId,
+                    token: payload.token || null,
+                    platform: Platform.OS,
+                }),
+            });
+        } catch (error) {
+            console.error('[Push] Failed to register OneSignal subscription with backend:', error);
+        }
+    }, [getAccessToken]);
+
+    const syncOneSignalSubscription = useCallback(async (externalId: string) => {
+        const OneSignal = oneSignalRef.current;
+        if (!OneSignal) return;
+
+        try {
+            const subscriptionId =
+                (typeof OneSignal.User?.pushSubscription?.getId === 'function'
+                    ? await OneSignal.User.pushSubscription.getId()
+                    : OneSignal.User?.pushSubscription?.id) || null;
+            const subscriptionToken =
+                (typeof OneSignal.User?.pushSubscription?.getToken === 'function'
+                    ? await OneSignal.User.pushSubscription.getToken()
+                    : OneSignal.User?.pushSubscription?.token) || null;
+
+            if (!subscriptionId) return;
+            const normalizedId = String(subscriptionId);
+            if (lastSyncedSubscriptionIdRef.current === normalizedId) return;
+
+            lastSyncedSubscriptionIdRef.current = normalizedId;
+            await registerOneSignalSubscriptionWithBackend({
+                externalId,
+                subscriptionId: normalizedId,
+                token: subscriptionToken ? String(subscriptionToken) : null,
+            });
+        } catch (error) {
+            console.error('[Push] Failed to sync OneSignal subscription:', error);
+        }
+    }, [registerOneSignalSubscriptionWithBackend]);
 
     const ensureOneSignalPermission = useCallback(async () => {
         const OneSignal = oneSignalRef.current;
@@ -208,9 +289,46 @@ function PushNotificationBootstrap() {
 
                     if (user?.id) {
                         await OneSignal.login(user.id);
+                        if (OneSignal.User?.addAlias) {
+                            OneSignal.User.addAlias('privy_id', String(user.id));
+                        }
+                        const userEmail =
+                            (typeof (user as any)?.email === 'string' ? (user as any).email : undefined) ||
+                            (user as any)?.email?.address ||
+                            (user as any)?.google?.email ||
+                            (user as any)?.apple?.email ||
+                            (Array.isArray((user as any)?.linkedAccounts)
+                                ? (user as any).linkedAccounts.find((a: any) => a?.type === 'email')?.address
+                                : undefined);
+                        if (userEmail && OneSignal.User?.addEmail) {
+                            OneSignal.User.addEmail(String(userEmail));
+                        }
                         await ensureOneSignalPermission();
+
+                        await syncOneSignalSubscription(String(user.id));
+
+                        if (typeof OneSignal.User?.pushSubscription?.addEventListener === 'function') {
+                            if (
+                                oneSignalSubscriptionListenerRef.current &&
+                                typeof OneSignal.User?.pushSubscription?.removeEventListener === 'function'
+                            ) {
+                                OneSignal.User.pushSubscription.removeEventListener('change', oneSignalSubscriptionListenerRef.current);
+                            }
+
+                            const listener = (event: any) => {
+                                const current = event?.current || event || {};
+                                const nextId = current?.id;
+                                if (!nextId) return;
+                                lastSyncedSubscriptionIdRef.current = null;
+                                void syncOneSignalSubscription(String(user.id));
+                            };
+
+                            OneSignal.User.pushSubscription.addEventListener('change', listener);
+                            oneSignalSubscriptionListenerRef.current = listener;
+                        }
                     } else if (initializedOneSignalRef.current) {
                         OneSignal.logout();
+                        lastSyncedSubscriptionIdRef.current = null;
                     }
                 } catch (error) {
                     console.error('[Push] OneSignal initialization failed, continuing with Expo push fallback:', error);
@@ -233,7 +351,18 @@ function PushNotificationBootstrap() {
         };
 
         setupPushNotifications();
-    }, [isReady, user, isRegistered, getAccessToken, registerForPushNotifications, registerWithBackend, ensureOneSignalPermission]);
+        return () => {
+            const OneSignal = oneSignalRef.current;
+            if (
+                OneSignal &&
+                oneSignalSubscriptionListenerRef.current &&
+                typeof OneSignal.User?.pushSubscription?.removeEventListener === 'function'
+            ) {
+                OneSignal.User.pushSubscription.removeEventListener('change', oneSignalSubscriptionListenerRef.current);
+                oneSignalSubscriptionListenerRef.current = null;
+            }
+        };
+    }, [isReady, user, isRegistered, getAccessToken, registerForPushNotifications, registerWithBackend, ensureOneSignalPermission, syncOneSignalSubscription]);
 
     useEffect(() => {
         if (Platform.OS === 'web' || !ONESIGNAL_APP_ID) return;
@@ -247,6 +376,23 @@ function PushNotificationBootstrap() {
             appStateSubscription.remove();
         };
     }, [ensureOneSignalPermission]);
+
+    useEffect(() => {
+        if (!isReady) return;
+
+        if (user?.id && !trackedAppOpenedRef.current) {
+            trackedAppOpenedRef.current = true;
+            void registerEngagementEvent('app_opened', {
+                source: 'mobile_app_layout',
+                platform: Platform.OS,
+            });
+            return;
+        }
+
+        if (!user?.id) {
+            trackedAppOpenedRef.current = false;
+        }
+    }, [isReady, user?.id, registerEngagementEvent]);
 
     return null;
 }

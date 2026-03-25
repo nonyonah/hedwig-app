@@ -35,6 +35,7 @@ import { formatCurrency, getCurrencySymbol } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import Analytics from '../../services/analytics';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
+import { joinApiUrl } from '../../utils/apiBaseUrl';
 
 // Icons for tokens and chains
 const ICONS = {
@@ -167,9 +168,8 @@ export default function InvoicesScreen() {
         if (!user) return;
         try {
             const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-            const profileResponse = await fetch(`${apiUrl}/api/users/profile`, {
+            const profileResponse = await fetch(joinApiUrl('/api/users/profile'), {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
             const profileData = await profileResponse.json();
@@ -203,7 +203,7 @@ export default function InvoicesScreen() {
             }
 
             // Fetch recent conversations for sidebar
-            const conversationsResponse = await fetch(`${apiUrl}/api/chat/conversations`, {
+            const conversationsResponse = await fetch(joinApiUrl('/api/chat/conversations'), {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
             const conversationsData = await conversationsResponse.json();
@@ -231,10 +231,9 @@ export default function InvoicesScreen() {
     const fetchInvoices = async () => {
         try {
             const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
             console.log('Fetching invoices...');
-            const response = await fetch(`${apiUrl}/api/documents?type=INVOICE`, {
+            const response = await fetch(joinApiUrl('/api/documents?type=INVOICE'), {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -264,8 +263,7 @@ export default function InvoicesScreen() {
         setRecurringLoading(true);
         try {
             const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const res = await fetch(`${apiUrl}/api/recurring-invoices`, {
+            const res = await fetch(joinApiUrl('/api/recurring-invoices'), {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
@@ -280,8 +278,7 @@ export default function InvoicesScreen() {
     const handleRecurringStatus = async (id: string, status: 'active' | 'paused' | 'cancelled') => {
         try {
             const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const res = await fetch(`${apiUrl}/api/recurring-invoices/${id}/status`, {
+            const res = await fetch(joinApiUrl(`/api/recurring-invoices/${id}/status`), {
                 method: 'PATCH',
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status }),
@@ -301,8 +298,7 @@ export default function InvoicesScreen() {
     const handleRecurringTrigger = async (id: string) => {
         try {
             const token = await getAccessToken();
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const res = await fetch(`${apiUrl}/api/recurring-invoices/${id}/trigger`, {
+            const res = await fetch(joinApiUrl(`/api/recurring-invoices/${id}/trigger`), {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
             });

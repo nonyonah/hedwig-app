@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { GeminiService } from './gemini';
 import { EmailService } from './email';
 import NotificationService from './notifications';
-import { differenceInDays, parseISO, addDays, isSameDay, isAfter, format } from 'date-fns';
+import BackendAnalytics from './analytics';
+import { differenceInDays, parseISO, addDays, isSameDay, format } from 'date-fns';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Scheduler');
@@ -35,6 +36,204 @@ export const SchedulerService = {
             logger.debug('Running recurring invoice generation job');
             await this.checkRecurringInvoices();
         });
+
+        // Run hourly at minute 15 - send dormant user nudges (3-day inactivity)
+        cron.schedule('15 * * * *', async () => {
+            logger.debug('Running dormant-user re-engagement nudge job');
+            await this.sendDormantUserNudges();
+        });
+
+        // Run hourly at minute 20 - send KYC reminder nudges (24h after app_opened)
+        cron.schedule('20 * * * *', async () => {
+            logger.debug('Running KYC reminder nudge job');
+            await this.sendKycReminderNudges();
+        });
+    },
+
+    async sendDormantUserNudges() {
+        try {
+            const cutoffIso = new Date(Date.now() - (3 * 24 * 60 * 60 * 1000)).toISOString();
+
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, last_name, last_app_opened_at, last_dormant_nudge_at')
+                .not('last_app_opened_at', 'is', null)
+                .lte('last_app_opened_at', cutoffIso);
+
+            if (error) {
+                logger.error('Failed to fetch dormant users', { error: error.message });
+                return;
+            }
+
+            const candidates = (users || []).filter((user: any) => {
+                if (!user?.last_app_opened_at) return false;
+                if (!user?.last_dormant_nudge_at) return true;
+                return new Date(user.last_dormant_nudge_at).getTime() < new Date(user.last_app_opened_at).getTime();
+            });
+
+            if (candidates.length === 0) {
+                logger.debug('No dormant users eligible for nudges');
+                return;
+            }
+
+            logger.info('Sending dormant user nudges', { count: candidates.length });
+            const creativeCopy = await GeminiService.generateReengagementNudge({
+                kind: 'dormant_3day',
+            });
+
+            for (const user of candidates) {
+                const firstName = String(user.first_name || '').trim();
+                const title = creativeCopy.pushTitle;
+                const body = firstName
+                    ? `${firstName}, ${creativeCopy.pushBody}`
+                    : creativeCopy.pushBody;
+
+                await NotificationService.notifyUser(user.id, {
+                    title,
+                    body,
+                    data: {
+                        type: 'reengagement_dormant',
+                        route: '/(drawer)/(tabs)',
+                    },
+                });
+
+                if (user.email) {
+                    await EmailService.sendSmartReminder(
+                        user.email,
+                        creativeCopy.emailSubject,
+                        `<p class=\"eyebrow\">Re-engagement</p><h1 class=\"heading\">${creativeCopy.emailHeading}</h1><p class=\"description\">${creativeCopy.emailBody}</p>`,
+                        'https://hedwigbot.xyz',
+                        creativeCopy.ctaText || 'Open Hedwig'
+                    );
+                }
+
+                await supabase.from('notifications').insert({
+                    user_id: user.id,
+                    type: 'announcement',
+                    title,
+                    message: body,
+                    metadata: {
+                        nudge_type: 'dormant_3day',
+                    },
+                    is_read: false,
+                });
+
+                await supabase
+                    .from('users')
+                    .update({ last_dormant_nudge_at: new Date().toISOString() })
+                    .eq('id', user.id);
+
+                await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
+                    user_id: user.id,
+                    nudge_type: 'dormant_3day',
+                    channels: user.email ? ['push', 'email'] : ['push'],
+                });
+            }
+        } catch (error: any) {
+            logger.error('Error sending dormant user nudges', { error: error?.message });
+        }
+    },
+
+    async sendKycReminderNudges() {
+        try {
+            const cutoffIso = new Date(Date.now() - (24 * 60 * 60 * 1000)).toISOString();
+            const flagKey = process.env.POSTHOG_ONBOARDING_KYC_NUDGE_FLAG || 'onboarding_kyc_nudge_variant';
+
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, kyc_status, kyc_started_at, last_app_opened_at, last_kyc_nudge_at')
+                .not('last_app_opened_at', 'is', null)
+                .lte('last_app_opened_at', cutoffIso)
+                .in('kyc_status', ['not_started', 'pending', 'retry_required']);
+
+            if (error) {
+                logger.error('Failed to fetch KYC nudge users', { error: error.message });
+                return;
+            }
+
+            const candidates = (users || []).filter((user: any) => {
+                if (!user?.last_app_opened_at) return false;
+                if (user?.kyc_started_at) return false;
+                if (!user?.last_kyc_nudge_at) return true;
+                return new Date(user.last_kyc_nudge_at).getTime() < new Date(user.last_app_opened_at).getTime();
+            });
+
+            if (candidates.length === 0) {
+                logger.debug('No users eligible for KYC nudges');
+                return;
+            }
+
+            logger.info('Sending KYC nudges', { count: candidates.length });
+            const copyByVariant: Record<string, {
+                pushTitle: string;
+                pushBody: string;
+                emailSubject: string;
+                emailHeading: string;
+                emailBody: string;
+                ctaText: string;
+            }> = {};
+
+            for (const user of candidates) {
+                const variant = await BackendAnalytics.getFeatureFlagVariant(
+                    String(user.privy_id || user.id),
+                    flagKey,
+                    'control'
+                );
+                if (!copyByVariant[variant]) {
+                    copyByVariant[variant] = await GeminiService.generateReengagementNudge({
+                        kind: 'kyc_24h',
+                        variant,
+                    });
+                }
+                const copy = copyByVariant[variant];
+
+                await NotificationService.notifyUser(user.id, {
+                    title: copy.pushTitle,
+                    body: copy.pushBody,
+                    data: {
+                        type: 'kyc_nudge_24h',
+                        route: '/settings/index',
+                        variant,
+                    },
+                });
+
+                if (user.email) {
+                    await EmailService.sendSmartReminder(
+                        user.email,
+                        copy.emailSubject,
+                        `<p class=\"eyebrow\">Verification reminder</p><h1 class=\"heading\">${copy.emailHeading}</h1><p class=\"description\">${copy.emailBody}</p>`,
+                        'https://hedwigbot.xyz/settings',
+                        copy.ctaText || 'Complete Verification'
+                    );
+                }
+
+                await supabase.from('notifications').insert({
+                    user_id: user.id,
+                    type: 'announcement',
+                    title: copy.pushTitle,
+                    message: copy.pushBody,
+                    metadata: {
+                        nudge_type: 'kyc_24h',
+                        variant,
+                    },
+                    is_read: false,
+                });
+
+                await supabase
+                    .from('users')
+                    .update({ last_kyc_nudge_at: new Date().toISOString() })
+                    .eq('id', user.id);
+
+                await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
+                    user_id: user.id,
+                    nudge_type: 'kyc_24h',
+                    variant,
+                    channels: user.email ? ['push', 'email'] : ['push'],
+                });
+            }
+        } catch (error: any) {
+            logger.error('Error sending KYC nudges', { error: error?.message });
+        }
     },
 
     /**
