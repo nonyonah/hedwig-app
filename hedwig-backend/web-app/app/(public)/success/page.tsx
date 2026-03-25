@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CheckCircle, WarningCircle } from '@phosphor-icons/react/dist/ssr';
+import { CheckCircle, WarningCircle } from '@/components/ui/lucide-icons';
 import { PublicDocumentFrame } from '@/components/public/public-document-frame';
 
 export default async function PublicSuccessPage({

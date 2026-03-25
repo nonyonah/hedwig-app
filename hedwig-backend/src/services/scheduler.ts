@@ -9,6 +9,8 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Scheduler');
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export const SchedulerService = {
     initScheduler() {
         logger.info('Initializing Reminder Scheduler');
@@ -48,27 +50,134 @@ export const SchedulerService = {
             logger.debug('Running KYC reminder nudge job');
             await this.sendKycReminderNudges();
         });
+
+        // Run hourly at minute 25 - send feature highlight nudges every few days
+        cron.schedule('25 * * * *', async () => {
+            logger.debug('Running feature-highlight re-engagement nudge job');
+            await this.sendFeatureHighlightNudges();
+        });
+    },
+
+    timestampMs(value: string | null | undefined): number | null {
+        if (!value) return null;
+        const ms = Date.parse(value);
+        return Number.isNaN(ms) ? null : ms;
+    },
+
+    pickLatestTimestamp(values: Array<string | null | undefined>): string | null {
+        let bestMs: number | null = null;
+        let bestValue: string | null = null;
+
+        for (const value of values) {
+            const ms = this.timestampMs(value);
+            if (ms === null) continue;
+            if (bestMs === null || ms > bestMs) {
+                bestMs = ms;
+                bestValue = new Date(ms).toISOString();
+            }
+        }
+
+        return bestValue;
+    },
+
+    async getOneSignalLastSeenMap(): Promise<Record<string, string>> {
+        const lastSeenByUser: Record<string, string> = {};
+        const { data, error } = await supabase
+            .from('onesignal_subscriptions')
+            .select('user_id, last_seen_at')
+            .not('last_seen_at', 'is', null)
+            .order('last_seen_at', { ascending: false })
+            .limit(10000);
+
+        if (error) {
+            logger.warn('Failed to fetch OneSignal last_seen activity for nudge targeting', {
+                error: error.message,
+            });
+            return lastSeenByUser;
+        }
+
+        for (const row of data || []) {
+            const userId = String((row as any).user_id || '').trim();
+            const lastSeenAt = String((row as any).last_seen_at || '').trim();
+            if (!userId || !lastSeenAt) continue;
+            if (!lastSeenByUser[userId]) {
+                lastSeenByUser[userId] = lastSeenAt;
+            }
+        }
+
+        return lastSeenByUser;
+    },
+
+    getEffectiveLastActivityAt(user: any, oneSignalLastSeenMap: Record<string, string>): string | null {
+        return this.pickLatestTimestamp([
+            user?.last_app_opened_at || null,
+            user?.last_login || null,
+            oneSignalLastSeenMap[user?.id] || null,
+        ]);
+    },
+
+    async backfillLastAppOpenedAt(users: any[], oneSignalLastSeenMap: Record<string, string>) {
+        const updates = users
+            .map((user) => {
+                const effectiveLastActivityAt = this.getEffectiveLastActivityAt(user, oneSignalLastSeenMap);
+                const effectiveMs = this.timestampMs(effectiveLastActivityAt);
+                const appOpenedMs = this.timestampMs(user?.last_app_opened_at);
+                if (!effectiveLastActivityAt || effectiveMs === null) return null;
+                if (appOpenedMs !== null && appOpenedMs >= effectiveMs) return null;
+
+                return {
+                    id: String(user.id),
+                    lastAppOpenedAt: effectiveLastActivityAt,
+                };
+            })
+            .filter(Boolean) as Array<{ id: string; lastAppOpenedAt: string }>;
+
+        if (updates.length === 0) return;
+
+        logger.info('Backfilling last_app_opened_at from backend activity/session data', {
+            count: updates.length,
+        });
+
+        for (const update of updates) {
+            const { error } = await supabase
+                .from('users')
+                .update({ last_app_opened_at: update.lastAppOpenedAt })
+                .eq('id', update.id);
+
+            if (error) {
+                logger.warn('Failed to backfill last_app_opened_at for user', {
+                    userId: update.id,
+                    error: error.message,
+                });
+            }
+        }
     },
 
     async sendDormantUserNudges() {
         try {
-            const cutoffIso = new Date(Date.now() - (3 * 24 * 60 * 60 * 1000)).toISOString();
+            const cutoffMs = Date.now() - (3 * DAY_MS);
 
             const { data: users, error } = await supabase
                 .from('users')
-                .select('id, privy_id, email, first_name, last_name, last_app_opened_at, last_dormant_nudge_at')
-                .not('last_app_opened_at', 'is', null)
-                .lte('last_app_opened_at', cutoffIso);
+                .select('id, privy_id, email, first_name, last_name, last_app_opened_at, last_dormant_nudge_at, last_login');
 
             if (error) {
                 logger.error('Failed to fetch dormant users', { error: error.message });
                 return;
             }
 
+            const oneSignalLastSeenMap = await this.getOneSignalLastSeenMap();
+            await this.backfillLastAppOpenedAt(users || [], oneSignalLastSeenMap);
+
             const candidates = (users || []).filter((user: any) => {
-                if (!user?.last_app_opened_at) return false;
+                const effectiveActivityAt = this.getEffectiveLastActivityAt(user, oneSignalLastSeenMap);
+                const effectiveActivityMs = this.timestampMs(effectiveActivityAt);
+                if (effectiveActivityMs === null) return false;
+                if (effectiveActivityMs > cutoffMs) return false;
                 if (!user?.last_dormant_nudge_at) return true;
-                return new Date(user.last_dormant_nudge_at).getTime() < new Date(user.last_app_opened_at).getTime();
+                const lastDormantNudgeMs = this.timestampMs(user.last_dormant_nudge_at);
+                if (lastDormantNudgeMs === null) return true;
+                return lastDormantNudgeMs < effectiveActivityMs;
             });
 
             if (candidates.length === 0) {
@@ -136,14 +245,12 @@ export const SchedulerService = {
 
     async sendKycReminderNudges() {
         try {
-            const cutoffIso = new Date(Date.now() - (24 * 60 * 60 * 1000)).toISOString();
+            const cutoffMs = Date.now() - DAY_MS;
             const flagKey = process.env.POSTHOG_ONBOARDING_KYC_NUDGE_FLAG || 'onboarding_kyc_nudge_variant';
 
             const { data: users, error } = await supabase
                 .from('users')
-                .select('id, privy_id, email, first_name, kyc_status, kyc_started_at, last_app_opened_at, last_kyc_nudge_at')
-                .not('last_app_opened_at', 'is', null)
-                .lte('last_app_opened_at', cutoffIso)
+                .select('id, privy_id, email, first_name, kyc_status, kyc_started_at, last_app_opened_at, last_kyc_nudge_at, last_login')
                 .in('kyc_status', ['not_started', 'pending', 'retry_required']);
 
             if (error) {
@@ -151,11 +258,19 @@ export const SchedulerService = {
                 return;
             }
 
+            const oneSignalLastSeenMap = await this.getOneSignalLastSeenMap();
+            await this.backfillLastAppOpenedAt(users || [], oneSignalLastSeenMap);
+
             const candidates = (users || []).filter((user: any) => {
-                if (!user?.last_app_opened_at) return false;
+                const effectiveActivityAt = this.getEffectiveLastActivityAt(user, oneSignalLastSeenMap);
+                const effectiveActivityMs = this.timestampMs(effectiveActivityAt);
+                if (effectiveActivityMs === null) return false;
+                if (effectiveActivityMs > cutoffMs) return false;
                 if (user?.kyc_started_at) return false;
                 if (!user?.last_kyc_nudge_at) return true;
-                return new Date(user.last_kyc_nudge_at).getTime() < new Date(user.last_app_opened_at).getTime();
+                const lastKycNudgeMs = this.timestampMs(user.last_kyc_nudge_at);
+                if (lastKycNudgeMs === null) return true;
+                return lastKycNudgeMs < effectiveActivityMs;
             });
 
             if (candidates.length === 0) {
@@ -233,6 +348,132 @@ export const SchedulerService = {
             }
         } catch (error: any) {
             logger.error('Error sending KYC nudges', { error: error?.message });
+        }
+    },
+
+    async sendFeatureHighlightNudges() {
+        try {
+            const cadenceDays = Number(process.env.REENGAGEMENT_FEATURE_NUDGE_INTERVAL_DAYS || '4');
+            const dormantStartMs = Date.now() - (2 * DAY_MS);
+            const dormantEndMs = Date.now() - (45 * DAY_MS);
+            const cadenceCutoffMs = Date.now() - (Math.max(cadenceDays, 2) * DAY_MS);
+            const flagKey = process.env.POSTHOG_FEATURE_HIGHLIGHT_NUDGE_FLAG || 'retention_feature_nudge_variant';
+
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, last_app_opened_at, last_login, last_feature_nudge_at, last_dormant_nudge_at');
+
+            if (error) {
+                logger.error('Failed to fetch users for feature-highlight nudges', { error: error.message });
+                return;
+            }
+
+            const oneSignalLastSeenMap = await this.getOneSignalLastSeenMap();
+            await this.backfillLastAppOpenedAt(users || [], oneSignalLastSeenMap);
+
+            const candidates = (users || []).filter((user: any) => {
+                const effectiveActivityAt = this.getEffectiveLastActivityAt(user, oneSignalLastSeenMap);
+                const effectiveActivityMs = this.timestampMs(effectiveActivityAt);
+                if (effectiveActivityMs === null) return false;
+
+                // We only nudge users who have gone quiet for at least 2 days,
+                // but still had activity in the last 45 days.
+                if (effectiveActivityMs > dormantStartMs) return false;
+                if (effectiveActivityMs < dormantEndMs) return false;
+
+                const lastFeatureNudgeMs = this.timestampMs(user?.last_feature_nudge_at);
+                if (lastFeatureNudgeMs !== null && lastFeatureNudgeMs > cadenceCutoffMs) return false;
+
+                // Avoid stacking feature and dormant nudges too tightly.
+                const lastDormantNudgeMs = this.timestampMs(user?.last_dormant_nudge_at);
+                if (lastDormantNudgeMs !== null && lastDormantNudgeMs > cadenceCutoffMs) return false;
+
+                return true;
+            });
+
+            if (candidates.length === 0) {
+                logger.debug('No users eligible for feature-highlight nudges');
+                return;
+            }
+
+            logger.info('Sending feature-highlight nudges', {
+                count: candidates.length,
+                cadenceDays,
+            });
+
+            const copyByVariant: Record<string, {
+                pushTitle: string;
+                pushBody: string;
+                emailSubject: string;
+                emailHeading: string;
+                emailBody: string;
+                ctaText: string;
+            }> = {};
+
+            for (const user of candidates) {
+                const variant = await BackendAnalytics.getFeatureFlagVariant(
+                    String(user.privy_id || user.id),
+                    flagKey,
+                    'control'
+                );
+
+                if (!copyByVariant[variant]) {
+                    copyByVariant[variant] = await GeminiService.generateReengagementNudge({
+                        kind: 'feature_highlight',
+                        variant,
+                    });
+                }
+
+                const copy = copyByVariant[variant];
+                const firstName = String(user.first_name || '').trim();
+                const body = firstName ? `${firstName}, ${copy.pushBody}` : copy.pushBody;
+
+                await NotificationService.notifyUser(user.id, {
+                    title: copy.pushTitle,
+                    body,
+                    data: {
+                        type: 'feature_highlight_reengagement',
+                        route: '/(drawer)/(tabs)',
+                        variant,
+                    },
+                });
+
+                if (user.email) {
+                    await EmailService.sendSmartReminder(
+                        user.email,
+                        copy.emailSubject,
+                        `<p class=\"eyebrow\">What to try next</p><h1 class=\"heading\">${copy.emailHeading}</h1><p class=\"description\">${copy.emailBody}</p>`,
+                        'https://hedwigbot.xyz',
+                        copy.ctaText || 'Explore Hedwig'
+                    );
+                }
+
+                await supabase.from('notifications').insert({
+                    user_id: user.id,
+                    type: 'announcement',
+                    title: copy.pushTitle,
+                    message: body,
+                    metadata: {
+                        nudge_type: `feature_highlight_every_${cadenceDays}d`,
+                        variant,
+                    },
+                    is_read: false,
+                });
+
+                await supabase
+                    .from('users')
+                    .update({ last_feature_nudge_at: new Date().toISOString() })
+                    .eq('id', user.id);
+
+                await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
+                    user_id: user.id,
+                    nudge_type: `feature_highlight_every_${cadenceDays}d`,
+                    variant,
+                    channels: user.email ? ['push', 'email'] : ['push'],
+                });
+            }
+        } catch (error: any) {
+            logger.error('Error sending feature-highlight nudges', { error: error?.message });
         }
     },
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CaretDown, Check } from '@phosphor-icons/react';
+import { CaretDown, Check } from '../icons/lucide-icons';
 import './CustomSelect.css';
 
 export interface SelectOption {

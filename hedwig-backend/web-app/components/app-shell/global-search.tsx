@@ -12,7 +12,7 @@ import {
   Sparkle,
   User,
   X,
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 import { hedwigApi } from '@/lib/api/client';
 import type { Invoice, PaymentLink, Client, Contract, RecurringInvoice } from '@/lib/models/entities';
 

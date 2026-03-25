@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
         paddingBottom: 24,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 32,
     },
     menuScroll: {
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
         paddingBottom: 24,
     },
     sectionLabel: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 12,
         letterSpacing: 0.5,
         paddingHorizontal: 8,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     menuTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 16,
     },
     footer: {
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     feedbackText: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 16,
     },
 });

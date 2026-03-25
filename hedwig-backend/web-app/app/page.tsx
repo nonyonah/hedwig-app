@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight } from '@phosphor-icons/react/dist/ssr';
+import { ArrowRight } from '@/components/ui/lucide-icons';
 import { getCurrentSession } from '@/lib/auth/session';
 import { FeaturesShowcase } from './features-showcase';
 import { AnimateIn } from './animate-in';

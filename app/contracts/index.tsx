@@ -4,7 +4,7 @@ import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
-import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
+import { useRouter, useNavigation, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,6 +38,7 @@ const PROFILE_COLOR_OPTIONS = [
 export default function ContractsScreen() {
     const navigation = useNavigation();
     const router = useRouter();
+    const params = useLocalSearchParams();
     const { getAccessToken, user } = useAuth();
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
@@ -46,6 +47,7 @@ export default function ContractsScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedContract, setSelectedContract] = useState<any>(null);
     const bottomSheetRef = useRef<BottomSheetModal>(null);
+    const handledSelectedContractRef = useRef<string | null>(null);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
@@ -66,6 +68,26 @@ export default function ContractsScreen() {
         if (statusFilter === 'approved') return contracts.filter(c => c.status === 'APPROVED' || c.status === 'SIGNED' || c.status === 'PAID' || c.status === 'COMPLETED');
         return contracts;
     }, [contracts, statusFilter]);
+
+    useEffect(() => {
+        const selectedId = typeof params.selected === 'string' ? params.selected : null;
+        if (!selectedId) {
+            handledSelectedContractRef.current = null;
+            return;
+        }
+        if (isLoading || contracts.length === 0) return;
+        if (handledSelectedContractRef.current === selectedId) return;
+
+        const targetContract = contracts.find((contract) => contract.id === selectedId);
+        if (!targetContract) return;
+
+        handledSelectedContractRef.current = selectedId;
+        setSelectedContract(targetContract);
+        setTimeout(() => {
+            bottomSheetRef.current?.present();
+            router.setParams({ selected: undefined } as any);
+        }, 120);
+    }, [params.selected, isLoading, contracts]);
 
     useEffect(() => {
         fetchContracts();

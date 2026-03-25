@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle } from '@phosphor-icons/react';
+import { CheckCircle } from '../icons/lucide-icons';
 import './PaymentLinkPage.css'; // Reuse existing styles
 
 export default function SuccessPage() {

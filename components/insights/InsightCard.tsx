@@ -30,16 +30,16 @@ export const InsightCard: React.FC<InsightCardProps> = ({ insight, onPress }) =>
     // Helper for icons (using emoji fallback if SymbolView isn't configured for custom SF names easily)
     // For now, let's assume we pass emojis or simple icon components. 
     // The hook passed SF Symbol names like "chart.bar.fill". 
-    // We can swap this with phosphor icons map if needed, or use a helper.
+    // We can swap this with a lucide icon map if needed, or use a helper.
 
     // Simple icon mapping for demo:
     const renderIcon = () => {
-        // You might use specific Phosphor icons based on 'insight.type' or 'insight.icon' string matching
+        // You might use specific Lucide icons based on 'insight.type' or 'insight.icon' string matching
         // Or if you are using expo-symbols for SF Symbols on iOS.
         // For simplicity in this step, let's use a generic container with the type color.
         return (
             <View style={[styles.iconContainer, { backgroundColor: accentColor + '20' }]}>
-                {/* Placeholders for actual icons - ideally map insight.icon string to Phosphor */}
+                {/* Placeholders for actual icons - ideally map insight.icon string to Lucide */}
                 <Text style={{ fontSize: 20 }}>{insightType === 'earnings' ? '💰' : insightType === 'invoice' ? '📄' : '⭐'}</Text>
             </View>
         );

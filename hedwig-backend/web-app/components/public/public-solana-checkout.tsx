@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowSquareOut, CheckCircle } from '@phosphor-icons/react/dist/ssr';
+import { ArrowSquareOut, CheckCircle } from '@/components/ui/lucide-icons';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import {
   TOKEN_PROGRAM_ID,

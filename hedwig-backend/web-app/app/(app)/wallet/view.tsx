@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { ArrowsLeftRight, ArrowSquareOut, Bank, Coins, SpinnerGap, Wallet } from '@phosphor-icons/react/dist/ssr';
+import { ArrowsLeftRight, ArrowSquareOut, Bank, Coins, SpinnerGap, Wallet } from '@/components/ui/lucide-icons';
 import { PageHeader } from '@/components/data/page-header';
 import { useToast } from '@/components/providers/toast-provider';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';

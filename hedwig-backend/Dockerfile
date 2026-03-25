@@ -30,19 +30,6 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
-# Build web-client (it has its own package.json)
-WORKDIR /app/web-client
-RUN npm ci --include=dev --legacy-peer-deps
-# Set Vite environment variables for build (baked into frontend)
-ENV VITE_REOWN_PROJECT_ID=e2fead0a05813697717820eaed0f18ea
-ENV VITE_API_URL=https://pay.hedwigbot.xyz
-ENV VITE_PRIVY_APP_ID=cmby98gd300hxl40mrdr3mkoh
-ENV VITE_SOLANA_RPC=https://solana-mainnet.g.alchemy.com/v2/eSa5NrMQkXT-bXFuSdka4
-ENV VITE_SOLANA_RPC_FALLBACKS=https://rpc.ankr.com/solana,https://solana-rpc.publicnode.com
-RUN npm run build
-WORKDIR /app
-
-
 # Final stage for app image
 FROM base
 
@@ -60,9 +47,6 @@ COPY --from=build /app/src/templates /app/src/templates
 
 # Copy public folder for static files
 COPY --from=build /app/public /app/public
-
-# Copy web-client build
-COPY --from=build /app/web-client/dist /app/web-client/dist
 
 # Set ownership and switch to non-root user
 RUN chown -R hedwig:nodejs /app

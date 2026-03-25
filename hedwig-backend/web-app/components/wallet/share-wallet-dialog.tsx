@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Check, Copy, ShareNetwork } from '@phosphor-icons/react/dist/ssr';
+import { Check, Copy, ShareNetwork } from '@/components/ui/lucide-icons';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
 
 type Chain = 'Base' | 'Solana';

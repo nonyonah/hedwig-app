@@ -20,7 +20,7 @@ import {
   NotePencil,
   Receipt,
   X
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { hedwigApi } from '@/lib/api/client';

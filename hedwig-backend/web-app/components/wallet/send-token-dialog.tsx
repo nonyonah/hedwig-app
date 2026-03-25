@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { ArrowRight, Check, PaperPlaneRight, SpinnerGap, Warning, X } from '@phosphor-icons/react/dist/ssr';
+import { ArrowRight, Check, PaperPlaneRight, SpinnerGap, Warning, X } from '@/components/ui/lucide-icons';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { encodeFunctionData, parseUnits, isAddress } from 'viem';

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
-import { ShieldCheck } from '@phosphor-icons/react/dist/ssr';
+import { ShieldCheck } from '@/components/ui/lucide-icons';
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();

@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { CaretRight, PaperPlaneRight } from '@phosphor-icons/react/dist/ssr';
+import { CaretRight, PaperPlaneRight } from '@/components/ui/lucide-icons';
 import { TokenDetailPanel } from '@/components/wallet/token-detail-panel';
 import { SendTokenDialog } from '@/components/wallet/send-token-dialog';
 import type { WalletAsset } from '@/lib/models/entities';

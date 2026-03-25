@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { CaretDown } from '@phosphor-icons/react/dist/ssr';
-import { X } from '@phosphor-icons/react/dist/ssr';
+import { CaretDown } from '@/components/ui/lucide-icons';
+import { X } from '@/components/ui/lucide-icons';
 import { hedwigApi, type CreateRecurringInvoiceInput, type RecurringFrequency } from '@/lib/api/client';
 import type { Client } from '@/lib/models/entities';
 import { useToast } from '@/components/providers/toast-provider';

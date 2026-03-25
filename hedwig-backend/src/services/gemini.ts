@@ -1177,7 +1177,7 @@ If certain fields are not mentioned, set them to null or empty array.
    * Falls back to deterministic copy if Gemini is unavailable.
    */
   static async generateReengagementNudge(input: {
-    kind: 'dormant_3day' | 'kyc_24h';
+    kind: 'dormant_3day' | 'kyc_24h' | 'feature_highlight';
     variant?: string;
   }): Promise<{
     pushTitle: string;
@@ -1214,12 +1214,34 @@ If certain fields are not mentioned, set them to null or empty array.
       ctaText: 'Complete Verification',
     };
 
+    const fallbackFeatureHighlightControl = {
+      pushTitle: 'More ways to get paid in Hedwig',
+      pushBody: 'Try recurring invoices, payment links, and faster payout tools in your workspace.',
+      emailSubject: 'Explore more ways to get paid with Hedwig',
+      emailHeading: 'More tools are waiting for you',
+      emailBody: 'Set up recurring invoices, share payment links, and manage payouts from one dashboard.',
+      ctaText: 'Explore Features',
+    };
+
+    const fallbackFeatureHighlightActivation = {
+      pushTitle: 'Your next client payment can be faster',
+      pushBody: 'Create a payment link in minutes and track every payout in one place.',
+      emailSubject: 'Speed up your next client payment',
+      emailHeading: 'Get paid faster this week',
+      emailBody: 'Create a payment link, send an invoice, and track settlement without leaving Hedwig.',
+      ctaText: 'Create a Payment Link',
+    };
+
     const fallback =
       input.kind === 'dormant_3day'
         ? fallbackDormant
-        : input.variant === 'value_first'
-          ? fallbackKycValueFirst
-          : fallbackKycControl;
+        : input.kind === 'kyc_24h'
+          ? input.variant === 'value_first'
+            ? fallbackKycValueFirst
+            : fallbackKycControl
+          : input.variant === 'activation'
+            ? fallbackFeatureHighlightActivation
+            : fallbackFeatureHighlightControl;
 
     try {
       const prompt = `
@@ -1240,6 +1262,7 @@ Rules:
 - No hype words, no emojis, no markdown.
 - Be action-oriented and clear.
 - Mention KYC only when nudge kind is kyc_24h.
+- For feature_highlight, focus on product capabilities (invoices, payment links, payouts, recurring invoices).
 
 Return ONLY valid JSON with this exact shape:
 {

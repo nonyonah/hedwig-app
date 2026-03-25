@@ -80,6 +80,7 @@ export default function PaymentLinksScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedLink, setSelectedLink] = useState<any>(null);
+    const handledSelectedLinkRef = React.useRef<string | null>(null);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
@@ -107,6 +108,26 @@ export default function PaymentLinksScreen() {
         }
         return links.filter(link => link.status !== 'PAID');
     }, [links, statusFilter]);
+
+    useEffect(() => {
+        const selectedId = typeof params.selected === 'string' ? params.selected : null;
+        if (!selectedId) {
+            handledSelectedLinkRef.current = null;
+            return;
+        }
+        if (isLoading || links.length === 0) return;
+        if (handledSelectedLinkRef.current === selectedId) return;
+
+        const targetLink = links.find((link) => link.id === selectedId);
+        if (!targetLink) return;
+
+        handledSelectedLinkRef.current = selectedId;
+        setSelectedLink(targetLink);
+        setTimeout(() => {
+            bottomSheetRef.current?.present();
+            router.setParams({ selected: undefined } as any);
+        }, 120);
+    }, [params.selected, isLoading, links]);
 
     // Helper to get chain icon - handles various formats
     const getChainIcon = (chain?: string) => {

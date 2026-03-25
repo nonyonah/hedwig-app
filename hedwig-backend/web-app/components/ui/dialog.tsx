@@ -1,7 +1,7 @@
 'use client';
 
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { X } from '@phosphor-icons/react/dist/ssr';
+import { X } from '@/components/ui/lucide-icons';
 import { cn } from '@/lib/utils';
 
 export const Dialog = DialogPrimitive.Root;

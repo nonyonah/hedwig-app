@@ -17,7 +17,7 @@ import {
   Trash,
   X,
   Info
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
 import { RecurringInvoicesSection } from '@/components/payments/recurring-invoices-section';
 import { hedwigApi } from '@/lib/api/client';

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowUpRight } from '@phosphor-icons/react/dist/ssr';
+import { ArrowUpRight } from '@/components/ui/lucide-icons';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';

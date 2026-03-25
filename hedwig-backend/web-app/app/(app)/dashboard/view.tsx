@@ -15,7 +15,7 @@ import {
   Repeat,
   Sparkle,
   Wallet
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
 import type { Contract, Invoice, Milestone, PaymentLink } from '@/lib/models/entities';

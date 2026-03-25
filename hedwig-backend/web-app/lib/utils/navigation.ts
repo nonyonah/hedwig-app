@@ -9,7 +9,7 @@ import {
   Sparkle,
   UsersThree,
   Wallet
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 
 export const navigationGroups = [
   {

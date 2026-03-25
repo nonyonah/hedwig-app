@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Contract, parseUnits } from 'ethers';
-import { DownloadSimple, CheckCircle, ArrowSquareOut } from '@phosphor-icons/react';
+import { DownloadSimple, CheckCircle, ArrowSquareOut } from '../icons/lucide-icons';
 import { TOKENS } from '../lib/constants';
 import { executePayment } from '../lib/paymentHandler';
 import { usePrivyEvmWallet } from '../hooks/usePrivyEvmWallet';

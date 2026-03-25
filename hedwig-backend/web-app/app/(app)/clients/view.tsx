@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowRight, Plus, UserPlus, UsersThree } from '@phosphor-icons/react/dist/ssr';
+import { ArrowRight, Plus, UserPlus, UsersThree } from '@/components/ui/lucide-icons';
 import type { Client } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import type { CreateClientInput } from '@/lib/api/client';

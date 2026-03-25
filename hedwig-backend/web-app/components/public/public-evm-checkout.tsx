@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowSquareOut, CheckCircle, Wallet } from '@phosphor-icons/react/dist/ssr';
+import { ArrowSquareOut, CheckCircle, Wallet } from '@/components/ui/lucide-icons';
 import { encodeFunctionData, parseUnits } from 'viem';
 import { backendConfig } from '@/lib/auth/config';
 import { EVM_TOKENS, getChainId, getExplorerUrl, getNetworkModeFromEvmChainId, resolveEvmChainForPayment } from '@/lib/payments/public-constants';

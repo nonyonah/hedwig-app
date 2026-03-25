@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CheckCircle, WarningCircle } from '@phosphor-icons/react/dist/ssr';
+import { CheckCircle, WarningCircle } from '@/components/ui/lucide-icons';
 
 export function PublicResultCard({
   kind,

@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { ArrowDownRight, ArrowUpRight } from '@phosphor-icons/react/dist/ssr';
+import { ArrowDownRight, ArrowUpRight } from '@/components/ui/lucide-icons';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 

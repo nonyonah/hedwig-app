@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts';
-import { ArrowDown, ArrowSquareOut, ArrowUp, Check, Copy, Globe, XLogo, X } from '@phosphor-icons/react/dist/ssr';
+import { ArrowDown, ArrowSquareOut, ArrowUp, Check, Copy, Globe, XLogo, X } from '@/components/ui/lucide-icons';
 import type { WalletAsset } from '@/lib/models/entities';
 
 const TIMEFRAMES = ['1D', '7D', '1M', '3M', '1Y'] as const;

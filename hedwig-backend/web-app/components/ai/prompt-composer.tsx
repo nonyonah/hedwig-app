@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MagicWand, Sparkle } from '@phosphor-icons/react/dist/ssr';
+import { MagicWand, Sparkle } from '@/components/ui/lucide-icons';
 import { hedwigApi } from '@/lib/api/client';
 import type { InvoiceDraft, PaymentLinkDraft } from '@/lib/models/entities';
 import { Button } from '@/components/ui/button';

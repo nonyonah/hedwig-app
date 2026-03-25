@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useState } from 'react';
-import { CheckCircle, Info, Warning, XCircle, X } from '@phosphor-icons/react/dist/ssr';
+import { CheckCircle, Info, Warning, XCircle, X } from '@/components/ui/lucide-icons';
 import { cn } from '@/lib/utils';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';

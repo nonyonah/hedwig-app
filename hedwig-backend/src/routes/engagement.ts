@@ -36,11 +36,10 @@ router.post('/events', authenticate, async (req: Request, res: Response) => {
         const now = new Date().toISOString();
         const updates: Record<string, any> = {
             last_login: now,
+            // Treat any authenticated engagement event as activity so
+            // retention jobs can target users from tracked behavior too.
+            last_app_opened_at: now,
         };
-
-        if (event === 'app_opened') {
-            updates.last_app_opened_at = now;
-        }
 
         if (event === 'kyc_started') {
             updates.kyc_started_at = now;

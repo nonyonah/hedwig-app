@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bell, BellRinging, CheckCircle, X } from '@phosphor-icons/react/dist/ssr';
+import { Bell, BellRinging, CheckCircle, X } from '@/components/ui/lucide-icons';
 import { cn } from '@/lib/utils';
 
 interface NotificationItem {

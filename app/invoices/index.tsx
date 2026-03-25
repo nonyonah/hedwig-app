@@ -104,6 +104,7 @@ export default function InvoicesScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
     const bottomSheetRef = useRef<BottomSheetModal>(null);
+    const handledSelectedInvoiceRef = useRef<string | null>(null);
     const [showProfileModal, setShowProfileModal] = useState(false);
 
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
@@ -118,6 +119,7 @@ export default function InvoicesScreen() {
     const [recurringLoading, setRecurringLoading] = useState(false);
     const [selectedRecurring, setSelectedRecurring] = useState<any>(null);
     const recurringSheetRef = useRef<BottomSheetModal>(null);
+    const handledSelectedRecurringRef = useRef<string | null>(null);
 
     // Filter invoices based on status
     const filteredInvoices = useMemo(() => {
@@ -138,6 +140,55 @@ export default function InvoicesScreen() {
         }
         return invoices.filter(inv => inv.status !== 'PAID');
     }, [invoices, statusFilter]);
+
+    useEffect(() => {
+        const routeFilter = typeof params.filter === 'string' ? params.filter : null;
+        if (!routeFilter) return;
+        if (routeFilter === 'all' || routeFilter === 'paid' || routeFilter === 'pending' || routeFilter === 'due_soon' || routeFilter === 'recurring') {
+            setStatusFilter(routeFilter);
+        }
+    }, [params.filter]);
+
+    useEffect(() => {
+        const selectedId = typeof params.selected === 'string' ? params.selected : null;
+        if (!selectedId) {
+            handledSelectedInvoiceRef.current = null;
+            return;
+        }
+        if (isLoading || invoices.length === 0) return;
+        if (handledSelectedInvoiceRef.current === selectedId) return;
+
+        const targetInvoice = invoices.find((inv) => inv.id === selectedId);
+        if (!targetInvoice) return;
+
+        handledSelectedInvoiceRef.current = selectedId;
+        setSelectedInvoice(targetInvoice);
+        setTimeout(() => {
+            bottomSheetRef.current?.present();
+            router.setParams({ selected: undefined } as any);
+        }, 120);
+    }, [params.selected, isLoading, invoices]);
+
+    useEffect(() => {
+        const selectedRecurringId = typeof params.selectedRecurring === 'string' ? params.selectedRecurring : null;
+        if (!selectedRecurringId) {
+            handledSelectedRecurringRef.current = null;
+            return;
+        }
+        if (recurringLoading || recurringItems.length === 0) return;
+        if (handledSelectedRecurringRef.current === selectedRecurringId) return;
+
+        const targetRecurring = recurringItems.find((r: any) => r.id === selectedRecurringId);
+        if (!targetRecurring) return;
+
+        handledSelectedRecurringRef.current = selectedRecurringId;
+        setStatusFilter('recurring');
+        setSelectedRecurring(targetRecurring);
+        setTimeout(() => {
+            recurringSheetRef.current?.present();
+            router.setParams({ selectedRecurring: undefined } as any);
+        }, 140);
+    }, [params.selectedRecurring, recurringLoading, recurringItems]);
 
     // Helper to get chain icon - handles various formats like 'solana_devnet'
     const getChainIcon = (chain?: string) => {

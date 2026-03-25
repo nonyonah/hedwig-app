@@ -11,7 +11,7 @@ import {
   ArrowsClockwise,
   CheckCircle,
   XCircle,
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 import { CreateRecurringInvoiceDialog } from '@/components/payments/create-recurring-invoice-dialog';
 import { useToast } from '@/components/providers/toast-provider';

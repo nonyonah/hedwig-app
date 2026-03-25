@@ -92,6 +92,8 @@ export default function WalletScreen() {
     const sendSheetRef = useRef<BottomSheetModal>(null);
     const autoSettlementSheetRef = useRef<BottomSheetModal>(null);
     const bridgeKycInfoSheetRef = useRef<BottomSheetModal>(null);
+    const sheetInteractionLockedRef = useRef(false);
+    const sheetUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const receiveSnapPoints = useMemo(() => ['90%'], []);
     const sendSnapPoints = useMemo(() => ['34%'], []);
     const autoSettlementSnapPoints = useMemo(() => ['30%'], []);
@@ -105,6 +107,8 @@ export default function WalletScreen() {
                 disappearsOnIndex={-1}
                 appearsOnIndex={0}
                 opacity={0.5}
+                pressBehavior="close"
+                enableTouchThrough={false}
             />
         ),
         []
@@ -118,6 +122,39 @@ export default function WalletScreen() {
     const [usdTransfers, setUsdTransfers] = useState<UsdTransfer[]>([]);
     const [usdLoading, setUsdLoading] = useState(false);
     const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+
+    const lockSheetInteractions = useCallback((durationMs = 220) => {
+        sheetInteractionLockedRef.current = true;
+        if (sheetUnlockTimeoutRef.current) clearTimeout(sheetUnlockTimeoutRef.current);
+        sheetUnlockTimeoutRef.current = setTimeout(() => {
+            sheetInteractionLockedRef.current = false;
+        }, durationMs);
+    }, []);
+
+    const dismissAllSheets = useCallback((except?: React.RefObject<BottomSheetModal | null>) => {
+        const refs = [receiveSheetRef, sendSheetRef, autoSettlementSheetRef, bridgeKycInfoSheetRef];
+        refs.forEach((ref) => {
+            if (ref !== except) ref.current?.dismiss();
+        });
+    }, []);
+
+    const presentSheet = useCallback((target: React.RefObject<BottomSheetModal | null>) => {
+        if (sheetInteractionLockedRef.current) return;
+        dismissAllSheets(target);
+        requestAnimationFrame(() => {
+            target.current?.present();
+        });
+    }, [dismissAllSheets]);
+
+    const handleSheetDismiss = useCallback(() => {
+        lockSheetInteractions();
+    }, [lockSheetInteractions]);
+
+    useEffect(() => {
+        return () => {
+            if (sheetUnlockTimeoutRef.current) clearTimeout(sheetUnlockTimeoutRef.current);
+        };
+    }, []);
 
     const fetchUserData = useCallback(async () => {
         if (!user) return;
@@ -230,6 +267,7 @@ export default function WalletScreen() {
     };
 
     const handleSendOptionPress = (path: '/wallet/send-address' | '/offramp-history/create') => {
+        lockSheetInteractions(260);
         sendSheetRef.current?.dismiss();
         setTimeout(() => {
             router.push(path as any);
@@ -349,7 +387,7 @@ export default function WalletScreen() {
             router.push({ pathname: '/wallet/usd-account', params: { view: 'transactions' } } as any);
             return;
         }
-        bridgeKycInfoSheetRef.current?.present();
+        presentSheet(bridgeKycInfoSheetRef);
     };
 
     const handleSelectAutoSettlementChain = async (chain: 'BASE' | 'SOLANA') => {
@@ -365,6 +403,7 @@ export default function WalletScreen() {
         try {
             setIsUpdatingAutoSettlement(true);
             await updateUsdSettlement(getAccessToken, chain);
+            lockSheetInteractions(260);
             autoSettlementSheetRef.current?.dismiss();
             setTimeout(() => {
                 router.push('/wallet/usd-account' as any);
@@ -432,7 +471,7 @@ export default function WalletScreen() {
                     <View style={styles.actionButtons}>
                         <TouchableOpacity
                             style={styles.actionButton}
-                            onPress={() => receiveSheetRef.current?.present()}
+                            onPress={() => presentSheet(receiveSheetRef)}
                         >
                             <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
                                 <QrCode size={24} color={themeColors.textPrimary} />
@@ -442,7 +481,7 @@ export default function WalletScreen() {
 
                         <TouchableOpacity
                             style={styles.actionButton}
-                            onPress={() => sendSheetRef.current?.present()}
+                            onPress={() => presentSheet(sendSheetRef)}
                         >
                             <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
                                 <ArrowUp size={24} color={themeColors.textPrimary} />
@@ -452,7 +491,7 @@ export default function WalletScreen() {
 
                         <TouchableOpacity
                             style={styles.actionButton}
-                            onPress={() => autoSettlementSheetRef.current?.present()}
+                            onPress={() => presentSheet(autoSettlementSheetRef)}
                         >
                             <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
                                 <Plus size={24} color={themeColors.textPrimary} />
@@ -626,6 +665,7 @@ export default function WalletScreen() {
                     backdropComponent={renderBackdrop}
                     backgroundStyle={{ backgroundColor: themeColors.background }}
                     handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+                    onDismiss={handleSheetDismiss}
                 >
                     <BottomSheetView style={[styles.bottomSheetContent, { backgroundColor: themeColors.background }]}>
                         <View style={styles.receiveHeader}>
@@ -724,6 +764,7 @@ export default function WalletScreen() {
                     backdropComponent={renderBackdrop}
                     backgroundStyle={{ backgroundColor: themeColors.background }}
                     handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+                    onDismiss={handleSheetDismiss}
                 >
                     <BottomSheetView style={[styles.sendSheetContent, { backgroundColor: themeColors.background }]}>
                         <Text style={[styles.sendSheetTitle, { color: themeColors.textPrimary }]}>Send</Text>
@@ -761,6 +802,7 @@ export default function WalletScreen() {
                     backdropComponent={renderBackdrop}
                     backgroundStyle={{ backgroundColor: themeColors.background }}
                     handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+                    onDismiss={handleSheetDismiss}
                 >
                     <BottomSheetView style={[styles.sendSheetContent, { backgroundColor: themeColors.background }]}>
                         <Text style={[styles.sendSheetTitle, { color: themeColors.textPrimary }]}>Auto-settlement</Text>
@@ -810,6 +852,7 @@ export default function WalletScreen() {
                     backdropComponent={renderBackdrop}
                     backgroundStyle={{ backgroundColor: themeColors.surface, borderRadius: 24 }}
                     handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                    onDismiss={handleSheetDismiss}
                 >
                     <BottomSheetView style={{ paddingBottom: 40 }}>
                         <View style={[styles.bridgeKycSheetContent, { backgroundColor: themeColors.surface }]}>

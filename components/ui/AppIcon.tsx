@@ -1,18 +1,8 @@
 import React from 'react';
 import { View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { useThemeColors } from '../../theme/colors';
-import {
-    ChartLineUp,
-    ArrowsLeftRight,
-    ArrowsDownUp,
-    ClockCounterClockwise,
-    WarningCircle,
-    CheckCircle as PhosphorCheckCircle,
-    Check as PhosphorCheck,
-    X as PhosphorX,
-    CaretDown,
-} from 'phosphor-react-native';
 
 type AppIconName =
     | 'Home'
@@ -171,7 +161,7 @@ const ICON_CANDIDATES: Record<AppIconName, string[]> = {
     Plus: ['Plus'],
     ScrollText: ['Page', 'Text'],
     Briefcase: ['Suitcase'],
-    Inbox: ['MailIn', 'MailOut'],
+    Inbox: ['Archive', 'MailIn', 'MailOut'],
     CircleX: ['XmarkCircle', 'Xmark'],
     House: ['HomeSimple', 'Home'],
     MessageCircle: ['ChatBubble', 'Message'],
@@ -218,19 +208,29 @@ const ICON_CANDIDATES: Record<AppIconName, string[]> = {
 let iconoirModule: Record<string, IconoirComponent> | null = null;
 let iconoirModuleDefault: Record<string, IconoirComponent> | null = null;
 
-const PHOSPHOR_FORCED_FALLBACKS: Partial<Record<AppIconName, React.ComponentType<any>>> = {
-    BarChart3: ChartLineUp,
-    ArrowLeftRight: ArrowsLeftRight,
-    ArrowUpDown: ArrowsDownUp,
-    History: ClockCounterClockwise,
-    TriangleAlert: WarningCircle,
-    CircleAlert: WarningCircle,
-    ShieldAlert: WarningCircle,
-    CheckCircle: PhosphorCheckCircle,
-    Check: PhosphorCheck,
-    X: PhosphorX,
-    ChevronDown: CaretDown,
-};
+const LucideInboxIcon: React.FC<{ size: number; color: string; strokeWidth: number; style?: StyleProp<ViewStyle> }> = ({
+    size,
+    color,
+    strokeWidth,
+    style,
+}) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+        <Path
+            d="M22 12H16L14 15H10L8 12H2"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        />
+        <Path
+            d="M5.45 5.11L2 12V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V12L18.55 5.11C18.21 4.43 17.51 4 16.76 4H7.24C6.49 4 5.79 4.43 5.45 5.11Z"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        />
+    </Svg>
+);
 
 const loadIconoir = (): Record<string, IconoirComponent> => {
     if (iconoirModule) return iconoirModule;
@@ -276,14 +276,12 @@ export function AppIcon({
     const themeColors = useThemeColors();
     const resolvedColor = color ?? themeColors.textSecondary;
 
-    const forcedFallback = PHOSPHOR_FORCED_FALLBACKS[name];
-    if (forcedFallback) {
-        const ForcedIcon = forcedFallback;
+    if (name === 'Inbox') {
         return (
-            <ForcedIcon
+            <LucideInboxIcon
                 size={size}
                 color={resolvedColor}
-                weight="bold"
+                strokeWidth={strokeWidth}
                 style={style}
             />
         );

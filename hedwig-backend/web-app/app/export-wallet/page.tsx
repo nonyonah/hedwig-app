@@ -16,7 +16,7 @@ import {
   SignIn,
   SpinnerGap,
   Warning
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/providers/toast-provider';

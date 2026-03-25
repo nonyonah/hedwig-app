@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowSquareOut, CheckCircle, CopySimple, FileText, PencilSimpleLine, PaperPlaneTilt } from '@phosphor-icons/react/dist/ssr';
+import { ArrowSquareOut, CheckCircle, CopySimple, FileText, PencilSimpleLine, PaperPlaneTilt } from '@/components/ui/lucide-icons';
 import type { Contract } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { PageHeader } from '@/components/data/page-header';

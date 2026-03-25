@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, TextInput, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, Colors } from '../../../theme/colors';
-import { Bell, Search as MagnifyingGlass, Plus, FileText, ScrollText as Scroll, Link as LinkIcon, Briefcase, ChevronRight as CaretRight, CircleX as XCircle, Inbox } from '../../../components/ui/AppIcon';
+import { Search as MagnifyingGlass, Plus, FileText, ScrollText as Scroll, Link as LinkIcon, Briefcase, ChevronRight as CaretRight, CircleX as XCircle, Inbox } from '../../../components/ui/AppIcon';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { UniversalCreationBox } from '../../../components/UniversalCreationBox';
@@ -24,6 +24,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 type SearchResultItem = {
     id: string;
     type: 'INVOICE' | 'CONTRACT' | 'LINK' | 'PROJECT';
+    isRecurring?: boolean;
     title: string;
     subtitle?: string;
     date?: string;
@@ -285,6 +286,16 @@ export default function HomeDashboard() {
             // Process Recurring Invoices
             if (recurringRes.success && recurringRes.data?.recurringInvoices) {
                 recurringRes.data.recurringInvoices.forEach((ri: any) => {
+                    allDocs.push({
+                        id: ri.id,
+                        type: 'INVOICE',
+                        isRecurring: true,
+                        title: ri.title || 'Recurring Invoice',
+                        subtitle: `${ri.clientName || ri.clientEmail || 'No client'} • ${ri.frequency || 'monthly'}`,
+                        status: ri.status || 'active',
+                        data: ri,
+                    });
+
                     if (ri.status === 'active' || ri.status === 'paused') {
                         newCounts.inProgress.recurringInvoices++;
                     }
@@ -393,23 +404,35 @@ export default function HomeDashboard() {
 
     const getIconForType = (type: string) => {
         switch (type) {
-            case 'INVOICE': return <FileText size={24} color={Colors.primary} />;
-            case 'CONTRACT': return <Scroll size={24} color="#8B5CF6" />;
-            case 'LINK': return <LinkIcon size={24} color="#10B981" />;
-            case 'PROJECT': return <Briefcase size={24} color="#F59E0B" />;
+            case 'INVOICE': return <FileText size={24} color={themeColors.textPrimary} />;
+            case 'CONTRACT': return <Scroll size={24} color={themeColors.textPrimary} />;
+            case 'LINK': return <LinkIcon size={24} color={themeColors.textPrimary} />;
+            case 'PROJECT': return <Briefcase size={24} color={themeColors.textPrimary} />;
             default: return <FileText size={24} color={themeColors.textSecondary} />;
         }
     };
 
     const navigateToItem = (item: SearchResultItem) => {
-        let path = '';
         switch (item.type) {
-            case 'INVOICE': path = `/(tabs)/invoices/${item.id}`; break;
-            case 'CONTRACT': path = `/(tabs)/contracts/${item.id}`; break;
-            case 'LINK': path = `/(tabs)/links/${item.id}`; break;
-            case 'PROJECT': path = `/(tabs)/projects/${item.id}`; break;
+            case 'INVOICE':
+                if (item.isRecurring) {
+                    router.push({ pathname: '/invoices', params: { filter: 'recurring', selectedRecurring: item.id } } as any);
+                } else {
+                    router.push({ pathname: '/invoices', params: { selected: item.id } } as any);
+                }
+                break;
+            case 'CONTRACT':
+                router.push({ pathname: '/contracts', params: { selected: item.id } } as any);
+                break;
+            case 'LINK':
+                router.push({ pathname: '/payment-links', params: { selected: item.id } } as any);
+                break;
+            case 'PROJECT':
+                router.push({ pathname: '/projects', params: { projectId: item.id } } as any);
+                break;
+            default:
+                break;
         }
-        if (path) router.push(path);
     };
 
     const openProjectActivity = (projectId?: string, milestoneId?: string, fallbackFilter?: string) => {
@@ -505,7 +528,7 @@ export default function HomeDashboard() {
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Home</Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}><Bell size={24} color={themeColors.textPrimary} /></TouchableOpacity>
+                    <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}><Inbox size={24} color={themeColors.textPrimary} strokeWidth={2.2} /></TouchableOpacity>
                 </View>
             </View>
 
@@ -537,7 +560,6 @@ export default function HomeDashboard() {
                                     styles.searchFilterChip,
                                     {
                                         backgroundColor: selected ? Colors.primary : themeColors.surface,
-                                        borderColor: selected ? Colors.primary : themeColors.border,
                                     },
                                 ]}
                                 onPress={() => setSearchTypeFilter(type)}
@@ -657,8 +679,8 @@ const styles = StyleSheet.create({
     searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48, borderRadius: 12, marginBottom: 12, marginHorizontal: 20 },
     searchInput: { flex: 1, marginLeft: 12, fontFamily: 'GoogleSansFlex_400Regular', fontSize: 16, height: '100%' },
     searchFilterRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20, marginBottom: 10, flexWrap: 'wrap' },
-    searchFilterChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-    searchFilterText: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 12 },
+    searchFilterChip: { borderWidth: 0, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 6 },
+    searchFilterText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
     mainHeading: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24, marginBottom: 16, marginTop: 12 },
     sectionContainer: { marginBottom: 24 },
     sectionHeader: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18, marginBottom: 12 },

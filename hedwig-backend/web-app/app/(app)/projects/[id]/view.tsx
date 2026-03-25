@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowLeft, CalendarBlank, CurrencyDollar, FileText, Info, NotePencil, Target } from '@phosphor-icons/react/dist/ssr';
+import { ArrowLeft, CalendarBlank, CurrencyDollar, FileText, Info, NotePencil, Target } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {

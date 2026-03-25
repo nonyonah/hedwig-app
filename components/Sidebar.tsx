@@ -2,7 +2,8 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Share } from 'react-native';
 import { useRouter, usePathname, Link } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link as LinkIcon, Receipt, MessageCircle as Chat, LogOut as SignOut, ArrowLeftRight as ArrowsLeftRight, Settings as Gear, Search as MagnifyingGlass, X, Landmark as Bank, Users, Briefcase, FileText, ChartBar, Calendar as CalendarBlank } from './ui/AppIcon';
+import { House, Link as LinkIcon, Receipt, MessageCircle as Chat, LogOut as SignOut, ArrowLeftRight as ArrowsLeftRight, Settings as Gear, Search as MagnifyingGlass, X, Landmark as Bank, Users, Briefcase, FileText, Calendar as CalendarBlank } from './ui/AppIcon';
+import { ChartPieSlice } from 'phosphor-react-native';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -92,12 +93,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-            // Search invoices, payment links, and conversations in parallel
-            const [invoicesRes, linksRes, conversationsRes] = await Promise.all([
+            // Search invoices, recurring invoices, payment links, and conversations in parallel
+            const [invoicesRes, linksRes, recurringRes, conversationsRes] = await Promise.all([
                 fetch(`${apiUrl}/api/documents?type=INVOICE&search=${encodeURIComponent(query)}`, {
                     headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                 }).catch(() => null),
                 fetch(`${apiUrl}/api/documents?type=PAYMENT_LINK&search=${encodeURIComponent(query)}`, {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                }).catch(() => null),
+                fetch(`${apiUrl}/api/recurring-invoices`, {
                     headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                 }).catch(() => null),
                 fetch(`${apiUrl}/api/chat/conversations?search=${encodeURIComponent(query)}`, {
@@ -118,6 +122,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const data = await linksRes.json();
                 (data.data?.documents || []).slice(0, 3).forEach((link: any) => {
                     results.push({ type: 'payment_link', id: link.id, title: link.title || `LINK-${link.id.slice(0, 8)}`, subtitle: `$${link.amount} USDC` });
+                });
+            }
+
+            if (recurringRes?.ok) {
+                const data = await recurringRes.json();
+                const recurringMatches = (data.data?.recurringInvoices || []).filter((ri: any) => {
+                    const q = query.toLowerCase();
+                    return (
+                        String(ri.title || '').toLowerCase().includes(q) ||
+                        String(ri.clientName || '').toLowerCase().includes(q) ||
+                        String(ri.clientEmail || '').toLowerCase().includes(q) ||
+                        String(ri.frequency || '').toLowerCase().includes(q)
+                    );
+                });
+                recurringMatches.slice(0, 3).forEach((ri: any) => {
+                    results.push({
+                        type: 'recurring_invoice',
+                        id: ri.id,
+                        title: ri.title || `REC-${ri.id.slice(0, 8)}`,
+                        subtitle: `${ri.clientName || ri.clientEmail || 'No client'} • ${ri.frequency || 'monthly'}`,
+                    });
                 });
             }
 
@@ -173,6 +198,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 break;
             case 'invoice':
                 router.push(`/invoices?selected=${result.id}` as any);
+                break;
+            case 'recurring_invoice':
+                router.push(`/invoices?filter=recurring&selectedRecurring=${result.id}` as any);
                 break;
             case 'payment_link':
                 router.push(`/payment-links?selected=${result.id}` as any);
@@ -282,10 +310,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         onPress={() => handleSearchResultPress(result)}
                                     >
                                         <View style={[styles.searchResultIcon, { backgroundColor: themeColors.background }]}>
-                                            {result.type === 'invoice' && <Receipt size={18} color={Colors.primary} />}
-                                            {result.type === 'payment_link' && <LinkIcon size={18} color={Colors.primary} />}
-                                            {result.type === 'conversation' && <Chat size={18} color={Colors.primary} />}
-                                            {result.type === 'menu' && <House size={18} color={Colors.primary} />}
+                                            {result.type === 'invoice' && <Receipt size={18} color={themeColors.textPrimary} />}
+                                            {result.type === 'recurring_invoice' && <Receipt size={18} color={themeColors.textPrimary} />}
+                                            {result.type === 'payment_link' && <LinkIcon size={18} color={themeColors.textPrimary} />}
+                                            {result.type === 'conversation' && <Chat size={18} color={themeColors.textPrimary} />}
+                                            {result.type === 'menu' && <House size={18} color={themeColors.textPrimary} />}
                                         </View>
                                         <View style={styles.searchResultText}>
                                             <Text style={[styles.searchResultTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{result.title}</Text>
@@ -346,7 +375,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     () => handleNavigation('/contracts')
                                 )}
                                 {renderMenuItem(
-                                    <ChartBar size={22} strokeWidth={3} />,
+                                    <ChartPieSlice size={22} weight="bold" />,
                                     'Insights',
                                     pathname === '/insights',
                                     () => handleNavigation('/insights')
@@ -394,7 +423,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     <Link.Preview style={{ width: 280, height: 160 }}>
                                                         <View style={{ flex: 1, padding: 16, backgroundColor: themeColors.background, justifyContent: 'center' }}>
                                                             <Chat size={32} fill={Colors.primary} color="white" style={{ marginBottom: 12 }} />
-                                                            <Text style={{ fontSize: 16, fontWeight: '600', color: themeColors.textPrimary }} numberOfLines={2}>
+                                                            <Text style={{ fontSize: 16, fontFamily: 'GoogleSansFlex_600SemiBold', color: themeColors.textPrimary }} numberOfLines={2}>
                                                                 {conv.title || 'Untitled Chat'}
                                                             </Text>
                                                         </View>
@@ -606,7 +635,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     sectionTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_500Medium',
         fontSize: 12,
         color: Colors.textSecondary,
         letterSpacing: 0.5,
@@ -633,13 +662,13 @@ const styles = StyleSheet.create({
         // Icon color is handled in the render function
     },
     menuText: {
-        fontFamily: 'GoogleSansFlex_500Medium',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 17,
         color: Colors.textPrimary,
     },
     menuTextActive: {
         color: '#FFFFFF',
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_500Medium',
     },
     feedbackButtonText: {
         fontFamily: 'GoogleSansFlex_600SemiBold',

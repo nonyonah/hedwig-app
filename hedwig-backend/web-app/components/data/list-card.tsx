@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight } from '@phosphor-icons/react/dist/ssr';
+import { ArrowRight } from '@/components/ui/lucide-icons';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';

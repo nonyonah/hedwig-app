@@ -26,21 +26,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/colors';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
-import { ChevronLeft as CaretLeft } from './ui/AppIcon';
 import {
+    ChevronLeft as CaretLeft,
     Receipt,
-    LinkSimple,
+    Link as LinkSimple,
     FileText,
-    PencilSimple,
+    Pencil as PencilSimple,
     Plus,
-    SlidersHorizontal,
+    Settings as SlidersHorizontal,
     ArrowUp,
     Copy,
     ThumbsUp,
     ThumbsDown,
     CheckCircle,
-    XCircle,
-} from 'phosphor-react-native';
+    CircleX as XCircle,
+} from './ui/AppIcon';
 
 /* ─────────────────────────────────────────── types */
 
@@ -435,13 +435,13 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                                 )}
                                                 {msg.actionState === 'done' && (
                                                     <View style={s.statusRow}>
-                                                        <CheckCircle size={14} color="#16A34A" weight="fill" />
+                                                        <CheckCircle size={14} color="#16A34A" />
                                                         <Text style={[s.statusText, { color: '#16A34A' }]}>{msg.actionResult}</Text>
                                                     </View>
                                                 )}
                                                 {msg.actionState === 'error' && (
                                                     <View style={s.statusRow}>
-                                                        <XCircle size={14} color="#B42318" weight="fill" />
+                                                        <XCircle size={14} color="#B42318" />
                                                         <Text style={[s.statusText, { color: '#B42318' }]}>{msg.actionResult}</Text>
                                                     </View>
                                                 )}
@@ -519,7 +519,6 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                     <ArrowUp
                                         size={18}
                                         color={canSend ? '#FFF' : (isDark ? '#555' : '#9CA3AF')}
-                                        weight="bold"
                                     />
                                 </TouchableOpacity>
                             </View>
@@ -559,7 +558,7 @@ const s = StyleSheet.create({
     /* Empty */
     empty:   { flex: 1, paddingTop: 72 },
     emptyKeyboard: { paddingTop: 20 },
-    heading: { fontSize: 24, fontFamily: 'GoogleSansFlex_700Bold', letterSpacing: -0.7, lineHeight: 31, marginBottom: 18, maxWidth: '88%' },
+    heading: { fontSize: 24, fontFamily: 'GoogleSansFlex_600SemiBold', letterSpacing: -0.7, lineHeight: 31, marginBottom: 18, maxWidth: '88%' },
     suggRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14 },
     suggRowKeyboard: { paddingVertical: 10 },
     suggText: { fontSize: 16, fontFamily: 'GoogleSansFlex_500Medium', lineHeight: 23 },

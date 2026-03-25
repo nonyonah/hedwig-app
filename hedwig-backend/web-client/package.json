@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "echo \"web-client is deprecated; build disabled (migrated to web-app)\"",
     "lint": "eslint .",
     "preview": "vite preview"
   },

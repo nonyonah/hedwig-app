@@ -1,6 +1,6 @@
 'use client';
 
-import { SidebarSimple } from '@phosphor-icons/react/dist/ssr';
+import { SidebarSimple } from '@/components/ui/lucide-icons';
 import { AccountMenu } from '@/components/app-shell/account-menu';
 import { NotificationBell } from '@/components/app-shell/notification-bell';
 import { TopbarTitle } from '@/components/app-shell/topbar-title';

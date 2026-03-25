@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { CalendarBlank, Repeat, User } from '@phosphor-icons/react/dist/ssr';
+import { CalendarBlank, Repeat, User } from '@/components/ui/lucide-icons';
 import { PublicDocumentFrame } from '@/components/public/public-document-frame';
 import { PublicCheckoutPanel } from '@/components/public/public-checkout-panel';
 import { PublicResultCard } from '@/components/public/public-result-card';

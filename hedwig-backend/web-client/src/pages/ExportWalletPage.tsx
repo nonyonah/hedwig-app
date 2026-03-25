@@ -1,7 +1,7 @@
 import { usePrivy } from '@privy-io/react-auth';
 import { useExportWallet } from '@privy-io/react-auth/solana';
 import { useState } from 'react';
-import { Shield, Warning, Key, SpinnerGap, SignIn } from '@phosphor-icons/react';
+import { Shield, Warning, Key, SpinnerGap, SignIn } from '../icons/lucide-icons';
 import './ExportWalletPage.css';
 
 type ChainType = 'ethereum' | 'solana';

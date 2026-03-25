@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowRight, CheckCircle, ClockCountdown, FolderSimple, Plus, Trash } from '@phosphor-icons/react/dist/ssr';
+import { ArrowRight, CheckCircle, ClockCountdown, FolderSimple, Plus, Trash } from '@/components/ui/lucide-icons';
 import type { Client, Project } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import type { CreateProjectFlowInput } from '@/lib/api/client';

@@ -277,35 +277,36 @@ app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Serve React web client build
-const webClientPath = path.join(__dirname, '../web-client/dist');
 app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
 
-// React Web Client Routes - Serve React app for invoice and payment pages
-const serveReactApp = (_req: Request, res: Response) => {
-    res.sendFile(path.join(webClientPath, 'index.html'));
+// Public web pages are now served by Next.js web-app.
+const PUBLIC_WEB_APP_URL = (
+    process.env.APP_URL ||
+    process.env.WEB_APP_URL ||
+    process.env.PUBLIC_BASE_URL ||
+    process.env.WEB_CLIENT_URL ||
+    'https://hedwigbot.xyz'
+).replace(/\/+$/, '');
+
+const redirectToWebApp = (pathFor: (req: Request) => string) => (req: Request, res: Response) => {
+    const queryIndex = req.originalUrl.indexOf('?');
+    const query = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : '';
+    const targetPath = pathFor(req);
+    res.redirect(302, `${PUBLIC_WEB_APP_URL}${targetPath}${query}`);
 };
 
-// Invoice routes - served by React app
-app.get('/invoice/:id', serveReactApp);
-app.get('/invoices/:id', serveReactApp);
+const safeParam = (value: string | string[] | undefined) =>
+    encodeURIComponent(Array.isArray(value) ? (value[0] ?? '') : (value ?? ''));
 
-// Payment link routes - served by React app
-app.get('/pay/:id', serveReactApp);
-app.get('/payment-link/:id', serveReactApp);
-
-// Serve React app static assets
-app.use(express.static(webClientPath));
-
-// Contract routes - now served by React app (no wallet signing)
-app.get('/contract/:id', serveReactApp);
-app.get('/contracts/:id', serveReactApp);
-
-// Export wallet route - served by React app
-app.get('/export-wallet', serveReactApp);
-
-// Feedback route - served by React app
-app.get('/feedback', serveReactApp);
+// Legacy public routes -> Next.js routes
+app.get('/invoice/:id', redirectToWebApp((req) => `/invoice/${safeParam(req.params.id)}`));
+app.get('/invoices/:id', redirectToWebApp((req) => `/invoices/${safeParam(req.params.id)}`));
+app.get('/pay/:id', redirectToWebApp((req) => `/pay/${safeParam(req.params.id)}`));
+app.get('/payment-link/:id', redirectToWebApp((req) => `/payment-link/${safeParam(req.params.id)}`));
+app.get('/contract/:id', redirectToWebApp((req) => `/contract/${safeParam(req.params.id)}`));
+app.get('/contracts/:id', redirectToWebApp((req) => `/contracts/${safeParam(req.params.id)}`));
+app.get('/export-wallet', redirectToWebApp(() => '/export-wallet'));
+app.get('/feedback', redirectToWebApp(() => '/settings'));
 
 // Proposal routes - still using legacy HTML for now
 app.get('/proposal/:id', (_req: Request, res: Response) => {

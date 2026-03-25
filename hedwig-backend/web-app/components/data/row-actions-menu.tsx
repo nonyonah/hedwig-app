@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { DotsThreeOutline } from '@phosphor-icons/react/dist/ssr';
+import { DotsThreeOutline } from '@/components/ui/lucide-icons';
 import { cn } from '@/lib/utils';
 
 export interface RowActionItem {

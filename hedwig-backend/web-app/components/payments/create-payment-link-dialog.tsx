@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, LinkSimple, CheckCircle, SpinnerGap } from '@phosphor-icons/react/dist/ssr';
+import { X, LinkSimple, CheckCircle, SpinnerGap } from '@/components/ui/lucide-icons';
 import { hedwigApi } from '@/lib/api/client';
 import { useToast } from '@/components/providers/toast-provider';
 import type { PaymentLink } from '@/lib/models/entities';

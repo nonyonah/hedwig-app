@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Question, SidebarSimple } from '@phosphor-icons/react/dist/ssr';
+import { Question, SidebarSimple } from '@/components/ui/lucide-icons';
 import { navigationGroups } from '@/lib/utils/navigation';
 import { cn } from '@/lib/utils';
 

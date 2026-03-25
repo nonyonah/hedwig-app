@@ -17,7 +17,7 @@ import {
   LinkSimple,
   FileText,
   SpinnerGap,
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 import { useToast } from '@/components/providers/toast-provider';
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';

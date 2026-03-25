@@ -1,4 +1,4 @@
-import { CalendarBlank, CheckCircle, Signature, User } from '@phosphor-icons/react/dist/ssr';
+import { CalendarBlank, CheckCircle, Signature, User } from '@/components/ui/lucide-icons';
 import { notFound } from 'next/navigation';
 import { PublicDocumentFrame } from '@/components/public/public-document-frame';
 import { fetchPublicDocument } from '@/lib/api/public-documents';

@@ -4,7 +4,37 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('EmailService');
 
-const APP_URL = process.env.APP_URL || 'https://hedwigbot.xyz';
+const DEFAULT_PUBLIC_APP_URL = 'https://hedwigbot.xyz';
+const RAW_APP_URL = process.env.APP_URL || process.env.WEB_CLIENT_URL || DEFAULT_PUBLIC_APP_URL;
+
+const canonicalizePublicUrl = (input?: string | null): string => {
+    const raw = String(input || '').trim();
+    if (!raw) return DEFAULT_PUBLIC_APP_URL;
+
+    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+        const url = new URL(normalized);
+        if (url.hostname.toLowerCase() === 'pay.hedwigbot.xyz') {
+            url.hostname = 'hedwigbot.xyz';
+        }
+        return url.toString().replace(/\/+$/, '');
+    } catch {
+        return DEFAULT_PUBLIC_APP_URL;
+    }
+};
+
+const APP_URL = canonicalizePublicUrl(RAW_APP_URL);
+
+const resolvePublicUrl = (candidate: string | undefined, fallbackPath: string): string => {
+    const value = String(candidate || '').trim();
+    if (!value) return `${APP_URL}${fallbackPath}`;
+
+    if (value.startsWith('/')) {
+        return `${APP_URL}${value}`;
+    }
+
+    return canonicalizePublicUrl(value);
+};
 
 const EMAIL_FONT_FAMILY = `'Google Sans Flex', 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
 const EMAIL_FONT_HEAD = `
@@ -186,7 +216,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const invoiceUrl = data.paymentUrl || `${APP_URL}/invoice/${data.linkId}`;
+        const invoiceUrl = resolvePublicUrl(data.paymentUrl, `/invoice/${data.linkId}`);
 
         const html = `
         <!DOCTYPE html>
@@ -249,7 +279,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const paymentUrl = data.paymentUrl || `${APP_URL}/pay/${data.linkId}`;
+        const paymentUrl = resolvePublicUrl(data.paymentUrl, `/pay/${data.linkId}`);
 
         const html = `
         <!DOCTYPE html>
@@ -322,7 +352,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const receiptUrl = `${APP_URL}/receipt/${data.linkId}`;
+        const receiptUrl = resolvePublicUrl(undefined, `/receipt/${data.linkId}`);
 
         const html = `
         <!DOCTYPE html>
@@ -451,7 +481,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const contractUrl = `${APP_URL}/contract/${data.contractId}?token=${data.approvalToken}`;
+        const contractUrl = resolvePublicUrl(undefined, `/contract/${data.contractId}?token=${data.approvalToken}`);
 
         const html = `
         <!DOCTYPE html>
@@ -525,7 +555,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const contractUrl = `${APP_URL}/contract/${data.contractId}`;
+        const contractUrl = resolvePublicUrl(undefined, `/contract/${data.contractId}`);
 
         const html = `
         <!DOCTYPE html>
@@ -601,7 +631,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const proposalUrl = `${APP_URL}/proposal/${data.proposalId}`;
+        const proposalUrl = resolvePublicUrl(undefined, `/proposal/${data.proposalId}`);
 
         const html = `
         <!DOCTYPE html>
@@ -668,7 +698,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const invoiceUrl = data.paymentUrl || `${APP_URL}/invoice/${data.linkId}`;
+        const invoiceUrl = resolvePublicUrl(data.paymentUrl, `/invoice/${data.linkId}`);
         const freqLabel = FREQ_LABELS[data.frequency] || data.frequency;
         const ordinal = (n: number) => {
             const s = ['th','st','nd','rd'], v = n % 100;
@@ -745,7 +775,7 @@ export const EmailService = {
         }
 
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const proposalUrl = `${APP_URL}/proposal/${data.proposalId}`;
+        const proposalUrl = resolvePublicUrl(undefined, `/proposal/${data.proposalId}`);
 
         const html = `
         <!DOCTYPE html>

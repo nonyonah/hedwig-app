@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check } from '@phosphor-icons/react/dist/ssr';
+import { Check } from '@/components/ui/lucide-icons';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog';
 import { backendConfig } from '@/lib/auth/config';
 

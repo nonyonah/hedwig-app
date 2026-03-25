@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Lifebuoy, Moon, SignOut, Sun } from '@phosphor-icons/react/dist/ssr';
+import { Lifebuoy, Moon, SignOut, Sun } from '@/components/ui/lucide-icons';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 

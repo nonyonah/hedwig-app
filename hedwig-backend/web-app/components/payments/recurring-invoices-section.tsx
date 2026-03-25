@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Repeat,
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 import type { RecurringInvoice, Client } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';

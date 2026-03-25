@@ -19,7 +19,7 @@ import {
   UsersThree,
   ArrowsClockwise,
   Warning,
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 import { PageHeader } from '@/components/data/page-header';
 import { Button } from '@/components/ui/button';
 import {
