@@ -13,6 +13,7 @@
     "bridge:webhook:logs": "tsx scripts/bridgeWebhook.ts logs",
     "bridge:webhook:events": "tsx scripts/bridgeWebhook.ts events",
     "backfill:document-relations": "tsx scripts/backfillDocumentRelations.ts",
+    "onesignal:import-users": "tsx src/scripts/import-users-to-onesignal.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

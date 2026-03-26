@@ -303,9 +303,28 @@ function PushNotificationBootstrap() {
                         if (userEmail && OneSignal.User?.addEmail) {
                             OneSignal.User.addEmail(String(userEmail));
                         }
+
+                        // Tag user for segmentation and personalization per OneSignal docs
+                        if (OneSignal.User?.addTags) {
+                            OneSignal.User.addTags({
+                                platform: Platform.OS,
+                                has_email: userEmail ? 'true' : 'false',
+                                app_version: String(
+                                    Constants.expoConfig?.version ||
+                                    Constants.manifest?.version ||
+                                    '1.0.0'
+                                ),
+                            });
+                        }
+
                         await ensureOneSignalPermission();
 
+                        // Initial sync — subscription ID may not be available yet immediately
+                        // after login(), so we also schedule a retry after a short delay.
                         await syncOneSignalSubscription(String(user.id));
+                        setTimeout(() => {
+                            void syncOneSignalSubscription(String(user.id));
+                        }, 4000);
 
                         if (typeof OneSignal.User?.pushSubscription?.addEventListener === 'function') {
                             if (
