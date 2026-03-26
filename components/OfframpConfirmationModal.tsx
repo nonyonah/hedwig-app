@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert, Platform, Image } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { ethers } from 'ethers';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Clipboard from 'expo-clipboard';
-import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle, Landmark as Bank, Copy, ArrowUpDown as ArrowsDownUp } from './ui/AppIcon';
+import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle, Landmark as Bank, Copy, ArrowUpDown as ArrowsDownUp, RotateCcw } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
@@ -16,6 +16,7 @@ import { useLiveTracking } from '../hooks/useLiveTracking';
 import { useKYC } from '../hooks/useKYC';
 import KYCVerificationModal from './KYCVerificationModal';
 import Analytics from '../services/analytics';
+import IOSGlassIconButton from './ui/IOSGlassIconButton';
 
 const { height } = Dimensions.get('window');
 
@@ -83,7 +84,127 @@ interface OfframpConfirmationModalProps {
 
 type ModalState = 'confirm' | 'processing' | 'awaiting_transfer' | 'success' | 'failed';
 
-export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
+type OfframpErrorType =
+    | 'insufficient_funds'
+    | 'gas_fee'
+    | 'network'
+    | 'bank_validation'
+    | 'kyc_required'
+    | 'service_busy'
+    | 'unknown';
+
+interface ParsedOfframpError {
+    type: OfframpErrorType;
+    title: string;
+    message: string;
+    recoveryHint: string;
+    shouldShowRetry: boolean;
+}
+
+const parseOfframpError = (error: any, hasTokensBeenSent: boolean): ParsedOfframpError => {
+    const message = String(error?.message || '').toLowerCase();
+    const fallbackMessage = error?.message || 'Unable to submit withdrawal right now. Please try again.';
+
+    if (
+        message.includes('insufficient funds') ||
+        message.includes('insufficient balance') ||
+        message.includes('not enough balance') ||
+        message.includes('transfer amount exceeds') ||
+        message.includes('gas required exceeds')
+    ) {
+        return {
+            type: 'insufficient_funds',
+            title: 'Insufficient wallet balance',
+            message: "You're almost there, but your wallet cannot cover the transfer plus gas fee yet.",
+            recoveryHint: 'Add a little native token for network fees, or reduce the amount and try again.',
+            shouldShowRetry: true,
+        };
+    }
+
+    if (
+        message.includes('gas') &&
+        (message.includes('price') || message.includes('limit') || message.includes('fee') || message.includes('estimate'))
+    ) {
+        return {
+            type: 'gas_fee',
+            title: 'Unable to estimate network fee',
+            message: 'Gas fee estimation failed right now.',
+            recoveryHint: 'Retry in a moment, or try a smaller amount.',
+            shouldShowRetry: true,
+        };
+    }
+
+    if (
+        message.includes('network') ||
+        message.includes('timeout') ||
+        message.includes('connection') ||
+        message.includes('fetch failed') ||
+        message.includes('und_err_connect_timeout')
+    ) {
+        return {
+            type: 'network',
+            title: 'Network issue while submitting',
+            message: 'We could not reach the settlement service in time.',
+            recoveryHint: 'Check your internet connection and retry.',
+            shouldShowRetry: true,
+        };
+    }
+
+    if (
+        message.includes('account') ||
+        message.includes('bank') ||
+        message.includes('beneficiary') ||
+        message.includes('invalid recipient')
+    ) {
+        return {
+            type: 'bank_validation',
+            title: 'Bank account validation failed',
+            message: 'We could not validate the receiving bank details for this withdrawal.',
+            recoveryHint: 'Go back, confirm account number and bank, then try again.',
+            shouldShowRetry: true,
+        };
+    }
+
+    if (message.includes('kyc') || message.includes('verification')) {
+        return {
+            type: 'kyc_required',
+            title: 'Verification required',
+            message: 'You need to complete identity verification before making a withdrawal.',
+            recoveryHint: 'Complete KYC from Settings and try again.',
+            shouldShowRetry: false,
+        };
+    }
+
+    if (message.includes('429') || message.includes('too many requests') || message.includes('rate limit')) {
+        return {
+            type: 'service_busy',
+            title: 'Service is busy right now',
+            message: 'Too many requests are being processed at the moment.',
+            recoveryHint: 'Please wait a little and retry.',
+            shouldShowRetry: true,
+        };
+    }
+
+    if (hasTokensBeenSent) {
+        return {
+            type: 'unknown',
+            title: 'Transfer submitted, awaiting settlement',
+            message: 'Your tokens were already sent. We are waiting for partner confirmation.',
+            recoveryHint: 'Track this in Withdrawals. If rejected, refund is returned to your wallet automatically.',
+            shouldShowRetry: false,
+        };
+    }
+
+    return {
+        type: 'unknown',
+        title: 'Unable to complete offramp',
+        message: fallbackMessage,
+        recoveryHint: 'Please try again.',
+        shouldShowRetry: true,
+    };
+};
+
+export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
     const { hapticsEnabled } = useSettings();
     const themeColors = useThemeColors();
     const ethereumWallet = useEmbeddedEthereumWallet();
@@ -99,9 +220,13 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
     const [estimatedFiat, setEstimatedFiat] = useState<string>('');
     const [isLoadingRate, setIsLoadingRate] = useState(false);
     const [tokensSent, setTokensSent] = useState(false); // Track if tokens were sent to Paycrest
+    const [parsedError, setParsedError] = useState<ParsedOfframpError | null>(null);
     const hasTriggeredSuccessNavigation = useRef(false);
+    const modalDetents = modalState === 'failed'
+        ? [Platform.OS === 'ios' ? 0.66 : 0.76]
+        : ['auto'];
 
-    const kycSheetRef = useRef<BottomSheetModal>(null);
+    const kycSheetRef = useRef<TrueSheet>(null);
 
     // KYC hook
     const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
@@ -177,6 +302,7 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
         setReceiveAddress(null);
         setStatusMessage('');
         setTokensSent(false);
+        setParsedError(null);
         hasTriggeredSuccessNavigation.current = false;
         onClose();
     }, [onClose]);
@@ -200,6 +326,7 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
         let createdOrderId: string | null = null;
         let submittedTxHash: string | null = null;
         let tokensSentInAttempt = false;
+        setParsedError(null);
 
         Analytics.withdrawalFlowStep('confirm_tapped', {
             network: data.network,
@@ -475,15 +602,11 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
 
         } catch (error: any) {
             console.error('Offramp Failed:', error);
-            setStatusMessage(error.message || 'Unknown error');
+            const handledError = parseOfframpError(error, tokensSentInAttempt);
+            setParsedError(handledError);
+            setStatusMessage(handledError.message);
             setModalState('failed');
-            const errorType =
-                String(
-                    error?.response?.data?.error?.message ||
-                    error?.response?.data?.error ||
-                    error?.message ||
-                    'unknown_error'
-                ).slice(0, 120);
+            const errorType = handledError.type;
             Analytics.withdrawalFlowFailed('submit', errorType, {
                 order_id: createdOrderId,
                 tx_hash: submittedTxHash,
@@ -492,6 +615,25 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                 fiat_currency: data.fiatCurrency,
             });
             Analytics.offrampFailed(errorType);
+        }
+    };
+
+    const handleRetry = () => {
+        setModalState('confirm');
+        setStatusMessage('');
+        setOrderId(null);
+        setReceiveAddress(null);
+        setTokensSent(false);
+        setParsedError(null);
+    };
+
+    const handleTrackWithdrawal = () => {
+        if (orderId && onSuccess && !hasTriggeredSuccessNavigation.current) {
+            hasTriggeredSuccessNavigation.current = true;
+            onSuccess(orderId);
+        }
+        if (typeof ref !== 'function') {
+            void ref?.current?.dismiss().catch(() => {});
         }
     };
 
@@ -519,22 +661,10 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
             hasTriggeredSuccessNavigation.current = true;
             onSuccess(orderId);
         }
-        // @ts-ignore
-        ref?.current?.dismiss();
-        handleDismiss();
+        if (typeof ref !== 'function') {
+            void ref?.current?.dismiss().catch(() => {});
+        }
     };
-
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.5}
-            />
-        ),
-        []
-    );
 
     if (!data) return null;
 
@@ -609,21 +739,46 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                 return (
                     <View style={styles.statusContainer}>
                         <XCircle size={120} color="white" fill={Colors.error || '#EF4444'} style={{ marginBottom: 24 }} />
-                        <Text style={styles.statusTitle}>
-                            {tokensSent ? 'Offramp Failed' : 'Offramp Failed'}
+                        <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>
+                            {parsedError?.title || 'Offramp Failed'}
                         </Text>
                         <Text style={styles.statusSubtitle}>
-                            {tokensSent
-                                ? "Your tokens have been sent to Paycrest. If the order was rejected, your funds will be automatically refunded to your wallet within 24 hours."
-                                : "Don't worry, no funds were moved."
-                            }
+                            {parsedError?.message ||
+                                (tokensSent
+                                    ? 'Your tokens were sent successfully, but settlement could not complete right now.'
+                                    : "Don't worry, no funds were moved.")}
                         </Text>
-                        {statusMessage ? (
-                            <Text style={styles.errorMessage}>{statusMessage}</Text>
+                        <View style={[styles.errorHintBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                            <Text style={styles.errorHintText}>
+                                {parsedError?.recoveryHint ||
+                                    (tokensSent
+                                        ? 'Track this in Withdrawals. If rejected, funds are refunded to your wallet.'
+                                        : 'Please try again in a moment.')}
+                            </Text>
+                        </View>
+
+                        {tokensSent && orderId ? (
+                            <Text style={[styles.orderHint, { color: themeColors.textSecondary }]}>
+                                Order ID: {orderId}
+                            </Text>
                         ) : null}
+
                         <View style={styles.actionButtonsContainer}>
-                            <TouchableOpacity style={styles.closeButtonMain} onPress={handleClose}>
-                                <Text style={styles.closeButtonText}>Close</Text>
+                            {parsedError?.shouldShowRetry ? (
+                                <TouchableOpacity
+                                    style={[styles.retryButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                                    onPress={handleRetry}
+                                >
+                                    <RotateCcw size={16} color={themeColors.textPrimary} strokeWidth={2.2} />
+                                    <Text style={[styles.retryButtonText, { color: themeColors.textPrimary }]}>Try Again</Text>
+                                </TouchableOpacity>
+                            ) : null}
+
+                            <TouchableOpacity
+                                style={styles.closeButtonMain}
+                                onPress={tokensSent && orderId ? handleTrackWithdrawal : handleClose}
+                            >
+                                <Text style={styles.closeButtonText}>{tokensSent && orderId ? 'Track Withdrawal' : 'Close'}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -635,9 +790,12 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
                         {/* Header */}
                         <View style={styles.header}>
                             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Confirm Offramp</Text>
-                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={handleClose}>
-                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                            </TouchableOpacity>
+                            <IOSGlassIconButton
+                                onPress={handleClose}
+                                systemImage="xmark"
+                                circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                            />
                         </View>
 
                         {/* Amount */}
@@ -713,26 +871,23 @@ export const OfframpConfirmationModal = forwardRef<BottomSheetModal, OfframpConf
 
     return (
         <>
-            <BottomSheetModal
+            <TrueSheet
                 ref={ref}
-                index={0}
-                enableDynamicSizing={true}
-                enablePanDownToClose={true}
-                backdropComponent={renderBackdrop}
-                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-                onDismiss={handleDismiss}
+                detents={modalDetents}
+                cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                backgroundBlur="regular"
+                grabber={true}
+                onDidDismiss={handleDismiss}
             >
-                <BottomSheetView style={styles.contentContainer}>
+                <View style={styles.contentContainer}>
                     {renderContent()}
-                </BottomSheetView>
-            </BottomSheetModal>
+                </View>
+            </TrueSheet>
 
             <KYCVerificationModal
                 ref={kycSheetRef}
-                onClose={() => kycSheetRef.current?.dismiss()}
+                onClose={() => {}}
                 onVerified={() => {
-                    kycSheetRef.current?.dismiss();
                     fetchKYCStatus(); // Refresh status after verification
                 }}
             />
@@ -748,7 +903,8 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         paddingHorizontal: 24,
-        paddingBottom: 40,
+        paddingTop: Platform.OS === 'android' ? 34 : 12,
+        paddingBottom: Platform.OS === 'android' ? 6 : 12,
     },
     modalContent: {
         backgroundColor: '#FFFFFF',
@@ -912,6 +1068,25 @@ const styles = StyleSheet.create({
         marginTop: 12,
         paddingHorizontal: 20,
     },
+    errorHintBox: {
+        marginTop: 12,
+        borderRadius: 14,
+        borderWidth: 1,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
+    errorHintText: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 13,
+        color: Colors.textPrimary,
+        textAlign: 'center',
+        lineHeight: 18,
+    },
+    orderHint: {
+        marginTop: 10,
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 12,
+    },
     addressContainer: {
         width: '100%',
         marginTop: 24,
@@ -954,6 +1129,19 @@ const styles = StyleSheet.create({
         marginTop: 24,
         width: '100%',
         gap: 12,
+    },
+    retryButton: {
+        borderWidth: 1,
+        paddingVertical: 14,
+        borderRadius: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        gap: 8,
+    },
+    retryButtonText: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 15,
     },
     closeButtonMain: {
         backgroundColor: Colors.primary,

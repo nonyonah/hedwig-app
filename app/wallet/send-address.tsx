@@ -13,6 +13,7 @@ import {
 } from './sendFlow';
 import Button from '../../components/Button';
 import { useAuth } from '../../hooks/useAuth';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
     deleteRecipient,
     listRecipients,
@@ -97,11 +98,13 @@ export default function SendAddressScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                    </View>
-                </TouchableOpacity>
+                <IOSGlassIconButton
+                    onPress={() => router.back()}
+                    systemImage="chevron.left"
+                    containerStyle={styles.backButton}
+                    circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                    icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                />
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Send</Text>
                 <View style={styles.iconButtonSpacer} />
             </View>

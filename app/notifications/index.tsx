@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { format, isToday } from 'date-fns';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 interface Notification {
     id: string;
@@ -359,14 +360,13 @@ export default function NotificationsScreen() {
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
+                <IOSGlassIconButton
                     onPress={() => router.back()}
-                >
-                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                    </View>
-                </TouchableOpacity>
+                    systemImage="chevron.left"
+                    containerStyle={styles.backButton}
+                    circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                    icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                />
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Notifications</Text>
                 <View style={{ width: 100, alignItems: 'flex-end' }}>
                     <TouchableOpacity onPress={markAllAsRead}>

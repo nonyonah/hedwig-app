@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { X } from './AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
+import IOSGlassIconButton from './IOSGlassIconButton';
 
 /**
  * Modal Header with title and close button
@@ -42,12 +43,12 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
                 {title}
             </Text>
             {showCloseButton && (
-                <TouchableOpacity
-                    style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                <IOSGlassIconButton
                     onPress={onClose}
-                >
-                    <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                </TouchableOpacity>
+                    systemImage="xmark"
+                    circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                    icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                />
             )}
         </View>
     );
@@ -207,9 +208,9 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',

@@ -15,6 +15,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Search as MagnifyingGlass, X, Landmark as BankIcon, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 interface Bank {
     code: string;
@@ -94,9 +95,12 @@ export default function BankSelectionScreen() {
             {/* Header */}
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Select Bank</Text>
-                <TouchableOpacity onPress={() => router.back()} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                    <X size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                </TouchableOpacity>
+                <IOSGlassIconButton
+                    onPress={() => router.back()}
+                    systemImage="xmark"
+                    circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                    icon={<X size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                />
             </View>
 
             {/* Search Bar */}

@@ -16,7 +16,7 @@ import {
     Image,
     Platform,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { X, CheckCircle, Clock, Wallet, ArrowDown } from './ui/AppIcon';
 import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { Connection, Transaction, clusterApiUrl } from '@solana/web3.js';
@@ -108,7 +108,7 @@ const parseErrorMessage = (error: any): string => {
     return cleanMessage;
 };
 
-export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalProps>(({
+export const SolanaBridgeModal = forwardRef<TrueSheet, SolanaBridgeModalProps>(({
     onClose,
     token,
     amount,
@@ -171,27 +171,26 @@ export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalP
         }
     };
 
-    // Handle sheet changes
-    const handleSheetChanges = useCallback((index: number) => {
-        if (index >= 0) {
-            modalHaptic('open', hapticsEnabled);
-            fetchQuote();
-        } else {
-            modalHaptic('close', hapticsEnabled);
-            // Reset state when closing
-            setStep('quote');
-            setQuote(null);
-            setBridgeTx(null);
-            setError(null);
-            setTxSignature(null);
-        }
+    const handleSheetPresented = useCallback(() => {
+        modalHaptic('open', hapticsEnabled);
+        fetchQuote();
     }, [hapticsEnabled, token, amount, getAccessToken]);
 
-    const handleDismiss = useCallback(() => {
-        // @ts-ignore
-        ref?.current?.dismiss();
+    const handleSheetDismissed = useCallback(() => {
+        modalHaptic('close', hapticsEnabled);
+        setStep('quote');
+        setQuote(null);
+        setBridgeTx(null);
+        setError(null);
+        setTxSignature(null);
         onClose();
-    }, [onClose]);
+    }, [hapticsEnabled, onClose]);
+
+    const handleDismiss = useCallback(() => {
+        if (typeof ref !== 'function') {
+            void ref?.current?.dismiss().catch(() => {});
+        }
+    }, [ref]);
 
     // Build and initiate bridge transaction
     const handleConfirmBridge = async () => {
@@ -526,31 +525,17 @@ export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalP
         }
     };
 
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.5}
-            />
-        ),
-        []
-    );
-
     return (
-        <BottomSheetModal
+        <TrueSheet
             ref={ref}
-            index={0}
-            enableDynamicSizing={true}
-            enablePanDownToClose={step === 'quote' || step === 'error'}
-            backdropComponent={renderBackdrop}
-            backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-            handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-            onDismiss={handleDismiss}
-            onChange={handleSheetChanges}
+            detents={['auto']}
+            cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+            backgroundColor={themeColors.background}
+            grabber={true}
+            onDidPresent={handleSheetPresented}
+            onDidDismiss={handleSheetDismissed}
         >
-            <BottomSheetView style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <View style={[styles.container, { backgroundColor: themeColors.background }]}>
                 {/* Header */}
                 {(step === 'quote' || step === 'error') && (
                     <View style={styles.headerTitleRow}>
@@ -568,8 +553,8 @@ export const SolanaBridgeModal = forwardRef<BottomSheetModal, SolanaBridgeModalP
                 <View style={styles.content}>
                     {renderContent()}
                 </View>
-            </BottomSheetView>
-        </BottomSheetModal>
+            </View>
+        </TrueSheet>
     );
 });
 
@@ -586,7 +571,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 16,
+        paddingBottom: Platform.OS === 'ios' ? 14 : 10,
     },
     header: {
         alignItems: 'center',
@@ -602,8 +587,8 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         width: '100%',
-        marginTop: 16,
-        paddingHorizontal: 24,
+        marginTop: 12,
+        paddingHorizontal: 20,
     },
     headerTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
@@ -611,9 +596,9 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     content: {
-        padding: 24,
+        padding: 20,
         alignItems: 'center',
-        paddingTop: 8, // reduce padding since title is in header
+        paddingTop: 4,
     },
     title: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
@@ -641,7 +626,7 @@ const styles = StyleSheet.create({
     },
     quoteContainer: {
         width: '100%',
-        marginBottom: 24,
+        marginBottom: 16,
     },
 
     // Swap Card Styles - matching TransactionConfirmationModal
@@ -746,7 +731,7 @@ const styles = StyleSheet.create({
 
     buttonContainer: {
         width: '100%',
-        marginTop: 16,
+        marginTop: 12,
     },
     cancelButton: {
         alignItems: 'center',

@@ -22,6 +22,7 @@ import { Button } from '../../components/Button';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import { useLoginWithEmail, usePrivy, useLoginWithOAuth } from '@privy-io/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 const DEMO_EMAIL = 'demo@hedwig.app';
@@ -204,11 +205,13 @@ export default function LoginScreen() {
             <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                        <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                            <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                        </View>
-                    </TouchableOpacity>
+                    <IOSGlassIconButton
+                        onPress={handleBack}
+                        systemImage="chevron.left"
+                        containerStyle={styles.backButton}
+                        circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                        icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                    />
                 </View>
 
                 <KeyboardAvoidingView

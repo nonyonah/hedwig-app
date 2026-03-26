@@ -9,7 +9,7 @@ import {
     Dimensions,
     RefreshControl,
 } from 'react-native';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
 import { TrendingUp as TrendUp, TrendingDown as TrendDown, ArrowRight, Sparkles as Sparkle, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Insight, InsightsRange, useInsights } from '../../hooks/useInsights';
 import { TargetGoalModal } from '../../components/TargetGoalModal';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 54) / 2;
@@ -177,7 +178,7 @@ export default function InsightsScreen() {
         refetch,
     } = useInsights('30d');
 
-    const targetGoalSheetRef = useRef<BottomSheetModal>(null);
+    const targetGoalSheetRef = useRef<TrueSheet>(null);
     const [monthlyTarget, setMonthlyTarget] = React.useState(10000);
 
     useAnalyticsScreen('Insights');
@@ -273,11 +274,13 @@ export default function InsightsScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerTop}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                            <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                        </View>
-                    </TouchableOpacity>
+                    <IOSGlassIconButton
+                        onPress={() => router.back()}
+                        systemImage="chevron.left"
+                        containerStyle={styles.backButton}
+                        circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                        icon={<CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />}
+                    />
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Insights</Text>
                     <View style={styles.headerRightPlaceholder} />
                 </View>
@@ -291,13 +294,6 @@ export default function InsightsScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={Colors.primary} />
                 }
             >
-                <View style={[styles.disclaimer, { backgroundColor: themeColors.surface }]}>
-                    <Sparkle size={16} color={Colors.primary} fill={Colors.primary} />
-                    <Text style={[styles.disclaimerText, { color: themeColors.textSecondary }]}>
-                        Insights are AI-generated from your account activity
-                    </Text>
-                </View>
-
                 <View style={styles.filtersRow}>
                     {(['7d', '30d', '90d', '1y'] as InsightsRange[]).map((key) => {
                         const selected = range === key;
@@ -454,7 +450,7 @@ export default function InsightsScreen() {
             <TargetGoalModal
                 ref={targetGoalSheetRef}
                 currentTarget={monthlyTarget}
-                onClose={() => targetGoalSheetRef.current?.dismiss()}
+                onClose={() => {}}
                 onSave={(newTarget) => setMonthlyTarget(newTarget)}
                 user={user}
                 getAccessToken={getAccessToken}
@@ -486,16 +482,6 @@ const styles = StyleSheet.create({
     },
     content: { flex: 1 },
     scrollContent: { paddingHorizontal: 20, paddingBottom: isAndroid ? 34 : 40 },
-    disclaimer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingVertical: isAndroid ? 9 : 10,
-        paddingHorizontal: 14,
-        borderRadius: 10,
-        marginBottom: 10,
-    },
-    disclaimerText: { fontSize: isAndroid ? 12 : 13, fontFamily: 'GoogleSansFlex_400Regular' },
     filtersRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
     filterChip: {
         borderRadius: 20,

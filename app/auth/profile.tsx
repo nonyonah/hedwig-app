@@ -10,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { Button } from '../../components/Button';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -226,11 +227,13 @@ export default function ProfileScreen() {
                         {/* Settings Edit Mode: Header bar with title */}
                         {edit === 'true' && (
                             <View style={styles.headerBar}>
-                                <TouchableOpacity style={styles.headerBackButton} onPress={() => router.back()}>
-                                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                        <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                                    </View>
-                                </TouchableOpacity>
+                                <IOSGlassIconButton
+                                    onPress={() => router.back()}
+                                    systemImage="chevron.left"
+                                    containerStyle={styles.headerBackButton}
+                                    circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                                    icon={<CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />}
+                                />
                                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Edit Profile</Text>
                                 <View style={styles.headerSpacer} />
                             </View>
@@ -239,11 +242,13 @@ export default function ProfileScreen() {
                         {/* Signup Flow: Back button with title section below */}
                         {edit !== 'true' && (
                             <>
-                                <TouchableOpacity style={styles.backButtonRow} onPress={() => router.back()}>
-                                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                        <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                                    </View>
-                                </TouchableOpacity>
+                                <IOSGlassIconButton
+                                    onPress={() => router.back()}
+                                    systemImage="chevron.left"
+                                    containerStyle={styles.backButtonRow}
+                                    circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                                    icon={<CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />}
+                                />
                                 <View style={styles.titleSection}>
                                     <Text style={[styles.title, { color: themeColors.textPrimary }]}>Your Profile</Text>
                                     <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Introduce yourself to others.</Text>

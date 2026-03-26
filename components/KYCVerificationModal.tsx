@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Platform, Linking } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import React, { useState, useEffect, useRef, forwardRef, useCallback, useImperativeHandle } from 'react';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import * as WebBrowser from 'expo-web-browser';
 import { ShieldCheck, TriangleAlert as Warning, ArrowRight, CheckCircle, Timer as ClockCountdown } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useKYC } from '../hooks/useKYC';
 import Analytics from '../services/analytics';
 import Button from './Button';
-
-const { height } = Dimensions.get('window');
 
 interface KYCVerificationModalProps {
     onClose?: () => void;
@@ -17,18 +15,20 @@ interface KYCVerificationModalProps {
 
 type ModalState = 'explanation' | 'pending' | 'approved' | 'rejected';
 
-export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerificationModalProps>(({
+export const KYCVerificationModal = forwardRef<TrueSheet, KYCVerificationModalProps>(({
     onClose,
     onVerified
 }, ref) => {
     const themeColors = useThemeColors();
-    const { status, startKYC, checkStatus, isLoading } = useKYC();
+    const { status, startKYC, checkStatus } = useKYC();
 
     const [modalState, setModalState] = useState<ModalState>('explanation');
     const [isStarting, setIsStarting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const isMounted = useRef(true);
+    const isOpenRef = useRef(false);
+    const trueSheetRef = useRef<TrueSheet>(null);
 
     useEffect(() => {
         return () => {
@@ -36,26 +36,53 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
         };
     }, []);
 
-    // Handle sheet changes to update state
-    const handleSheetChanges = useCallback((index: number) => {
-        if (index >= 0) {
-            // Sheet opened, check status
-            switch (status) {
-                case 'approved':
-                    setModalState('approved');
-                    break;
-                case 'pending':
-                    setModalState('pending');
-                    break;
-                case 'rejected':
-                case 'retry_required':
-                    setModalState('rejected');
-                    break;
-                default:
-                    setModalState('explanation');
-            }
+    const syncModalStateFromStatus = useCallback(() => {
+        switch (status) {
+            case 'approved':
+                setModalState('approved');
+                break;
+            case 'pending':
+                setModalState('pending');
+                break;
+            case 'rejected':
+            case 'retry_required':
+                setModalState('rejected');
+                break;
+            default:
+                setModalState('explanation');
         }
     }, [status]);
+
+    const presentSheet = useCallback(async () => {
+        syncModalStateFromStatus();
+        isOpenRef.current = true;
+        await trueSheetRef.current?.present().catch(() => {});
+    }, [syncModalStateFromStatus]);
+
+    const dismissSheet = useCallback(async () => {
+        isOpenRef.current = false;
+        await trueSheetRef.current?.dismiss().catch(() => {});
+    }, []);
+
+    useImperativeHandle(
+        ref,
+        () =>
+            ({
+                present: async () => {
+                    await presentSheet();
+                },
+                dismiss: async () => {
+                    await dismissSheet();
+                },
+            } as unknown as TrueSheet),
+        [presentSheet, dismissSheet]
+    );
+
+    useEffect(() => {
+        if (isOpenRef.current) {
+            syncModalStateFromStatus();
+        }
+    }, [status, syncModalStateFromStatus]);
 
     const handleStartVerification = async () => {
         setIsStarting(true);
@@ -104,9 +131,8 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
         }
     };
 
-    const handleClose = () => {
-        // @ts-ignore
-        ref?.current?.dismiss();
+    const handleClose = async () => {
+        await dismissSheet();
         onClose?.();
     };
 
@@ -157,7 +183,7 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
 
             <Button
                 title="Do this later"
-                onPress={onClose}
+                onPress={handleClose}
                 variant="ghost"
                 size="medium"
             />
@@ -194,7 +220,7 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
 
             <Button
                 title="Close"
-                onPress={onClose}
+                onPress={handleClose}
                 variant="ghost"
                 size="medium"
             />
@@ -217,7 +243,7 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
                 title="Continue"
                 onPress={() => {
                     onVerified?.();
-                    onClose();
+                    handleClose();
                 }}
                 size="large"
                 style={{ backgroundColor: Colors.success }}
@@ -247,7 +273,7 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
 
             <Button
                 title="Close"
-                onPress={onClose}
+                onPress={handleClose}
                 variant="ghost"
                 size="medium"
             />
@@ -267,33 +293,21 @@ export const KYCVerificationModal = forwardRef<BottomSheetModal, KYCVerification
         }
     };
 
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.5}
-            />
-        ),
-        []
-    );
-
     return (
-        <BottomSheetModal
-            ref={ref}
-            index={0}
-            enableDynamicSizing={true}
-            onChange={handleSheetChanges}
-            enablePanDownToClose={true}
-            backdropComponent={renderBackdrop}
-            backgroundStyle={{ backgroundColor: themeColors.surface, borderRadius: 24 }}
-            handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+        <TrueSheet
+            ref={trueSheetRef}
+            detents={['auto']}
+            cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+            backgroundColor={themeColors.surface}
+            onDidPresent={syncModalStateFromStatus}
+            onDidDismiss={() => {
+                isOpenRef.current = false;
+            }}
         >
-            <BottomSheetView style={{ paddingBottom: 40 }}>
+            <View style={{ paddingTop: Platform.OS === 'ios' ? 12 : 0, paddingBottom: 40 }}>
                 {renderContent()}
-            </BottomSheetView>
-        </BottomSheetModal>
+            </View>
+        </TrueSheet>
     );
 });
 

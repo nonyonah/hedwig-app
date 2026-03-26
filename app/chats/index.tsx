@@ -12,6 +12,7 @@ import { ProfileModal } from '../../components/ProfileModal';
 import * as Haptics from 'expo-haptics';
 import Fuse from 'fuse.js';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 export default function ChatsScreen() {
     // Track screen view
@@ -323,9 +324,12 @@ export default function ChatsScreen() {
                                 <List size={24} color={themeColors.textPrimary} strokeWidth={3} />
                             </TouchableOpacity>
                             <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Chats</Text>
-                            <TouchableOpacity onPress={() => router.replace('/')}>
-                                <Plus size={24} color={themeColors.textPrimary} />
-                            </TouchableOpacity>
+                            <IOSGlassIconButton
+                                onPress={() => router.replace('/')}
+                                systemImage="plus"
+                                circleStyle={{ backgroundColor: themeColors.surface }}
+                                icon={<Plus size={24} color={themeColors.textPrimary} />}
+                            />
                         </View>
                     )}
                 </View>

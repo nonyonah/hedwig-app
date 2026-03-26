@@ -577,27 +577,108 @@ class NotificationService {
     /**
      * Register a device token for push notifications
      */
-    async registerDeviceToken(userId: string, expoPushToken: string, platform: 'ios' | 'android'): Promise<boolean> {
+    async registerDeviceToken(
+        userId: string,
+        expoPushToken: string,
+        platform: 'ios' | 'android'
+    ): Promise<{ success: boolean; error?: string }> {
         try {
+            const normalizedPlatform: 'ios' | 'android' = platform === 'android' ? 'android' : 'ios';
+
             const { error } = await supabase
                 .from('device_tokens')
                 .upsert({
                     user_id: userId,
                     expo_push_token: expoPushToken,
-                    platform,
+                    platform: normalizedPlatform,
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'user_id,expo_push_token' });
 
             if (error) {
-                logger.error('Failed to register device token');
-                return false;
+                // Fallback path for environments where the ON CONFLICT target
+                // is not present yet or legacy schema differs.
+                const conflictTargetMissing = (error as any)?.code === '42P10';
+                if (conflictTargetMissing) {
+                    const nowIso = new Date().toISOString();
+
+                    const { data: existing, error: existingError } = await supabase
+                        .from('device_tokens')
+                        .select('id')
+                        .eq('user_id', userId)
+                        .eq('expo_push_token', expoPushToken)
+                        .maybeSingle();
+
+                    if (existingError) {
+                        logger.error('Failed to check existing device token during fallback', {
+                            userId,
+                            error: existingError.message,
+                            code: (existingError as any)?.code,
+                            details: (existingError as any)?.details,
+                        });
+                        return { success: false, error: existingError.message };
+                    }
+
+                    if (existing?.id) {
+                        const { error: updateError } = await supabase
+                            .from('device_tokens')
+                            .update({
+                                platform: normalizedPlatform,
+                                updated_at: nowIso,
+                            })
+                            .eq('id', existing.id);
+
+                        if (updateError) {
+                            logger.error('Failed to update existing device token during fallback', {
+                                userId,
+                                error: updateError.message,
+                                code: (updateError as any)?.code,
+                                details: (updateError as any)?.details,
+                            });
+                            return { success: false, error: updateError.message };
+                        }
+
+                        logger.info('Registered device token (fallback-update path)');
+                        return { success: true };
+                    }
+
+                    const { error: insertError } = await supabase
+                        .from('device_tokens')
+                        .insert({
+                            user_id: userId,
+                            expo_push_token: expoPushToken,
+                            platform: normalizedPlatform,
+                            updated_at: nowIso,
+                        });
+
+                    if (insertError) {
+                        logger.error('Failed to insert device token during fallback', {
+                            userId,
+                            error: insertError.message,
+                            code: (insertError as any)?.code,
+                            details: (insertError as any)?.details,
+                        });
+                        return { success: false, error: insertError.message };
+                    }
+
+                    logger.info('Registered device token (fallback-insert path)');
+                    return { success: true };
+                }
+
+                logger.error('Failed to register device token', {
+                    userId,
+                    error: error.message,
+                    code: (error as any)?.code,
+                    details: (error as any)?.details,
+                    hint: (error as any)?.hint,
+                });
+                return { success: false, error: error.message };
             }
 
             logger.info('Registered device token');
-            return true;
+            return { success: true };
         } catch (error: any) {
             logger.error('Error registering device token', { error: error.message });
-            return false;
+            return { success: false, error: error?.message || 'Unknown error' };
         }
     }
 

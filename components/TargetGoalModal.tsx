@@ -1,8 +1,9 @@
-import React, { useState, useEffect, forwardRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import React, { useState, useEffect, forwardRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { X, Minus, Plus } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
+import IOSGlassIconButton from './ui/IOSGlassIconButton';
 
 const { height } = Dimensions.get('window');
 
@@ -14,7 +15,7 @@ interface TargetGoalModalProps {
     getAccessToken?: () => Promise<string | null>;
 }
 
-export const TargetGoalModal = forwardRef<BottomSheetModal, TargetGoalModalProps>(({
+export const TargetGoalModal = forwardRef<TrueSheet, TargetGoalModalProps>(({
     currentTarget,
     onClose,
     onSave,
@@ -60,53 +61,39 @@ export const TargetGoalModal = forwardRef<BottomSheetModal, TargetGoalModalProps
 
         // Call the onSave callback (updates local state)
         onSave(target);
-        // @ts-ignore
-        ref?.current?.dismiss();
-        onClose();
+        if (typeof ref !== 'function') {
+            void ref?.current?.dismiss().catch(() => {});
+        }
     };
 
     const handleClose = () => {
-        // @ts-ignore
-        ref?.current?.dismiss();
-        onClose();
+        if (typeof ref !== 'function') {
+            void ref?.current?.dismiss().catch(() => {});
+        }
     };
 
     const formatNumber = (num: number) => {
         return num.toLocaleString('en-US');
     };
 
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.5}
-            />
-        ),
-        []
-    );
-
     return (
-        <BottomSheetModal
+        <TrueSheet
             ref={ref}
-            index={0}
-            enableDynamicSizing={true}
-            enablePanDownToClose={true}
-            backdropComponent={renderBackdrop}
-            backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-            handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-            onDismiss={onClose}
+            detents={['auto']}
+            cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+            backgroundBlur="regular"
+            grabber={true}
+            onDidDismiss={onClose}
         >
-            <BottomSheetView style={styles.contentContainer}>
+            <View style={styles.contentContainer}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity
+                    <IOSGlassIconButton
                         onPress={handleClose}
-                        style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
-                    >
-                        <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                    </TouchableOpacity>
+                        systemImage="xmark"
+                        circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                        icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                    />
                 </View>
 
                 {/* Title and Description */}
@@ -177,13 +164,14 @@ export const TargetGoalModal = forwardRef<BottomSheetModal, TargetGoalModalProps
                         <Text style={styles.saveButtonText}>Change Earnings Goal</Text>
                     </TouchableOpacity>
                 </View>
-            </BottomSheetView>
-        </BottomSheetModal>
+            </View>
+        </TrueSheet>
     );
 });
 
 const styles = StyleSheet.create({
     contentContainer: {
+        paddingTop: Platform.OS === 'ios' ? 12 : 0,
         paddingBottom: 40,
     },
     modalOverlay: {
@@ -199,19 +187,20 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
-        padding: 20,
-        paddingBottom: 0,
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        paddingBottom: 6,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
     },
     content: {
         padding: 24,
-        paddingTop: 8,
+        paddingTop: 12,
     },
     title: {
         fontSize: 28,

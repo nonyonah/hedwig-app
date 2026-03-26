@@ -28,6 +28,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { Typography } from '../../styles/typography';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 
@@ -159,11 +160,13 @@ export default function CreateRecurringInvoiceScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                    <View style={[styles.backCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                    </View>
-                </TouchableOpacity>
+                <IOSGlassIconButton
+                    onPress={() => router.back()}
+                    systemImage="chevron.left"
+                    containerStyle={styles.backBtn}
+                    circleStyle={[styles.backCircle, { backgroundColor: themeColors.surface }]}
+                    icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                />
                 <Text style={[styles.headerTitle, { color: textPrimary }]}>Recurring Invoice</Text>
                 <View style={{ width: 40 }} />
             </View>

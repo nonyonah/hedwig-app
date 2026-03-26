@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import Analytics from '../../services/analytics';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 interface Client {
     id: string;
@@ -37,8 +38,8 @@ export default function ClientsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [sortBy, setSortBy] = useState<'recent' | 'earnings' | 'outstanding'>('recent');
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-    const detailSheetRef = useRef<BottomSheetModal>(null);
-    const formSheetRef = useRef<BottomSheetModal>(null);
+    const detailSheetRef = useRef<TrueSheet>(null);
+    const formSheetRef = useRef<TrueSheet>(null);
     const [isEditing, setIsEditing] = useState(false);
 
     // Track page view
@@ -369,16 +370,21 @@ export default function ClientsScreen() {
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                            </View>
-                        </TouchableOpacity>
+                        <IOSGlassIconButton
+                            onPress={() => router.back()}
+                            systemImage="chevron.left"
+                            containerStyle={styles.backButton}
+                            circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                            icon={<CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />}
+                        />
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Clients</Text>
                         <View style={styles.headerRight}>
-                            <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openFormModal(); }}>
-                                <Plus size={24} color={themeColors.textPrimary} />
-                            </TouchableOpacity>
+                            <IOSGlassIconButton
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openFormModal(); }}
+                                systemImage="plus"
+                                circleStyle={{ backgroundColor: themeColors.surface }}
+                                icon={<Plus size={24} color={themeColors.textPrimary} />}
+                            />
                         </View>
                     </View>
                     <View style={styles.controlsRow}>
@@ -445,18 +451,15 @@ export default function ClientsScreen() {
                 )}
 
                 {/* Detail Modal */}
-                <BottomSheetModal
+                <TrueSheet
                     ref={detailSheetRef}
-                    index={0}
-                    enableDynamicSizing={true}
-                    enablePanDownToClose={true}
-                    backdropComponent={(props) => (
-                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                    )}
-                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
+                    onDidDismiss={closeDetailModal}
                 >
-                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                    <View style={{ paddingTop: Platform.OS === 'ios' ? 12 : 0, paddingBottom: 40, paddingHorizontal: 24 }}>
                         {/* Centered Title */}
                         <Text style={[styles.detailModalTitle, { color: themeColors.textPrimary }]}>{selectedClient?.name || 'Client Details'}</Text>
 
@@ -541,32 +544,27 @@ export default function ClientsScreen() {
                                 <Text style={styles.dangerButtonText}>Delete</Text>
                             </TouchableOpacity>
                         </View>
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
 
                 {/* Form Modal */}
-                <BottomSheetModal
+                <TrueSheet
                     ref={formSheetRef}
-                    index={0}
-                    enableDynamicSizing={true}
-                    enablePanDownToClose={true}
-                    backdropComponent={(props) => (
-                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                    )}
-                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-                    keyboardBehavior="interactive"
-                    keyboardBlurBehavior="restore"
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
+                    onDidDismiss={closeFormModal}
                 >
-                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                    <View style={{ paddingTop: Platform.OS === 'ios' ? 12 : 0, paddingBottom: 40, paddingHorizontal: 24 }}>
                         <View style={styles.modalHeader}>
                             <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>{isEditing ? 'Edit Client' : 'New Client'}</Text>
-                            <TouchableOpacity
-                                style={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                            <IOSGlassIconButton
                                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); closeFormModal(); }}
-                            >
-                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                            </TouchableOpacity>
+                                systemImage="xmark"
+                                circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                            />
                         </View>
 
                         <ScrollView
@@ -634,8 +632,8 @@ export default function ClientsScreen() {
                                 <Text style={styles.saveButtonText}>{isEditing ? 'Save Changes' : 'Create Client'}</Text>
                             )}
                         </TouchableOpacity>
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
 
                 {/* Profile Modal */}
                 {/* <ProfileModal /> Removed */}

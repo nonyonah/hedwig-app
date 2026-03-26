@@ -8,6 +8,7 @@ import { ChevronLeft as CaretLeft, Plus, X, DollarSign as CurrencyDollar, Calend
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAuth } from '../../hooks/useAuth';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 export default function CreateProjectScreen() {
     const router = useRouter();
@@ -156,11 +157,13 @@ export default function CreateProjectScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                    </View>
-                </TouchableOpacity>
+                <IOSGlassIconButton
+                    onPress={() => router.back()}
+                    systemImage="chevron.left"
+                    containerStyle={styles.backButton}
+                    circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                    icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                />
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>New Project</Text>
                 <View style={{ width: 40 }} />
             </View>

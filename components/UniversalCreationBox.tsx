@@ -23,6 +23,7 @@ import {
     Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import IOSGlassIconButton from './ui/IOSGlassIconButton';
 import { useThemeColors } from '../theme/colors';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
@@ -357,16 +358,13 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                 >
                     {/* ── Top bar ── */}
                     <View style={s.topBar}>
-                        <TouchableOpacity
-                            style={s.backButton}
+                        <IOSGlassIconButton
                             onPress={handleClose}
-                            activeOpacity={0.7}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                            <View style={[s.backButtonCircle, { backgroundColor: iconBtnBg }]}>
-                                <CaretLeft size={20} color={textPri} strokeWidth={3} />
-                            </View>
-                        </TouchableOpacity>
+                            systemImage="chevron.left"
+                            containerStyle={s.backButton}
+                            circleStyle={s.backButtonCircle}
+                            icon={<CaretLeft size={20} color={textPri} strokeWidth={3} />}
+                        />
                     </View>
 
                     {/* ── Scrollable content ── */}

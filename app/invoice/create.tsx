@@ -7,6 +7,7 @@ import { usePrivy } from '@privy-io/expo';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 export default function CreateInvoiceScreen() {
     const router = useRouter();
@@ -75,11 +76,13 @@ export default function CreateInvoiceScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                    </View>
-                </TouchableOpacity>
+                <IOSGlassIconButton
+                    onPress={() => router.back()}
+                    systemImage="chevron.left"
+                    containerStyle={styles.backButton}
+                    circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                    icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                />
                 <Text style={styles.headerTitle}>Create Invoice</Text>
                 <View style={{ width: 40 }} />
             </View>

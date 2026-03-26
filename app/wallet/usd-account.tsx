@@ -9,7 +9,8 @@ import { CheckCircle, ChevronLeft as CaretLeft, ChevronRight, Copy, Landmark, X 
 import { useThemeColors, Colors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 import { createUsdKycLink, enrollUsdAccount, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from './usdAccountApi';
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 const ICONS = {
     usdc: require('../../assets/icons/tokens/usdc.png'),
@@ -96,20 +97,8 @@ export default function UsdAccountScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [isContinuing, setIsContinuing] = useState(false);
     const [selectedTransfer, setSelectedTransfer] = useState<UsdTransfer | null>(null);
-    const guidelinesSheetRef = useRef<BottomSheetModal>(null);
-    const transferSheetRef = useRef<BottomSheetModal>(null);
-    const guidelinesSnapPoints = useMemo(() => ['86%'], []);
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.5}
-            />
-        ),
-        []
-    );
+    const guidelinesSheetRef = useRef<TrueSheet>(null);
+    const transferSheetRef = useRef<TrueSheet>(null);
 
     const loadData = useCallback(async () => {
         try {
@@ -328,11 +317,13 @@ export default function UsdAccountScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                    </View>
-                </TouchableOpacity>
+                <IOSGlassIconButton
+                    onPress={() => router.back()}
+                    systemImage="chevron.left"
+                    containerStyle={styles.backButton}
+                    circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                    icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                />
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>
                     {isTransactionsView ? 'Recent transactions' : 'USD Account'}
                 </Text>
@@ -484,14 +475,15 @@ export default function UsdAccountScreen() {
                 </View>
             ) : null}
 
-            <BottomSheetModal
+            <TrueSheet
                 ref={guidelinesSheetRef}
-                snapPoints={guidelinesSnapPoints}
-                backdropComponent={renderBackdrop}
-                backgroundStyle={{ backgroundColor: themeColors.background }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+                detents={[0.86]}
+                cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                backgroundBlur="regular"
+                grabber={true}
+                scrollable={true}
             >
-                <BottomSheetView style={[styles.guidelinesSheetContainer, { backgroundColor: themeColors.background }]}>
+                <View style={[styles.guidelinesSheetContainer, { backgroundColor: 'transparent' }]}>
                     <Text style={[styles.sheetTitle, { color: themeColors.textPrimary }]}>Guidelines</Text>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.guidelinesContent}>
@@ -551,21 +543,18 @@ export default function UsdAccountScreen() {
                             </TouchableOpacity>
                         </View>
                     </ScrollView>
-                </BottomSheetView>
-            </BottomSheetModal>
+                </View>
+            </TrueSheet>
 
-            <BottomSheetModal
+            <TrueSheet
                 ref={transferSheetRef}
-                index={0}
-                enableDynamicSizing={true}
-                enablePanDownToClose={true}
-                backdropComponent={(props) => (
-                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                )}
-                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                detents={['auto']}
+                cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                backgroundBlur="regular"
+                grabber={true}
+                onDismiss={() => setSelectedTransfer(null)}
             >
-                <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                <View style={{ paddingTop: 28, paddingBottom: 26, paddingHorizontal: 24 }}>
                     <View style={styles.modalHeader}>
                         <View style={styles.modalHeaderLeft}>
                             <View style={styles.modalIconContainer}>
@@ -579,9 +568,12 @@ export default function UsdAccountScreen() {
                                 </Text>
                             </View>
                         </View>
-                        <TouchableOpacity onPress={closeTransferDetails} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                            <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                        </TouchableOpacity>
+                        <IOSGlassIconButton
+                            onPress={closeTransferDetails}
+                            systemImage="xmark"
+                            circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                            icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                        />
                     </View>
 
                     {selectedTransfer ? (
@@ -647,8 +639,8 @@ export default function UsdAccountScreen() {
                             </TouchableOpacity>
                         </>
                     ) : null}
-                </BottomSheetView>
-            </BottomSheetModal>
+                </View>
+            </TrueSheet>
         </SafeAreaView>
     );
 }
@@ -820,9 +812,8 @@ const styles = StyleSheet.create({
         fontSize: 15,
     },
     guidelinesSheetContainer: {
-        flex: 1,
         paddingHorizontal: 20,
-        paddingTop: 8,
+        paddingTop: 28,
         paddingBottom: 20,
     },
     sheetTitle: {

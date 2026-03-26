@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import {
     View,
     Text,
@@ -30,6 +30,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useSettings } from '../../context/SettingsContext';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 const { width } = Dimensions.get('window');
 
@@ -122,7 +123,7 @@ export default function OfframpHistoryScreen() {
 
     // Detail Modal
     const [selectedOrder, setSelectedOrder] = useState<OfframpOrder | null>(null);
-    const bottomSheetRef = useRef<BottomSheetModal>(null);
+    const bottomSheetRef = useRef<TrueSheet>(null);
     // Removed unused animation refs
 
     // Filter state
@@ -335,11 +336,13 @@ export default function OfframpHistoryScreen() {
             <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                            </View>
-                        </TouchableOpacity>
+                        <IOSGlassIconButton
+                            onPress={() => router.back()}
+                            systemImage="chevron.left"
+                            containerStyle={styles.backButton}
+                            circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                            icon={<CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />}
+                        />
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Withdrawals</Text>
                         <View style={styles.headerRightPlaceholder} />
                     </View>
@@ -406,23 +409,14 @@ export default function OfframpHistoryScreen() {
 
 
                 {/* Order Detail Modal */}
-                <BottomSheetModal
+                <TrueSheet
                     ref={bottomSheetRef}
-                    index={0}
-                    enableDynamicSizing={true}
-                    enablePanDownToClose={true}
-                    backdropComponent={(props) => (
-                        <BottomSheetBackdrop
-                            {...props}
-                            disappearsOnIndex={-1}
-                            appearsOnIndex={0}
-                            opacity={0.5}
-                        />
-                    )}
-                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
                 >
-                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 20 }}>
+                    <View style={{ paddingTop: 28, paddingBottom: 26, paddingHorizontal: 20 }}>
                         {/* Header */}
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderLeft}>
@@ -438,9 +432,12 @@ export default function OfframpHistoryScreen() {
                                     </Text>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                            </TouchableOpacity>
+                            <IOSGlassIconButton
+                                onPress={closeModal}
+                                systemImage="xmark"
+                                circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                            />
                         </View>
 
                         <ScrollView
@@ -545,8 +542,8 @@ export default function OfframpHistoryScreen() {
                                 </>
                             )}
                         </ScrollView>
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
 
             </SafeAreaView>
         </View>

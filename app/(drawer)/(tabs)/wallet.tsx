@@ -11,7 +11,7 @@ if (Platform.OS === 'ios') {
         Host = SwiftUI.Host;
     } catch (e) { }
 }
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -31,6 +31,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import { getUserGradient } from '../../../utils/gradientUtils';
 import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
+import IOSGlassIconButton from '../../../components/ui/IOSGlassIconButton';
 import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, updateUsdSettlement, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 
 const CHAINS = [
@@ -88,31 +89,13 @@ export default function WalletScreen() {
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
 
     const [refreshing, setRefreshing] = useState(false);
-    const receiveSheetRef = useRef<BottomSheetModal>(null);
-    const sendSheetRef = useRef<BottomSheetModal>(null);
-    const autoSettlementSheetRef = useRef<BottomSheetModal>(null);
-    const bridgeKycInfoSheetRef = useRef<BottomSheetModal>(null);
+    const receiveSheetRef = useRef<TrueSheet>(null);
+    const sendSheetRef = useRef<TrueSheet>(null);
+    const autoSettlementSheetRef = useRef<TrueSheet>(null);
+    const bridgeKycInfoSheetRef = useRef<TrueSheet>(null);
     const sheetInteractionLockedRef = useRef(false);
     const sheetUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const receiveSnapPoints = useMemo(() => ['90%'], []);
-    const sendSnapPoints = useMemo(() => ['34%'], []);
-    const autoSettlementSnapPoints = useMemo(() => ['30%'], []);
-    const bridgeKycInfoSnapPoints = useMemo(() => ['78%'], []);
     const [isUpdatingAutoSettlement, setIsUpdatingAutoSettlement] = useState(false);
-
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.5}
-                pressBehavior="close"
-                enableTouchThrough={false}
-            />
-        ),
-        []
-    );
     const [selectedChain, setSelectedChain] = useState<'base' | 'solana'>('base');
 
     // Network Filter & Dropdown
@@ -131,14 +114,14 @@ export default function WalletScreen() {
         }, durationMs);
     }, []);
 
-    const dismissAllSheets = useCallback((except?: React.RefObject<BottomSheetModal | null>) => {
+    const dismissAllSheets = useCallback((except?: React.RefObject<TrueSheet | null>) => {
         const refs = [receiveSheetRef, sendSheetRef, autoSettlementSheetRef, bridgeKycInfoSheetRef];
         refs.forEach((ref) => {
             if (ref !== except) ref.current?.dismiss();
         });
     }, []);
 
-    const presentSheet = useCallback((target: React.RefObject<BottomSheetModal | null>) => {
+    const presentSheet = useCallback((target: React.RefObject<TrueSheet | null>) => {
         if (sheetInteractionLockedRef.current) return;
         dismissAllSheets(target);
         requestAnimationFrame(() => {
@@ -657,22 +640,23 @@ export default function WalletScreen() {
                 </ScrollView>
 
                 {/* Receive Modal - Bottom Sheet */}
-                <BottomSheetModal
+                <TrueSheet
                     ref={receiveSheetRef}
-                    index={0}
-                    snapPoints={receiveSnapPoints}
-                    enablePanDownToClose={true}
-                    backdropComponent={renderBackdrop}
-                    backgroundStyle={{ backgroundColor: themeColors.background }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
                     onDismiss={handleSheetDismiss}
                 >
-                    <BottomSheetView style={[styles.bottomSheetContent, { backgroundColor: themeColors.background }]}>
+                    <View style={[styles.bottomSheetContent]}>
                         <View style={styles.receiveHeader}>
                             <Text style={[styles.receiveHeaderTitle, { color: themeColors.textPrimary }]}>Receive</Text>
-                            <TouchableOpacity onPress={() => receiveSheetRef.current?.dismiss()} style={styles.closeButton}>
-                                <X size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                            </TouchableOpacity>
+                            <IOSGlassIconButton
+                                onPress={() => receiveSheetRef.current?.dismiss()}
+                                systemImage="xmark"
+                                containerStyle={styles.closeButton}
+                                icon={<X size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                            />
                         </View>
 
                         <View style={styles.receiveBody}>
@@ -714,7 +698,7 @@ export default function WalletScreen() {
                                 />
                             )}
 
-                            <View style={styles.qrCardCompact}>
+                            <View style={[styles.qrCardCompact, { backgroundColor: themeColors.surface }]}>
                                 <QRCode
                                     value={selectedAddress || 'no-address'}
                                     size={210}
@@ -753,20 +737,18 @@ export default function WalletScreen() {
                                 <Text style={styles.shareButtonText}>Share</Text>
                             </TouchableOpacity>
                         </View>
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
 
-                <BottomSheetModal
+                <TrueSheet
                     ref={sendSheetRef}
-                    index={0}
-                    snapPoints={sendSnapPoints}
-                    enablePanDownToClose={true}
-                    backdropComponent={renderBackdrop}
-                    backgroundStyle={{ backgroundColor: themeColors.background }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
                     onDismiss={handleSheetDismiss}
                 >
-                    <BottomSheetView style={[styles.sendSheetContent, { backgroundColor: themeColors.background }]}>
+                    <View style={[styles.sendSheetContent]}>
                         <Text style={[styles.sendSheetTitle, { color: themeColors.textPrimary }]}>Send</Text>
                         <Text style={[styles.sendSheetSubtitle, { color: themeColors.textSecondary }]}>Choose how you want to move funds</Text>
 
@@ -791,20 +773,18 @@ export default function WalletScreen() {
                             </View>
                             <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
                         </TouchableOpacity>
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
 
-                <BottomSheetModal
+                <TrueSheet
                     ref={autoSettlementSheetRef}
-                    index={0}
-                    snapPoints={autoSettlementSnapPoints}
-                    enablePanDownToClose={true}
-                    backdropComponent={renderBackdrop}
-                    backgroundStyle={{ backgroundColor: themeColors.background }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
                     onDismiss={handleSheetDismiss}
                 >
-                    <BottomSheetView style={[styles.sendSheetContent, { backgroundColor: themeColors.background }]}>
+                    <View style={[styles.sendSheetContent]}>
                         <Text style={[styles.sendSheetTitle, { color: themeColors.textPrimary }]}>Auto-settlement</Text>
                         <Text style={[styles.sendSheetSubtitle, { color: themeColors.textSecondary }]}>
                             Choose where incoming USD settles as USDC
@@ -841,21 +821,19 @@ export default function WalletScreen() {
                                 <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
                             )}
                         </TouchableOpacity>
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
 
-                <BottomSheetModal
+                <TrueSheet
                     ref={bridgeKycInfoSheetRef}
-                    index={0}
-                    snapPoints={bridgeKycInfoSnapPoints}
-                    enablePanDownToClose={true}
-                    backdropComponent={renderBackdrop}
-                    backgroundStyle={{ backgroundColor: themeColors.surface, borderRadius: 24 }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
                     onDismiss={handleSheetDismiss}
                 >
-                    <BottomSheetView style={{ paddingBottom: 40 }}>
-                        <View style={[styles.bridgeKycSheetContent, { backgroundColor: themeColors.surface }]}>
+                    <View style={{ paddingTop: 28, paddingBottom: 26, paddingHorizontal: 20 }}>
+                        <View style={styles.bridgeKycSheetContent}>
                             <View style={[styles.bridgeKycIconWrap, { backgroundColor: themeColors.surfaceHighlight || 'rgba(37, 99, 235, 0.14)' }]}>
                                 <ShieldCheck size={32} color={themeColors.textPrimary} />
                             </View>
@@ -896,8 +874,8 @@ export default function WalletScreen() {
                                 <Text style={[styles.bridgeKycSecondaryButtonText, { color: themeColors.textPrimary }]}>Not now</Text>
                             </TouchableOpacity>
                         </View>
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
             </SafeAreaView>
 
         </>
@@ -947,11 +925,11 @@ const styles = StyleSheet.create({
     emptyState: { padding: 20, alignItems: 'center' },
     emptyStateText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14 },
     fullscreenModal: { flex: 1 },
-    bottomSheetContent: { flex: 1, paddingBottom: 20 },
-    receiveHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 },
+    bottomSheetContent: { paddingBottom: 24 },
+    receiveHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
     receiveHeaderTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 22 },
     closeButton: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 18, backgroundColor: 'rgba(128,128,128,0.2)' },
-    receiveBody: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 20 },
+    receiveBody: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
     receiveSubtext: {
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
@@ -966,7 +944,6 @@ const styles = StyleSheet.create({
     receiveChainDropdownIcon: { width: 18, height: 18, borderRadius: 9 },
     receiveChainDropdownText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 14 },
     qrCardCompact: {
-        backgroundColor: '#FFFFFF',
         borderRadius: 20,
         padding: 12,
         alignItems: 'center',
@@ -1010,15 +987,42 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
     },
-    sendSheetContent: { paddingHorizontal: 20, paddingBottom: 24 },
-    sendSheetTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24, marginBottom: 4 },
-    sendSheetSubtitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14, marginBottom: 16 },
-    sendOptionCard: { borderRadius: 16, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    sendSheetContent: {
+        paddingHorizontal: 20,
+        ...Platform.select({
+            ios: { paddingTop: 22, paddingBottom: 20 },
+            android: { paddingTop: 28, paddingBottom: 24 },
+        }),
+    },
+    sendSheetTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        ...Platform.select({
+            ios: { fontSize: 22, marginBottom: 3 },
+            android: { fontSize: 24, marginBottom: 4 },
+        }),
+    },
+    sendSheetSubtitle: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        ...Platform.select({
+            ios: { fontSize: 13, marginBottom: 12 },
+            android: { fontSize: 14, marginBottom: 16 },
+        }),
+    },
+    sendOptionCard: {
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        ...Platform.select({
+            ios: { padding: 14, marginBottom: 10 },
+            android: { padding: 16, marginBottom: 12 },
+        }),
+    },
     sendOptionTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16, marginBottom: 4 },
     sendOptionSubtitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13 },
     chainOptionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     chainOptionIcon: { width: 20, height: 20, borderRadius: 10 },
-    bridgeKycSheetContent: { borderRadius: 24, paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center' },
+    bridgeKycSheetContent: { alignItems: 'center' },
     bridgeKycIconWrap: { marginBottom: 16, width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
     bridgeKycTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24, marginBottom: 12, textAlign: 'center' },
     bridgeKycBody: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 16, lineHeight: 24, textAlign: 'center', marginBottom: 20 },

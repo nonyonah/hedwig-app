@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Linking, RefreshControl } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Linking, RefreshControl, useWindowDimensions } from 'react-native';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
@@ -20,6 +20,7 @@ import { getUserGradient } from '../../utils/gradientUtils';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 // Profile color gradient options (consistent with ProfileModal)
 const PROFILE_COLOR_OPTIONS = [
@@ -46,7 +47,10 @@ export default function ContractsScreen() {
     const [contracts, setContracts] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedContract, setSelectedContract] = useState<any>(null);
-    const bottomSheetRef = useRef<BottomSheetModal>(null);
+    const bottomSheetRef = useRef<TrueSheet>(null);
+    const { height: screenHeight } = useWindowDimensions();
+    const sheetMaxHeight = Math.round(screenHeight * (Platform.OS === 'ios' ? 0.6 : 0.7));
+    const detailSheetTopPadding = 28;
     const handledSelectedContractRef = useRef<string | null>(null);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
@@ -248,7 +252,7 @@ export default function ContractsScreen() {
 
                             if (data.success) {
                                 await fetchContracts();
-                                bottomSheetRef.current?.dismiss();
+                                void bottomSheetRef.current?.dismiss().catch(() => {});
                                 Alert.alert('Success', `Contract sent to ${data.data.clientEmail}!`);
                             } else {
                                 Alert.alert('Error', data.error?.message || 'Failed to send contract');
@@ -271,7 +275,12 @@ export default function ContractsScreen() {
 
     const closeModal = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        bottomSheetRef.current?.dismiss();
+        void bottomSheetRef.current?.dismiss().catch(() => {});
+    };
+
+    const handleModalDismiss = () => {
+        setSelectedContract(null);
+        setShowActionMenu(false);
     };
 
     const getStatusStyle = (status: string) => {
@@ -450,18 +459,16 @@ export default function ContractsScreen() {
 
 
             {/* Details Modal */}
-            <BottomSheetModal
+            <TrueSheet
                 ref={bottomSheetRef}
-                index={0}
-                enableDynamicSizing={true}
-                enablePanDownToClose={true}
-                backdropComponent={(props) => (
-                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                )}
-                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                detents={['auto']}
+                cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                backgroundBlur="regular"
+                maxContentHeight={sheetMaxHeight}
+                grabber={true}
+                onDidDismiss={handleModalDismiss}
             >
-                <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                <View style={{ paddingTop: detailSheetTopPadding, paddingBottom: 26, paddingHorizontal: 24 }}>
                     <View style={styles.modalHeader}>
                         <View style={styles.modalHeaderLeft}>
                             <View style={[styles.modalIconContainer, { backgroundColor: themeColors.surface }]}>
@@ -489,9 +496,12 @@ export default function ContractsScreen() {
                                     <DotsThree size={24} color={themeColors.textSecondary} strokeWidth={3} />
                                 </TouchableOpacity>
                             )}
-                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                            </TouchableOpacity>
+                            <IOSGlassIconButton
+                                onPress={closeModal}
+                                systemImage="xmark"
+                                circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                            />
                         </View>
                     </View>
 
@@ -593,8 +603,8 @@ export default function ContractsScreen() {
                         <Eye size={20} color="#FFFFFF" fill="#FFFFFF" style={{ marginRight: 8 }} />
                         <Text style={styles.viewButtonText}>View Contract</Text>
                     </TouchableOpacity>
-                </BottomSheetView>
-            </BottomSheetModal>
+                </View>
+            </TrueSheet>
         </View>
     );
 }

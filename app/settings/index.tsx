@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, TouchableWithoutFeedback, Platform, Animated, ActivityIndicator } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as WebBrowser from 'expo-web-browser';
-import * as Clipboard from 'expo-clipboard';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { ChevronRight as CaretRight, List, ChevronDown as CaretDown, Check, ShieldAlert as ShieldWarning, Lock, Copy, CircleAlert as WarningCircle, SquareCheck as CheckSquare, Square, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
+import { ChevronRight as CaretRight, List, ChevronDown as CaretDown, Check, ShieldAlert as ShieldWarning, Lock, Copy, CircleAlert as WarningCircle, SquareCheck as CheckSquare, Square, ChevronLeft as CaretLeft, Calendar as CalendarIcon } from '../../components/ui/AppIcon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
@@ -25,6 +25,7 @@ import { useTutorial } from '../../hooks/useTutorial';
 import { getPublicWebBaseUrl } from '../../utils/publicWebUrl';
 import { Linking } from 'react-native';
 import { SvgXml } from 'react-native-svg';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 const GOOGLE_CALENDAR_SVG = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
   <g transform="translate(3.75 3.75)">
@@ -52,6 +53,21 @@ const THEMES: { code: Theme; label: string }[] = [
     { code: 'system', label: 'System' },
 ];
 
+type TrueSheetLikeRef = {
+    present: (index?: number, animated?: boolean) => Promise<void>;
+    dismiss: (animated?: boolean) => Promise<void>;
+};
+
+const TrueSheetComponent: React.ComponentType<any> | null = (() => {
+    try {
+        // Runtime-safe resolution to avoid crashes in clients that don't yet have the native module.
+        const mod = require('@lodev09/react-native-true-sheet');
+        return mod?.TrueSheet ?? mod?.default?.TrueSheet ?? mod?.default ?? null;
+    } catch {
+        return null;
+    }
+})();
+
 export default function SettingsScreen() {
     // Track screen view
     useAnalyticsScreen('Settings');
@@ -70,9 +86,12 @@ export default function SettingsScreen() {
     const [profileIcon, setProfileIcon] = useState<{ emoji?: string; colorIndex?: number; imageUri?: string }>({});
 
     // Modals refs
-    const themeSheetRef = useRef<BottomSheetModal>(null);
-    const recoverySheetRef = useRef<BottomSheetModal>(null);
-    const calendarSheetRef = useRef<BottomSheetModal>(null);
+    const themeSheetRef = useRef<TrueSheetLikeRef | null>(null);
+    const themeFallbackSheetRef = useRef<BottomSheetModal>(null);
+    const recoverySheetRef = useRef<TrueSheetLikeRef | null>(null);
+    const recoveryFallbackSheetRef = useRef<BottomSheetModal>(null);
+    const calendarSheetRef = useRef<TrueSheetLikeRef | null>(null);
+    const calendarFallbackSheetRef = useRef<BottomSheetModal>(null);
     const [recoveryAcknowledged, setRecoveryAcknowledged] = useState(false);
     const [calendarSubscribeUrl, setCalendarSubscribeUrl] = useState<string | null>(null);
     const [isFetchingCalendarLink, setIsFetchingCalendarLink] = useState(false);
@@ -81,7 +100,7 @@ export default function SettingsScreen() {
     const [biometricsEnabled, setBiometricsEnabled] = useState(false);
     const [isBiometricExporting, setIsBiometricExporting] = useState(false);
 
-    const kycSheetRef = useRef<BottomSheetModal>(null);
+    const kycSheetRef = useRef<TrueSheet>(null);
     const [isCheckingConnection, setIsCheckingConnection] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
 
@@ -328,10 +347,47 @@ export default function SettingsScreen() {
     };
 
     const openCalendarSheet = async () => {
-        calendarSheetRef.current?.present();
+        if (TrueSheetComponent && calendarSheetRef.current?.present) {
+            await calendarSheetRef.current.present().catch(() => {});
+        } else {
+            calendarFallbackSheetRef.current?.present();
+        }
         if (!calendarSubscribeUrl && !isFetchingCalendarLink) {
             await fetchCalendarSubscribeLink();
         }
+    };
+
+    const openThemeSheet = async () => {
+        if (TrueSheetComponent && themeSheetRef.current?.present) {
+            await themeSheetRef.current.present().catch(() => {});
+        } else {
+            themeFallbackSheetRef.current?.present();
+        }
+    };
+
+    const closeThemeSheet = async () => {
+        if (TrueSheetComponent && themeSheetRef.current?.dismiss) {
+            await themeSheetRef.current.dismiss().catch(() => {});
+        } else {
+            themeFallbackSheetRef.current?.dismiss();
+        }
+    };
+
+    const openRecoverySheet = async () => {
+        if (TrueSheetComponent && recoverySheetRef.current?.present) {
+            await recoverySheetRef.current.present().catch(() => {});
+        } else {
+            recoveryFallbackSheetRef.current?.present();
+        }
+    };
+
+    const closeRecoverySheet = async () => {
+        if (TrueSheetComponent && recoverySheetRef.current?.dismiss) {
+            await recoverySheetRef.current.dismiss().catch(() => {});
+        } else {
+            recoveryFallbackSheetRef.current?.dismiss();
+        }
+        setRecoveryAcknowledged(false);
     };
 
 
@@ -341,11 +397,13 @@ export default function SettingsScreen() {
             {/* Header */}
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerTop}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-                        <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                            <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                        </View>
-                    </TouchableOpacity>
+                    <IOSGlassIconButton
+                        onPress={() => router.back()}
+                        systemImage="chevron.left"
+                        containerStyle={styles.headerButton}
+                        circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                        icon={<CaretLeft size={26} color={themeColors.textPrimary} strokeWidth={3.5} />}
+                    />
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Settings</Text>
                     <View style={styles.headerSpacer} />
                 </View>
@@ -388,7 +446,7 @@ export default function SettingsScreen() {
                 {/* General Settings */}
                 <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>General Settings</Text>
                 <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
-                    <TouchableOpacity style={styles.settingRow} onPress={() => themeSheetRef.current?.present()}>
+                    <TouchableOpacity style={styles.settingRow} onPress={openThemeSheet}>
                         <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Theme</Text>
                         <View style={styles.settingValueContainer}>
                             <Text style={[styles.settingValue, { color: themeColors.textSecondary }]}>
@@ -470,7 +528,7 @@ export default function SettingsScreen() {
                 {/* Security */}
                 <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Security</Text>
                 <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
-                    <TouchableOpacity style={styles.settingRow} onPress={() => recoverySheetRef.current?.present()}>
+                    <TouchableOpacity style={styles.settingRow} onPress={openRecoverySheet}>
                         <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Recovery Phrase</Text>
                         <CaretRight size={20} color={themeColors.textSecondary} />
                     </TouchableOpacity>
@@ -544,230 +602,427 @@ export default function SettingsScreen() {
 
 
             {/* Theme Modal */}
-            <BottomSheetModal
-                ref={themeSheetRef}
-                index={0}
-                enableDynamicSizing={true}
-                enablePanDownToClose={true}
-                backdropComponent={(props) => (
-                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                )}
-                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-            >
-                <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
-                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Select Theme</Text>
-                    {THEMES.map((opt) => (
-                        <TouchableOpacity
-                            key={opt.code}
-                            style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
-                            onPress={() => {
-                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                setTheme(opt.code);
-                                themeSheetRef.current?.dismiss();
-                            }}
-                        >
-                            <Text style={[
-                                styles.modalItemText,
-                                { color: themeColors.textPrimary },
-                                theme === opt.code && styles.modalItemTextSelected
-                            ]}>
-                                {opt.label}
-                            </Text>
-                            {theme === opt.code && (
-                                <Check size={20} color={Colors.primary} strokeWidth={3} />
-                            )}
-                        </TouchableOpacity>
-                    ))}
-                </BottomSheetView>
-            </BottomSheetModal>
+            {TrueSheetComponent ? (
+                <TrueSheetComponent
+                    ref={themeSheetRef}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundColor={Platform.OS === 'ios' ? undefined : themeColors.background}
+                >
+                    <View style={{ padding: 24, paddingTop: Platform.OS === 'ios' ? 34 : 24, paddingBottom: 40 }}>
+                        <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Select Theme</Text>
+                        {THEMES.map((opt) => (
+                            <TouchableOpacity
+                                key={opt.code}
+                                style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
+                                onPress={async () => {
+                                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    setTheme(opt.code);
+                                    await closeThemeSheet();
+                                }}
+                            >
+                                <Text style={[
+                                    styles.modalItemText,
+                                    { color: themeColors.textPrimary },
+                                    theme === opt.code && styles.modalItemTextSelected
+                                ]}>
+                                    {opt.label}
+                                </Text>
+                                {theme === opt.code && (
+                                    <Check size={20} color={Colors.primary} strokeWidth={3} />
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </TrueSheetComponent>
+            ) : (
+                <BottomSheetModal
+                    ref={themeFallbackSheetRef}
+                    index={0}
+                    enableDynamicSizing={true}
+                    enablePanDownToClose={true}
+                    backdropComponent={(props) => (
+                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                    )}
+                    backgroundStyle={{
+                        backgroundColor: themeColors.background,
+                        borderTopLeftRadius: Platform.OS === 'ios' ? 50 : 24,
+                        borderTopRightRadius: Platform.OS === 'ios' ? 50 : 24,
+                    }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                >
+                    <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
+                        <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Select Theme</Text>
+                        {THEMES.map((opt) => (
+                            <TouchableOpacity
+                                key={opt.code}
+                                style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
+                                onPress={async () => {
+                                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    setTheme(opt.code);
+                                    await closeThemeSheet();
+                                }}
+                            >
+                                <Text style={[
+                                    styles.modalItemText,
+                                    { color: themeColors.textPrimary },
+                                    theme === opt.code && styles.modalItemTextSelected
+                                ]}>
+                                    {opt.label}
+                                </Text>
+                                {theme === opt.code && (
+                                    <Check size={20} color={Colors.primary} strokeWidth={3} />
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                    </BottomSheetView>
+                </BottomSheetModal>
+            )}
 
             {/* Recovery Warning Modal */}
-            <BottomSheetModal
-                ref={recoverySheetRef}
-                index={0}
-                enableDynamicSizing={true}
-                enablePanDownToClose={true}
-                backdropComponent={(props) => (
-                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                )}
-                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-                onDismiss={() => setRecoveryAcknowledged(false)}
-            >
-                <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
-                    {/* Shield Icon */}
-                    <View style={styles.shieldIconContainer}>
-                        <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
-                            <ShieldWarning size={32} color={themeColors.textPrimary} fill={themeColors.textPrimary} />
-                        </View>
-                    </View>
-
-                    {/* Title */}
-                    <Text style={[styles.recoveryTitle, { color: themeColors.textPrimary }]}>
-                        Keep Your Recovery Phrase Safe
-                    </Text>
-
-                    {/* Subtitle */}
-                    <Text style={[styles.recoverySubtitle, { color: themeColors.textSecondary }]}>
-                        Your wallet key controls access to your funds. Anyone with it can move assets without permission.
-                    </Text>
-
-                    {/* Warning Items */}
-                    <View style={styles.warningItemsContainer}>
-                        <View style={styles.warningItem}>
-                            <Lock size={24} color={themeColors.textSecondary} />
-                            <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
-                                Your recovery phrase is like a password, keep it secret.
-                            </Text>
+            {TrueSheetComponent ? (
+                <TrueSheetComponent
+                    ref={recoverySheetRef}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundColor={Platform.OS === 'ios' ? undefined : themeColors.background}
+                    onDidDismiss={() => setRecoveryAcknowledged(false)}
+                >
+                    <View style={{ padding: 24, paddingTop: Platform.OS === 'ios' ? 34 : 24, paddingBottom: 40 }}>
+                        {/* Shield Icon */}
+                        <View style={styles.shieldIconContainer}>
+                            <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
+                                <ShieldWarning size={32} color={themeColors.textPrimary} fill={themeColors.textPrimary} />
+                            </View>
                         </View>
 
-                        <View style={styles.warningItem}>
-                            <Copy size={24} color={themeColors.textSecondary} />
-                            <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
-                                If you enter it in another app, it can steal your funds and Hedwig account.
-                            </Text>
-                        </View>
-
-                        <View style={styles.warningItem}>
-                            <WarningCircle size={24} color={themeColors.textSecondary} />
-                            <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
-                                We do not recommend ever sharing it with any app or person.
-                            </Text>
-                        </View>
-                    </View>
-
-                    {/* Checkbox */}
-                    <TouchableOpacity
-                        style={styles.checkboxContainer}
-                        onPress={() => {
-                            if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setRecoveryAcknowledged(!recoveryAcknowledged);
-                        }}
-                    >
-                        {recoveryAcknowledged ? (
-                            <CheckSquare size={24} color={Colors.primary} fill={Colors.primary} />
-                        ) : (
-                            <Square size={24} color={themeColors.textSecondary} />
-                        )}
-                        <Text style={[styles.checkboxText, { color: themeColors.textSecondary }]}>
-                            I understand that sharing this key could lead to loss of funds.
+                        {/* Title */}
+                        <Text style={[styles.recoveryTitle, { color: themeColors.textPrimary }]}>
+                            Keep Your Recovery Phrase Safe
                         </Text>
-                    </TouchableOpacity>
 
-                    {/* Continue Button - with biometric auth */}
-                    <Button
-                        title={isBiometricExporting ? 'Authenticating...' : 'Continue'}
-                        loading={isBiometricExporting}
-                        disabled={!recoveryAcknowledged || isBiometricExporting}
-                        variant={recoveryAcknowledged ? 'primary' : 'secondary'}
-                        size="large"
-                        onPress={async () => {
-                            if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            setIsBiometricExporting(true);
+                        {/* Subtitle */}
+                        <Text style={[styles.recoverySubtitle, { color: themeColors.textSecondary }]}>
+                            Your wallet key controls access to your funds. Anyone with it can move assets without permission.
+                        </Text>
 
-                            try {
-                                // Authenticate with biometrics
-                                const authResult = await LocalAuthentication.authenticateAsync({
-                                    promptMessage: 'Authenticate to view recovery phrase',
-                                    cancelLabel: 'Cancel',
-                                    disableDeviceFallback: false,
-                                });
+                        {/* Warning Items */}
+                        <View style={styles.warningItemsContainer}>
+                            <View style={styles.warningItem}>
+                                <Lock size={24} color={themeColors.textSecondary} />
+                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                    Your recovery phrase is like a password, keep it secret.
+                                </Text>
+                            </View>
 
-                                if (authResult.success) {
-                                    // Build URL first - fallback to API host in production if web client URL isn't set
-                                    const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                                    const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
-                                    const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
-                                    const exportUrl = `${webClientUrl}/export-wallet`;
+                            <View style={styles.warningItem}>
+                                <Copy size={24} color={themeColors.textSecondary} />
+                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                    If you enter it in another app, it can steal your funds and Hedwig account.
+                                </Text>
+                            </View>
 
-                                    // Close modal AFTER a small delay to let browser open
-                                    setIsBiometricExporting(false);
+                            <View style={styles.warningItem}>
+                                <WarningCircle size={24} color={themeColors.textSecondary} />
+                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                    We do not recommend ever sharing it with any app or person.
+                                </Text>
+                            </View>
+                        </View>
 
-                                    // Open in-app browser first
-                                    await WebBrowser.openBrowserAsync(exportUrl, {
-                                        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-                                        controlsColor: Colors.primary,
+                        {/* Checkbox */}
+                        <TouchableOpacity
+                            style={styles.checkboxContainer}
+                            onPress={() => {
+                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setRecoveryAcknowledged(!recoveryAcknowledged);
+                            }}
+                        >
+                            {recoveryAcknowledged ? (
+                                <CheckSquare size={24} color={Colors.primary} fill={Colors.primary} />
+                            ) : (
+                                <Square size={24} color={themeColors.textSecondary} />
+                            )}
+                            <Text style={[styles.checkboxText, { color: themeColors.textSecondary }]}>
+                                I understand that sharing this key could lead to loss of funds.
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Continue Button - with biometric auth */}
+                        <Button
+                            title={isBiometricExporting ? 'Authenticating...' : 'Continue'}
+                            loading={isBiometricExporting}
+                            disabled={!recoveryAcknowledged || isBiometricExporting}
+                            variant={recoveryAcknowledged ? 'primary' : 'secondary'}
+                            size="large"
+                            onPress={async () => {
+                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                setIsBiometricExporting(true);
+
+                                try {
+                                    // Authenticate with biometrics
+                                    const authResult = await LocalAuthentication.authenticateAsync({
+                                        promptMessage: 'Authenticate to view recovery phrase',
+                                        cancelLabel: 'Cancel',
+                                        disableDeviceFallback: false,
                                     });
 
-                                    // Close modal after browser is dismissed
-                                    recoverySheetRef.current?.dismiss();
-                                    setRecoveryAcknowledged(false);
-                                } else {
+                                    if (authResult.success) {
+                                        // Build URL first - fallback to API host in production if web client URL isn't set
+                                        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                        const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+                                        const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
+                                        const exportUrl = `${webClientUrl}/export-wallet`;
+
+                                        // Close modal AFTER a small delay to let browser open
+                                        setIsBiometricExporting(false);
+
+                                        // Open in-app browser first
+                                        await WebBrowser.openBrowserAsync(exportUrl, {
+                                            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+                                            controlsColor: Colors.primary,
+                                        });
+
+                                        // Close modal after browser is dismissed
+                                        await closeRecoverySheet();
+                                    } else {
+                                        setIsBiometricExporting(false);
+                                        Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
+                                    }
+                                } catch (error) {
+                                    console.error('Biometric auth error:', error);
                                     setIsBiometricExporting(false);
-                                    Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
+                                    Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
                                 }
-                            } catch (error) {
-                                console.error('Biometric auth error:', error);
-                                setIsBiometricExporting(false);
-                                Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
-                            }
-                        }}
-                    />
-                </BottomSheetView>
-            </BottomSheetModal>
+                            }}
+                        />
+                    </View>
+                </TrueSheetComponent>
+            ) : (
+                <BottomSheetModal
+                    ref={recoveryFallbackSheetRef}
+                    index={0}
+                    enableDynamicSizing={true}
+                    enablePanDownToClose={true}
+                    backdropComponent={(props) => (
+                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                    )}
+                    backgroundStyle={{
+                        backgroundColor: themeColors.background,
+                        borderTopLeftRadius: Platform.OS === 'ios' ? 50 : 24,
+                        borderTopRightRadius: Platform.OS === 'ios' ? 50 : 24,
+                    }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                    onDismiss={() => setRecoveryAcknowledged(false)}
+                >
+                    <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
+                        {/* Shield Icon */}
+                        <View style={styles.shieldIconContainer}>
+                            <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
+                                <ShieldWarning size={32} color={themeColors.textPrimary} fill={themeColors.textPrimary} />
+                            </View>
+                        </View>
+
+                        {/* Title */}
+                        <Text style={[styles.recoveryTitle, { color: themeColors.textPrimary }]}>
+                            Keep Your Recovery Phrase Safe
+                        </Text>
+
+                        {/* Subtitle */}
+                        <Text style={[styles.recoverySubtitle, { color: themeColors.textSecondary }]}>
+                            Your wallet key controls access to your funds. Anyone with it can move assets without permission.
+                        </Text>
+
+                        {/* Warning Items */}
+                        <View style={styles.warningItemsContainer}>
+                            <View style={styles.warningItem}>
+                                <Lock size={24} color={themeColors.textSecondary} />
+                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                    Your recovery phrase is like a password, keep it secret.
+                                </Text>
+                            </View>
+
+                            <View style={styles.warningItem}>
+                                <Copy size={24} color={themeColors.textSecondary} />
+                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                    If you enter it in another app, it can steal your funds and Hedwig account.
+                                </Text>
+                            </View>
+
+                            <View style={styles.warningItem}>
+                                <WarningCircle size={24} color={themeColors.textSecondary} />
+                                <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                    We do not recommend ever sharing it with any app or person.
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Checkbox */}
+                        <TouchableOpacity
+                            style={styles.checkboxContainer}
+                            onPress={() => {
+                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setRecoveryAcknowledged(!recoveryAcknowledged);
+                            }}
+                        >
+                            {recoveryAcknowledged ? (
+                                <CheckSquare size={24} color={Colors.primary} fill={Colors.primary} />
+                            ) : (
+                                <Square size={24} color={themeColors.textSecondary} />
+                            )}
+                            <Text style={[styles.checkboxText, { color: themeColors.textSecondary }]}>
+                                I understand that sharing this key could lead to loss of funds.
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Continue Button - with biometric auth */}
+                        <Button
+                            title={isBiometricExporting ? 'Authenticating...' : 'Continue'}
+                            loading={isBiometricExporting}
+                            disabled={!recoveryAcknowledged || isBiometricExporting}
+                            variant={recoveryAcknowledged ? 'primary' : 'secondary'}
+                            size="large"
+                            onPress={async () => {
+                                if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                setIsBiometricExporting(true);
+
+                                try {
+                                    // Authenticate with biometrics
+                                    const authResult = await LocalAuthentication.authenticateAsync({
+                                        promptMessage: 'Authenticate to view recovery phrase',
+                                        cancelLabel: 'Cancel',
+                                        disableDeviceFallback: false,
+                                    });
+
+                                    if (authResult.success) {
+                                        // Build URL first - fallback to API host in production if web client URL isn't set
+                                        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                        const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+                                        const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
+                                        const exportUrl = `${webClientUrl}/export-wallet`;
+
+                                        // Close modal AFTER a small delay to let browser open
+                                        setIsBiometricExporting(false);
+
+                                        // Open in-app browser first
+                                        await WebBrowser.openBrowserAsync(exportUrl, {
+                                            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+                                            controlsColor: Colors.primary,
+                                        });
+
+                                        // Close modal after browser is dismissed
+                                        await closeRecoverySheet();
+                                    } else {
+                                        setIsBiometricExporting(false);
+                                        Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
+                                    }
+                                } catch (error) {
+                                    console.error('Biometric auth error:', error);
+                                    setIsBiometricExporting(false);
+                                    Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
+                                }
+                            }}
+                        />
+                    </BottomSheetView>
+                </BottomSheetModal>
+            )}
 
             {/* KYC Verification Modal */}
             <KYCVerificationModal
                 ref={kycSheetRef}
-                onClose={() => kycSheetRef.current?.dismiss()}
+                onClose={() => {}}
                 onVerified={() => {
-                    kycSheetRef.current?.dismiss();
                     fetchKYCStatus();
                 }}
             />
 
-            <BottomSheetModal
-                ref={calendarSheetRef}
-                index={0}
-                enableDynamicSizing={true}
-                enablePanDownToClose={true}
-                backdropComponent={(props) => (
-                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                )}
-                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-            >
-                <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
-                    {/* Icon */}
+            {TrueSheetComponent ? (
+                <TrueSheetComponent
+                    ref={calendarSheetRef}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundColor={Platform.OS === 'ios' ? undefined : themeColors.background}
+                >
+                    <View style={{ padding: 24, paddingTop: Platform.OS === 'ios' ? 34 : 24, paddingBottom: 40 }}>
+                        <View style={styles.shieldIconContainer}>
+                            <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
+                                <CalendarIcon size={32} color={themeColors.textPrimary} />
+                            </View>
+                        </View>
+                        <Text style={[styles.recoveryTitle, styles.calendarSheetTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
+
+                        {isFetchingCalendarLink ? (
+                            <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
+                        ) : calendarSubscribeUrl ? (
+                            <View style={styles.calendarOptionsContainer}>
+                                {/* Google Calendar */}
+                                <TouchableOpacity
+                                    style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
+                                    onPress={() => {
+                                        const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
+                                        const googleUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`;
+                                        Linking.openURL(googleUrl);
+                                    }}
+                                    activeOpacity={0.75}
+                                >
+                                    <View style={styles.calendarLogoBox}>
+                                        <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
+                                    </View>
+                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
+                                </TouchableOpacity>
+
+                                {/* Apple Calendar */}
+                                <TouchableOpacity
+                                    style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
+                                    onPress={() => {
+                                        const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
+                                        Linking.openURL(webcalUrl);
+                                    }}
+                                    activeOpacity={0.75}
+                                >
+                                    <View style={styles.calendarLogoBox}>
+                                        <SvgXml xml={APPLE_CALENDAR_SVG} width={22} height={26} />
+                                    </View>
+                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Apple Calendar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : null}
+                        <Text style={[styles.calendarSheetSubtitle, { color: themeColors.textSecondary }]}>
+                            Subscribe to your Hedwig calendar to see invoice due dates and reminders in your calendar app.
+                        </Text>
+                    </View>
+                </TrueSheetComponent>
+            ) : (
+                <BottomSheetModal
+                    ref={calendarFallbackSheetRef}
+                    index={0}
+                    enableDynamicSizing={true}
+                    enablePanDownToClose={true}
+                    backdropComponent={(props) => (
+                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+                    )}
+                    backgroundStyle={{
+                        backgroundColor: themeColors.background,
+                        borderTopLeftRadius: Platform.OS === 'ios' ? 50 : 24,
+                        borderTopRightRadius: Platform.OS === 'ios' ? 50 : 24,
+                    }}
+                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                >
+                    <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
                     <View style={styles.shieldIconContainer}>
                         <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
-                            <Text style={{ fontSize: 28 }}>📆</Text>
+                            <CalendarIcon size={32} color={themeColors.textPrimary} />
                         </View>
                     </View>
-
-                    <Text style={[styles.recoveryTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
-                    <Text style={[styles.recoverySubtitle, { color: themeColors.textSecondary }]}>
-                        Subscribe to your Hedwig calendar to see invoice due dates and reminders in your calendar app.
-                    </Text>
+                    <Text style={[styles.recoveryTitle, styles.calendarSheetTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
 
                     {isFetchingCalendarLink ? (
                         <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
                     ) : calendarSubscribeUrl ? (
-                        <>
-                            {/* URL copy row */}
-                            <View style={[styles.calendarLinkBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-                                <Text
-                                    style={[styles.calendarLinkText, { color: themeColors.textSecondary }]}
-                                    numberOfLines={1}
-                                    ellipsizeMode="middle"
-                                >
-                                    {calendarSubscribeUrl}
-                                </Text>
-                                <TouchableOpacity
-                                    style={[styles.calendarCopyBtn, { backgroundColor: Colors.primary }]}
-                                    onPress={async () => {
-                                        await Clipboard.setStringAsync(calendarSubscribeUrl);
-                                        Alert.alert('Copied', 'Subscribe link copied to clipboard');
-                                    }}
-                                >
-                                    <Text style={styles.calendarCopyBtnText}>Copy link</Text>
-                                </TouchableOpacity>
-                            </View>
-
+                        <View style={styles.calendarOptionsContainer}>
                             {/* Google Calendar */}
                             <TouchableOpacity
-                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
                                 onPress={() => {
                                     const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
                                     const googleUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`;
@@ -778,35 +1033,31 @@ export default function SettingsScreen() {
                                 <View style={styles.calendarLogoBox}>
                                     <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
                                 </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Google Calendar</Text>
-                                    <Text style={[styles.calendarOptionSubtitle, { color: themeColors.textSecondary }]}>Opens Google Calendar to subscribe</Text>
-                                </View>
-                                <CaretRight size={18} color={themeColors.textSecondary} />
+                                <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
                             </TouchableOpacity>
 
                             {/* Apple Calendar */}
                             <TouchableOpacity
-                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
                                 onPress={() => {
                                     const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
                                     Linking.openURL(webcalUrl);
                                 }}
                                 activeOpacity={0.75}
                             >
-                                <View style={[styles.calendarLogoBox, { backgroundColor: '#FFFFFF' }]}>
+                                <View style={styles.calendarLogoBox}>
                                     <SvgXml xml={APPLE_CALENDAR_SVG} width={22} height={26} />
                                 </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Apple Calendar</Text>
-                                    <Text style={[styles.calendarOptionSubtitle, { color: themeColors.textSecondary }]}>Subscribe directly in Calendar app</Text>
-                                </View>
-                                <CaretRight size={18} color={themeColors.textSecondary} />
+                                <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Apple Calendar</Text>
                             </TouchableOpacity>
-                        </>
+                        </View>
                     ) : null}
-                </BottomSheetView>
-            </BottomSheetModal>
+                    <Text style={[styles.calendarSheetSubtitle, { color: themeColors.textSecondary }]}>
+                        Subscribe to your Hedwig calendar to see invoice due dates and reminders in your calendar app.
+                    </Text>
+                    </BottomSheetView>
+                </BottomSheetModal>
+            )}
 
         </View>
     );
@@ -834,13 +1085,14 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     headerButton: {
-        width: 40,
+        width: 44,
+        height: 44,
         alignItems: 'flex-start',
     },
     backButtonCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -850,7 +1102,7 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     headerSpacer: {
-        width: 40,
+        width: 44,
     },
     content: {
         padding: 20,
@@ -998,57 +1250,37 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 14,
         lineHeight: 20,
-        marginBottom: 18,
+        marginTop: 10,
+        textAlign: 'center',
     },
-    calendarLinkBox: {
-        borderRadius: 12,
-        borderWidth: 1,
-        padding: 12,
-        gap: 10,
-        marginBottom: 14,
+    calendarSheetTitle: {
+        marginBottom: 22,
     },
-    calendarLinkText: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 12,
-        lineHeight: 16,
-    },
-    calendarCopyBtn: {
-        alignSelf: 'flex-start',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-    },
-    calendarCopyBtnText: {
-        color: '#FFFFFF',
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 13,
+    calendarOptionsContainer: {
+        gap: 2,
     },
     calendarOptionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 16,
-        borderWidth: 1,
-        padding: 14,
-        gap: 12,
+        justifyContent: 'center',
+        borderRadius: 30,
+        borderWidth: 0,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        gap: 10,
         marginBottom: 12,
     },
     calendarLogoBox: {
-        width: 44,
-        height: 44,
-        borderRadius: 10,
-        backgroundColor: '#F1F3F4',
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
     },
     calendarOptionTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 14,
-    },
-    calendarOptionSubtitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 12,
-        lineHeight: 16,
-        marginTop: 2,
+        fontSize: 15,
     },
     // Recovery Warning Modal Styles
     recoveryModalContent: {

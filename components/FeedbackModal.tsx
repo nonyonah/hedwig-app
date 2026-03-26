@@ -1,11 +1,12 @@
-import React, { useState, forwardRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import React, { useState, forwardRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { X, Send as PaperPlaneTilt, Bug, Lightbulb } from './ui/AppIcon';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSettings } from '../context/SettingsContext';
 import { trackEvent } from '../services/analytics';
+import IOSGlassIconButton from './ui/IOSGlassIconButton';
 
 type FeedbackType = 'feature' | 'bug' | null;
 
@@ -13,7 +14,7 @@ interface FeedbackModalProps {
     onClose?: () => void;
 }
 
-export const FeedbackModal = forwardRef<BottomSheetModal, FeedbackModalProps>(({ onClose }, ref) => {
+export const FeedbackModal = forwardRef<TrueSheet, FeedbackModalProps>(({ onClose }, ref) => {
     const themeColors = useThemeColors();
     const { hapticsEnabled } = useSettings();
     const [feedbackType, setFeedbackType] = useState<FeedbackType>(null);
@@ -45,9 +46,9 @@ export const FeedbackModal = forwardRef<BottomSheetModal, FeedbackModalProps>(({
             setFeedbackType(null);
             setFeedback('');
 
-            // @ts-ignore
-            ref?.current?.dismiss();
-            onClose?.();
+            if (typeof ref !== 'function') {
+                void ref?.current?.dismiss().catch(() => {});
+            }
 
         } catch (error) {
             console.error('Feedback submission error:', error);
@@ -60,44 +61,32 @@ export const FeedbackModal = forwardRef<BottomSheetModal, FeedbackModalProps>(({
         if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setFeedbackType(null);
         setFeedback('');
-        // @ts-ignore
-        ref?.current?.dismiss();
-        onClose?.();
+        if (typeof ref !== 'function') {
+            void ref?.current?.dismiss().catch(() => {});
+        }
     };
 
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.5}
-            />
-        ),
-        []
-    );
-
     return (
-        <BottomSheetModal
+        <TrueSheet
             ref={ref}
-            index={0}
-            enableDynamicSizing={true}
-            enablePanDownToClose={true}
-            backdropComponent={renderBackdrop}
-            backgroundStyle={{ backgroundColor: themeColors.surface, borderRadius: 24 }}
-            handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-            keyboardBehavior="interactive"
-            keyboardBlurBehavior="restore"
+            detents={['auto']}
+            cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+            backgroundBlur="regular"
+            grabber={true}
+            onDidDismiss={onClose}
         >
-            <BottomSheetView style={[styles.contentContainer, { paddingBottom: 40 }]}>
+            <View style={[styles.contentContainer, { paddingBottom: 40 }]}>
                 {/* Header */}
                 <View style={styles.header}>
                     <Text style={[styles.title, { color: themeColors.textPrimary }]}>
                         Give Feedback
                     </Text>
-                    <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                        <X size={24} color={themeColors.textSecondary} strokeWidth={3} />
-                    </TouchableOpacity>
+                    <IOSGlassIconButton
+                        onPress={handleClose}
+                        systemImage="xmark"
+                        circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                        icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                    />
                 </View>
 
                 {/* Feedback Type Selection */}
@@ -166,7 +155,7 @@ export const FeedbackModal = forwardRef<BottomSheetModal, FeedbackModalProps>(({
                             ? 'Describe the bug and steps to reproduce'
                             : 'Describe your feedback'}
                 </Text>
-                <BottomSheetTextInput
+                <TextInput
                     style={[
                         styles.textInput,
                         {
@@ -205,14 +194,15 @@ export const FeedbackModal = forwardRef<BottomSheetModal, FeedbackModalProps>(({
                         {isSubmitting ? 'Sending...' : 'Submit Feedback'}
                     </Text>
                 </TouchableOpacity>
-            </BottomSheetView>
-        </BottomSheetModal>
+            </View>
+        </TrueSheet>
     );
 });
 
 const styles = StyleSheet.create({
     contentContainer: {
         padding: 24,
+        paddingTop: Platform.OS === 'ios' ? 28 : 24,
     },
     header: {
         flexDirection: 'row',
@@ -225,7 +215,11 @@ const styles = StyleSheet.create({
         fontSize: 20,
     },
     closeButton: {
-        padding: 4,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     label: {
         fontFamily: 'GoogleSansFlex_500Medium',

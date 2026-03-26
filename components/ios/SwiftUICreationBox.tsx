@@ -1,7 +1,7 @@
 import { useThemeColors } from '../../theme/colors';
-import React from 'react';
-import { Platform, View, StyleSheet, TextInput, TouchableOpacity, Text, KeyboardAvoidingView, useColorScheme } from 'react-native';
-import { BlurView } from 'expo-blur';
+import React, { useRef, useEffect } from 'react';
+import { Platform, View, StyleSheet, TextInput, TouchableOpacity, Text } from 'react-native';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import * as Haptics from 'expo-haptics';
 
 interface SwiftUICreationBoxProps {
@@ -19,15 +19,6 @@ interface SwiftUICreationBoxProps {
     formatDateDisplay: (date: Date | null) => string;
 }
 
-/**
- * iOS-specific Universal Creation Box
- * Uses React Native components with iOS styling for SDK 54 compatibility.
- * Features:
- * - Blur background effect
- * - Haptic feedback
- * - iOS-native styling
- * - Keyboard avoidance (slides up with keyboard)
- */
 export function SwiftUICreationBox({
     visible,
     onClose,
@@ -43,19 +34,21 @@ export function SwiftUICreationBox({
     formatDateDisplay,
 }: SwiftUICreationBoxProps) {
     const themeColors = useThemeColors();
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const sheetRef = useRef<TrueSheet>(null);
 
-    if (Platform.OS !== 'ios' || !visible) return null;
+    useEffect(() => {
+        if (visible) {
+            sheetRef.current?.present();
+        } else {
+            sheetRef.current?.dismiss();
+        }
+    }, [visible]);
+
+    if (Platform.OS !== 'ios') return null;
 
     const handleDateTapWithHaptics = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onDateTap();
-    };
-
-    const handlePriorityTapWithHaptics = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPriorityTap();
     };
 
     const handleCreateWithHaptics = () => {
@@ -63,142 +56,74 @@ export function SwiftUICreationBox({
         onCreate();
     };
 
-    const handleClose = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onClose();
-    };
-
     return (
-        <View style={styles.overlay}>
-            <TouchableOpacity style={styles.backdrop} onPress={handleClose} activeOpacity={1} />
-            <KeyboardAvoidingView
-                behavior="padding"
-                style={styles.keyboardAvoidingContainer}
-                keyboardVerticalOffset={0}
-            >
-                <View style={styles.sheetContainer}>
-                    <BlurView
-                        intensity={100}
-                        tint={isDark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'}
-                        style={styles.blurView}
+        <TrueSheet
+            ref={sheetRef}
+            detents={['auto']}
+            cornerRadius={50}
+            backgroundBlur="regular"
+            grabber={true}
+            keyboardMode="pan"
+            onDidDismiss={onClose}
+        >
+            <View style={styles.content}>
+                <TextInput
+                    value={inputText}
+                    onChangeText={onInputChange}
+                    placeholder="e.g., Invoice for Acme $500 due Friday"
+                    placeholderTextColor="#8E8E93"
+                    multiline
+                    autoFocus
+                    style={[
+                        styles.textInput,
+                        { color: themeColors.textPrimary }
+                    ]}
+                />
+
+                <View style={styles.pillsRow}>
+                    <TouchableOpacity
+                        style={[styles.pill, effectiveDate && styles.pillActive]}
+                        onPress={handleDateTapWithHaptics}
                     >
-                        <View style={styles.content}>
-                            {/* Handle bar */}
-                            <View style={styles.handleBar} />
-
-                            {/* Input Field */}
-                            <TextInput
-                                value={inputText}
-                                onChangeText={onInputChange}
-                                placeholder="e.g., Invoice for Acme $500 due Friday"
-                                placeholderTextColor="#8E8E93"
-                                multiline
-                                autoFocus
-                                style={[
-                                    styles.textInput,
-                                    {
-                                        color: themeColors.textPrimary,
-                                        backgroundColor: isDark ? 'rgba(120,120,128,0.36)' : 'rgba(118,118,128,0.12)', // iOS system gray inputs
-                                        fontSize: 19, // Slightly larger for better readability
-                                        fontWeight: '500'
-                                    }
-                                ]}
-                            />
-
-                            {/* Action Pills Row */}
-                            <View style={styles.pillsRow}>
-                                {/* Date Pill */}
-                                <TouchableOpacity
-                                    style={[styles.pill, effectiveDate && styles.pillActive]}
-                                    onPress={handleDateTapWithHaptics}
-                                >
-                                    <Text style={[styles.pillText, effectiveDate && styles.pillTextActive]}>
-                                        📅 {formatDateDisplay(effectiveDate)}
-                                    </Text>
-                                </TouchableOpacity>
-
-                            </View>
-
-                            {/* Create Button */}
-                            <TouchableOpacity
-                                style={[
-                                    styles.createButton,
-                                    (!inputText.trim() || isCreating) && styles.createButtonDisabled
-                                ]}
-                                onPress={handleCreateWithHaptics}
-                                disabled={!inputText.trim() || isCreating}
-                            >
-                                <Text style={styles.createButtonText}>
-                                    {isCreating ? 'Creating...' : '✓ Create'}
-                                </Text>
-                            </TouchableOpacity>
-
-                            {/* Loading Indicator */}
-                            {isLoading && (
-                                <Text style={styles.loadingText}>Analyzing...</Text>
-                            )}
-                        </View>
-                    </BlurView>
-
-                    {/* Skirt to cover keyboard gap */}
-                    <View style={{
-                        position: 'absolute',
-                        bottom: -50,
-                        left: 0,
-                        right: 0,
-                        height: 50,
-                        backgroundColor: isDark ? '#1C1C1E' : '#F9F9F9'
-                    }} />
+                        <Text style={[styles.pillText, effectiveDate && styles.pillTextActive]}>
+                            📅 {formatDateDisplay(effectiveDate)}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
-            </KeyboardAvoidingView>
-        </View>
+
+                <TouchableOpacity
+                    style={[
+                        styles.createButton,
+                        (!inputText.trim() || isCreating) && styles.createButtonDisabled
+                    ]}
+                    onPress={handleCreateWithHaptics}
+                    disabled={!inputText.trim() || isCreating}
+                >
+                    <Text style={styles.createButtonText}>
+                        {isCreating ? 'Creating...' : '✓ Create'}
+                    </Text>
+                </TouchableOpacity>
+
+                {isLoading && (
+                    <Text style={styles.loadingText}>Analyzing...</Text>
+                )}
+            </View>
+        </TrueSheet>
     );
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 1000,
-        justifyContent: 'flex-end',
-    },
-    backdrop: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    },
-    keyboardAvoidingContainer: {
-        width: '100%',
-        justifyContent: 'flex-end',
-    },
-    sheetContainer: {
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        overflow: 'hidden',
-    },
-    blurView: {
-        paddingTop: 12,
-        paddingBottom: 0, // Removed padding to sit flush
-        paddingHorizontal: 20,
-    },
     content: {
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 20,
         gap: 16,
-    },
-    handleBar: {
-        width: 36,
-        height: 5,
-        backgroundColor: 'rgba(0, 0, 0, 0.2)',
-        borderRadius: 3,
-        alignSelf: 'center',
-        marginBottom: 8,
     },
     textInput: {
         minHeight: 44,
-        fontSize: 17,
-        color: '#000',
-        backgroundColor: 'rgba(0, 0, 0, 0.05)',
+        fontSize: 19,
+        fontWeight: '500',
+        backgroundColor: 'rgba(120,120,128,0.12)',
         borderRadius: 12,
         paddingHorizontal: 16,
         paddingVertical: 12,

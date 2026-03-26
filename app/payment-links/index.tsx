@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, RefreshControl, Share } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, RefreshControl, Share, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
@@ -34,6 +34,7 @@ import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 // Icons for tokens, networks, and status
 const ICONS = {
@@ -75,7 +76,10 @@ export default function PaymentLinksScreen() {
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
     const themeColors = useThemeColors();
-    const bottomSheetRef = React.useRef<BottomSheetModal>(null);
+    const bottomSheetRef = React.useRef<TrueSheet>(null);
+    const { height: screenHeight } = useWindowDimensions();
+    const sheetMaxHeight = Math.round(screenHeight * (Platform.OS === 'ios' ? 0.6 : 0.7));
+    const detailSheetTopPadding = 28;
     const [links, setLinks] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -485,7 +489,12 @@ export default function PaymentLinksScreen() {
     };
 
     const closeModal = () => {
-        bottomSheetRef.current?.dismiss();
+        void bottomSheetRef.current?.dismiss().catch(() => {});
+    };
+
+    const handleModalDismiss = () => {
+        setSelectedLink(null);
+        setShowActionMenu(false);
     };
 
     const handleLinkPress = (link: any) => {
@@ -498,7 +507,7 @@ export default function PaymentLinksScreen() {
     };
 
     const detailsModalContent = (
-        <View style={{ paddingBottom: 40, paddingHorizontal: 20 }}>
+        <View style={{ paddingTop: detailSheetTopPadding, paddingBottom: 26, paddingHorizontal: 20 }}>
             <View style={styles.modalHeader}>
                 <View style={styles.modalHeaderLeft}>
                     {/* Token icon with status badge */}
@@ -618,9 +627,12 @@ export default function PaymentLinksScreen() {
                             />
                         )}
                     </>
-                    <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                        <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                    </TouchableOpacity>
+                    <IOSGlassIconButton
+                        onPress={closeModal}
+                        systemImage="xmark"
+                        circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                        icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                    />
                 </View>
             </View>
 
@@ -832,26 +844,17 @@ export default function PaymentLinksScreen() {
 
 
                 {/* Details Modal */}
-                <BottomSheetModal
+                <TrueSheet
                     ref={bottomSheetRef}
-                    index={0}
-                    enableDynamicSizing={true}
-                    enablePanDownToClose={true}
-                    backdropComponent={(props) => (
-                        <BottomSheetBackdrop
-                            {...props}
-                            disappearsOnIndex={-1}
-                            appearsOnIndex={0}
-                            opacity={0.5}
-                        />
-                    )}
-                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    maxContentHeight={sheetMaxHeight}
+                    grabber={true}
+                    onDidDismiss={handleModalDismiss}
                 >
-                    <BottomSheetView>
-                        {detailsModalContent}
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    {detailsModalContent}
+                </TrueSheet>
             </View >
 
             {/* Tutorial card for links step */}

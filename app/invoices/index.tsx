@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Animated, Share } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Animated, Share, useWindowDimensions } from 'react-native';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
@@ -36,6 +36,7 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import Analytics from '../../services/analytics';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
 import { joinApiUrl } from '../../utils/apiBaseUrl';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 // Icons for tokens and chains
 const ICONS = {
@@ -99,11 +100,14 @@ export default function InvoicesScreen() {
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
     const themeColors = useThemeColors();
+    const { height: screenHeight } = useWindowDimensions();
+    const sheetMaxHeight = Math.round(screenHeight * (Platform.OS === 'ios' ? 0.6 : 0.7));
+    const detailSheetTopPadding = 28;
     const [invoices, setInvoices] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-    const bottomSheetRef = useRef<BottomSheetModal>(null);
+    const bottomSheetRef = useRef<TrueSheet>(null);
     const handledSelectedInvoiceRef = useRef<string | null>(null);
     const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -118,7 +122,7 @@ export default function InvoicesScreen() {
     const [recurringItems, setRecurringItems] = useState<any[]>([]);
     const [recurringLoading, setRecurringLoading] = useState(false);
     const [selectedRecurring, setSelectedRecurring] = useState<any>(null);
-    const recurringSheetRef = useRef<BottomSheetModal>(null);
+    const recurringSheetRef = useRef<TrueSheet>(null);
     const handledSelectedRecurringRef = useRef<string | null>(null);
 
     // Filter invoices based on status
@@ -598,7 +602,12 @@ export default function InvoicesScreen() {
 
     const closeModal = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        bottomSheetRef.current?.dismiss();
+        void bottomSheetRef.current?.dismiss().catch(() => {});
+    };
+
+    const handleModalDismiss = () => {
+        setSelectedInvoice(null);
+        setShowActionMenu(false);
     };
 
     const handleInvoicePress = (invoice: any) => {
@@ -848,18 +857,16 @@ export default function InvoicesScreen() {
 
 
 
-                <BottomSheetModal
+                <TrueSheet
                     ref={bottomSheetRef}
-                    index={0}
-                    enableDynamicSizing={true}
-                    enablePanDownToClose={true}
-                    backdropComponent={(props) => (
-                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                    )}
-                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    maxContentHeight={sheetMaxHeight}
+                    grabber={true}
+                    onDidDismiss={handleModalDismiss}
                 >
-                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                    <View style={{ paddingTop: detailSheetTopPadding, paddingBottom: 26, paddingHorizontal: 24 }}>
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderLeft}>
                                 {/* Token icon with status badge */}
@@ -979,9 +986,12 @@ export default function InvoicesScreen() {
                                         />
                                     )}
                                 </>
-                                <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeModal}>
-                                    <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                                </TouchableOpacity>
+                                <IOSGlassIconButton
+                                    onPress={closeModal}
+                                    systemImage="xmark"
+                                    circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                    icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                                />
                             </View>
                         </View>
 
@@ -1040,21 +1050,19 @@ export default function InvoicesScreen() {
                         >
                             <Text style={styles.viewButtonText}>View Invoice</Text>
                         </TouchableOpacity>
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
                 {/* Recurring Detail Sheet */}
-                <BottomSheetModal
+                <TrueSheet
                     ref={recurringSheetRef}
-                    index={0}
-                    enableDynamicSizing={true}
-                    enablePanDownToClose={true}
-                    backdropComponent={(props) => (
-                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                    )}
-                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    maxContentHeight={sheetMaxHeight}
+                    grabber={true}
+                    onDidDismiss={() => setSelectedRecurring(null)}
                 >
-                    <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                    <View style={{ paddingTop: detailSheetTopPadding, paddingBottom: 26, paddingHorizontal: 24 }}>
                         {selectedRecurring && (() => {
                             const r = selectedRecurring;
                             const statusColors: Record<string, { bg: string; text: string }> = {
@@ -1068,17 +1076,17 @@ export default function InvoicesScreen() {
                             const recurringMenuActions = [
                                 ...(r.status === 'active' ? [{
                                     label: 'Generate Now',
-                                    onPress: () => { recurringSheetRef.current?.dismiss(); handleRecurringTrigger(r.id); },
+                                    onPress: () => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringTrigger(r.id); },
                                     icon: <Image source={require('../../assets/images/hedwig-logo.png')} style={{ width: 16, height: 16, tintColor: themeColors.textPrimary }} />,
                                 }] : []),
                                 ...(r.status === 'active' ? [{
                                     label: 'Pause',
-                                    onPress: () => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'paused'); },
+                                    onPress: () => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'paused'); },
                                     icon: <Clock size={16} color={themeColors.textPrimary} strokeWidth={3} />,
                                 }] : []),
                                 ...(r.status === 'paused' ? [{
                                     label: 'Resume',
-                                    onPress: () => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'active'); },
+                                    onPress: () => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'active'); },
                                     icon: <Image source={require('../../assets/images/hedwig-logo.png')} style={{ width: 16, height: 16, tintColor: themeColors.textPrimary }} />,
                                 }] : []),
                                 ...(r.status !== 'cancelled' ? [{
@@ -1087,7 +1095,7 @@ export default function InvoicesScreen() {
                                     onPress: () => {
                                         Alert.alert('Cancel Recurring Invoice', 'This will stop future invoice generation.', [
                                             { text: 'Keep', style: 'cancel' },
-                                            { text: 'Cancel Invoice', style: 'destructive', onPress: () => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'cancelled'); } },
+                                            { text: 'Cancel Invoice', style: 'destructive', onPress: () => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'cancelled'); } },
                                         ]);
                                     },
                                     icon: <Trash size={16} color="#EF4444" strokeWidth={3} />,
@@ -1130,17 +1138,17 @@ export default function InvoicesScreen() {
                                                             </ContextMenu.Trigger>
                                                             <ContextMenu.Items>
                                                                 {r.status === 'active' && (
-                                                                    <ExpoButton onPress={() => { recurringSheetRef.current?.dismiss(); handleRecurringTrigger(r.id); }} systemImage="arrow.clockwise">
+                                                                    <ExpoButton onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringTrigger(r.id); }} systemImage="arrow.clockwise">
                                                                         Generate Now
                                                                     </ExpoButton>
                                                                 )}
                                                                 {r.status === 'active' && (
-                                                                    <ExpoButton onPress={() => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'paused'); }} systemImage="pause.fill">
+                                                                    <ExpoButton onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'paused'); }} systemImage="pause.fill">
                                                                         Pause
                                                                     </ExpoButton>
                                                                 )}
                                                                 {r.status === 'paused' && (
-                                                                    <ExpoButton onPress={() => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'active'); }} systemImage="play.fill">
+                                                                    <ExpoButton onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'active'); }} systemImage="play.fill">
                                                                         Resume
                                                                     </ExpoButton>
                                                                 )}
@@ -1149,7 +1157,7 @@ export default function InvoicesScreen() {
                                                                         onPress={() => {
                                                                             Alert.alert('Cancel Recurring Invoice', 'This will stop future invoice generation.', [
                                                                                 { text: 'Keep', style: 'cancel' },
-                                                                                { text: 'Cancel Invoice', style: 'destructive', onPress: () => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'cancelled'); } },
+                                                                                { text: 'Cancel Invoice', style: 'destructive', onPress: () => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'cancelled'); } },
                                                                             ]);
                                                                         }}
                                                                         systemImage="trash.fill"
@@ -1172,9 +1180,14 @@ export default function InvoicesScreen() {
                                                     />
                                                 )}
                                             </>
-                                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={() => recurringSheetRef.current?.dismiss()}>
-                                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                                            </TouchableOpacity>
+                                            <IOSGlassIconButton
+                                                onPress={() => {
+                                                    void recurringSheetRef.current?.dismiss().catch(() => {});
+                                                }}
+                                                systemImage="xmark"
+                                                circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                                icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                                            />
                                         </View>
                                     </View>
 
@@ -1226,7 +1239,7 @@ export default function InvoicesScreen() {
                                     {r.status === 'active' && (
                                         <TouchableOpacity
                                             style={styles.viewButton}
-                                            onPress={() => { recurringSheetRef.current?.dismiss(); handleRecurringTrigger(r.id); }}
+                                            onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringTrigger(r.id); }}
                                         >
                                             <Text style={styles.viewButtonText}>Generate Now</Text>
                                         </TouchableOpacity>
@@ -1234,7 +1247,7 @@ export default function InvoicesScreen() {
                                     {r.status === 'paused' && (
                                         <TouchableOpacity
                                             style={styles.viewButton}
-                                            onPress={() => { recurringSheetRef.current?.dismiss(); handleRecurringStatus(r.id, 'active'); }}
+                                            onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'active'); }}
                                         >
                                             <Text style={styles.viewButtonText}>Resume</Text>
                                         </TouchableOpacity>
@@ -1242,8 +1255,8 @@ export default function InvoicesScreen() {
                                 </>
                             );
                         })()}
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
 
             </View >
 

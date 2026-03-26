@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { useThemeColors } from '../../theme/colors';
 import { ChevronLeft as CaretLeft, ChevronDown as CaretDown, Link as LinkIcon } from '../../components/ui/AppIcon';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 40;
@@ -272,9 +273,12 @@ export default function TokenDetailsScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity style={[styles.backButton, { backgroundColor: themeColors.surface }]} onPress={() => router.back()}>
-                    <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                </TouchableOpacity>
+                <IOSGlassIconButton
+                    onPress={() => router.back()}
+                    systemImage="chevron.left"
+                    circleStyle={[styles.backButton, { backgroundColor: themeColors.surface }]}
+                    icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                />
             </View>
 
             {loading ? (

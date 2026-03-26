@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Minus, Plus, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { usePrivy } from '@privy-io/expo';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 const PRESETS = [
     { label: 'Starter', value: 1000 },
@@ -65,11 +66,13 @@ export default function GoalScreen() {
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Back button on its own row */}
-            <TouchableOpacity style={styles.backButtonRow} onPress={() => router.back()}>
-                <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                    <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                </View>
-            </TouchableOpacity>
+            <IOSGlassIconButton
+                onPress={() => router.back()}
+                systemImage="chevron.left"
+                containerStyle={styles.backButtonRow}
+                circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+            />
 
             {/* Title */}
             <View style={styles.titleContainer}>

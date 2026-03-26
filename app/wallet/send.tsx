@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { ChevronLeft as CaretLeft, ArrowUpDown, Delete } from '../../components/ui/AppIcon';
 import { useThemeColors } from '../../theme/colors';
 import { TransactionConfirmationModal } from '../../components/TransactionConfirmationModal';
 import { useWallet } from '../../hooks/useWallet';
 import Button from '../../components/Button';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
     detectRecipientChain,
     getTokenOptionsForChain,
@@ -63,7 +64,7 @@ export default function SendCryptoScreen() {
     const [amountMode, setAmountMode] = useState<'crypto' | 'fiat'>('crypto');
     const [txData, setTxData] = useState<any>(null);
     const [showTxModal, setShowTxModal] = useState(false);
-    const txModalRef = useRef<BottomSheetModal>(null);
+    const txModalRef = useRef<TrueSheet>(null);
 
     useFocusEffect(
         useCallback(() => {
@@ -194,11 +195,13 @@ export default function SendCryptoScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}> 
             <View style={styles.header}>
-                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                    </View>
-                </TouchableOpacity>
+                <IOSGlassIconButton
+                    onPress={() => router.back()}
+                    systemImage="chevron.left"
+                    containerStyle={styles.backButton}
+                    circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                    icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                />
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Send</Text>
                 <View style={styles.iconButtonSpacer} />
             </View>

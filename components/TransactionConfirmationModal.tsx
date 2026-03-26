@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'rea
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Alert, Platform, Image, Linking } from 'react-native';
 import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { ethers } from 'ethers';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
@@ -12,6 +12,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../hooks/useAuth';
+import IOSGlassIconButton from './ui/IOSGlassIconButton';
 import {
     Connection,
     PublicKey,
@@ -99,10 +100,10 @@ const parseErrorMessage = (error: any): string => {
     // Gas-related errors
     if (message.includes('insufficient funds') || message.includes('gas required exceeds') ||
         message.includes('insufficient balance') || message.includes('not enough balance')) {
-        return 'Insufficient funds for gas fees. Please add more funds to your wallet to cover the transaction fee.';
+        return "You're close, but this wallet cannot cover the transfer plus network fee yet. Add a little native token for gas or lower the amount and try again.";
     }
     if (message.includes('gas') && (message.includes('limit') || message.includes('price'))) {
-        return 'Unable to estimate gas. The network may be congested. Please try again later.';
+        return 'Network fees could not be estimated right now. Wait a moment and try again, or retry with a smaller amount.';
     }
 
     // Network errors
@@ -144,7 +145,7 @@ const parseErrorMessage = (error: any): string => {
     return cleanMessage;
 };
 
-export const TransactionConfirmationModal = forwardRef<BottomSheetModal, TransactionConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
+export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
     // Early return MUST be before any hooks to follow Rules of Hooks
     if (!data) return null;
 
@@ -252,24 +253,25 @@ export const TransactionConfirmationModal = forwardRef<BottomSheetModal, Transac
         }
     }, [data, modalState, evmWallets]);
 
-    // Handle sheet changes
-    const handleSheetChanges = useCallback((index: number) => {
-        if (index >= 0) {
-            modalHaptic('open', hapticsEnabled);
-            setModalState('confirm');
-            setTxHash(null);
-            estimateGasFee();
-        } else {
-            modalHaptic('close', hapticsEnabled);
-            setStatusMessage('');
-            setModalState('confirm');
-        }
+    const handleSheetPresented = useCallback(() => {
+        modalHaptic('open', hapticsEnabled);
+        setModalState('confirm');
+        setTxHash(null);
+        estimateGasFee();
     }, [hapticsEnabled, estimateGasFee]);
 
+    const handleSheetDismissed = useCallback(() => {
+        modalHaptic('close', hapticsEnabled);
+        setStatusMessage('');
+        setModalState('confirm');
+        onClose();
+    }, [hapticsEnabled, onClose]);
+
     const handleDismiss = useCallback(() => {
-        // @ts-ignore
-        ref?.current?.dismiss();
-    }, []);
+        if (typeof ref !== 'function') {
+            void ref?.current?.dismiss().catch(() => {});
+        }
+    }, [ref]);
 
     // Handle Solana transaction
     const handleSolanaTransaction = async () => {
@@ -762,17 +764,20 @@ export const TransactionConfirmationModal = forwardRef<BottomSheetModal, Transac
     // Early return already handled at the top of the component
     const network = normalizeNetwork(data.network);
     const chain = CHAINS[network] || CHAINS['solana'];
+    const modalDetents = modalState === 'failed'
+        ? [Platform.OS === 'ios' ? 0.66 : 0.76]
+        : ['auto'];
 
     const renderContent = () => {
         switch (modalState) {
             case 'processing':
                 return (
-                    <View style={styles.statusContainer}>
+                    <View style={styles.processingContainer}>
                         <LottieView
                             source={require('../assets/animations/processing.json')}
                             autoPlay
                             loop
-                            style={styles.lottie}
+                            style={styles.processingLottie}
                         />
                         <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>We're doing the thing...</Text>
                     </View>
@@ -819,9 +824,12 @@ export const TransactionConfirmationModal = forwardRef<BottomSheetModal, Transac
                         {/* Header */}
                         <View style={styles.header}>
                             <Text style={[styles.title, { color: themeColors.textPrimary }]}>Confirm Transaction</Text>
-                            <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={handleDismiss}>
-                                <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                            </TouchableOpacity>
+                            <IOSGlassIconButton
+                                onPress={handleDismiss}
+                                systemImage="xmark"
+                                circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                            />
                         </View>
 
                         {/* Amount */}
@@ -870,34 +878,26 @@ export const TransactionConfirmationModal = forwardRef<BottomSheetModal, Transac
         }
     };
 
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.5}
-            />
-        ),
-        []
-    );
-
     return (
-        <BottomSheetModal
+        <TrueSheet
             ref={ref}
-            index={0}
-            enableDynamicSizing={true}
-            enablePanDownToClose={modalState !== 'processing'}
-            backdropComponent={renderBackdrop}
-            backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-            handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-            onDismiss={onClose}
-            onChange={handleSheetChanges}
+            detents={modalDetents}
+            cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+            backgroundColor={themeColors.background}
+            grabber={true}
+            onDidPresent={handleSheetPresented}
+            onDidDismiss={handleSheetDismissed}
         >
-            <BottomSheetView style={{ flex: 1, padding: 24, paddingBottom: 40 }}>
+            <View
+                style={{
+                    paddingHorizontal: 24,
+                    paddingTop: Platform.OS === 'android' ? 34 : 12,
+                    paddingBottom: Platform.OS === 'android' ? 6 : 12,
+                }}
+            >
                 {renderContent()}
-            </BottomSheetView>
-        </BottomSheetModal>
+            </View>
+        </TrueSheet>
     );
 });
 
@@ -1024,6 +1024,14 @@ const styles = StyleSheet.create({
     statusContainer: {
         alignItems: 'center',
         paddingVertical: 40,
+    },
+    processingContainer: {
+        alignItems: 'center',
+        paddingVertical: 18,
+    },
+    processingLottie: {
+        width: 112,
+        height: 112,
     },
     lottie: {
         width: 150,

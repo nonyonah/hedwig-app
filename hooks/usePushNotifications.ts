@@ -130,6 +130,7 @@ export function usePushNotifications() {
         }
 
         try {
+            const normalizedPlatform = Platform.OS === 'android' ? 'android' : 'ios';
             const response = await fetch(`${API_URL}/api/notifications/register`, {
                 method: 'POST',
                 headers: {
@@ -138,18 +139,26 @@ export function usePushNotifications() {
                 },
                 body: JSON.stringify({
                     expoPushToken: tokenToRegister,
-                    platform: Platform.OS,
+                    platform: normalizedPlatform,
                 }),
             });
 
-            const data = await response.json();
+            let data: any = null;
+            try {
+                data = await response.json();
+            } catch {
+                data = null;
+            }
 
-            if (data.success) {
+            if (response.ok && data?.success) {
                 setIsRegistered(true);
                 console.log('[Push] Registered with backend');
                 return true;
             } else {
-                console.error('[Push] Backend registration failed:', data.error);
+                console.error('[Push] Backend registration failed:', {
+                    status: response.status,
+                    error: data?.error,
+                });
                 return false;
             }
         } catch (err: any) {

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, Image, Keyboard } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../hooks/useAuth';
@@ -7,7 +7,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Copy, Wallet, ChevronRight as CaretRight, ChevronLeft as CaretLeft, X } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 
 import {
     NetworkBase, NetworkSolana,
@@ -16,6 +16,7 @@ import {
 import { getUserGradient } from '../utils/gradientUtils';
 import { modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
+import IOSGlassIconButton from './ui/IOSGlassIconButton';
 
 // RPC URLs
 const RPC_URLS = {
@@ -87,7 +88,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     const { address: blockradarAddress, balances: walletBalances } = useWallet();
     const themeColors = useThemeColors();
 
-    const bottomSheetRef = useRef<BottomSheetModal>(null);
+    const bottomSheetRef = useRef<TrueSheet>(null);
 
     // Debug: Log profileIcon when modal opens
     useEffect(() => {
@@ -266,12 +267,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     }, [blockradarAddress, user, ethAddress, walletAddresses]);
 
 
-    // Handle opening/closing with BottomSheetModal
+    // Handle opening/closing with TrueSheet
     // Logic: Prop visible -> present()/dismiss()
     useEffect(() => {
         if (visible) {
             modalHaptic('open', hapticsEnabled);
-            bottomSheetRef.current?.present();
+            void bottomSheetRef.current?.present().catch(() => {});
 
             // Run animations after a small delay to allow sheet layout
             // Reset stagger animations
@@ -287,30 +288,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
 
         } else {
             modalHaptic('close', hapticsEnabled);
-            bottomSheetRef.current?.dismiss();
+            void bottomSheetRef.current?.dismiss().catch(() => {});
             Keyboard.dismiss();
             setViewMode('main');
         }
     }, [visible]);
-
-    // Handle Sheet Changes (to sync visible prop if dismissed by gesture)
-    const handleSheetChanges = useCallback((index: number) => {
-        if (index === -1) {
-            onClose(); // This updates the parent's state to match
-        }
-    }, [onClose]);
-
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.5}
-            />
-        ),
-        []
-    );
 
     // Animate content when view mode changes (any direction)
     useEffect(() => {
@@ -335,23 +317,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
 
     // Render logic
     return (
-        <BottomSheetModal
+        <TrueSheet
             ref={bottomSheetRef}
-            index={0}
-            enableDynamicSizing={true}
-            onChange={handleSheetChanges}
-            backdropComponent={renderBackdrop}
-            enablePanDownToClose
-            backgroundStyle={{
-                backgroundColor: themeColors.background,
-                borderRadius: 24,
-            }}
-            handleIndicatorStyle={{
-                backgroundColor: '#DDDDDD',
-                width: 40
-            }}
+            detents={['auto']}
+            cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+            backgroundColor={themeColors.background}
+            grabber={true}
+            onDidDismiss={onClose}
         >
-            <BottomSheetView style={styles.sheetContent}>
+            <View style={styles.sheetContent}>
 
                 {/* Header */}
                 <Animated.View style={[styles.modalHeader, { opacity: headerAnim, transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
@@ -417,9 +391,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                             </TouchableOpacity>
                         </View>
                     </View>
-                    <TouchableOpacity onPress={() => bottomSheetRef.current?.dismiss()} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                        <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                    </TouchableOpacity>
+                    <IOSGlassIconButton
+                        onPress={() => {
+                            void bottomSheetRef.current?.dismiss().catch(() => {});
+                        }}
+                        systemImage="xmark"
+                        circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                        icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                    />
                 </Animated.View>
 
                 <ScrollView
@@ -545,14 +524,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                         </Animated.View>
                     )}
                 </ScrollView>
-            </BottomSheetView>
-        </BottomSheetModal>
+            </View>
+        </TrueSheet>
     );
 };
 
 const styles = StyleSheet.create({
     sheetContent: {
         padding: 24,
+        paddingTop: Platform.OS === 'ios' ? 34 : 24,
         paddingBottom: 40, // Needs plenty of padding for bottom safety
         minHeight: 450
     },

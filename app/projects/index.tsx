@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, ScrollView, Alert, LayoutAnimation, UIManager, Image } from 'react-native';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { BlurView } from 'expo-blur'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,6 +28,7 @@ import Analytics from '../../services/analytics';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -77,7 +78,7 @@ export default function ProjectsScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-    const bottomSheetRef = useRef<BottomSheetModal>(null);
+    const bottomSheetRef = useRef<TrueSheet>(null);
     const params = useLocalSearchParams();
     const [statusFilter, setStatusFilter] = useState<StatusFilter>((params.filter as any) || 'all');
     const [highlightedMilestoneId, setHighlightedMilestoneId] = useState<string | null>(null);
@@ -454,18 +455,21 @@ export default function ProjectsScreen() {
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                            </View>
-                        </TouchableOpacity>
+                        <IOSGlassIconButton
+                            onPress={() => router.back()}
+                            systemImage="chevron.left"
+                            containerStyle={styles.backButton}
+                            circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                            icon={<CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />}
+                        />
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Projects</Text>
-                        <TouchableOpacity
+                        <IOSGlassIconButton
                             onPress={() => router.push('/projects/create')}
-                            style={[styles.backButton, { alignItems: 'flex-end' }]}
-                        >
-                            <Plus size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                        </TouchableOpacity>
+                            systemImage="plus"
+                            containerStyle={[styles.backButton, { alignItems: 'flex-end' }]}
+                            circleStyle={{ backgroundColor: themeColors.surface }}
+                            icon={<Plus size={24} color={themeColors.textPrimary} strokeWidth={3} />}
+                        />
                     </View>
                     {/* Filter Chips inside Header */}
                     <ScrollView
@@ -529,21 +533,16 @@ export default function ProjectsScreen() {
                 )}
 
                 {/* Detail Modal */}
-                <BottomSheetModal
+                <TrueSheet
                     ref={bottomSheetRef}
-                    index={0}
-                    snapPoints={['50%', '90%']}
-                    enablePanDownToClose={true}
-                    backdropComponent={(props) => (
-                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                    )}
-                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-                    keyboardBehavior="interactive"
-                    keyboardBlurBehavior="restore"
-                    android_keyboardInputMode="adjustResize"
+                    detents={[0.5, 0.9]}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
+                    scrollable={true}
+                    onDidDismiss={closeDetailModal}
                 >
-                    <View style={{ flex: 1 }}>
+                    <View style={{ paddingTop: 28 }}>
                         {/* Modal Header Row with X and Options */}
                         {selectedProject && (
                             <>
@@ -598,9 +597,12 @@ export default function ProjectsScreen() {
                                                 }
                                             />
                                         )}
-                                        <TouchableOpacity style={[styles.closeButton, { backgroundColor: themeColors.surface }]} onPress={closeDetailModal}>
-                                            <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                                        </TouchableOpacity>
+                                        <IOSGlassIconButton
+                                            onPress={closeDetailModal}
+                                            systemImage="xmark"
+                                            circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                            icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                                        />
                                     </View>
                                 </View>
 
@@ -608,7 +610,7 @@ export default function ProjectsScreen() {
                         )}
 
                         {selectedProject && (
-                            <BottomSheetScrollView
+                            <ScrollView
                                 ref={milestonesScrollRef}
                                 showsVerticalScrollIndicator={false}
                                 contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 24 }}
@@ -789,10 +791,10 @@ export default function ProjectsScreen() {
                                         </View>
                                     ))
                                 )}
-                            </BottomSheetScrollView>
+                            </ScrollView>
                         )}
                     </View>
-                </BottomSheetModal>
+                </TrueSheet>
             </SafeAreaView >
 
         </>

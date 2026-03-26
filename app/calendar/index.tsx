@@ -7,9 +7,10 @@ import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { Typography } from '../../styles/typography';
 import { joinApiUrl } from '../../utils/apiBaseUrl';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -111,7 +112,7 @@ export default function CalendarScreen() {
     const [daysPastWindow, setDaysPastWindow] = useState(21);
     const [daysFutureWindow, setDaysFutureWindow] = useState(90);
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-    const eventSheetRef = useRef<BottomSheetModal>(null);
+    const eventSheetRef = useRef<TrueSheet>(null);
 
     const flatListRef = useRef<FlatList<Date>>(null);
     const sectionListRef = useRef<SectionList<CalendarEvent, Section>>(null);
@@ -481,11 +482,13 @@ export default function CalendarScreen() {
             <SafeAreaView style={[styles.container]}>
                 <View style={styles.header}>
                     <View style={styles.headerTop}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                            </View>
-                        </TouchableOpacity>
+                        <IOSGlassIconButton
+                            onPress={() => router.back()}
+                            systemImage="chevron.left"
+                            containerStyle={styles.backButton}
+                            circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                            icon={<CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />}
+                        />
 
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
                         <View style={styles.headerSpacer} />
@@ -593,19 +596,15 @@ export default function CalendarScreen() {
                     />
                 )}
 
-                <BottomSheetModal
+                <TrueSheet
                     ref={eventSheetRef}
-                    index={0}
-                    enableDynamicSizing
-                    enablePanDownToClose
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
                     onDismiss={() => setSelectedEvent(null)}
-                    backdropComponent={(props) => (
-                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                    )}
-                    backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
                 >
-                    <BottomSheetView style={styles.eventSheetContent}>
+                    <View style={styles.eventSheetContent}>
                         {selectedEvent ? (
                             <ScrollView showsVerticalScrollIndicator={false}>
                                 <Text style={[styles.detailsTitle, { color: themeColors.textPrimary }]}>
@@ -648,8 +647,8 @@ export default function CalendarScreen() {
                                 </View>
                             </ScrollView>
                         ) : null}
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
 
             </SafeAreaView>
         </View>

@@ -7,7 +7,8 @@
     "dev": "expo start --web",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "postinstall": "node scripts/patch-freeport-async.js"
   },
   "dependencies": {
     "@coinbase/cdp-core": "^0.0.65",
@@ -23,6 +24,7 @@
     "@expo/ui": "~0.2.0-beta.9",
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.2.8",
+    "@lodev09/react-native-true-sheet": "^3.9.9",
     "@privy-io/expo": "^0.60.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "^8.6.0",
@@ -139,6 +141,9 @@
     "typechain": "^8.3.2",
     "typescript": "~5.9.2",
     "util": "^0.12.5"
+  },
+  "engines": {
+    "node": ">=20 <25"
   },
   "private": true
 }

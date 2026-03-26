@@ -24,7 +24,7 @@ import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, Search
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAuth } from '../../hooks/useAuth';
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { OfframpConfirmationModal } from '../../components/OfframpConfirmationModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 let ContextMenu: any = null;
@@ -44,6 +44,7 @@ import { useWallet } from '../../hooks/useWallet';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import Analytics from '../../services/analytics';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 // Network options
 const NETWORKS = [
@@ -99,9 +100,9 @@ export default function CreateWithdrawalScreen() {
     // Bottom Sheet Refs
     // bankSheetRef removed
     // chainSheetRef removed
-    const confirmModalRef = useRef<BottomSheetModal>(null);
-    const bridgeModalRef = useRef<BottomSheetModal>(null);
-    const beneficiariesSheetRef = useRef<BottomSheetModal>(null);
+    const confirmModalRef = useRef<TrueSheet>(null);
+    const bridgeModalRef = useRef<TrueSheet>(null);
+    const beneficiariesSheetRef = useRef<TrueSheet>(null);
 
     // Wallets & Address
     const { address: baseAddress } = useWallet();
@@ -126,7 +127,6 @@ export default function CreateWithdrawalScreen() {
     // Snap points - fixed to be higher as requested
     const snapPoints = useMemo(() => ['90%'], []);
     const chainSnapPoints = useMemo(() => ['40%'], []);
-    const beneficiariesSnapPoints = useMemo(() => ['55%'], []);
 
     // Load supported banks
     useEffect(() => {
@@ -533,17 +533,6 @@ export default function CreateWithdrawalScreen() {
 
 
 
-    const renderBackdrop = useCallback(
-        (props: any) => (
-            <BottomSheetBackdrop
-                {...props}
-                disappearsOnIndex={-1}
-                appearsOnIndex={0}
-                opacity={0.5}
-            />
-        ),
-        []
-    );
 
     // Render item for bank list
 
@@ -587,11 +576,13 @@ export default function CreateWithdrawalScreen() {
             <SafeAreaView style={styles.safeArea}>
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                            <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                        </View>
-                    </TouchableOpacity>
+                    <IOSGlassIconButton
+                        onPress={() => router.back()}
+                        systemImage="chevron.left"
+                        containerStyle={styles.backButton}
+                        circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                        icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                    />
                     <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>New Withdrawal</Text>
                     <View style={styles.placeholder} />
                 </View>
@@ -876,16 +867,15 @@ export default function CreateWithdrawalScreen() {
                 onSuccess={handleSuccess}
             />
 
-            <BottomSheetModal
+            <TrueSheet
                 ref={beneficiariesSheetRef}
-                index={0}
-                snapPoints={beneficiariesSnapPoints}
-                enablePanDownToClose
-                backdropComponent={renderBackdrop}
-                backgroundStyle={{ backgroundColor: themeColors.background }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary, width: 40 }}
+                detents={['auto']}
+                cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                backgroundBlur="regular"
+                grabber={true}
+                scrollable={true}
             >
-                <BottomSheetView style={styles.beneficiariesSheet}>
+                <View style={styles.beneficiariesSheet}>
                     <Text style={[styles.beneficiariesSheetTitle, { color: themeColors.textPrimary }]}>Beneficiaries</Text>
                     <ScrollView
                         showsVerticalScrollIndicator={false}
@@ -925,8 +915,8 @@ export default function CreateWithdrawalScreen() {
                             </Swipeable>
                         ))}
                     </ScrollView>
-                </BottomSheetView>
-            </BottomSheetModal>
+                </View>
+            </TrueSheet>
 
             {/* Solana Bridge Modal */}
             <SolanaBridgeModal
@@ -1207,6 +1197,7 @@ const styles = StyleSheet.create({
     },
     beneficiariesSheet: {
         paddingHorizontal: 20,
+        paddingTop: 28,
         paddingBottom: 20,
     },
     beneficiariesSheetTitle: {

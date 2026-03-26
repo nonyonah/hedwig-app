@@ -12,11 +12,13 @@ import { Platform, TouchableOpacity, TouchableOpacityProps, View, StyleSheet } f
 
 // Conditionally import SwiftUI Button only on iOS
 let SwiftUIButton: any = null;
+let SwiftUIHost: any = null;
 
 if (Platform.OS === 'ios') {
     try {
         const swiftUI = require('@expo/ui/swift-ui');
         SwiftUIButton = swiftUI.Button;
+        SwiftUIHost = swiftUI.Host;
     } catch (e) {
         console.warn('Failed to load @expo/ui/swift-ui Button:', e);
     }
@@ -47,24 +49,32 @@ export const SwiftUITouchable: React.FC<SwiftUITouchableProps> = ({
     activeOpacity = 0.7,
     ...props
 }) => {
-    // iOS: Use native SwiftUI Button with plain variant
-    if (Platform.OS === 'ios' && SwiftUIButton) {
+    // iOS: Use native SwiftUI Button hosted inside Host.
+    // Keep RN content overlay for visual parity while touch handling uses SwiftUI.
+    if (Platform.OS === 'ios' && SwiftUIButton && SwiftUIHost) {
+        const textLabel =
+            typeof label === 'string'
+                ? label
+                : typeof children === 'string'
+                    ? children
+                    : undefined;
+
         return (
-            <SwiftUIButton
-                variant="plain"
-                onPress={onPress}
-                disabled={disabled}
-                systemImage={systemImage}
-            >
-                {/* 
-                  SwiftUI Button requires string children for the label.
-                  We wrap RN children in a View positioned over the button area.
-                  The button handles touch, children handle display.
-                */}
-                <View style={[styles.wrapper, style]} pointerEvents="none">
+            <View style={style}>
+                <SwiftUIHost style={StyleSheet.absoluteFill}>
+                    <SwiftUIButton
+                        variant="plain"
+                        onPress={onPress}
+                        disabled={disabled}
+                        systemImage={systemImage}
+                    >
+                        {textLabel}
+                    </SwiftUIButton>
+                </SwiftUIHost>
+                <View style={styles.overlay} pointerEvents="none">
                     {children}
                 </View>
-            </SwiftUIButton>
+            </View>
         );
     }
 
@@ -83,10 +93,9 @@ export const SwiftUITouchable: React.FC<SwiftUITouchableProps> = ({
 };
 
 const styles = StyleSheet.create({
-    wrapper: {
-        // Default wrapper styles - allows children to render normally
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
     },
 });
 
 export default SwiftUITouchable;
-

@@ -5,6 +5,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { useThemeColors } from '../../theme/colors';
 import { useWallet } from '../../hooks/useWallet';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
     detectRecipientChain,
     getTokenOptionsForChain,
@@ -64,14 +65,13 @@ export default function SendTokenScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}> 
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
+                <IOSGlassIconButton
                     onPress={() => router.replace({ pathname: '/wallet/send-address', params: { recipient } })}
-                >
-                    <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                        <CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />
-                    </View>
-                </TouchableOpacity>
+                    systemImage="chevron.left"
+                    containerStyle={styles.backButton}
+                    circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                    icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                />
                 <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Send</Text>
                 <View style={styles.iconButtonSpacer} />
             </View>

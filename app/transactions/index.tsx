@@ -15,7 +15,7 @@ import {
     RefreshControl,
     ScrollView
 } from 'react-native';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
 import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowLeftRight as ArrowsLeftRight, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
@@ -34,6 +34,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 const { width } = Dimensions.get('window');
 
@@ -129,7 +130,7 @@ export default function TransactionsScreen() {
 
     // Detail Modal with BottomSheet
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-    const bottomSheetRef = useRef<BottomSheetModal>(null);
+    const bottomSheetRef = useRef<TrueSheet>(null);
 
     useEffect(() => {
         fetchTransactions();
@@ -305,11 +306,13 @@ export default function TransactionsScreen() {
             <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <View style={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}>
-                                <CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />
-                            </View>
-                        </TouchableOpacity>
+                        <IOSGlassIconButton
+                            onPress={() => router.back()}
+                            systemImage="chevron.left"
+                            containerStyle={styles.backButton}
+                            circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                            icon={<CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />}
+                        />
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Transactions</Text>
                         <View style={styles.headerRightPlaceholder} />
                     </View>
@@ -398,18 +401,15 @@ export default function TransactionsScreen() {
 
 
             {/* Transaction Detail Modal */}
-            <BottomSheetModal
+            <TrueSheet
                 ref={bottomSheetRef}
-                index={0}
-                enableDynamicSizing={true}
-                enablePanDownToClose={true}
-                backdropComponent={(props) => (
-                    <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                )}
-                backgroundStyle={{ backgroundColor: themeColors.background, borderRadius: 24 }}
-                handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
+                detents={['auto']}
+                cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                backgroundBlur="regular"
+                grabber={true}
+                onDidDismiss={closeModal}
             >
-                <BottomSheetView style={{ paddingBottom: 40, paddingHorizontal: 24 }}>
+                <View style={{ paddingTop: 28, paddingBottom: 26, paddingHorizontal: 24 }}>
                     <View style={styles.modalHeader}>
                         <View style={styles.modalHeaderLeft}>
                             {/* Token icon with send/receive badge */}
@@ -432,9 +432,12 @@ export default function TransactionsScreen() {
                                 </Text>
                             </View>
                         </View>
-                        <TouchableOpacity onPress={closeModal} style={[styles.closeButton, { backgroundColor: themeColors.surface }]}>
-                            <X size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                        </TouchableOpacity>
+                        <IOSGlassIconButton
+                            onPress={closeModal}
+                            systemImage="xmark"
+                            circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                            icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                        />
                     </View>
 
                     {selectedTransaction && (
@@ -494,8 +497,8 @@ export default function TransactionsScreen() {
                             </TouchableOpacity>
                         </>
                     )}
-                    </BottomSheetView>
-                </BottomSheetModal>
+                    </View>
+                </TrueSheet>
 
         </View>
     );

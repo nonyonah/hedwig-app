@@ -67,16 +67,19 @@ router.post('/register', authenticate, async (req: Request, res: Response) => {
 
         logger.debug('Registering device token');
 
-        const success = await NotificationService.registerDeviceToken(
+        const result = await NotificationService.registerDeviceToken(
             user.id,
             expoPushToken,
-            platform || 'ios'
+            platform === 'android' ? 'android' : 'ios'
         );
 
-        if (!success) {
+        if (!result.success) {
             res.status(500).json({
                 success: false,
-                error: { message: 'Failed to register device token' },
+                error: {
+                    message: 'Failed to register device token',
+                    details: result.error,
+                },
             });
             return;
         }
