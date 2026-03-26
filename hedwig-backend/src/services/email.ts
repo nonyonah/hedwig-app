@@ -15,7 +15,7 @@ const canonicalizePublicUrl = (input?: string | null): string => {
     try {
         const url = new URL(normalized);
         const hostname = url.hostname.toLowerCase();
-        if (hostname === 'pay.hedwigbot.xyz' || hostname === 'hedwig.app' || hostname === 'www.hedwig.app') {
+        if (hostname === 'hedwigbot.xyz' || hostname === 'hedwigbot.xyz' || hostname === 'www.hedwigbot.xyz') {
             url.hostname = 'hedwigbot.xyz';
         }
         return url.toString().replace(/\/+$/, '');
