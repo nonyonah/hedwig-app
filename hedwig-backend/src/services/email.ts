@@ -14,7 +14,8 @@ const canonicalizePublicUrl = (input?: string | null): string => {
     const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
     try {
         const url = new URL(normalized);
-        if (url.hostname.toLowerCase() === 'pay.hedwigbot.xyz') {
+        const hostname = url.hostname.toLowerCase();
+        if (hostname === 'pay.hedwigbot.xyz' || hostname === 'hedwig.app' || hostname === 'www.hedwig.app') {
             url.hostname = 'hedwigbot.xyz';
         }
         return url.toString().replace(/\/+$/, '');

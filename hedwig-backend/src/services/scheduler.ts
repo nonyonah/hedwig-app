@@ -614,9 +614,10 @@ export const SchedulerService = {
                     ? `Hi ${clientName},\n\nThis is a reminder that your ${docType} for ${doc.amount} USDC from ${senderName} is due today. Please complete the payment at your earliest convenience.\n\nThank you!`
                     : `Hi ${clientName},\n\nJust a ${urgency} reminder that you have a ${docType} for ${doc.amount} USDC from ${senderName} due ${daysUntilDue === 1 ? 'tomorrow' : `in ${daysUntilDue} days`}.\n\nBest regards`;
 
+                const BASE_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
                 const actionLink = doc.type === 'INVOICE'
-                    ? `https://hedwig.app/invoice/${doc.id}`
-                    : `https://hedwig.app/pay/${doc.id}`;
+                    ? `${BASE_URL}/invoice/${doc.id}`
+                    : `${BASE_URL}/pay/${doc.id}`;
 
                 await EmailService.sendSmartReminder(
                     recipientEmail,
@@ -712,7 +713,7 @@ export const SchedulerService = {
                         clientEmail,
                         subject,
                         `Hi ${clientName},\n\nThe milestone "${milestone.title}" for ${milestone.amount} USDC is ${reminderType === 'due_today' ? 'due today' : `due ${daysUntilDue === 1 ? 'tomorrow' : `in ${daysUntilDue} days`}`}.`,
-                        'https://hedwig.app',
+                        (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, ''),
                         'View Details'
                     );
                 }
@@ -818,9 +819,10 @@ export const SchedulerService = {
             );
 
             // Determine action link
+            const BASE_URL = (process.env.WEB_CLIENT_URL || process.env.PUBLIC_BASE_URL || 'https://hedwigbot.xyz').replace(/\/+$/, '');
             const actionLink = doc.type === 'INVOICE'
-                ? `https://hedwig.app/invoice/${doc.id}`
-                : `https://hedwig.app/pay/${doc.id}`; // Assuming pay link format
+                ? `${BASE_URL}/invoice/${doc.id}`
+                : `${BASE_URL}/pay/${doc.id}`;
 
             // Send Email
             const sent = await EmailService.sendSmartReminder(
