@@ -2,6 +2,28 @@ type PaymentKind = 'invoice' | 'payment_link' | 'contract' | 'crypto';
 type TransferSource = 'ach' | 'external_address' | 'unknown';
 type OfframpStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
+export const formatNetworkLabel = (network?: string): string => {
+    const raw = String(network || '').trim();
+    if (!raw) return '';
+
+    const lower = raw.toLowerCase();
+
+    if (lower.includes('base')) return 'Base';
+    if (lower.includes('solana')) return 'Solana';
+    if (lower.includes('celo')) return 'Celo';
+    if (lower.includes('arbitrum')) return 'Arbitrum';
+    if (lower.includes('optimism')) return 'Optimism';
+    if (lower.includes('ethereum') || lower === 'eth' || lower === 'mainnet') return 'Ethereum';
+
+    return raw
+        .replace(/[_-]+/g, ' ')
+        .toLowerCase()
+        .split(' ')
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+};
+
 const formatMoney = (value: number, currency: string) => {
     if (!Number.isFinite(value)) return `0 ${currency}`;
     return `${value.toFixed(2)} ${currency}`;

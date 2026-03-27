@@ -7,60 +7,34 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TutorialCard } from '../../components/TutorialCard';
 import { useTutorial } from '../../hooks/useTutorial';
 import { TUTORIAL_STEPS } from '../../constants/tutorialSteps';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import type { IconSvgElement } from '@hugeicons/react-native';
 import {
-    BarChart3 as ChartBar,
-    ArrowLeftRight as ArrowsLeftRight,
-    DollarSign as CurrencyDollar,
-    Calendar,
-    FolderOpen,
-    Users,
-    Settings as Gear,
-    Send as PaperPlaneTilt
-} from '../../components/ui/AppIcon';
+    BarChart as InsightsIconData,
+    ArrowLeftRight as TransactionsIconData,
+    DollarSign as WithdrawalsIconData,
+    Calendar as CalendarIconData,
+    FolderOpen as ProjectsIconData,
+    UserGroupIcon as ClientsIconData,
+    Settings01Icon as SettingsIconData,
+    SentIcon as FeedbackIconData,
+} from '@hugeicons/core-free-icons';
 
 function CustomDrawerContent(props: any) {
     const router = useRouter();
     const themeColors = useThemeColors();
 
-    const mainMenuItems = [
-        {
-            name: 'Insights',
-            icon: ChartBar,
-            route: '/insights',
-        },
-        {
-            name: 'Transactions',
-            icon: ArrowsLeftRight,
-            route: '/transactions',
-        },
-        {
-            name: 'Withdrawals',
-            icon: CurrencyDollar,
-            route: '/offramp-history',
-        },
-        {
-            name: 'Calendar',
-            icon: Calendar,
-            route: '/calendar',
-        },
-        {
-            name: 'Projects',
-            icon: FolderOpen,
-            route: '/projects',
-        },
-        {
-            name: 'Clients',
-            icon: Users,
-            route: '/clients',
-        },
+    const mainMenuItems: { name: string; icon: IconSvgElement; route: string }[] = [
+        { name: 'Insights', icon: InsightsIconData, route: '/insights' },
+        { name: 'Transactions', icon: TransactionsIconData, route: '/transactions' },
+        { name: 'Withdrawals', icon: WithdrawalsIconData, route: '/offramp-history' },
+        { name: 'Calendar', icon: CalendarIconData, route: '/calendar' },
+        { name: 'Projects', icon: ProjectsIconData, route: '/projects' },
+        { name: 'Clients', icon: ClientsIconData, route: '/clients' },
     ];
 
-    const settingsItems = [
-        {
-            name: 'Settings',
-            icon: Gear,
-            route: '/settings',
-        },
+    const settingsItems: { name: string; icon: IconSvgElement; route: string }[] = [
+        { name: 'Settings', icon: SettingsIconData, route: '/settings' },
     ];
 
     const handleNavigation = (route: string) => {
@@ -78,37 +52,31 @@ function CustomDrawerContent(props: any) {
             <ScrollView style={styles.menuScroll} showsVerticalScrollIndicator={false}>
                 {/* Main Menu Items */}
                 <View style={styles.menuSection}>
-                    {mainMenuItems.map((item, index) => {
-                        const IconComponent = item.icon;
-                        return (
-                            <TouchableOpacity
-                                key={index}
-                                style={styles.menuItem}
-                                onPress={() => handleNavigation(item.route)}
-                            >
-                                <IconComponent size={24} color={themeColors.textPrimary} />
-                                <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{item.name}</Text>
-                            </TouchableOpacity>
-                        );
-                    })}
+                    {mainMenuItems.map((item, index) => (
+                        <TouchableOpacity
+                            key={index}
+                            style={styles.menuItem}
+                            onPress={() => handleNavigation(item.route)}
+                        >
+                            <HugeiconsIcon icon={item.icon} size={24} color={themeColors.textPrimary} strokeWidth={1.5} />
+                            <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{item.name}</Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
 
                 {/* Settings Section */}
                 <View style={styles.settingsSection}>
                     <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>SETTINGS</Text>
-                    {settingsItems.map((item, index) => {
-                        const IconComponent = item.icon;
-                        return (
-                            <TouchableOpacity
-                                key={index}
-                                style={styles.menuItem}
-                                onPress={() => handleNavigation(item.route)}
-                            >
-                                <IconComponent size={24} color={themeColors.textPrimary} />
-                                <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{item.name}</Text>
-                            </TouchableOpacity>
-                        );
-                    })}
+                    {settingsItems.map((item, index) => (
+                        <TouchableOpacity
+                            key={index}
+                            style={styles.menuItem}
+                            onPress={() => handleNavigation(item.route)}
+                        >
+                            <HugeiconsIcon icon={item.icon} size={24} color={themeColors.textPrimary} strokeWidth={1.5} />
+                            <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{item.name}</Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
             </ScrollView>
 
@@ -121,7 +89,7 @@ function CustomDrawerContent(props: any) {
                         // Add feedback functionality here
                     }}
                 >
-                    <PaperPlaneTilt size={20} color={themeColors.textPrimary} />
+                    <HugeiconsIcon icon={FeedbackIconData} size={20} color={themeColors.textPrimary} strokeWidth={1.5} />
                     <Text style={[styles.feedbackText, { color: themeColors.textPrimary }]}>Give feedback</Text>
                 </TouchableOpacity>
             </View>
@@ -214,7 +182,7 @@ const styles = StyleSheet.create({
         paddingBottom: 24,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_500Medium',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 32,
     },
     menuScroll: {

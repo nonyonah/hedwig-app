@@ -32,6 +32,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { getUserGradient } from '../../../utils/gradientUtils';
 import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
 import IOSGlassIconButton from '../../../components/ui/IOSGlassIconButton';
+import TokenDetailSheet, { SelectedToken } from '../../../components/TokenDetailSheet';
 import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, updateUsdSettlement, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 
 const CHAINS = [
@@ -60,6 +61,14 @@ const getTokenBalance = (entry: any, decimals: number): number => {
     }
 
     return 0;
+};
+
+const parseFeatureFlag = (value: string | undefined, fallback = false): boolean => {
+    if (typeof value !== 'string') return fallback;
+    const normalized = value.trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on', 'enabled'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off', 'disabled'].includes(normalized)) return false;
+    return fallback;
 };
 
 const parseOptionalNumber = (value: unknown): number | null => {
@@ -93,6 +102,8 @@ export default function WalletScreen() {
     const sendSheetRef = useRef<TrueSheet>(null);
     const autoSettlementSheetRef = useRef<TrueSheet>(null);
     const bridgeKycInfoSheetRef = useRef<TrueSheet>(null);
+    const tokenDetailSheetRef = useRef<TrueSheet>(null);
+    const [selectedToken, setSelectedToken] = useState<SelectedToken | null>(null);
     const sheetInteractionLockedRef = useRef(false);
     const sheetUnlockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isUpdatingAutoSettlement, setIsUpdatingAutoSettlement] = useState(false);
@@ -105,6 +116,16 @@ export default function WalletScreen() {
     const [usdTransfers, setUsdTransfers] = useState<UsdTransfer[]>([]);
     const [usdLoading, setUsdLoading] = useState(false);
     const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+    const [tokenPriceChanges, setTokenPriceChanges] = useState<Record<string, number>>({});
+    const isAutoSettlementEnabled = parseFeatureFlag(
+        process.env.EXPO_PUBLIC_ENABLE_WALLET_AUTO_SETTLEMENT,
+        false
+    );
+    const showUsdAccountCard = parseFeatureFlag(
+        process.env.EXPO_PUBLIC_SHOW_USD_ACCOUNT_CARD,
+        false
+    );
+    const isAutoSettlementDisabled = !isAutoSettlementEnabled;
 
     const lockSheetInteractions = useCallback((durationMs = 220) => {
         sheetInteractionLockedRef.current = true;
@@ -115,7 +136,7 @@ export default function WalletScreen() {
     }, []);
 
     const dismissAllSheets = useCallback((except?: React.RefObject<TrueSheet | null>) => {
-        const refs = [receiveSheetRef, sendSheetRef, autoSettlementSheetRef, bridgeKycInfoSheetRef];
+        const refs = [receiveSheetRef, sendSheetRef, autoSettlementSheetRef, bridgeKycInfoSheetRef, tokenDetailSheetRef];
         refs.forEach((ref) => {
             if (ref !== except) ref.current?.dismiss();
         });
@@ -165,6 +186,23 @@ export default function WalletScreen() {
         } catch (error) { console.error('Failed to fetch user data:', error); }
     }, [user, getAccessToken]);
 
+    const fetchTokenPrices = useCallback(async () => {
+        try {
+            const ids = 'ethereum,solana,usd-coin';
+            const res = await fetch(
+                `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&price_change_percentage=24h`
+            );
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                const map: Record<string, number> = {};
+                data.forEach((coin: any) => {
+                    if (coin.symbol) map[coin.symbol.toUpperCase()] = coin.price_change_percentage_24h ?? 0;
+                });
+                setTokenPriceChanges(map);
+            }
+        } catch { /* silently ignore — UI falls back to no % */ }
+    }, []);
+
     const fetchUsdData = useCallback(async () => {
         if (!user) return;
 
@@ -204,7 +242,8 @@ export default function WalletScreen() {
         await Promise.all([
             fetchUserData(),
             fetchBaseBalances(),
-            fetchUsdData()
+            fetchUsdData(),
+            fetchTokenPrices(),
         ]);
         setLastUpdatedAt(new Date());
         setRefreshing(false);
@@ -215,14 +254,24 @@ export default function WalletScreen() {
             fetchUserData();
             fetchBaseBalances();
             fetchUsdData();
+            fetchTokenPrices();
             setLastUpdatedAt(new Date());
 
-            const intervalId = setInterval(() => {
+            const balanceInterval = setInterval(() => {
                 fetchBaseBalances();
+                setLastUpdatedAt(new Date());
             }, 15000);
 
-            return () => clearInterval(intervalId);
-        }, [fetchBaseBalances, fetchUserData, fetchUsdData])
+            const priceInterval = setInterval(() => {
+                fetchTokenPrices();
+                fetchUsdData();
+            }, 60000);
+
+            return () => {
+                clearInterval(balanceInterval);
+                clearInterval(priceInterval);
+            };
+        }, [fetchBaseBalances, fetchUserData, fetchUsdData, fetchTokenPrices])
     );
 
     const selectedAddress = selectedChain === 'solana' ? (solanaAddress || '') : (baseAddress || '');
@@ -403,31 +452,25 @@ export default function WalletScreen() {
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <View style={styles.headerLeft}>
-                        <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-                            {profileIcon?.imageUri ? (
-                                <Image source={{ uri: profileIcon.imageUri }} style={styles.profileImage} />
-                            ) : (
-                                <LinearGradient
-                                    colors={getUserGradient(user?.id)}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.profileImage}
-                                >
-                                    <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 }}>
-                                        {userName.firstName?.[0] || 'U'}
-                                    </Text>
-                                </LinearGradient>
-                            )}
-                        </TouchableOpacity>
-                        <View style={styles.headerTextContainer}>
-                            <Text style={[styles.headerName, { color: themeColors.textPrimary }]}>
-                                {userName.firstName ? `${userName.firstName}'s Wallet` : 'My Wallet'}
-                            </Text>
-                        </View>
-                    </View>
+                    <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+                        {profileIcon?.imageUri ? (
+                            <Image source={{ uri: profileIcon.imageUri }} style={styles.profileImage} />
+                        ) : (
+                            <LinearGradient
+                                colors={getUserGradient(user?.id)}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.profileImage}
+                            >
+                                <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 }}>
+                                    {userName.firstName?.[0] || 'U'}
+                                </Text>
+                            </LinearGradient>
+                        )}
+                    </TouchableOpacity>
+                    <View style={styles.headerTitleRow} />
                     <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/settings')}>
-                        <Gear size={24} color={themeColors.textPrimary} />
+                        <Gear size={22} color={themeColors.textPrimary} />
                     </TouchableOpacity>
                 </View>
 
@@ -444,7 +487,7 @@ export default function WalletScreen() {
                         <Text style={[styles.totalBalance, { color: themeColors.textPrimary }]}>
                             ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </Text>
-                        <Text style={[styles.balanceUpdatedText, { color: themeColors.textSecondary }]}>
+                        <Text style={[styles.addressCopyText, { color: themeColors.textSecondary }]}>
                             {lastUpdatedAt
                                 ? `Updated ${lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                                 : 'Updated just now'}
@@ -454,19 +497,9 @@ export default function WalletScreen() {
                     <View style={styles.actionButtons}>
                         <TouchableOpacity
                             style={styles.actionButton}
-                            onPress={() => presentSheet(receiveSheetRef)}
-                        >
-                            <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
-                                <QrCode size={24} color={themeColors.textPrimary} />
-                            </View>
-                            <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Receive</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.actionButton}
                             onPress={() => presentSheet(sendSheetRef)}
                         >
-                            <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
+                            <View style={[styles.actionIconBox, { backgroundColor: themeColors.surface }]}>
                                 <ArrowUp size={24} color={themeColors.textPrimary} />
                             </View>
                             <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Send</Text>
@@ -474,16 +507,28 @@ export default function WalletScreen() {
 
                         <TouchableOpacity
                             style={styles.actionButton}
-                            onPress={() => presentSheet(autoSettlementSheetRef)}
+                            onPress={() => presentSheet(receiveSheetRef)}
                         >
-                            <View style={[styles.actionIconBox, { backgroundColor: themeColors.surfaceHighlight || (themeColors.background === '#FFFFFF' ? '#F0EEFF' : 'rgba(37, 99, 235, 0.15)') }]}>
-                                <Plus size={24} color={themeColors.textPrimary} />
+                            <View style={[styles.actionIconBox, { backgroundColor: themeColors.surface }]}>
+                                <QrCode size={24} color={themeColors.textPrimary} />
                             </View>
-                            <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Add</Text>
+                            <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Receive</Text>
                         </TouchableOpacity>
+
+                        {!isAutoSettlementDisabled && (
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={() => presentSheet(autoSettlementSheetRef)}
+                            >
+                                <View style={[styles.actionIconBox, { backgroundColor: themeColors.surface }]}>
+                                    <Plus size={24} color={themeColors.textPrimary} />
+                                </View>
+                                <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Add</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
 
-                    {canAccessUsdAccountFeature ? (
+                    {showUsdAccountCard && canAccessUsdAccountFeature ? (
                     <View style={styles.usdAccountSection}>
                         <View style={styles.tokenHeader}>
                             <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>USD Account</Text>
@@ -533,7 +578,7 @@ export default function WalletScreen() {
 
                     <View style={styles.tokenSection}>
                         <View style={styles.tokenHeader}>
-                            <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Tokens</Text>
+                            <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Coins</Text>
 
                             {/* Native Network Dropdown */}
                             {Platform.OS === 'ios' && Host ? (
@@ -582,20 +627,12 @@ export default function WalletScreen() {
                         {filteredTokens.map((item, index) => (
                             <TouchableOpacity
                                 key={`${item.chain}-${item.symbol}-${index}`}
-                                style={[styles.tokenItem, { backgroundColor: themeColors.surface }]}
-                                onPress={() =>
-                                    router.push({
-                                        pathname: '/wallet/token-details',
-                                        params: {
-                                            symbol: item.symbol,
-                                            name: item.name,
-                                            chain: item.chain,
-                                            balance: String(item.balance),
-                                            balanceUsd: String(item.balanceUsd),
-                                        },
-                                    } as any)
-                                }
-                                activeOpacity={0.85}
+                                style={styles.tokenItem}
+                                onPress={() => {
+                                    setSelectedToken(item);
+                                    tokenDetailSheetRef.current?.present();
+                                }}
+                                activeOpacity={0.7}
                             >
                                 <View style={styles.tokenLeft}>
                                     <View style={styles.tokenIconContainer}>
@@ -623,9 +660,18 @@ export default function WalletScreen() {
                                     <Text style={[styles.tokenBalance, { color: themeColors.textPrimary }]}>
                                         ${item.balanceUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </Text>
-                                    <Text style={[styles.chainLabel, { color: themeColors.textSecondary }]}>
-                                        {item.chain === 'base' ? 'on Base' : 'on Solana'}
-                                    </Text>
+                                    {tokenPriceChanges[item.symbol] !== undefined ? (
+                                        <Text style={[styles.chainLabel, {
+                                            color: tokenPriceChanges[item.symbol] >= 0 ? '#22C55E' : '#EF4444',
+                                        }]}>
+                                            {tokenPriceChanges[item.symbol] >= 0 ? '+' : ''}
+                                            {tokenPriceChanges[item.symbol].toFixed(2)}%
+                                        </Text>
+                                    ) : (
+                                        <Text style={[styles.chainLabel, { color: themeColors.textSecondary }]}>
+                                            {item.chain === 'base' ? 'Base' : 'Solana'}
+                                        </Text>
+                                    )}
                                 </View>
                             </TouchableOpacity>
                         ))}
@@ -876,6 +922,18 @@ export default function WalletScreen() {
                         </View>
                     </View>
                 </TrueSheet>
+
+                {/* Token Detail Sheet */}
+                <TokenDetailSheet
+                    ref={tokenDetailSheetRef}
+                    selectedToken={selectedToken}
+                    initialPriceChange={selectedToken ? tokenPriceChanges[selectedToken.symbol] : undefined}
+                    onDismiss={() => setSelectedToken(null)}
+                    onSend={() => {
+                        tokenDetailSheetRef.current?.dismiss();
+                        setTimeout(() => sendSheetRef.current?.present(), 320);
+                    }}
+                />
             </SafeAreaView>
 
         </>
@@ -886,17 +944,19 @@ export default function WalletScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
-    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    profileImage: { width: 40, height: 40, borderRadius: 20 },
-    headerTextContainer: { justifyContent: 'center' },
-    headerName: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 },
+    headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    profileImage: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+    headerName: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 17 },
     settingsButton: { padding: 8 },
     content: { flex: 1, paddingHorizontal: 20 },
-    balanceSection: { marginTop: 24, marginBottom: 32, alignItems: 'flex-start' },
-    totalBalance: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 42, letterSpacing: -1 },
+    balanceSection: { marginTop: 24, marginBottom: 28, alignItems: 'flex-start' },
+    totalBalance: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 44, letterSpacing: -1.5 },
     balanceUpdatedText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 12, marginTop: 4 },
+    addressCopyRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
+    addressCopyText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13 },
     actionButtons: { flexDirection: 'row', justifyContent: 'space-evenly', marginBottom: 32 },
     actionButton: { alignItems: 'center', gap: 8, minWidth: 72 },
+    actionButtonDisabled: { opacity: 0.45 },
     actionIconBox: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
     actionButtonLabel: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
     usdAccountSection: { marginBottom: 20 },
@@ -910,18 +970,18 @@ const styles = StyleSheet.create({
     networkFilterButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
     networkFilterIcon: { width: 16, height: 16, borderRadius: 8 },
     networkFilterText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
-    tokenItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 12 },
-    tokenLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    tokenItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 4 },
+    tokenLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     tokenIconContainer: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent', position: 'relative' },
     tokenIconImage: { width: 32, height: 32, borderRadius: 16 },
     chainBadgeOverlay: { position: 'absolute', bottom: -2, right: -2, backgroundColor: '#FFFFFF', borderRadius: 8, padding: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
     chainBadgeIcon: { width: 12, height: 12, borderRadius: 6 },
-    tokenName: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 },
-    tokenSymbol: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13, marginTop: 2 },
+    tokenName: { fontFamily: 'GoogleSansFlex_700Bold', fontSize: 17 },
+    tokenSymbol: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14, marginTop: 2 },
     tokenEquivalent: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13, marginTop: 2 },
-    chainLabel: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 12, marginTop: 2 },
+    chainLabel: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13, marginTop: 2 },
     tokenRight: { alignItems: 'flex-end' },
-    tokenBalance: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16, marginBottom: 2 },
+    tokenBalance: { fontFamily: 'GoogleSansFlex_700Bold', fontSize: 17, marginBottom: 2 },
     emptyState: { padding: 20, alignItems: 'center' },
     emptyStateText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14 },
     fullscreenModal: { flex: 1 },
@@ -990,7 +1050,7 @@ const styles = StyleSheet.create({
     sendSheetContent: {
         paddingHorizontal: 20,
         ...Platform.select({
-            ios: { paddingTop: 22, paddingBottom: 20 },
+            ios: { paddingTop: 28, paddingBottom: 16 },
             android: { paddingTop: 28, paddingBottom: 24 },
         }),
     },

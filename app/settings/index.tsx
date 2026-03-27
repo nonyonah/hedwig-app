@@ -1097,7 +1097,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: Platform.OS === 'android' ? 26 : 28,
         color: Colors.textPrimary,
     },

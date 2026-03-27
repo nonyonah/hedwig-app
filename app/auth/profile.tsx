@@ -349,8 +349,7 @@ const styles = StyleSheet.create({
         marginLeft: -4,
     },
     headerTitle: {
-        flex: 1,
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 18,
         textAlign: 'center',
     },

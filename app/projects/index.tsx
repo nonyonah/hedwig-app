@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
         width: 48,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: Platform.OS === 'android' ? 20 : 22,
         textAlign: 'center',
         color: Colors.textPrimary,

@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     backButtonCircle: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
     headerRightPlaceholder: { width: 40 },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: isAndroid ? 19 : 21,
         textAlign: 'center',
         color: Colors.textPrimary,

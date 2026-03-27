@@ -2,8 +2,8 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Platform, Alert, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Share } from 'react-native';
 import { useRouter, usePathname, Link } from 'expo-router';
 import { usePrivy } from '@privy-io/expo';
-import { House, Link as LinkIcon, Receipt, MessageCircle as Chat, LogOut as SignOut, ArrowLeftRight as ArrowsLeftRight, Settings as Gear, Search as MagnifyingGlass, X, Landmark as Bank, Users, Briefcase, FileText, Calendar as CalendarBlank } from './ui/AppIcon';
-import { ChartPieSlice } from 'phosphor-react-native';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -12,7 +12,23 @@ import { useSettings } from '../context/SettingsContext';
 
 
 const { width, height } = Dimensions.get('window');
-const SIDEBAR_WIDTH = width * 0.85;
+const SIDEBAR_WIDTH = width * 0.96;
+const SIDEBAR_ICON_STROKE = 2;
+
+const HOME_ICON = (HugeiconsCore as any).Home01Icon;
+const INVOICE_ICON = (HugeiconsCore as any).Invoice01Icon;
+const LINK_ICON = (HugeiconsCore as any).Link01Icon;
+const CLIENTS_ICON = (HugeiconsCore as any).UserGroup03Icon;
+const PROJECTS_ICON = (HugeiconsCore as any).Folder01Icon;
+const CONTRACTS_ICON = (HugeiconsCore as any).File02Icon;
+const ANALYTICS_ICON = (HugeiconsCore as any).Analytics01Icon;
+const CALENDAR_ICON = (HugeiconsCore as any).Calendar01Icon;
+const CHAT_ICON = (HugeiconsCore as any).AiChat01Icon;
+const TRANSACTION_ICON = (HugeiconsCore as any).TransactionIcon;
+const WITHDRAWAL_ICON = (HugeiconsCore as any).ReverseWithdrawal01Icon;
+const SETTINGS_ICON = (HugeiconsCore as any).Settings01Icon;
+const SEARCH_ICON = (HugeiconsCore as any).Search01Icon;
+const CLOSE_ICON = (HugeiconsCore as any).Cancel01Icon;
 
 interface SidebarProps {
     isOpen: boolean;
@@ -49,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
-    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -223,7 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     // Airbnb-style menu item with active state as black pill
     // Airbnb-style menu item with active state as black pill
-    const renderMenuItem = (icon: React.ReactNode, label: string, isActive: boolean, onPress: () => void) => (
+    const renderMenuItem = (icon: any, label: string, isActive: boolean, onPress: () => void) => (
         <TouchableOpacity
             style={[styles.menuItem, isActive && styles.menuItemActive]}
             onPress={async () => {
@@ -234,9 +250,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
         >
             <View style={[styles.menuIcon, isActive && styles.menuIconActive]}>
-                {React.cloneElement(icon as React.ReactElement<{ color: string }>, {
-                    color: isActive ? '#FFFFFF' : themeColors.textPrimary
-                })}
+                <HugeiconsIcon
+                    icon={icon}
+                    size={22}
+                    color={isActive ? '#FFFFFF' : themeColors.textPrimary}
+                    strokeWidth={SIDEBAR_ICON_STROKE}
+                />
             </View>
             <Text style={[styles.menuText, { color: themeColors.textPrimary }, isActive && styles.menuTextActive]}>{label}</Text>
         </TouchableOpacity>
@@ -275,7 +294,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Search Header */}
                 <View style={styles.searchHeader}>
                     <View style={[styles.searchContainer, { backgroundColor: themeColors.surface }]}>
-                        <MagnifyingGlass size={20} color={themeColors.textSecondary} />
+                        <HugeiconsIcon icon={SEARCH_ICON} size={20} color={themeColors.textSecondary} strokeWidth={SIDEBAR_ICON_STROKE} />
                         <TextInput
                             style={[styles.searchInput, { color: themeColors.textPrimary }]}
                             placeholder="Search..."
@@ -286,7 +305,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         />
                         {searchQuery.length > 0 && (
                             <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults([]); }}>
-                                <X size={18} color={themeColors.textSecondary} strokeWidth={3} />
+                                <HugeiconsIcon icon={CLOSE_ICON} size={18} color={themeColors.textSecondary} strokeWidth={SIDEBAR_ICON_STROKE} />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -310,11 +329,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         onPress={() => handleSearchResultPress(result)}
                                     >
                                         <View style={[styles.searchResultIcon, { backgroundColor: themeColors.background }]}>
-                                            {result.type === 'invoice' && <Receipt size={18} color={themeColors.textPrimary} />}
-                                            {result.type === 'recurring_invoice' && <Receipt size={18} color={themeColors.textPrimary} />}
-                                            {result.type === 'payment_link' && <LinkIcon size={18} color={themeColors.textPrimary} />}
-                                            {result.type === 'conversation' && <Chat size={18} color={themeColors.textPrimary} />}
-                                            {result.type === 'menu' && <House size={18} color={themeColors.textPrimary} />}
+                                            {result.type === 'invoice' && <HugeiconsIcon icon={INVOICE_ICON} size={18} color={themeColors.textPrimary} strokeWidth={SIDEBAR_ICON_STROKE} />}
+                                            {result.type === 'recurring_invoice' && <HugeiconsIcon icon={INVOICE_ICON} size={18} color={themeColors.textPrimary} strokeWidth={SIDEBAR_ICON_STROKE} />}
+                                            {result.type === 'payment_link' && <HugeiconsIcon icon={LINK_ICON} size={18} color={themeColors.textPrimary} strokeWidth={SIDEBAR_ICON_STROKE} />}
+                                            {result.type === 'conversation' && <HugeiconsIcon icon={CHAT_ICON} size={18} color={themeColors.textPrimary} strokeWidth={SIDEBAR_ICON_STROKE} />}
+                                            {result.type === 'menu' && <HugeiconsIcon icon={HOME_ICON} size={18} color={themeColors.textPrimary} strokeWidth={SIDEBAR_ICON_STROKE} />}
                                         </View>
                                         <View style={styles.searchResultText}>
                                             <Text style={[styles.searchResultTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{result.title}</Text>
@@ -336,7 +355,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             {/* Primary Navigation */}
                             <View style={styles.menuSection}>
                                 {renderMenuItem(
-                                    <House size={22} strokeWidth={3} />,
+                                    HOME_ICON,
                                     'Home',
                                     pathname === '/',
                                     () => {
@@ -345,43 +364,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     }
                                 )}
                                 {renderMenuItem(
-                                    <Receipt size={22} strokeWidth={3} />,
+                                    INVOICE_ICON,
                                     'Invoices',
                                     pathname === '/invoices',
                                     () => handleNavigation('/invoices')
                                 )}
                                 {renderMenuItem(
-                                    <LinkIcon size={22} strokeWidth={3} />,
+                                    LINK_ICON,
                                     'Payment Links',
                                     pathname === '/payment-links',
                                     () => handleNavigation('/payment-links')
                                 )}
                                 {renderMenuItem(
-                                    <Users size={22} strokeWidth={3} />,
+                                    CLIENTS_ICON,
                                     'Clients',
                                     pathname === '/clients',
                                     () => handleNavigation('/clients')
                                 )}
                                 {renderMenuItem(
-                                    <Briefcase size={22} strokeWidth={3} />,
+                                    PROJECTS_ICON,
                                     'Projects',
                                     pathname === '/projects',
                                     () => handleNavigation('/projects')
                                 )}
                                 {renderMenuItem(
-                                    <FileText size={22} strokeWidth={3} />,
+                                    CONTRACTS_ICON,
                                     'Contracts',
                                     pathname === '/contracts',
                                     () => handleNavigation('/contracts')
                                 )}
                                 {renderMenuItem(
-                                    <ChartPieSlice size={22} weight="bold" />,
+                                    ANALYTICS_ICON,
                                     'Insights',
                                     pathname === '/insights',
                                     () => handleNavigation('/insights')
                                 )}
                                 {renderMenuItem(
-                                    <CalendarBlank size={22} strokeWidth={3} />,
+                                    CALENDAR_ICON,
                                     'Calendar',
                                     pathname === '/calendar',
                                     () => handleNavigation('/calendar')
@@ -396,7 +415,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         const ConversationItem = (
                                             <View style={styles.menuItem}>
                                                 <View style={styles.menuIcon}>
-                                                    <Chat size={22} strokeWidth={3} color={themeColors.textPrimary} />
+                                                    <HugeiconsIcon icon={CHAT_ICON} size={22} color={themeColors.textPrimary} strokeWidth={SIDEBAR_ICON_STROKE} />
                                                 </View>
                                                 <Text
                                                     style={[
@@ -422,7 +441,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                     </Link.Trigger>
                                                     <Link.Preview style={{ width: 280, height: 160 }}>
                                                         <View style={{ flex: 1, padding: 16, backgroundColor: themeColors.background, justifyContent: 'center' }}>
-                                                            <Chat size={32} fill={Colors.primary} color="white" style={{ marginBottom: 12 }} />
+                                                            <HugeiconsIcon icon={CHAT_ICON} size={32} color={Colors.primary} strokeWidth={SIDEBAR_ICON_STROKE} style={{ marginBottom: 12 }} />
                                                             <Text style={{ fontSize: 16, fontFamily: 'GoogleSansFlex_600SemiBold', color: themeColors.textPrimary }} numberOfLines={2}>
                                                                 {conv.title || 'Untitled Chat'}
                                                             </Text>
@@ -508,19 +527,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <View style={styles.settingsSection}>
                                 <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>SETTINGS</Text>
                                 {renderMenuItem(
-                                    <ArrowsLeftRight size={22} strokeWidth={3} />,
+                                    TRANSACTION_ICON,
                                     'Transactions',
                                     pathname === '/transactions',
                                     () => handleNavigation('/transactions')
                                 )}
                                 {renderMenuItem(
-                                    <Bank size={22} strokeWidth={3} />,
+                                    WITHDRAWAL_ICON,
                                     'Withdrawals',
                                     pathname === '/offramp-history',
                                     () => handleNavigation('/offramp-history')
                                 )}
                                 {renderMenuItem(
-                                    <Gear size={22} strokeWidth={3} />,
+                                    SETTINGS_ICON,
                                     'Settings',
                                     pathname === '/settings',
                                     () => handleNavigation('/settings')

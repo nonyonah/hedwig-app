@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F3F4F6',
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 17,
     },
     headerSpacer: {

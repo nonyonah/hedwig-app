@@ -14,7 +14,7 @@ import {
   SpinnerGap,
   UploadSimple,
   Warning
-} from '@phosphor-icons/react/dist/ssr';
+} from '@/components/ui/lucide-icons';
 import { usePrivy } from '@privy-io/react-auth';
 import { hedwigApi, type KycStatusSummary, type UpdateUserProfileInput } from '@/lib/api/client';
 import type { User } from '@/lib/models/entities';

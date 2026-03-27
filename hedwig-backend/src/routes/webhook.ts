@@ -5,7 +5,7 @@ import NotificationService from '../services/notifications';
 import BackendAnalytics from '../services/analytics';
 import { markCalendarEventCompleted } from './calendar';
 import { createLogger } from '../utils/logger';
-import { buildIncomingPaymentCopy } from '../utils/notificationCopy';
+import { buildIncomingPaymentCopy, formatNetworkLabel } from '../utils/notificationCopy';
 
 const logger = createLogger('Webhook');
 
@@ -314,6 +314,7 @@ router.post('/alchemy', async (req: Request, res: Response) => {
  * Process Alchemy Address Activity events
  */
 async function processAlchemyActivity(network: string, activities: AlchemyActivity[]) {
+    const networkLabel = formatNetworkLabel(network);
     logger.info('Processing Alchemy activities', { network, count: activities.length });
 
     for (const activity of activities) {
@@ -376,7 +377,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                     clientOrSender: shortAddress,
                     reference: 'transfer',
                     amountText,
-                    networkLabel: network,
+                    networkLabel,
                 });
 
                 if (document) {
@@ -391,7 +392,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                         clientOrSender: clientInfo,
                         reference: docNumber,
                         amountText,
-                        networkLabel: network,
+                        networkLabel,
                     });
 
                     // Update document status to PAID
@@ -432,7 +433,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                         txHash: transfer.txHash,
                         amount: transfer.value.toString(),
                         token: transfer.asset,
-                        network,
+                        network: networkLabel || network,
                         from: transfer.from,
                         documentId: document?.id,
                         clientName: clientInfo,

@@ -1,7 +1,152 @@
 import React from 'react';
 import { View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import type { IconSvgElement } from '@hugeicons/react-native';
+import {
+    Home01Icon as HI_Home01,
+    Home as HI_Home,
+    Receipt as HI_Receipt,
+    Link as HI_Link,
+    File02Icon as HI_File02,
+    File01Icon as HI_File01,
+    Wallet as HI_Wallet,
+    Wallet01Icon as HI_Wallet01,
+    Settings01Icon as HI_Settings01,
+    Settings02Icon as HI_Settings02,
+    Copy01Icon as HI_Copy01,
+    ClipboardCopy as HI_ClipboardCopy,
+    QrCode as HI_QrCode,
+    ArrowDown01 as HI_ArrowDown01,
+    ArrowDown as HI_ArrowDown,
+    ArrowLeft01Icon as HI_ArrowLeft01,
+    ArrowLeft as HI_ArrowLeft,
+    Cancel01Icon as HI_Cancel01,
+    Cancel as HI_Cancel,
+    ArrowUp01 as HI_ArrowUp01,
+    ArrowUp as HI_ArrowUp,
+    ArrowUpDown as HI_ArrowUpDown,
+    Delete01Icon as HI_Delete01,
+    Delete as HI_Delete,
+    Scan as HI_Scan,
+    History as HI_History,
+    TransactionHistoryIcon as HI_TransactionHistory,
+    Menu01Icon as HI_Menu01,
+    Menu as HI_Menu,
+    Clock01Icon as HI_Clock01,
+    AlarmClock as HI_AlarmClock,
+    CheckCircle as HI_CheckCircle,
+    CheckmarkCircle02Icon as HI_CheckmarkCircle02,
+    AlertCircle as HI_AlertCircle,
+    CircleAlert as HI_CircleAlert,
+    AlertTriangle as HI_AlertTriangle,
+    CircleUser as HI_CircleUser,
+    UserCircleIcon as HI_UserCircle,
+    Share08Icon as HI_Share08,
+    Share01Icon as HI_Share01,
+    Trash as HI_Trash,
+    Trash2 as HI_Trash2,
+    Notification01Icon as HI_Notification01,
+    Bell as HI_Bell,
+    MoreHorizontal as HI_MoreHorizontal,
+    BankIcon as HI_Bank,
+    Banknote as HI_Banknote,
+    Refresh as HI_Refresh,
+    Search01Icon as HI_Search01,
+    Search02Icon as HI_Search02,
+    DollarSign as HI_DollarSign,
+    CoinsDollarIcon as HI_CoinsDollar,
+    Megaphone as HI_Megaphone,
+    Megaphone01Icon as HI_Megaphone01,
+    ArrowUpRight01Icon as HI_ArrowUpRight01,
+    ArrowUpRight as HI_ArrowUpRight,
+    ArrowDownLeft01Icon as HI_ArrowDownLeft01,
+    ArrowDownLeft as HI_ArrowDownLeft,
+    ArrowLeftRight as HI_ArrowLeftRight,
+    SentIcon as HI_Sent,
+    Send as HI_Send,
+    MoneySend01Icon as HI_MoneySend01,
+    View as HI_View,
+    Eye as HI_Eye,
+    ArrowRight01Icon as HI_ArrowRight01,
+    ArrowRight as HI_ArrowRight,
+    Checkmark as HI_Checkmark,
+    Check as HI_Check,
+    ShieldAlert as HI_ShieldAlert,
+    Lock as HI_Lock,
+    CheckSquare as HI_CheckSquare,
+    CheckmarkSquare02Icon as HI_CheckmarkSquare02,
+    Square as HI_Square,
+    Add01Icon as HI_Add01,
+    Plus as HI_Plus,
+    DocumentAttachmentIcon as HI_DocumentAttachment,
+    Briefcase as HI_Briefcase,
+    Inbox as HI_Inbox,
+    CancelCircleIcon as HI_CancelCircle,
+    MessageCircle as HI_MessageCircle,
+    Logout01Icon as HI_Logout01,
+    Logout as HI_Logout,
+    UserGroupIcon as HI_UserGroup,
+    BarChart as HI_BarChart,
+    ChartBar as HI_ChartBar,
+    Calendar as HI_Calendar,
+    Download01Icon as HI_Download01,
+    Download as HI_Download,
+    User as HI_User,
+    Mail01Icon as HI_Mail01,
+    Mail as HI_Mail,
+    ShieldCheck as HI_ShieldCheck,
+    Timer01Icon as HI_Timer01,
+    Timer as HI_Timer,
+    Minus as HI_Minus,
+    Bug01Icon as HI_Bug01,
+    Bug as HI_Bug,
+    Bulb as HI_Bulb,
+    Lightbulb as HI_Lightbulb,
+    FingerPrintIcon as HI_FingerPrint,
+    SquareArrowUpRight02Icon as HI_SquareArrowUpRight02,
+    ExternalLink as HI_ExternalLink,
+    Flag01Icon as HI_Flag01,
+    Flag as HI_Flag,
+    Signpost as HI_Signpost,
+    MessageSquare as HI_MessageSquare,
+    Attachment01Icon as HI_Attachment01,
+    Attachment as HI_Attachment,
+    ListPlus as HI_ListPlus,
+    AddToListIcon as HI_AddToList,
+    Phone as HI_Phone,
+    Call02Icon as HI_Call02,
+    PencilEdit01Icon as HI_PencilEdit01,
+    Pencil as HI_Pencil,
+    Building02Icon as HI_Building02,
+    Building01Icon as HI_Building01,
+    Building as HI_Building,
+    TrendingUp as HI_TrendingUp,
+    AnalyticsUpIcon as HI_AnalyticsUp,
+    TrendingDown as HI_TrendingDown,
+    AnalyticsDownIcon as HI_AnalyticsDown,
+    Sparkles as HI_Sparkles,
+    Sparkle as HI_Sparkle,
+    Camera01Icon as HI_Camera01,
+    Camera as HI_Camera,
+    CalendarCheck as HI_CalendarCheck,
+    Tag01Icon as HI_Tag01,
+    Tag as HI_Tag,
+    Coins01Icon as HI_Coins01,
+    Bitcoin as HI_Bitcoin,
+    Image01Icon as HI_Image01,
+    Image02Icon as HI_Image02,
+    FileImage as HI_FileImage,
+    ThumbsUp as HI_ThumbsUp,
+    ThumbsDown as HI_ThumbsDown,
+    FolderOpen as HI_FolderOpen,
+    Folder as HI_Folder,
+    TransactionIcon as HI_Transaction,
+    Analytics01Icon as HI_Analytics01,
+    ReverseWithdrawal01Icon as HI_ReverseWithdrawal01,
+    Folder01Icon as HI_Folder01,
+    LogOut as HI_LogOut,
+} from '@hugeicons/core-free-icons';
 import { useThemeColors } from '../../theme/colors';
 
 type AppIconName =
@@ -97,7 +242,11 @@ type AppIconName =
     | 'ThumbsDown'
     | 'RefreshCw'
     | 'BarChart3'
-    | 'FolderOpen';
+    | 'FolderOpen'
+    | 'Transaction'
+    | 'Analytics01'
+    | 'ReverseWithdrawal01'
+    | 'Folder01';
 
 type IconProps = {
     size?: number;
@@ -107,162 +256,265 @@ type IconProps = {
     fill?: string;
 };
 
-type IconoirComponent = React.ComponentType<any>;
+const ICON_MAP: Record<string, IconSvgElement> = {
+    Home01: HI_Home01,
+    Home: HI_Home,
+    Receipt: HI_Receipt,
+    Link: HI_Link,
+    File02: HI_File02,
+    File01: HI_File01,
+    Wallet: HI_Wallet,
+    Wallet01: HI_Wallet01,
+    Settings01: HI_Settings01,
+    Settings02: HI_Settings02,
+    Copy01: HI_Copy01,
+    ClipboardCopy: HI_ClipboardCopy,
+    QrCode: HI_QrCode,
+    ArrowDown01: HI_ArrowDown01,
+    ArrowDown: HI_ArrowDown,
+    ArrowLeft01: HI_ArrowLeft01,
+    ArrowLeft: HI_ArrowLeft,
+    Cancel01: HI_Cancel01,
+    Cancel: HI_Cancel,
+    ArrowUp01: HI_ArrowUp01,
+    ArrowUp: HI_ArrowUp,
+    ArrowUpDown: HI_ArrowUpDown,
+    Delete01: HI_Delete01,
+    Delete: HI_Delete,
+    Scan: HI_Scan,
+    History: HI_History,
+    TransactionHistory: HI_TransactionHistory,
+    Menu01: HI_Menu01,
+    Menu: HI_Menu,
+    Clock01: HI_Clock01,
+    AlarmClock: HI_AlarmClock,
+    CheckCircle: HI_CheckCircle,
+    CheckmarkCircle02: HI_CheckmarkCircle02,
+    AlertCircle: HI_AlertCircle,
+    CircleAlert: HI_CircleAlert,
+    AlertTriangle: HI_AlertTriangle,
+    CircleUser: HI_CircleUser,
+    UserCircle: HI_UserCircle,
+    Share08: HI_Share08,
+    Share01: HI_Share01,
+    Trash: HI_Trash,
+    Trash2: HI_Trash2,
+    Notification01: HI_Notification01,
+    Bell: HI_Bell,
+    MoreHorizontal: HI_MoreHorizontal,
+    Bank: HI_Bank,
+    Banknote: HI_Banknote,
+    Refresh: HI_Refresh,
+    Search01: HI_Search01,
+    Search02: HI_Search02,
+    DollarSign: HI_DollarSign,
+    CoinsDollar: HI_CoinsDollar,
+    Megaphone: HI_Megaphone,
+    Megaphone01: HI_Megaphone01,
+    ArrowUpRight01: HI_ArrowUpRight01,
+    ArrowUpRight: HI_ArrowUpRight,
+    ArrowDownLeft01: HI_ArrowDownLeft01,
+    ArrowDownLeft: HI_ArrowDownLeft,
+    ArrowLeftRight: HI_ArrowLeftRight,
+    Sent: HI_Sent,
+    Send: HI_Send,
+    MoneySend01: HI_MoneySend01,
+    View: HI_View,
+    Eye: HI_Eye,
+    ArrowRight01: HI_ArrowRight01,
+    ArrowRight: HI_ArrowRight,
+    Checkmark: HI_Checkmark,
+    Check: HI_Check,
+    ShieldAlert: HI_ShieldAlert,
+    Lock: HI_Lock,
+    CheckSquare: HI_CheckSquare,
+    CheckmarkSquare02: HI_CheckmarkSquare02,
+    Square: HI_Square,
+    Add01: HI_Add01,
+    Plus: HI_Plus,
+    DocumentAttachment: HI_DocumentAttachment,
+    Briefcase: HI_Briefcase,
+    Inbox: HI_Inbox,
+    CancelCircle: HI_CancelCircle,
+    MessageCircle: HI_MessageCircle,
+    Logout01: HI_Logout01,
+    Logout: HI_Logout,
+    UserGroup: HI_UserGroup,
+    BarChart: HI_BarChart,
+    ChartBar: HI_ChartBar,
+    Calendar: HI_Calendar,
+    Download01: HI_Download01,
+    Download: HI_Download,
+    User: HI_User,
+    Mail01: HI_Mail01,
+    Mail: HI_Mail,
+    ShieldCheck: HI_ShieldCheck,
+    Timer01: HI_Timer01,
+    Timer: HI_Timer,
+    Minus: HI_Minus,
+    Bug01: HI_Bug01,
+    Bug: HI_Bug,
+    Bulb: HI_Bulb,
+    Lightbulb: HI_Lightbulb,
+    FingerPrint: HI_FingerPrint,
+    SquareArrowUpRight02: HI_SquareArrowUpRight02,
+    ExternalLink: HI_ExternalLink,
+    Flag01: HI_Flag01,
+    Flag: HI_Flag,
+    Signpost: HI_Signpost,
+    MessageSquare: HI_MessageSquare,
+    Attachment01: HI_Attachment01,
+    Attachment: HI_Attachment,
+    ListPlus: HI_ListPlus,
+    AddToList: HI_AddToList,
+    Phone: HI_Phone,
+    Call02: HI_Call02,
+    PencilEdit01: HI_PencilEdit01,
+    Pencil: HI_Pencil,
+    Building02: HI_Building02,
+    Building01: HI_Building01,
+    Building: HI_Building,
+    TrendingUp: HI_TrendingUp,
+    AnalyticsUp: HI_AnalyticsUp,
+    TrendingDown: HI_TrendingDown,
+    AnalyticsDown: HI_AnalyticsDown,
+    Sparkles: HI_Sparkles,
+    Sparkle: HI_Sparkle,
+    Camera01: HI_Camera01,
+    Camera: HI_Camera,
+    CalendarCheck: HI_CalendarCheck,
+    Tag01: HI_Tag01,
+    Tag: HI_Tag,
+    Coins01: HI_Coins01,
+    Bitcoin: HI_Bitcoin,
+    Image01: HI_Image01,
+    Image02: HI_Image02,
+    FileImage: HI_FileImage,
+    ThumbsUp: HI_ThumbsUp,
+    ThumbsDown: HI_ThumbsDown,
+    FolderOpen: HI_FolderOpen,
+    Folder: HI_Folder,
+    Transaction: HI_Transaction,
+    Analytics01: HI_Analytics01,
+    ReverseWithdrawal01: HI_ReverseWithdrawal01,
+    Folder01: HI_Folder01,
+    LogOut: HI_LogOut,
+};
 
 const ICON_CANDIDATES: Record<AppIconName, string[]> = {
-    Home: ['HomeSimple', 'Home'],
-    Receipt: ['Receipt', 'Page'],
+    Home: ['Home', 'Home01'],
+    Receipt: ['Receipt'],
     Link2: ['Link'],
-    FileText: ['Page', 'PageEdit', 'PageStar'],
-    Wallet2: ['Wallet'],
-    Settings: ['Settings'],
-    Copy: ['Copy'],
+    FileText: ['File02', 'File01'],
+    Wallet2: ['Wallet', 'Wallet01'],
+    Settings: ['Settings01', 'Settings02'],
+    Copy: ['Copy01', 'ClipboardCopy'],
     QrCode: ['QrCode'],
-    ChevronDown: ['NavArrowDown', 'ArrowDown'],
-    ChevronLeft: ['NavArrowLeft', 'ArrowLeft'],
-    X: ['Xmark', 'XmarkCircle'],
-    ArrowUp: ['ArrowUp'],
-    ArrowUpDown: ['ArrowsUpFromLine', 'TextArrowsUpDown', 'ArrowUp', 'ArrowDown'],
-    Delete: ['DeleteCircled', 'Erase'],
-    ScanLine: ['ScanQrCode', 'QrCode'],
-    Wallet: ['Wallet'],
-    History: ['ClockRotateRight', 'Clock'],
-    List: ['MenuScale', 'Menu'],
-    Clock: ['Clock'],
-    CheckCircle: ['CheckCircle', 'BadgeCheck'],
-    AlertCircle: ['WarningCircle'],
-    TriangleAlert: ['WarningTriangle', 'WarningCircle'],
-    CircleUser: ['UserCircle'],
-    Share2: ['ShareAndroid', 'ShareIos', 'Share'],
-    Trash: ['Trash'],
-    Bell: ['Bell'],
-    MoreHorizontal: ['MoreHoriz'],
-    Landmark: ['Bank'],
-    ArrowDown: ['ArrowDown'],
-    RotateCcw: ['Refresh', 'RefreshDouble'],
-    Search: ['Search'],
-    DollarSign: ['DollarCircle', 'Dollar'],
-    Megaphone: ['Megaphone'],
+    ChevronDown: ['ArrowDown01', 'ArrowDown'],
+    ChevronLeft: ['ArrowLeft01', 'ArrowLeft'],
+    X: ['Cancel01', 'Cancel'],
+    ArrowUp: ['ArrowUp01', 'ArrowUp'],
+    ArrowUpDown: ['ArrowUpDown'],
+    Delete: ['Delete01', 'Delete'],
+    ScanLine: ['Scan', 'QrCode'],
+    Wallet: ['Wallet', 'Wallet01'],
+    History: ['History', 'TransactionHistory'],
+    List: ['Menu01', 'Menu'],
+    Clock: ['Clock01', 'AlarmClock'],
+    CheckCircle: ['CheckCircle', 'CheckmarkCircle02'],
+    AlertCircle: ['AlertCircle', 'CircleAlert'],
+    TriangleAlert: ['AlertTriangle'],
+    CircleUser: ['CircleUser', 'UserCircle'],
+    Share2: ['Share08', 'Share01'],
+    Trash: ['Trash', 'Trash2'],
+    Bell: ['Notification01', 'Bell'],
+    MoreHorizontal: ['MoreHorizontal'],
+    Landmark: ['Bank', 'Banknote'],
+    ArrowDown: ['ArrowDown01', 'ArrowDown'],
+    RotateCcw: ['Refresh'],
+    Search: ['Search01', 'Search02'],
+    DollarSign: ['DollarSign', 'CoinsDollar'],
+    Megaphone: ['Megaphone', 'Megaphone01'],
     Link: ['Link'],
-    ArrowUpRight: ['ArrowUpRight'],
-    ArrowDownLeft: ['ArrowDownLeft'],
-    ArrowLeftRight: ['ArrowSeparateVertical', 'ArrowSeparate', 'ArrowUnion', 'ArrowRight', 'ArrowLeft'],
-    CircleCheck: ['CheckCircle'],
-    Send: ['Send', 'SendMail'],
-    Eye: ['Eye'],
-    Ellipsis: ['MoreHoriz'],
-    ChevronRight: ['NavArrowRight', 'ArrowRight'],
-    Check: ['Check'],
-    ShieldAlert: ['ShieldAlert', 'WarningTriangle'],
+    ArrowUpRight: ['ArrowUpRight01', 'ArrowUpRight'],
+    ArrowDownLeft: ['ArrowDownLeft01', 'ArrowDownLeft'],
+    ArrowLeftRight: ['ArrowLeftRight'],
+    CircleCheck: ['CheckCircle', 'CheckmarkCircle02'],
+    Send: ['Sent', 'Send', 'MoneySend01'],
+    Eye: ['View', 'Eye'],
+    Ellipsis: ['MoreHorizontal'],
+    ChevronRight: ['ArrowRight01', 'ArrowRight'],
+    Check: ['Checkmark', 'Check'],
+    ShieldAlert: ['ShieldAlert'],
     Lock: ['Lock'],
-    CircleAlert: ['WarningCircle'],
-    SquareCheck: ['CheckSquare'],
+    CircleAlert: ['AlertCircle', 'CircleAlert'],
+    SquareCheck: ['CheckSquare', 'CheckmarkSquare02'],
     Square: ['Square'],
-    Plus: ['Plus'],
-    ScrollText: ['Page', 'Text'],
-    Briefcase: ['Suitcase'],
-    Inbox: ['Archive', 'MailIn', 'MailOut'],
-    CircleX: ['XmarkCircle', 'Xmark'],
-    House: ['HomeSimple', 'Home'],
-    MessageCircle: ['ChatBubble', 'Message'],
-    LogOut: ['LogOut'],
-    Users: ['Users', 'Group'],
-    ChartBar: ['StatsReport', 'GraphUp'],
+    Plus: ['Add01', 'Plus'],
+    ScrollText: ['File02', 'DocumentAttachment'],
+    Briefcase: ['Briefcase'],
+    Inbox: ['Inbox'],
+    CircleX: ['CancelCircle', 'Cancel'],
+    House: ['Home', 'Home01'],
+    MessageCircle: ['MessageCircle'],
+    LogOut: ['Logout01', 'Logout', 'LogOut'],
+    Users: ['UserGroup', 'Team'],
+    ChartBar: ['BarChart', 'ChartBar'],
     Calendar: ['Calendar'],
-    Download: ['Download'],
+    Download: ['Download01', 'Download'],
     User: ['User', 'UserCircle'],
-    Mail: ['Mail', 'SendMail'],
+    Mail: ['Mail01', 'Mail'],
     ShieldCheck: ['ShieldCheck'],
-    ArrowRight: ['ArrowRight'],
-    Timer: ['Timer'],
+    ArrowRight: ['ArrowRight01', 'ArrowRight'],
+    Timer: ['Timer01', 'Timer'],
     Minus: ['Minus'],
-    Bug: ['Bug'],
-    Lightbulb: ['LightBulb'],
-    Fingerprint: ['Fingerprint'],
-    SquareArrowOutUpRight: ['OpenInWindow', 'OpenNewWindow'],
-    Flag: ['Flag'],
-    Signpost: ['MapPin', 'Compass'],
-    MessageSquare: ['MessageText', 'ChatBubble'],
-    Paperclip: ['Attachment'],
-    ListPlus: ['Playlist', 'Plus'],
-    Trash2: ['Trash'],
-    Phone: ['Phone'],
-    Pencil: ['EditPencil'],
-    Building2: ['Building'],
-    TrendingUp: ['StatsUpSquare', 'GraphUp'],
-    TrendingDown: ['StatsDownSquare', 'GraphDown'],
-    Sparkles: ['Spark'],
-    Camera: ['Camera'],
-    CalendarCheck: ['CalendarCheck'],
-    Tag: ['Tag'],
-    Coins: ['CoinsSwap', 'Coins'],
-    File: ['Page'],
-    Image: ['MediaImage'],
+    Bug: ['Bug01', 'Bug'],
+    Lightbulb: ['Bulb', 'Lightbulb'],
+    Fingerprint: ['FingerPrint'],
+    SquareArrowOutUpRight: ['SquareArrowUpRight02', 'ExternalLink'],
+    Flag: ['Flag01', 'Flag'],
+    Signpost: ['Signpost'],
+    MessageSquare: ['MessageSquare'],
+    Paperclip: ['Attachment01', 'Attachment'],
+    ListPlus: ['ListPlus', 'AddToList'],
+    Trash2: ['Trash2', 'Trash'],
+    Phone: ['Phone', 'Call02'],
+    Pencil: ['PencilEdit01', 'Pencil'],
+    Building2: ['Building02', 'Building01', 'Building'],
+    TrendingUp: ['TrendingUp', 'AnalyticsUp'],
+    TrendingDown: ['TrendingDown', 'AnalyticsDown'],
+    Sparkles: ['Sparkles', 'Sparkle'],
+    Camera: ['Camera01', 'Camera'],
+    CalendarCheck: ['CalendarCheck', 'CalendarCheck2'],
+    Tag: ['Tag01', 'Tag'],
+    Coins: ['Coins01', 'Bitcoin'],
+    File: ['File01', 'File02'],
+    Image: ['Image01', 'Image02', 'FileImage'],
     ThumbsUp: ['ThumbsUp'],
     ThumbsDown: ['ThumbsDown'],
     RefreshCw: ['Refresh'],
-    BarChart3: ['StatsUpSquare', 'StatsReport', 'GraphUp'],
-    FolderOpen: ['Folder', 'FolderOpen'],
+    BarChart3: ['BarChart', 'ChartBar'],
+    FolderOpen: ['FolderOpen', 'Folder'],
+    Transaction: ['Transaction'],
+    Analytics01: ['Analytics01'],
+    ReverseWithdrawal01: ['ReverseWithdrawal01'],
+    Folder01: ['Folder01'],
 };
 
-let iconoirModule: Record<string, IconoirComponent> | null = null;
-let iconoirModuleDefault: Record<string, IconoirComponent> | null = null;
-
-const LucideInboxIcon: React.FC<{ size: number; color: string; strokeWidth: number; style?: StyleProp<ViewStyle> }> = ({
-    size,
-    color,
-    strokeWidth,
-    style,
-}) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-        <Path
-            d="M22 12H16L14 15H10L8 12H2"
-            stroke={color}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        />
-        <Path
-            d="M5.45 5.11L2 12V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V12L18.55 5.11C18.21 4.43 17.51 4 16.76 4H7.24C6.49 4 5.79 4.43 5.45 5.11Z"
-            stroke={color}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        />
-    </Svg>
-);
-
-const loadIconoir = (): Record<string, IconoirComponent> => {
-    if (iconoirModule) return iconoirModule;
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const loaded = require('iconoir-react-native') as Record<string, IconoirComponent> & {
-            default?: Record<string, IconoirComponent>;
-        };
-        iconoirModule = loaded;
-        iconoirModuleDefault = loaded.default || null;
-        return loaded;
-    } catch {
-        iconoirModule = {};
-        iconoirModuleDefault = {};
-        return iconoirModule;
+const getHugeicon = (candidate: string): IconSvgElement | null => {
+    const raw = ICON_MAP[candidate] as unknown;
+    if (Array.isArray(raw)) {
+        return raw as IconSvgElement;
     }
+    return null;
 };
 
-const resolveIcon = (name: AppIconName): IconoirComponent | null => {
-    const iconoir = loadIconoir();
-    const iconoirDefault = iconoirModuleDefault || {};
+const resolveIcon = (name: AppIconName): IconSvgElement | null => {
     for (const candidate of ICON_CANDIDATES[name]) {
-        const component = iconoir[candidate] || iconoirDefault[candidate];
-        if (component) return component;
+        const icon = getHugeicon(candidate);
+        if (icon) return icon;
     }
-    return (
-        iconoir.WarningCircle ||
-        iconoirDefault.WarningCircle ||
-        iconoir.Xmark ||
-        iconoirDefault.Xmark ||
-        null
-    );
+    return getHugeicon('AlertCircle') || getHugeicon('Cancel01');
 };
 
 export function AppIcon({
@@ -275,21 +527,9 @@ export function AppIcon({
 }: IconProps & { name: AppIconName }) {
     const themeColors = useThemeColors();
     const resolvedColor = color ?? themeColors.textSecondary;
+    const icon = resolveIcon(name);
 
-    if (name === 'Inbox') {
-        return (
-            <LucideInboxIcon
-                size={size}
-                color={resolvedColor}
-                strokeWidth={strokeWidth}
-                style={style}
-            />
-        );
-    }
-
-    const IconComponent = resolveIcon(name);
-
-    if (!IconComponent) {
+    if (!icon) {
         return (
             <View
                 style={[
@@ -307,9 +547,9 @@ export function AppIcon({
     }
 
     return (
-        <IconComponent
-            width={size}
-            height={size}
+        <HugeiconsIcon
+            icon={icon}
+            size={size}
             color={resolvedColor}
             strokeWidth={strokeWidth}
             style={style}
@@ -418,5 +658,9 @@ export const ThumbsDown = withName('ThumbsDown');
 export const RefreshCw = withName('RefreshCw');
 export const BarChart3 = withName('BarChart3');
 export const FolderOpen = withName('FolderOpen');
+export const Transaction = withName('Transaction');
+export const Analytics01 = withName('Analytics01');
+export const ReverseWithdrawal01 = withName('ReverseWithdrawal01');
+export const Folder01 = withName('Folder01');
 
 export default AppIcon;

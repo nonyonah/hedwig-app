@@ -33,6 +33,13 @@ type SearchResultItem = {
 };
 type SearchFilterType = 'ALL' | 'INVOICE' | 'CONTRACT' | 'LINK' | 'PROJECT';
 
+const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+};
+
 export default function HomeDashboard() {
     const themeColors = useThemeColors();
     const router = useRouter();
@@ -525,7 +532,9 @@ export default function HomeDashboard() {
                             </LinearGradient>
                         )}
                     </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Home</Text>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>
+                        {getGreeting()}{userName.firstName ? `, ${userName.firstName}` : ''}
+                    </Text>
                 </View>
                 <View style={styles.headerRight}>
                     <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}><Inbox size={24} color={themeColors.textPrimary} strokeWidth={2.2} /></TouchableOpacity>
@@ -671,7 +680,7 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8 },
     headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    headerTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: Platform.OS === 'android' ? 22 : 24 },
+    headerTitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: Platform.OS === 'android' ? 20 : 22 },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     iconButton: { padding: 4 },
     avatar: { width: 40, height: 40, borderRadius: 20 },

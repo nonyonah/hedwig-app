@@ -230,7 +230,7 @@ export const KYCVerificationModal = forwardRef<TrueSheet, KYCVerificationModalPr
     const renderApproved = () => (
         <View style={[styles.contentCard, { backgroundColor: themeColors.surface }]}>
             <View style={styles.iconContainer}>
-                <CheckCircle size={64} color="white" fill={Colors.success} />
+                <CheckCircle size={64} color={themeColors.background} fill={themeColors.success} />
             </View>
             <Text style={[styles.title, { color: themeColors.textPrimary }]}>
                 Verification Complete!

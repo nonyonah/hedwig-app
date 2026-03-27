@@ -682,7 +682,9 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                             loop
                             style={styles.lottie}
                         />
-                        <Text style={styles.statusTitle}>{statusMessage || 'Creating offramp order...'}</Text>
+                        <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>
+                            {statusMessage || 'Creating offramp order...'}
+                        </Text>
                     </View>
                 );
 
@@ -690,23 +692,26 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                 return (
                     <View style={styles.statusContainer}>
                         <ArrowsDownUp size={80} color={Colors.primary} strokeWidth={3} style={{ marginBottom: 16 }} />
-                        <Text style={styles.statusTitle}>Send crypto to complete offramp</Text>
-                        <Text style={styles.statusSubtitle}>
+                        <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>Send crypto to complete offramp</Text>
+                        <Text style={[styles.statusSubtitle, { color: themeColors.textSecondary }]}>
                             Transfer {data.amount} {data.token} to the address below
                         </Text>
 
                         <View style={styles.addressContainer}>
-                            <Text style={styles.addressLabel}>Receive Address</Text>
-                            <TouchableOpacity style={styles.addressBox} onPress={handleCopyAddress}>
-                                <Text style={styles.addressText} numberOfLines={2}>
+                            <Text style={[styles.addressLabel, { color: themeColors.textSecondary }]}>Receive Address</Text>
+                            <TouchableOpacity
+                                style={[styles.addressBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                                onPress={handleCopyAddress}
+                            >
+                                <Text style={[styles.addressText, { color: themeColors.textPrimary }]} numberOfLines={2}>
                                     {receiveAddress}
                                 </Text>
-                                <Copy size={20} color={Colors.primary} />
+                                <Copy size={20} color={themeColors.primary} />
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.infoBox}>
-                            <Text style={styles.infoText}>
+                        <View style={[styles.infoBox, { backgroundColor: themeColors.warningBackground }]}>
+                            <Text style={[styles.infoText, { color: themeColors.warning }]}>
                                 After sending, your {data.fiatCurrency} {estimatedFiat || '...'} will be deposited to your bank account.
                             </Text>
                         </View>
@@ -728,8 +733,8 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                             loop={false}
                             style={[styles.lottie, { width: 200, height: 200 }]}
                         />
-                        <Text style={styles.statusTitle}>Withdrawal submitted!</Text>
-                        <Text style={styles.statusSubtitle}>
+                        <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>Withdrawal submitted!</Text>
+                        <Text style={[styles.statusSubtitle, { color: themeColors.textSecondary }]}>
                             Your {data.fiatCurrency} {estimatedFiat || data.estimatedFiat} is being sent to {data.bankName} ending in ...{data.accountNumber.slice(-4)}. Track progress in Withdrawals.
                         </Text>
                     </View>
@@ -742,14 +747,14 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                         <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>
                             {parsedError?.title || 'Offramp Failed'}
                         </Text>
-                        <Text style={styles.statusSubtitle}>
+                        <Text style={[styles.statusSubtitle, { color: themeColors.textSecondary }]}>
                             {parsedError?.message ||
                                 (tokensSent
                                     ? 'Your tokens were sent successfully, but settlement could not complete right now.'
                                     : "Don't worry, no funds were moved.")}
                         </Text>
                         <View style={[styles.errorHintBox, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-                            <Text style={styles.errorHintText}>
+                            <Text style={[styles.errorHintText, { color: themeColors.textPrimary }]}>
                                 {parsedError?.recoveryHint ||
                                     (tokensSent
                                         ? 'Track this in Withdrawals. If rejected, funds are refunded to your wallet.'
@@ -925,7 +930,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     title: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 20,
         color: Colors.textPrimary,
     },
@@ -1102,6 +1107,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
         padding: 16,
         borderRadius: 12,
         gap: 12,

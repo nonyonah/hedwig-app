@@ -27,8 +27,10 @@ config.resolver.extraNodeModules = {
 };
 
 // Fix for ESM/CJS interop issues with certain packages
+// Note: 'import' is placed before 'require' so packages with "type":"module" (like @hugeicons/core-free-icons)
+// use their ESM build instead of the CJS build, which Metro misparses when "type":"module" is set.
 config.resolver.unstable_enablePackageExports = true;
-config.resolver.unstable_conditionNames = ['react-native', 'browser', 'require', 'import'];
+config.resolver.unstable_conditionNames = ['react-native', 'browser', 'import', 'require'];
 
 // Force certain packages to be resolved as CommonJS
 config.transformer = {

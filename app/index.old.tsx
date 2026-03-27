@@ -1455,7 +1455,7 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 22, // Increased from 18
         // color: Colors.textPrimary, // Overridden
     },

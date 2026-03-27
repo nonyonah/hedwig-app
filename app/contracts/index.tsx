@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: Platform.OS === 'android' ? 22 : 24,
     },
     profileIcon: {

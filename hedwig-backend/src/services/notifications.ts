@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
+import { formatNetworkLabel } from '../utils/notificationCopy';
 
 const logger = createLogger('Notifications');
 
@@ -544,15 +545,16 @@ class NotificationService {
     }): Promise<ExpoPushTicket[]> {
         let title: string;
         let body: string;
+        const networkLabel = formatNetworkLabel(txData.network);
 
         switch (txData.type) {
             case 'received':
                 title = '💰 Payment Received!';
-                body = `You received ${txData.amount} ${txData.token} on ${txData.network}`;
+                body = `You received ${txData.amount} ${txData.token}${networkLabel ? ` on ${networkLabel}` : ''}`;
                 break;
             case 'sent':
                 title = '📤 Payment Sent';
-                body = `You sent ${txData.amount} ${txData.token} on ${txData.network}`;
+                body = `You sent ${txData.amount} ${txData.token}${networkLabel ? ` on ${networkLabel}` : ''}`;
                 break;
             case 'confirmed':
                 title = '✅ Transaction Confirmed';
@@ -560,7 +562,7 @@ class NotificationService {
                 break;
             default:
                 title = 'Transaction Update';
-                body = `${txData.amount} ${txData.token} on ${txData.network}`;
+                body = `${txData.amount} ${txData.token}${networkLabel ? ` on ${networkLabel}` : ''}`;
         }
 
         return await this.notifyUser(userId, {
@@ -569,7 +571,7 @@ class NotificationService {
             data: {
                 type: 'transaction',
                 txHash: txData.txHash,
-                network: txData.network,
+                network: networkLabel || txData.network,
             },
         });
     }

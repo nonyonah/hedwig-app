@@ -1,13 +1,32 @@
 import React from 'react';
-import * as Lucide from 'lucide-react';
-import type { LucideProps } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import type { IconSvgElement } from '@hugeicons/react';
+import * as HugeIcons from '@hugeicons/core-free-icons';
 
 type PhosphorWeight = 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone' | (string & {});
 
-type CompatIconProps = Omit<LucideProps, 'strokeWidth'> & {
+type CompatIconProps = Omit<React.ComponentProps<typeof HugeiconsIcon>, 'icon' | 'altIcon' | 'strokeWidth'> & {
   weight?: PhosphorWeight;
   mirrored?: boolean;
 };
+
+const iconLibrary = HugeIcons as unknown as Record<string, unknown>;
+
+const isIconSvgElement = (value: unknown): value is IconSvgElement => Array.isArray(value);
+
+const unsafeResolveIcon = (...candidates: string[]): IconSvgElement | undefined => {
+  for (const name of candidates) {
+    const icon = iconLibrary[name];
+    if (isIconSvgElement(icon)) return icon;
+  }
+  return undefined;
+};
+
+const DEFAULT_ICON =
+  unsafeResolveIcon('AlertCircleIcon', 'Alert01Icon', 'InformationCircleIcon') ??
+  ((iconLibrary.Alert01Icon as IconSvgElement) || ([] as unknown as IconSvgElement));
+
+const resolveIcon = (...candidates: string[]): IconSvgElement => unsafeResolveIcon(...candidates) ?? DEFAULT_ICON;
 
 const weightToStrokeWidth = (weight: PhosphorWeight | undefined): number => {
   switch (weight) {
@@ -27,108 +46,106 @@ const weightToStrokeWidth = (weight: PhosphorWeight | undefined): number => {
   }
 };
 
-const resolveIcon = (name: string) => {
-  const lib = Lucide as unknown as Record<string, React.ComponentType<LucideProps>>;
-  return lib[name] ?? lib.CircleAlert;
-};
-
-const makeIcon = (lucideName: string) => {
+const makeIcon = (...hugeIconCandidates: string[]) => {
+  const icon = resolveIcon(...hugeIconCandidates);
   const Icon: React.FC<CompatIconProps> = ({ weight = 'regular', mirrored = false, style, ...props }) => {
-    const LucideIcon = resolveIcon(lucideName);
     const mergedStyle = mirrored
       ? ({ ...(style as React.CSSProperties), transform: 'scaleX(-1)' } as React.CSSProperties)
       : style;
-    return <LucideIcon strokeWidth={weightToStrokeWidth(weight)} style={mergedStyle} {...props} />;
+    return <HugeiconsIcon icon={icon} strokeWidth={weightToStrokeWidth(weight)} style={mergedStyle} {...props} />;
   };
-  Icon.displayName = lucideName;
+  Icon.displayName = hugeIconCandidates[0] ?? 'HugeIcon';
   return Icon;
 };
 
-export const ArrowDown = makeIcon('ArrowDown');
-export const ArrowDownRight = makeIcon('ArrowDownRight');
-export const ArrowLeft = makeIcon('ArrowLeft');
-export const ArrowRight = makeIcon('ArrowRight');
-export const ArrowSquareOut = makeIcon('SquareArrowOutUpRight');
-export const ArrowUp = makeIcon('ArrowUp');
-export const ArrowUpRight = makeIcon('ArrowUpRight');
-export const ArrowsClockwise = makeIcon('RefreshCw');
-export const ArrowsDownUp = makeIcon('ArrowUpDown');
-export const ArrowsLeftRight = makeIcon('ArrowLeftRight');
-export const Bank = makeIcon('Landmark');
-export const Bell = makeIcon('Bell');
-export const BellRinging = makeIcon('BellRing');
-export const BellSimple = makeIcon('Bell');
-export const BellSlash = makeIcon('BellOff');
-export const Buildings = makeIcon('Building2');
-export const CalendarBlank = makeIcon('Calendar');
-export const CalendarDots = makeIcon('CalendarDays');
-export const CalendarPlus = makeIcon('CalendarPlus');
-export const Cards = makeIcon('WalletCards');
-export const CaretDown = makeIcon('ChevronDown');
-export const CaretLeft = makeIcon('ChevronLeft');
-export const CaretRight = makeIcon('ChevronRight');
-export const ChartBar = makeIcon('BarChart3');
-export const Check = makeIcon('Check');
-export const CheckCircle = makeIcon('CircleCheck');
-export const ClockCountdown = makeIcon('Clock3');
-export const Coins = makeIcon('Coins');
-export const Copy = makeIcon('Copy');
-export const CopySimple = makeIcon('Copy');
-export const CreditCard = makeIcon('CreditCard');
-export const CurrencyCircleDollar = makeIcon('CircleDollarSign');
-export const CurrencyDollar = makeIcon('DollarSign');
-export const DotsThreeOutline = makeIcon('Ellipsis');
-export const DownloadSimple = makeIcon('Download');
-export const Envelope = makeIcon('Mail');
-export const Eye = makeIcon('Eye');
-export const Faders = makeIcon('SlidersHorizontal');
-export const FileText = makeIcon('FileText');
-export const FlagPennant = makeIcon('Flag');
-export const FolderSimple = makeIcon('Folder');
-export const Globe = makeIcon('Globe');
-export const House = makeIcon('House');
-export const IdentificationCard = makeIcon('IdCard');
-export const Info = makeIcon('Info');
-export const Key = makeIcon('Key');
-export const Lifebuoy = makeIcon('LifeBuoy');
-export const Link = makeIcon('Link');
-export const LinkSimple = makeIcon('Link');
-export const ListPlus = makeIcon('ListPlus');
-export const Lock = makeIcon('Lock');
-export const MagicWand = makeIcon('WandSparkles');
-export const MagnifyingGlass = makeIcon('Search');
-export const MapPin = makeIcon('MapPin');
-export const Minus = makeIcon('Minus');
-export const Moon = makeIcon('Moon');
-export const NotePencil = makeIcon('Pencil');
-export const PaperPlaneRight = makeIcon('Send');
-export const PaperPlaneTilt = makeIcon('Send');
-export const Paperclip = makeIcon('Paperclip');
-export const PencilSimpleLine = makeIcon('PencilLine');
-export const Phone = makeIcon('Phone');
-export const Plus = makeIcon('Plus');
-export const Printer = makeIcon('Printer');
-export const Question = makeIcon('CircleHelp');
-export const Receipt = makeIcon('Receipt');
-export const Repeat = makeIcon('Repeat');
-export const ShareNetwork = makeIcon('Share2');
-export const Shield = makeIcon('Shield');
-export const ShieldCheck = makeIcon('ShieldCheck');
-export const SidebarSimple = makeIcon('PanelLeft');
-export const SignIn = makeIcon('LogIn');
-export const SignOut = makeIcon('LogOut');
-export const Signature = makeIcon('Signature');
-export const Sparkle = makeIcon('Sparkles');
-export const SpinnerGap = makeIcon('LoaderCircle');
-export const Sun = makeIcon('Sun');
-export const Target = makeIcon('Target');
-export const Trash = makeIcon('Trash2');
-export const User = makeIcon('User');
-export const UserPlus = makeIcon('UserPlus');
-export const UsersThree = makeIcon('Users');
-export const Wallet = makeIcon('Wallet');
-export const Warning = makeIcon('TriangleAlert');
-export const WarningCircle = makeIcon('AlertCircle');
-export const X = makeIcon('X');
-export const XCircle = makeIcon('CircleX');
-export const XLogo = makeIcon('Twitter');
+export const ArrowDown = makeIcon('ArrowDown01Icon');
+export const ArrowDownRight = makeIcon('ArrowDownRight01Icon');
+export const ArrowLeft = makeIcon('ArrowLeft01Icon');
+export const ArrowRight = makeIcon('ArrowRight01Icon');
+export const ArrowSquareOut = makeIcon('SquareArrowUpRightIcon', 'SquareArrowUpRight02Icon');
+export const ArrowUp = makeIcon('ArrowUp01Icon');
+export const ArrowUpRight = makeIcon('ArrowUpRight01Icon');
+export const ArrowsClockwise = makeIcon('RefreshIcon');
+export const ArrowsDownUp = makeIcon('ArrowUpDownIcon');
+export const ArrowsLeftRight = makeIcon('ArrowLeftRightIcon');
+export const Bank = makeIcon('BankIcon');
+export const Bell = makeIcon('Notification03Icon', 'Notification02Icon');
+export const BellRinging = makeIcon('Notification01Icon', 'BellDotIcon');
+export const BellSimple = makeIcon('Notification03Icon', 'Notification02Icon');
+export const BellSlash = makeIcon('NotificationOff02Icon', 'NotificationOff01Icon');
+export const Buildings = makeIcon('Building01Icon');
+export const CalendarBlank = makeIcon('Calendar01Icon');
+export const CalendarDots = makeIcon('Calendar03Icon');
+export const CalendarPlus = makeIcon('CalendarAdd01Icon');
+export const Cards = makeIcon('Cards01Icon');
+export const CaretDown = makeIcon('ArrowDown01Icon');
+export const CaretLeft = makeIcon('ArrowLeft01Icon');
+export const CaretRight = makeIcon('ArrowRight01Icon');
+export const ChartBar = makeIcon('Analytics01Icon', 'ChartBarLineIcon');
+export const Check = makeIcon('Tick01Icon');
+export const CheckCircle = makeIcon('CheckmarkCircle01Icon');
+export const ClockCountdown = makeIcon('Clock03Icon');
+export const Coins = makeIcon('Coins01Icon');
+export const Copy = makeIcon('Copy01Icon');
+export const CopySimple = makeIcon('Copy01Icon');
+export const CreditCard = makeIcon('CreditCardIcon');
+export const CurrencyCircleDollar = makeIcon('DollarCircleIcon');
+export const CurrencyDollar = makeIcon('Dollar01Icon');
+export const DotsThreeOutline = makeIcon('MoreHorizontalIcon');
+export const DownloadSimple = makeIcon('Download01Icon');
+export const Envelope = makeIcon('Mail01Icon');
+export const Eye = makeIcon('ViewIcon');
+export const Faders = makeIcon('FilterHorizontalIcon');
+export const FileText = makeIcon('File02Icon');
+export const FlagPennant = makeIcon('Flag01Icon');
+export const FolderSimple = makeIcon('Folder01Icon');
+export const Globe = makeIcon('Globe02Icon');
+export const House = makeIcon('Home01Icon');
+export const IdentificationCard = makeIcon('IdIcon');
+export const Info = makeIcon('InformationCircleIcon');
+export const Key = makeIcon('Key01Icon');
+export const Lifebuoy = makeIcon('LifebuoyIcon');
+export const Link = makeIcon('Link01Icon');
+export const LinkSimple = makeIcon('Link01Icon');
+export const ListPlus = makeIcon('TaskAdd01Icon', 'AddToListIcon');
+export const Lock = makeIcon('LockIcon');
+export const MagicWand = makeIcon('MagicWand01Icon');
+export const MagnifyingGlass = makeIcon('Search01Icon');
+export const MapPin = makeIcon('MapPinIcon');
+export const Minus = makeIcon('MinusSignIcon');
+export const Moon = makeIcon('Moon02Icon');
+export const NotePencil = makeIcon('Edit01Icon');
+export const PaperPlaneRight = makeIcon('SentIcon', 'MailSend01Icon');
+export const PaperPlaneTilt = makeIcon('SentIcon', 'MailSend01Icon');
+export const Paperclip = makeIcon('AttachmentIcon', 'DocumentAttachmentIcon');
+export const PencilSimpleLine = makeIcon('Edit02Icon');
+export const PencilSimple = makeIcon('Edit01Icon', 'PencilEdit01Icon');
+export const Phone = makeIcon('CallIcon');
+export const Play = makeIcon('PlayIcon', 'PlayCircleIcon');
+export const Plus = makeIcon('PlusSignIcon');
+export const Printer = makeIcon('PrinterIcon');
+export const Question = makeIcon('HelpCircleIcon');
+export const Receipt = makeIcon('Invoice01Icon');
+export const Repeat = makeIcon('RepeatIcon');
+export const ShareNetwork = makeIcon('Share08Icon');
+export const Shield = makeIcon('Shield01Icon');
+export const ShieldCheck = makeIcon('Shield01Icon');
+export const SidebarSimple = makeIcon('SidebarLeftIcon');
+export const SignIn = makeIcon('Login01Icon');
+export const SignOut = makeIcon('Logout01Icon');
+export const Signature = makeIcon('SignatureIcon');
+export const Sparkle = makeIcon('SparklesIcon');
+export const SpinnerGap = makeIcon('Loading03Icon');
+export const Sun = makeIcon('Sun03Icon');
+export const Target = makeIcon('Target01Icon');
+export const Trash = makeIcon('Delete02Icon');
+export const User = makeIcon('UserIcon');
+export const UserPlus = makeIcon('UserAdd01Icon');
+export const UsersThree = makeIcon('UserGroup03Icon');
+export const UploadSimple = makeIcon('Upload01Icon');
+export const Wallet = makeIcon('Wallet01Icon');
+export const Warning = makeIcon('Alert01Icon');
+export const WarningCircle = makeIcon('AlertCircleIcon', 'Alert01Icon');
+export const X = makeIcon('Cancel01Icon');
+export const XCircle = makeIcon('CancelCircleIcon');
+export const XLogo = makeIcon('TwitterIcon');

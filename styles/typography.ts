@@ -64,7 +64,7 @@ export const Typography = StyleSheet.create({
         color: '#000000',
     },
     h4: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 18,
         color: '#000000',
     },

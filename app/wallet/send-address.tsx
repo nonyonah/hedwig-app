@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
         height: 40,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 22,
     },
     addressInputWrap: {

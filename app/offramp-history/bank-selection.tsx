@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 18,
     },
     closeButton: {

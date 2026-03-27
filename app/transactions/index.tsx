@@ -102,6 +102,42 @@ interface UserData {
     avatar?: string;
 }
 
+const STABLECOIN_SYMBOLS = new Set([
+    'USDC',
+    'USDT',
+    'DAI',
+    'BUSD',
+    'FDUSD',
+    'TUSD',
+    'USDP',
+    'GUSD',
+    'LUSD',
+    'FRAX',
+    'PYUSD',
+    'USDE',
+    'USDS',
+    'USD0',
+    'RLUSD',
+    'EURC',
+    'CNGN',
+    'IDRX',
+]);
+
+const SUPPORTED_NON_STABLE_SYMBOLS = new Set(['ETH', 'SOL', 'WETH', 'WSOL']);
+
+const isSupportedTransactionToken = (token?: string): boolean => {
+    const symbol = String(token || '').trim().toUpperCase();
+    if (!symbol) return false;
+    if (SUPPORTED_NON_STABLE_SYMBOLS.has(symbol)) return true;
+    if (STABLECOIN_SYMBOLS.has(symbol)) return true;
+
+    // Accept additional stablecoins that follow common USD ticker patterns.
+    if (/^(US|USD)[A-Z0-9]{1,6}$/.test(symbol)) return true;
+    if (/^[A-Z0-9]{1,6}USD$/.test(symbol)) return true;
+
+    return false;
+};
+
 export default function TransactionsScreen() {
     // Track screen view
     useAnalyticsScreen('Transactions');
@@ -241,7 +277,9 @@ export default function TransactionsScreen() {
         }
     };
 
-    const filteredTransactions = transactions.filter((tx) => {
+    const filteredTransactions = transactions
+        .filter((tx) => isSupportedTransactionToken(tx.token))
+        .filter((tx) => {
         if (statusFilter === 'all') return true;
         if (statusFilter === 'in') return tx.type === 'IN';
         if (statusFilter === 'out') return tx.type === 'OUT';
@@ -538,7 +576,7 @@ const styles = StyleSheet.create({
     },
     // headerLeft removed
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: Platform.OS === 'android' ? 20 : 22,
         textAlign: 'center',
         color: Colors.textPrimary,
