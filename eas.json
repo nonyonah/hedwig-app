@@ -36,7 +36,7 @@
         "credentialsSource": "remote"
       },
       "android": {
-        "image": "latest",
+        "image": "sdk-55",
         "buildType": "app-bundle",
         "credentialsSource": "local"
       },
