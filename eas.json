@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "image": "macos-sequoia-15.2-xcode-16.2",
+        "image": "sdk-55",
         "credentialsSource": "remote"
       },
       "env": {
@@ -20,7 +20,7 @@
     "preview": {
       "distribution": "internal",
       "ios": {
-        "image": "macos-sequoia-15.2-xcode-16.2"
+        "image": "sdk-55"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://hedwigbot.xyz",
@@ -32,7 +32,7 @@
     "production": {
       "autoIncrement": true,
       "ios": {
-        "image": "macos-sequoia-15.2-xcode-16.2",
+        "image": "sdk-55",
         "credentialsSource": "remote"
       },
       "android": {
