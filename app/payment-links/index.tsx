@@ -1,26 +1,28 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, RefreshControl, Share, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, RefreshControl, Share, useWindowDimensions, DeviceEventEmitter } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
-let ContextMenu: any = null;
+let Menu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
+let labelStyleModifier: any = null;
 if (Platform.OS === 'ios') {
     try {
         const SwiftUI = require('@expo/ui/swift-ui');
-        ContextMenu = SwiftUI.ContextMenu;
+        Menu = SwiftUI.Menu;
         ExpoButton = SwiftUI.Button;
         Host = SwiftUI.Host;
+        const mods = require('@expo/ui/swift-ui/modifiers');
+        labelStyleModifier = mods.labelStyle;
     } catch (e) { }
 }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { List, CheckCircle, Share2 as ShareNetwork, X, Wallet, CircleUser as UserCircle, Trash, MoreHorizontal as DotsThree, Bell } from '../../components/ui/AppIcon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -35,6 +37,28 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import {
+    List as ListIcon,
+    CheckCircle as CheckCircleIcon,
+    Share2 as Share2Icon,
+    X as XIcon,
+    Wallet as WalletIcon,
+    CircleUser as CircleUserIcon,
+    Trash as TrashIcon,
+    MoreHorizontal as MoreHorizontalIcon,
+    Bell as BellIcon,
+} from '../../components/ui/AppIcon';
+
+const List = (props: any) => <ListIcon {...props} />;
+const CheckCircle = (props: any) => <CheckCircleIcon {...props} />;
+const ShareNetwork = (props: any) => <Share2Icon {...props} />;
+const X = (props: any) => <XIcon {...props} />;
+const Wallet = (props: any) => <WalletIcon {...props} />;
+const UserCircle = (props: any) => <CircleUserIcon {...props} />;
+const Trash = (props: any) => <TrashIcon {...props} />;
+const DotsThree = (props: any) => <MoreHorizontalIcon {...props} />;
+const Bell = (props: any) => <BellIcon {...props} />;
+
 
 // Icons for tokens, networks, and status
 const ICONS = {
@@ -48,7 +72,6 @@ const ICONS = {
     statusSuccess: require('../../assets/icons/status/success.png'),
     statusFailed: require('../../assets/icons/status/failed.png'),
 };
-
 
 
 // Profile color gradient options (consistent with ProfileModal)
@@ -92,6 +115,15 @@ export default function PaymentLinksScreen() {
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [conversations, setConversations] = useState<any[]>([]);
     const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'due_soon'>((useLocalSearchParams().filter as any) || 'all');
+
+    const emitTabBarScrollOffset = React.useCallback((offsetY: number) => {
+        if (Platform.OS !== 'android') return;
+        DeviceEventEmitter.emit('hedwig:tabbar-scroll', offsetY);
+    }, []);
+
+    const handleTabBarAwareScroll = React.useCallback((event: any) => {
+        emitTabBarScrollOffset(event?.nativeEvent?.contentOffset?.y ?? 0);
+    }, [emitTabBarScrollOffset]);
 
     // Filter links based on status
     const filteredLinks = useMemo(() => {
@@ -157,6 +189,12 @@ export default function PaymentLinksScreen() {
     useEffect(() => {
         fetchLinks();
     }, [user]);
+
+    useEffect(() => {
+        return () => {
+            emitTabBarScrollOffset(0);
+        };
+    }, [emitTabBarScrollOffset]);
 
     const fetchUserData = async () => {
         if (!user) return;
@@ -532,55 +570,47 @@ export default function PaymentLinksScreen() {
                 </View>
                 <View style={styles.modalHeaderRight}>
                     <>
-                        {Platform.OS === 'ios' && Host ? (
+                        {Platform.OS === 'ios' && Host && Menu && ExpoButton ? (
                             <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                <ContextMenu>
-                                    <ContextMenu.Trigger>
-                                        <ExpoButton variant="borderless" systemImage="ellipsis">
-                                            {' '}
-                                        </ExpoButton>
-                                    </ContextMenu.Trigger>
-                                    <ContextMenu.Items>
+                                <Menu
+                                    label="More"
+                                    systemImage="ellipsis"
+                                    modifiers={labelStyleModifier ? [labelStyleModifier('iconOnly')] : undefined}
+                                >
+                                    <ExpoButton
+                                        label="Share"
+                                        onPress={handleShareLink}
+                                        systemImage="square.and.arrow.up"
+                                    />
+                                    {selectedLink?.status !== 'PAID' && (
                                         <ExpoButton
-                                            onPress={handleShareLink}
-                                            systemImage="square.and.arrow.up"
-                                        >
-                                            Share
-                                        </ExpoButton>
-                                        {selectedLink?.status !== 'PAID' && (
-                                            <ExpoButton
-                                                onPress={handleMarkLinkPaid}
-                                                systemImage="checkmark.circle.fill"
-                                            >
-                                                Mark as Paid
-                                            </ExpoButton>
-                                        )}
-                                        {selectedLink?.status !== 'PAID' && (
-                                            <ExpoButton
-                                                onPress={handleSendReminder}
-                                                systemImage="bell.fill"
-                                            >
-                                                Send Reminder
-                                            </ExpoButton>
-                                        )}
-                                        {selectedLink?.status !== 'PAID' && (
-                                            <ExpoButton
-                                                onPress={handleToggleReminders}
-                                                systemImage={selectedLink?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
-                                            >
-                                                {selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
-                                            </ExpoButton>
-                                        )}
-                                        {selectedLink?.status !== 'PAID' && (
-                                            <ExpoButton
-                                                onPress={handleDeleteLink}
-                                                systemImage="trash.fill"
-                                            >
-                                                Delete
-                                            </ExpoButton>
-                                        )}
-                                    </ContextMenu.Items>
-                                </ContextMenu>
+                                            label="Mark as Paid"
+                                            onPress={handleMarkLinkPaid}
+                                            systemImage="checkmark.circle.fill"
+                                        />
+                                    )}
+                                    {selectedLink?.status !== 'PAID' && (
+                                        <ExpoButton
+                                            label="Send Reminder"
+                                            onPress={handleSendReminder}
+                                            systemImage="bell.fill"
+                                        />
+                                    )}
+                                    {selectedLink?.status !== 'PAID' && (
+                                        <ExpoButton
+                                            label={selectedLink?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
+                                            onPress={handleToggleReminders}
+                                            systemImage={selectedLink?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
+                                        />
+                                    )}
+                                    {selectedLink?.status !== 'PAID' && (
+                                        <ExpoButton
+                                            label="Delete"
+                                            onPress={handleDeleteLink}
+                                            systemImage="trash.fill"
+                                        />
+                                    )}
+                                </Menu>
                             </Host>
                         ) : (
                             <AndroidDropdownMenu
@@ -631,7 +661,7 @@ export default function PaymentLinksScreen() {
                         onPress={closeModal}
                         systemImage="xmark"
                         circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
-                        icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                        icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
                     />
                 </View>
             </View>
@@ -760,7 +790,7 @@ export default function PaymentLinksScreen() {
     return (
         <>
             <View style={{ flex: 1 }}>
-                <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+                <SafeAreaView collapsable={false} edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
                     <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                         <View style={styles.headerTop}>
                             <View style={styles.headerLeft}>
@@ -817,6 +847,9 @@ export default function PaymentLinksScreen() {
                             contentContainerStyle={styles.listContent}
                             showsVerticalScrollIndicator={false}
                             alwaysBounceVertical={true}
+                            contentInsetAdjustmentBehavior="automatic"
+                            onScroll={handleTabBarAwareScroll}
+                            scrollEventThrottle={16}
                             refreshControl={
                                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                             }
@@ -840,7 +873,6 @@ export default function PaymentLinksScreen() {
                     walletAddresses={walletAddresses}
                     profileIcon={profileIcon}
                 />
-
 
 
                 {/* Details Modal */}
@@ -886,7 +918,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: Platform.OS === 'android' ? 22 : 24,
         color: Colors.textPrimary,
     },
@@ -1102,9 +1134,9 @@ const styles = StyleSheet.create({
         padding: 4,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         // backgroundColor: '#F3F4F6', // Overridden
         justifyContent: 'center',
         alignItems: 'center',

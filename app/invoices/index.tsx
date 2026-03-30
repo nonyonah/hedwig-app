@@ -1,24 +1,26 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Animated, Share, useWindowDimensions } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, RefreshControl, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Animated, Share, useWindowDimensions, DeviceEventEmitter } from 'react-native';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-let ContextMenu: any = null;
+let Menu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
+let labelStyleModifier: any = null;
 if (Platform.OS === 'ios') {
     try {
         const SwiftUI = require('@expo/ui/swift-ui');
-        ContextMenu = SwiftUI.ContextMenu;
+        Menu = SwiftUI.Menu;
         ExpoButton = SwiftUI.Button;
         Host = SwiftUI.Host;
+        const mods = require('@expo/ui/swift-ui/modifiers');
+        labelStyleModifier = mods.labelStyle;
     } catch (e) { }
 }
 import { useAuth } from '../../hooks/useAuth';
-import { List, Receipt, Clock, CheckCircle, AlertCircle as WarningCircle, X, CircleUser as UserCircle, Share2 as ShareNetwork, Wallet, Trash, Bell, MoreHorizontal as DotsThree } from '../../components/ui/AppIcon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -37,6 +39,34 @@ import Analytics from '../../services/analytics';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
 import { joinApiUrl } from '../../utils/apiBaseUrl';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import {
+    List as ListIcon,
+    Receipt as ReceiptIcon,
+    Clock as ClockIcon,
+    CheckCircle as CheckCircleIcon,
+    AlertCircle as AlertCircleIcon,
+    X as XIcon,
+    CircleUser as CircleUserIcon,
+    Share2 as Share2Icon,
+    Wallet as WalletIcon,
+    Trash as TrashIcon,
+    Bell as BellIcon,
+    MoreHorizontal as MoreHorizontalIcon,
+} from '../../components/ui/AppIcon';
+
+const List = (props: any) => <ListIcon {...props} />;
+const Receipt = (props: any) => <ReceiptIcon {...props} />;
+const Clock = (props: any) => <ClockIcon {...props} />;
+const CheckCircle = (props: any) => <CheckCircleIcon {...props} />;
+const WarningCircle = (props: any) => <AlertCircleIcon {...props} />;
+const X = (props: any) => <XIcon {...props} />;
+const UserCircle = (props: any) => <CircleUserIcon {...props} />;
+const ShareNetwork = (props: any) => <Share2Icon {...props} />;
+const Wallet = (props: any) => <WalletIcon {...props} />;
+const Trash = (props: any) => <TrashIcon {...props} />;
+const Bell = (props: any) => <BellIcon {...props} />;
+const DotsThree = (props: any) => <MoreHorizontalIcon {...props} />;
+
 
 // Icons for tokens and chains
 const ICONS = {
@@ -101,8 +131,10 @@ export default function InvoicesScreen() {
     const currency = settings?.currency || 'USD';
     const themeColors = useThemeColors();
     const { height: screenHeight } = useWindowDimensions();
-    const sheetMaxHeight = Math.round(screenHeight * (Platform.OS === 'ios' ? 0.6 : 0.7));
-    const detailSheetTopPadding = 28;
+    const sheetMaxHeight = Math.round(screenHeight * (Platform.OS === 'ios' ? 0.62 : 0.7));
+    const detailSheetTopPadding = Platform.OS === 'ios' ? 22 : 28;
+    const recurringSheetMaxHeight = Math.round(screenHeight * (Platform.OS === 'ios' ? 0.64 : 0.7));
+    const recurringDetailTopPadding = Platform.OS === 'ios' ? 18 : 28;
     const [invoices, setInvoices] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -124,6 +156,15 @@ export default function InvoicesScreen() {
     const [selectedRecurring, setSelectedRecurring] = useState<any>(null);
     const recurringSheetRef = useRef<TrueSheet>(null);
     const handledSelectedRecurringRef = useRef<string | null>(null);
+
+    const emitTabBarScrollOffset = React.useCallback((offsetY: number) => {
+        if (Platform.OS !== 'android') return;
+        DeviceEventEmitter.emit('hedwig:tabbar-scroll', offsetY);
+    }, []);
+
+    const handleTabBarAwareScroll = React.useCallback((event: any) => {
+        emitTabBarScrollOffset(event?.nativeEvent?.contentOffset?.y ?? 0);
+    }, [emitTabBarScrollOffset]);
 
     // Filter invoices based on status
     const filteredInvoices = useMemo(() => {
@@ -193,6 +234,12 @@ export default function InvoicesScreen() {
             router.setParams({ selectedRecurring: undefined } as any);
         }, 140);
     }, [params.selectedRecurring, recurringLoading, recurringItems]);
+
+    useEffect(() => {
+        return () => {
+            emitTabBarScrollOffset(0);
+        };
+    }, [emitTabBarScrollOffset]);
 
     // Helper to get chain icon - handles various formats like 'solana_devnet'
     const getChainIcon = (chain?: string) => {
@@ -685,7 +732,7 @@ export default function InvoicesScreen() {
     return (
         <>
             <View style={{ flex: 1 }}>
-                <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+                <SafeAreaView collapsable={false} edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
                     <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                         <View style={styles.headerTop}>
                             <View style={styles.headerLeft}>
@@ -741,6 +788,9 @@ export default function InvoicesScreen() {
                                 keyExtractor={(item) => item.id}
                                 contentContainerStyle={styles.listContent}
                                 showsVerticalScrollIndicator={false}
+                                contentInsetAdjustmentBehavior="automatic"
+                                onScroll={handleTabBarAwareScroll}
+                                scrollEventThrottle={16}
                                 refreshControl={
                                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                                 }
@@ -831,6 +881,9 @@ export default function InvoicesScreen() {
                             contentContainerStyle={styles.listContent}
                             showsVerticalScrollIndicator={false}
                             alwaysBounceVertical={true}
+                            contentInsetAdjustmentBehavior="automatic"
+                            onScroll={handleTabBarAwareScroll}
+                            scrollEventThrottle={16}
                             refreshControl={
                                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                             }
@@ -854,7 +907,6 @@ export default function InvoicesScreen() {
                     walletAddresses={walletAddresses}
                     profileIcon={profileIcon}
                 />
-
 
 
                 <TrueSheet
@@ -891,55 +943,47 @@ export default function InvoicesScreen() {
                             </View>
                             <View style={styles.modalHeaderRight}>
                                 <>
-                                    {Platform.OS === 'ios' && Host ? (
+                                    {Platform.OS === 'ios' && Host && Menu && ExpoButton ? (
                                         <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                            <ContextMenu>
-                                                <ContextMenu.Trigger>
-                                                    <ExpoButton variant="borderless" systemImage="ellipsis">
-                                                        {' '}
-                                                    </ExpoButton>
-                                                </ContextMenu.Trigger>
-                                                <ContextMenu.Items>
+                                            <Menu
+                                                label="More"
+                                                systemImage="ellipsis"
+                                                modifiers={labelStyleModifier ? [labelStyleModifier('iconOnly')] : undefined}
+                                            >
+                                                <ExpoButton
+                                                    label="Share"
+                                                    onPress={handleShareInvoice}
+                                                    systemImage="square.and.arrow.up"
+                                                />
+                                                {selectedInvoice?.status !== 'PAID' && (
                                                     <ExpoButton
-                                                        onPress={handleShareInvoice}
-                                                        systemImage="square.and.arrow.up"
-                                                    >
-                                                        Share
-                                                    </ExpoButton>
-                                                    {selectedInvoice?.status !== 'PAID' && (
-                                                        <ExpoButton
-                                                            onPress={handleMarkInvoicePaid}
-                                                            systemImage="checkmark.circle.fill"
-                                                        >
-                                                            Mark as Paid
-                                                        </ExpoButton>
-                                                    )}
-                                                    {selectedInvoice?.status !== 'PAID' && (
-                                                        <ExpoButton
-                                                            onPress={handleSendReminder}
-                                                            systemImage="bell.fill"
-                                                        >
-                                                            Send Reminder
-                                                        </ExpoButton>
-                                                    )}
-                                                    {selectedInvoice?.status !== 'PAID' && (
-                                                        <ExpoButton
-                                                            onPress={handleToggleReminders}
-                                                            systemImage={selectedInvoice?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
-                                                        >
-                                                            {selectedInvoice?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
-                                                        </ExpoButton>
-                                                    )}
-                                                    {selectedInvoice?.status !== 'PAID' && (
-                                                        <ExpoButton
-                                                            onPress={handleDeleteInvoice}
-                                                            systemImage="trash.fill"
-                                                        >
-                                                            Delete
-                                                        </ExpoButton>
-                                                    )}
-                                                </ContextMenu.Items>
-                                            </ContextMenu>
+                                                        label="Mark as Paid"
+                                                        onPress={handleMarkInvoicePaid}
+                                                        systemImage="checkmark.circle.fill"
+                                                    />
+                                                )}
+                                                {selectedInvoice?.status !== 'PAID' && (
+                                                    <ExpoButton
+                                                        label="Send Reminder"
+                                                        onPress={handleSendReminder}
+                                                        systemImage="bell.fill"
+                                                    />
+                                                )}
+                                                {selectedInvoice?.status !== 'PAID' && (
+                                                    <ExpoButton
+                                                        label={selectedInvoice?.content?.reminders_enabled !== false ? 'Disable Auto-Reminders' : 'Enable Auto-Reminders'}
+                                                        onPress={handleToggleReminders}
+                                                        systemImage={selectedInvoice?.content?.reminders_enabled !== false ? 'bell.slash.fill' : 'bell.badge.fill'}
+                                                    />
+                                                )}
+                                                {selectedInvoice?.status !== 'PAID' && (
+                                                    <ExpoButton
+                                                        label="Delete"
+                                                        onPress={handleDeleteInvoice}
+                                                        systemImage="trash.fill"
+                                                    />
+                                                )}
+                                            </Menu>
                                         </Host>
                                     ) : (
                                         <AndroidDropdownMenu
@@ -1058,11 +1102,11 @@ export default function InvoicesScreen() {
                     detents={['auto']}
                     cornerRadius={Platform.OS === 'ios' ? 50 : 24}
                     backgroundBlur="regular"
-                    maxContentHeight={sheetMaxHeight}
+                    maxContentHeight={recurringSheetMaxHeight}
                     grabber={true}
                     onDidDismiss={() => setSelectedRecurring(null)}
                 >
-                    <View style={{ paddingTop: detailSheetTopPadding, paddingBottom: 26, paddingHorizontal: 24 }}>
+                    <View style={{ paddingTop: recurringDetailTopPadding, paddingBottom: 26, paddingHorizontal: 24 }}>
                         {selectedRecurring && (() => {
                             const r = selectedRecurring;
                             const statusColors: Record<string, { bg: string; text: string }> = {
@@ -1128,45 +1172,35 @@ export default function InvoicesScreen() {
                                         </View>
                                         <View style={styles.modalHeaderRight}>
                                             <>
-                                                {Platform.OS === 'ios' && Host ? (
+                                                {Platform.OS === 'ios' && Host && Menu && ExpoButton ? (
                                                     <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                                        <ContextMenu>
-                                                            <ContextMenu.Trigger>
-                                                                <ExpoButton variant="borderless" systemImage="ellipsis">
-                                                                    {' '}
-                                                                </ExpoButton>
-                                                            </ContextMenu.Trigger>
-                                                            <ContextMenu.Items>
-                                                                {r.status === 'active' && (
-                                                                    <ExpoButton onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringTrigger(r.id); }} systemImage="arrow.clockwise">
-                                                                        Generate Now
-                                                                    </ExpoButton>
-                                                                )}
-                                                                {r.status === 'active' && (
-                                                                    <ExpoButton onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'paused'); }} systemImage="pause.fill">
-                                                                        Pause
-                                                                    </ExpoButton>
-                                                                )}
-                                                                {r.status === 'paused' && (
-                                                                    <ExpoButton onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'active'); }} systemImage="play.fill">
-                                                                        Resume
-                                                                    </ExpoButton>
-                                                                )}
-                                                                {r.status !== 'cancelled' && (
-                                                                    <ExpoButton
-                                                                        onPress={() => {
-                                                                            Alert.alert('Cancel Recurring Invoice', 'This will stop future invoice generation.', [
-                                                                                { text: 'Keep', style: 'cancel' },
-                                                                                { text: 'Cancel Invoice', style: 'destructive', onPress: () => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'cancelled'); } },
-                                                                            ]);
-                                                                        }}
-                                                                        systemImage="trash.fill"
-                                                                    >
-                                                                        Cancel Recurring
-                                                                    </ExpoButton>
-                                                                )}
-                                                            </ContextMenu.Items>
-                                                        </ContextMenu>
+                                                        <Menu
+                                                            label="More"
+                                                            systemImage="ellipsis"
+                                                            modifiers={labelStyleModifier ? [labelStyleModifier('iconOnly')] : undefined}
+                                                        >
+                                                            {r.status === 'active' && (
+                                                                <ExpoButton label="Generate Now" onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringTrigger(r.id); }} systemImage="arrow.clockwise" />
+                                                            )}
+                                                            {r.status === 'active' && (
+                                                                <ExpoButton label="Pause" onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'paused'); }} systemImage="pause.fill" />
+                                                            )}
+                                                            {r.status === 'paused' && (
+                                                                <ExpoButton label="Resume" onPress={() => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'active'); }} systemImage="play.fill" />
+                                                            )}
+                                                            {r.status !== 'cancelled' && (
+                                                                <ExpoButton
+                                                                    onPress={() => {
+                                                                        Alert.alert('Cancel Recurring Invoice', 'This will stop future invoice generation.', [
+                                                                            { text: 'Keep', style: 'cancel' },
+                                                                            { text: 'Cancel Invoice', style: 'destructive', onPress: () => { void recurringSheetRef.current?.dismiss().catch(() => {}); handleRecurringStatus(r.id, 'cancelled'); } },
+                                                                        ]);
+                                                                    }}
+                                                                    label="Cancel Recurring"
+                                                                    systemImage="trash.fill"
+                                                                />
+                                                            )}
+                                                        </Menu>
                                                     </Host>
                                                 ) : (
                                                     <AndroidDropdownMenu
@@ -1185,8 +1219,8 @@ export default function InvoicesScreen() {
                                                     void recurringSheetRef.current?.dismiss().catch(() => {});
                                                 }}
                                                 systemImage="xmark"
-                                                circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
-                                                icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                                                circleStyle={[styles.recurringCloseButton, { backgroundColor: themeColors.surface }]}
+                                                icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
                                             />
                                         </View>
                                     </View>
@@ -1290,7 +1324,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
+        fontFamily: 'GoogleSansFlex_700Bold',
         fontSize: Platform.OS === 'android' ? 22 : 24,
         color: Colors.textPrimary,
     },
@@ -1489,12 +1523,20 @@ const styles = StyleSheet.create({
         padding: 4,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    recurringCloseButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 0,
     },
     actionMenu: {
         backgroundColor: Colors.surface,
