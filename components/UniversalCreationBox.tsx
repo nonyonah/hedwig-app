@@ -17,13 +17,14 @@ import {
     Platform,
     Keyboard,
     useColorScheme,
-    Modal,
     ScrollView,
     KeyboardAvoidingView,
     Animated,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
+import SwiftUIBottomSheetModal from './ui/SwiftUIBottomSheetModal';
 import { useThemeColors } from '../theme/colors';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
@@ -34,8 +35,8 @@ import {
     FileText,
     Pencil as PencilSimple,
     Plus,
-    Settings as SlidersHorizontal,
     ArrowUp,
+    Square,
     Copy,
     ThumbsUp,
     ThumbsDown,
@@ -72,6 +73,13 @@ interface Message {
     parsed?: ParsedData;
     actionState?: 'pending' | 'creating' | 'done' | 'error';
     actionResult?: string;
+}
+
+interface UploadedDocument {
+    uri: string;
+    name: string;
+    mimeType: string;
+    size?: number;
 }
 
 interface UniversalCreationBoxProps {
@@ -175,6 +183,44 @@ function AnimatedMessage({ children }: { children: React.ReactNode }) {
     );
 }
 
+function AnimatedThinkingDots({ color }: { color: string }) {
+    const dot1 = useRef(new Animated.Value(0.25)).current;
+    const dot2 = useRef(new Animated.Value(0.25)).current;
+    const dot3 = useRef(new Animated.Value(0.25)).current;
+
+    useEffect(() => {
+        const makePulse = (value: Animated.Value, delay: number) =>
+            Animated.loop(
+                Animated.sequence([
+                    Animated.delay(delay),
+                    Animated.timing(value, { toValue: 1, duration: 260, useNativeDriver: true }),
+                    Animated.timing(value, { toValue: 0.25, duration: 260, useNativeDriver: true }),
+                ])
+            );
+
+        const a1 = makePulse(dot1, 0);
+        const a2 = makePulse(dot2, 120);
+        const a3 = makePulse(dot3, 240);
+        a1.start();
+        a2.start();
+        a3.start();
+
+        return () => {
+            a1.stop();
+            a2.stop();
+            a3.stop();
+        };
+    }, [dot1, dot2, dot3]);
+
+    return (
+        <View style={s.typingRow}>
+            <Animated.View style={[s.dot, { backgroundColor: color, opacity: dot1 }]} />
+            <Animated.View style={[s.dot, { backgroundColor: color, opacity: dot2 }]} />
+            <Animated.View style={[s.dot, { backgroundColor: color, opacity: dot3 }]} />
+        </View>
+    );
+}
+
 /* ─────────────────────────────────────────── main */
 
 export function UniversalCreationBox({ visible, onClose, onTransfer }: UniversalCreationBoxProps) {
@@ -191,6 +237,8 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
     const [input,     setInput]     = useState('');
     const [isParsing, setIsParsing] = useState(false);
     const [kbOpen,    setKbOpen]    = useState(false);
+    const [attachments, setAttachments] = useState<UploadedDocument[]>([]);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     /* ── keyboard visibility tracking (for bottom padding) ── */
     useEffect(() => {
@@ -207,8 +255,11 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
             setMessages([]);
             setInput('');
             setIsParsing(false);
+            setAttachments([]);
             setTimeout(() => inputRef.current?.focus(), 380);
         } else {
+            abortControllerRef.current?.abort();
+            abortControllerRef.current = null;
             Keyboard.dismiss();
         }
     }, [visible]);
@@ -224,23 +275,76 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
         onClose();
     }, [onClose]);
 
+    const removeAttachment = useCallback((uri: string) => {
+        setAttachments((prev) => prev.filter((doc) => doc.uri !== uri));
+    }, []);
+
+    const pickDocuments = useCallback(async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/pdf', 'image/*'],
+                multiple: true,
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled || !result.assets?.length) {
+                return;
+            }
+
+            setAttachments((prev) => {
+                const mapped = result.assets.map((asset) => ({
+                    uri: asset.uri,
+                    name: asset.name,
+                    mimeType: asset.mimeType || 'application/octet-stream',
+                    size: asset.size,
+                }));
+                const merged = [...prev, ...mapped];
+                return merged.slice(0, 5);
+            });
+        } catch (error) {
+            console.error('[CreationBox] Failed to pick documents:', error);
+            Alert.alert('Upload failed', 'Unable to attach document right now. Please try again.');
+        }
+    }, []);
+
+    const stopParsing = useCallback(() => {
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = null;
+        setIsParsing(false);
+    }, []);
+
     /* ── send ── */
     const sendMessage = useCallback(async () => {
         const text = input.trim();
-        if (!text || isParsing) return;
+        if ((!text && attachments.length === 0) || isParsing) return;
 
-        setMessages((p) => [...p, { id: `u-${Date.now()}`, role: 'user', content: text }]);
+        const currentAttachments = attachments;
+        const userMessageText = text || `[Uploaded ${currentAttachments.length} document${currentAttachments.length > 1 ? 's' : ''}]`;
+        const requestText = text || 'Use the attached documents to create the right draft.';
+        setMessages((p) => [...p, { id: `u-${Date.now()}`, role: 'user', content: userMessageText }]);
         setInput('');
+        setAttachments([]);
         setIsParsing(true);
         Keyboard.dismiss();
 
         try {
             const token  = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const abortController = new AbortController();
+            abortControllerRef.current = abortController;
             const res    = await fetch(`${apiUrl}/api/creation-box/parse`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, currentDate: new Date().toISOString() }),
+                body: JSON.stringify({
+                    text: requestText,
+                    currentDate: new Date().toISOString(),
+                    attachments: currentAttachments.map((doc) => ({
+                        name: doc.name,
+                        mimeType: doc.mimeType,
+                        size: doc.size ?? null,
+                    })),
+                }),
+                signal: abortController.signal,
             });
             const json = await res.json();
 
@@ -272,19 +376,33 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                     content: 'Try: "Invoice for $500 web design for john@acme.com due Friday".',
                 }]);
             }
-        } catch {
+        } catch (error: any) {
+            if (error?.name === 'AbortError') {
+                return;
+            }
             setMessages((p) => [...p, { id: `a-${Date.now()}`, role: 'assistant', content: 'Something went wrong. Please try again.' }]);
         } finally {
+            abortControllerRef.current = null;
             setIsParsing(false);
             setTimeout(() => inputRef.current?.focus(), 350);
         }
-    }, [input, isParsing, getAccessToken]);
+    }, [input, attachments, isParsing, getAccessToken]);
 
     /* ── confirm action ── */
     const confirmAction = useCallback(async (msgId: string, parsed: ParsedData) => {
         if (parsed.intent === 'recurring_invoice') {
             onClose();
-            router.push({ pathname: '/invoice/create-recurring' as any, params: { prefillAmount: parsed.amount ? String(parsed.amount) : '', prefillClientName: parsed.clientName || '', prefillClientEmail: parsed.clientEmail || '', prefillFrequency: parsed.frequency || 'monthly', prefillTitle: parsed.title || '' } });
+            router.push({
+                pathname: '/invoice/create-recurring' as any,
+                params: {
+                    prefillAmount: parsed.amount ? String(parsed.amount) : '',
+                    prefillClientName: parsed.clientName || '',
+                    prefillClientEmail: parsed.clientEmail || '',
+                    prefillFrequency: parsed.frequency || 'monthly',
+                    prefillTitle: parsed.title || '',
+                    prefillAutoSend: '0',
+                }
+            });
             return;
         }
         if (parsed.intent === 'transfer') {
@@ -317,9 +435,10 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
     }, [getAccessToken, onClose, onTransfer, router]);
 
     const hasMessages = messages.length > 0 || isParsing;
-    const canSend     = input.trim().length > 0 && !isParsing;
-    const bottomPad   = kbOpen ? 8 : Math.max(insets.bottom, 12);
-    const topPad      = Math.max(insets.top, 16);
+    const canSend     = input.trim().length > 0 || attachments.length > 0;
+    const isSwiftUISheet = Platform.OS === 'ios';
+    const bottomPad   = kbOpen ? 8 : (isSwiftUISheet ? 12 : Math.max(insets.bottom, 12));
+    const topPad      = isSwiftUISheet ? 12 : Math.max(insets.top, 16);
 
     /* ─── colour tokens ─── */
     const textPri    = colors.textPrimary;
@@ -336,12 +455,11 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
     const inputShadow = isDark ? '#000000' : '#111827';
 
     return (
-        <Modal
+        <SwiftUIBottomSheetModal
             visible={visible}
-            animationType="slide"
-            presentationStyle="fullScreen"
-            statusBarTranslucent
-            onRequestClose={handleClose}
+            onClose={handleClose}
+            detents={[{ fraction: 0.92 }, 'large']}
+            matchContents={false}
         >
             <KeyboardAvoidingView
                 style={[s.modalRoot, { backgroundColor: shellBg }]}
@@ -361,8 +479,9 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                         <IOSGlassIconButton
                             onPress={handleClose}
                             systemImage="chevron.left"
+                            useGlass={false}
                             containerStyle={s.backButton}
-                            circleStyle={s.backButtonCircle}
+                            circleStyle={[s.backButtonCircle, { backgroundColor: colors.surface }]}
                             icon={<CaretLeft size={20} color={textPri} strokeWidth={3} />}
                         />
                     </View>
@@ -465,11 +584,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
 
                                 {isParsing && (
                                     <View style={s.aiBlock}>
-                                        <View style={s.typingRow}>
-                                            <View style={[s.dot, { backgroundColor: textSec }]} />
-                                            <View style={[s.dot, { backgroundColor: textSec }]} />
-                                            <View style={[s.dot, { backgroundColor: textSec }]} />
-                                        </View>
+                                        <AnimatedThinkingDots color={textSec} />
                                     </View>
                                 )}
                             </>
@@ -499,32 +614,55 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                                 blurOnSubmit={false}
                                 autoCapitalize="sentences"
                             />
+                            {attachments.length > 0 && (
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={s.attachmentRow}
+                                >
+                                    {attachments.map((file) => (
+                                        <View key={file.uri} style={[s.attachmentChip, { borderColor: panelBorder }]}>
+                                            <Text style={[s.attachmentChipText, { color: textPri }]} numberOfLines={1}>
+                                                {file.name}
+                                            </Text>
+                                            <TouchableOpacity
+                                                onPress={() => removeAttachment(file.uri)}
+                                                style={s.attachmentRemove}
+                                                activeOpacity={0.7}
+                                            >
+                                                <XCircle size={14} color={textSec} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            )}
                             <View style={s.inputFooter}>
                                 <View style={s.inputLeft}>
-                                    <TouchableOpacity style={s.inputIconBtn} activeOpacity={0.7}>
+                                    <TouchableOpacity style={s.inputIconBtn} activeOpacity={0.7} onPress={pickDocuments}>
                                         <Plus size={22} color={textSec} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={s.inputIconBtn} activeOpacity={0.7}>
-                                        <SlidersHorizontal size={21} color={textSec} />
                                     </TouchableOpacity>
                                 </View>
                                 <TouchableOpacity
-                                    style={[s.sendBtn, { backgroundColor: canSend ? primary : sendDisBg }]}
-                                    onPress={sendMessage}
-                                    disabled={!canSend}
+                                    style={[s.sendBtn, { backgroundColor: (canSend || isParsing) ? primary : sendDisBg }]}
+                                    onPress={isParsing ? stopParsing : sendMessage}
+                                    disabled={!canSend && !isParsing}
                                     activeOpacity={0.85}
                                 >
-                                    <ArrowUp
-                                        size={18}
-                                        color={canSend ? '#FFF' : (isDark ? '#555' : '#9CA3AF')}
-                                    />
+                                    {isParsing ? (
+                                        <Square size={16} color="#FFFFFF" />
+                                    ) : (
+                                        <ArrowUp
+                                            size={18}
+                                            color={canSend ? '#FFF' : (isDark ? '#555' : '#9CA3AF')}
+                                        />
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </View>
                     </View>
                 </View>
             </KeyboardAvoidingView>
-        </Modal>
+        </SwiftUIBottomSheetModal>
     );
 }
 
@@ -544,8 +682,8 @@ const s = StyleSheet.create({
         paddingHorizontal: 16,
         paddingBottom: 12,
     },
-    backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-    backButtonCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+    backButton: { padding: 4 },
+    backButtonCircle: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
 
     scroll:       { flex: 1 },
     scrollContent: { paddingHorizontal: 24, paddingBottom: 18, gap: 26 },
@@ -589,6 +727,20 @@ const s = StyleSheet.create({
         elevation: 6,
     },
     textInput:    { fontSize: 15, fontFamily: 'GoogleSansFlex_500Medium', lineHeight: 22, minHeight: 22, maxHeight: 120, marginBottom: 12, textAlignVertical: 'top' },
+    attachmentRow: { flexDirection: 'row', gap: 8, marginBottom: 10, paddingRight: 8 },
+    attachmentChip: {
+        maxWidth: 220,
+        borderWidth: 1,
+        borderRadius: 999,
+        paddingLeft: 12,
+        paddingRight: 6,
+        paddingVertical: 6,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    attachmentChipText: { fontSize: 12, fontFamily: 'GoogleSansFlex_500Medium', maxWidth: 180 },
+    attachmentRemove: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     inputFooter:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     inputLeft:    { flexDirection: 'row', gap: 4 },
     inputIconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },

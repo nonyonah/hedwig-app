@@ -14,7 +14,7 @@ import {
     ImageSourcePropType,
 } from 'react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { useThemeColors, Colors } from '../theme/colors';
 import {
     ChevronLeft as CaretLeft,
@@ -279,7 +279,7 @@ const TokenDetailSheet = forwardRef<TrueSheet, Props>(({ selectedToken, onDismis
                             onPress={() => (ref as React.RefObject<TrueSheet>)?.current?.dismiss()}
                             systemImage="xmark"
                             circleStyle={styles.closeCircle}
-                            icon={<X size={18} color={themeColors.textPrimary} strokeWidth={3} />}
+                            icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
                         />
                     </View>
 
@@ -487,7 +487,7 @@ export default TokenDetailSheet;
 const styles = StyleSheet.create({
     content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 },
     closeRow: { alignItems: 'flex-end', marginBottom: 4 },
-    closeCircle: { width: 32, height: 32, borderRadius: 16 },
+    closeCircle: { width: 36, height: 36, borderRadius: 18 },
     tokenHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, marginTop: 4 },
     tokenIcon: { width: 48, height: 48, borderRadius: 24, marginRight: 12 },
     tokenHeaderText: { flex: 1 },

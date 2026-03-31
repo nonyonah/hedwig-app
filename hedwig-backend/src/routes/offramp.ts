@@ -25,6 +25,35 @@ const mapPaycrestOrderStatus = (rawStatus?: string): 'PENDING' | 'PROCESSING' | 
     return null;
 };
 
+const normalizeStatusForClient = (
+    rawStatus?: string | null,
+    txHash?: string | null,
+    completedAt?: string | null
+): 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' => {
+    const status = (rawStatus || '').trim().toUpperCase();
+    const hasCompletionEvidence = Boolean(
+        (txHash && txHash.trim().length > 0) ||
+        (completedAt && completedAt.trim().length > 0)
+    );
+
+    if (status === 'COMPLETED' || status === 'SUCCESS' || status === 'VALIDATED' || status === 'SETTLED') {
+        return 'COMPLETED';
+    }
+    if (status === 'PENDING' || status === 'INITIATED') {
+        return 'PENDING';
+    }
+    if (status === 'PROCESSING' || status === 'IN_PROGRESS' || status === 'QUEUED') {
+        return 'PROCESSING';
+    }
+    if (status === 'CANCELLED' || status === 'CANCELED') {
+        return hasCompletionEvidence ? 'COMPLETED' : 'CANCELLED';
+    }
+    if (status === 'FAILED' || status === 'REFUNDED' || status === 'EXPIRED' || status === 'ERROR') {
+        return hasCompletionEvidence ? 'COMPLETED' : 'FAILED';
+    }
+    return hasCompletionEvidence ? 'COMPLETED' : 'PROCESSING';
+};
+
 const extractPaycrestStatus = (payload: any): string | undefined =>
     payload?.data?.order?.status ||
     payload?.order?.status ||
@@ -447,7 +476,7 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
             id: order.id,
             userId: order.user_id,
             paycrestOrderId: order.paycrest_order_id,
-            status: order.status,
+            status: normalizeStatusForClient(order.status, order.tx_hash, order.completed_at),
             chain: order.chain,
             token: order.token,
             cryptoAmount: order.crypto_amount,
@@ -559,7 +588,7 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
             id: order.id,
             userId: order.user_id,
             paycrestOrderId: order.paycrest_order_id,
-            status: order.status,
+            status: normalizeStatusForClient(order.status, order.tx_hash, order.completed_at),
             chain: order.chain,
             token: order.token,
             cryptoAmount: order.crypto_amount,

@@ -16,8 +16,9 @@ import {
     Image,
     Platform,
 } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { X, CheckCircle, Clock, Wallet, ArrowDown } from './ui/AppIcon';
+import IOSGlassIconButton from './ui/IOSGlassIconButton';
 import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { Connection, Transaction, clusterApiUrl } from '@solana/web3.js';
 import { Colors, useThemeColors } from '../theme/colors';
@@ -540,12 +541,12 @@ export const SolanaBridgeModal = forwardRef<TrueSheet, SolanaBridgeModalProps>((
                 {(step === 'quote' || step === 'error') && (
                     <View style={styles.headerTitleRow}>
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Bridge to Base</Text>
-                        <TouchableOpacity
-                            style={styles.closeButton}
+                        <IOSGlassIconButton
                             onPress={handleDismiss}
-                        >
-                            <X size={24} color={themeColors.textSecondary} strokeWidth={3} />
-                        </TouchableOpacity>
+                            systemImage="xmark"
+                            circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                            icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                        />
                     </View>
                 )}
 
@@ -579,8 +580,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
     },
     closeButton: {
-        padding: 8,
-        marginRight: -8, // compensate for padding
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     headerTitleRow: {
         flexDirection: 'row',

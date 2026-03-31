@@ -67,9 +67,8 @@ export const SwiftUITouchable: React.FC<SwiftUITouchableProps> = ({
                         onPress={onPress}
                         disabled={disabled}
                         systemImage={systemImage}
-                    >
-                        {textLabel}
-                    </SwiftUIButton>
+                        label={textLabel}
+                    />
                 </SwiftUIHost>
                 <View style={styles.overlay} pointerEvents="none">
                     {children}

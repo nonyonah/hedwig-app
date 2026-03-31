@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -sL https://api.github.com/repos/expo/skills/contents/plugins/expo)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(d[''''name'''']\\) for d in data]\")",
+      "Bash(curl -sL https://api.github.com/repos/expo/skills/contents/plugins/expo/skills)",
+      "Bash(curl -sL https://raw.githubusercontent.com/expo/skills/main/plugins/expo/skills/expo-ui-swift-ui/skill.md)",
+      "Bash(curl -sL https://api.github.com/repos/expo/skills/contents/plugins/expo/skills/expo-ui-swift-ui)",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(d[''''name''''], d[''''type'''']\\) for d in data]\")"
+    ]
+  }
+}

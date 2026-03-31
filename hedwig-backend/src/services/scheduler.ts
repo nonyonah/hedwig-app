@@ -4,57 +4,83 @@ import { GeminiService } from './gemini';
 import { EmailService } from './email';
 import NotificationService from './notifications';
 import BackendAnalytics from './analytics';
+import { PaycrestService } from './paycrest';
 import { differenceInDays, parseISO, addDays, isSameDay, format } from 'date-fns';
 import { createLogger } from '../utils/logger';
+import { withLock } from '../utils/distributedLock';
 
 const logger = createLogger('Scheduler');
+
+// Max users to process in parallel per scheduler run.
+// Prevents a single Cloud Run instance from opening hundreds of DB/API connections at once.
+const SCHEDULER_CONCURRENCY = Number(process.env.SCHEDULER_CONCURRENCY || '5');
+
+async function processInBatches<T>(
+    items: T[],
+    concurrency: number,
+    fn: (item: T) => Promise<void>,
+): Promise<void> {
+    for (let i = 0; i < items.length; i += concurrency) {
+        await Promise.all(items.slice(i, i + concurrency).map(fn));
+    }
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const SchedulerService = {
     initScheduler() {
-        logger.info('Initializing Reminder Scheduler');
+        // When SCHEDULER_MODE=cloud, cron jobs are driven by Cloud Scheduler HTTP calls
+        // (see the /internal/scheduler/:job route). Skip in-process cron to avoid duplicates.
+        if (process.env.SCHEDULER_MODE === 'cloud') {
+            logger.info('Scheduler mode: cloud (driven by GCP Cloud Scheduler HTTP calls)');
+            return;
+        }
 
-        // Run every day at 10:00 AM UTC - check for overdue payments
-        cron.schedule('0 10 * * *', async () => {
-            logger.debug('Running daily automated check for overdue payments');
-            await this.checkAndRemind();
+        logger.info('Initializing in-process Scheduler (with distributed lock for multi-instance safety)');
+
+        // Lock TTL slightly shorter than the cron interval so the lock expires
+        // before the next scheduled run even if the holder crashed.
+        const dailyLockTtl = 23 * 60 * 60;     // 23 h
+        const hourlyLockTtl = 50 * 60;           // 50 min
+
+        cron.schedule('0 10 * * *', () => {
+            withLock('check-and-remind', dailyLockTtl, () => this.checkAndRemind())
+                .catch((e) => logger.error('check-and-remind lock error', { error: e?.message }));
         });
 
-        // Run every day at 9:00 AM UTC - check for upcoming due dates
-        cron.schedule('0 9 * * *', async () => {
-            logger.debug('Running daily due date reminder check');
-            await this.checkDueDateReminders();
+        cron.schedule('0 9 * * *', () => {
+            withLock('due-date-reminders', dailyLockTtl, () => this.checkDueDateReminders())
+                .catch((e) => logger.error('due-date-reminders lock error', { error: e?.message }));
         });
 
-        // Run every day at 3:30 AM UTC - prune stale/wrong-project Expo push tokens
-        cron.schedule('30 3 * * *', async () => {
-            logger.debug('Running Expo token cleanup job');
-            await NotificationService.cleanupExpoDeviceTokens();
+        cron.schedule('30 3 * * *', () => {
+            withLock('token-cleanup', dailyLockTtl, async () => { await NotificationService.cleanupExpoDeviceTokens(); })
+                .catch((e) => logger.error('token-cleanup lock error', { error: e?.message }));
         });
 
-        // Run every day at 8:00 AM UTC - generate due recurring invoices
-        cron.schedule('0 8 * * *', async () => {
-            logger.debug('Running recurring invoice generation job');
-            await this.checkRecurringInvoices();
+        cron.schedule('0 8 * * *', () => {
+            withLock('recurring-invoices', dailyLockTtl, () => this.checkRecurringInvoices())
+                .catch((e) => logger.error('recurring-invoices lock error', { error: e?.message }));
         });
 
-        // Run hourly at minute 15 - send dormant user nudges (3-day inactivity)
-        cron.schedule('15 * * * *', async () => {
-            logger.debug('Running dormant-user re-engagement nudge job');
-            await this.sendDormantUserNudges();
+        cron.schedule('15 * * * *', () => {
+            withLock('dormant-nudges', hourlyLockTtl, () => this.sendDormantUserNudges())
+                .catch((e) => logger.error('dormant-nudges lock error', { error: e?.message }));
         });
 
-        // Run hourly at minute 20 - send KYC reminder nudges (24h after app_opened)
-        cron.schedule('20 * * * *', async () => {
-            logger.debug('Running KYC reminder nudge job');
-            await this.sendKycReminderNudges();
+        cron.schedule('20 * * * *', () => {
+            withLock('kyc-nudges', hourlyLockTtl, () => this.sendKycReminderNudges())
+                .catch((e) => logger.error('kyc-nudges lock error', { error: e?.message }));
         });
 
-        // Run hourly at minute 25 - send feature highlight nudges every few days
-        cron.schedule('25 * * * *', async () => {
-            logger.debug('Running feature-highlight re-engagement nudge job');
-            await this.sendFeatureHighlightNudges();
+        cron.schedule('25 * * * *', () => {
+            withLock('feature-nudges', hourlyLockTtl, () => this.sendFeatureHighlightNudges())
+                .catch((e) => logger.error('feature-nudges lock error', { error: e?.message }));
+        });
+
+        cron.schedule('35 * * * *', () => {
+            withLock('paycrest-rate-nudges', hourlyLockTtl, () => this.sendPaycrestRateNudges())
+                .catch((e) => logger.error('paycrest-rate-nudges lock error', { error: e?.message }));
         });
     },
 
@@ -190,54 +216,56 @@ export const SchedulerService = {
                 kind: 'dormant_3day',
             });
 
-            for (const user of candidates) {
-                const firstName = String(user.first_name || '').trim();
-                const title = creativeCopy.pushTitle;
-                const body = firstName
-                    ? `${firstName}, ${creativeCopy.pushBody}`
-                    : creativeCopy.pushBody;
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user) => {
+                try {
+                    const firstName = String(user.first_name || '').trim();
+                    const title = creativeCopy.pushTitle;
+                    const body = firstName
+                        ? `${firstName}, ${creativeCopy.pushBody}`
+                        : creativeCopy.pushBody;
 
-                await NotificationService.notifyUser(user.id, {
-                    title,
-                    body,
-                    data: {
-                        type: 'reengagement_dormant',
-                        route: '/(drawer)/(tabs)',
-                    },
-                });
+                    await NotificationService.notifyUser(user.id, {
+                        title,
+                        body,
+                        data: {
+                            type: 'reengagement_dormant',
+                            route: '/(drawer)/(tabs)',
+                        },
+                    });
 
-                if (user.email) {
-                    await EmailService.sendSmartReminder(
-                        user.email,
-                        creativeCopy.emailSubject,
-                        `<p class=\"eyebrow\">Re-engagement</p><h1 class=\"heading\">${creativeCopy.emailHeading}</h1><p class=\"description\">${creativeCopy.emailBody}</p>`,
-                        'https://hedwigbot.xyz',
-                        creativeCopy.ctaText || 'Open Hedwig'
-                    );
-                }
+                    if (user.email) {
+                        await EmailService.sendSmartReminder(
+                            user.email,
+                            creativeCopy.emailSubject,
+                            `<p class=\"eyebrow\">Re-engagement</p><h1 class=\"heading\">${creativeCopy.emailHeading}</h1><p class=\"description\">${creativeCopy.emailBody}</p>`,
+                            'https://hedwigbot.xyz',
+                            creativeCopy.ctaText || 'Open Hedwig'
+                        );
+                    }
 
-                await supabase.from('notifications').insert({
-                    user_id: user.id,
-                    type: 'announcement',
-                    title,
-                    message: body,
-                    metadata: {
+                    await supabase.from('notifications').insert({
+                        user_id: user.id,
+                        type: 'announcement',
+                        title,
+                        message: body,
+                        metadata: { nudge_type: 'dormant_3day' },
+                        is_read: false,
+                    });
+
+                    await supabase
+                        .from('users')
+                        .update({ last_dormant_nudge_at: new Date().toISOString() })
+                        .eq('id', user.id);
+
+                    await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
+                        user_id: user.id,
                         nudge_type: 'dormant_3day',
-                    },
-                    is_read: false,
-                });
-
-                await supabase
-                    .from('users')
-                    .update({ last_dormant_nudge_at: new Date().toISOString() })
-                    .eq('id', user.id);
-
-                await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
-                    user_id: user.id,
-                    nudge_type: 'dormant_3day',
-                    channels: user.email ? ['push', 'email'] : ['push'],
-                });
-            }
+                        channels: user.email ? ['push', 'email'] : ['push'],
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to process dormant nudge for user', { userId: user.id, error: err?.message });
+                }
+            });
         } catch (error: any) {
             logger.error('Error sending dormant user nudges', { error: error?.message });
         }
@@ -288,64 +316,61 @@ export const SchedulerService = {
                 ctaText: string;
             }> = {};
 
-            for (const user of candidates) {
-                const variant = await BackendAnalytics.getFeatureFlagVariant(
-                    String(user.privy_id || user.id),
-                    flagKey,
-                    'control'
-                );
-                if (!copyByVariant[variant]) {
-                    copyByVariant[variant] = await GeminiService.generateReengagementNudge({
-                        kind: 'kyc_24h',
-                        variant,
-                    });
-                }
-                const copy = copyByVariant[variant];
-
-                await NotificationService.notifyUser(user.id, {
-                    title: copy.pushTitle,
-                    body: copy.pushBody,
-                    data: {
-                        type: 'kyc_nudge_24h',
-                        route: '/settings/index',
-                        variant,
-                    },
-                });
-
-                if (user.email) {
-                    await EmailService.sendSmartReminder(
-                        user.email,
-                        copy.emailSubject,
-                        `<p class=\"eyebrow\">Verification reminder</p><h1 class=\"heading\">${copy.emailHeading}</h1><p class=\"description\">${copy.emailBody}</p>`,
-                        'https://hedwigbot.xyz/settings',
-                        copy.ctaText || 'Complete Verification'
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user) => {
+                try {
+                    const variant = await BackendAnalytics.getFeatureFlagVariant(
+                        String(user.privy_id || user.id),
+                        flagKey,
+                        'control'
                     );
-                }
+                    if (!copyByVariant[variant]) {
+                        copyByVariant[variant] = await GeminiService.generateReengagementNudge({
+                            kind: 'kyc_24h',
+                            variant,
+                        });
+                    }
+                    const copy = copyByVariant[variant];
 
-                await supabase.from('notifications').insert({
-                    user_id: user.id,
-                    type: 'announcement',
-                    title: copy.pushTitle,
-                    message: copy.pushBody,
-                    metadata: {
+                    await NotificationService.notifyUser(user.id, {
+                        title: copy.pushTitle,
+                        body: copy.pushBody,
+                        data: { type: 'kyc_nudge_24h', route: '/settings/index', variant },
+                    });
+
+                    if (user.email) {
+                        await EmailService.sendSmartReminder(
+                            user.email,
+                            copy.emailSubject,
+                            `<p class=\"eyebrow\">Verification reminder</p><h1 class=\"heading\">${copy.emailHeading}</h1><p class=\"description\">${copy.emailBody}</p>`,
+                            'https://hedwigbot.xyz/settings',
+                            copy.ctaText || 'Complete Verification'
+                        );
+                    }
+
+                    await supabase.from('notifications').insert({
+                        user_id: user.id,
+                        type: 'announcement',
+                        title: copy.pushTitle,
+                        message: copy.pushBody,
+                        metadata: { nudge_type: 'kyc_24h', variant },
+                        is_read: false,
+                    });
+
+                    await supabase
+                        .from('users')
+                        .update({ last_kyc_nudge_at: new Date().toISOString() })
+                        .eq('id', user.id);
+
+                    await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
+                        user_id: user.id,
                         nudge_type: 'kyc_24h',
                         variant,
-                    },
-                    is_read: false,
-                });
-
-                await supabase
-                    .from('users')
-                    .update({ last_kyc_nudge_at: new Date().toISOString() })
-                    .eq('id', user.id);
-
-                await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
-                    user_id: user.id,
-                    nudge_type: 'kyc_24h',
-                    variant,
-                    channels: user.email ? ['push', 'email'] : ['push'],
-                });
-            }
+                        channels: user.email ? ['push', 'email'] : ['push'],
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to process KYC nudge for user', { userId: user.id, error: err?.message });
+                }
+            });
         } catch (error: any) {
             logger.error('Error sending KYC nudges', { error: error?.message });
         }
@@ -410,70 +435,215 @@ export const SchedulerService = {
                 ctaText: string;
             }> = {};
 
-            for (const user of candidates) {
-                const variant = await BackendAnalytics.getFeatureFlagVariant(
-                    String(user.privy_id || user.id),
-                    flagKey,
-                    'control'
-                );
-
-                if (!copyByVariant[variant]) {
-                    copyByVariant[variant] = await GeminiService.generateReengagementNudge({
-                        kind: 'feature_highlight',
-                        variant,
-                    });
-                }
-
-                const copy = copyByVariant[variant];
-                const firstName = String(user.first_name || '').trim();
-                const body = firstName ? `${firstName}, ${copy.pushBody}` : copy.pushBody;
-
-                await NotificationService.notifyUser(user.id, {
-                    title: copy.pushTitle,
-                    body,
-                    data: {
-                        type: 'feature_highlight_reengagement',
-                        route: '/(drawer)/(tabs)',
-                        variant,
-                    },
-                });
-
-                if (user.email) {
-                    await EmailService.sendSmartReminder(
-                        user.email,
-                        copy.emailSubject,
-                        `<p class=\"eyebrow\">What to try next</p><h1 class=\"heading\">${copy.emailHeading}</h1><p class=\"description\">${copy.emailBody}</p>`,
-                        'https://hedwigbot.xyz',
-                        copy.ctaText || 'Explore Hedwig'
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user) => {
+                try {
+                    const variant = await BackendAnalytics.getFeatureFlagVariant(
+                        String(user.privy_id || user.id),
+                        flagKey,
+                        'control'
                     );
-                }
 
-                await supabase.from('notifications').insert({
-                    user_id: user.id,
-                    type: 'announcement',
-                    title: copy.pushTitle,
-                    message: body,
-                    metadata: {
+                    if (!copyByVariant[variant]) {
+                        copyByVariant[variant] = await GeminiService.generateReengagementNudge({
+                            kind: 'feature_highlight',
+                            variant,
+                        });
+                    }
+
+                    const copy = copyByVariant[variant];
+                    const firstName = String(user.first_name || '').trim();
+                    const body = firstName ? `${firstName}, ${copy.pushBody}` : copy.pushBody;
+
+                    await NotificationService.notifyUser(user.id, {
+                        title: copy.pushTitle,
+                        body,
+                        data: { type: 'feature_highlight_reengagement', route: '/(drawer)/(tabs)', variant },
+                    });
+
+                    if (user.email) {
+                        await EmailService.sendSmartReminder(
+                            user.email,
+                            copy.emailSubject,
+                            `<p class=\"eyebrow\">What to try next</p><h1 class=\"heading\">${copy.emailHeading}</h1><p class=\"description\">${copy.emailBody}</p>`,
+                            'https://hedwigbot.xyz',
+                            copy.ctaText || 'Explore Hedwig'
+                        );
+                    }
+
+                    await supabase.from('notifications').insert({
+                        user_id: user.id,
+                        type: 'announcement',
+                        title: copy.pushTitle,
+                        message: body,
+                        metadata: { nudge_type: `feature_highlight_every_${cadenceDays}d`, variant },
+                        is_read: false,
+                    });
+
+                    await supabase
+                        .from('users')
+                        .update({ last_feature_nudge_at: new Date().toISOString() })
+                        .eq('id', user.id);
+
+                    await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
+                        user_id: user.id,
                         nudge_type: `feature_highlight_every_${cadenceDays}d`,
                         variant,
-                    },
-                    is_read: false,
-                });
-
-                await supabase
-                    .from('users')
-                    .update({ last_feature_nudge_at: new Date().toISOString() })
-                    .eq('id', user.id);
-
-                await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
-                    user_id: user.id,
-                    nudge_type: `feature_highlight_every_${cadenceDays}d`,
-                    variant,
-                    channels: user.email ? ['push', 'email'] : ['push'],
-                });
-            }
+                        channels: user.email ? ['push', 'email'] : ['push'],
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to process feature nudge for user', { userId: user.id, error: err?.message });
+                }
+            });
         } catch (error: any) {
             logger.error('Error sending feature-highlight nudges', { error: error?.message });
+        }
+    },
+
+    async sendPaycrestRateNudges() {
+        try {
+            const cadenceDays = Math.max(Number(process.env.PAYCREST_RATE_NUDGE_INTERVAL_DAYS || '2'), 1);
+            const activeLookbackDays = Math.max(Number(process.env.PAYCREST_RATE_ACTIVE_LOOKBACK_DAYS || '30'), 1);
+            const cadenceCutoffMs = Date.now() - (cadenceDays * DAY_MS);
+            const activeCutoffMs = Date.now() - (activeLookbackDays * DAY_MS);
+            const baseToken = String(process.env.PAYCREST_RATE_TOKEN || 'USDC').trim().toUpperCase() || 'USDC';
+            const baseNetwork = String(process.env.PAYCREST_RATE_NETWORK || 'base').trim() || 'base';
+            const baseAmount = Math.max(Number(process.env.PAYCREST_RATE_USD_AMOUNT || '1') || 1, 1);
+            const ghsSymbol = 'GH₵';
+            const ngnSymbol = '₦';
+
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, last_app_opened_at, last_login, last_rate_nudge_at');
+
+            if (error) {
+                logger.error('Failed to fetch users for Paycrest rate nudges', { error: error.message });
+                return;
+            }
+
+            const oneSignalLastSeenMap = await this.getOneSignalLastSeenMap();
+            await this.backfillLastAppOpenedAt(users || [], oneSignalLastSeenMap);
+
+            const candidates = (users || []).filter((user: any) => {
+                const effectiveActivityAt = this.getEffectiveLastActivityAt(user, oneSignalLastSeenMap);
+                const effectiveActivityMs = this.timestampMs(effectiveActivityAt);
+                if (effectiveActivityMs === null) return false;
+                if (effectiveActivityMs < activeCutoffMs) return false;
+
+                const lastRateNudgeMs = this.timestampMs(user?.last_rate_nudge_at);
+                if (lastRateNudgeMs !== null && lastRateNudgeMs > cadenceCutoffMs) return false;
+                return true;
+            });
+
+            if (candidates.length === 0) {
+                logger.debug('No users eligible for Paycrest rate nudges');
+                return;
+            }
+
+            let ngnRateNum = 0;
+            let ghsRateNum = 0;
+            try {
+                const [ngnRateRaw, ghsRateRaw] = await Promise.all([
+                    PaycrestService.getExchangeRate(baseToken, baseAmount, 'NGN', baseNetwork),
+                    PaycrestService.getExchangeRate(baseToken, baseAmount, 'GHS', baseNetwork),
+                ]);
+                ngnRateNum = Number.parseFloat(String(ngnRateRaw || '0'));
+                ghsRateNum = Number.parseFloat(String(ghsRateRaw || '0'));
+            } catch (rateError: any) {
+                logger.error('Failed to fetch Paycrest rates for nudges', { error: rateError?.message });
+                return;
+            }
+
+            if (!Number.isFinite(ngnRateNum) || ngnRateNum <= 0 || !Number.isFinite(ghsRateNum) || ghsRateNum <= 0) {
+                logger.warn('Skipping Paycrest rate nudges due to invalid rate payload', {
+                    ngnRateNum,
+                    ghsRateNum,
+                });
+                return;
+            }
+
+            const ngnRate = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(ngnRateNum);
+            const ghsRate = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(ghsRateNum);
+            const title = 'USD rates update';
+            const body = `${baseAmount} USD ≈ ${ngnSymbol}${ngnRate} · ${ghsSymbol}${ghsRate} (Paycrest)`;
+            const emailSubject = `USD rates: NGN ${ngnSymbol}${ngnRate} · GHS ${ghsSymbol}${ghsRate}`;
+            const emailHtml = `<p class="eyebrow">Market update</p><h1 class="heading">Latest USD payout rates</h1><p class="description">${baseAmount} USD is currently around <strong style="color:#181d27;">${ngnSymbol}${ngnRate}</strong> and <strong style="color:#181d27;">${ghsSymbol}${ghsRate}</strong> using Paycrest rates.</p><p class="description">Use Hedwig to create payouts with the latest pricing in NGN and GHS.</p>`;
+
+            logger.info('Sending Paycrest rate nudges', {
+                count: candidates.length,
+                cadenceDays,
+                activeLookbackDays,
+                baseToken,
+                baseNetwork,
+                baseAmount,
+                ngnRateNum,
+                ghsRateNum,
+            });
+
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user) => {
+                try {
+                    const firstName = String(user.first_name || '').trim();
+                    const personalizedBody = firstName ? `${firstName}, ${body}` : body;
+
+                    await NotificationService.notifyUser(user.id, {
+                        title,
+                        body: personalizedBody,
+                        data: {
+                            type: 'paycrest_rate_update',
+                            route: '/offramp-history/create',
+                            source: 'paycrest',
+                            baseAmount,
+                            ngnRate: ngnRateNum,
+                            ghsRate: ghsRateNum,
+                        },
+                    });
+
+                    if (user.email) {
+                        await EmailService.sendSmartReminder(
+                            user.email,
+                            emailSubject,
+                            emailHtml,
+                            'https://hedwigbot.xyz/offramp-history/create',
+                            'Open Hedwig'
+                        );
+                    }
+
+                    await supabase.from('notifications').insert({
+                        user_id: user.id,
+                        type: 'announcement',
+                        title,
+                        message: personalizedBody,
+                        metadata: {
+                            nudge_type: `paycrest_rate_every_${cadenceDays}d`,
+                            source: 'paycrest',
+                            baseAmount,
+                            ngnRate: ngnRateNum,
+                            ghsRate: ghsRateNum,
+                            token: baseToken,
+                            network: baseNetwork,
+                        },
+                        is_read: false,
+                    });
+
+                    await supabase
+                        .from('users')
+                        .update({ last_rate_nudge_at: new Date().toISOString() })
+                        .eq('id', user.id);
+
+                    await BackendAnalytics.capture(String(user.privy_id || user.id), 'rate_nudge_sent', {
+                        user_id: user.id,
+                        cadence_days: cadenceDays,
+                        channels: user.email ? ['push', 'email'] : ['push'],
+                        source: 'paycrest',
+                        base_amount: baseAmount,
+                        ngn_rate: ngnRateNum,
+                        ghs_rate: ghsRateNum,
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to process Paycrest rate nudge for user', { userId: user.id, error: err?.message });
+                }
+            });
+        } catch (error: any) {
+            logger.error('Error sending Paycrest rate nudges', { error: error?.message });
         }
     },
 
@@ -752,9 +922,11 @@ export const SchedulerService = {
 
             logger.debug('Found potentially overdue documents', { count: documents.length });
 
-            for (const doc of documents) {
-                await this.processDocumentReminder(doc);
-            }
+            await processInBatches(documents, SCHEDULER_CONCURRENCY, async (doc) => {
+                await this.processDocumentReminder(doc).catch((e) =>
+                    logger.error('Failed to process document reminder', { docId: doc?.id, error: e?.message })
+                );
+            });
 
         } catch (error) {
             logger.error('Error in checkAndRemind');

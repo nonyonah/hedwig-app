@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, forwardRef, useCallback, useImperativeHandle } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import * as WebBrowser from 'expo-web-browser';
 import { ShieldCheck, TriangleAlert as Warning, ArrowRight, CheckCircle, Timer as ClockCountdown } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';

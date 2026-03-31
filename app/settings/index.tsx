@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, TextInput, Alert, TouchableWithoutFeedback, Platform, Animated, ActivityIndicator } from 'react-native';
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { ChevronRight as CaretRight, List, ChevronDown as CaretDown, Check, ShieldAlert as ShieldWarning, Lock, Copy, CircleAlert as WarningCircle, SquareCheck as CheckSquare, Square, ChevronLeft as CaretLeft, Calendar as CalendarIcon } from '../../components/ui/AppIcon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
@@ -26,6 +25,19 @@ import { getPublicWebBaseUrl } from '../../utils/publicWebUrl';
 import { Linking } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import {
+    ChevronRight as CaretRight,
+    Check,
+    ShieldAlert as ShieldWarning,
+    Lock,
+    Copy,
+    AlertCircle as WarningCircle,
+    SquareCheck as CheckSquare,
+    Square,
+    ChevronLeft as CaretLeft,
+    Calendar as CalendarIcon,
+} from '../../components/ui/AppIcon';
+
 
 const GOOGLE_CALENDAR_SVG = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
   <g transform="translate(3.75 3.75)">
@@ -46,7 +58,6 @@ const APPLE_CALENDAR_SVG = `<svg viewBox="0 0 41.5 51" xmlns="http://www.w3.org/
 </svg>`;
 
 
-
 const THEMES: { code: Theme; label: string }[] = [
     { code: 'light', label: 'Light' },
     { code: 'dark', label: 'Dark' },
@@ -58,15 +69,24 @@ type TrueSheetLikeRef = {
     dismiss: (animated?: boolean) => Promise<void>;
 };
 
-const TrueSheetComponent: React.ComponentType<any> | null = (() => {
+const TrueSheetComponent: React.ComponentType<any> | null = TrueSheet as unknown as React.ComponentType<any>;
+
+let SwiftUIBottomSheet: any = null;
+let SwiftUIGroup: any = null;
+let presentationDetentsModifier: any = null;
+let presentationDragIndicatorModifier: any = null;
+if (Platform.OS === 'ios') {
     try {
-        // Runtime-safe resolution to avoid crashes in clients that don't yet have the native module.
-        const mod = require('@lodev09/react-native-true-sheet');
-        return mod?.TrueSheet ?? mod?.default?.TrueSheet ?? mod?.default ?? null;
-    } catch {
-        return null;
+        const swiftUI = require('@expo/ui/swift-ui');
+        SwiftUIBottomSheet = swiftUI.BottomSheet;
+        SwiftUIGroup = swiftUI.Group;
+        const swiftUIModifiers = require('@expo/ui/swift-ui/modifiers');
+        presentationDetentsModifier = swiftUIModifiers.presentationDetents;
+        presentationDragIndicatorModifier = swiftUIModifiers.presentationDragIndicator;
+    } catch (e) {
+        console.warn('Failed to load iOS SwiftUI BottomSheet:', e);
     }
-})();
+}
 
 export default function SettingsScreen() {
     // Track screen view
@@ -95,6 +115,9 @@ export default function SettingsScreen() {
     const [recoveryAcknowledged, setRecoveryAcknowledged] = useState(false);
     const [calendarSubscribeUrl, setCalendarSubscribeUrl] = useState<string | null>(null);
     const [isFetchingCalendarLink, setIsFetchingCalendarLink] = useState(false);
+    const [isThemeSheetPresented, setIsThemeSheetPresented] = useState(false);
+    const [isRecoverySheetPresented, setIsRecoverySheetPresented] = useState(false);
+    const [isCalendarSheetPresented, setIsCalendarSheetPresented] = useState(false);
 
     // Security state
     const [biometricsEnabled, setBiometricsEnabled] = useState(false);
@@ -113,6 +136,9 @@ export default function SettingsScreen() {
     // Parse user data
     const privyUser = user as any;
     const email = privyUser?.email?.address || privyUser?.id || 'User';
+    // Use the TrueSheet shim path for stability.
+    // On iOS this still renders native SwiftUI sheets via `@hedwig/true-sheet`.
+    const shouldUseSwiftUIBottomSheet = false;
 
     useEffect(() => {
         fetchUserData();
@@ -347,7 +373,9 @@ export default function SettingsScreen() {
     };
 
     const openCalendarSheet = async () => {
-        if (TrueSheetComponent && calendarSheetRef.current?.present) {
+        if (shouldUseSwiftUIBottomSheet) {
+            setIsCalendarSheetPresented(true);
+        } else if (TrueSheetComponent && calendarSheetRef.current?.present) {
             await calendarSheetRef.current.present().catch(() => {});
         } else {
             calendarFallbackSheetRef.current?.present();
@@ -358,7 +386,9 @@ export default function SettingsScreen() {
     };
 
     const openThemeSheet = async () => {
-        if (TrueSheetComponent && themeSheetRef.current?.present) {
+        if (shouldUseSwiftUIBottomSheet) {
+            setIsThemeSheetPresented(true);
+        } else if (TrueSheetComponent && themeSheetRef.current?.present) {
             await themeSheetRef.current.present().catch(() => {});
         } else {
             themeFallbackSheetRef.current?.present();
@@ -366,7 +396,9 @@ export default function SettingsScreen() {
     };
 
     const closeThemeSheet = async () => {
-        if (TrueSheetComponent && themeSheetRef.current?.dismiss) {
+        if (shouldUseSwiftUIBottomSheet) {
+            setIsThemeSheetPresented(false);
+        } else if (TrueSheetComponent && themeSheetRef.current?.dismiss) {
             await themeSheetRef.current.dismiss().catch(() => {});
         } else {
             themeFallbackSheetRef.current?.dismiss();
@@ -374,7 +406,9 @@ export default function SettingsScreen() {
     };
 
     const openRecoverySheet = async () => {
-        if (TrueSheetComponent && recoverySheetRef.current?.present) {
+        if (shouldUseSwiftUIBottomSheet) {
+            setIsRecoverySheetPresented(true);
+        } else if (TrueSheetComponent && recoverySheetRef.current?.present) {
             await recoverySheetRef.current.present().catch(() => {});
         } else {
             recoveryFallbackSheetRef.current?.present();
@@ -382,14 +416,15 @@ export default function SettingsScreen() {
     };
 
     const closeRecoverySheet = async () => {
-        if (TrueSheetComponent && recoverySheetRef.current?.dismiss) {
+        if (shouldUseSwiftUIBottomSheet) {
+            setIsRecoverySheetPresented(false);
+        } else if (TrueSheetComponent && recoverySheetRef.current?.dismiss) {
             await recoverySheetRef.current.dismiss().catch(() => {});
         } else {
             recoveryFallbackSheetRef.current?.dismiss();
         }
         setRecoveryAcknowledged(false);
     };
-
 
 
     return (
@@ -600,9 +635,47 @@ export default function SettingsScreen() {
             </ScrollView>
 
 
-
             {/* Theme Modal */}
-            {TrueSheetComponent ? (
+            {shouldUseSwiftUIBottomSheet ? (
+                <SwiftUIBottomSheet
+                    isPresented={isThemeSheetPresented}
+                    onIsPresentedChange={setIsThemeSheetPresented}
+                    fitToContents
+                >
+                    <SwiftUIGroup
+                        modifiers={[
+                            ...(presentationDetentsModifier ? [presentationDetentsModifier([{ height: 320 }])] : []),
+                            ...(presentationDragIndicatorModifier ? [presentationDragIndicatorModifier('visible')] : []),
+                        ]}
+                    >
+                        <View style={{ padding: 24, paddingTop: 34, paddingBottom: 40, backgroundColor: themeColors.background }}>
+                            <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>Select Theme</Text>
+                            {THEMES.map((opt) => (
+                                <TouchableOpacity
+                                    key={opt.code}
+                                    style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
+                                    onPress={async () => {
+                                        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        setTheme(opt.code);
+                                        await closeThemeSheet();
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.modalItemText,
+                                        { color: themeColors.textPrimary },
+                                        theme === opt.code && styles.modalItemTextSelected
+                                    ]}>
+                                        {opt.label}
+                                    </Text>
+                                    {theme === opt.code && (
+                                        <Check size={20} color={Colors.primary} strokeWidth={3} />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </SwiftUIGroup>
+                </SwiftUIBottomSheet>
+            ) : TrueSheetComponent ? (
                 <TrueSheetComponent
                     ref={themeSheetRef}
                     detents={['auto']}
@@ -680,7 +753,134 @@ export default function SettingsScreen() {
             )}
 
             {/* Recovery Warning Modal */}
-            {TrueSheetComponent ? (
+            {shouldUseSwiftUIBottomSheet ? (
+                <SwiftUIBottomSheet
+                    isPresented={isRecoverySheetPresented}
+                    onIsPresentedChange={(isPresented: boolean) => {
+                        setIsRecoverySheetPresented(isPresented);
+                        if (!isPresented) {
+                            setRecoveryAcknowledged(false);
+                        }
+                    }}
+                >
+                    <SwiftUIGroup
+                        modifiers={[
+                            ...(presentationDetentsModifier ? [presentationDetentsModifier(['medium', 'large'])] : []),
+                            ...(presentationDragIndicatorModifier ? [presentationDragIndicatorModifier('visible')] : []),
+                        ]}
+                    >
+                        <View style={{ padding: 24, paddingTop: 34, paddingBottom: 40, backgroundColor: themeColors.background }}>
+                            {/* Shield Icon */}
+                            <View style={styles.shieldIconContainer}>
+                                <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
+                                    <ShieldWarning size={32} color={themeColors.textPrimary} fill={themeColors.textPrimary} />
+                                </View>
+                            </View>
+
+                            {/* Title */}
+                            <Text style={[styles.recoveryTitle, { color: themeColors.textPrimary }]}>
+                                Keep Your Recovery Phrase Safe
+                            </Text>
+
+                            {/* Subtitle */}
+                            <Text style={[styles.recoverySubtitle, { color: themeColors.textSecondary }]}>
+                                Your wallet key controls access to your funds. Anyone with it can move assets without permission.
+                            </Text>
+
+                            {/* Warning Items */}
+                            <View style={styles.warningItemsContainer}>
+                                <View style={styles.warningItem}>
+                                    <Lock size={24} color={themeColors.textSecondary} />
+                                    <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                        Your recovery phrase is like a password, keep it secret.
+                                    </Text>
+                                </View>
+
+                                <View style={styles.warningItem}>
+                                    <Copy size={24} color={themeColors.textSecondary} />
+                                    <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                        If you enter it in another app, it can steal your funds and Hedwig account.
+                                    </Text>
+                                </View>
+
+                                <View style={styles.warningItem}>
+                                    <WarningCircle size={24} color={themeColors.textSecondary} />
+                                    <Text style={[styles.warningItemText, { color: themeColors.textPrimary }]}>
+                                        We do not recommend ever sharing it with any app or person.
+                                    </Text>
+                                </View>
+                            </View>
+
+                            {/* Checkbox */}
+                            <TouchableOpacity
+                                style={styles.checkboxContainer}
+                                onPress={() => {
+                                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    setRecoveryAcknowledged(!recoveryAcknowledged);
+                                }}
+                            >
+                                {recoveryAcknowledged ? (
+                                    <CheckSquare size={24} color={Colors.primary} fill={Colors.primary} />
+                                ) : (
+                                    <Square size={24} color={themeColors.textSecondary} />
+                                )}
+                                <Text style={[styles.checkboxText, { color: themeColors.textSecondary }]}>
+                                    I understand that sharing this key could lead to loss of funds.
+                                </Text>
+                            </TouchableOpacity>
+
+                            {/* Continue Button - with biometric auth */}
+                            <Button
+                                title={isBiometricExporting ? 'Authenticating...' : 'Continue'}
+                                loading={isBiometricExporting}
+                                disabled={!recoveryAcknowledged || isBiometricExporting}
+                                variant={recoveryAcknowledged ? 'primary' : 'secondary'}
+                                size="large"
+                                onPress={async () => {
+                                    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    setIsBiometricExporting(true);
+
+                                    try {
+                                        // Authenticate with biometrics
+                                        const authResult = await LocalAuthentication.authenticateAsync({
+                                            promptMessage: 'Authenticate to view recovery phrase',
+                                            cancelLabel: 'Cancel',
+                                            disableDeviceFallback: false,
+                                        });
+
+                                        if (authResult.success) {
+                                            // Build URL first - fallback to API host in production if web client URL isn't set
+                                            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                                            const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
+                                            const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
+                                            const exportUrl = `${webClientUrl}/export-wallet`;
+
+                                            // Close modal AFTER a small delay to let browser open
+                                            setIsBiometricExporting(false);
+
+                                            // Open in-app browser first
+                                            await WebBrowser.openBrowserAsync(exportUrl, {
+                                                presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+                                                controlsColor: Colors.primary,
+                                            });
+
+                                            // Close modal after browser is dismissed
+                                            await closeRecoverySheet();
+                                        } else {
+                                            setIsBiometricExporting(false);
+                                            Alert.alert('Authentication Failed', 'Please try again to access your recovery phrase.');
+                                        }
+                                    } catch (error) {
+                                        console.error('Biometric auth error:', error);
+                                        setIsBiometricExporting(false);
+                                        Alert.alert('Authentication Error', 'Failed to authenticate. Please try again.');
+                                    }
+                                }}
+                            />
+                        </View>
+                    </SwiftUIGroup>
+                </SwiftUIBottomSheet>
+            ) : TrueSheetComponent ? (
                 <TrueSheetComponent
                     ref={recoverySheetRef}
                     detents={['auto']}
@@ -936,7 +1136,73 @@ export default function SettingsScreen() {
                 }}
             />
 
-            {TrueSheetComponent ? (
+            {shouldUseSwiftUIBottomSheet ? (
+                <SwiftUIBottomSheet
+                    isPresented={isCalendarSheetPresented}
+                    onIsPresentedChange={setIsCalendarSheetPresented}
+                    fitToContents
+                >
+                    <SwiftUIGroup
+                        modifiers={[
+                            ...(presentationDetentsModifier ? [presentationDetentsModifier([{ height: 460 }])] : []),
+                            ...(presentationDragIndicatorModifier ? [presentationDragIndicatorModifier('visible')] : []),
+                        ]}
+                    >
+                        <View style={{ padding: 24, paddingTop: 34, paddingBottom: 40, backgroundColor: themeColors.background }}>
+                            <View style={styles.shieldIconContainer}>
+                                <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
+                                    <CalendarIcon size={32} color={themeColors.textPrimary} />
+                                </View>
+                            </View>
+                            <Text style={[styles.recoveryTitle, styles.calendarSheetTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
+
+                            {isFetchingCalendarLink ? (
+                                <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
+                            ) : calendarSubscribeUrl ? (
+                                <View style={styles.calendarOptionsContainer}>
+                                    {/* Google Calendar */}
+                                    <TouchableOpacity
+                                        style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
+                                        onPress={() => {
+                                            const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
+                                            const googleUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`;
+                                            Linking.openURL(googleUrl);
+                                        }}
+                                        activeOpacity={0.75}
+                                    >
+                                        <View style={styles.calendarLogoBox}>
+                                            <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
+                                        </View>
+                                        <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
+                                    </TouchableOpacity>
+
+                                    {/* Apple Calendar */}
+                                    <TouchableOpacity
+                                        style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
+                                        onPress={() => {
+                                            const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
+                                            Linking.openURL(webcalUrl);
+                                        }}
+                                        activeOpacity={0.75}
+                                    >
+                                        <View style={styles.calendarLogoBox}>
+                                            <SvgXml xml={APPLE_CALENDAR_SVG} width={28} height={28} />
+                                        </View>
+                                        <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Apple Calendar</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <Button
+                                    title="Retry"
+                                    onPress={fetchCalendarSubscribeLink}
+                                    variant="secondary"
+                                    size="large"
+                                />
+                            )}
+                        </View>
+                    </SwiftUIGroup>
+                </SwiftUIBottomSheet>
+            ) : TrueSheetComponent ? (
                 <TrueSheetComponent
                     ref={calendarSheetRef}
                     detents={['auto']}

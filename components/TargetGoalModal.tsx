@@ -1,6 +1,6 @@
 import React, { useState, useEffect, forwardRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { X, Minus, Plus } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
@@ -192,9 +192,9 @@ const styles = StyleSheet.create({
         paddingBottom: 6,
     },
     closeButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
     },

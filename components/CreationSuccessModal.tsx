@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { CircleCheck as CheckCircle, X } from './ui/AppIcon';
 import { useThemeColors } from '../theme/colors';
 import { useSettings } from '../context/SettingsContext';
+import SwiftUIBottomSheetModal from './ui/SwiftUIBottomSheetModal';
 
 interface CreationSuccessModalProps {
     visible: boolean;
@@ -27,77 +28,67 @@ export default function CreationSuccessModal({ visible, onClose, type, amount, t
     };
 
     return (
-        <Modal
-            transparent
+        <SwiftUIBottomSheetModal
             visible={visible}
-            animationType="fade"
-            onRequestClose={onClose}
+            onClose={onClose}
+            fitToContents
         >
-            <View style={styles.overlay}>
-                <View style={[styles.container, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
-                    {/* Close Button */}
+            <View style={[styles.container, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
+                {/* Close Button */}
+                <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={onClose}
+                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                >
+                    <X size={24} color={isDark ? '#8E8E93' : '#8E8E93'} strokeWidth={3} />
+                </TouchableOpacity>
+
+                {/* Content */}
+                <View style={styles.content}>
+                    <CheckCircle
+                        size={80}
+                        fill={themeColors.primary}
+                        color="white"
+                        style={styles.icon}
+                    />
+
+                    <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                        {getTypeName()} Created!
+                    </Text>
+
+                    {amount !== undefined && (
+                        <Text style={[styles.amount, { color: themeColors.primary }]}>
+                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)}
+                        </Text>
+                    )}
+
+                    {title && (
+                        <Text style={[styles.subtitle, { color: isDark ? '#8E8E93' : '#666666' }]} numberOfLines={2}>
+                            {title}
+                        </Text>
+                    )}
+
+                    <Text style={[styles.message, { color: isDark ? '#8E8E93' : '#666666' }]}>
+                        Your {getTypeName().toLowerCase()} has been successfully created and sent.
+                    </Text>
+
                     <TouchableOpacity
-                        style={styles.closeButton}
+                        style={[styles.button, { backgroundColor: themeColors.primary }]}
                         onPress={onClose}
-                        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                     >
-                        <X size={24} color={isDark ? '#8E8E93' : '#8E8E93'} strokeWidth={3} />
+                        <Text style={styles.buttonText}>Done</Text>
                     </TouchableOpacity>
-
-                    {/* Content */}
-                    <View style={styles.content}>
-                        <CheckCircle
-                            size={80}
-                            fill={themeColors.primary}
-                            color="white"
-                            style={styles.icon}
-                        />
-
-                        <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                            {getTypeName()} Created!
-                        </Text>
-
-                        {amount !== undefined && (
-                            <Text style={[styles.amount, { color: themeColors.primary }]}>
-                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)}
-                            </Text>
-                        )}
-
-                        {title && (
-                            <Text style={[styles.subtitle, { color: isDark ? '#8E8E93' : '#666666' }]} numberOfLines={2}>
-                                {title}
-                            </Text>
-                        )}
-
-                        <Text style={[styles.message, { color: isDark ? '#8E8E93' : '#666666' }]}>
-                            Your {getTypeName().toLowerCase()} has been successfully created and sent.
-                        </Text>
-
-                        <TouchableOpacity
-                            style={[styles.button, { backgroundColor: themeColors.primary }]}
-                            onPress={onClose}
-                        >
-                            <Text style={styles.buttonText}>Done</Text>
-                        </TouchableOpacity>
-                    </View>
                 </View>
             </View>
-        </Modal>
+        </SwiftUIBottomSheetModal>
     );
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-    },
     container: {
         width: '100%',
-        maxWidth: 400,
-        borderRadius: 24,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         padding: 32,
         alignItems: 'center',
         shadowColor: "#000",

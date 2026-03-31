@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'rea
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Alert, Platform, Image, Linking } from 'react-native';
 import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { ethers } from 'ethers';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
@@ -828,7 +828,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
                                 onPress={handleDismiss}
                                 systemImage="xmark"
                                 circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
-                                icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                                icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
                             />
                         </View>
 
@@ -931,9 +931,9 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',

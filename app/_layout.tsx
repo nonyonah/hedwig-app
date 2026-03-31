@@ -4,6 +4,7 @@ import 'fast-text-encoding';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Stack, useNavigationContainerRef } from 'expo-router';
+import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { PrivyProvider } from '@privy-io/expo';
 import Constants from 'expo-constants';
 import {
@@ -13,7 +14,7 @@ import {
     GoogleSansFlex_600SemiBold,
 } from '@expo-google-fonts/google-sans-flex';
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
-import { View, Platform, Image, ActivityIndicator, StyleSheet, AppState } from 'react-native';
+import { View, Platform, Image, ActivityIndicator, StyleSheet, AppState, Text, TextInput } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { LockScreen } from '../components/LockScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -69,6 +70,20 @@ const installApiFetchRewrite = () => {
 };
 
 installApiFetchRewrite();
+
+const applyGlobalGoogleSansFlexDefaults = () => {
+    const textDefaults = (Text as any).defaultProps || {};
+    (Text as any).defaultProps = {
+        ...textDefaults,
+        style: [{ fontFamily: 'GoogleSansFlex_400Regular' }, textDefaults.style].filter(Boolean),
+    };
+
+    const textInputDefaults = (TextInput as any).defaultProps || {};
+    (TextInput as any).defaultProps = {
+        ...textInputDefaults,
+        style: [{ fontFamily: 'GoogleSansFlex_400Regular' }, textInputDefaults.style].filter(Boolean),
+    };
+};
 
 // Sentry Navigation Integration for Expo Router
 const navigationIntegration = Sentry.reactNavigationIntegration({
@@ -478,18 +493,45 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
 
 // Native layout with Privy
 function NativeLayout() {
+    const { currentTheme } = useSettings();
+    const colors = useThemeColors();
+    const navigationTheme =
+        currentTheme === 'dark'
+            ? {
+                ...DarkTheme,
+                colors: {
+                    ...DarkTheme.colors,
+                    background: colors.background,
+                    card: colors.background,
+                    text: colors.textPrimary,
+                    border: colors.border,
+                },
+            }
+            : {
+                ...DefaultTheme,
+                colors: {
+                    ...DefaultTheme.colors,
+                    background: colors.background,
+                    card: colors.background,
+                    text: colors.textPrimary,
+                    border: colors.border,
+                },
+            };
+
     return (
-        <PrivyProvider
-            appId={PRIVY_APP_ID}
-            clientId={PRIVY_CLIENT_ID}
-        >
-            <UserProvider>
-                <AppLockGate>
-                    <PushNotificationBootstrap />
-                    <ThemedStack />
-                </AppLockGate>
-            </UserProvider>
-        </PrivyProvider>
+        <ThemeProvider value={navigationTheme}>
+            <PrivyProvider
+                appId={PRIVY_APP_ID}
+                clientId={PRIVY_CLIENT_ID}
+            >
+                <UserProvider>
+                    <AppLockGate>
+                        <PushNotificationBootstrap />
+                        <ThemedStack />
+                    </AppLockGate>
+                </UserProvider>
+            </PrivyProvider>
+        </ThemeProvider>
     );
 }
 
@@ -561,6 +603,11 @@ function RootLayout() {
         Merriweather_900Black,
     });
     const [isApiWarmed, setIsApiWarmed] = React.useState(false);
+
+    useEffect(() => {
+        if (!fontsLoaded) return;
+        applyGlobalGoogleSansFlexDefaults();
+    }, [fontsLoaded]);
 
     useEffect(() => {
         let cancelled = false;

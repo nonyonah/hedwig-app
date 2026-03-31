@@ -2,8 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { ChevronLeft as CaretLeft, ArrowUpDown, Delete } from '../../components/ui/AppIcon';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { useThemeColors } from '../../theme/colors';
 import { TransactionConfirmationModal } from '../../components/TransactionConfirmationModal';
 import { useWallet } from '../../hooks/useWallet';
@@ -16,6 +15,13 @@ import {
     SendChain,
     shortenAddress,
 } from './sendFlow';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+const ArrowUpDown = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowUpDownIcon} {...props} />;
+const Delete = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Delete02Icon} {...props} />;
+
 
 const KEYS: Array<Array<string>> = [
     ['1', '2', '3'],

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { useThemeColors } from '../../theme/colors';
 import { useWallet } from '../../hooks/useWallet';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
@@ -13,6 +12,11 @@ import {
     SendChain,
     shortenAddress,
 } from './sendFlow';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+
 
 const getTokenBalance = (entry: any, decimals: number): number => {
     const displayToken = parseNumeric(entry?.display_values?.token);

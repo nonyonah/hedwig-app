@@ -65,16 +65,20 @@ const SHARED_STYLES = `
     .footer a:hover { text-decoration: underline; }
 `;
 
+const EMAIL_LOGO_URL = resolvePublicUrl(process.env.EMAIL_LOGO_URL, '/hedwig-logo.png');
+
 const LOGO_HTML = `
-<a href="https://hedwig.money" style="display:inline-block;text-decoration:none;">
+<a href="${APP_URL}" style="display:inline-block;text-decoration:none;">
   <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
     <tr>
-      <td style="vertical-align:middle;padding-right:9px;">
-        <div style="background-color:#2563eb;border-radius:9px;width:32px;height:32px;text-align:center;line-height:32px;">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="white" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;margin-top:-1px;">
-            <path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm0 4.236l-8 4.882-8-4.882V6h16v2.236z"/>
-          </svg>
-        </div>
+      <td style="vertical-align:middle;padding-right:10px;">
+        <img
+          src="${EMAIL_LOGO_URL}"
+          alt="Hedwig"
+          width="34"
+          height="34"
+          style="display:block;width:34px;height:34px;border-radius:8px;border:0;outline:none;text-decoration:none;"
+        />
       </td>
       <td style="vertical-align:middle;">
         <span style="font-family:${EMAIL_FONT_FAMILY};font-size:18px;font-weight:700;color:#181d27;letter-spacing:-0.02em;">Hedwig</span>

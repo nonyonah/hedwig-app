@@ -632,10 +632,9 @@ export default function CreateWithdrawalScreen() {
                                             {NETWORKS.map((network) => (
                                                 <ExpoButton
                                                     key={network.id}
+                                                    label={network.name}
                                                     onPress={() => setSelectedNetwork(network)}
-                                                >
-                                                    {network.name}
-                                                </ExpoButton>
+                                                />
                                             ))}
                                         </ContextMenu.Items>
                                     </ContextMenu>
@@ -703,10 +702,9 @@ export default function CreateWithdrawalScreen() {
                                         {COUNTRIES.map((country) => (
                                             <ExpoButton
                                                 key={country.id}
+                                                label={`${country.flag} ${country.name} (${country.currency})`}
                                                 onPress={() => setSelectedCountry(country)}
-                                            >
-                                                {`${country.flag} ${country.name} (${country.currency})`}
-                                            </ExpoButton>
+                                            />
                                         ))}
                                     </ContextMenu.Items>
                                 </ContextMenu>

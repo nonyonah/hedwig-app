@@ -7,7 +7,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Copy, Wallet, ChevronRight as CaretRight, ChevronLeft as CaretLeft, X } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 
 import {
     NetworkBase, NetworkSolana,
@@ -397,7 +397,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                         }}
                         systemImage="xmark"
                         circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
-                        icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                        icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
                     />
                 </Animated.View>
 
@@ -585,9 +585,9 @@ const styles = StyleSheet.create({
         fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',

@@ -89,9 +89,8 @@ export const SwiftUIModalButton: React.FC<SwiftUIModalButtonProps> = ({
                 onPress={onPress}
                 disabled={disabled || loading}
                 role={destructive ? 'destructive' : undefined}
-            >
-                {loading ? 'Loading...' : children}
-            </Button>
+                label={loading ? 'Loading...' : children}
+            />
         );
     }
     // Android fallback

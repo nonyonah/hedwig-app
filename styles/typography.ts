@@ -7,7 +7,7 @@ export const Typography = StyleSheet.create({
         color: '#000000',
     },
     subtitle: {
-        fontFamily: 'GoogleSansFlex_500Medium',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: '#000000',
         textAlign: 'center',
@@ -64,7 +64,7 @@ export const Typography = StyleSheet.create({
         color: '#000000',
     },
     h4: {
-        fontFamily: 'GoogleSansFlex_400Regular',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         color: '#000000',
     },

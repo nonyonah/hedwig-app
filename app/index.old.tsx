@@ -13,7 +13,6 @@ import { usePrivy } from '@privy-io/expo';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useUserActions, Suggestion } from '../hooks/useUserActions';
 import { useUser } from '../context/UserContext';
-import { List, Bell, ArrowDown, File, X, Plus, Image as ImageIcon, Square, ArrowUp, Copy, ThumbsUp, ThumbsDown, RefreshCw as ArrowsClockwise } from '../components/ui/AppIcon';
 import {
     NetworkBase, NetworkSolana, NetworkCelo, NetworkLisk, NetworkOptimism, NetworkPolygon, NetworkArbitrumOne,
     TokenETH, TokenUSDC, TokenUSDT, TokenMATIC, TokenSOL, TokenCELO, TokenCUSD, TokenCNGN
@@ -33,6 +32,23 @@ import { getUserGradient } from '../utils/gradientUtils';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import Analytics, { initializeAnalytics, trackScreen } from '../services/analytics';
 import { useAnalyticsScreen } from '../hooks/useAnalyticsScreen';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const List = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Menu01Icon} {...props} />;
+const Bell = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Notification03Icon} {...props} />;
+const ArrowDown = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowDown04Icon} {...props} />;
+const File = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).File01Icon} {...props} />;
+const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
+const Plus = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Add01Icon} {...props} />;
+const ImageIcon = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Image01Icon} {...props} />;
+const Square = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).SquareIcon} {...props} />;
+const ArrowUp = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowUp04Icon} {...props} />;
+const Copy = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Copy01Icon} {...props} />;
+const ThumbsUp = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ThumbsUpIcon} {...props} />;
+const ThumbsDown = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ThumbsDownIcon} {...props} />;
+const ArrowsClockwise = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).RefreshIcon} {...props} />;
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -423,9 +439,6 @@ export default function HomeScreen() {
             loadConversation(params.conversationId);
         }
     }, [params.conversationId, isReady, user]);
-
-
-
 
 
     // Refresh profile data when screen regains focus (e.g., returning from profile edit)

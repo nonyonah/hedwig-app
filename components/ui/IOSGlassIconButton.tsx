@@ -4,17 +4,27 @@ import { Platform, StyleProp, StyleSheet, TouchableOpacity, View, ViewStyle } fr
 // Load @expo/ui/swift-ui on iOS only
 let SwiftUIButton: any = null;
 let SwiftUIHost: any = null;
-let glassEffectModifier: any = null;
-let foregroundStyleModifier: any = null;
+let buttonStyleModifier: any = null;
+let controlSizeModifier: any = null;
+let labelStyleModifier: any = null;
+let frameModifier: any = null;
+let clipShapeModifier: any = null;
+let fontModifier: any = null;
+let tintModifier: any = null;
 
 if (Platform.OS === 'ios') {
     try {
         const swiftUI = require('@expo/ui/swift-ui');
         SwiftUIButton = swiftUI.Button;
         SwiftUIHost = swiftUI.Host;
-        const mods = require('@expo/ui/swift-ui/modifiers');
-        glassEffectModifier = mods.glassEffect;
-        foregroundStyleModifier = mods.foregroundStyle;
+        const m = require('@expo/ui/swift-ui/modifiers');
+        buttonStyleModifier = m.buttonStyle;
+        controlSizeModifier = m.controlSize;
+        labelStyleModifier = m.labelStyle;
+        frameModifier = m.frame;
+        clipShapeModifier = m.clipShape;
+        fontModifier = m.font;
+        tintModifier = m.tint;
     } catch {}
 }
 
@@ -27,10 +37,17 @@ type IOSGlassIconButtonProps = {
     disabled?: boolean;
     containerStyle?: StyleProp<ViewStyle>;
     circleStyle?: StyleProp<ViewStyle>;
+    useGlass?: boolean;
+    forceGlassForClose?: boolean;
 };
 
+const BUTTON_SIZE = 40;
+
 /**
- * iOS: Native SwiftUI Button with liquid-glass effect via @expo/ui/swift-ui.
+ * iOS: Native SwiftUI Button with glass effect clipped to a circle — matches the
+ * circular container exactly. Only back/action buttons get glass; modal close
+ * buttons (xmark) are left unchanged by callers (this component treats all systemImages
+ * the same — glass circle).
  * Android: TouchableOpacity with a semi-transparent circle fallback.
  */
 export default function IOSGlassIconButton({
@@ -40,82 +57,57 @@ export default function IOSGlassIconButton({
     disabled,
     containerStyle,
     circleStyle,
+    useGlass = true,
+    forceGlassForClose = false,
 }: IOSGlassIconButtonProps) {
     const flatCircle = StyleSheet.flatten(circleStyle) || {};
-    const requestedWidth = typeof flatCircle.width === 'number' ? flatCircle.width : 40;
-    const requestedHeight = typeof flatCircle.height === 'number' ? flatCircle.height : 40;
-    const requestedRadius = typeof flatCircle.borderRadius === 'number' ? flatCircle.borderRadius : Math.min(requestedWidth, requestedHeight) / 2;
-    const isCloseButton = systemImage === 'xmark';
-    const liquidSize = Math.max(requestedWidth, requestedHeight, 50);
-    const combinedStyle = [containerStyle, circleStyle];
+    const w = typeof flatCircle.width === 'number' ? flatCircle.width : BUTTON_SIZE;
+    const h = typeof flatCircle.height === 'number' ? flatCircle.height : BUTTON_SIZE;
+    const size = Math.max(w, h, BUTTON_SIZE);
+    const symbol = systemImage || 'chevron.left';
+    const isCloseButton = symbol.includes('xmark');
+    const useBackButtonPreset = forceGlassForClose;
+    const shouldUseGlass = useGlass && (!isCloseButton || forceGlassForClose);
 
     if (Platform.OS === 'ios' && SwiftUIButton && SwiftUIHost) {
-        if (isCloseButton) {
-            const closeSize = Math.min(requestedWidth, requestedHeight, 32);
-            return (
-                <TouchableOpacity
-                    onPress={onPress}
-                    disabled={disabled}
-                    activeOpacity={0.8}
-                    style={[
-                        styles.host,
-                        containerStyle,
-                        styles.iosCloseButton,
-                        {
-                            width: closeSize,
-                            height: closeSize,
-                            borderRadius: closeSize / 2,
-                        },
-                    ]}
-                >
-                    <View pointerEvents="none" style={styles.closeIconOverlay}>
-                        {icon}
-                    </View>
-                </TouchableOpacity>
-            );
-        }
-
         const modifiers = [
-            glassEffectModifier ? glassEffectModifier({ shape: 'circle' }) : null,
-            foregroundStyleModifier ? foregroundStyleModifier('clear') : null,
+            labelStyleModifier ? labelStyleModifier('iconOnly') : null,
+            controlSizeModifier ? controlSizeModifier((isCloseButton && !useBackButtonPreset) ? 'regular' : 'large') : null,
+            fontModifier ? fontModifier({ size: (isCloseButton && !useBackButtonPreset) ? 16 : 17, weight: 'bold' }) : null,
+            frameModifier ? frameModifier({ width: size, height: size }) : null,
+            shouldUseGlass && clipShapeModifier ? clipShapeModifier('circle') : null,
+            buttonStyleModifier ? buttonStyleModifier(shouldUseGlass ? 'glass' : 'plain') : null,
+            shouldUseGlass && tintModifier ? tintModifier({ red: 0.6, green: 0.75, blue: 1.0, opacity: 0.55 }) : null,
         ].filter(Boolean);
+        const backgroundColor = shouldUseGlass ? 'transparent' : 'rgba(118, 118, 128, 0.20)';
 
         return (
             <View
                 style={[
-                    styles.host,
+                    styles.container,
                     containerStyle,
-                    {
-                        width: liquidSize,
-                        height: liquidSize,
-                        borderRadius: Math.max(requestedRadius, liquidSize / 2),
-                        backgroundColor: 'transparent',
-                    },
+                    { width: size, height: size, borderRadius: size / 2, backgroundColor },
                 ]}
             >
                 <SwiftUIHost style={StyleSheet.absoluteFill}>
                     <SwiftUIButton
-                        variant="glass"
                         onPress={onPress}
                         disabled={disabled}
-                        systemImage={systemImage || 'xmark'}
-                        controlSize="large"
+                        systemImage={symbol}
+                        label={symbol.includes('xmark') ? 'Close' : symbol.includes('plus') ? 'Add' : 'Back'}
                         modifiers={modifiers}
                     />
                 </SwiftUIHost>
-                <View pointerEvents="none" style={styles.glassIconOverlay}>
-                    {icon}
-                </View>
             </View>
         );
     }
 
-    // Android fallback
+    // Android / fallback
     return (
         <TouchableOpacity
             onPress={onPress}
             disabled={disabled}
-            style={[styles.androidBtn, ...combinedStyle]}
+            style={[styles.androidBtn, containerStyle, circleStyle, { width: size, height: size }]}
             activeOpacity={0.7}
         >
             {icon}
@@ -124,24 +116,10 @@ export default function IOSGlassIconButton({
 }
 
 const styles = StyleSheet.create({
-    host: {
+    container: {
         justifyContent: 'center',
         alignItems: 'center',
-        position: 'relative',
-    },
-    glassIconOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'transparent',
-    },
-    iosCloseButton: {
-        backgroundColor: 'rgba(142, 142, 147, 0.24)',
-    },
-    closeIconOverlay: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        transform: [{ scale: 0.86 }],
+        overflow: 'hidden',
     },
     androidBtn: {
         backgroundColor: 'rgba(120,120,128,0.18)',

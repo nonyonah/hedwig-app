@@ -1,6 +1,6 @@
 import React, { useState, forwardRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { X, Send as PaperPlaneTilt, Bug, Lightbulb } from './ui/AppIcon';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../theme/colors';
@@ -215,9 +215,9 @@ const styles = StyleSheet.create({
         fontSize: 20,
     },
     closeButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
     },

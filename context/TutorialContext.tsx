@@ -31,7 +31,7 @@ interface TutorialContextType {
     shouldShowOnScreen: (screenId: TutorialStep['screenId']) => boolean;
 }
 
-const TutorialContext = createContext<TutorialContextType | undefined>(undefined);
+export const TutorialContext = createContext<TutorialContextType | undefined>(undefined);
 
 export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [activeStepIndex, setActiveStepIndex] = useState(0);
@@ -150,4 +150,8 @@ export const useTutorialContext = (): TutorialContextType => {
     const ctx = useContext(TutorialContext);
     if (!ctx) throw new Error('useTutorialContext must be used within a TutorialProvider');
     return ctx;
+};
+
+export const useOptionalTutorialContext = (): TutorialContextType | undefined => {
+    return useContext(TutorialContext);
 };

@@ -9,10 +9,9 @@ import {
     Dimensions,
     RefreshControl,
 } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { TrendingUp as TrendUp, TrendingDown as TrendDown, ArrowRight, Sparkles as Sparkle, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +19,15 @@ import { Insight, InsightsRange, useInsights } from '../../hooks/useInsights';
 import { TargetGoalModal } from '../../components/TargetGoalModal';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const TrendUp = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowUp04Icon} {...props} />;
+const TrendDown = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowDown04Icon} {...props} />;
+const ArrowRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowRight01Icon} {...props} />;
+const Sparkle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).SparklesIcon} {...props} />;
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 54) / 2;
@@ -474,8 +482,8 @@ const styles = StyleSheet.create({
     backButtonCircle: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
     headerRightPlaceholder: { width: 40 },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: isAndroid ? 19 : 21,
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: isAndroid ? 18 : 20,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,

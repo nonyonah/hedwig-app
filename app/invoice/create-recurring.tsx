@@ -32,13 +32,13 @@ import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { Typography } from '../../styles/typography';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 
-let ContextMenu: any = null;
+let Menu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
 if (Platform.OS === 'ios') {
     try {
         const SwiftUI = require('@expo/ui/swift-ui');
-        ContextMenu = SwiftUI.ContextMenu;
+        Menu = SwiftUI.Menu;
         ExpoButton = SwiftUI.Button;
         Host = SwiftUI.Host;
     } catch (e) { }
@@ -193,10 +193,10 @@ export default function CreateRecurringInvoiceScreen() {
                     {/* Frequency */}
                     <View style={styles.formGroup}>
                         <Text style={[styles.label, { color: textSecondary }]}>Frequency</Text>
-                        {Platform.OS === 'ios' && Host && ContextMenu && ExpoButton ? (
-                            <Host>
-                                <ContextMenu>
-                                    <ContextMenu.Trigger>
+                        {Platform.OS === 'ios' && Host && Menu && ExpoButton ? (
+                            <Host matchContents>
+                                <Menu
+                                    label={(
                                         <View style={[styles.inputWrapper, { backgroundColor: themeColors.surface }]}>
                                             <Repeat size={20} color={textSecondary} style={styles.inputIcon} />
                                             <Text style={[styles.input, styles.selectText, { color: textPrimary }]}>
@@ -204,18 +204,16 @@ export default function CreateRecurringInvoiceScreen() {
                                             </Text>
                                             <CaretDown size={20} color={textSecondary} strokeWidth={3} />
                                         </View>
-                                    </ContextMenu.Trigger>
-                                    <ContextMenu.Items>
-                                        {FREQUENCIES.map((frequency) => (
-                                            <ExpoButton
-                                                key={frequency.value}
-                                                onPress={() => set('frequency', frequency.value)}
-                                            >
-                                                {frequency.label}
-                                            </ExpoButton>
-                                        ))}
-                                    </ContextMenu.Items>
-                                </ContextMenu>
+                                    )}
+                                >
+                                    {FREQUENCIES.map((frequency) => (
+                                        <ExpoButton
+                                            key={frequency.value}
+                                            onPress={() => set('frequency', frequency.value)}
+                                            label={frequency.label}
+                                        />
+                                    ))}
+                                </Menu>
                             </Host>
                         ) : Platform.OS === 'ios' ? (
                             <TouchableOpacity onPress={openFrequencyPicker} activeOpacity={0.8}>
@@ -351,10 +349,7 @@ export default function CreateRecurringInvoiceScreen() {
                         {saving ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
-                            <>
-                                <Repeat size={18} color="#fff" strokeWidth={2.5} />
-                                <Text style={styles.createBtnText}>Create recurring invoice</Text>
-                            </>
+                            <Text style={styles.createBtnText}>Create recurring invoice</Text>
                         )}
                     </TouchableOpacity>
                 </ScrollView>
@@ -445,10 +440,8 @@ const styles = StyleSheet.create({
         lineHeight: 18,
     },
     createBtn: {
-        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
         borderRadius: 28,
         height: 56,
         marginTop: 20,

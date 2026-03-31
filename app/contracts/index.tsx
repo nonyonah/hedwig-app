@@ -1,15 +1,13 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Linking, RefreshControl, useWindowDimensions } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert, Animated, ActionSheetIOS, Platform, LayoutAnimation, UIManager, ScrollView, Linking, RefreshControl, useWindowDimensions, DeviceEventEmitter } from 'react-native';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Clipboard from 'expo-clipboard';
-import { useRouter, useNavigation, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { DrawerActions } from '@react-navigation/native';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { List, CircleCheck as CheckCircle, FileText, X, CircleUser as UserCircle, Trash, Ellipsis as DotsThree, Send as PaperPlaneTilt, Clock, Eye } from '../../components/ui/AppIcon';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
@@ -21,6 +19,21 @@ import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const List = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Menu01Icon} {...props} />;
+const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle02Icon} {...props} />;
+const FileText = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).File02Icon} {...props} />;
+const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
+const UserCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).UserCircleIcon} {...props} />;
+const Trash = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Delete02Icon} {...props} />;
+const DotsThree = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).MoreHorizontalIcon} {...props} />;
+const PaperPlaneTilt = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).SentIcon} {...props} />;
+const Clock = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Clock03Icon} {...props} />;
+const Eye = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ViewIcon} {...props} />;
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+
 
 // Profile color gradient options (consistent with ProfileModal)
 const PROFILE_COLOR_OPTIONS = [
@@ -37,7 +50,6 @@ const PROFILE_COLOR_OPTIONS = [
 ] as const;
 
 export default function ContractsScreen() {
-    const navigation = useNavigation();
     const router = useRouter();
     const params = useLocalSearchParams();
     const { getAccessToken, user } = useAuth();
@@ -49,8 +61,8 @@ export default function ContractsScreen() {
     const [selectedContract, setSelectedContract] = useState<any>(null);
     const bottomSheetRef = useRef<TrueSheet>(null);
     const { height: screenHeight } = useWindowDimensions();
-    const sheetMaxHeight = Math.round(screenHeight * (Platform.OS === 'ios' ? 0.6 : 0.7));
-    const detailSheetTopPadding = 28;
+    const sheetMaxHeight = Math.round(screenHeight * (Platform.OS === 'ios' ? 0.62 : 0.7));
+    const detailSheetTopPadding = Platform.OS === 'ios' ? 22 : 28;
     const handledSelectedContractRef = useRef<string | null>(null);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [userName, setUserName] = useState({ firstName: '', lastName: '' });
@@ -60,6 +72,15 @@ export default function ContractsScreen() {
     const [refreshing, setRefreshing] = useState(false);
 
     const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'approved'>('all');
+
+    const emitTabBarScrollOffset = React.useCallback((offsetY: number) => {
+        if (Platform.OS !== 'android') return;
+        DeviceEventEmitter.emit('hedwig:tabbar-scroll', offsetY);
+    }, []);
+
+    const handleTabBarAwareScroll = React.useCallback((event: any) => {
+        emitTabBarScrollOffset(event?.nativeEvent?.contentOffset?.y ?? 0);
+    }, [emitTabBarScrollOffset]);
 
     // Track page view
     useAnalyticsScreen('Contracts');
@@ -96,6 +117,12 @@ export default function ContractsScreen() {
     useEffect(() => {
         fetchContracts();
     }, [user]);
+
+    useEffect(() => {
+        return () => {
+            emitTabBarScrollOffset(0);
+        };
+    }, [emitTabBarScrollOffset]);
 
     const fetchUserData = async () => {
         if (!user) return;
@@ -367,31 +394,21 @@ export default function ContractsScreen() {
 
     return (
         <View style={{ flex: 1 }}>
-            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <SafeAreaView collapsable={false} edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <View style={styles.headerTop}>
-                        <View style={styles.headerLeft}>
-                            <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-                                {profileIcon.imageUri ? (
-                                    <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
-                                ) : (
-                                    <LinearGradient
-                                        colors={getUserGradient(user?.id)}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.profileIcon}
-                                    >
-                                        <Text style={{ color: 'white', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 }}>
-                                            {userName.firstName?.[0] || 'U'}
-                                        </Text>
-                                    </LinearGradient>
-                                )}
-                            </TouchableOpacity>
-                            <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Contracts</Text>
-                        </View>
+                        <IOSGlassIconButton
+                            onPress={() => router.back()}
+                            systemImage="chevron.left"
+                            containerStyle={styles.backButton}
+                            circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                            icon={<CaretLeft size={22} color={themeColors.textPrimary} strokeWidth={3} />}
+                        />
+                        <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Contracts</Text>
+                        <View style={styles.headerRightPlaceholder} />
                     </View>
 
-                    {/* Filter Chips inside Header */}
+                    {/* Filter Chips */}
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
@@ -427,6 +444,8 @@ export default function ContractsScreen() {
                         data={filteredContracts}
                         renderItem={renderItem}
                         keyExtractor={(item) => item.id}
+                        onScroll={handleTabBarAwareScroll}
+                        scrollEventThrottle={16}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}
@@ -455,7 +474,6 @@ export default function ContractsScreen() {
                 walletAddresses={walletAddresses}
                 profileIcon={profileIcon}
             />
-
 
 
             {/* Details Modal */}
@@ -619,24 +637,33 @@ const styles = StyleSheet.create({
     headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        height: 60,
+        paddingVertical: Platform.OS === 'android' ? 10 : 12,
+        height: Platform.OS === 'android' ? 56 : 60,
     },
-    headerLeft: {
-        flexDirection: 'row',
+    backButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
         alignItems: 'center',
-        gap: 12,
+        zIndex: 10,
     },
-    headerTitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: Platform.OS === 'android' ? 22 : 24,
-    },
-    profileIcon: {
+    backButtonCircle: {
         width: 40,
         height: 40,
         borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerRightPlaceholder: {
+        width: 40,
+    },
+    headerTitle: {
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: Platform.OS === 'android' ? 18 : 20,
+        textAlign: 'center',
+        color: Colors.textPrimary,
+        flex: 1,
     },
     filterScrollView: {
         marginTop: 4,

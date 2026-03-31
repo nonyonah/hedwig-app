@@ -52,12 +52,11 @@ export const SwiftUIContextMenu: React.FC<SwiftUIContextMenuProps> = ({
                         {actions.map((action, index) => (
                             <Button
                                 key={index}
+                                label={action.title}
                                 systemImage={action.icon}
                                 variant={action.destructive ? 'destructive' : 'default'}
                                 onPress={action.onPress}
-                            >
-                                {action.title}
-                            </Button>
+                            />
                         ))}
                     </ContextMenu.Items>
                     <ContextMenu.Trigger>

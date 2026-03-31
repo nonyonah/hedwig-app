@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { Users, Plus, User, Mail as Envelope, Phone, Trash, Pencil as PencilSimple, X, List, DollarSign as CurrencyDollar, Clock, Building2 as Buildings, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Haptics from 'expo-haptics';
@@ -17,6 +16,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Analytics from '../../services/analytics';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const Users = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).UserGroup03Icon} {...props} />;
+const Plus = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Add01Icon} {...props} />;
+const User = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).UserIcon} {...props} />;
+const Envelope = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Mail01Icon} {...props} />;
+const Phone = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Call02Icon} {...props} />;
+const Trash = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Delete02Icon} {...props} />;
+const PencilSimple = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).PencilEdit01Icon} {...props} />;
+const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
+const List = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Menu01Icon} {...props} />;
+const CurrencyDollar = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Dollar01Icon} {...props} />;
+const Clock = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Clock03Icon} {...props} />;
+const Buildings = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Building02Icon} {...props} />;
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+
 
 interface Client {
     id: string;
@@ -690,8 +706,8 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: Platform.OS === 'android' ? 20 : 22,
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: Platform.OS === 'android' ? 18 : 20,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,
@@ -1046,9 +1062,9 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         // backgroundColor: '#F3F4F6', // Overridden
         justifyContent: 'center',
         alignItems: 'center',

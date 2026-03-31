@@ -73,7 +73,7 @@
             "targetSdkVersion": 36,
             "minSdkVersion": 24,
             "newArchEnabled": true,
-            "kotlinVersion": "2.0.21"
+            "kotlinVersion": "2.1.20"
           }
         }
       ],
@@ -98,15 +98,47 @@
       "privyClientId": "",
       "oneSignalAppId": "",
       "eas": {
-        "projectId": "ade423ca-7649-400c-9817-21e000b2cde4"
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "OneSignalNotificationServiceExtension",
+                  "bundleIdentifier": "com.hedwig.app.OneSignalNotificationServiceExtension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.hedwig.app.onesignal"
+                    ]
+                  }
+                },
+                {
+                  "targetName": "OneSignalNotificationServiceExtension",
+                  "bundleIdentifier": "com.hedwig.app.OneSignalNotificationServiceExtension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.hedwig.app.onesignal"
+                    ]
+                  }
+                },
+                {
+                  "targetName": "OneSignalNotificationServiceExtension",
+                  "bundleIdentifier": "com.hedwig.app.OneSignalNotificationServiceExtension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.hedwig.app.onesignal"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "5738569d-376f-4e3d-a2bb-b415156003dd"
       }
     },
-    "owner": "nonsooo",
+    "owner": "hedwig-app",
     "runtimeVersion": {
       "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/ade423ca-7649-400c-9817-21e000b2cde4"
     }
   }
 }

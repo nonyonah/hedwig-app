@@ -12,10 +12,17 @@ import {
     Platform
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Search as MagnifyingGlass, X, Landmark as BankIcon, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const MagnifyingGlass = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Search01Icon} {...props} />;
+const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
+const BankIcon = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).BankIcon} {...props} />;
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+
 
 interface Bank {
     code: string;

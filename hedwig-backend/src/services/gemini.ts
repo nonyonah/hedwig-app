@@ -1,23 +1,11 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createLogger } from '../utils/logger';
+import { llmService } from './llm';
 
 const logger = createLogger('Gemini');
 
-if (!process.env.GEMINI_API_KEY) {
-  logger.warn('GEMINI_API_KEY is not defined. Gemini features will use fallbacks when possible.');
+if (!llmService.isAnyProviderConfigured()) {
+  logger.warn('No LLM provider configured. Set GEMINI_API_KEY and/or OPENAI_API_KEY.');
 }
-
-// Initialize Gemini AI
-const genAI = process.env.GEMINI_API_KEY
-  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-  : null;
-
-// Use Gemini 3.1 Flash Lite model
-const model = genAI?.getGenerativeModel({ model: 'gemini-3.1-flash-lite-preview' }) || {
-  generateContent: async () => {
-    throw new Error('Gemini model unavailable: GEMINI_API_KEY is not configured');
-  },
-};
 
 export class GeminiService {
   /**
@@ -61,9 +49,10 @@ JSON Format:
 }
 `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const text = await llmService.generateText(prompt, {
+        purpose: 'general',
+        useFallbacks: true,
+      });
 
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -1014,25 +1003,15 @@ User: "Invoice for 500 dollars for web design due Friday"
       const isFirstMessage = !conversationHistory || conversationHistory.length === 0;
       logger.debug('Processing message', { isFirstMessage, messageLength: userMessage.length });
 
-      // Build content parts for Gemini
-      const contentParts: any[] = [{ text: prompt }];
-
-      // Add file parts if provided
       if (files && files.length > 0) {
-        for (const file of files) {
-          contentParts.push({
-            inlineData: {
-              mimeType: file.mimeType,
-              data: file.data
-            }
-          });
-        }
         logger.debug('Added file parts to request', { count: files.length });
       }
 
-      const result = await model.generateContent(contentParts);
-      const response = result.response;
-      const text = response.text();
+      const text = await llmService.generateText(prompt, {
+        purpose: 'chat',
+        files,
+        useFallbacks: true,
+      });
 
       logger.debug('Response received', { length: text.length });
 
@@ -1044,7 +1023,7 @@ User: "Invoice for 500 dollars for web design due Friday"
 
         logger.debug('Parsed JSON response');
         return parsed;
-      } catch (e) {
+      } catch {
         logger.debug('Failed to parse JSON, returning raw text');
         // If parsing fails, return a default structure
         return {
@@ -1090,9 +1069,10 @@ Respond in JSON format:
 }
 `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const text = await llmService.generateText(prompt, {
+        purpose: 'general',
+        useFallbacks: true,
+      });
 
       // Parse JSON response
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -1141,9 +1121,10 @@ Extract the following data and respond in JSON format:
 If certain fields are not mentioned, set them to null or empty array.
 `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const text = await llmService.generateText(prompt, {
+        purpose: 'general',
+        useFallbacks: true,
+      });
 
       // Parse JSON response
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -1163,9 +1144,10 @@ If certain fields are not mentioned, set them to null or empty array.
    */
   static async generateText(prompt: string): Promise<string> {
     try {
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      return response.text();
+      return await llmService.generateText(prompt, {
+        purpose: 'general',
+        useFallbacks: true,
+      });
     } catch (error) {
       console.error('Error generating text:', error);
       return '';
@@ -1275,9 +1257,10 @@ Return ONLY valid JSON with this exact shape:
 }
 `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const text = await llmService.generateText(prompt, {
+        purpose: 'general',
+        useFallbacks: true,
+      });
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return fallback;
 
@@ -1415,9 +1398,10 @@ Respond with a JSON array of questions:
 If all critical data is present, return an empty array.
 `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const text = await llmService.generateText(prompt, {
+        purpose: 'general',
+        useFallbacks: true,
+      });
 
       // Parse JSON response
       const jsonMatch = text.match(/\[[\s\S]*\]/);

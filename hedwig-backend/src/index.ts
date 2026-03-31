@@ -6,6 +6,8 @@ import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { RedisStore } from 'rate-limit-redis';
+import { getRedis, closeRedis } from './lib/redis';
 
 // Load environment variables (loaded via import 'dotenv/config')
 
@@ -44,6 +46,7 @@ import bridgeUsdWebhookRoutes from './routes/bridgeUsdWebhook';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { SchedulerService } from './services/scheduler';
+import NotificationService from './services/notifications';
 import { createLogger } from './utils/logger';
 
 const logger = createLogger('Server');
@@ -179,30 +182,43 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-const createLimiter = (max: number, message: string) =>
+// Build a Redis store for rate limiting if Redis is available.
+// Falls back to the default in-memory store when REDIS_URL is not set.
+function makeRateLimitStore(prefix: string) {
+    const redis = getRedis();
+    if (!redis) return undefined; // express-rate-limit defaults to memory store
+    return new RedisStore({
+        sendCommand: (...args: string[]) => (redis as any).call(...args),
+        prefix: `rl:${prefix}:`,
+    });
+}
+
+const createLimiter = (prefix: string, max: number, message: string) =>
     rateLimit({
         windowMs: 15 * 60 * 1000,
         max,
         standardHeaders: true,
         legacyHeaders: false,
         message,
+        store: makeRateLimitStore(prefix),
     });
 
-// Baseline API protection; skip webhook delivery so providers are not throttled.
+// Baseline API protection — skip webhooks so external providers are never throttled.
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 500, // Limit each IP to 500 requests per windowMs
+    windowMs: 15 * 60 * 1000,
+    max: 500,
     standardHeaders: true,
     legacyHeaders: false,
     message: 'Too many requests from this IP, please try again later.',
     skip: (req) => req.originalUrl.startsWith('/api/webhooks/'),
+    store: makeRateLimitStore('global'),
 });
 app.use('/api/', limiter);
 
-const authLimiter = createLimiter(60, 'Too many authentication requests. Please try again shortly.');
-const aiLimiter = createLimiter(40, 'Too many AI requests. Please slow down and try again.');
-const documentLimiter = createLimiter(180, 'Too many document requests. Please try again later.');
-const financialLimiter = createLimiter(120, 'Too many financial requests. Please try again later.');
+const authLimiter     = createLimiter('auth',     60,  'Too many authentication requests. Please try again shortly.');
+const aiLimiter       = createLimiter('ai',       40,  'Too many AI requests. Please slow down and try again.');
+const documentLimiter = createLimiter('docs',    180,  'Too many document requests. Please try again later.');
+const financialLimiter = createLimiter('finance', 120, 'Too many financial requests. Please try again later.');
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
@@ -212,6 +228,64 @@ app.get('/health', (_req: Request, res: Response) => {
         environment: process.env.NODE_ENV,
     });
 });
+
+// ─── Cloud Scheduler HTTP endpoints ──────────────────────────────────────────
+// Use these with GCP Cloud Scheduler instead of in-process cron (SCHEDULER_MODE=cloud).
+// Each job is protected by a shared secret set via SCHEDULER_SECRET env var.
+// Cloud Scheduler → HTTP target → POST https://your-service/internal/scheduler/<job>
+//   Header: Authorization: Bearer <SCHEDULER_SECRET>
+// ─────────────────────────────────────────────────────────────────────────────
+const schedulerRouter = express.Router();
+
+schedulerRouter.use((req: Request, res: Response, next) => {
+    const secret = process.env.SCHEDULER_SECRET;
+    if (!secret) {
+        // No secret configured — reject all calls to avoid accidental exposure
+        res.status(503).json({ error: 'Scheduler endpoint not configured' });
+        return;
+    }
+    const auth = req.headers.authorization || '';
+    if (auth !== `Bearer ${secret}`) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+    }
+    next();
+});
+
+schedulerRouter.post('/check-and-remind', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.checkAndRemind();
+});
+schedulerRouter.post('/due-date-reminders', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.checkDueDateReminders();
+});
+schedulerRouter.post('/recurring-invoices', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.checkRecurringInvoices();
+});
+schedulerRouter.post('/dormant-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendDormantUserNudges();
+});
+schedulerRouter.post('/kyc-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendKycReminderNudges();
+});
+schedulerRouter.post('/feature-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendFeatureHighlightNudges();
+});
+schedulerRouter.post('/rate-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendPaycrestRateNudges();
+});
+schedulerRouter.post('/token-cleanup', async (_req, res) => {
+    res.json({ accepted: true });
+    await NotificationService.cleanupExpoDeviceTokens();
+});
+
+app.use('/internal/scheduler', schedulerRouter);
 
 // API Routes
 app.use('/api/auth', authLimiter, authRoutes);
@@ -319,18 +393,40 @@ app.use(notFound);
 // Error handler (must be last)
 app.use(errorHandler);
 
-// Start server - bind to 0.0.0.0 for Fly.io/Docker
+// Start server - bind to 0.0.0.0 for Cloud Run / Docker
 const HOST = process.env.HOST || '0.0.0.0';
-app.listen(Number(PORT), HOST, () => {
+const server = app.listen(Number(PORT), HOST, () => {
     logger.info('Hedwig Backend started', { host: HOST, port: PORT });
     logger.info('Environment', { env: process.env.NODE_ENV });
     logger.info('Proxy trust configured', { trustProxy: app.get('trust proxy') });
+    logger.info('Redis rate limiting', { enabled: !!getRedis() });
+    logger.info('Scheduler mode', { mode: process.env.SCHEDULER_MODE || 'in-process' });
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    logger.info('SIGTERM signal received: closing HTTP server');
-    process.exit(0);
-});
+// Cloud Run sends SIGTERM when it wants to stop the container.
+// We stop accepting new connections, let in-flight requests finish,
+// then close Redis before exiting. Cloud Run waits up to
+// SIGTERM_TIMEOUT_MS (default 25 s) before sending SIGKILL.
+const SHUTDOWN_TIMEOUT_MS = Number(process.env.SIGTERM_TIMEOUT_MS || 25_000);
+
+async function shutdown(signal: string) {
+    logger.info(`${signal} received — starting graceful shutdown`);
+
+    const forceExit = setTimeout(() => {
+        logger.error('Graceful shutdown timed out, forcing exit');
+        process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS);
+    forceExit.unref();
+
+    server.close(async () => {
+        logger.info('HTTP server closed');
+        await closeRedis();
+        logger.info('Shutdown complete');
+        process.exit(0);
+    });
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
 
 export default app;

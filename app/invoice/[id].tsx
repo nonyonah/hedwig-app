@@ -6,9 +6,15 @@ import '@walletconnect/react-native-compat';
 import { AppKitProvider, useAppKit, useAccount, useProvider } from '@reown/appkit-react-native';
 import { paymentAppKit } from '../../lib/appkit';
 import { ethers } from 'ethers';
-import { CheckCircle, Download as DownloadSimple, Wallet } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle01Icon} {...props} />;
+const DownloadSimple = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Download01Icon} {...props} />;
+const Wallet = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Wallet01Icon} {...props} />;
+
 
 // Mock data for chains and tokens (replace with actual data/icons later)
 const CHAINS = [

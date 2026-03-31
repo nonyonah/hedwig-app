@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import type { IconSvgElement } from '@hugeicons/react-native';
@@ -18,12 +18,15 @@ import {
     ClipboardCopy as HI_ClipboardCopy,
     QrCode as HI_QrCode,
     ArrowDown01 as HI_ArrowDown01,
+    ArrowDown04Icon as HI_ArrowDown04,
     ArrowDown as HI_ArrowDown,
     ArrowLeft01Icon as HI_ArrowLeft01,
+    ArrowLeft04Icon as HI_ArrowLeft04,
     ArrowLeft as HI_ArrowLeft,
     Cancel01Icon as HI_Cancel01,
     Cancel as HI_Cancel,
     ArrowUp01 as HI_ArrowUp01,
+    ArrowUp04Icon as HI_ArrowUp04,
     ArrowUp as HI_ArrowUp,
     ArrowUpDown as HI_ArrowUpDown,
     Delete01Icon as HI_Delete01,
@@ -69,6 +72,7 @@ import {
     View as HI_View,
     Eye as HI_Eye,
     ArrowRight01Icon as HI_ArrowRight01,
+    ArrowRight04Icon as HI_ArrowRight04,
     ArrowRight as HI_ArrowRight,
     Checkmark as HI_Checkmark,
     Check as HI_Check,
@@ -148,6 +152,17 @@ import {
     LogOut as HI_LogOut,
 } from '@hugeicons/core-free-icons';
 import { useThemeColors } from '../../theme/colors';
+
+let SwiftUIHost: any = null;
+let SwiftUIImage: any = null;
+
+if (Platform.OS === 'ios') {
+    try {
+        const swiftUI = require('@expo/ui/swift-ui');
+        SwiftUIHost = swiftUI.Host;
+        SwiftUIImage = swiftUI.Image;
+    } catch {}
+}
 
 type AppIconName =
     | 'Home'
@@ -271,12 +286,15 @@ const ICON_MAP: Record<string, IconSvgElement> = {
     ClipboardCopy: HI_ClipboardCopy,
     QrCode: HI_QrCode,
     ArrowDown01: HI_ArrowDown01,
+    ArrowDown04: HI_ArrowDown04,
     ArrowDown: HI_ArrowDown,
     ArrowLeft01: HI_ArrowLeft01,
+    ArrowLeft04: HI_ArrowLeft04,
     ArrowLeft: HI_ArrowLeft,
     Cancel01: HI_Cancel01,
     Cancel: HI_Cancel,
     ArrowUp01: HI_ArrowUp01,
+    ArrowUp04: HI_ArrowUp04,
     ArrowUp: HI_ArrowUp,
     ArrowUpDown: HI_ArrowUpDown,
     Delete01: HI_Delete01,
@@ -322,6 +340,7 @@ const ICON_MAP: Record<string, IconSvgElement> = {
     View: HI_View,
     Eye: HI_Eye,
     ArrowRight01: HI_ArrowRight01,
+    ArrowRight04: HI_ArrowRight04,
     ArrowRight: HI_ArrowRight,
     Checkmark: HI_Checkmark,
     Check: HI_Check,
@@ -410,10 +429,10 @@ const ICON_CANDIDATES: Record<AppIconName, string[]> = {
     Settings: ['Settings01', 'Settings02'],
     Copy: ['Copy01', 'ClipboardCopy'],
     QrCode: ['QrCode'],
-    ChevronDown: ['ArrowDown01', 'ArrowDown'],
-    ChevronLeft: ['ArrowLeft01', 'ArrowLeft'],
+    ChevronDown: ['ArrowDown04', 'ArrowDown01', 'ArrowDown'],
+    ChevronLeft: ['ArrowLeft04', 'ArrowLeft01', 'ArrowLeft'],
     X: ['Cancel01', 'Cancel'],
-    ArrowUp: ['ArrowUp01', 'ArrowUp'],
+    ArrowUp: ['ArrowUp04', 'ArrowUp01', 'ArrowUp'],
     ArrowUpDown: ['ArrowUpDown'],
     Delete: ['Delete01', 'Delete'],
     ScanLine: ['Scan', 'QrCode'],
@@ -430,7 +449,7 @@ const ICON_CANDIDATES: Record<AppIconName, string[]> = {
     Bell: ['Notification01', 'Bell'],
     MoreHorizontal: ['MoreHorizontal'],
     Landmark: ['Bank', 'Banknote'],
-    ArrowDown: ['ArrowDown01', 'ArrowDown'],
+    ArrowDown: ['ArrowDown04', 'ArrowDown01', 'ArrowDown'],
     RotateCcw: ['Refresh'],
     Search: ['Search01', 'Search02'],
     DollarSign: ['DollarSign', 'CoinsDollar'],
@@ -443,7 +462,7 @@ const ICON_CANDIDATES: Record<AppIconName, string[]> = {
     Send: ['Sent', 'Send', 'MoneySend01'],
     Eye: ['View', 'Eye'],
     Ellipsis: ['MoreHorizontal'],
-    ChevronRight: ['ArrowRight01', 'ArrowRight'],
+    ChevronRight: ['ArrowRight04', 'ArrowRight01', 'ArrowRight'],
     Check: ['Checkmark', 'Check'],
     ShieldAlert: ['ShieldAlert'],
     Lock: ['Lock'],
@@ -465,7 +484,7 @@ const ICON_CANDIDATES: Record<AppIconName, string[]> = {
     User: ['User', 'UserCircle'],
     Mail: ['Mail01', 'Mail'],
     ShieldCheck: ['ShieldCheck'],
-    ArrowRight: ['ArrowRight01', 'ArrowRight'],
+    ArrowRight: ['ArrowRight04', 'ArrowRight01', 'ArrowRight'],
     Timer: ['Timer01', 'Timer'],
     Minus: ['Minus'],
     Bug: ['Bug01', 'Bug'],
@@ -481,8 +500,8 @@ const ICON_CANDIDATES: Record<AppIconName, string[]> = {
     Phone: ['Phone', 'Call02'],
     Pencil: ['PencilEdit01', 'Pencil'],
     Building2: ['Building02', 'Building01', 'Building'],
-    TrendingUp: ['TrendingUp', 'AnalyticsUp'],
-    TrendingDown: ['TrendingDown', 'AnalyticsDown'],
+    TrendingUp: ['ArrowUp04', 'TrendingUp', 'AnalyticsUp'],
+    TrendingDown: ['ArrowDown04', 'TrendingDown', 'AnalyticsDown'],
     Sparkles: ['Sparkles', 'Sparkle'],
     Camera: ['Camera01', 'Camera'],
     CalendarCheck: ['CalendarCheck', 'CalendarCheck2'],
@@ -501,9 +520,81 @@ const ICON_CANDIDATES: Record<AppIconName, string[]> = {
     Folder01: ['Folder01'],
 };
 
+const SF_SYMBOL_MAP: Partial<Record<AppIconName, string>> = {
+    Home: 'house',
+    House: 'house',
+    Receipt: 'receipt',
+    Link2: 'link',
+    FileText: 'doc.text',
+    Wallet2: 'wallet.pass',
+    Wallet: 'wallet.pass',
+    Settings: 'gearshape',
+    Copy: 'doc.on.doc',
+    QrCode: 'qrcode',
+    ChevronDown: 'chevron.down',
+    ChevronLeft: 'chevron.left',
+    ChevronRight: 'chevron.right',
+    X: 'xmark',
+    CircleX: 'xmark.circle',
+    ArrowUp: 'arrow.up',
+    ArrowDown: 'arrow.down',
+    ArrowRight: 'arrow.right',
+    ArrowLeftRight: 'arrow.left.arrow.right',
+    ArrowUpDown: 'arrow.up.arrow.down',
+    Plus: 'plus',
+    Minus: 'minus',
+    Check: 'checkmark',
+    CheckCircle: 'checkmark.circle',
+    CircleCheck: 'checkmark.circle',
+    Bell: 'bell',
+    Inbox: 'tray',
+    Calendar: 'calendar',
+    Search: 'magnifyingglass',
+    MoreHorizontal: 'ellipsis',
+    Ellipsis: 'ellipsis',
+    Download: 'arrow.down.circle',
+    User: 'person',
+    Users: 'person.2',
+    Mail: 'envelope',
+    Phone: 'phone',
+    Pencil: 'pencil',
+    Camera: 'camera',
+    Image: 'photo',
+    FolderOpen: 'folder',
+    Folder01: 'folder',
+    RefreshCw: 'arrow.clockwise',
+    TrendingUp: 'chart.line.uptrend.xyaxis',
+    TrendingDown: 'chart.line.downtrend.xyaxis',
+    ChartBar: 'chart.bar',
+    BarChart3: 'chart.bar',
+    Transaction: 'arrow.left.arrow.right',
+    ReverseWithdrawal01: 'arrow.uturn.backward.circle',
+    Analytics01: 'chart.xyaxis.line',
+    ShieldCheck: 'checkmark.shield',
+    ShieldAlert: 'exclamationmark.shield',
+    Lock: 'lock',
+    MessageCircle: 'message',
+    MessageSquare: 'text.bubble',
+    ThumbsUp: 'hand.thumbsup',
+    ThumbsDown: 'hand.thumbsdown',
+    Sparkles: 'sparkles',
+    Lightbulb: 'lightbulb',
+    Flag: 'flag',
+    Tag: 'tag',
+    DollarSign: 'dollarsign.circle',
+    Coins: 'bitcoinsign.circle',
+    CalendarCheck: 'calendar.badge.checkmark',
+    Trash: 'trash',
+    Trash2: 'trash',
+    Eye: 'eye',
+    Briefcase: 'briefcase',
+};
+
 const getHugeicon = (candidate: string): IconSvgElement | null => {
     const raw = ICON_MAP[candidate] as unknown;
-    if (Array.isArray(raw)) {
+    // Hugeicons exports can be object/function-like icon payloads.
+    // Accept any non-null value here instead of only arrays.
+    if (raw) {
         return raw as IconSvgElement;
     }
     return null;
@@ -528,6 +619,17 @@ export function AppIcon({
     const themeColors = useThemeColors();
     const resolvedColor = color ?? themeColors.textSecondary;
     const icon = resolveIcon(name);
+    const sfSymbol = Platform.OS === 'ios' ? SF_SYMBOL_MAP[name] : undefined;
+
+    if (Platform.OS === 'ios' && SwiftUIHost && SwiftUIImage && sfSymbol) {
+        return (
+            <View style={[{ width: size, height: size }, style]}>
+                <SwiftUIHost style={{ width: '100%', height: '100%' }}>
+                    <SwiftUIImage systemName={sfSymbol} size={size} color={resolvedColor} />
+                </SwiftUIHost>
+            </View>
+        );
+    }
 
     if (!icon) {
         return (

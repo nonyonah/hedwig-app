@@ -341,20 +341,23 @@ const styles = StyleSheet.create({
     headerBar: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         paddingVertical: 12,
         marginBottom: 16,
     },
     headerBackButton: {
-        padding: 4,
-        marginLeft: -4,
+        width: 48,
+        alignItems: 'flex-start',
+        justifyContent: 'center',
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 18,
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: 17,
+        flex: 1,
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 24,
+        width: 48,
     },
     titleSection: {
         alignItems: 'flex-start',

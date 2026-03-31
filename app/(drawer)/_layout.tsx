@@ -1,5 +1,5 @@
 import { Drawer } from 'expo-router/drawer';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useThemeColors } from '../../theme/colors';
 import { useEffect, useRef } from 'react';
@@ -8,34 +8,34 @@ import { TutorialCard } from '../../components/TutorialCard';
 import { useTutorial } from '../../hooks/useTutorial';
 import { TUTORIAL_STEPS } from '../../constants/tutorialSteps';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import type { IconSvgElement } from '@hugeicons/react-native';
-import {
-    BarChart as InsightsIconData,
-    ArrowLeftRight as TransactionsIconData,
-    DollarSign as WithdrawalsIconData,
-    Calendar as CalendarIconData,
-    FolderOpen as ProjectsIconData,
-    UserGroupIcon as ClientsIconData,
-    Settings01Icon as SettingsIconData,
-    SentIcon as FeedbackIconData,
-} from '@hugeicons/core-free-icons';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const resolveHugeIcon = (...names: string[]) => {
+    const iconSet = HugeiconsCore as Record<string, any>;
+    for (const name of names) {
+        if (iconSet[name]) return iconSet[name];
+    }
+    return null;
+};
 
 function CustomDrawerContent(props: any) {
     const router = useRouter();
     const themeColors = useThemeColors();
 
-    const mainMenuItems: { name: string; icon: IconSvgElement; route: string }[] = [
-        { name: 'Insights', icon: InsightsIconData, route: '/insights' },
-        { name: 'Transactions', icon: TransactionsIconData, route: '/transactions' },
-        { name: 'Withdrawals', icon: WithdrawalsIconData, route: '/offramp-history' },
-        { name: 'Calendar', icon: CalendarIconData, route: '/calendar' },
-        { name: 'Projects', icon: ProjectsIconData, route: '/projects' },
-        { name: 'Clients', icon: ClientsIconData, route: '/clients' },
+    const mainMenuItems: { name: string; icon: any; route: string }[] = [
+        { name: 'Insights', icon: resolveHugeIcon('Analytics01Icon', 'BarChartIcon', 'BarChart'), route: '/insights' },
+        { name: 'Transactions', icon: resolveHugeIcon('TransactionHistoryIcon', 'TransactionIcon', 'ArrowLeftRight'), route: '/transactions' },
+        { name: 'Withdrawals', icon: resolveHugeIcon('ReverseWithdrawal01Icon', 'DollarSign', 'MoneySend01Icon'), route: '/offramp-history' },
+        { name: 'Contracts', icon: resolveHugeIcon('File02Icon', 'DocumentAttachmentIcon', 'Briefcase'), route: '/contracts' },
+        { name: 'Calendar', icon: resolveHugeIcon('Calendar01Icon', 'Calendar'), route: '/calendar' },
+        { name: 'Projects', icon: resolveHugeIcon('Folder01Icon', 'FolderOpen', 'Folder'), route: '/projects' },
+        { name: 'Clients', icon: resolveHugeIcon('UserGroupIcon', 'UsersIcon', 'CircleUser'), route: '/clients' },
     ];
 
-    const settingsItems: { name: string; icon: IconSvgElement; route: string }[] = [
-        { name: 'Settings', icon: SettingsIconData, route: '/settings' },
+    const settingsItems: { name: string; icon: any; route: string }[] = [
+        { name: 'Settings', icon: resolveHugeIcon('Settings01Icon', 'Settings02Icon', 'SettingsIcon'), route: '/settings' },
     ];
+    const feedbackIcon = resolveHugeIcon('SentIcon', 'Send', 'MoneySend01Icon');
 
     const handleNavigation = (route: string) => {
         props.navigation.closeDrawer();
@@ -58,7 +58,11 @@ function CustomDrawerContent(props: any) {
                             style={styles.menuItem}
                             onPress={() => handleNavigation(item.route)}
                         >
-                            <HugeiconsIcon icon={item.icon} size={24} color={themeColors.textPrimary} strokeWidth={1.5} />
+                            {item.icon ? (
+                                <HugeiconsIcon icon={item.icon} size={24} color={themeColors.textPrimary} strokeWidth={1.5} />
+                            ) : (
+                                <View style={{ width: 24, height: 24 }} />
+                            )}
                             <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{item.name}</Text>
                         </TouchableOpacity>
                     ))}
@@ -73,7 +77,11 @@ function CustomDrawerContent(props: any) {
                             style={styles.menuItem}
                             onPress={() => handleNavigation(item.route)}
                         >
-                            <HugeiconsIcon icon={item.icon} size={24} color={themeColors.textPrimary} strokeWidth={1.5} />
+                            {item.icon ? (
+                                <HugeiconsIcon icon={item.icon} size={24} color={themeColors.textPrimary} strokeWidth={1.5} />
+                            ) : (
+                                <View style={{ width: 24, height: 24 }} />
+                            )}
                             <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{item.name}</Text>
                         </TouchableOpacity>
                     ))}
@@ -89,7 +97,11 @@ function CustomDrawerContent(props: any) {
                         // Add feedback functionality here
                     }}
                 >
-                    <HugeiconsIcon icon={FeedbackIconData} size={20} color={themeColors.textPrimary} strokeWidth={1.5} />
+                    {feedbackIcon ? (
+                        <HugeiconsIcon icon={feedbackIcon} size={20} color={themeColors.textPrimary} strokeWidth={1.5} />
+                    ) : (
+                        <View style={{ width: 20, height: 20 }} />
+                    )}
                     <Text style={[styles.feedbackText, { color: themeColors.textPrimary }]}>Give feedback</Text>
                 </TouchableOpacity>
             </View>
@@ -114,6 +126,7 @@ const SCREEN_ROUTES: Record<string, string> = {
 
 function GlobalTutorial() {
     const router = useRouter();
+    const pathname = usePathname();
     const { isVisible, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
     const prevIndexRef = useRef(activeStepIndex);
 
@@ -123,12 +136,15 @@ function GlobalTutorial() {
         const prevStep_ = TUTORIAL_STEPS[prevIndexRef.current];
         if (prevStep_?.screenId !== activeStep.screenId) {
             const route = SCREEN_ROUTES[activeStep.screenId];
-            if (route) router.push(route as any);
+            if (route && route !== pathname) {
+                router.replace(route as any);
+            }
         }
         prevIndexRef.current = activeStepIndex;
-    }, [activeStepIndex, isVisible, activeStep]);
+    }, [activeStepIndex, isVisible, activeStep, pathname, router]);
 
     if (!isVisible || !activeStep) return null;
+    if (pathname === '/settings') return null;
 
     return (
         <TutorialCard

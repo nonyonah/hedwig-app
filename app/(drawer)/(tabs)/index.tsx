@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, TextInput, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, Platform, UIManager, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, Colors } from '../../../theme/colors';
-import { Search as MagnifyingGlass, Plus, FileText, ScrollText as Scroll, Link as LinkIcon, Briefcase, ChevronRight as CaretRight, CircleX as XCircle, Inbox } from '../../../components/ui/AppIcon';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { UniversalCreationBox } from '../../../components/UniversalCreationBox';
@@ -14,13 +13,19 @@ import { DrawerActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../../utils/gradientUtils';
 import { joinApiUrl } from '../../../utils/apiBaseUrl';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const Plus = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Add01Icon} {...props} />;
+const Inbox = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).InboxIcon} {...props} />;
+
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Helper types for search
+// Helper type for document metadata used in activity badges
 type SearchResultItem = {
     id: string;
     type: 'INVOICE' | 'CONTRACT' | 'LINK' | 'PROJECT';
@@ -31,7 +36,6 @@ type SearchResultItem = {
     status?: string;
     data: any;
 };
-type SearchFilterType = 'ALL' | 'INVOICE' | 'CONTRACT' | 'LINK' | 'PROJECT';
 
 const getGreeting = () => {
     const hour = new Date().getHours();
@@ -66,11 +70,8 @@ export default function HomeDashboard() {
         dueSoonMilestoneId?: string;
     }>({});
 
-    // Search State
+    // Documents snapshot for badges/activity metadata
     const [allDocuments, setAllDocuments] = useState<SearchResultItem[]>([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchTypeFilter, setSearchTypeFilter] = useState<SearchFilterType>('ALL');
-    const [filteredResults, setFilteredResults] = useState<SearchResultItem[]>([]);
 
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -80,6 +81,21 @@ export default function HomeDashboard() {
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [transactionData, setTransactionData] = useState<any>(null);
     const transactionModalRef = React.useRef<any>(null);
+
+    const emitTabBarScrollOffset = useCallback((offsetY: number) => {
+        if (Platform.OS !== 'android') return;
+        DeviceEventEmitter.emit('hedwig:tabbar-scroll', offsetY);
+    }, []);
+
+    const handleTabBarAwareScroll = useCallback((event: any) => {
+        emitTabBarScrollOffset(event?.nativeEvent?.contentOffset?.y ?? 0);
+    }, [emitTabBarScrollOffset]);
+
+    useEffect(() => {
+        return () => {
+            emitTabBarScrollOffset(0);
+        };
+    }, [emitTabBarScrollOffset]);
 
     useEffect(() => {
         if (isReady && user) {
@@ -96,25 +112,6 @@ export default function HomeDashboard() {
             }
         }, [isReady, user])
     );
-
-    // Handle Search Filter
-    useEffect(() => {
-        if (!searchQuery.trim()) {
-            setFilteredResults([]);
-            return;
-        }
-        const query = searchQuery.toLowerCase();
-        const results = allDocuments.filter(item => {
-            const matchesType = searchTypeFilter === 'ALL' || item.type === searchTypeFilter;
-            if (!matchesType) return false;
-            return (
-                (item.title ? item.title.toLowerCase().includes(query) : false) ||
-                (item.subtitle && item.subtitle.toLowerCase().includes(query)) ||
-                (item.status && item.status.toLowerCase().includes(query))
-            );
-        });
-        setFilteredResults(results);
-    }, [searchQuery, allDocuments, searchTypeFilter]);
 
     const fetchUserData = async () => {
         if (!user) return;
@@ -409,39 +406,6 @@ export default function HomeDashboard() {
         setTimeout(() => { transactionModalRef.current?.present(); }, 100);
     };
 
-    const getIconForType = (type: string) => {
-        switch (type) {
-            case 'INVOICE': return <FileText size={24} color={themeColors.textPrimary} />;
-            case 'CONTRACT': return <Scroll size={24} color={themeColors.textPrimary} />;
-            case 'LINK': return <LinkIcon size={24} color={themeColors.textPrimary} />;
-            case 'PROJECT': return <Briefcase size={24} color={themeColors.textPrimary} />;
-            default: return <FileText size={24} color={themeColors.textSecondary} />;
-        }
-    };
-
-    const navigateToItem = (item: SearchResultItem) => {
-        switch (item.type) {
-            case 'INVOICE':
-                if (item.isRecurring) {
-                    router.push({ pathname: '/invoices', params: { filter: 'recurring', selectedRecurring: item.id } } as any);
-                } else {
-                    router.push({ pathname: '/invoices', params: { selected: item.id } } as any);
-                }
-                break;
-            case 'CONTRACT':
-                router.push({ pathname: '/contracts', params: { selected: item.id } } as any);
-                break;
-            case 'LINK':
-                router.push({ pathname: '/payment-links', params: { selected: item.id } } as any);
-                break;
-            case 'PROJECT':
-                router.push({ pathname: '/projects', params: { projectId: item.id } } as any);
-                break;
-            default:
-                break;
-        }
-    };
-
     const openProjectActivity = (projectId?: string, milestoneId?: string, fallbackFilter?: string) => {
         router.push({
             pathname: '/projects',
@@ -513,7 +477,7 @@ export default function HomeDashboard() {
     ];
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+        <SafeAreaView collapsable={false} edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerLeft}>
                     <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
@@ -537,123 +501,59 @@ export default function HomeDashboard() {
                     </Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}><Inbox size={24} color={themeColors.textPrimary} strokeWidth={2.2} /></TouchableOpacity>
-                </View>
-            </View>
-
-            <View style={[styles.searchContainer, { backgroundColor: themeColors.surface }]}>
-                <MagnifyingGlass size={20} color={themeColors.textSecondary} />
-                <TextInput
-                    style={[styles.searchInput, { color: themeColors.textPrimary }]}
-                    placeholder="Search documents, projects..."
-                    placeholderTextColor={themeColors.textSecondary}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
-                {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <XCircle size={20} color={themeColors.textSecondary} fill={themeColors.textSecondary} strokeWidth={3} />
+                    <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/notifications')}>
+                        <Inbox size={24} color={themeColors.textPrimary} strokeWidth={2.2} />
                     </TouchableOpacity>
-                )}
+                </View>
             </View>
 
-            {searchQuery.length > 0 && (
-                <View style={styles.searchFilterRow}>
-                    {(['ALL', 'INVOICE', 'LINK', 'CONTRACT', 'PROJECT'] as SearchFilterType[]).map((type) => {
-                        const selected = searchTypeFilter === type;
-                        const label = type === 'ALL' ? 'All' : type.charAt(0) + type.slice(1).toLowerCase();
-                        return (
-                            <TouchableOpacity
-                                key={type}
-                                style={[
-                                    styles.searchFilterChip,
-                                    {
-                                        backgroundColor: selected ? Colors.primary : themeColors.surface,
-                                    },
-                                ]}
-                                onPress={() => setSearchTypeFilter(type)}
-                            >
-                                <Text style={[styles.searchFilterText, { color: selected ? '#fff' : themeColors.textSecondary }]}>
-                                    {label}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-            )}
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+                bounces={true}
+                overScrollMode="always"
+                contentInsetAdjustmentBehavior="automatic"
+                onScroll={handleTabBarAwareScroll}
+                scrollEventThrottle={16}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+                }
+                contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+            >
+                <Text style={[styles.mainHeading, { color: themeColors.textPrimary }]}>Your Activity</Text>
 
-            {searchQuery.length > 0 ? (
-                <FlatList
-                    data={filteredResults}
-                    keyExtractor={(item) => `${item.type}-${item.id}`}
-                    contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity style={[styles.searchItem, { backgroundColor: themeColors.surface }]} onPress={() => navigateToItem(item)}>
-                            <View style={styles.searchItemLeft}>
-                                <View style={[styles.searchIconContainer, { backgroundColor: themeColors.background }]}>
-                                    {getIconForType(item.type)}
-                                </View>
-                                <View>
-                                    <Text style={[styles.searchItemTitle, { color: themeColors.textPrimary }]}>{item.title}</Text>
-                                    <Text style={[styles.searchItemSubtitle, { color: themeColors.textSecondary }]}>{item.subtitle} • {item.status}</Text>
+                {/* Check if there is any activity at all */}
+                {(counts.reminders.invoices + counts.reminders.contracts + counts.reminders.links +
+                    counts.inProgress.projects + counts.inProgress.milestones + counts.inProgress.recurringInvoices +
+                    counts.dueSoon.invoices + counts.dueSoon.projects + counts.dueSoon.links + counts.dueSoon.milestones) === 0 && !isLoadingData ? (
+                    <View style={styles.emptyStateContainer}>
+                        <Inbox size={64} color={themeColors.textSecondary} strokeWidth={1} />
+                        <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>
+                            All clear
+                        </Text>
+                        <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+                            Tap the + button to create invoices, payment{"\n"}links, contracts, or send tokens.
+                        </Text>
+                    </View>
+                ) : (
+                    <>
+                        {sectionConfigs.map((section) => (
+                            <View style={styles.sectionContainer} key={section.key}>
+                                <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>{section.title}</Text>
+                                <View style={styles.cardContainer}>
+                                    {isLoadingData
+                                        ? [0, 1, 2].map(renderSkeletonRow)
+                                        : section.rows.map((row, idx) => (
+                                            <React.Fragment key={`${section.key}-${idx}`}>
+                                                {renderSummaryRow(row.label, row.count, row.badge, row.onPress)}
+                                            </React.Fragment>
+                                        ))}
                                 </View>
                             </View>
-                            <CaretRight size={20} color={themeColors.textSecondary} />
-                        </TouchableOpacity>
-                    )}
-                    ListEmptyComponent={
-                        <View style={styles.emptySearch}>
-                            <Text style={{ color: themeColors.textSecondary, fontFamily: 'GoogleSansFlex_400Regular' }}>No results found</Text>
-                        </View>
-                    }
-                />
-            ) : (
-                <ScrollView
-                    style={styles.scrollView}
-                    showsVerticalScrollIndicator={false}
-                    bounces={true}
-                    overScrollMode="always"
-                    contentInsetAdjustmentBehavior="never"
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
-                    }
-                    contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
-                >
-                    <Text style={[styles.mainHeading, { color: themeColors.textPrimary }]}>Your Activity</Text>
-
-                    {/* Check if there is any activity at all */}
-                    {(counts.reminders.invoices + counts.reminders.contracts + counts.reminders.links +
-                        counts.inProgress.projects + counts.inProgress.milestones + counts.inProgress.recurringInvoices +
-                        counts.dueSoon.invoices + counts.dueSoon.projects + counts.dueSoon.links + counts.dueSoon.milestones) === 0 && !isLoadingData ? (
-                        <View style={styles.emptyStateContainer}>
-                            <Inbox size={64} color={themeColors.textSecondary} strokeWidth={1} />
-                            <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>
-                                All clear
-                            </Text>
-                            <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                                Tap the + button to create invoices, payment{"\n"}links, contracts, or send tokens.
-                            </Text>
-                        </View>
-                    ) : (
-                        <>
-                            {sectionConfigs.map((section) => (
-                                <View style={styles.sectionContainer} key={section.key}>
-                                    <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>{section.title}</Text>
-                                    <View style={styles.cardContainer}>
-                                        {isLoadingData
-                                            ? [0, 1, 2].map(renderSkeletonRow)
-                                            : section.rows.map((row, idx) => (
-                                                <React.Fragment key={`${section.key}-${idx}`}>
-                                                    {renderSummaryRow(row.label, row.count, row.badge, row.onPress)}
-                                                </React.Fragment>
-                                            ))}
-                                    </View>
-                                </View>
-                            ))}
-                        </>
-                    )}
-                </ScrollView>
-            )}
+                        ))}
+                    </>
+                )}
+            </ScrollView>
 
             <TouchableOpacity style={[styles.fab, { backgroundColor: '#2563EB' }]} onPress={() => setShowCreationBox(true)}><Plus size={32} color="#FFFFFF" strokeWidth={3} /></TouchableOpacity>
 
@@ -680,19 +580,14 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, paddingTop: 8 },
     headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    headerTitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: Platform.OS === 'android' ? 20 : 22 },
+    headerTitle: { fontFamily: 'GoogleSansFlex_700Bold', fontSize: Platform.OS === 'android' ? 20 : 22 },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     iconButton: { padding: 4 },
     avatar: { width: 40, height: 40, borderRadius: 20 },
     scrollView: { flex: 1, paddingHorizontal: 20 },
-    searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, height: 48, borderRadius: 12, marginBottom: 12, marginHorizontal: 20 },
-    searchInput: { flex: 1, marginLeft: 12, fontFamily: 'GoogleSansFlex_400Regular', fontSize: 16, height: '100%' },
-    searchFilterRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20, marginBottom: 10, flexWrap: 'wrap' },
-    searchFilterChip: { borderWidth: 0, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 6 },
-    searchFilterText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
-    mainHeading: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 24, marginBottom: 16, marginTop: 12 },
+    mainHeading: { fontFamily: 'GoogleSansFlex_700Bold', fontSize: Platform.OS === 'android' ? 20 : 22, marginBottom: 16, marginTop: 12 },
     sectionContainer: { marginBottom: 24 },
-    sectionHeader: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18, marginBottom: 12 },
+    sectionHeader: { fontFamily: 'GoogleSansFlex_700Bold', fontSize: Platform.OS === 'android' ? 20 : 22, marginBottom: 12 },
     cardContainer: { borderRadius: 16, overflow: 'hidden' },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 20, marginBottom: 1 },
     rowLabel: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 16 },
@@ -702,12 +597,6 @@ const styles = StyleSheet.create({
     countBadge: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
     countText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 14, color: '#475569' },
     fab: { position: 'absolute', bottom: 110, right: 24, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 },
-    searchItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 12 },
-    searchItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    searchIconContainer: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-    searchItemTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 },
-    searchItemSubtitle: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 14 },
-    emptySearch: { alignItems: 'center', marginTop: 40 },
     skeletonBar: { height: 12, borderRadius: 6 },
     skeletonCircle: { width: 26, height: 26, borderRadius: 13 },
     emptyStateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80, paddingHorizontal: 40 },

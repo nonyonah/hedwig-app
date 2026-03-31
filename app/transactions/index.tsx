@@ -15,10 +15,9 @@ import {
     RefreshControl,
     ScrollView
 } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../hooks/useAuth';
-import { List, X, Copy, CheckCircle, ArrowUpRight, ArrowDownLeft, Wallet, Receipt, Link as LinkIcon, ArrowLeftRight as ArrowsLeftRight, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
@@ -35,6 +34,21 @@ import { formatCurrency } from '../../utils/currencyUtils';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const List = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Menu01Icon} {...props} />;
+const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
+const Copy = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Copy01Icon} {...props} />;
+const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle01Icon} {...props} />;
+const ArrowUpRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowUpRight01Icon} {...props} />;
+const ArrowDownLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowDownLeft01Icon} {...props} />;
+const Wallet = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Wallet01Icon} {...props} />;
+const Receipt = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Invoice01Icon} {...props} />;
+const LinkIcon = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Link01Icon} {...props} />;
+const ArrowsLeftRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeftRightIcon} {...props} />;
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+
 
 const { width } = Dimensions.get('window');
 
@@ -434,7 +448,6 @@ export default function TransactionsScreen() {
             </SafeAreaView>
 
 
-
             {/* Profile Modal */}
 
 
@@ -576,8 +589,8 @@ const styles = StyleSheet.create({
     },
     // headerLeft removed
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: Platform.OS === 'android' ? 20 : 22,
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: Platform.OS === 'android' ? 18 : 20,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,
@@ -763,9 +776,9 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         // backgroundColor: '#F3F4F6', // Overridden
         justifyContent: 'center',
         alignItems: 'center',

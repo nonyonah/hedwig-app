@@ -5,12 +5,21 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import { format, isToday, isYesterday } from 'date-fns';
-import { CheckCircle, ChevronLeft as CaretLeft, ChevronRight, Copy, Landmark, X } from '../../components/ui/AppIcon';
 import { useThemeColors, Colors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 import { createUsdKycLink, enrollUsdAccount, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from './usdAccountApi';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle01Icon} {...props} />;
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+const ChevronRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowRight01Icon} {...props} />;
+const Copy = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Copy01Icon} {...props} />;
+const Landmark = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).BankIcon} {...props} />;
+const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
+
 
 const ICONS = {
     usdc: require('../../assets/icons/tokens/usdc.png'),
@@ -572,7 +581,7 @@ export default function UsdAccountScreen() {
                             onPress={closeTransferDetails}
                             systemImage="xmark"
                             circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
-                            icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                            icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
                         />
                     </View>
 
@@ -988,9 +997,9 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
     },

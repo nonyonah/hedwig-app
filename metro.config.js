@@ -1,6 +1,7 @@
 const {
     getSentryExpoConfig
 } = require("@sentry/react-native/metro");
+const path = require('path');
 // Temporarily disabled due to build error - TypeError: Cannot read properties of undefined (reading 'match')
 // const { withSentryConfig } = require('@sentry/react-native/metro');
 
@@ -24,6 +25,19 @@ config.resolver.extraNodeModules = {
     assert: require.resolve('assert'),
     path: require.resolve('path-browserify'),
     process: require.resolve('process/browser'),
+    '@hedwig/true-sheet': path.resolve(__dirname, 'shims/true-sheet/index'),
+};
+
+// Some deps still request this private CJS path on iOS bundling.
+// Route it to the public export to avoid repeated package-exports fallback warnings.
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+    if (moduleName.startsWith('multiformats/cjs/src/')) {
+        const publicSubpath = moduleName
+            .replace(/^multiformats\/cjs\/src\//, '')
+            .replace(/\.js$/, '');
+        return context.resolveRequest(context, `multiformats/${publicSubpath}`, platform);
+    }
+    return context.resolveRequest(context, moduleName, platform);
 };
 
 // Fix for ESM/CJS interop issues with certain packages

@@ -1,7 +1,7 @@
 import { useThemeColors } from '../../theme/colors';
 import React, { useRef, useEffect } from 'react';
 import { Platform, View, StyleSheet, TextInput, TouchableOpacity, Text } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import * as Haptics from 'expo-haptics';
 
 interface SwiftUICreationBoxProps {

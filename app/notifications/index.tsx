@@ -441,8 +441,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: Platform.OS === 'android' ? 20 : 22,
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: Platform.OS === 'android' ? 18 : 20,
         color: Colors.textPrimary,
         textAlign: 'center',
         flex: 1,

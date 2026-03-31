@@ -16,8 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { useThemeColors } from '../../theme/colors';
-import { ChevronLeft as CaretLeft, ChevronDown as CaretDown, Link as LinkIcon } from '../../components/ui/AppIcon';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+const CaretDown = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowDown04Icon} {...props} />;
+const LinkIcon = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Link01Icon} {...props} />;
+
 
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 40;

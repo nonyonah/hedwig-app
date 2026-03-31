@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Fingerprint } from '../../components/ui/AppIcon';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet, usePrivy } from '@privy-io/expo';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +9,11 @@ import { Colors, useThemeColors } from '../../theme/colors';
 import { Button } from '../../components/Button';
 import { getOrCreateStacksWallet } from '../../services/stacksWallet';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const Fingerprint = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).FingerPrintIcon} {...props} />;
+
 
 export default function BiometricsScreen() {
     const router = useRouter();

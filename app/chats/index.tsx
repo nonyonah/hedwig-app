@@ -4,7 +4,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { List, MessageSquare as Chat, Search as MagnifyingGlass, Plus, Trash, CircleCheck as CheckCircle, X } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
@@ -13,6 +12,17 @@ import * as Haptics from 'expo-haptics';
 import Fuse from 'fuse.js';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const List = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Menu01Icon} {...props} />;
+const Chat = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).MessageSquareShareIcon} {...props} />;
+const MagnifyingGlass = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Search01Icon} {...props} />;
+const Plus = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Add01Icon} {...props} />;
+const Trash = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Delete02Icon} {...props} />;
+const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle02Icon} {...props} />;
+const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
+
 
 export default function ChatsScreen() {
     // Track screen view
@@ -381,7 +391,6 @@ export default function ChatsScreen() {
                     />
                 )}
             </SafeAreaView>
-
 
 
             <ProfileModal

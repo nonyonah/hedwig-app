@@ -2,15 +2,24 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, SectionList, Dimensions, FlatList, LayoutAnimation, Platform, UIManager, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { ChevronLeft as CaretLeft, Calendar as CalendarBlank, ChevronRight as CaretRight, CheckCircle, Clock, Tag } from '../../components/ui/AppIcon';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { Typography } from '../../styles/typography';
 import { joinApiUrl } from '../../utils/apiBaseUrl';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+const CalendarBlank = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Calendar01Icon} {...props} />;
+const CaretRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowRight01Icon} {...props} />;
+const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle01Icon} {...props} />;
+const Clock = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Clock03Icon} {...props} />;
+const Tag = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Tag01Icon} {...props} />;
+
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -688,6 +697,8 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...Typography.h4,
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: 17,
         textAlign: 'center',
     },
     headerSpacer: {

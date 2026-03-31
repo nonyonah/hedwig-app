@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import {
     View,
     Text,
@@ -18,7 +18,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
-import { List, X, Copy, Landmark as Bank, ArrowDown, CheckCircle, Clock, TriangleAlert as Warning, RotateCcw as ArrowsCounterClockwise, ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -31,6 +30,20 @@ import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useSettings } from '../../context/SettingsContext';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import * as HugeiconsCore from '@hugeicons/core-free-icons';
+
+const List = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Menu01Icon} {...props} />;
+const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
+const Copy = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Copy01Icon} {...props} />;
+const Bank = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).BankIcon} {...props} />;
+const ArrowDown = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowDown04Icon} {...props} />;
+const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle01Icon} {...props} />;
+const Clock = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Clock03Icon} {...props} />;
+const Warning = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Alert01Icon} {...props} />;
+const ArrowsCounterClockwise = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).RefreshIcon} {...props} />;
+const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+
 
 const { width } = Dimensions.get('window');
 
@@ -89,9 +102,64 @@ interface OfframpOrder {
     bankName: string;
     accountNumber: string;
     accountName: string;
+    txHash?: string;
     createdAt: string;
     completedAt?: string;
 }
+
+const normalizeOfframpStatus = (
+    rawStatus: unknown,
+    txHash?: unknown,
+    completedAt?: unknown
+): OfframpOrder['status'] => {
+    const status = typeof rawStatus === 'string' ? rawStatus.trim().toLowerCase() : '';
+    const hasCompletionEvidence = Boolean(
+        (typeof txHash === 'string' && txHash.trim().length > 0) ||
+        (typeof completedAt === 'string' && completedAt.trim().length > 0)
+    );
+
+    let normalized: OfframpOrder['status'] = 'PROCESSING';
+    switch (status) {
+        case 'pending':
+        case 'initiated':
+            normalized = 'PENDING';
+            break;
+        case 'processing':
+        case 'in_progress':
+        case 'submitted':
+        case 'queued':
+            normalized = 'PROCESSING';
+            break;
+        case 'completed':
+        case 'settled':
+        case 'success':
+        case 'validated':
+        case 'paid':
+        case 'done':
+            normalized = 'COMPLETED';
+            break;
+        case 'failed':
+        case 'expired':
+        case 'refunded':
+        case 'reversed':
+        case 'rejected':
+        case 'error':
+            normalized = 'FAILED';
+            break;
+        case 'cancelled':
+        case 'canceled':
+            normalized = 'CANCELLED';
+            break;
+        default:
+            normalized = hasCompletionEvidence ? 'COMPLETED' : 'PROCESSING';
+            break;
+    }
+
+    if ((normalized === 'FAILED' || normalized === 'CANCELLED') && hasCompletionEvidence) {
+        return 'COMPLETED';
+    }
+    return normalized;
+};
 
 interface UserData {
     firstName: string;
@@ -176,7 +244,12 @@ export default function OfframpHistoryScreen() {
 
             if (response.ok) {
                 const data = await response.json();
-                setOrders(data.data?.orders || []);
+                const rawOrders = Array.isArray(data?.data?.orders) ? data.data.orders : [];
+                const normalizedOrders = rawOrders.map((order: any) => ({
+                    ...order,
+                    status: normalizeOfframpStatus(order.status, order.txHash ?? order.tx_hash, order.completedAt ?? order.completed_at),
+                }));
+                setOrders(normalizedOrders);
             }
         } catch (error) {
             console.error('Error fetching offramp orders:', error);
@@ -436,7 +509,7 @@ export default function OfframpHistoryScreen() {
                                 onPress={closeModal}
                                 systemImage="xmark"
                                 circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
-                                icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                                icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
                             />
                         </View>
 
@@ -584,8 +657,8 @@ const styles = StyleSheet.create({
         width: 40,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: Platform.OS === 'android' ? 20 : 22,
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: Platform.OS === 'android' ? 18 : 20,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,
@@ -838,9 +911,9 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         // backgroundColor: '#F3F4F6', // Overridden
         justifyContent: 'center',
         alignItems: 'center',

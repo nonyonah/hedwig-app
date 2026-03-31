@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, LayoutAnimation, Platform, UIManager, Alert, Share, ToastAndroid, ActivityIndicator } from 'react-native';
-let ContextMenu: any = null;
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, RefreshControl, LayoutAnimation, Platform, UIManager, Alert, Share, ToastAndroid, ActivityIndicator, DeviceEventEmitter } from 'react-native';
+let Menu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
 if (Platform.OS === 'ios') {
     try {
         const SwiftUI = require('@expo/ui/swift-ui');
-        ContextMenu = SwiftUI.ContextMenu;
+        Menu = SwiftUI.Menu;
         ExpoButton = SwiftUI.Button;
         Host = SwiftUI.Host;
     } catch (e) { }
 }
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -154,11 +154,21 @@ export default function WalletScreen() {
         lockSheetInteractions();
     }, [lockSheetInteractions]);
 
+    const emitTabBarScrollOffset = useCallback((offsetY: number) => {
+        if (Platform.OS !== 'android') return;
+        DeviceEventEmitter.emit('hedwig:tabbar-scroll', offsetY);
+    }, []);
+
+    const handleTabBarAwareScroll = useCallback((event: any) => {
+        emitTabBarScrollOffset(event?.nativeEvent?.contentOffset?.y ?? 0);
+    }, [emitTabBarScrollOffset]);
+
     useEffect(() => {
         return () => {
             if (sheetUnlockTimeoutRef.current) clearTimeout(sheetUnlockTimeoutRef.current);
+            emitTabBarScrollOffset(0);
         };
-    }, []);
+    }, [emitTabBarScrollOffset]);
 
     const fetchUserData = useCallback(async () => {
         if (!user) return;
@@ -449,7 +459,7 @@ export default function WalletScreen() {
 
     return (
         <>
-            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+            <SafeAreaView collapsable={false} edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
                 {/* Header */}
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
@@ -480,7 +490,9 @@ export default function WalletScreen() {
                     bounces={true}
                     alwaysBounceVertical={true}
                     overScrollMode="always"
-                    contentInsetAdjustmentBehavior="never"
+                    contentInsetAdjustmentBehavior="automatic"
+                    onScroll={handleTabBarAwareScroll}
+                    scrollEventThrottle={16}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 >
                     <View style={styles.balanceSection}>
@@ -581,10 +593,10 @@ export default function WalletScreen() {
                             <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Coins</Text>
 
                             {/* Native Network Dropdown */}
-                            {Platform.OS === 'ios' && Host ? (
-                                <Host>
-                                    <ContextMenu>
-                                        <ContextMenu.Trigger>
+                            {Platform.OS === 'ios' && Host && Menu && ExpoButton ? (
+                                <Host matchContents>
+                                    <Menu
+                                        label={(
                                             <View style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}>
                                                 {networkFilter !== 'all' && (
                                                     <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
@@ -594,13 +606,12 @@ export default function WalletScreen() {
                                                 </Text>
                                                 <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
                                             </View>
-                                        </ContextMenu.Trigger>
-                                        <ContextMenu.Items>
-                                            <ExpoButton onPress={() => setNetworkFilter('all')}>All Networks</ExpoButton>
-                                            <ExpoButton onPress={() => setNetworkFilter('base')}>Base</ExpoButton>
-                                            <ExpoButton onPress={() => setNetworkFilter('solana')}>Solana</ExpoButton>
-                                        </ContextMenu.Items>
-                                    </ContextMenu>
+                                        )}
+                                    >
+                                        <ExpoButton label="All Networks" onPress={() => setNetworkFilter('all')} />
+                                        <ExpoButton label="Base" onPress={() => setNetworkFilter('base')} />
+                                        <ExpoButton label="Solana" onPress={() => setNetworkFilter('solana')} />
+                                    </Menu>
                                 </Host>
                             ) : (
                                 <AndroidDropdownMenu
@@ -700,16 +711,16 @@ export default function WalletScreen() {
                             <IOSGlassIconButton
                                 onPress={() => receiveSheetRef.current?.dismiss()}
                                 systemImage="xmark"
-                                containerStyle={styles.closeButton}
-                                icon={<X size={20} color={themeColors.textPrimary} strokeWidth={3} />}
+                                circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
                             />
                         </View>
 
                         <View style={styles.receiveBody}>
-                            {Platform.OS === 'ios' && Host ? (
-                                <Host>
-                                    <ContextMenu>
-                                        <ContextMenu.Trigger>
+                            {Platform.OS === 'ios' && Host && Menu && ExpoButton ? (
+                                <Host matchContents>
+                                    <Menu
+                                        label={(
                                             <View style={styles.receiveChainDropdownContainer}>
                                                 <View style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}>
                                                     <Image source={selectedChainMeta.icon} style={styles.receiveChainDropdownIcon} />
@@ -719,12 +730,11 @@ export default function WalletScreen() {
                                                     <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
                                                 </View>
                                             </View>
-                                        </ContextMenu.Trigger>
-                                        <ContextMenu.Items>
-                                            <ExpoButton onPress={() => setSelectedChain('base')}>Base</ExpoButton>
-                                            <ExpoButton onPress={() => setSelectedChain('solana')}>Solana</ExpoButton>
-                                        </ContextMenu.Items>
-                                    </ContextMenu>
+                                        )}
+                                    >
+                                        <ExpoButton label="Base" onPress={() => setSelectedChain('base')} />
+                                        <ExpoButton label="Solana" onPress={() => setSelectedChain('solana')} />
+                                    </Menu>
                                 </Host>
                             ) : (
                                 <AndroidDropdownMenu
@@ -988,7 +998,7 @@ const styles = StyleSheet.create({
     bottomSheetContent: { paddingBottom: 24 },
     receiveHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
     receiveHeaderTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 22 },
-    closeButton: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 18, backgroundColor: 'rgba(128,128,128,0.2)' },
+    closeButton: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 18 },
     receiveBody: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
     receiveSubtext: {
         fontFamily: 'GoogleSansFlex_400Regular',

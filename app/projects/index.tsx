@@ -1,21 +1,23 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Platform, ScrollView, Alert, LayoutAnimation, UIManager, Image } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { BlurView } from 'expo-blur'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
-import { Briefcase, List, Calendar, User, DollarSign as CurrencyDollar, CheckCircle, Clock, Receipt, ChevronRight as CaretRight, X, MoreHorizontal as DotsThree, Trash2 as Trash, Check, FileText, ChevronLeft as CaretLeft, Plus } from '../../components/ui/AppIcon';
 import * as Haptics from 'expo-haptics';
-let ContextMenu: any = null;
+let Menu: any = null;
 let ExpoButton: any = null;
 let Host: any = null;
+let labelStyleModifier: any = null;
 if (Platform.OS === 'ios') {
     try {
         const SwiftUI = require('@expo/ui/swift-ui');
-        ContextMenu = SwiftUI.ContextMenu;
+        Menu = SwiftUI.Menu;
         ExpoButton = SwiftUI.Button;
         Host = SwiftUI.Host;
+        const mods = require('@expo/ui/swift-ui/modifiers');
+        labelStyleModifier = mods.labelStyle;
     } catch (e) { }
 }
 import { Colors, useThemeColors } from '../../theme/colors';
@@ -29,6 +31,42 @@ import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import {
+    Briefcase as BriefcaseIcon,
+    List as ListIcon,
+    Calendar as CalendarIcon,
+    User as UserIcon,
+    DollarSign as DollarSignIcon,
+    CheckCircle as CheckCircleIcon,
+    Clock as ClockIcon,
+    Receipt as ReceiptIcon,
+    ChevronRight as ChevronRightIcon,
+    X as XIcon,
+    MoreHorizontal as MoreHorizontalIcon,
+    Trash as TrashIcon,
+    Check as CheckIcon,
+    FileText as FileTextIcon,
+    ChevronLeft as ChevronLeftIcon,
+    Plus as PlusIcon,
+} from '../../components/ui/AppIcon';
+
+const Briefcase = (props: any) => <BriefcaseIcon {...props} />;
+const List = (props: any) => <ListIcon {...props} />;
+const Calendar = (props: any) => <CalendarIcon {...props} />;
+const User = (props: any) => <UserIcon {...props} />;
+const CurrencyDollar = (props: any) => <DollarSignIcon {...props} />;
+const CheckCircle = (props: any) => <CheckCircleIcon {...props} />;
+const Clock = (props: any) => <ClockIcon {...props} />;
+const Receipt = (props: any) => <ReceiptIcon {...props} />;
+const CaretRight = (props: any) => <ChevronRightIcon {...props} />;
+const X = (props: any) => <XIcon {...props} />;
+const DotsThree = (props: any) => <MoreHorizontalIcon {...props} />;
+const Trash = (props: any) => <TrashIcon {...props} />;
+const Check = (props: any) => <CheckIcon {...props} />;
+const FileText = (props: any) => <FileTextIcon {...props} />;
+const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
+const Plus = (props: any) => <PlusIcon {...props} />;
+
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -433,7 +471,6 @@ export default function ProjectsScreen() {
     };
 
 
-
     if (isLoading) {
         return (
             <>
@@ -551,29 +588,24 @@ export default function ProjectsScreen() {
                                         <Text style={[styles.modalHeaderTitle, { color: themeColors.textPrimary }]} numberOfLines={1}>{selectedProject.title}</Text>
                                     </View>
                                     <View style={styles.modalHeaderRight}>
-                                        {Platform.OS === 'ios' && Host ? (
+                                        {Platform.OS === 'ios' && Host && Menu && ExpoButton ? (
                                             <Host style={{ height: 36, tintColor: themeColors.textSecondary }} matchContents>
-                                                <ContextMenu>
-                                                    <ContextMenu.Trigger>
-                                                        <ExpoButton variant="borderless" systemImage="ellipsis">
-                                                            {' '}
-                                                        </ExpoButton>
-                                                    </ContextMenu.Trigger>
-                                                    <ContextMenu.Items>
-                                                        <ExpoButton
-                                                            onPress={handleCompleteProject}
-                                                            systemImage="checkmark.circle.fill"
-                                                        >
-                                                            Complete Project
-                                                        </ExpoButton>
-                                                        <ExpoButton
-                                                            onPress={handleDeleteProject}
-                                                            systemImage="trash.fill"
-                                                        >
-                                                            Delete Project
-                                                        </ExpoButton>
-                                                    </ContextMenu.Items>
-                                                </ContextMenu>
+                                                <Menu
+                                                    label="More"
+                                                    systemImage="ellipsis"
+                                                    modifiers={labelStyleModifier ? [labelStyleModifier('iconOnly')] : undefined}
+                                                >
+                                                    <ExpoButton
+                                                        label="Complete Project"
+                                                        onPress={handleCompleteProject}
+                                                        systemImage="checkmark.circle.fill"
+                                                    />
+                                                    <ExpoButton
+                                                        label="Delete Project"
+                                                        onPress={handleDeleteProject}
+                                                        systemImage="trash.fill"
+                                                    />
+                                                </Menu>
                                             </Host>
                                         ) : (
                                             <AndroidDropdownMenu
@@ -845,8 +877,8 @@ const styles = StyleSheet.create({
         width: 48,
     },
     headerTitle: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: Platform.OS === 'android' ? 20 : 22,
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: Platform.OS === 'android' ? 18 : 20,
         textAlign: 'center',
         color: Colors.textPrimary,
         flex: 1,
@@ -1449,9 +1481,9 @@ const styles = StyleSheet.create({
         padding: 4,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         // backgroundColor: '#F3F4F6', // Overridden
         justifyContent: 'center',
         alignItems: 'center',

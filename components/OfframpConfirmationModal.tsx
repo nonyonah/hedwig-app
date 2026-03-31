@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert, Platform, Image } from 'react-native';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { ethers } from 'ethers';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -799,7 +799,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                                 onPress={handleClose}
                                 systemImage="xmark"
                                 circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
-                                icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                                icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
                             />
                         </View>
 
@@ -935,9 +935,9 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     closeButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',

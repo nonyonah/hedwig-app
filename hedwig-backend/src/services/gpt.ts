@@ -1,26 +1,9 @@
-import OpenAI from 'openai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createLogger } from '../utils/logger';
+import { llmService } from './llm';
 
 const logger = createLogger('GPT');
 
-// GPT service for generating contracts and proposals
-// Primary: OpenAI GPT-4o-mini | Fallback: Gemini 2.5 Flash
-
-// Initialize OpenAI (may be undefined if no API key)
-const openai = process.env.OPENAI_API_KEY 
-    ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    : null;
-
-// Initialize Gemini (should always be available)
-const genAI = process.env.GEMINI_API_KEY 
-    ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-    : null;
-
-const geminiModel = genAI?.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-
-// Use GPT-4o-mini for cost-effective generation
-const OPENAI_MODEL = 'gpt-4o-mini';
+// AI service for generating contracts and proposals (provider-agnostic via llmService).
 
 export interface ContractGenerationParams {
     clientName: string;
@@ -205,97 +188,22 @@ Make it persuasive and client-focused.`;
     return { system: systemPrompt, user: userPrompt };
 }
 
-/**
- * Generate contract using OpenAI GPT-4o-mini
- */
-async function generateWithOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
-    if (!openai) {
-        throw new Error('OpenAI not configured');
-    }
-    
-    logger.debug('Generating with GPT-4o-mini');
-    
-    const completion = await openai.chat.completions.create({
-        model: OPENAI_MODEL,
-        messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-        ],
+async function generateWithLLM(systemPrompt: string, userPrompt: string, purpose: 'contract' | 'proposal'): Promise<string> {
+    logger.debug('Generating content with configured LLM provider', { purpose });
+    return llmService.generateText(userPrompt, {
+        systemPrompt,
+        purpose,
         temperature: 0.7,
-        max_tokens: 2000,
+        maxOutputTokens: 2000,
+        useFallbacks: true,
     });
-
-    const content = completion.choices[0]?.message?.content;
-    
-    if (!content) {
-        throw new Error('OpenAI returned empty response');
-    }
-
-    return content;
 }
 
-/**
- * Generate content using Gemini (fallback)
- */
-async function generateWithGemini(systemPrompt: string, userPrompt: string): Promise<string> {
-    if (!geminiModel) {
-        throw new Error('Gemini not configured');
-    }
-    
-    logger.debug('Generating with Gemini 2.5 Flash Lite');
-    
-    // Combine system and user prompts for Gemini
-    const combinedPrompt = `${systemPrompt}\n\n---\n\n${userPrompt}`;
-    
-    const result = await geminiModel.generateContent(combinedPrompt);
-    const response = await result.response;
-    const content = response.text();
-    
-    if (!content) {
-        throw new Error('Gemini returned empty response');
-    }
-
-    return content;
-}
-
-/**
- * Generate a professional contract - tries OpenAI first, falls back to Gemini
- */
 export async function generateContractWithGPT(params: ContractGenerationParams): Promise<string> {
     const { system, user } = buildContractPrompt(params);
-    
-    let content: string;
-    
-    // Try OpenAI first
-    if (openai) {
-        try {
-            content = await generateWithOpenAI(system, user);
-        } catch (error) {
-            logger.error('OpenAI error, falling back to Gemini');
-            // Fallback to Gemini
-            if (geminiModel) {
-                try {
-                    content = await generateWithGemini(system, user);
-                } catch (geminiError) {
-                    logger.error('Gemini error generating contract');
-                    throw geminiError;
-                }
-            } else {
-                throw new Error('No AI service available for contract generation');
-            }
-        }
-    } else if (geminiModel) {
-        // Use Gemini if OpenAI not available
-        try {
-            content = await generateWithGemini(system, user);
-        } catch (error) {
-            logger.error('Gemini error generating contract');
-            throw error;
-        }
-    } else {
-        throw new Error('No AI service available for contract generation');
-    }
-    
+
+    const content = await generateWithLLM(system, user, 'contract');
+
     // Extract HTML if AI included explanations
     return extractHTMLFromResponse(content);
 }
@@ -356,37 +264,14 @@ function extractHTMLFromResponse(content: string): string {
     return cleanedLines.join('\n').trim();
 }
 
-/**
- * Generate a professional proposal - tries OpenAI first, falls back to Gemini
- */
 export async function generateProposalWithGPT(params: ProposalGenerationParams): Promise<string> {
     const { system, user } = buildProposalPrompt(params);
-    
-    // Try OpenAI first
-    if (openai) {
-        try {
-            return await generateWithOpenAI(system, user);
-        } catch (error) {
-            logger.error('OpenAI error, falling back to Gemini');
-        }
-    }
-    
-    // Fallback to Gemini
-    if (geminiModel) {
-        try {
-            return await generateWithGemini(system, user);
-        } catch (error) {
-            logger.error('Gemini error generating proposal');
-            throw error;
-        }
-    }
-    
-    throw new Error('No AI service available for proposal generation');
+    return generateWithLLM(system, user, 'proposal');
 }
 
 /**
- * Check if any AI generation is available (OpenAI or Gemini)
+ * Check if any AI generation is available.
  */
 export function isGPTEnabled(): boolean {
-    return !!(openai || geminiModel);
+    return llmService.isAnyProviderConfigured();
 }
