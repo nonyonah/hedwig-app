@@ -154,20 +154,82 @@ app.use(
 );
 
 // CORS configuration
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:8081,http://localhost:3001')
+const normalizeOrigin = (value: string): string => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return '';
+    try {
+        const url = new URL(trimmed);
+        return url.origin.toLowerCase();
+    } catch {
+        return '';
+    }
+};
+
+const expandOriginVariants = (origin: string): string[] => {
+    try {
+        const url = new URL(origin);
+        const variants = new Set<string>([url.origin.toLowerCase()]);
+        const host = url.hostname.toLowerCase();
+
+        // Treat apex and www as equivalent for configured domains.
+        if (host.startsWith('www.')) {
+            const apex = host.replace(/^www\./, '');
+            variants.add(`${url.protocol}//${apex}${url.port ? `:${url.port}` : ''}`.toLowerCase());
+        } else if (host.split('.').length === 2) {
+            variants.add(`${url.protocol}//www.${host}${url.port ? `:${url.port}` : ''}`.toLowerCase());
+        }
+
+        return [...variants];
+    } catch {
+        return [origin.toLowerCase()];
+    }
+};
+
+const configuredOrigins = (process.env.CORS_ORIGIN || 'http://localhost:8081,http://localhost:3001')
     .split(',')
-    .map((o) => o.trim())
+    .map((o) => normalizeOrigin(o))
     .filter(Boolean);
+
+const inferredOrigins = [
+    normalizeOrigin(process.env.WEB_CLIENT_URL || ''),
+    normalizeOrigin(process.env.PUBLIC_BASE_URL || ''),
+    normalizeOrigin(process.env.APP_URL || ''),
+    'https://hedwigbot.xyz',
+    'https://www.hedwigbot.xyz',
+    'https://pay.hedwigbot.xyz',
+].filter(Boolean);
+
+const allowedOriginSet = new Set<string>();
+for (const origin of [...configuredOrigins, ...inferredOrigins]) {
+    for (const variant of expandOriginVariants(origin)) {
+        allowedOriginSet.add(variant);
+    }
+}
+
+const hedwigDomainRegex = /^https:\/\/([a-z0-9-]+\.)?hedwigbot\.xyz$/i;
 
 app.use(
     cors({
         origin: (origin, callback) => {
             // Allow server-to-server (no origin) and any listed origin
-            if (!origin || allowedOrigins.includes(origin)) {
+            if (!origin) {
                 callback(null, true);
-            } else {
-                callback(new Error(`Origin ${origin} not allowed by CORS`));
+                return;
             }
+
+            const normalizedOrigin = normalizeOrigin(origin);
+            const originAllowed =
+                Boolean(normalizedOrigin) &&
+                (allowedOriginSet.has(normalizedOrigin) || hedwigDomainRegex.test(normalizedOrigin));
+
+            if (originAllowed) {
+                callback(null, true);
+                return;
+            }
+
+            logger.warn('CORS origin rejected', { origin: normalizedOrigin || origin });
+            // Do not throw an app error/500; simply deny CORS for this origin.
+            callback(null, false);
         },
         credentials: true,
     })
