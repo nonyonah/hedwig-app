@@ -539,34 +539,56 @@ export const SchedulerService = {
                 return;
             }
 
-            let ngnRateNum = 0;
-            let ghsRateNum = 0;
-            try {
-                const [ngnRateRaw, ghsRateRaw] = await Promise.all([
-                    PaycrestService.getExchangeRate(baseToken, baseAmount, 'NGN', baseNetwork),
-                    PaycrestService.getExchangeRate(baseToken, baseAmount, 'GHS', baseNetwork),
-                ]);
-                ngnRateNum = Number.parseFloat(String(ngnRateRaw || '0'));
-                ghsRateNum = Number.parseFloat(String(ghsRateRaw || '0'));
-            } catch (rateError: any) {
-                logger.error('Failed to fetch Paycrest rates for nudges', { error: rateError?.message });
+            // Fetch each rate independently — if one currency is unsupported by Paycrest
+            // we still send a nudge for the currencies that are available.
+            const [ngnResult, ghsResult] = await Promise.allSettled([
+                PaycrestService.getExchangeRate(baseToken, baseAmount, 'NGN', baseNetwork),
+                PaycrestService.getExchangeRate(baseToken, baseAmount, 'GHS', baseNetwork),
+            ]);
+
+            const ngnRateNum = ngnResult.status === 'fulfilled'
+                ? Number.parseFloat(String(ngnResult.value || '0'))
+                : 0;
+            const ghsRateNum = ghsResult.status === 'fulfilled'
+                ? Number.parseFloat(String(ghsResult.value || '0'))
+                : 0;
+
+            if (ngnResult.status === 'rejected') {
+                logger.warn('Paycrest NGN rate unavailable', { error: ngnResult.reason?.message });
+            }
+            if (ghsResult.status === 'rejected') {
+                logger.warn('Paycrest GHS rate unavailable', { error: ghsResult.reason?.message });
+            }
+
+            const hasNgn = Number.isFinite(ngnRateNum) && ngnRateNum > 0;
+            const hasGhs = Number.isFinite(ghsRateNum) && ghsRateNum > 0;
+
+            if (!hasNgn && !hasGhs) {
+                logger.warn('Skipping Paycrest rate nudges — no supported rates available');
                 return;
             }
 
-            if (!Number.isFinite(ngnRateNum) || ngnRateNum <= 0 || !Number.isFinite(ghsRateNum) || ghsRateNum <= 0) {
-                logger.warn('Skipping Paycrest rate nudges due to invalid rate payload', {
-                    ngnRateNum,
-                    ghsRateNum,
-                });
-                return;
+            const fmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
+            const rateParts: string[] = [];
+            const emailRateParts: string[] = [];
+            const emailHtmlParts: string[] = [];
+            if (hasNgn) {
+                const ngnRate = fmt.format(ngnRateNum);
+                rateParts.push(`${ngnSymbol}${ngnRate}`);
+                emailRateParts.push(`NGN ${ngnSymbol}${ngnRate}`);
+                emailHtmlParts.push(`<strong style="color:#181d27;">${ngnSymbol}${ngnRate}</strong> (NGN)`);
+            }
+            if (hasGhs) {
+                const ghsRate = fmt.format(ghsRateNum);
+                rateParts.push(`${ghsSymbol}${ghsRate}`);
+                emailRateParts.push(`GHS ${ghsSymbol}${ghsRate}`);
+                emailHtmlParts.push(`<strong style="color:#181d27;">${ghsSymbol}${ghsRate}</strong> (GHS)`);
             }
 
-            const ngnRate = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(ngnRateNum);
-            const ghsRate = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(ghsRateNum);
             const title = 'USD rates update';
-            const body = `${baseAmount} USD ≈ ${ngnSymbol}${ngnRate} · ${ghsSymbol}${ghsRate} (Paycrest)`;
-            const emailSubject = `USD rates: NGN ${ngnSymbol}${ngnRate} · GHS ${ghsSymbol}${ghsRate}`;
-            const emailHtml = `<p class="eyebrow">Market update</p><h1 class="heading">Latest USD payout rates</h1><p class="description">${baseAmount} USD is currently around <strong style="color:#181d27;">${ngnSymbol}${ngnRate}</strong> and <strong style="color:#181d27;">${ghsSymbol}${ghsRate}</strong> using Paycrest rates.</p><p class="description">Use Hedwig to create payouts with the latest pricing in NGN and GHS.</p>`;
+            const body = `${baseAmount} USD ≈ ${rateParts.join(' · ')} (Paycrest)`;
+            const emailSubject = `USD rates: ${emailRateParts.join(' · ')}`;
+            const emailHtml = `<p class="eyebrow">Market update</p><h1 class="heading">Latest USD payout rates</h1><p class="description">${baseAmount} USD is currently around ${emailHtmlParts.join(' and ')} using Paycrest rates.</p><p class="description">Use Hedwig to create payouts with the latest pricing.</p>`;
 
             logger.info('Sending Paycrest rate nudges', {
                 count: candidates.length,
