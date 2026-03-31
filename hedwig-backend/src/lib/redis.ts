@@ -12,8 +12,11 @@ export function getRedis(): Redis | null {
         client = new Redis(process.env.REDIS_URL, {
             maxRetriesPerRequest: 3,
             retryStrategy: (times) => Math.min(times * 100, 3000),
-            enableOfflineQueue: false,
-            lazyConnect: true,
+            // Keep commands queued briefly while the socket becomes writable.
+            // This prevents startup crashes when rate-limit-redis initializes scripts.
+            enableOfflineQueue: true,
+            // Use eager connection (default behavior) so Redis is established ASAP.
+            lazyConnect: false,
         });
 
         client.on('connect', () => logger.info('Redis connected'));
