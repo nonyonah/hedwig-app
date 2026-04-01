@@ -51,6 +51,7 @@ yarn-error.*
 
 credentials.json
 google-services.json
+hedwig-backend/google-services.json
 GoogleService-Info.plist
 
 setup_eas_secrets.sh
