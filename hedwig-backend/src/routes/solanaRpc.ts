@@ -62,6 +62,49 @@ function redactRpcUrl(url: string): string {
     return url.replace(/\/v2\/[^/?#]+/g, '/v2/***');
 }
 
+const DEFAULT_ALLOWED_METHODS = [
+    'getBalance',
+    'getAccountInfo',
+    'getTokenAccountsByOwner',
+    'getTokenAccountBalance',
+    'getLatestBlockhash',
+    'getBlockHeight',
+    'getSignatureStatuses',
+    'getSignaturesForAddress',
+    'getTransaction',
+    'getParsedTransaction',
+    'getParsedTransactions',
+    'getProgramAccounts',
+    'getBlock',
+    'getSlot',
+    'getEpochInfo',
+    'getRecentPerformanceSamples',
+    'getHealth',
+    'getVersion',
+    'simulateTransaction',
+    'getFeeForMessage',
+];
+
+const ALLOWED_METHODS = new Set(
+    String(process.env.SOLANA_RPC_ALLOWED_METHODS || DEFAULT_ALLOWED_METHODS.join(','))
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+);
+
+const MAX_BATCH_SIZE = Math.max(1, Number(process.env.SOLANA_RPC_MAX_BATCH_SIZE || 25));
+const MAX_PAYLOAD_BYTES = Math.max(1024, Number(process.env.SOLANA_RPC_MAX_PAYLOAD_BYTES || 65_536));
+const UPSTREAM_TIMEOUT_MS = Math.max(500, Number(process.env.SOLANA_RPC_UPSTREAM_TIMEOUT_MS || 8_000));
+
+function getMethodsFromPayload(payload: any): string[] {
+    if (Array.isArray(payload)) {
+        return payload
+            .map((entry) => String(entry?.method || '').trim())
+            .filter(Boolean);
+    }
+    return [String(payload?.method || '').trim()].filter(Boolean);
+}
+
 router.post('/', async (req: Request, res: Response) => {
     const payload = req.body;
     const explicitCluster = parseCluster(req.query.cluster);
@@ -75,6 +118,32 @@ router.post('/', async (req: Request, res: Response) => {
         return;
     }
 
+    const payloadBytes = Buffer.byteLength(JSON.stringify(payload), 'utf8');
+    if (payloadBytes > MAX_PAYLOAD_BYTES) {
+        res.status(413).json({
+            success: false,
+            error: { message: `Payload too large (max ${MAX_PAYLOAD_BYTES} bytes)` },
+        });
+        return;
+    }
+
+    if (Array.isArray(payload) && payload.length > MAX_BATCH_SIZE) {
+        res.status(400).json({
+            success: false,
+            error: { message: `RPC batch too large (max ${MAX_BATCH_SIZE})` },
+        });
+        return;
+    }
+
+    const methods = getMethodsFromPayload(payload);
+    if (methods.length === 0 || methods.some((method) => !ALLOWED_METHODS.has(method))) {
+        res.status(400).json({
+            success: false,
+            error: { message: 'Unsupported RPC method requested' },
+        });
+        return;
+    }
+
     const endpoints = getRpcEndpoints(cluster);
     let lastError: string | null = null;
 
@@ -84,6 +153,7 @@ router.post('/', async (req: Request, res: Response) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
             });
 
             const responseText = await upstreamResponse.text();

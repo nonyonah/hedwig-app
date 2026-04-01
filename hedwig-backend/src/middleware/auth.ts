@@ -39,6 +39,44 @@ declare global {
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 
+const NON_RETRYABLE_AUTH_ERROR_CODES = new Set([
+    'ERR_JWS_INVALID',
+    'ERR_JWT_INVALID',
+    'ERR_JWT_MALFORMED',
+    'ERR_JWT_EXPIRED',
+    'ERR_JWS_SIGNATURE_VERIFICATION_FAILED',
+]);
+
+const RETRYABLE_NETWORK_ERROR_CODES = new Set([
+    'ECONNRESET',
+    'ECONNREFUSED',
+    'ETIMEDOUT',
+    'ENOTFOUND',
+    'EAI_AGAIN',
+    'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+function isRetryableAuthError(error: unknown): boolean {
+    const err = error as any;
+    const code = String(err?.code || '').trim();
+    const name = String(err?.name || '').trim();
+    const message = String(err?.message || '').toLowerCase();
+
+    if (code && NON_RETRYABLE_AUTH_ERROR_CODES.has(code)) return false;
+    if (name.startsWith('JWT') || name.startsWith('JWS')) return false;
+    if (message.includes('invalid compact jws')) return false;
+    if (message.includes('jwt') && message.includes('invalid')) return false;
+    if (message.includes('token expired')) return false;
+
+    if (code && RETRYABLE_NETWORK_ERROR_CODES.has(code)) return true;
+    if (message.includes('timeout')) return true;
+    if (message.includes('network')) return true;
+    if (message.includes('temporarily unavailable')) return true;
+
+    // Default to no retry so invalid/malformed auth tokens fail fast.
+    return false;
+}
+
 /**
  * Retry logic for token verification (handles transient network issues)
  */
@@ -52,7 +90,8 @@ async function verifyTokenWithRetry(token: string, retries = MAX_RETRIES): Promi
             logger.debug('Token verified successfully');
             return claims;
         } catch (error) {
-            if (attempt === retries) {
+            const shouldRetry = isRetryableAuthError(error);
+            if (!shouldRetry || attempt === retries) {
                 throw error;
             }
             logger.debug('Verification attempt failed, retrying', { attempt, error });

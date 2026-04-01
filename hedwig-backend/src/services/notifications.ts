@@ -2,6 +2,7 @@ import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { createLogger } from '../utils/logger';
 import { formatNetworkLabel } from '../utils/notificationCopy';
+import { AsyncLimiter } from '../utils/asyncLimiter';
 
 const logger = createLogger('Notifications');
 
@@ -48,6 +49,12 @@ interface ExpoPushReceipt {
  * NotificationService - Sends push notifications via Expo Push API
  */
 class NotificationService {
+    private readonly outboundLimiter = new AsyncLimiter(
+        Number(process.env.NOTIFICATIONS_MAX_CONCURRENT_REQUESTS || 15),
+        Number(process.env.NOTIFICATIONS_MAX_QUEUE_SIZE || 800)
+    );
+    private readonly requestTimeoutMs = Number(process.env.NOTIFICATIONS_HTTP_TIMEOUT_MS || 10000);
+
     private getOneSignalConfig() {
         const appId = String(process.env.ONESIGNAL_APP_ID || '').trim();
         const restApiKey = String(process.env.ONESIGNAL_REST_API_KEY || '').trim();
@@ -109,21 +116,24 @@ class NotificationService {
         if (!enabled || externalUserIds.length === 0) return [];
 
         try {
-            const response = await axios.post(
-                ONESIGNAL_NOTIFICATIONS_URL,
-                {
-                    app_id: appId,
-                    include_aliases: {
-                        external_id: externalUserIds,
+            const response = await this.outboundLimiter.run(() =>
+                axios.post(
+                    ONESIGNAL_NOTIFICATIONS_URL,
+                    {
+                        app_id: appId,
+                        include_aliases: {
+                            external_id: externalUserIds,
+                        },
+                        target_channel: 'push',
+                        headings: { en: payload.title },
+                        contents: { en: payload.body },
+                        data: payload.data || {},
                     },
-                    target_channel: 'push',
-                    headings: { en: payload.title },
-                    contents: { en: payload.body },
-                    data: payload.data || {},
-                },
-                {
-                    headers: this.getOneSignalHeaders(restApiKey),
-                }
+                    {
+                        headers: this.getOneSignalHeaders(restApiKey),
+                        timeout: this.requestTimeoutMs,
+                    }
+                )
             );
 
             const notificationId = response.data?.id;
@@ -165,19 +175,22 @@ class NotificationService {
         if (!enabled || subscriptionIds.length === 0) return [];
 
         try {
-            const response = await axios.post(
-                ONESIGNAL_NOTIFICATIONS_URL,
-                {
-                    app_id: appId,
-                    include_subscription_ids: subscriptionIds,
-                    headings: { en: payload.title },
-                    contents: { en: payload.body },
-                    data: payload.data || {},
-                    target_channel: 'push',
-                },
-                {
-                    headers: this.getOneSignalHeaders(restApiKey),
-                }
+            const response = await this.outboundLimiter.run(() =>
+                axios.post(
+                    ONESIGNAL_NOTIFICATIONS_URL,
+                    {
+                        app_id: appId,
+                        include_subscription_ids: subscriptionIds,
+                        headings: { en: payload.title },
+                        contents: { en: payload.body },
+                        data: payload.data || {},
+                        target_channel: 'push',
+                    },
+                    {
+                        headers: this.getOneSignalHeaders(restApiKey),
+                        timeout: this.requestTimeoutMs,
+                    }
+                )
             );
 
             const notificationId = response.data?.id;
@@ -218,18 +231,21 @@ class NotificationService {
         if (!enabled) return [];
 
         try {
-            const response = await axios.post(
-                ONESIGNAL_NOTIFICATIONS_URL,
-                {
-                    app_id: appId,
-                    included_segments: ['Subscribed Users'],
-                    headings: { en: payload.title },
-                    contents: { en: payload.body },
-                    data: payload.data || {},
-                },
-                {
-                    headers: this.getOneSignalHeaders(restApiKey),
-                }
+            const response = await this.outboundLimiter.run(() =>
+                axios.post(
+                    ONESIGNAL_NOTIFICATIONS_URL,
+                    {
+                        app_id: appId,
+                        included_segments: ['Subscribed Users'],
+                        headings: { en: payload.title },
+                        contents: { en: payload.body },
+                        data: payload.data || {},
+                    },
+                    {
+                        headers: this.getOneSignalHeaders(restApiKey),
+                        timeout: this.requestTimeoutMs,
+                    }
+                )
             );
 
             return [{
@@ -327,16 +343,19 @@ class NotificationService {
 
         for (const chunk of chunks) {
             try {
-                const response = await axios.post(
-                    EXPO_RECEIPTS_URL,
-                    { ids: chunk },
-                    {
-                        headers: {
-                            'Accept': 'application/json',
-                            'Accept-Encoding': 'gzip, deflate',
-                            'Content-Type': 'application/json',
-                        },
-                    }
+                const response = await this.outboundLimiter.run(() =>
+                    axios.post(
+                        EXPO_RECEIPTS_URL,
+                        { ids: chunk },
+                        {
+                            headers: {
+                                'Accept': 'application/json',
+                                'Accept-Encoding': 'gzip, deflate',
+                                'Content-Type': 'application/json',
+                            },
+                            timeout: this.requestTimeoutMs,
+                        }
+                    )
                 );
 
                 const receipts = response.data?.data || {};
@@ -380,13 +399,16 @@ class NotificationService {
         };
 
         try {
-            const response = await axios.post(EXPO_PUSH_URL, message, {
-                headers: {
-                    'Accept': 'application/json',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Content-Type': 'application/json',
-                },
-            });
+            const response = await this.outboundLimiter.run(() =>
+                axios.post(EXPO_PUSH_URL, message, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Content-Type': 'application/json',
+                    },
+                    timeout: this.requestTimeoutMs,
+                })
+            );
 
             const ticket = response.data.data?.[0] as ExpoPushTicket;
 
@@ -426,13 +448,16 @@ class NotificationService {
         }
 
         try {
-            const response = await axios.post(EXPO_PUSH_URL, messages, {
-                headers: {
-                    'Accept': 'application/json',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Content-Type': 'application/json',
-                },
-            });
+            const response = await this.outboundLimiter.run(() =>
+                axios.post(EXPO_PUSH_URL, messages, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Content-Type': 'application/json',
+                    },
+                    timeout: this.requestTimeoutMs,
+                })
+            );
 
             const tickets = (response.data.data || []) as ExpoPushTicket[];
             await this.pruneTokensFromTickets(messages, tickets);

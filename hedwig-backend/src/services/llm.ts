@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createLogger } from '../utils/logger';
+import { AsyncLimiter } from '../utils/asyncLimiter';
 
 const logger = createLogger('LLM');
 
@@ -46,6 +47,11 @@ function parseProviders(csv?: string | null): LLMProvider[] {
 }
 
 export class LLMService {
+  private readonly outboundLimiter = new AsyncLimiter(
+    Number(process.env.LLM_MAX_CONCURRENT_REQUESTS || 8),
+    Number(process.env.LLM_MAX_QUEUE_SIZE || 400)
+  );
+
   private readonly openai = process.env.OPENAI_API_KEY
     ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     : null;
@@ -147,12 +153,14 @@ export class LLMService {
         ]
       : [{ role: 'user' as const, content: prompt }];
 
-    const completion = await this.openai.chat.completions.create({
-      model: this.getOpenAIModel(),
-      messages,
-      temperature: options.temperature,
-      max_tokens: options.maxOutputTokens,
-    });
+    const completion = await this.outboundLimiter.run(() =>
+      this.openai!.chat.completions.create({
+        model: this.getOpenAIModel(),
+        messages,
+        temperature: options.temperature,
+        max_tokens: options.maxOutputTokens,
+      })
+    );
 
     const content = completion.choices[0]?.message?.content;
     if (typeof content !== 'string' || !content.trim()) {
@@ -168,17 +176,19 @@ export class LLMService {
       ? `${options.systemPrompt}\n\n---\n\n${prompt}`
       : prompt;
 
-    const result = options.files && options.files.length > 0
-      ? await model.generateContent([
-          { text: combinedPrompt },
-          ...options.files.map((file) => ({
-            inlineData: {
-              mimeType: file.mimeType,
-              data: file.data,
-            },
-          })),
-        ])
-      : await model.generateContent(combinedPrompt);
+    const result = await this.outboundLimiter.run(() =>
+      options.files && options.files.length > 0
+        ? model.generateContent([
+            { text: combinedPrompt },
+            ...options.files.map((file) => ({
+              inlineData: {
+                mimeType: file.mimeType,
+                data: file.data,
+              },
+            })),
+          ])
+        : model.generateContent(combinedPrompt)
+    );
 
     const response = await result.response;
     const text = response.text();

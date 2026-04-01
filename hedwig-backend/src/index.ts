@@ -1,13 +1,14 @@
 import 'dotenv/config';
 import express, { Application, Request, Response } from 'express';
 import path from 'path';
+import crypto from 'crypto';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 // fs was used for legacy contract.html, now using React app
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
-import { getRedis, closeRedis } from './lib/redis';
+import { getRedis, closeRedis, isRedisFailClosed } from './lib/redis';
 
 // Load environment variables (loaded via import 'dotenv/config')
 
@@ -265,6 +266,29 @@ const createLimiter = (prefix: string, max: number, message: string) =>
         store: makeRateLimitStore(prefix),
     });
 
+const getUserAwareRateLimitKey = (req: Request): string => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.slice(7).trim();
+        if (token) {
+            const tokenHash = crypto.createHash('sha256').update(token).digest('hex').slice(0, 24);
+            return `user:${tokenHash}`;
+        }
+    }
+    return `ip:${req.ip || 'unknown'}`;
+};
+
+const createUserAwareLimiter = (prefix: string, max: number, message: string) =>
+    rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max,
+        standardHeaders: true,
+        legacyHeaders: false,
+        message,
+        store: makeRateLimitStore(`${prefix}:user`),
+        keyGenerator: getUserAwareRateLimitKey,
+    });
+
 // Baseline API protection — skip webhooks so external providers are never throttled.
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -278,9 +302,12 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 const authLimiter     = createLimiter('auth',     60,  'Too many authentication requests. Please try again shortly.');
-const aiLimiter       = createLimiter('ai',       40,  'Too many AI requests. Please slow down and try again.');
-const documentLimiter = createLimiter('docs',    180,  'Too many document requests. Please try again later.');
-const financialLimiter = createLimiter('finance', 120, 'Too many financial requests. Please try again later.');
+const aiLimiter       = createUserAwareLimiter('ai',       40,  'Too many AI requests. Please slow down and try again.');
+const documentLimiter = createUserAwareLimiter('docs',    180,  'Too many document requests. Please try again later.');
+const financialLimiter = createUserAwareLimiter('finance', 120, 'Too many financial requests. Please try again later.');
+const transactionsLimiter = createUserAwareLimiter('transactions', 240, 'Too many transaction requests. Please try again shortly.');
+const insightsLimiter = createUserAwareLimiter('insights', 120, 'Too many insights requests. Please try again shortly.');
+const solanaRpcLimiter = createUserAwareLimiter('solana-rpc', 90, 'Too many Solana RPC requests. Please slow down.');
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
@@ -365,7 +392,7 @@ app.use('/api/chat', (req, _res, next) => {
 
 app.use('/api/chat', aiLimiter, chatRoutes);
 app.use('/api/documents', documentLimiter, documentRoutes);
-app.use('/api/transactions', transactionRoutes);
+app.use('/api/transactions', transactionsLimiter, transactionRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/offramp', financialLimiter, offrampRoutes);
 app.use('/api/bridge', bridgeRoutes);
@@ -387,7 +414,7 @@ app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/engagement', engagementRoutes);
-app.use('/api/insights', insightsRoutes);
+app.use('/api/insights', insightsLimiter, insightsRoutes);
 app.use('/api/beneficiaries', beneficiaryRoutes);
 app.use('/api/recipients', recipientRoutes);
 app.use('/api/calendar', calendarRoutes);
@@ -396,7 +423,7 @@ app.use('/api/kyc', kycRoutes);
 app.use('/api/webhooks/didit', diditWebhookRoutes);
 app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);
 app.use('/api/creation-box', aiLimiter, creationBoxRoutes);
-app.use('/api/solana/rpc', solanaRpcRoutes);
+app.use('/api/solana/rpc', solanaRpcLimiter, solanaRpcRoutes);
 app.use('/api/usd-accounts', (req, _res, next) => {
     logger.info('USD account route hit', {
         method: req.method,
@@ -461,7 +488,7 @@ const server = app.listen(Number(PORT), HOST, () => {
     logger.info('Hedwig Backend started', { host: HOST, port: PORT });
     logger.info('Environment', { env: process.env.NODE_ENV });
     logger.info('Proxy trust configured', { trustProxy: app.get('trust proxy') });
-    logger.info('Redis rate limiting', { enabled: !!getRedis() });
+    logger.info('Redis rate limiting', { enabled: !!getRedis(), failClosed: isRedisFailClosed() });
     logger.info('Scheduler mode', { mode: process.env.SCHEDULER_MODE || 'in-process' });
 });
 

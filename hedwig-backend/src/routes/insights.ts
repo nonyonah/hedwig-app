@@ -10,6 +10,9 @@ const router = Router();
 
 type RangeKey = '7d' | '30d' | '90d' | '1y' | 'ytd';
 
+const INSIGHTS_PAGE_SIZE = Math.max(100, Number(process.env.INSIGHTS_PAGE_SIZE || 500));
+const INSIGHTS_MAX_ROWS = Math.max(INSIGHTS_PAGE_SIZE, Number(process.env.INSIGHTS_MAX_ROWS || 20000));
+
 const toNumber = (value: unknown): number => {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value === 'string') {
@@ -32,6 +35,55 @@ const getRangeStart = (range: RangeKey): Date => {
 
 const monthKey = (d: Date): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
+async function fetchPagedRows<T>(
+    label: string,
+    fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
+): Promise<T[]> {
+    const rows: T[] = [];
+
+    for (let from = 0; from < INSIGHTS_MAX_ROWS; from += INSIGHTS_PAGE_SIZE) {
+        const to = from + INSIGHTS_PAGE_SIZE - 1;
+        const { data, error } = await fetchPage(from, to);
+        if (error) {
+            throw new Error(`${label} query failed: ${error.message || 'unknown error'}`);
+        }
+        const page = data || [];
+        rows.push(...page);
+        if (page.length < INSIGHTS_PAGE_SIZE) break;
+    }
+
+    if (rows.length >= INSIGHTS_MAX_ROWS) {
+        logger.warn('Insights row cap reached; truncating results', {
+            label,
+            cap: INSIGHTS_MAX_ROWS,
+        });
+    }
+
+    return rows;
+}
+
+const getCountOrThrow = (label: string, result: { count: number | null; error: any }): number => {
+    if (result.error) {
+        throw new Error(`${label} count query failed: ${result.error.message || 'unknown error'}`);
+    }
+    return Number(result.count || 0);
+};
+
+async function sumOutstandingInvoiceUsd(userId: string): Promise<number> {
+    const rows = await fetchPagedRows<{ amount: unknown }>('outstanding_invoices', (from, to) =>
+        supabase
+            .from('documents')
+            .select('amount')
+            .eq('user_id', userId)
+            .eq('type', 'INVOICE')
+            .neq('status', 'PAID')
+            .order('created_at', { ascending: false })
+            .range(from, to)
+    );
+
+    return rows.reduce((sum, row) => sum + toNumber((row as any).amount), 0);
+}
+
 router.get('/assistant-summary', authenticate, async (req: Request, res: Response, next) => {
     try {
         const privyId = req.user!.id;
@@ -41,65 +93,74 @@ router.get('/assistant-summary', authenticate, async (req: Request, res: Respons
             return;
         }
 
-        const [docsRes, projectsRes, calendarRes, notificationsRes, offrampsRes] = await Promise.all([
+        const nowIso = new Date().toISOString();
+
+        const [
+            overdueInvoicesResult,
+            activePaymentLinksResult,
+            activeProjectsResult,
+            pendingWithdrawalsResult,
+            calendarRes,
+            notificationsRes,
+            outstandingUsd,
+        ] = await Promise.all([
             supabase
                 .from('documents')
-                .select('id,type,status,amount,title,content,created_at,updated_at')
-                .eq('user_id', user.id),
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('type', 'INVOICE')
+                .eq('status', 'OVERDUE'),
+            supabase
+                .from('documents')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('type', 'PAYMENT_LINK')
+                .in('status', ['ACTIVE', 'SENT', 'PENDING']),
             supabase
                 .from('projects')
-                .select('id,title,status')
-                .eq('user_id', user.id),
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .in('status', ['ACTIVE', 'ONGOING', 'ON_HOLD', 'PAUSED']),
+            supabase
+                .from('offramp_orders')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .in('status', ['PENDING', 'PROCESSING']),
             supabase
                 .from('calendar_events')
                 .select('id,title,event_date,status')
                 .eq('user_id', user.id)
                 .neq('status', 'cancelled')
+                .gte('event_date', nowIso)
                 .order('event_date', { ascending: true })
-                .limit(5),
+                .limit(1),
             supabase
                 .from('notifications')
                 .select('id,title,message,created_at')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false })
-                .limit(5),
-            supabase
-                .from('offramp_orders')
-                .select('id,status')
-                .eq('user_id', user.id),
+                .limit(1),
+            sumOutstandingInvoiceUsd(user.id),
         ]);
 
-        const docs = docsRes.data || [];
-        const projects = projectsRes.data || [];
-        const calendarEvents = calendarRes.data || [];
-        const notifications = notificationsRes.data || [];
-        const offramps = offrampsRes.data || [];
+        const overdueInvoices = getCountOrThrow('overdue_invoices', overdueInvoicesResult);
+        const activePaymentLinks = getCountOrThrow('active_payment_links', activePaymentLinksResult);
+        const activeProjects = getCountOrThrow('active_projects', activeProjectsResult);
+        const pendingWithdrawals = getCountOrThrow('pending_withdrawals', pendingWithdrawalsResult);
 
-        const overdueInvoices = docs.filter((document: any) =>
-            normalizeStatus(document.type) === 'INVOICE' && normalizeStatus(document.status) === 'OVERDUE'
-        );
-        const outstandingUsd = docs
-            .filter((document: any) =>
-                normalizeStatus(document.type) === 'INVOICE' &&
-                normalizeStatus(document.status) !== 'PAID'
-            )
-            .reduce((sum: number, document: any) => sum + toNumber(document.amount), 0);
-        const activePaymentLinks = docs.filter((document: any) =>
-            normalizeStatus(document.type) === 'PAYMENT_LINK' &&
-            ['ACTIVE', 'SENT', 'PENDING'].includes(normalizeStatus(document.status))
-        ).length;
-        const activeProjects = projects.filter((project: any) =>
-            ['ACTIVE', 'ONGOING', 'ON_HOLD', 'PAUSED'].includes(normalizeStatus(project.status))
-        ).length;
-        const upcomingEvent = calendarEvents.find((event: any) => new Date(event.event_date) >= new Date()) || null;
-        const latestNotification = notifications[0] || null;
-        const pendingWithdrawals = offramps.filter((order: any) =>
-            ['PENDING', 'PROCESSING'].includes(normalizeStatus(order.status))
-        ).length;
+        if (calendarRes.error) {
+            throw new Error(`calendar query failed: ${calendarRes.error.message || 'unknown error'}`);
+        }
+        if (notificationsRes.error) {
+            throw new Error(`notifications query failed: ${notificationsRes.error.message || 'unknown error'}`);
+        }
+
+        const upcomingEvent = (calendarRes.data || [])[0] || null;
+        const latestNotification = (notificationsRes.data || [])[0] || null;
 
         const summary = await GeminiService.generateDashboardAssistantSummary({
             firstName: user.first_name || null,
-            overdueInvoices: overdueInvoices.length,
+            overdueInvoices,
             outstandingUsd,
             activePaymentLinks,
             activeProjects,
@@ -115,7 +176,7 @@ router.get('/assistant-summary', authenticate, async (req: Request, res: Respons
             data: {
                 summary,
                 snapshot: {
-                    overdueInvoices: overdueInvoices.length,
+                    overdueInvoices,
                     outstandingUsd,
                     activePaymentLinks,
                     activeProjects,
@@ -139,7 +200,9 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
         const start = getRangeStart(range);
         const now = new Date();
         const rangeMs = now.getTime() - start.getTime();
-        const prevStartIso = new Date(start.getTime() - rangeMs).toISOString();
+        const prevStart = new Date(start.getTime() - rangeMs);
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+        const docsSince = new Date(Math.min(prevStart.getTime(), sixMonthsAgo.getTime()));
 
         const privyId = req.user!.id;
         const user = await getOrCreateUser(privyId);
@@ -148,39 +211,65 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
-        const [docsRes, clientsRes, projectsRes, txRes, offrampRes] = await Promise.all([
-            supabase
-                .from('documents')
-                .select('id,type,status,amount,created_at,title,content')
-                .eq('user_id', user.id),
+        const [docs, txs, offramps, clientsCountRes, activeProjectsRes, topClientRes] = await Promise.all([
+            fetchPagedRows<any>('documents_summary', (from, to) =>
+                supabase
+                    .from('documents')
+                    .select('id,type,status,amount,created_at,title,content')
+                    .eq('user_id', user.id)
+                    .gte('created_at', docsSince.toISOString())
+                    .order('created_at', { ascending: false })
+                    .range(from, to)
+            ),
+            fetchPagedRows<any>('transactions_summary', (from, to) =>
+                supabase
+                    .from('transactions')
+                    .select('id,type,status,amount,created_at,timestamp')
+                    .eq('user_id', user.id)
+                    .gte('created_at', prevStart.toISOString())
+                    .order('created_at', { ascending: false })
+                    .range(from, to)
+            ),
+            fetchPagedRows<any>('offramp_summary', (from, to) =>
+                supabase
+                    .from('offramp_orders')
+                    .select('id,status,fiat_amount,fiat_currency,created_at')
+                    .eq('user_id', user.id)
+                    .gte('created_at', prevStart.toISOString())
+                    .order('created_at', { ascending: false })
+                    .range(from, to)
+            ),
             supabase
                 .from('clients')
-                .select('id,name,total_earnings,created_at')
+                .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id),
             supabase
                 .from('projects')
-                .select('id,status,created_at')
-                .eq('user_id', user.id),
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .in('status', ['ONGOING', 'ACTIVE', 'ON_HOLD']),
             supabase
-                .from('transactions')
-                .select('id,type,status,amount,created_at,timestamp')
-                .eq('user_id', user.id),
-            supabase
-                .from('offramp_orders')
-                .select('id,status,fiat_amount,fiat_currency,created_at')
-                .eq('user_id', user.id),
+                .from('clients')
+                .select('name,total_earnings')
+                .eq('user_id', user.id)
+                .order('total_earnings', { ascending: false })
+                .limit(1),
         ]);
 
-        const docs = docsRes.data || [];
-        const clients = clientsRes.data || [];
-        const projects = projectsRes.data || [];
-        const txs = txRes.data || [];
-        const offramps = offrampRes.data || [];
+        const clientsCount = getCountOrThrow('clients', clientsCountRes);
+        const activeProjects = getCountOrThrow('active_projects', activeProjectsRes);
+        if (topClientRes.error) {
+            throw new Error(`top_client query failed: ${topClientRes.error.message || 'unknown error'}`);
+        }
+        const topClientRow = (topClientRes.data || [])[0];
+        const topClient = topClientRow
+            ? { name: topClientRow.name, totalEarnings: toNumber(topClientRow.total_earnings) }
+            : null;
 
         const docsInRange = docs.filter((d: any) => new Date(d.created_at) >= start);
         const docsInPrevRange = docs.filter((d: any) => {
             const created = new Date(d.created_at);
-            return created >= new Date(prevStartIso) && created < start;
+            return created >= prevStart && created < start;
         });
 
         const isPaidDoc = (d: any) => normalizeStatus(d.status) === 'PAID';
@@ -197,15 +286,8 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
         const pendingInvoicesTotal = pendingInvoices.reduce((sum: number, d: any) => sum + toNumber(d.amount), 0);
 
         const totalDocuments = docsInRange.length;
-        const paidDocuments = docsInRange.filter(isPaidDoc).length;
+        const paidDocuments = paidInRange.length;
         const paymentRate = totalDocuments > 0 ? Math.round((paidDocuments / totalDocuments) * 100) : 0;
-
-        const activeProjects = projects.filter((p: any) => ['ONGOING', 'ACTIVE', 'ON_HOLD'].includes(normalizeStatus(p.status))).length;
-        const clientsCount = clients.length;
-        const sortedClients = [...clients].sort((a: any, b: any) => toNumber(b.total_earnings) - toNumber(a.total_earnings));
-        const topClient = sortedClients[0]
-            ? { name: sortedClients[0].name, totalEarnings: toNumber(sortedClients[0].total_earnings) }
-            : null;
 
         const txInRange = txs.filter((t: any) => new Date(t.created_at || t.timestamp) >= start);
         const receivedAmount = txInRange

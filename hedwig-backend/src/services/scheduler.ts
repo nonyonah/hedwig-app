@@ -14,6 +14,10 @@ const logger = createLogger('Scheduler');
 // Max users to process in parallel per scheduler run.
 // Prevents a single Cloud Run instance from opening hundreds of DB/API connections at once.
 const SCHEDULER_CONCURRENCY = Number(process.env.SCHEDULER_CONCURRENCY || '5');
+const SCHEDULER_MAX_USERS_PER_RUN = Number(process.env.SCHEDULER_MAX_USERS_PER_RUN || '5000');
+const SCHEDULER_MAX_DOCUMENTS_PER_RUN = Number(process.env.SCHEDULER_MAX_DOCUMENTS_PER_RUN || '5000');
+const SCHEDULER_MAX_MILESTONES_PER_RUN = Number(process.env.SCHEDULER_MAX_MILESTONES_PER_RUN || '5000');
+const SCHEDULER_ONESIGNAL_LAST_SEEN_LIMIT = Number(process.env.SCHEDULER_ONESIGNAL_LAST_SEEN_LIMIT || '10000');
 
 async function processInBatches<T>(
     items: T[],
@@ -113,7 +117,7 @@ export const SchedulerService = {
             .select('user_id, last_seen_at')
             .not('last_seen_at', 'is', null)
             .order('last_seen_at', { ascending: false })
-            .limit(10000);
+            .limit(SCHEDULER_ONESIGNAL_LAST_SEEN_LIMIT);
 
         if (error) {
             logger.warn('Failed to fetch OneSignal last_seen activity for nudge targeting', {
@@ -185,11 +189,15 @@ export const SchedulerService = {
 
             const { data: users, error } = await supabase
                 .from('users')
-                .select('id, privy_id, email, first_name, last_name, last_app_opened_at, last_dormant_nudge_at, last_login');
+                .select('id, privy_id, email, first_name, last_name, last_app_opened_at, last_dormant_nudge_at, last_login')
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
 
             if (error) {
                 logger.error('Failed to fetch dormant users', { error: error.message });
                 return;
+            }
+            if ((users || []).length >= SCHEDULER_MAX_USERS_PER_RUN) {
+                logger.warn('Dormant user nudge query reached max per run cap', { cap: SCHEDULER_MAX_USERS_PER_RUN });
             }
 
             const oneSignalLastSeenMap = await this.getOneSignalLastSeenMap();
@@ -279,11 +287,15 @@ export const SchedulerService = {
             const { data: users, error } = await supabase
                 .from('users')
                 .select('id, privy_id, email, first_name, kyc_status, kyc_started_at, last_app_opened_at, last_kyc_nudge_at, last_login')
-                .in('kyc_status', ['not_started', 'pending', 'retry_required']);
+                .in('kyc_status', ['not_started', 'pending', 'retry_required'])
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
 
             if (error) {
                 logger.error('Failed to fetch KYC nudge users', { error: error.message });
                 return;
+            }
+            if ((users || []).length >= SCHEDULER_MAX_USERS_PER_RUN) {
+                logger.warn('KYC nudge query reached max per run cap', { cap: SCHEDULER_MAX_USERS_PER_RUN });
             }
 
             const oneSignalLastSeenMap = await this.getOneSignalLastSeenMap();
@@ -386,11 +398,15 @@ export const SchedulerService = {
 
             const { data: users, error } = await supabase
                 .from('users')
-                .select('id, privy_id, email, first_name, last_app_opened_at, last_login, last_feature_nudge_at, last_dormant_nudge_at');
+                .select('id, privy_id, email, first_name, last_app_opened_at, last_login, last_feature_nudge_at, last_dormant_nudge_at')
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
 
             if (error) {
                 logger.error('Failed to fetch users for feature-highlight nudges', { error: error.message });
                 return;
+            }
+            if ((users || []).length >= SCHEDULER_MAX_USERS_PER_RUN) {
+                logger.warn('Feature nudge query reached max per run cap', { cap: SCHEDULER_MAX_USERS_PER_RUN });
             }
 
             const oneSignalLastSeenMap = await this.getOneSignalLastSeenMap();
@@ -513,11 +529,15 @@ export const SchedulerService = {
 
             const { data: users, error } = await supabase
                 .from('users')
-                .select('id, privy_id, email, first_name, last_app_opened_at, last_login, last_rate_nudge_at');
+                .select('id, privy_id, email, first_name, last_app_opened_at, last_login, last_rate_nudge_at')
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
 
             if (error) {
                 logger.error('Failed to fetch users for Paycrest rate nudges', { error: error.message });
                 return;
+            }
+            if ((users || []).length >= SCHEDULER_MAX_USERS_PER_RUN) {
+                logger.warn('Paycrest rate nudge query reached max per run cap', { cap: SCHEDULER_MAX_USERS_PER_RUN });
             }
 
             const oneSignalLastSeenMap = await this.getOneSignalLastSeenMap();
@@ -681,10 +701,14 @@ export const SchedulerService = {
                 .from('recurring_invoices')
                 .select('*')
                 .eq('status', 'active')
-                .lte('next_due_date', today);
+                .lte('next_due_date', today)
+                .limit(SCHEDULER_MAX_DOCUMENTS_PER_RUN);
 
             if (error) { logger.error('Failed to fetch recurring invoices'); return; }
             if (!templates || templates.length === 0) { logger.debug('No recurring invoices due'); return; }
+            if (templates.length >= SCHEDULER_MAX_DOCUMENTS_PER_RUN) {
+                logger.warn('Recurring invoice query reached max per run cap', { cap: SCHEDULER_MAX_DOCUMENTS_PER_RUN });
+            }
 
             logger.info('Processing recurring invoices', { count: templates.length });
 
@@ -731,7 +755,8 @@ export const SchedulerService = {
                     user:users(id, first_name, last_name, email)
                 `)
                 .in('status', ['DRAFT', 'SENT', 'PENDING'])
-                .not('content->due_date', 'is', null);
+                .not('content->due_date', 'is', null)
+                .limit(SCHEDULER_MAX_DOCUMENTS_PER_RUN);
 
             if (error) {
                 logger.error('Failed to fetch documents for due date reminders');
@@ -741,6 +766,9 @@ export const SchedulerService = {
             if (!documents || documents.length === 0) {
                 logger.debug('No documents with due dates found');
                 return;
+            }
+            if (documents.length >= SCHEDULER_MAX_DOCUMENTS_PER_RUN) {
+                logger.warn('Due-date document query reached max per run cap', { cap: SCHEDULER_MAX_DOCUMENTS_PER_RUN });
             }
 
             logger.debug('Checking documents for due date reminders', { count: documents.length });
@@ -864,9 +892,13 @@ export const SchedulerService = {
                     )
                 `)
                 .in('status', ['pending', 'invoiced'])
-                .not('due_date', 'is', null);
+                .not('due_date', 'is', null)
+                .limit(SCHEDULER_MAX_MILESTONES_PER_RUN);
 
             if (error || !milestones) return;
+            if (milestones.length >= SCHEDULER_MAX_MILESTONES_PER_RUN) {
+                logger.warn('Milestone reminder query reached max per run cap', { cap: SCHEDULER_MAX_MILESTONES_PER_RUN });
+            }
 
             for (const milestone of milestones) {
                 const dueDate = parseISO(milestone.due_date);
@@ -930,7 +962,8 @@ export const SchedulerService = {
                 `)
                 .in('status', ['SENT', 'DRAFT'])
                 .neq('type', 'CONTRACT')
-                .lt('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()); // Older than 7 days
+                .lt('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Older than 7 days
+                .limit(SCHEDULER_MAX_DOCUMENTS_PER_RUN);
 
             if (error) {
                 logger.error('Failed to fetch documents');
@@ -940,6 +973,9 @@ export const SchedulerService = {
             if (!documents || documents.length === 0) {
                 logger.debug('No overdue documents found');
                 return;
+            }
+            if (documents.length >= SCHEDULER_MAX_DOCUMENTS_PER_RUN) {
+                logger.warn('Overdue document query reached max per run cap', { cap: SCHEDULER_MAX_DOCUMENTS_PER_RUN });
             }
 
             logger.debug('Found potentially overdue documents', { count: documents.length });
