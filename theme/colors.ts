@@ -1,3 +1,5 @@
+import { Color } from 'expo-router';
+import { useColorScheme, Platform, type ColorValue } from 'react-native';
 import { useSettings } from '../context/SettingsContext';
 
 // Light mode colors (existing)
@@ -16,7 +18,7 @@ const LightColors = {
     textTertiary: '#94A3B8', // Slate-400
     textPlaceholder: '#CBD5E1', // Slate-300
 
-    border: '#E2E8F0', // Slate-200
+    border: 'rgba(15, 23, 42, 0.08)', // Softer divider for light surfaces
 
     success: '#10B981', // Emerald-500
     successBackground: '#D1FAE5', // Emerald-100
@@ -56,7 +58,7 @@ const DarkColors = {
     textTertiary: '#71717A', // Zinc-500
     textPlaceholder: '#52525B', // Zinc-600
 
-    border: '#27272A', // Zinc-800
+    border: 'rgba(255, 255, 255, 0.10)', // Softer divider for dark surfaces
 
     success: '#22C55E', // Green-500
     successBackground: '#14532D', // Green-900
@@ -82,10 +84,41 @@ const DarkColors = {
 
 export type ThemeColors = typeof LightColors;
 
+const getAndroidDynamicColor = (name: string, fallback: string): ColorValue => {
+    if (Platform.OS !== 'android') return fallback;
+    return ((Color as any).android?.dynamic?.[name] as ColorValue | undefined) ?? fallback;
+};
+
 export function useThemeColors(): ThemeColors {
     const settings = useSettings();
+    useColorScheme(); // Keep Android dynamic colors in sync with system theme changes.
+
     const isDark = settings.currentTheme === 'dark';
-    return isDark ? DarkColors : LightColors;
+    const palette = isDark ? DarkColors : LightColors;
+
+    if (Platform.OS !== 'android') {
+        return palette;
+    }
+
+    return {
+        ...palette,
+        primary: getAndroidDynamicColor('primary', palette.primary) as any,
+        primaryDark: getAndroidDynamicColor('primaryContainer', palette.primaryDark) as any,
+        primaryLight: getAndroidDynamicColor('primaryFixedDim', palette.primaryLight) as any,
+        secondary: getAndroidDynamicColor('secondary', palette.secondary) as any,
+        // Keep page background neutral and lift cards/blocks using higher surface containers for contrast.
+        background: getAndroidDynamicColor('surface', palette.background) as any,
+        surface: getAndroidDynamicColor('surfaceContainerHigh', palette.surface) as any,
+        surfaceHighlight: getAndroidDynamicColor('surfaceContainerHighest', palette.surfaceHighlight) as any,
+        textPrimary: getAndroidDynamicColor('onSurface', palette.textPrimary) as any,
+        textSecondary: getAndroidDynamicColor('onSurfaceVariant', palette.textSecondary) as any,
+        textTertiary: getAndroidDynamicColor('outline', palette.textTertiary) as any,
+        textPlaceholder: getAndroidDynamicColor('outlineVariant', palette.textPlaceholder) as any,
+        border: getAndroidDynamicColor('outlineVariant', palette.border) as any,
+        cardBackground: getAndroidDynamicColor('surfaceContainerHighest', palette.cardBackground) as any,
+        inputBackground: getAndroidDynamicColor('surfaceContainerHigh', palette.inputBackground) as any,
+        modalBackground: getAndroidDynamicColor('surfaceContainerHighest', palette.modalBackground) as any,
+    };
 }
 
 export function useKeyboardAppearance(): 'dark' | 'light' {

@@ -94,7 +94,16 @@ export default function SettingsScreen() {
 
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { theme, setTheme, hapticsEnabled, setHapticsEnabled, liveTrackingEnabled, setLiveTrackingEnabled } = useSettings();
+    const {
+        theme,
+        setTheme,
+        hapticsEnabled,
+        setHapticsEnabled,
+        liveTrackingEnabled,
+        setLiveTrackingEnabled,
+        lockScreenEnabled,
+        setLockScreenEnabled
+    } = useSettings();
     const themeColors = useThemeColors();
     const { user, logout, getAccessToken } = useAuth();
 
@@ -578,6 +587,19 @@ export default function SettingsScreen() {
                             ios_backgroundColor={themeColors.border}
                             value={biometricsEnabled}
                             onValueChange={toggleBiometrics}
+                        />
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <View style={styles.settingRow}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Lock Screen</Text>
+                        <Switch
+                            trackColor={{ false: themeColors.border, true: Colors.success }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor={themeColors.border}
+                            value={lockScreenEnabled}
+                            onValueChange={(value) => { void setLockScreenEnabled(value); }}
                         />
                     </View>
 

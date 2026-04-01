@@ -1,6 +1,7 @@
 import React from 'react';
 import { Platform, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import type { IconSvgElement } from '@hugeicons/react-native';
 import {
@@ -590,6 +591,106 @@ const SF_SYMBOL_MAP: Partial<Record<AppIconName, string>> = {
     Briefcase: 'briefcase',
 };
 
+const MATERIAL_ICON_MAP: Record<AppIconName, string> = {
+    Home: 'home-outline',
+    Receipt: 'receipt-text-outline',
+    Link2: 'link-variant',
+    FileText: 'file-document-outline',
+    Wallet2: 'wallet-outline',
+    Settings: 'cog-outline',
+    Copy: 'content-copy',
+    QrCode: 'qrcode',
+    ChevronDown: 'chevron-down',
+    ChevronLeft: 'chevron-left',
+    X: 'close',
+    ArrowUp: 'arrow-up',
+    ArrowUpDown: 'arrow-up-down',
+    Delete: 'delete-outline',
+    ScanLine: 'qrcode-scan',
+    Wallet: 'wallet-outline',
+    History: 'history',
+    List: 'format-list-bulleted',
+    Clock: 'clock-outline',
+    CheckCircle: 'check-circle-outline',
+    AlertCircle: 'alert-circle-outline',
+    TriangleAlert: 'alert-outline',
+    CircleUser: 'account-circle-outline',
+    Share2: 'share-variant-outline',
+    Trash: 'trash-can-outline',
+    Bell: 'bell-outline',
+    MoreHorizontal: 'dots-horizontal',
+    Landmark: 'bank-outline',
+    ArrowDown: 'arrow-down',
+    RotateCcw: 'refresh',
+    Search: 'magnify',
+    DollarSign: 'currency-usd-circle-outline',
+    Megaphone: 'bullhorn-outline',
+    Link: 'link-variant',
+    ArrowUpRight: 'arrow-top-right',
+    ArrowDownLeft: 'arrow-bottom-left',
+    ArrowLeftRight: 'swap-horizontal',
+    CircleCheck: 'check-circle-outline',
+    Send: 'send-outline',
+    Eye: 'eye-outline',
+    Ellipsis: 'dots-horizontal',
+    ChevronRight: 'chevron-right',
+    Check: 'check',
+    ShieldAlert: 'shield-alert-outline',
+    Lock: 'lock-outline',
+    CircleAlert: 'alert-circle-outline',
+    SquareCheck: 'checkbox-marked-outline',
+    Square: 'checkbox-blank-outline',
+    Plus: 'plus',
+    ScrollText: 'file-document-outline',
+    Briefcase: 'briefcase-outline',
+    Inbox: 'inbox-outline',
+    CircleX: 'close-circle-outline',
+    House: 'home-outline',
+    MessageCircle: 'message-outline',
+    LogOut: 'logout',
+    Users: 'account-group-outline',
+    ChartBar: 'chart-bar',
+    Calendar: 'calendar-outline',
+    Download: 'download',
+    User: 'account-outline',
+    Mail: 'email-outline',
+    ShieldCheck: 'shield-check-outline',
+    ArrowRight: 'arrow-right',
+    Timer: 'timer-outline',
+    Minus: 'minus',
+    Bug: 'bug-outline',
+    Lightbulb: 'lightbulb-outline',
+    Fingerprint: 'fingerprint',
+    SquareArrowOutUpRight: 'open-in-new',
+    Flag: 'flag-outline',
+    Signpost: 'sign-direction',
+    MessageSquare: 'message-text-outline',
+    Paperclip: 'paperclip',
+    ListPlus: 'playlist-plus',
+    Trash2: 'trash-can-outline',
+    Phone: 'phone-outline',
+    Pencil: 'pencil-outline',
+    Building2: 'office-building-outline',
+    TrendingUp: 'trending-up',
+    TrendingDown: 'trending-down',
+    Sparkles: 'sparkles',
+    Camera: 'camera-outline',
+    CalendarCheck: 'calendar-check-outline',
+    Tag: 'tag-outline',
+    Coins: 'bitcoin',
+    File: 'file-outline',
+    Image: 'image-outline',
+    ThumbsUp: 'thumb-up-outline',
+    ThumbsDown: 'thumb-down-outline',
+    RefreshCw: 'refresh',
+    BarChart3: 'chart-bar',
+    FolderOpen: 'folder-open-outline',
+    Transaction: 'swap-horizontal',
+    Analytics01: 'chart-line',
+    ReverseWithdrawal01: 'bank-transfer-out',
+    Folder01: 'folder-outline',
+};
+
 const getHugeicon = (candidate: string): IconSvgElement | null => {
     const raw = ICON_MAP[candidate] as unknown;
     // Hugeicons exports can be object/function-like icon payloads.
@@ -620,6 +721,7 @@ export function AppIcon({
     const resolvedColor = color ?? themeColors.textSecondary;
     const icon = resolveIcon(name);
     const sfSymbol = Platform.OS === 'ios' ? SF_SYMBOL_MAP[name] : undefined;
+    const materialIcon = Platform.OS === 'android' ? MATERIAL_ICON_MAP[name] : undefined;
 
     if (Platform.OS === 'ios' && SwiftUIHost && SwiftUIImage && sfSymbol) {
         return (
@@ -628,6 +730,28 @@ export function AppIcon({
                     <SwiftUIImage systemName={sfSymbol} size={size} color={resolvedColor} />
                 </SwiftUIHost>
             </View>
+        );
+    }
+
+    if (Platform.OS === 'android' && materialIcon) {
+        return (
+            <MaterialCommunityIcons
+                name={materialIcon as any}
+                size={size}
+                color={resolvedColor}
+                style={style}
+            />
+        );
+    }
+
+    if (Platform.OS === 'android') {
+        return (
+            <MaterialCommunityIcons
+                name="help-circle-outline"
+                size={size}
+                color={resolvedColor}
+                style={style}
+            />
         );
     }
 

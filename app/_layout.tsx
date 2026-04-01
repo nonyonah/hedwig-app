@@ -38,6 +38,7 @@ const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || '';
 
 declare global {
     var __hedwigApiFetchPatched: boolean | undefined;
+    var __hedwigIOSFontAliasPatched: boolean | undefined;
 }
 
 const installApiFetchRewrite = () => {
@@ -71,17 +72,48 @@ const installApiFetchRewrite = () => {
 
 installApiFetchRewrite();
 
-const applyGlobalGoogleSansFlexDefaults = () => {
+const installIOSSystemFontAliases = () => {
+    if (Platform.OS !== 'ios' || globalThis.__hedwigIOSFontAliasPatched) {
+        return;
+    }
+
+    const setStyleAttributePreprocessor = (StyleSheet as any).setStyleAttributePreprocessor;
+    if (typeof setStyleAttributePreprocessor !== 'function') {
+        return;
+    }
+
+    setStyleAttributePreprocessor('fontFamily', (fontFamily: any) => {
+        if (typeof fontFamily !== 'string') {
+            return fontFamily;
+        }
+
+        if (
+            fontFamily.startsWith('GoogleSansFlex_') ||
+            fontFamily.startsWith('GoogleSans_')
+        ) {
+            return 'System';
+        }
+
+        return fontFamily;
+    });
+
+    globalThis.__hedwigIOSFontAliasPatched = true;
+};
+
+installIOSSystemFontAliases();
+
+const applyGlobalTypographyDefaults = () => {
+    const defaultFontFamily = Platform.OS === 'android' ? 'GoogleSansFlex_400Regular' : 'System';
     const textDefaults = (Text as any).defaultProps || {};
     (Text as any).defaultProps = {
         ...textDefaults,
-        style: [{ fontFamily: 'GoogleSansFlex_400Regular' }, textDefaults.style].filter(Boolean),
+        style: [{ fontFamily: defaultFontFamily }, textDefaults.style].filter(Boolean),
     };
 
     const textInputDefaults = (TextInput as any).defaultProps || {};
     (TextInput as any).defaultProps = {
         ...textInputDefaults,
-        style: [{ fontFamily: 'GoogleSansFlex_400Regular' }, textInputDefaults.style].filter(Boolean),
+        style: [{ fontFamily: defaultFontFamily }, textInputDefaults.style].filter(Boolean),
     };
 };
 
@@ -131,6 +163,12 @@ function ThemedStack() {
             <Stack.Screen name="wallet/send" />
             <Stack.Screen name="wallet/send-address" />
             <Stack.Screen name="wallet/send-token" />
+            <Stack.Screen
+                name="creation-box"
+                options={{
+                    headerShown: false,
+                }}
+            />
 
             <Stack.Screen name="notifications/index" />
             <Stack.Screen name="insights/index" />
@@ -170,6 +208,12 @@ function WebLayout() {
             <Stack.Screen name="wallet/send" />
             <Stack.Screen name="wallet/send-address" />
             <Stack.Screen name="wallet/send-token" />
+            <Stack.Screen
+                name="creation-box"
+                options={{
+                    headerShown: false,
+                }}
+            />
             <Stack.Screen name="notifications/index" />
             <Stack.Screen name="insights/index" />
         </Stack>
@@ -434,12 +478,20 @@ function PushNotificationBootstrap() {
 // Handles app-lock on launch and when returning from background
 function AppLockGate({ children }: { children: React.ReactNode }) {
     const { user, isReady } = useAuth();
+    const { lockScreenEnabled } = useSettings();
     const [isLocked, setIsLocked] = useState(false);
     const hasBeenToBackground = React.useRef(false);
     const initialLockChecked = React.useRef(false);
 
+    useEffect(() => {
+        if (!lockScreenEnabled) {
+            setIsLocked(false);
+        }
+    }, [lockScreenEnabled]);
+
     // Lock on fresh app open (killed + reopened)
     useEffect(() => {
+        if (!lockScreenEnabled) return;
         if (!user || !isReady || initialLockChecked.current) return;
         initialLockChecked.current = true;
         (async () => {
@@ -455,10 +507,11 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
                 // Don't block on error
             }
         })();
-    }, [user, isReady]);
+    }, [user, isReady, lockScreenEnabled]);
 
     useEffect(() => {
         const subscription = AppState.addEventListener('change', async (nextState) => {
+            if (!lockScreenEnabled) return;
             if (nextState === 'background') {
                 // Only true background (not inactive, which happens during biometric prompts)
                 if (user) hasBeenToBackground.current = true;
@@ -479,7 +532,7 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
             }
         });
         return () => subscription.remove();
-    }, [user, isReady]);
+    }, [user, isReady, lockScreenEnabled]);
 
     return (
         <View style={{ flex: 1 }}>
@@ -537,6 +590,7 @@ function NativeLayout() {
 
 function ThemeAwareStatusBar() {
     const { currentTheme } = useSettings();
+    const colors = useThemeColors();
     const isDark = currentTheme === 'dark';
 
     if (Platform.OS !== 'android') {
@@ -546,7 +600,7 @@ function ThemeAwareStatusBar() {
     return (
         <StatusBar
             style={isDark ? 'light' : 'dark'}
-            backgroundColor={isDark ? '#000000' : '#FFFFFF'}
+            backgroundColor={colors.background as any}
         />
     );
 }
@@ -593,20 +647,29 @@ function RootLayout() {
         }
     }, [ref]);
 
-    const [fontsLoaded] = useFonts({
-        GoogleSansFlex_400Regular,
-        GoogleSansFlex_500Medium,
-        GoogleSansFlex_600SemiBold,
-        Merriweather_300Light,
-        Merriweather_400Regular,
-        Merriweather_700Bold,
-        Merriweather_900Black,
-    });
+    const [fontsLoaded] = useFonts(
+        Platform.OS === 'android'
+            ? {
+                GoogleSansFlex_400Regular,
+                GoogleSansFlex_500Medium,
+                GoogleSansFlex_600SemiBold,
+                Merriweather_300Light,
+                Merriweather_400Regular,
+                Merriweather_700Bold,
+                Merriweather_900Black,
+            }
+            : {
+                Merriweather_300Light,
+                Merriweather_400Regular,
+                Merriweather_700Bold,
+                Merriweather_900Black,
+            }
+    );
     const [isApiWarmed, setIsApiWarmed] = React.useState(false);
 
     useEffect(() => {
         if (!fontsLoaded) return;
-        applyGlobalGoogleSansFlexDefaults();
+        applyGlobalTypographyDefaults();
     }, [fontsLoaded]);
 
     useEffect(() => {

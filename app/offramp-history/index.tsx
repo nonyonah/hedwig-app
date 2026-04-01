@@ -30,19 +30,29 @@ import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useSettings } from '../../context/SettingsContext';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import * as HugeiconsCore from '@hugeicons/core-free-icons';
+import {
+    List as ListIcon,
+    X as XIcon,
+    Copy as CopyIcon,
+    Landmark as LandmarkIcon,
+    ArrowDown as ArrowDownIcon,
+    CheckCircle as CheckCircleIcon,
+    Clock as ClockIcon,
+    TriangleAlert as TriangleAlertIcon,
+    RotateCcw as RotateCcwIcon,
+    ChevronLeft as ChevronLeftIcon,
+} from '../../components/ui/AppIcon';
 
-const List = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Menu01Icon} {...props} />;
-const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
-const Copy = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Copy01Icon} {...props} />;
-const Bank = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).BankIcon} {...props} />;
-const ArrowDown = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowDown04Icon} {...props} />;
-const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle01Icon} {...props} />;
-const Clock = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Clock03Icon} {...props} />;
-const Warning = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Alert01Icon} {...props} />;
-const ArrowsCounterClockwise = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).RefreshIcon} {...props} />;
-const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+const List = (props: any) => <ListIcon {...props} />;
+const X = (props: any) => <XIcon {...props} />;
+const Copy = (props: any) => <CopyIcon {...props} />;
+const Bank = (props: any) => <LandmarkIcon {...props} />;
+const ArrowDown = (props: any) => <ArrowDownIcon {...props} />;
+const CheckCircle = (props: any) => <CheckCircleIcon {...props} />;
+const Clock = (props: any) => <ClockIcon {...props} />;
+const Warning = (props: any) => <TriangleAlertIcon {...props} />;
+const ArrowsCounterClockwise = (props: any) => <RotateCcwIcon {...props} />;
+const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
 
 
 const { width } = Dimensions.get('window');

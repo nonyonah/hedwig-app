@@ -17,12 +17,15 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { useThemeColors } from '../../theme/colors';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import * as HugeiconsCore from '@hugeicons/core-free-icons';
+import {
+    ChevronLeft as ChevronLeftIcon,
+    ChevronDown as ChevronDownIcon,
+    Link as LinkBaseIcon,
+} from '../../components/ui/AppIcon';
 
-const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
-const CaretDown = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowDown04Icon} {...props} />;
-const LinkIcon = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Link01Icon} {...props} />;
+const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
+const CaretDown = (props: any) => <ChevronDownIcon {...props} />;
+const LinkIcon = (props: any) => <LinkBaseIcon {...props} />;
 
 
 const { width } = Dimensions.get('window');
@@ -181,7 +184,10 @@ export default function TokenDetailsScreen() {
 
     const website = market?.links?.homepage?.find((link) => !!link) || '';
     const twitter = market?.links?.twitter_screen_name ? `https://x.com/${market.links.twitter_screen_name}` : '';
-    const softDividerColor = themeColors.textSecondary + (themeColors.textSecondary.length === 7 ? '26' : '');
+    const softDividerColor =
+        typeof themeColors.textSecondary === 'string' && themeColors.textSecondary.startsWith('#') && themeColors.textSecondary.length === 7
+            ? `${themeColors.textSecondary}26`
+            : themeColors.border;
     const isStablecoin = STABLECOIN_SYMBOLS.has(symbol);
 
     const chartBounds = useMemo(() => {

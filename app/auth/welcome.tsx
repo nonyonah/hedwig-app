@@ -11,11 +11,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import { useAuth } from '../../hooks/useAuth';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import * as HugeiconsCore from '@hugeicons/core-free-icons';
 
 const BRAND_BLUE = '#2563EB';
-const ArrowRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowRight01Icon} {...props} />;
 
 export default function WelcomeScreen() {
     const router = useRouter();
@@ -75,10 +72,7 @@ export default function WelcomeScreen() {
                     style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
                     onPress={() => router.push('/auth/login')}
                 >
-                    <View style={styles.buttonContent}>
-                        <Text style={styles.buttonText}>Get Started</Text>
-                        <ArrowRight size={18} color={BRAND_BLUE} strokeWidth={2.5} />
-                    </View>
+                    <Text style={styles.buttonText}>Get Started</Text>
                 </Pressable>
             </Animated.View>
         </View>
@@ -109,11 +103,6 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    buttonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
     },
     buttonPressed: {
         opacity: 0.85,

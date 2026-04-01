@@ -10,15 +10,21 @@ import { TrueSheet } from '@hedwig/true-sheet';
 import { Typography } from '../../styles/typography';
 import { joinApiUrl } from '../../utils/apiBaseUrl';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import * as HugeiconsCore from '@hugeicons/core-free-icons';
+import {
+    ChevronLeft as ChevronLeftIcon,
+    Calendar as CalendarIcon,
+    ChevronRight as ChevronRightIcon,
+    CheckCircle as CheckCircleIcon,
+    Clock as ClockIcon,
+    Tag as TagIcon,
+} from '../../components/ui/AppIcon';
 
-const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
-const CalendarBlank = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Calendar01Icon} {...props} />;
-const CaretRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowRight01Icon} {...props} />;
-const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle01Icon} {...props} />;
-const Clock = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Clock03Icon} {...props} />;
-const Tag = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Tag01Icon} {...props} />;
+const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
+const CalendarBlank = (props: any) => <CalendarIcon {...props} />;
+const CaretRight = (props: any) => <ChevronRightIcon {...props} />;
+const CheckCircle = (props: any) => <CheckCircleIcon {...props} />;
+const Clock = (props: any) => <ClockIcon {...props} />;
+const Tag = (props: any) => <TagIcon {...props} />;
 
 
 // Enable LayoutAnimation on Android

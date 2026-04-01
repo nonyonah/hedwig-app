@@ -15,34 +15,88 @@ import {
     ActivityIndicator,
     Alert,
     Platform,
+    Dimensions,
     Keyboard,
+    Modal,
     useColorScheme,
     ScrollView,
-    KeyboardAvoidingView,
     Animated,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SymbolView } from 'expo-symbols';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
 import SwiftUIBottomSheetModal from './ui/SwiftUIBottomSheetModal';
 import { useThemeColors } from '../theme/colors';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
-import {
-    ChevronLeft as CaretLeft,
-    Receipt,
-    Link as LinkSimple,
-    FileText,
-    Pencil as PencilSimple,
-    Plus,
-    ArrowUp,
-    Square,
-    Copy,
-    ThumbsUp,
-    ThumbsDown,
-    CheckCircle,
-    CircleX as XCircle,
-} from './ui/AppIcon';
+
+type UniversalSheetIconName =
+    | 'chevron.left'
+    | 'receipt'
+    | 'link'
+    | 'doc.text'
+    | 'pencil'
+    | 'plus'
+    | 'arrow.up'
+    | 'square.fill'
+    | 'doc.on.doc'
+    | 'hand.thumbsup'
+    | 'hand.thumbsdown'
+    | 'checkmark.circle'
+    | 'xmark.circle.fill';
+
+const MATERIAL_ICON_MAP: Record<UniversalSheetIconName, string> = {
+    'chevron.left': 'chevron-left',
+    'receipt': 'receipt-text-outline',
+    'link': 'link-variant',
+    'doc.text': 'file-document-outline',
+    'pencil': 'pencil-outline',
+    'plus': 'plus',
+    'arrow.up': 'arrow-up',
+    'square.fill': 'stop',
+    'doc.on.doc': 'content-copy',
+    'hand.thumbsup': 'thumb-up-outline',
+    'hand.thumbsdown': 'thumb-down-outline',
+    'checkmark.circle': 'check-circle',
+    'xmark.circle.fill': 'close-circle',
+};
+
+function UniversalSheetIcon({ name, size, color }: { name: UniversalSheetIconName; size: number; color: string }) {
+    const iconFrameStyle = {
+        width: size,
+        height: size,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+    };
+
+    if (Platform.OS === 'ios') {
+        return (
+            <View style={iconFrameStyle}>
+                <SymbolView
+                    name={name as any}
+                    size={size}
+                    tintColor={color}
+                    type="monochrome"
+                    weight="semibold"
+                    resizeMode="scaleAspectFit"
+                />
+            </View>
+        );
+    }
+
+    return (
+        <View style={iconFrameStyle}>
+            <MaterialCommunityIcons
+                name={(MATERIAL_ICON_MAP[name] as any) || 'help-circle-outline'}
+                size={size}
+                color={color}
+            />
+        </View>
+    );
+}
 
 /* ─────────────────────────────────────────── types */
 
@@ -86,17 +140,18 @@ interface UniversalCreationBoxProps {
     visible: boolean;
     onClose: () => void;
     onTransfer?: (data: any) => void;
+    presentation?: 'auto' | 'inline';
 }
+
+const MAX_ATTACHMENTS = 5;
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
 /* ─────────────────────────────────────────── suggestions */
 
-type IconComponent = React.ComponentType<{ size: number; color: string }>;
-
-const SUGGESTIONS: Array<{ label: string; prompt: string; Icon: IconComponent }> = [
-    { label: 'Create an invoice',   prompt: 'Create an invoice for ',   Icon: Receipt as IconComponent },
-    { label: 'Send a payment link', prompt: 'Send a payment link for ', Icon: LinkSimple as IconComponent },
-    { label: 'Draft a contract',    prompt: 'Draft a contract for ',    Icon: FileText as IconComponent },
-    { label: 'Write a proposal',    prompt: 'Write a proposal for ',    Icon: PencilSimple as IconComponent },
+const SUGGESTIONS: Array<{ label: string; prompt: string; icon: UniversalSheetIconName }> = [
+    { label: 'Create an invoice',       prompt: 'Create an invoice for ',       icon: 'receipt' },
+    { label: 'Send a payment link',     prompt: 'Send a payment link for ',     icon: 'link' },
+    { label: 'Set up recurring invoice', prompt: 'Set up a recurring invoice for ', icon: 'doc.text' },
 ];
 
 /* ─────────────────────────────────────────── intent meta */
@@ -223,7 +278,7 @@ function AnimatedThinkingDots({ color }: { color: string }) {
 
 /* ─────────────────────────────────────────── main */
 
-export function UniversalCreationBox({ visible, onClose, onTransfer }: UniversalCreationBoxProps) {
+export function UniversalCreationBox({ visible, onClose, onTransfer, presentation = 'auto' }: UniversalCreationBoxProps) {
     const colors  = useThemeColors();
     const isDark  = useColorScheme() === 'dark';
     const router  = useRouter();
@@ -237,16 +292,81 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
     const [input,     setInput]     = useState('');
     const [isParsing, setIsParsing] = useState(false);
     const [kbOpen,    setKbOpen]    = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [composerHeight, setComposerHeight] = useState(120);
     const [attachments, setAttachments] = useState<UploadedDocument[]>([]);
     const abortControllerRef = useRef<AbortController | null>(null);
+
+    // Typewriter state — tracks the in-progress assistant message
+    const [typingState, setTypingState] = useState<{ id: string; text: string } | null>(null);
+    const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const stopTyping = useCallback(() => {
+        if (typingTimerRef.current !== null) {
+            clearInterval(typingTimerRef.current);
+            typingTimerRef.current = null;
+        }
+        setTypingState(null);
+    }, []);
+
+    const startTyping = useCallback((id: string, full: string) => {
+        stopTyping();
+        if (!full) return;
+
+        // Chunk size and interval tuned so ~80 wpm feels natural but finishes quickly
+        const CHARS_PER_TICK = 4;
+        const INTERVAL_MS    = 16; // ~60fps
+
+        let pos = 0;
+        setTypingState({ id, text: '' });
+
+        typingTimerRef.current = setInterval(() => {
+            pos = Math.min(pos + CHARS_PER_TICK, full.length);
+            setTypingState({ id, text: full.slice(0, pos) });
+            if (pos >= full.length) {
+                clearInterval(typingTimerRef.current!);
+                typingTimerRef.current = null;
+                // Leave typingState as the full string — will be cleared on next send
+            }
+        }, INTERVAL_MS);
+    }, [stopTyping]);
+
+    // Two-pass scroll: snap immediately, then animate after layout settles.
+    const scrollToBottom = useCallback((animated = true) => {
+        // Pass 1 — immediate snap so content is never off-screen
+        requestAnimationFrame(() => {
+            scrollRef.current?.scrollToEnd?.({ animated: false });
+        });
+        // Pass 2 — smooth scroll after spring animation / text reflow completes
+        const followUp = Platform.OS === 'ios' ? 260 : 160;
+        setTimeout(() => {
+            scrollRef.current?.scrollToEnd?.({ animated });
+        }, followUp);
+    }, []);
 
     /* ── keyboard visibility tracking (for bottom padding) ── */
     useEffect(() => {
         const show = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
         const hide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-        const s = Keyboard.addListener(show, () => setKbOpen(true));
-        const h = Keyboard.addListener(hide, () => setKbOpen(false));
-        return () => { s.remove(); h.remove(); };
+        const s = Keyboard.addListener(show, (event) => {
+            setKbOpen(true);
+            setKeyboardHeight(event?.endCoordinates?.height ?? 0);
+        });
+        const h = Keyboard.addListener(hide, () => {
+            setKbOpen(false);
+            setKeyboardHeight(0);
+        });
+        const frame = Platform.OS === 'ios'
+            ? Keyboard.addListener('keyboardWillChangeFrame', (event) => {
+                setKbOpen((event?.endCoordinates?.height ?? 0) > 0);
+                setKeyboardHeight(event?.endCoordinates?.height ?? 0);
+            })
+            : null;
+        return () => {
+            s.remove();
+            h.remove();
+            frame?.remove();
+        };
     }, []);
 
     /* ── open / close ── */
@@ -256,19 +376,30 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
             setInput('');
             setIsParsing(false);
             setAttachments([]);
+            stopTyping();
+            scrollRef.current?.scrollTo?.({ y: 0, animated: false });
             setTimeout(() => inputRef.current?.focus(), 380);
         } else {
             abortControllerRef.current?.abort();
             abortControllerRef.current = null;
+            stopTyping();
             Keyboard.dismiss();
         }
-    }, [visible]);
+    }, [visible, stopTyping]);
 
     /* ── scroll to bottom on new content ── */
     useEffect(() => {
-        const t = setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), 120);
-        return () => clearTimeout(t);
-    }, [messages, isParsing]);
+        if (messages.length === 0 && !isParsing) {
+            return;
+        }
+        // First pass: fast, catches most cases
+        const d1 = Platform.OS === 'ios' ? 80 : 60;
+        // Second pass: after spring animation + text reflow settle
+        const d2 = Platform.OS === 'ios' ? 480 : 320;
+        const t1 = setTimeout(() => scrollToBottom(false), d1);
+        const t2 = setTimeout(() => scrollToBottom(true), d2);
+        return () => { clearTimeout(t1); clearTimeout(t2); };
+    }, [messages, isParsing, scrollToBottom]);
 
     const handleClose = useCallback(() => {
         Keyboard.dismiss();
@@ -279,39 +410,120 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
         setAttachments((prev) => prev.filter((doc) => doc.uri !== uri));
     }, []);
 
-    const pickDocuments = useCallback(async () => {
+    const appendAttachments = useCallback((docs: UploadedDocument[]) => {
+        if (!docs.length) return;
+        setAttachments((prev) => {
+            const deduped = docs.filter((doc) => !prev.some((existing) => existing.uri === doc.uri));
+            const merged = [...prev, ...deduped];
+            return merged.slice(0, MAX_ATTACHMENTS);
+        });
+    }, []);
+
+    const pickPdfDocuments = useCallback(async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
-                type: ['application/pdf', 'image/*'],
+                type: ['application/pdf'],
                 multiple: true,
-                copyToCacheDirectory: true,
+                copyToCacheDirectory: false,
             });
 
             if (result.canceled || !result.assets?.length) {
                 return;
             }
 
-            setAttachments((prev) => {
-                const mapped = result.assets.map((asset) => ({
-                    uri: asset.uri,
-                    name: asset.name,
-                    mimeType: asset.mimeType || 'application/octet-stream',
-                    size: asset.size,
-                }));
-                const merged = [...prev, ...mapped];
-                return merged.slice(0, 5);
-            });
+            const mapped = result.assets.map((asset, index) => ({
+                uri: asset.uri,
+                name: asset.name || `document-${Date.now()}-${index + 1}.pdf`,
+                mimeType: asset.mimeType || 'application/pdf',
+                size: asset.size,
+            }));
+            appendAttachments(mapped);
         } catch (error) {
-            console.error('[CreationBox] Failed to pick documents:', error);
-            Alert.alert('Upload failed', 'Unable to attach document right now. Please try again.');
+            console.error('[CreationBox] Failed to pick PDF:', error);
+            Alert.alert('Upload failed', 'Unable to attach PDF right now. Please try again.');
         }
-    }, []);
+    }, [appendAttachments]);
+
+    const pickImages = useCallback(async () => {
+        try {
+            const permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+            if (!permission.granted) {
+                const requested = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (!requested.granted) {
+                    Alert.alert('Permission required', 'Please allow photo access to attach images.');
+                    return;
+                }
+            }
+
+            const remainingSlots = Math.max(1, MAX_ATTACHMENTS - attachments.length);
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsMultipleSelection: true,
+                selectionLimit: remainingSlots,
+                quality: 0.85,
+                base64: false,
+                exif: false,
+            });
+
+            if (result.canceled || !result.assets?.length) {
+                return;
+            }
+
+            const mapped = result.assets.map((asset, index) => ({
+                uri: asset.uri,
+                name: asset.fileName || `image-${Date.now()}-${index + 1}.jpg`,
+                mimeType: asset.mimeType || 'image/jpeg',
+                size: asset.fileSize,
+            }));
+
+            const validImages = mapped.filter((file) => {
+                if (typeof file.size === 'number' && file.size > MAX_IMAGE_BYTES) {
+                    return false;
+                }
+                return true;
+            });
+
+            if (validImages.length < mapped.length) {
+                Alert.alert('Image too large', 'Some images were skipped. Max image size is 15MB.');
+            }
+
+            appendAttachments(validImages);
+        } catch (error) {
+            console.error('[CreationBox] Failed to pick images:', error);
+            Alert.alert('Upload failed', 'Unable to attach images right now. Please try again.');
+        }
+    }, [appendAttachments, attachments.length]);
+
+    const pickDocuments = useCallback(() => {
+        Keyboard.dismiss();
+
+        if (attachments.length >= MAX_ATTACHMENTS) {
+            Alert.alert('Attachment limit reached', 'You can attach up to 5 files.');
+            return;
+        }
+
+        Alert.alert('Attach files', 'Choose what to upload', [
+            { text: 'Image', onPress: () => { void pickImages(); } },
+            { text: 'PDF', onPress: () => { void pickPdfDocuments(); } },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
+    }, [attachments.length, pickImages, pickPdfDocuments]);
 
     const stopParsing = useCallback(() => {
         abortControllerRef.current?.abort();
         abortControllerRef.current = null;
         setIsParsing(false);
     }, []);
+
+    useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const listener = Keyboard.addListener(showEvent, () => {
+            if (messages.length > 0 || isParsing) {
+                setTimeout(() => scrollToBottom(false), Platform.OS === 'ios' ? 140 : 90);
+            }
+        });
+        return () => listener.remove();
+    }, [messages.length, isParsing, scrollToBottom]);
 
     /* ── send ── */
     const sendMessage = useCallback(async () => {
@@ -325,7 +537,6 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
         setInput('');
         setAttachments([]);
         setIsParsing(true);
-        Keyboard.dismiss();
 
         try {
             const token  = await getAccessToken();
@@ -362,31 +573,36 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
                     confidence: raw.confidence ?? 0,
                 };
                 const actionable = parsed.intent !== 'unknown';
+                const msgId = `a-${Date.now()}`;
+                const msgContent = raw.naturalResponse || (actionable
+                    ? "Here's what I found — confirm to create:"
+                    : "I'm not sure what you need. Try describing an invoice, payment link, or recurring invoice.");
                 setMessages((p) => [...p, {
-                    id: `a-${Date.now()}`, role: 'assistant',
-                    content: raw.naturalResponse || (actionable
-                        ? "Here's what I found — confirm to create:"
-                        : "I'm not sure what you need. Try describing an invoice, payment link, or contract."),
+                    id: msgId, role: 'assistant',
+                    content: msgContent,
                     parsed: actionable ? parsed : undefined,
                     actionState: actionable ? 'pending' : undefined,
                 }]);
+                startTyping(msgId, msgContent);
             } else {
-                setMessages((p) => [...p, {
-                    id: `a-${Date.now()}`, role: 'assistant',
-                    content: 'Try: "Invoice for $500 web design for john@acme.com due Friday".',
-                }]);
+                const msgId = `a-${Date.now()}`;
+                const msgContent = 'Try: "Invoice for $500 web design for john@acme.com due Friday".';
+                setMessages((p) => [...p, { id: msgId, role: 'assistant', content: msgContent }]);
+                startTyping(msgId, msgContent);
             }
         } catch (error: any) {
             if (error?.name === 'AbortError') {
                 return;
             }
-            setMessages((p) => [...p, { id: `a-${Date.now()}`, role: 'assistant', content: 'Something went wrong. Please try again.' }]);
+            const msgId = `a-${Date.now()}`;
+            const msgContent = 'Something went wrong. Please try again.';
+            setMessages((p) => [...p, { id: msgId, role: 'assistant', content: msgContent }]);
+            startTyping(msgId, msgContent);
         } finally {
             abortControllerRef.current = null;
             setIsParsing(false);
-            setTimeout(() => inputRef.current?.focus(), 350);
         }
-    }, [input, attachments, isParsing, getAccessToken]);
+    }, [input, attachments, isParsing, getAccessToken, startTyping]);
 
     /* ── confirm action ── */
     const confirmAction = useCallback(async (msgId: string, parsed: ParsedData) => {
@@ -437,8 +653,20 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
     const hasMessages = messages.length > 0 || isParsing;
     const canSend     = input.trim().length > 0 || attachments.length > 0;
     const isSwiftUISheet = Platform.OS === 'ios';
-    const bottomPad   = kbOpen ? 8 : (isSwiftUISheet ? 12 : Math.max(insets.bottom, 12));
+    const isInlinePresentation = presentation === 'inline';
+    const keyboardLift = Platform.OS === 'android' && kbOpen
+        ? Math.max(0, keyboardHeight)
+        : 0;
+    const keyboardGap = Platform.OS === 'android'
+        ? Math.max(14, Math.round(Dimensions.get('window').height * 0.02))
+        : Math.max(4, Math.round(Dimensions.get('window').height * 0.01));
+    const bottomPad = kbOpen
+        ? (keyboardLift + keyboardGap)
+        : (isSwiftUISheet ? 0 : Math.max(insets.bottom, 12));
     const topPad      = isSwiftUISheet ? 12 : Math.max(insets.top, 16);
+    // The composer sits BELOW the ScrollView in the flex column — not overlapping.
+    // We only need a small visual gap so the last message isn't flush with the edge.
+    const scrollBottomPad = 20;
 
     /* ─── colour tokens ─── */
     const textPri    = colors.textPrimary;
@@ -454,214 +682,257 @@ export function UniversalCreationBox({ visible, onClose, onTransfer }: Universal
     const placeholder= isDark ? '#666666' : '#A1A1AA';
     const inputShadow = isDark ? '#000000' : '#111827';
 
-    return (
-        <SwiftUIBottomSheetModal
-            visible={visible}
-            onClose={handleClose}
-            detents={[{ fraction: 0.92 }, 'large']}
-            matchContents={false}
-        >
-            <KeyboardAvoidingView
-                style={[s.modalRoot, { backgroundColor: shellBg }]}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    const boxContent = (
+        <View style={[s.modalRoot, { backgroundColor: shellBg }]}>
+            <View
+                style={[
+                    s.panel,
+                    {
+                        backgroundColor: panelBg,
+                        paddingTop: topPad,
+                    },
+                ]}
             >
-                <View
-                    style={[
-                        s.panel,
-                        {
-                            backgroundColor: panelBg,
-                            paddingTop: topPad,
-                        },
+                {/* ── Top bar ── */}
+                <View style={s.topBar}>
+                    <IOSGlassIconButton
+                        onPress={handleClose}
+                        systemImage="chevron.left"
+                        useGlass={false}
+                        containerStyle={s.backButton}
+                        circleStyle={[s.backButtonCircle, { backgroundColor: colors.surface }]}
+                        icon={<UniversalSheetIcon name="chevron.left" size={20} color={textPri} />}
+                    />
+                </View>
+
+                {/* ── Scrollable content ── */}
+                <ScrollView
+                    ref={scrollRef}
+                    style={s.scroll}
+                    contentContainerStyle={[
+                        s.scrollContent,
+                        !hasMessages && s.scrollGrow,
+                        { paddingBottom: scrollBottomPad },
                     ]}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                    showsVerticalScrollIndicator={false}
+                    onContentSizeChange={() => {
+                        if (messages.length > 0 || isParsing) {
+                            // Immediate snap — content size just changed
+                            scrollRef.current?.scrollToEnd?.({ animated: false });
+                            // Follow-up after a frame in case layout isn't committed yet
+                            requestAnimationFrame(() => {
+                                scrollRef.current?.scrollToEnd?.({ animated: false });
+                            });
+                        }
+                    }}
                 >
-                    {/* ── Top bar ── */}
-                    <View style={s.topBar}>
-                        <IOSGlassIconButton
-                            onPress={handleClose}
-                            systemImage="chevron.left"
-                            useGlass={false}
-                            containerStyle={s.backButton}
-                            circleStyle={[s.backButtonCircle, { backgroundColor: colors.surface }]}
-                            icon={<CaretLeft size={20} color={textPri} strokeWidth={3} />}
-                        />
-                    </View>
+                    {!hasMessages ? (
+                        /* ── Empty state ── */
+                        <View style={[s.empty, kbOpen && s.emptyKeyboard]}>
+                            <Text style={[s.heading, { color: textPri }]}>
+                                How can I help you today?
+                            </Text>
 
-                    {/* ── Scrollable content ── */}
-                    <ScrollView
-                        ref={scrollRef}
-                        style={s.scroll}
-                        contentContainerStyle={[
-                            s.scrollContent,
-                            !hasMessages && s.scrollGrow,
-                            kbOpen ? s.scrollContentKeyboard : s.scrollContentResting,
-                        ]}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={false}
-                    >
-                        {!hasMessages ? (
-                            /* ── Empty state ── */
-                            <View style={[s.empty, kbOpen && s.emptyKeyboard]}>
-                                <Text style={[s.heading, { color: textPri }]}>
-                                    How can I help you today?
-                                </Text>
-
-                                {SUGGESTIONS.map(({ label, prompt, Icon }) => (
-                                    <TouchableOpacity
-                                        key={label}
-                                        style={[s.suggRow, kbOpen && s.suggRowKeyboard]}
-                                        onPress={() => { setInput(prompt); inputRef.current?.focus(); }}
-                                        activeOpacity={0.55}
-                                    >
-                                        <Icon size={21} color={textSec} />
-                                        <Text style={[s.suggText, { color: textPri }]}>{label}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        ) : (
-                            /* ── Messages ── */
-                            <>
-                                {messages.map((msg) => (
-                                    <AnimatedMessage key={msg.id}>
-                                    <View style={s.msgBlock}>
-                                        {msg.role === 'user' ? (
-                                            <View style={s.userRow}>
-                                                <View style={[s.userBubble, { backgroundColor: userBubble }]}>
-                                                    <Text style={[s.userText, { color: textPri }]}>{msg.content}</Text>
-                                                </View>
-                                            </View>
-                                        ) : (
-                                            <View style={s.aiBlock}>
-                                                <Text style={[s.aiText, { color: textPri }]}>{msg.content}</Text>
-
-                                                {msg.parsed && msg.actionState === 'pending' && (
-                                                    <ActionCard
-                                                        parsed={msg.parsed}
-                                                        colors={colors}
-                                                        onConfirm={() => confirmAction(msg.id, msg.parsed!)}
-                                                        onDismiss={() => setMessages((p) => p.map((m) =>
-                                                            m.id === msg.id ? { ...m, actionState: undefined, parsed: undefined } : m
-                                                        ))}
-                                                    />
-                                                )}
-
-                                                {msg.actionState === 'creating' && (
-                                                    <View style={s.statusRow}>
-                                                        <ActivityIndicator size="small" color={primary} />
-                                                        <Text style={[s.statusText, { color: textSec }]}>Creating…</Text>
-                                                    </View>
-                                                )}
-                                                {msg.actionState === 'done' && (
-                                                    <View style={s.statusRow}>
-                                                        <CheckCircle size={14} color="#16A34A" />
-                                                        <Text style={[s.statusText, { color: '#16A34A' }]}>{msg.actionResult}</Text>
-                                                    </View>
-                                                )}
-                                                {msg.actionState === 'error' && (
-                                                    <View style={s.statusRow}>
-                                                        <XCircle size={14} color="#B42318" />
-                                                        <Text style={[s.statusText, { color: '#B42318' }]}>{msg.actionResult}</Text>
-                                                    </View>
-                                                )}
-
-                                                {msg.actionState !== 'creating' && (
-                                                    <View style={s.aiActions}>
-                                                        <TouchableOpacity style={s.aiActionBtn} activeOpacity={0.55}>
-                                                            <Copy size={15} color={textSec} />
-                                                        </TouchableOpacity>
-                                                        <TouchableOpacity style={s.aiActionBtn} activeOpacity={0.55}>
-                                                            <ThumbsUp size={15} color={textSec} />
-                                                        </TouchableOpacity>
-                                                        <TouchableOpacity style={s.aiActionBtn} activeOpacity={0.55}>
-                                                            <ThumbsDown size={15} color={textSec} />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                )}
-                                            </View>
-                                        )}
-                                    </View>
-                                    </AnimatedMessage>
-                                ))}
-
-                                {isParsing && (
-                                    <View style={s.aiBlock}>
-                                        <AnimatedThinkingDots color={textSec} />
-                                    </View>
-                                )}
-                            </>
-                        )}
-                    </ScrollView>
-
-                    {/* ── Fixed input ── */}
-                    <View style={[s.inputOuter, { paddingBottom: bottomPad }]}>
-                        <View
-                            style={[
-                                s.inputBox,
-                                {
-                                    backgroundColor: inputBg,
-                                    shadowColor: inputShadow,
-                                    borderColor: panelBorder,
-                                },
-                            ]}
-                        >
-                            <TextInput
-                                ref={inputRef}
-                                value={input}
-                                onChangeText={setInput}
-                                placeholder="Ask, search, or make anything..."
-                                placeholderTextColor={placeholder}
-                                style={[s.textInput, { color: textPri }]}
-                                multiline
-                                blurOnSubmit={false}
-                                autoCapitalize="sentences"
-                            />
-                            {attachments.length > 0 && (
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={s.attachmentRow}
-                                >
-                                    {attachments.map((file) => (
-                                        <View key={file.uri} style={[s.attachmentChip, { borderColor: panelBorder }]}>
-                                            <Text style={[s.attachmentChipText, { color: textPri }]} numberOfLines={1}>
-                                                {file.name}
-                                            </Text>
-                                            <TouchableOpacity
-                                                onPress={() => removeAttachment(file.uri)}
-                                                style={s.attachmentRemove}
-                                                activeOpacity={0.7}
-                                            >
-                                                <XCircle size={14} color={textSec} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
-                                </ScrollView>
-                            )}
-                            <View style={s.inputFooter}>
-                                <View style={s.inputLeft}>
-                                    <TouchableOpacity style={s.inputIconBtn} activeOpacity={0.7} onPress={pickDocuments}>
-                                        <Plus size={22} color={textSec} />
-                                    </TouchableOpacity>
-                                </View>
+                            {SUGGESTIONS.map(({ label, prompt, icon }) => (
                                 <TouchableOpacity
-                                    style={[s.sendBtn, { backgroundColor: (canSend || isParsing) ? primary : sendDisBg }]}
-                                    onPress={isParsing ? stopParsing : sendMessage}
-                                    disabled={!canSend && !isParsing}
-                                    activeOpacity={0.85}
+                                    key={label}
+                                    style={[s.suggRow, kbOpen && s.suggRowKeyboard]}
+                                    onPress={() => { setInput(prompt); inputRef.current?.focus(); }}
+                                    activeOpacity={0.55}
                                 >
-                                    {isParsing ? (
-                                        <Square size={16} color="#FFFFFF" />
+                                    <UniversalSheetIcon name={icon} size={21} color={textSec} />
+                                    <Text style={[s.suggText, { color: textPri }]}>{label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    ) : (
+                        /* ── Messages ── */
+                        <>
+                            {messages.map((msg) => (
+                                <AnimatedMessage key={msg.id}>
+                                <View style={s.msgBlock}>
+                                    {msg.role === 'user' ? (
+                                        <View style={s.userRow}>
+                                            <View style={[s.userBubble, { backgroundColor: userBubble }]}>
+                                                <Text style={[s.userText, { color: textPri }]}>{msg.content}</Text>
+                                            </View>
+                                        </View>
                                     ) : (
-                                        <ArrowUp
+                                        <View style={s.aiBlock}>
+                                            <Text style={[s.aiText, { color: textPri }]}>
+                                                {typingState?.id === msg.id ? typingState.text : msg.content}
+                                            </Text>
+
+                                            {msg.parsed && msg.actionState === 'pending' && typingState?.id !== msg.id && (
+                                                <ActionCard
+                                                    parsed={msg.parsed}
+                                                    colors={colors}
+                                                    onConfirm={() => confirmAction(msg.id, msg.parsed!)}
+                                                    onDismiss={() => setMessages((p) => p.map((m) =>
+                                                        m.id === msg.id ? { ...m, actionState: undefined, parsed: undefined } : m
+                                                    ))}
+                                                />
+                                            )}
+
+                                            {msg.actionState === 'creating' && typingState?.id !== msg.id && (
+                                                <View style={s.statusRow}>
+                                                    <ActivityIndicator size="small" color={primary} />
+                                                    <Text style={[s.statusText, { color: textSec }]}>Creating…</Text>
+                                                </View>
+                                            )}
+                                            {msg.actionState === 'done' && typingState?.id !== msg.id && (
+                                                <View style={s.statusRow}>
+                                                    <UniversalSheetIcon name="checkmark.circle" size={14} color="#16A34A" />
+                                                    <Text style={[s.statusText, { color: '#16A34A' }]}>{msg.actionResult}</Text>
+                                                </View>
+                                            )}
+                                            {msg.actionState === 'error' && typingState?.id !== msg.id && (
+                                                <View style={s.statusRow}>
+                                                    <UniversalSheetIcon name="xmark.circle.fill" size={14} color="#B42318" />
+                                                    <Text style={[s.statusText, { color: '#B42318' }]}>{msg.actionResult}</Text>
+                                                </View>
+                                            )}
+
+                                            {msg.actionState !== 'creating' && typingState?.id !== msg.id && (
+                                                <View style={s.aiActions}>
+                                                    <TouchableOpacity style={s.aiActionBtn} activeOpacity={0.55}>
+                                                        <UniversalSheetIcon name="doc.on.doc" size={15} color={textSec} />
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity style={s.aiActionBtn} activeOpacity={0.55}>
+                                                        <UniversalSheetIcon name="hand.thumbsup" size={15} color={textSec} />
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity style={s.aiActionBtn} activeOpacity={0.55}>
+                                                        <UniversalSheetIcon name="hand.thumbsdown" size={15} color={textSec} />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
+                                        </View>
+                                    )}
+                                </View>
+                                </AnimatedMessage>
+                            ))}
+
+                            {isParsing && (
+                                <View style={s.aiBlock}>
+                                    <AnimatedThinkingDots color={textSec} />
+                                </View>
+                            )}
+                        </>
+                    )}
+                </ScrollView>
+
+                {/* ── Fixed input ── */}
+                <View style={[s.inputOuter, { paddingBottom: bottomPad }]}>
+                    <View
+                        style={[
+                            s.inputBox,
+                            {
+                                backgroundColor: inputBg,
+                                shadowColor: inputShadow,
+                                borderColor: panelBorder,
+                            },
+                        ]}
+                        onLayout={(event) => {
+                            const height = Math.round(event.nativeEvent.layout.height);
+                            if (height > 0 && Math.abs(height - composerHeight) > 1) {
+                                setComposerHeight(height);
+                            }
+                        }}
+                    >
+                        <TextInput
+                            ref={inputRef}
+                            value={input}
+                            onChangeText={setInput}
+                            placeholder="Ask, search, or make anything..."
+                            placeholderTextColor={placeholder}
+                            style={[s.textInput, { color: textPri }]}
+                            multiline
+                            blurOnSubmit={false}
+                            autoCapitalize="sentences"
+                        />
+                        {attachments.length > 0 && (
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={s.attachmentRow}
+                            >
+                                {attachments.map((file) => (
+                                    <View key={file.uri} style={[s.attachmentChip, { borderColor: panelBorder }]}>
+                                        <Text style={[s.attachmentChipText, { color: textPri }]} numberOfLines={1}>
+                                            {file.name}
+                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={() => removeAttachment(file.uri)}
+                                            style={s.attachmentRemove}
+                                            activeOpacity={0.7}
+                                        >
+                                            <UniversalSheetIcon name="xmark.circle.fill" size={14} color={textSec} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        )}
+                        <View style={s.inputFooter}>
+                            <View style={s.inputLeft}>
+                                <TouchableOpacity style={s.inputIconBtn} activeOpacity={0.7} onPress={pickDocuments}>
+                                    <UniversalSheetIcon name="plus" size={20} color={textSec} />
+                                </TouchableOpacity>
+                            </View>
+                            <TouchableOpacity
+                                style={[s.sendBtn, { backgroundColor: (canSend || isParsing) ? primary : sendDisBg }]}
+                                onPress={isParsing ? stopParsing : sendMessage}
+                                disabled={!canSend && !isParsing}
+                                activeOpacity={0.85}
+                            >
+                                <View style={s.sendIconWrap}>
+                                    {isParsing ? (
+                                        <UniversalSheetIcon name="square.fill" size={15} color="#FFFFFF" />
+                                    ) : (
+                                        <UniversalSheetIcon
+                                            name="arrow.up"
                                             size={18}
                                             color={canSend ? '#FFF' : (isDark ? '#555' : '#9CA3AF')}
                                         />
                                     )}
-                                </TouchableOpacity>
-                            </View>
+                                </View>
+                            </TouchableOpacity>
                         </View>
                     </View>
                 </View>
-            </KeyboardAvoidingView>
+            </View>
+        </View>
+    );
+
+    if (isInlinePresentation) {
+        return boxContent;
+    }
+
+    if (Platform.OS === 'android') {
+        return (
+            <Modal
+                visible={visible}
+                animationType="slide"
+                statusBarTranslucent
+                navigationBarTranslucent
+                hardwareAccelerated
+                onRequestClose={handleClose}
+                presentationStyle="fullScreen"
+            >
+                {boxContent}
+            </Modal>
+        );
+    }
+
+    return (
+        <SwiftUIBottomSheetModal
+            visible={visible}
+            onClose={handleClose}
+            detents={[{ fraction: 0.96 }, 'large']}
+            matchContents={false}
+        >
+            {boxContent}
         </SwiftUIBottomSheetModal>
     );
 }
@@ -687,8 +958,6 @@ const s = StyleSheet.create({
 
     scroll:       { flex: 1 },
     scrollContent: { paddingHorizontal: 24, paddingBottom: 18, gap: 26 },
-    scrollContentResting: { paddingBottom: 24 },
-    scrollContentKeyboard: { paddingBottom: 156 },
     scrollGrow:   { flexGrow: 1 },
 
     /* Empty */
@@ -700,11 +969,11 @@ const s = StyleSheet.create({
     suggText: { fontSize: 16, fontFamily: 'GoogleSansFlex_500Medium', lineHeight: 23 },
 
     /* Messages */
-    msgBlock:   {},
-    userRow:    { alignItems: 'flex-end' },
+    msgBlock:   { width: '100%' },
+    userRow:    { width: '100%', alignItems: 'flex-end' },
     userBubble: { borderRadius: 22, paddingHorizontal: 18, paddingVertical: 12, maxWidth: '78%' },
     userText:   { fontSize: 15, fontFamily: 'GoogleSansFlex_400Regular', lineHeight: 22 },
-    aiBlock:    { gap: 12 },
+    aiBlock:    { width: '100%', gap: 12 },
     aiText:     { fontSize: 16, fontFamily: 'GoogleSansFlex_500Medium', lineHeight: 29 },
     aiActions:  { flexDirection: 'row', gap: 2, marginTop: -2 },
     aiActionBtn:{ padding: 6 },
@@ -741,10 +1010,11 @@ const s = StyleSheet.create({
     },
     attachmentChipText: { fontSize: 12, fontFamily: 'GoogleSansFlex_500Medium', maxWidth: 180 },
     attachmentRemove: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-    inputFooter:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    inputLeft:    { flexDirection: 'row', gap: 4 },
-    inputIconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
-    sendBtn:      { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+    inputFooter:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
+    inputLeft:    { flexDirection: 'row', gap: 4, height: 44, alignItems: 'center', justifyContent: 'center' },
+    inputIconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
+    sendBtn:      { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', padding: 0 },
+    sendIconWrap: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
 });
 
 export default UniversalCreationBox;

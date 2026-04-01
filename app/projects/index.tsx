@@ -29,6 +29,7 @@ import Svg, { Circle } from 'react-native-svg';
 import Analytics from '../../services/analytics';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import { useSettings } from '../../context/SettingsContext';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
@@ -111,7 +112,9 @@ type StatusFilter = 'all' | 'ongoing' | 'completed' | 'paid' | 'due_soon';
 export default function ProjectsScreen() {
     const router = useRouter();
     const { getAccessToken, user } = useAuth();
+    const settings = useSettings();
     const themeColors = useThemeColors();
+    const isDarkTheme = settings?.currentTheme === 'dark';
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -460,7 +463,16 @@ export default function ProjectsScreen() {
                         </Text>
                     </View>
                     {/* Right - Progress circle */}
-                    <View style={[styles.projectIconCircle, { backgroundColor: isCompleted ? '#DCFCE7' : themeColors.surface }, !isCompleted && { borderWidth: 1, borderColor: themeColors.border }]}>
+                    <View
+                        style={[
+                            styles.projectIconCircle,
+                            { backgroundColor: isCompleted ? '#DCFCE7' : themeColors.surface },
+                            !isCompleted && {
+                                borderWidth: Platform.OS === 'ios' || (Platform.OS === 'android' && isDarkTheme) ? 0 : 1,
+                                borderColor: themeColors.border,
+                            },
+                        ]}
+                    >
                         <Text style={[styles.projectIconText, isCompleted ? styles.projectIconTextCompleted : { color: Colors.primary }]}>
                             {progress.percentage}%
                         </Text>
@@ -503,7 +515,7 @@ export default function ProjectsScreen() {
                         <IOSGlassIconButton
                             onPress={() => router.push('/projects/create')}
                             systemImage="plus"
-                            containerStyle={[styles.backButton, { alignItems: 'flex-end' }]}
+                            containerStyle={styles.backButton}
                             circleStyle={{ backgroundColor: themeColors.surface }}
                             icon={<Plus size={24} color={themeColors.textPrimary} strokeWidth={3} />}
                         />
@@ -647,6 +659,7 @@ export default function ProjectsScreen() {
                                 showsVerticalScrollIndicator={false}
                                 contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 24 }}
                                 keyboardShouldPersistTaps="handled"
+                                nestedScrollEnabled={Platform.OS === 'android'}
                             >
                                 <>
                                         {/* Status Badge */}
@@ -772,7 +785,7 @@ export default function ProjectsScreen() {
                                                 {
                                                     backgroundColor: milestone.id === highlightedMilestoneId ? `${Colors.primary}10` : themeColors.background,
                                                     borderColor: milestone.id === highlightedMilestoneId ? Colors.primary : themeColors.border,
-                                                    borderWidth: 1
+                                                    borderWidth: Platform.OS === 'ios' || (Platform.OS === 'android' && isDarkTheme) ? 0 : 1,
                                                 },
                                                 index === (selectedProject.milestones?.length ?? 0) - 1 && { marginBottom: 0 },
                                             ]}
@@ -863,7 +876,7 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         justifyContent: 'center',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         zIndex: 10,
     },
     backButtonCircle: {

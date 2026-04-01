@@ -63,7 +63,8 @@ export default function IOSGlassIconButton({
     const flatCircle = StyleSheet.flatten(circleStyle) || {};
     const w = typeof flatCircle.width === 'number' ? flatCircle.width : BUTTON_SIZE;
     const h = typeof flatCircle.height === 'number' ? flatCircle.height : BUTTON_SIZE;
-    const size = Math.max(w, h, BUTTON_SIZE);
+    const hasExplicitSize = typeof flatCircle.width === 'number' && typeof flatCircle.height === 'number';
+    const size = hasExplicitSize ? Math.max(w, h) : BUTTON_SIZE;
     const symbol = systemImage || 'chevron.left';
     const isCloseButton = symbol.includes('xmark');
     const useBackButtonPreset = forceGlassForClose;

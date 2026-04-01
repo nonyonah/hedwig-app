@@ -129,6 +129,7 @@ export default function InvoicesScreen() {
     const { getAccessToken, user } = useAuth();
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
+    const isDarkTheme = settings?.currentTheme === 'dark';
     const themeColors = useThemeColors();
     const { height: screenHeight } = useWindowDimensions();
     const sheetMaxHeight = Math.round(screenHeight * (Platform.OS === 'ios' ? 0.62 : 0.7));
@@ -688,7 +689,14 @@ export default function InvoicesScreen() {
     const renderItem = ({ item }: { item: any }) => {
         return (
             <TouchableOpacity
-                style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                style={[
+                    styles.card,
+                    {
+                        backgroundColor: themeColors.surface,
+                        borderColor: themeColors.border,
+                        borderWidth: Platform.OS === 'ios' || (Platform.OS === 'android' && isDarkTheme) ? 0 : 1,
+                    },
+                ]}
                 onPress={() => handleInvoicePress(item)}
                 onLongPress={() => handleDelete(item.id)}
                 delayLongPress={500}
@@ -816,7 +824,14 @@ export default function InvoicesScreen() {
                                         : '—';
                                     return (
                                         <TouchableOpacity
-                                            style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                                            style={[
+                                                styles.card,
+                                                {
+                                                    backgroundColor: themeColors.surface,
+                                                    borderColor: themeColors.border,
+                                                    borderWidth: Platform.OS === 'ios' || (Platform.OS === 'android' && isDarkTheme) ? 0 : 1,
+                                                },
+                                            ]}
                                             onPress={() => {
                                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                                 setSelectedRecurring(r);
@@ -1371,6 +1386,7 @@ const styles = StyleSheet.create({
     card: {
         backgroundColor: '#f5f5f5',
         borderRadius: 24,
+        borderWidth: 1,
         padding: 20,
         marginBottom: 16,
     },

@@ -104,6 +104,10 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     fallbackSheet: {
+        width: '100%',
+        height: '96%',
+        maxHeight: '96%',
+        minHeight: 320,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         overflow: 'hidden',

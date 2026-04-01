@@ -17,6 +17,8 @@ interface SettingsContextType {
     setHapticsEnabled: (enabled: boolean) => Promise<void>;
     liveTrackingEnabled: boolean;
     setLiveTrackingEnabled: (enabled: boolean) => Promise<void>;
+    lockScreenEnabled: boolean;
+    setLockScreenEnabled: (enabled: boolean) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -28,6 +30,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [theme, setThemeState] = useState<Theme>('system');
     const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(true);
     const [liveTrackingEnabled, setLiveTrackingEnabledState] = useState<boolean>(true);
+    const [lockScreenEnabled, setLockScreenEnabledState] = useState<boolean>(true);
 
     // Listen for system theme changes
     useEffect(() => {
@@ -49,11 +52,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const storedTheme = await AsyncStorage.getItem('settings_theme');
             const storedHaptics = await AsyncStorage.getItem('settings_haptics');
             const storedLiveTracking = await AsyncStorage.getItem('settings_live_tracking');
+            const storedLockScreen = await AsyncStorage.getItem('settings_lock_screen');
 
             if (storedCurrency) setCurrencyState(storedCurrency as Currency);
             if (storedTheme) setThemeState(storedTheme as Theme);
             if (storedHaptics !== null) setHapticsEnabledState(storedHaptics === 'true');
             if (storedLiveTracking !== null) setLiveTrackingEnabledState(storedLiveTracking === 'true');
+            if (storedLockScreen !== null) setLockScreenEnabledState(storedLockScreen === 'true');
         } catch (error) {
             console.error('Failed to load settings:', error);
         }
@@ -101,6 +106,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     };
 
+    const setLockScreenEnabled = async (enabled: boolean) => {
+        try {
+            setLockScreenEnabledState(enabled);
+            await AsyncStorage.setItem('settings_lock_screen', enabled ? 'true' : 'false');
+        } catch (error) {
+            console.error('Failed to save lock screen setting:', error);
+        }
+    };
+
     // Use deviceTheme (from listener) or systemColorScheme (from hook) - prioritize the reactive one
     const resolvedSystemTheme = deviceTheme || systemColorScheme || 'light';
     const currentTheme = theme === 'system' ? resolvedSystemTheme : theme;
@@ -118,7 +132,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             hapticsEnabled,
             setHapticsEnabled,
             liveTrackingEnabled,
-            setLiveTrackingEnabled
+            setLiveTrackingEnabled,
+            lockScreenEnabled,
+            setLockScreenEnabled
         }}>
             {children}
         </SettingsContext.Provider>

@@ -16,22 +16,35 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Analytics from '../../services/analytics';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import * as HugeiconsCore from '@hugeicons/core-free-icons';
+import {
+    Users as UsersIcon,
+    Plus as PlusIcon,
+    User as UserIcon,
+    Mail as MailIcon,
+    Phone as PhoneIcon,
+    Trash as TrashIcon,
+    Pencil as PencilIcon,
+    X as XIcon,
+    List as ListIcon,
+    DollarSign as DollarSignIcon,
+    Clock as ClockIcon,
+    Building2 as Building2Icon,
+    ChevronLeft as ChevronLeftIcon,
+} from '../../components/ui/AppIcon';
 
-const Users = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).UserGroup03Icon} {...props} />;
-const Plus = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Add01Icon} {...props} />;
-const User = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).UserIcon} {...props} />;
-const Envelope = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Mail01Icon} {...props} />;
-const Phone = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Call02Icon} {...props} />;
-const Trash = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Delete02Icon} {...props} />;
-const PencilSimple = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).PencilEdit01Icon} {...props} />;
-const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
-const List = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Menu01Icon} {...props} />;
-const CurrencyDollar = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Dollar01Icon} {...props} />;
-const Clock = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Clock03Icon} {...props} />;
-const Buildings = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Building02Icon} {...props} />;
-const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+const Users = (props: any) => <UsersIcon {...props} />;
+const Plus = (props: any) => <PlusIcon {...props} />;
+const User = (props: any) => <UserIcon {...props} />;
+const Envelope = (props: any) => <MailIcon {...props} />;
+const Phone = (props: any) => <PhoneIcon {...props} />;
+const Trash = (props: any) => <TrashIcon {...props} />;
+const PencilSimple = (props: any) => <PencilIcon {...props} />;
+const X = (props: any) => <XIcon {...props} />;
+const List = (props: any) => <ListIcon {...props} />;
+const CurrencyDollar = (props: any) => <DollarSignIcon {...props} />;
+const Clock = (props: any) => <ClockIcon {...props} />;
+const Buildings = (props: any) => <Building2Icon {...props} />;
+const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
 
 
 interface Client {

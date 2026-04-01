@@ -108,7 +108,25 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
 
         // Use provided currentDate or fallback to server time
         const referenceDate = currentDate ? new Date(currentDate) : new Date();
-        
+
+        // Short-circuit for simple greetings — don't call the AI so it can't hallucinate
+        // capabilities we haven't exposed in this surface.
+        const isGreeting = !mode && /^\s*(hi+|hey+|hello+|howdy|good\s+(morning|afternoon|evening)|greetings|sup|what'?s\s+up)\s*[!?.]*\s*$/i.test(text.trim());
+        if (isGreeting) {
+            res.json({
+                success: true,
+                data: {
+                    intent: 'unknown',
+                    clientName: null, clientEmail: null,
+                    amount: null, currency: null, chain: null,
+                    dueDate: null, priority: null, title: null,
+                    confidence: 1,
+                    naturalResponse: "Hi! I can help you create invoices, payment links, and set up recurring invoices. What would you like to do?",
+                },
+            });
+            return;
+        }
+
         logger.debug('[CreationBox] Parsing input', { textLength: text.length, text, referenceDate: referenceDate.toISOString(), mode });
 
         // Build prompt with date context for accurate relative date parsing

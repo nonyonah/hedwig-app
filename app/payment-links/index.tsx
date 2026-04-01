@@ -98,6 +98,7 @@ export default function PaymentLinksScreen() {
     const { getAccessToken, user } = useAuth();
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
+    const isDarkTheme = settings?.currentTheme === 'dark';
     const themeColors = useThemeColors();
     const bottomSheetRef = React.useRef<TrueSheet>(null);
     const { height: screenHeight } = useWindowDimensions();
@@ -746,7 +747,14 @@ export default function PaymentLinksScreen() {
     const renderItem = ({ item }: { item: any }) => {
         return (
             <TouchableOpacity
-                style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                style={[
+                    styles.card,
+                    {
+                        backgroundColor: themeColors.surface,
+                        borderColor: themeColors.border,
+                        borderWidth: Platform.OS === 'ios' || (Platform.OS === 'android' && isDarkTheme) ? 0 : 1,
+                    },
+                ]}
                 onPress={() => handleLinkPress(item)}
                 onLongPress={() => handleDelete(item.id)}
                 delayLongPress={500}
@@ -965,6 +973,7 @@ const styles = StyleSheet.create({
     card: {
         backgroundColor: '#f5f5f5',
         borderRadius: 24,
+        borderWidth: 1,
         padding: 20,
         marginBottom: 16,
     },

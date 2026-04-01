@@ -606,9 +606,9 @@ export const SchedulerService = {
             }
 
             const title = 'USD rates update';
-            const body = `${baseAmount} USD ≈ ${rateParts.join(' · ')} (Paycrest)`;
+            const body = `${baseAmount} USD ≈ ${rateParts.join(' · ')}`;
             const emailSubject = `USD rates: ${emailRateParts.join(' · ')}`;
-            const emailHtml = `<p class="eyebrow">Market update</p><h1 class="heading">Latest USD payout rates</h1><p class="description">${baseAmount} USD is currently around ${emailHtmlParts.join(' and ')} using Paycrest rates.</p><p class="description">Use Hedwig to create payouts with the latest pricing.</p>`;
+            const emailHtml = `<p class="eyebrow">Market update</p><h1 class="heading">Latest USD payout rates</h1><p class="description">${baseAmount} USD is currently around ${emailHtmlParts.join(' and ')}</p><p class="description">Use Hedwig to create payouts with the latest pricing.</p>`;
 
             logger.info('Sending Paycrest rate nudges', {
                 count: candidates.length,

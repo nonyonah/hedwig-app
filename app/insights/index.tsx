@@ -19,14 +19,19 @@ import { Insight, InsightsRange, useInsights } from '../../hooks/useInsights';
 import { TargetGoalModal } from '../../components/TargetGoalModal';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import * as HugeiconsCore from '@hugeicons/core-free-icons';
+import {
+    TrendingUp as TrendingUpIcon,
+    TrendingDown as TrendingDownIcon,
+    ArrowRight as ArrowRightIcon,
+    Sparkles as SparklesIcon,
+    ChevronLeft as ChevronLeftIcon,
+} from '../../components/ui/AppIcon';
 
-const TrendUp = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowUp04Icon} {...props} />;
-const TrendDown = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowDown04Icon} {...props} />;
-const ArrowRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowRight01Icon} {...props} />;
-const Sparkle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).SparklesIcon} {...props} />;
-const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+const TrendUp = (props: any) => <TrendingUpIcon {...props} />;
+const TrendDown = (props: any) => <TrendingDownIcon {...props} />;
+const ArrowRight = (props: any) => <ArrowRightIcon {...props} />;
+const Sparkle = (props: any) => <SparklesIcon {...props} />;
+const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
 
 
 const { width } = Dimensions.get('window');

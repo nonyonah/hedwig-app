@@ -1,14 +1,14 @@
 {
   "cli": {
     "version": ">= 16.28.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "image": "sdk-55",
+        "image": "macos-sequoia-15.6-xcode-26.0",
         "credentialsSource": "remote"
       },
       "env": {
@@ -20,7 +20,7 @@
     "preview": {
       "distribution": "internal",
       "ios": {
-        "image": "sdk-55"
+        "image": "macos-sequoia-15.6-xcode-26.0"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://hedwig-1024636755109.europe-west1.run.app",
@@ -30,9 +30,9 @@
       "channel": "preview"
     },
     "production": {
-      "autoIncrement": true,
+      "autoIncrement": false,
       "ios": {
-        "image": "sdk-55",
+        "image": "macos-sequoia-15.6-xcode-26.0",
         "credentialsSource": "remote"
       },
       "android": {

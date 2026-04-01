@@ -24,7 +24,7 @@ import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, Search
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAuth } from '../../hooks/useAuth';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
+import { TrueSheet } from '@hedwig/true-sheet';
 import { OfframpConfirmationModal } from '../../components/OfframpConfirmationModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 let ContextMenu: any = null;

@@ -374,12 +374,12 @@ export default function HomeDashboard() {
                     <Text style={[styles.rowLabel, { color: themeColors.textPrimary }]}>{label}</Text>
                     <View style={styles.rowRight}>
                         {badgeText && (
-                            <View style={[styles.badge, { backgroundColor: '#F1F5F9' }]}>
-                                <Text style={styles.badgeText}>{badgeText}</Text>
+                            <View style={[styles.badge, { backgroundColor: themeColors.surfaceHighlight }]}>
+                                <Text style={[styles.badgeText, { color: themeColors.textSecondary }]}>{badgeText}</Text>
                             </View>
                         )}
-                        <View style={[styles.countBadge, { backgroundColor: '#F1F5F9' }]}>
-                            <Text style={styles.countText}>{count}</Text>
+                        <View style={[styles.countBadge, { backgroundColor: themeColors.surfaceHighlight }]}>
+                            <Text style={[styles.countText, { color: themeColors.textSecondary }]}>{count}</Text>
                         </View>
                     </View>
                 </View>
@@ -395,7 +395,7 @@ export default function HomeDashboard() {
     );
 
     const handleTransfer = (data: any) => {
-        console.log('[Home] Initiating transfer:', data);
+        setShowCreationBox(false);
         setTransactionData({
             amount: data.amount?.toString() || '0',
             token: data.token || 'USDC',
@@ -424,7 +424,7 @@ export default function HomeDashboard() {
             viewAllRoute: '/(tabs)/invoices',
             rows: [
                 { label: 'Invoices', count: counts.reminders.invoices, badge: getBadgeText('INVOICE', 'reminders'), onPress: () => router.push('/(tabs)/invoices') },
-                { label: 'Awaiting contract signatures', count: counts.reminders.contracts, badge: null, onPress: () => router.push('/(tabs)/contracts?filter=sent') },
+                { label: 'Awaiting contract signatures', count: counts.reminders.contracts, badge: null, onPress: () => router.push('/contracts?filter=sent') },
                 { label: 'Payment links', count: counts.reminders.links, badge: getBadgeText('LINK', 'reminders'), onPress: () => router.push('/(tabs)/links') },
             ]
         },
@@ -540,7 +540,7 @@ export default function HomeDashboard() {
                         {sectionConfigs.map((section) => (
                             <View style={styles.sectionContainer} key={section.key}>
                                 <Text style={[styles.sectionHeader, { color: themeColors.textPrimary }]}>{section.title}</Text>
-                                <View style={styles.cardContainer}>
+                                <View style={[styles.cardContainer, { backgroundColor: themeColors.surface }]}>
                                     {isLoadingData
                                         ? [0, 1, 2].map(renderSkeletonRow)
                                         : section.rows.map((row, idx) => (
@@ -555,13 +555,25 @@ export default function HomeDashboard() {
                 )}
             </ScrollView>
 
-            <TouchableOpacity style={[styles.fab, { backgroundColor: '#2563EB' }]} onPress={() => setShowCreationBox(true)}><Plus size={32} color="#FFFFFF" strokeWidth={3} /></TouchableOpacity>
-
-            <UniversalCreationBox
-                visible={showCreationBox}
-                onClose={() => setShowCreationBox(false)}
-                onTransfer={handleTransfer}
-            />
+            <TouchableOpacity
+                style={[styles.fab, { backgroundColor: '#2563EB' }]}
+                onPress={() => {
+                    if (Platform.OS === 'ios') {
+                        setShowCreationBox(true);
+                        return;
+                    }
+                    router.push('/creation-box');
+                }}
+            >
+                <Plus size={32} color="#FFFFFF" strokeWidth={3} />
+            </TouchableOpacity>
+            {Platform.OS === 'ios' && (
+                <UniversalCreationBox
+                    visible={showCreationBox}
+                    onClose={() => setShowCreationBox(false)}
+                    onTransfer={handleTransfer}
+                />
+            )}
             <TransactionConfirmationModal
                 ref={transactionModalRef}
                 visible={showTransactionModal}
@@ -593,10 +605,24 @@ const styles = StyleSheet.create({
     rowLabel: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 16 },
     rowRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-    badgeText: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 12, color: '#475569' },
+    badgeText: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 12 },
     countBadge: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-    countText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 14, color: '#475569' },
-    fab: { position: 'absolute', bottom: 110, right: 24, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 },
+    countText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 14 },
+    fab: {
+        position: 'absolute',
+        bottom: Platform.OS === 'android' ? 88 : 110,
+        right: 24,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+    },
     skeletonBar: { height: 12, borderRadius: 6 },
     skeletonCircle: { width: 26, height: 26, borderRadius: 13 },
     emptyStateContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80, paddingHorizontal: 40 },

@@ -34,20 +34,31 @@ import { formatCurrency } from '../../utils/currencyUtils';
 import { ModalBackdrop, modalHaptic } from '../../components/ui/ModalStyles';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import * as HugeiconsCore from '@hugeicons/core-free-icons';
+import {
+    List as ListIcon,
+    X as XIcon,
+    Copy as CopyIcon,
+    CheckCircle as CheckCircleIcon,
+    ArrowUpRight as ArrowUpRightIcon,
+    ArrowDownLeft as ArrowDownLeftIcon,
+    Wallet as WalletIcon,
+    Receipt as ReceiptIcon,
+    Link as LinkIconBase,
+    ArrowLeftRight as ArrowLeftRightIcon,
+    ChevronLeft as ChevronLeftIcon,
+} from '../../components/ui/AppIcon';
 
-const List = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Menu01Icon} {...props} />;
-const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
-const Copy = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Copy01Icon} {...props} />;
-const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle01Icon} {...props} />;
-const ArrowUpRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowUpRight01Icon} {...props} />;
-const ArrowDownLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowDownLeft01Icon} {...props} />;
-const Wallet = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Wallet01Icon} {...props} />;
-const Receipt = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Invoice01Icon} {...props} />;
-const LinkIcon = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Link01Icon} {...props} />;
-const ArrowsLeftRight = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeftRightIcon} {...props} />;
-const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+const List = (props: any) => <ListIcon {...props} />;
+const X = (props: any) => <XIcon {...props} />;
+const Copy = (props: any) => <CopyIcon {...props} />;
+const CheckCircle = (props: any) => <CheckCircleIcon {...props} />;
+const ArrowUpRight = (props: any) => <ArrowUpRightIcon {...props} />;
+const ArrowDownLeft = (props: any) => <ArrowDownLeftIcon {...props} />;
+const Wallet = (props: any) => <WalletIcon {...props} />;
+const Receipt = (props: any) => <ReceiptIcon {...props} />;
+const LinkIcon = (props: any) => <LinkIconBase {...props} />;
+const ArrowsLeftRight = (props: any) => <ArrowLeftRightIcon {...props} />;
+const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
 
 
 const { width } = Dimensions.get('window');

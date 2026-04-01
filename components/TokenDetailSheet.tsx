@@ -252,7 +252,10 @@ const TokenDetailSheet = forwardRef<TrueSheet, Props>(({ selectedToken, onDismis
     const shownDescription = readMore ? description : description.slice(0, 180);
     const website = market?.links?.homepage?.find((l) => !!l) || '';
     const twitter = market?.links?.twitter_screen_name ? `https://x.com/${market.links.twitter_screen_name}` : '';
-    const softDividerColor = themeColors.textSecondary + (themeColors.textSecondary.length === 7 ? '26' : '');
+    const softDividerColor =
+        typeof themeColors.textSecondary === 'string' && themeColors.textSecondary.startsWith('#') && themeColors.textSecondary.length === 7
+            ? `${themeColors.textSecondary}26`
+            : themeColors.border;
 
     return (
         <TrueSheet
@@ -272,6 +275,8 @@ const TokenDetailSheet = forwardRef<TrueSheet, Props>(({ selectedToken, onDismis
                     contentContainerStyle={styles.content}
                     bounces={false}
                     overScrollMode="never"
+                    nestedScrollEnabled={Platform.OS === 'android'}
+                    keyboardShouldPersistTaps="handled"
                 >
                     {/* Close button */}
                     <View style={styles.closeRow}>

@@ -19,20 +19,31 @@ import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import * as HugeiconsCore from '@hugeicons/core-free-icons';
+import {
+    List as ListIcon,
+    CheckCircle as CheckCircleIcon,
+    FileText as FileTextIcon,
+    X as XIcon,
+    CircleUser as UserCircleIcon,
+    Trash as TrashIcon,
+    MoreHorizontal as MoreHorizontalIcon,
+    Send as SendIcon,
+    Clock as ClockIcon,
+    Eye as EyeIcon,
+    ChevronLeft as ChevronLeftIcon,
+} from '../../components/ui/AppIcon';
 
-const List = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Menu01Icon} {...props} />;
-const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).CheckmarkCircle02Icon} {...props} />;
-const FileText = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).File02Icon} {...props} />;
-const X = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Cancel01Icon} {...props} />;
-const UserCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).UserCircleIcon} {...props} />;
-const Trash = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Delete02Icon} {...props} />;
-const DotsThree = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).MoreHorizontalIcon} {...props} />;
-const PaperPlaneTilt = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).SentIcon} {...props} />;
-const Clock = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Clock03Icon} {...props} />;
-const Eye = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ViewIcon} {...props} />;
-const CaretLeft = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).ArrowLeft01Icon} {...props} />;
+const List = (props: any) => <ListIcon {...props} />;
+const CheckCircle = (props: any) => <CheckCircleIcon {...props} />;
+const FileText = (props: any) => <FileTextIcon {...props} />;
+const X = (props: any) => <XIcon {...props} />;
+const UserCircle = (props: any) => <UserCircleIcon {...props} />;
+const Trash = (props: any) => <TrashIcon {...props} />;
+const DotsThree = (props: any) => <MoreHorizontalIcon {...props} />;
+const PaperPlaneTilt = (props: any) => <SendIcon {...props} />;
+const Clock = (props: any) => <ClockIcon {...props} />;
+const Eye = (props: any) => <EyeIcon {...props} />;
+const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
 
 
 // Profile color gradient options (consistent with ProfileModal)
@@ -638,14 +649,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: Platform.OS === 'android' ? 10 : 12,
-        height: Platform.OS === 'android' ? 56 : 60,
+        paddingVertical: 12,
+        height: 60,
     },
     backButton: {
         width: 40,
         height: 40,
         justifyContent: 'center',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         zIndex: 10,
     },
     backButtonCircle: {

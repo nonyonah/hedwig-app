@@ -1,192 +1,45 @@
-
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { Tabs, useRouter } from 'expo-router';
+import { Color, Tabs, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { Platform, View, TouchableOpacity, Text, StyleSheet, Animated, DeviceEventEmitter, Easing, DynamicColorIOS, PlatformColor } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
-import { Home, Receipt, Link2, Wallet2, Search } from '../../../components/ui/AppIcon';
+import { DynamicColorIOS, Platform, PlatformColor, useColorScheme } from 'react-native';
 
-import { useThemeColors } from '../../../theme/colors';
 import { useAuth } from '../../../hooks/useAuth';
-import { useSettings } from '../../../context/SettingsContext';
+import { useThemeColors } from '../../../theme/colors';
 
-type AndroidTabRouteName = 'index' | 'invoices' | 'links' | 'wallet' | 'search';
+const NativeTabs = (() => {
+    try {
+        return require('expo-router/unstable-native-tabs').NativeTabs;
+    } catch {
+        return null;
+    }
+})();
 
-function AndroidTabBar({ state, descriptors, navigation }: any) {
-    const themeColors = useThemeColors();
-    const { currentTheme } = useSettings();
-    const insets = useSafeAreaInsets();
-    const isDark = currentTheme === 'dark';
-    const bottomOffset = Math.max(12, insets.bottom + 8);
-    const glassTint = isDark ? 'dark' : 'light';
-    const selectedSystemColor = PlatformColor('?attr/colorPrimary');
-    const compactAnim = React.useRef(new Animated.Value(0)).current;
-    const compactStateRef = React.useRef(false);
-
-    const setCompact = React.useCallback((compact: boolean) => {
-        if (compactStateRef.current === compact) return;
-        compactStateRef.current = compact;
-        Animated.timing(compactAnim, {
-            toValue: compact ? 1 : 0,
-            duration: 180,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-        }).start();
-    }, [compactAnim]);
-
-    useEffect(() => {
-        const listener = DeviceEventEmitter.addListener('hedwig:tabbar-scroll', (offsetY: number) => {
-            if (typeof offsetY !== 'number') return;
-            setCompact(offsetY > 4);
-        });
-        return () => listener.remove();
-    }, [setCompact]);
-
-    useEffect(() => {
-        setCompact(false);
-    }, [state.index, setCompact]);
-
-    const tabBarScale = compactAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [1, 0.82],
-    });
-    const tabBarTranslateY = compactAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 14],
-    });
-    const labelOpacity = compactAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [1, 0],
-    });
-    const labelTranslateY = compactAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 6],
-    });
-
-    const getIconForRoute = (routeName: AndroidTabRouteName, isFocused: boolean) => {
-        const color = isFocused ? selectedSystemColor : (isDark ? '#9CA3AF' : '#6B7280');
-        const size = 22;
-
-        switch (routeName) {
-            case 'index':
-                return <Home size={size} color={color} />;
-            case 'invoices':
-                return <Receipt size={size} color={color} />;
-            case 'links':
-                return <Link2 size={size} color={color} />;
-            case 'wallet':
-                return <Wallet2 size={size} color={color} />;
-            case 'search':
-                return <Search size={size} color={color} />;
-            default:
-                return null;
-        }
-    };
-
-    return (
-        <Animated.View
-            style={[
-                styles.tabBar,
-                {
-                    bottom: bottomOffset,
-                    borderColor: 'transparent',
-                    shadowColor: isDark ? '#000000' : '#0F172A',
-                    shadowOpacity: 0,
-                    elevation: 0,
-                    transform: [{ translateY: tabBarTranslateY }, { scale: tabBarScale }],
-                },
-            ]}
-        >
-            <BlurView
-                tint={glassTint}
-                intensity={38}
-                experimentalBlurMethod="dimezisBlurView"
-                style={[StyleSheet.absoluteFill, { backgroundColor: 'transparent' }]}
-            />
-            {state.routes.map((route: any, index: number) => {
-                const isFocused = state.index === index;
-                const { options } = descriptors[route.key];
-                const label =
-                    options.tabBarLabel !== undefined
-                        ? options.tabBarLabel
-                        : options.title !== undefined
-                            ? options.title
-                            : route.name;
-
-                const onPress = () => {
-                    const event = navigation.emit({
-                        type: 'tabPress',
-                        target: route.key,
-                        canPreventDefault: true,
-                    });
-
-                    if (!isFocused && !event.defaultPrevented) {
-                        navigation.navigate(route.name);
-                    }
-                };
-
-                return (
-                    <TouchableOpacity
-                        key={route.key}
-                        accessibilityRole="button"
-                        accessibilityState={isFocused ? { selected: true } : {}}
-                        onPress={onPress}
-                        style={[
-                            styles.tabItem,
-                            isFocused && {
-                                backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.28)',
-                            },
-                        ]}
-                    >
-                        {getIconForRoute(route.name as AndroidTabRouteName, isFocused)}
-                        <Animated.Text
-                            style={[
-                                styles.tabLabel,
-                                {
-                                    color: isFocused
-                                        ? selectedSystemColor
-                                        : isDark
-                                            ? '#B0B6C1'
-                                            : '#6B7280',
-                                    opacity: labelOpacity,
-                                    transform: [{ translateY: labelTranslateY }],
-                                },
-                            ]}
-                        >
-                            {label}
-                        </Animated.Text>
-                    </TouchableOpacity>
-                );
-            })}
-        </Animated.View>
-    );
-}
+const getPlatformColorSafe = (resource: string, fallback: string): string => {
+    try {
+        return PlatformColor(resource) as unknown as string;
+    } catch {
+        return fallback;
+    }
+};
 
 export default function TabLayout() {
     const router = useRouter();
     const { user, isReady } = useAuth();
-    const iosTintColor = PlatformColor('systemBlueColor');
-    const iosUnselectedColor = DynamicColorIOS({ light: '#6B7280', dark: '#9CA3AF' });
+    const themeColors = useThemeColors();
+    const isAndroid = Platform.OS === 'android';
+    const isIOS = Platform.OS === 'ios';
+    const systemColorScheme = useColorScheme();
 
     useEffect(() => {
         if (isReady && !user) {
             router.replace('/auth/welcome');
         }
-    }, [isReady, user]);
+    }, [isReady, user, router]);
 
     if (!isReady) return null;
 
-    // Android: custom tab bar
-    if (Platform.OS === 'android') {
+    if (!NativeTabs) {
         return (
-            <Tabs
-                screenOptions={{
-                    headerShown: false,
-                    tabBarStyle: { display: 'none' },
-                }}
-                tabBar={(props) => <AndroidTabBar {...props} />}
-            >
+            <Tabs screenOptions={{ headerShown: false }}>
                 <Tabs.Screen name="index" options={{ title: 'Home' }} />
                 <Tabs.Screen name="invoices" options={{ title: 'Invoices' }} />
                 <Tabs.Screen name="links" options={{ title: 'Links' }} />
@@ -196,72 +49,76 @@ export default function TabLayout() {
         );
     }
 
-    // iOS: follow Expo Router native-tabs recommendations for liquid glass.
+    const iosTintColor = getPlatformColorSafe('systemBlueColor', '#007AFF');
+    const iosUnselectedColor =
+        isIOS && typeof DynamicColorIOS === 'function'
+            ? DynamicColorIOS({ light: '#6B7280', dark: '#9CA3AF' })
+            : '#6B7280';
+
+    const androidTintColor = isAndroid
+        ? (((Color as any).android?.dynamic?.primary as any) ?? getPlatformColorSafe('?attr/colorPrimary', themeColors.primary))
+        : '#2563EB';
+    const androidUnselectedColor = isAndroid
+        ? (((Color as any).android?.dynamic?.onSurfaceVariant as any)
+            ?? themeColors.textSecondary
+            ?? (systemColorScheme === 'dark' ? '#9CA3AF' : '#6B7280'))
+        : '#6B7280';
+    const androidBackgroundColor = isAndroid
+        ? (((Color as any).android?.dynamic?.surfaceContainer as any) ?? ((Color as any).android?.dynamic?.surface as any) ?? getPlatformColorSafe('?attr/colorSurface', themeColors.background))
+        : undefined;
+
+    const tintColor = isAndroid ? androidTintColor : iosTintColor;
+    const iconColor = isAndroid
+        ? { default: androidUnselectedColor, selected: androidTintColor }
+        : { default: iosUnselectedColor, selected: iosTintColor };
+
     return (
         <NativeTabs
-            tintColor={iosTintColor}
-            iconColor={{ default: iosUnselectedColor, selected: iosTintColor }}
-            minimizeBehavior="onScrollDown"
+            tintColor={tintColor}
+            iconColor={iconColor}
+            labelStyle={
+                isAndroid
+                    ? ({
+                        default: { color: androidUnselectedColor, fontSize: 12, fontWeight: '600' },
+                        selected: { color: androidTintColor, fontSize: 12, fontWeight: '700' },
+                    } as const)
+                    : ({
+                        default: { color: iosUnselectedColor, fontSize: 11, fontWeight: '600' },
+                        selected: { color: iosTintColor, fontSize: 11, fontWeight: '700' },
+                    } as const)
+            }
+            {...(isAndroid ? { labelVisibilityMode: 'labeled' as const } : {})}
+            {...(isAndroid ? { backgroundColor: androidBackgroundColor as any } : {})}
+            {...(isAndroid ? { disableTransparentOnScrollEdge: true as const } : {})}
+            {...(!isAndroid ? { minimizeBehavior: 'onScrollDown' as const } : {})}
         >
             <NativeTabs.Trigger name="index">
                 <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="house.fill" />
+                <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
             </NativeTabs.Trigger>
 
             <NativeTabs.Trigger name="invoices">
                 <NativeTabs.Trigger.Label>Invoices</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="doc.text.fill" />
+                <NativeTabs.Trigger.Icon sf="doc.text.fill" md="receipt_long" />
             </NativeTabs.Trigger>
 
             <NativeTabs.Trigger name="links">
                 <NativeTabs.Trigger.Label>Links</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="link" />
+                <NativeTabs.Trigger.Icon sf="link" md="link" />
             </NativeTabs.Trigger>
 
             <NativeTabs.Trigger name="wallet">
                 <NativeTabs.Trigger.Label>Wallet</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="creditcard.fill" />
+                <NativeTabs.Trigger.Icon sf="creditcard.fill" md="account_balance_wallet" />
             </NativeTabs.Trigger>
 
-            <NativeTabs.Trigger name="search" role="search">
+            <NativeTabs.Trigger
+                name="search"
+                {...(!isAndroid ? ({ role: 'search' as const }) : {})}
+            >
                 <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
-                <NativeTabs.Trigger.Icon sf="magnifyingglass" />
+                <NativeTabs.Trigger.Icon sf="magnifyingglass" md="search" />
             </NativeTabs.Trigger>
         </NativeTabs>
     );
 }
-
-const styles = StyleSheet.create({
-    tabBar: {
-        position: 'absolute',
-        left: 16,
-        right: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderRadius: 28,
-        overflow: 'hidden',
-        borderWidth: 0,
-        backgroundColor: 'transparent',
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        shadowOpacity: 0.18,
-        shadowOffset: { width: 0, height: 10 },
-        shadowRadius: 24,
-        elevation: 10,
-    },
-    tabItem: {
-        flex: 1,
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 6,
-        marginHorizontal: 4,
-        borderRadius: 999,
-    },
-    tabLabel: {
-        marginTop: 2,
-        fontSize: 13,
-        fontFamily: 'GoogleSansFlex_400Regular',
-    },
-});
