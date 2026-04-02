@@ -27,6 +27,7 @@ import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 const DEMO_EMAIL = 'demo@hedwig.app';
 const DEMO_CODE = '123456';
+const PRIVACY_POLICY_URL = 'https://www.hedwigbot.xyz/privacy';
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -197,7 +198,7 @@ export default function LoginScreen() {
     };
 
     const openPrivacy = () => {
-        Linking.openURL('https://www.hedwigbot.xyz/privacy');
+        Linking.openURL(PRIVACY_POLICY_URL);
     };
 
     return (

@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme, Appearance, ColorSchemeName } from 'react-native';
+import * as SystemUI from 'expo-system-ui';
 
 export type Currency = 'USD' | 'NGN' | 'GHS' | 'KES';
 export type Theme = 'light' | 'dark' | 'system';
@@ -23,9 +24,12 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
+const resolveToAppTheme = (colorScheme: ColorSchemeName | null | undefined): 'light' | 'dark' =>
+    colorScheme === 'dark' ? 'dark' : 'light';
+
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const systemColorScheme = useColorScheme();
-    const [deviceTheme, setDeviceTheme] = useState<ColorSchemeName>(Appearance.getColorScheme());
+    const [deviceTheme, setDeviceTheme] = useState<'light' | 'dark'>(resolveToAppTheme(Appearance.getColorScheme()));
     const [currency, setCurrencyState] = useState<Currency>('USD');
     const [theme, setThemeState] = useState<Theme>('system');
     const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(true);
@@ -36,7 +40,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     useEffect(() => {
         const subscription = Appearance.addChangeListener(({ colorScheme }) => {
             console.log('[Settings] System theme changed to:', colorScheme);
-            setDeviceTheme(colorScheme);
+            setDeviceTheme(resolveToAppTheme(colorScheme));
         });
         return () => subscription.remove();
     }, []);
@@ -116,8 +120,22 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     // Use deviceTheme (from listener) or systemColorScheme (from hook) - prioritize the reactive one
-    const resolvedSystemTheme = deviceTheme || systemColorScheme || 'light';
+    const resolvedSystemTheme = resolveToAppTheme(deviceTheme || systemColorScheme);
     const currentTheme = theme === 'system' ? resolvedSystemTheme : theme;
+
+    useEffect(() => {
+        const targetColorScheme: ColorSchemeName = theme === 'system' ? 'unspecified' : theme;
+        if (typeof Appearance.setColorScheme === 'function') {
+            Appearance.setColorScheme(targetColorScheme);
+        }
+    }, [theme]);
+
+    useEffect(() => {
+        const targetBackground = currentTheme === 'dark' ? '#000000' : '#FFFFFF';
+        SystemUI.setBackgroundColorAsync(targetBackground).catch(() => {
+            // No-op: background color sync is best-effort.
+        });
+    }, [currentTheme]);
 
     console.log('[Settings] Theme state:', { storedTheme: theme, deviceTheme, systemColorScheme, currentTheme });
 

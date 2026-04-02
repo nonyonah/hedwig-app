@@ -95,8 +95,9 @@ export function useThemeColors(): ThemeColors {
 
     const isDark = settings.currentTheme === 'dark';
     const palette = isDark ? DarkColors : LightColors;
+    const useAndroidDynamicPalette = Platform.OS === 'android' && settings.theme === 'system';
 
-    if (Platform.OS !== 'android') {
+    if (!useAndroidDynamicPalette) {
         return palette;
     }
 

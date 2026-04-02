@@ -16,7 +16,8 @@ const PUBLIC_PATHS = [
   '/contract',
   '/contracts',
   '/success',
-  '/export-wallet'
+  '/export-wallet',
+  '/privacy'
 ];
 
 const isPublicPath = (pathname: string) =>

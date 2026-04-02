@@ -593,14 +593,10 @@ function ThemeAwareStatusBar() {
     const colors = useThemeColors();
     const isDark = currentTheme === 'dark';
 
-    if (Platform.OS !== 'android') {
-        return null;
-    }
-
     return (
         <StatusBar
             style={isDark ? 'light' : 'dark'}
-            backgroundColor={colors.background as any}
+            backgroundColor={Platform.OS === 'android' ? (colors.background as any) : undefined}
         />
     );
 }
