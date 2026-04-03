@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowSquareOut, CheckCircle, CopySimple, FileText, PencilSimpleLine, PaperPlaneTilt } from '@/components/ui/lucide-icons';
 import type { Contract } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
@@ -35,6 +35,33 @@ export function ContractsClient({
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    let cancelled = false;
+    const refreshContracts = async () => {
+      setIsRefreshing(true);
+      try {
+        const liveContracts = await hedwigApi.contracts({ accessToken, disableMockFallback: true });
+        if (!cancelled) {
+          setContracts(liveContracts);
+        }
+      } catch {
+        // Keep server-provided contracts if refresh fails.
+      } finally {
+        if (!cancelled) {
+          setIsRefreshing(false);
+        }
+      }
+    };
+
+    void refreshContracts();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
 
   const signedCount = useMemo(() => contracts.filter((c) => c.status === 'signed').length, [contracts]);
   const reviewCount = useMemo(() => contracts.filter((c) => c.status === 'review').length, [contracts]);
@@ -122,7 +149,10 @@ export function ContractsClient({
         <div className="flex items-center justify-between border-b border-[#e9eaeb] px-5 py-4">
           <div>
             <p className="text-[15px] font-semibold text-[#181d27]">Contract workspace</p>
-            <p className="text-[12px] text-[#a4a7ae] mt-0.5">{contracts.length} contract{contracts.length !== 1 ? 's' : ''}</p>
+            <p className="text-[12px] text-[#a4a7ae] mt-0.5">
+              {contracts.length} contract{contracts.length !== 1 ? 's' : ''}
+              {isRefreshing ? ' · syncing…' : ''}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {STATUS_FILTERS.map((s) => (
