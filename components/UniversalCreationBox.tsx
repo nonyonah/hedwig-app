@@ -18,7 +18,6 @@ import {
     Dimensions,
     Keyboard,
     Modal,
-    useColorScheme,
     ScrollView,
     Animated,
 } from 'react-native';
@@ -30,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
 import SwiftUIBottomSheetModal from './ui/SwiftUIBottomSheetModal';
 import { useThemeColors } from '../theme/colors';
+import { useSettings } from '../context/SettingsContext';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 
@@ -156,21 +156,27 @@ const SUGGESTIONS: Array<{ label: string; prompt: string; icon: UniversalSheetIc
 
 /* ─────────────────────────────────────────── intent meta */
 
-const INTENT_META: Record<string, { label: string; bg: string; color: string }> = {
-    invoice:           { label: 'Invoice',          bg: '#EFF4FF', color: '#2563EB' },
-    payment_link:      { label: 'Payment Link',      bg: '#F0FDF4', color: '#16A34A' },
-    recurring_invoice: { label: 'Recurring Invoice', bg: '#FDF4FF', color: '#9333EA' },
+const INTENT_META: Record<string, { label: string; bgLight: string; bgDark: string; colorLight: string; colorDark: string }> = {
+    invoice:           { label: 'Invoice',          bgLight: '#EFF4FF', bgDark: '#1E3A5F', colorLight: '#2563EB', colorDark: '#60A5FA' },
+    payment_link:      { label: 'Payment Link',      bgLight: '#F0FDF4', bgDark: '#14532D', colorLight: '#16A34A', colorDark: '#4ADE80' },
+    recurring_invoice: { label: 'Recurring Invoice', bgLight: '#FDF4FF', bgDark: '#3B0764', colorLight: '#9333EA', colorDark: '#C084FC' },
 };
 
 /* ─────────────────────────────────────────── action card */
 
-function ActionCard({ parsed, onConfirm, onDismiss, colors }: {
+function ActionCard({ parsed, onConfirm, onDismiss, colors, isDark }: {
     parsed: ParsedData;
     onConfirm: () => void;
     onDismiss: () => void;
     colors: ReturnType<typeof useThemeColors>;
+    isDark: boolean;
 }) {
-    const meta = INTENT_META[parsed.intent] ?? INTENT_META.invoice;
+    const metaRaw = INTENT_META[parsed.intent] ?? INTENT_META.invoice;
+    const meta = {
+        label: metaRaw.label,
+        bg: isDark ? metaRaw.bgDark : metaRaw.bgLight,
+        color: isDark ? metaRaw.colorDark : metaRaw.colorLight,
+    };
     const rows: { label: string; value: string }[] = [];
     if (parsed.amount != null) rows.push({ label: 'Amount', value: `$${parsed.amount.toLocaleString()}` });
     if (parsed.clientName)     rows.push({ label: 'Client', value: parsed.clientName });
@@ -280,7 +286,8 @@ function AnimatedThinkingDots({ color }: { color: string }) {
 
 export function UniversalCreationBox({ visible, onClose, onTransfer, presentation = 'auto' }: UniversalCreationBoxProps) {
     const colors  = useThemeColors();
-    const isDark  = useColorScheme() === 'dark';
+    const { currentTheme } = useSettings();
+    const isDark  = currentTheme === 'dark';
     const router  = useRouter();
     const { getAccessToken } = useAuth();
     const insets  = useSafeAreaInsets();
@@ -769,6 +776,7 @@ export function UniversalCreationBox({ visible, onClose, onTransfer, presentatio
                                                 <ActionCard
                                                     parsed={msg.parsed}
                                                     colors={colors}
+                                                    isDark={isDark}
                                                     onConfirm={() => confirmAction(msg.id, msg.parsed!)}
                                                     onDismiss={() => setMessages((p) => p.map((m) =>
                                                         m.id === msg.id ? { ...m, actionState: undefined, parsed: undefined } : m

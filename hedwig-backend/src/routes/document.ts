@@ -1654,12 +1654,19 @@ router.post('/:id/send', authenticate, async (req: Request, res: Response, next)
 });
 
 /**
- * GET /api/documents/approve/:id/:token
+ * POST /api/documents/approve/:id
  * Approve a contract via email link (public endpoint)
+ * Token is passed in the request body to avoid Referer header leakage
  */
-router.get('/approve/:id/:token', async (req: Request, res: Response, next) => {
+router.post('/approve/:id', async (req: Request, res: Response, next) => {
     try {
-        const { id, token } = req.params;
+        const { id } = req.params;
+        const { token } = req.body as { token?: string };
+
+        if (!token || typeof token !== 'string') {
+            res.status(400).json({ success: false, error: { message: 'Missing approval token' } });
+            return;
+        }
 
         // Fetch the contract
         const { data: contract, error: fetchError } = await supabase
@@ -1791,9 +1798,7 @@ router.get('/approve/:id/:token', async (req: Request, res: Response, next) => {
             }
         }
 
-        // Redirect to contract page with success message
-        const baseUrl = process.env.API_URL || 'http://localhost:3000';
-        res.redirect(`${baseUrl}/contract/${id}?approved=true`);
+        res.json({ success: true, invoiceCount: createdInvoices.length });
     } catch (error) {
         next(error);
     }

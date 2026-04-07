@@ -19,8 +19,10 @@ export function ApproveContractButton({ contractId }: { contractId: string }) {
     setSubmitting(true);
     setError(null);
     try {
-      const response = await fetch(`/api/backend/api/documents/approve/${contractId}/${token}`, {
-        cache: 'no-store'
+      const response = await fetch(`/api/backend/api/documents/approve/${contractId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
       });
       const payload = await response.json();
 

@@ -24,9 +24,17 @@ const isPublicPath = (pathname: string) =>
   pathname === '/' ||
   PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 
+const CLEAR_COOKIE_OPTS = {
+  expires: new Date(0),
+  path: '/',
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const
+};
+
 const clearAuthCookies = (response: NextResponse) => {
-  response.cookies.set('hedwig_access_token', '', { expires: new Date(0), path: '/' });
-  response.cookies.set('hedwig_user', '', { expires: new Date(0), path: '/' });
+  response.cookies.set('hedwig_access_token', '', CLEAR_COOKIE_OPTS);
+  response.cookies.set('hedwig_user', '', CLEAR_COOKIE_OPTS);
   return response;
 };
 
@@ -57,8 +65,9 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('hedwig_access_token')?.value;
   const isDemo = request.cookies.get('hedwig_demo')?.value === 'true';
 
-  // Demo sessions bypass backend token validation entirely
-  if (isDemo && token === 'demo') {
+  // Demo sessions bypass backend token validation entirely (disabled in production)
+  const isDemoEnabled = process.env.NODE_ENV !== 'production';
+  if (isDemoEnabled && isDemo && token === 'demo') {
     if (pathname === '/sign-in') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }

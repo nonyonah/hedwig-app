@@ -229,8 +229,8 @@ export default async function PublicInvoicePage({
               </div>
               <div className="divide-y divide-[#f2f4f7] px-5">
                 <BankDetailRow label="Bank" value={document.user.usd_account.bank_name || 'Bridge USD account'} />
-                <BankDetailRow label="Account #" value={document.user.usd_account.account_number} mono />
-                <BankDetailRow label="Routing #" value={document.user.usd_account.routing_number} mono />
+                <BankDetailRow label="Account #" value={`••••${document.user.usd_account.account_number.slice(-4)}`} mono />
+                <BankDetailRow label="Routing #" value={`••••${document.user.usd_account.routing_number.slice(-4)}`} mono />
               </div>
             </div>
           ) : null}
