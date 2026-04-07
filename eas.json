@@ -38,7 +38,7 @@
       "android": {
         "image": "sdk-55",
         "buildType": "app-bundle",
-        "credentialsSource": "local"
+        "credentialsSource": "remote"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://hedwig-1024636755109.europe-west1.run.app",
