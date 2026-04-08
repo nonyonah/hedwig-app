@@ -84,6 +84,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Only validate the token when it actually matters:
+  //   - Protected routes: must confirm the token is valid before granting access
+  //   - Sign-in page: validate so we can redirect authenticated users to dashboard
+  // All other public routes (invoice, pay, contract, etc.) can skip the backend
+  // round-trip entirely — they don't gate on auth.
+  if (isPublic && pathname !== '/sign-in') {
+    return NextResponse.next();
+  }
+
   const validToken = await isValidAccessToken(token);
 
   if (!validToken) {

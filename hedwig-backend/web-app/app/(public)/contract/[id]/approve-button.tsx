@@ -51,7 +51,7 @@ export function ApproveContractButton({ contractId }: { contractId: string }) {
         {submitting ? 'Approving…' : 'Approve contract'}
       </button>
       {error ? (
-        <div className="rounded-2xl border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-[13px] text-[#b42318]">
+        <div className="rounded-2xl border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-[13px] text-[#717680]">
           {error}
         </div>
       ) : null}

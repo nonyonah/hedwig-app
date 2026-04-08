@@ -80,7 +80,7 @@ export default function SignInPage() {
     }
 
     settle();
-  }, [ready, authenticated]);
+  }, [ready, authenticated, settling]);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-7 bg-white">

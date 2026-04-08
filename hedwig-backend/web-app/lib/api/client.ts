@@ -95,6 +95,7 @@ export interface CreateClientInput {
   company?: string;
   address?: string;
   walletAddress?: string;
+  notes?: string;
 }
 
 export interface CreateProjectMilestoneInput {
@@ -123,6 +124,7 @@ export interface UpdateClientInput {
   company?: string;
   address?: string;
   walletAddress?: string;
+  notes?: string;
 }
 
 export interface UpdateProjectInput {
@@ -294,6 +296,7 @@ const mapBackendClient = (client: any): Client => ({
   email: String(client.email || 'unknown@client.com'),
   phone: client.phone || undefined,
   address: client.address || undefined,
+  notes: client.notes || undefined,
   walletAddress: client.walletAddress || client.wallet_address || undefined,
   status: normalizeClientStatus(client.status),
   totalBilledUsd: Number(client.totalBilledUsd ?? client.totalEarnings ?? 0),
@@ -309,6 +312,7 @@ const mapCreatedClient = (client: any): Client => ({
   email: String(client.email || 'unknown@client.com'),
   phone: client.phone || undefined,
   address: client.address || undefined,
+  notes: client.notes || undefined,
   walletAddress: client.walletAddress || client.wallet_address || undefined,
   status: 'active',
   totalBilledUsd: Number(client.totalBilledUsd ?? client.totalEarnings ?? 0),

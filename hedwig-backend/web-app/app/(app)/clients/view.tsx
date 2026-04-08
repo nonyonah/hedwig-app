@@ -5,34 +5,20 @@ import { useMemo, useState } from 'react';
 import { ArrowRight, Plus, UserPlus, UsersThree } from '@/components/ui/lucide-icons';
 import type { Client } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
-import type { CreateClientInput } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { PageHeader } from '@/components/data/page-header';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogBody,
-  DialogFooter,
-  DialogClose
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { useToast } from '@/components/providers/toast-provider';
 import { formatCompactCurrency, formatShortDate } from '@/lib/utils';
 
 const CLIENT_STATUS = {
-  active:   { dot: 'bg-[#12b76a]', label: 'Active',   bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  at_risk:  { dot: 'bg-[#f59e0b]', label: 'At risk',  bg: 'bg-[#fffaeb]', text: 'text-[#92400e]' },
+  active:   { dot: 'bg-[#12b76a]', label: 'Active',   bg: 'bg-[#ecfdf3]', text: 'text-[#717680]' },
+  at_risk:  { dot: 'bg-[#f59e0b]', label: 'At risk',  bg: 'bg-[#fffaeb]', text: 'text-[#717680]' },
   inactive: { dot: 'bg-[#a4a7ae]', label: 'Inactive', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
 } as const;
 
 const STATUS_FILTERS = ['all', 'active', 'at_risk', 'inactive'] as const;
-
-const emptyClient: CreateClientInput = { name: '', email: '', phone: '', company: '', address: '' };
 
 export function ClientsClient({
   initialClients,
@@ -46,9 +32,6 @@ export function ClientsClient({
 
   const [clients, setClients] = useState(initialClients);
   const [filter, setFilter] = useState<string>('all');
-  const [isCreating, setIsCreating] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [form, setForm] = useState<CreateClientInput>(emptyClient);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -60,36 +43,6 @@ export function ClientsClient({
     () => (filter === 'all' ? clients : clients.filter((c) => c.status === filter)),
     [clients, filter]
   );
-
-  const updateField = (field: keyof CreateClientInput, value: string) =>
-    setForm((cur) => ({ ...cur, [field]: value }));
-
-  const resetForm = () => { setForm(emptyClient); setIsCreating(false); };
-
-  const handleCreate = async () => {
-    if (!form.name.trim()) {
-      toast({ type: 'error', title: 'Name required', message: 'Client name cannot be empty.' });
-      return;
-    }
-    if (!accessToken) {
-      toast({ type: 'error', title: 'Session expired', message: 'Please sign in again.' });
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const created = await hedwigApi.createClient(
-        { ...form, name: form.name.trim(), email: form.email?.trim() || undefined, phone: form.phone?.trim() || undefined, company: form.company?.trim() || undefined, address: form.address?.trim() || undefined },
-        { accessToken, disableMockFallback: true }
-      );
-      setClients((cur) => [created, ...cur]);
-      resetForm();
-      toast({ type: 'success', title: 'Client added', message: `${created.name} was added to your roster.` });
-    } catch (error: any) {
-      toast({ type: 'error', title: 'Failed to create client', message: error?.message || 'Please try again.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleDelete = async () => {
     if (!clientToDelete || !accessToken) return;
@@ -113,7 +66,7 @@ export function ClientsClient({
         title="Client relationships"
         description="Track who you work with, what they owe, and how active each account is."
         actions={
-          <Button size="sm" onClick={() => setIsCreating(true)}>
+          <Button size="sm" onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow: 'client' } }))}>
             <Plus className="h-4 w-4" weight="bold" />
             New client
           </Button>
@@ -122,9 +75,9 @@ export function ClientsClient({
 
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-        <StatItem icon={<UsersThree className="h-4 w-4 text-[#2563eb]" weight="bold" />} label="Active clients" value={`${activeCount}`} sub="currently active" accent="text-[#181d27]" />
-        <StatItem icon={<UserPlus className="h-4 w-4 text-[#f04438]" weight="bold" />} label="Outstanding" value={formatCompactCurrency(totalOutstanding, currency)} sub="awaiting payment" accent="text-[#f04438]" />
-        <StatItem icon={<UsersThree className="h-4 w-4 text-[#12b76a]" weight="bold" />} label="Lifetime billed" value={formatCompactCurrency(lifetimeBilled, currency)} sub="total across all clients" accent="text-[#12b76a]" />
+        <StatItem icon={<UsersThree className="h-4 w-4 text-[#717680]" weight="bold" />} label="Active clients" value={`${activeCount}`} sub="currently active" accent="text-[#181d27]" />
+        <StatItem icon={<UserPlus className="h-4 w-4 text-[#717680]" weight="bold" />} label="Outstanding" value={formatCompactCurrency(totalOutstanding, currency)} sub="awaiting payment" accent="text-[#717680]" />
+        <StatItem icon={<UsersThree className="h-4 w-4 text-[#717680]" weight="bold" />} label="Lifetime billed" value={formatCompactCurrency(lifetimeBilled, currency)} sub="total across all clients" accent="text-[#717680]" />
       </div>
 
       {/* Table card */}
@@ -164,11 +117,11 @@ export function ClientsClient({
               return (
                 <div key={client.id} className="group grid grid-cols-[1fr_110px_120px_120px_90px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa]">
                   <Link href={`/clients/${client.id}`} className="min-w-0 flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eff4ff] text-[12px] font-bold text-[#2563eb]">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eff4ff] text-[12px] font-bold text-[#717680]">
                       {client.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold text-[#181d27] hover:text-[#2563eb] transition-colors">{client.name}</p>
+                      <p className="truncate text-[13px] font-semibold text-[#181d27] hover:text-[#717680] transition-colors">{client.name}</p>
                       {client.company && <p className="truncate text-[11px] text-[#a4a7ae]">{client.company}</p>}
                     </div>
                   </Link>
@@ -198,42 +151,6 @@ export function ClientsClient({
         onOpenChange={(open) => { if (!open && !isDeleting) setClientToDelete(null); }}
       />
 
-      <Dialog open={isCreating} onOpenChange={(open) => { if (!open) resetForm(); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New client</DialogTitle>
-            <DialogDescription>Add a client to link to projects and invoices.</DialogDescription>
-          </DialogHeader>
-          <DialogBody className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">Client name <span className="text-[#f04438]">*</span></label>
-                <Input placeholder="e.g. Aisha Bello" value={form.name} onChange={(e) => updateField('name', e.target.value)} />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">Email</label>
-                <Input type="email" placeholder="client@example.com" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">Phone</label>
-                <Input placeholder="+234 800 000 0000" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">Company</label>
-                <Input placeholder="Company name" value={form.company} onChange={(e) => updateField('company', e.target.value)} />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">Address</label>
-                <Input placeholder="City, Country" value={form.address} onChange={(e) => updateField('address', e.target.value)} />
-              </div>
-            </div>
-          </DialogBody>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="secondary" disabled={isSubmitting}>Cancel</Button></DialogClose>
-            <Button onClick={handleCreate} disabled={isSubmitting}>{isSubmitting ? 'Creating…' : 'Create client'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -264,7 +181,7 @@ function ColHead({ children, right }: { children: React.ReactNode; right?: boole
 
 function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${active ? 'bg-[#eff4ff] text-[#2563eb]' : 'text-[#717680] hover:bg-[#f2f4f7] hover:text-[#344054]'}`}>
+    <button type="button" onClick={onClick} className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${active ? 'bg-[#eff4ff] text-[#717680]' : 'text-[#717680] hover:bg-[#f2f4f7] hover:text-[#344054]'}`}>
       {children}
     </button>
   );

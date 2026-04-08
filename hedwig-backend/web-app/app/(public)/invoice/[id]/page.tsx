@@ -26,9 +26,9 @@ function formatDate(value?: string | null) {
 
 const STATUS_STYLE: Record<string, { bg: string; dot: string; text: string; label: string }> = {
   draft:   { bg: 'bg-[#f2f4f7]', dot: 'bg-[#a4a7ae]', text: 'text-[#535862]', label: 'Draft' },
-  sent:    { bg: 'bg-[#eff4ff]', dot: 'bg-[#2563eb]', text: 'text-[#1d4ed8]', label: 'Sent' },
-  paid:    { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#027a48]', label: 'Paid' },
-  overdue: { bg: 'bg-[#fef3f2]', dot: 'bg-[#f04438]', text: 'text-[#b42318]', label: 'Overdue' }
+  sent:    { bg: 'bg-[#eff4ff]', dot: 'bg-[#2563eb]', text: 'text-[#717680]', label: 'Sent' },
+  paid:    { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#717680]', label: 'Paid' },
+  overdue: { bg: 'bg-[#fef3f2]', dot: 'bg-[#f04438]', text: 'text-[#717680]', label: 'Overdue' }
 };
 
 export default async function PublicInvoicePage({
@@ -98,7 +98,7 @@ export default async function PublicInvoicePage({
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Invoice</p>
                   {isRecurring && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#fdf4ff] px-2 py-0.5 text-[10px] font-semibold text-[#9333ea]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#fdf4ff] px-2 py-0.5 text-[10px] font-semibold text-[#717680]">
                       <Repeat className="h-2.5 w-2.5" /> Recurring
                     </span>
                   )}
@@ -191,7 +191,7 @@ export default async function PublicInvoicePage({
                 {formatCurrency(Number(document.amount || 0))}
               </p>
               {isRecurring && (
-                <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#9333ea]">
+                <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#717680]">
                   <Repeat className="h-3 w-3" />
                   This is a recurring invoice — auto-generated on a scheduled basis.
                 </p>

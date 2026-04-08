@@ -118,7 +118,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
  */
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { name, email, phone, company, address, walletAddress } = req.body;
+        const { name, email, phone, company, address, walletAddress, notes } = req.body;
         const privyId = req.user!.id;
 
         // Get internal user ID
@@ -143,6 +143,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 company,
                 address,
                 wallet_address: walletAddress,
+                notes: notes || null,
             })
             .select()
             .single();
@@ -183,7 +184,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const { name, email, phone, company, address, walletAddress } = req.body;
+        const { name, email, phone, company, address, walletAddress, notes } = req.body;
         const privyId = req.user!.id;
 
         // Get internal user ID
@@ -201,6 +202,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
         if (company !== undefined) updateData.company = company;
         if (address !== undefined) updateData.address = address;
         if (walletAddress !== undefined) updateData.wallet_address = walletAddress;
+        if (notes !== undefined) updateData.notes = notes;
 
         // Ensure at least one field is being updated
         if (Object.keys(updateData).length === 0) {

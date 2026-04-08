@@ -391,16 +391,17 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             }
         }
 
-        if (createdMilestones.length > 0) {
-            const milestoneItems = createdMilestones.map((milestone: any) => ({
-                title: milestone.title,
-                amount: parseFloat(milestone.amount || 0),
-                dueDate: milestone.due_date || null,
-                description: milestone.title,
-            }));
-
-            const totalAmount = milestoneItems.reduce((sum, item) => sum + item.amount, 0);
-            const approvalToken = crypto.randomBytes(32).toString('hex');
+        const milestoneItems = createdMilestones.map((milestone: any) => ({
+            title: milestone.title,
+            amount: parseFloat(milestone.amount || 0),
+            dueDate: milestone.due_date || null,
+            description: milestone.title,
+        }));
+        const fallbackProjectAmount = parseFloat(project.budget || 0) || 0;
+        const totalAmount = milestoneItems.length > 0
+            ? milestoneItems.reduce((sum, item) => sum + item.amount, 0)
+            : fallbackProjectAmount;
+        const approvalToken = crypto.randomBytes(32).toString('hex');
 
             let generatedContent = '';
             try {
@@ -419,6 +420,10 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                 const freelancerEmail = fullUser?.email || '';
                 const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
+                const milestoneSection = milestoneItems.length > 0
+                    ? milestoneItems.map((item) => `- ${item.title}: $${item.amount}`).join('\n')
+                    : '- Full project delivery (single scope)';
+
                 const contractPrompt = `You are an expert legal contract generator.
 CRITICAL INSTRUCTIONS:
 1. USE '${today}' as the "Date of Agreement". Do NOT use placeholders like "[Date]" or "[Insert Date]".
@@ -433,7 +438,7 @@ Project Name: ${project.name}
 Scope: ${description || title}
 Total Value: $${totalAmount}
 Milestones:
-${milestoneItems.map((item) => `- ${item.title}: $${item.amount}`).join('\n')}
+${milestoneSection}
 
 GENERATE THE CONTRACT NOW, starting with the title.`;
 
@@ -455,7 +460,7 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
                 scope_of_work: description || title,
                 milestones: milestoneItems,
                 payment_amount: totalAmount.toString(),
-                payment_terms: 'Milestone-based payments',
+                payment_terms: milestoneItems.length > 0 ? 'Milestone-based payments' : 'Lump-sum payment',
                 generated_content: generatedContent,
                 html_content: generatedContent,
                 approval_token: approvalToken,
@@ -525,38 +530,37 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
                 }
             }
 
-            for (const milestone of milestoneItems) {
-                const { error: invoiceError } = await supabase
-                    .from('documents')
-                    .insert({
-                        user_id: user.id,
-                        client_id: clientId,
-                        project_id: project.id,
-                        type: 'INVOICE',
-                        title: `Invoice: ${milestone.title}`,
-                        amount: milestone.amount,
-                        description: `Milestone for ${project.name}`,
-                        status: 'DRAFT',
-                        content: {
-                            recipient_email: client.email || req.body.clientEmail || null,
-                            client_name: client.name,
-                            due_date: milestone.dueDate || project.deadline,
-                            items: [{ description: milestone.title, amount: milestone.amount }],
-                            reminders_enabled: true,
-                        },
-                    });
+        for (const milestone of milestoneItems) {
+            const { error: invoiceError } = await supabase
+                .from('documents')
+                .insert({
+                    user_id: user.id,
+                    client_id: clientId,
+                    project_id: project.id,
+                    type: 'INVOICE',
+                    title: `Invoice: ${milestone.title}`,
+                    amount: milestone.amount,
+                    description: `Milestone for ${project.name}`,
+                    status: 'DRAFT',
+                    content: {
+                        recipient_email: client.email || req.body.clientEmail || null,
+                        client_name: client.name,
+                        due_date: milestone.dueDate || project.deadline,
+                        items: [{ description: milestone.title, amount: milestone.amount }],
+                        reminders_enabled: true,
+                    },
+                });
 
-                if (invoiceError) {
-                    logger.error('Failed to auto-create milestone invoice', {
-                        error: invoiceError.message,
-                        projectId: project.id,
-                        milestoneTitle: milestone.title,
-                    });
-                    continue;
-                }
-
-                createdInvoiceCount += 1;
+            if (invoiceError) {
+                logger.error('Failed to auto-create milestone invoice', {
+                    error: invoiceError.message,
+                    projectId: project.id,
+                    milestoneTitle: milestone.title,
+                });
+                continue;
             }
+
+            createdInvoiceCount += 1;
         }
 
         logger.info('Project created successfully', { 

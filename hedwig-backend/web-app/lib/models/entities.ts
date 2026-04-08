@@ -37,6 +37,7 @@ export interface Client {
   email: string;
   phone?: string;
   address?: string;
+  notes?: string;
   walletAddress?: string;
   status: 'active' | 'at_risk' | 'inactive';
   totalBilledUsd: number;
