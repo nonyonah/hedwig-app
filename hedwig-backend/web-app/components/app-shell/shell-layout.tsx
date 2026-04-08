@@ -7,7 +7,7 @@ import { AppTopbar } from '@/components/app-shell/topbar';
 import { TokenRefresher } from '@/components/app-shell/token-refresher';
 import { TutorialProvider } from '@/components/tutorial/tutorial-provider';
 import { TutorialCard } from '@/components/tutorial/tutorial-card';
-import { HedwigChatBubble } from '@/components/ai/hedwig-chat-bubble';
+import { CreateMenu } from '@/components/app-shell/create-menu';
 
 const STORAGE_KEY = 'hedwig-web-sidebar-collapsed';
 
@@ -43,11 +43,11 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken }
     <TutorialProvider isDemo={isDemo}>
       <div className="min-h-screen bg-[#fafafa] text-foreground">
         {isDemo && (
-          <div className="flex items-center justify-center gap-3 bg-[#2563eb] px-4 py-2 text-center text-sm font-medium text-white">
-            <span>You are viewing a demo. Data shown is sample data only.</span>
+          <div className="flex items-center justify-center gap-3 border-b border-[#bfdbfe] bg-[#eff6ff] px-4 py-2 text-center text-[13px] font-medium text-[#1d4ed8]">
+            <span>Demo mode — sample data only.</span>
             <Link
               href="/sign-in"
-              className="rounded-full bg-white px-3 py-0.5 text-xs font-semibold text-[#2563eb] transition-opacity hover:opacity-90"
+              className="rounded-full bg-[#2563eb] px-3 py-0.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
             >
               Sign in
             </Link>
@@ -64,11 +64,11 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken }
               accessToken={accessToken}
               user={user}
             />
-            <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
+            <main className="flex-1 px-4 py-5 lg:px-6 lg:py-6">{children}</main>
           </div>
         </div>
         <TutorialCard />
-        <HedwigChatBubble accessToken={accessToken ?? null} />
+        <CreateMenu accessToken={accessToken ?? null} />
       </div>
     </TutorialProvider>
   );

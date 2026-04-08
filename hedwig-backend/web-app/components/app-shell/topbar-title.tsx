@@ -19,5 +19,5 @@ export function TopbarTitle() {
   const pathname = usePathname();
   const matched = pageTitles.find((item) => item.match.test(pathname));
 
-  return <h2 className="text-[18px] font-semibold text-[#181d27]">{matched?.title || 'Hedwig'}</h2>;
+  return <h2 className="text-[14px] font-semibold text-[#181d27]">{matched?.title || 'Hedwig'}</h2>;
 }

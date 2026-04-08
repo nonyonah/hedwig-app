@@ -4,7 +4,6 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { ArrowsDownUp, Bank, CaretRight, Check, CheckCircle, ClockCountdown, Copy, SpinnerGap, Warning, X } from '@/components/ui/lucide-icons';
 import type { OfframpTransaction } from '@/lib/models/entities';
-import { PageHeader } from '@/components/data/page-header';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
 
 
@@ -31,44 +30,28 @@ export function OfframpClient({
   }, 0);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Offramp"
-        title="Move earnings out without losing transaction context"
-        description="Convert crypto to fiat and track destination, status, and amounts as part of your cash workflow."
-      />
-
-      {/* Stats bar */}
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-        <div className="bg-white px-5 py-4">
-          <div className="flex items-center gap-2 mb-2"><ArrowsDownUp className="h-4 w-4 text-[#717680]" weight="bold" /><span className="text-[12px] font-medium text-[#717680]">Total volume</span></div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCurrency(totalVolumeUsd, 'USD')}</p>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">USD-equivalent across all offramp orders</p>
-        </div>
-        <div className="bg-white px-5 py-4">
-          <div className="flex items-center gap-2 mb-2"><ClockCountdown className="h-4 w-4 text-[#717680]" weight="bold" /><span className="text-[12px] font-medium text-[#717680]">Pending</span></div>
-          <p className={`text-[22px] font-bold tracking-[-0.03em] ${pendingCount > 0 ? 'text-[#717680]' : 'text-[#181d27]'}`}>{pendingCount}</p>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">transfers in progress</p>
-        </div>
-        <div className="bg-white px-5 py-4">
-          <div className="flex items-center gap-2 mb-2"><CheckCircle className="h-4 w-4 text-[#717680]" weight="bold" /><span className="text-[12px] font-medium text-[#717680]">Completed</span></div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#717680]">{completedCount}</p>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">successfully settled</p>
-        </div>
-      </div>
-
+    <div className="space-y-4">
       {/* Transactions table */}
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
-        <div className="border-b border-[#e9eaeb] px-5 py-4">
-          <p className="text-[15px] font-semibold text-[#181d27]">Offramp transactions</p>
-          <p className="text-[12px] text-[#a4a7ae] mt-0.5">{transactions.length} transaction{transactions.length !== 1 ? 's' : ''}</p>
+        <div className="flex items-center gap-2.5 border-b border-[#f2f4f7] px-5 py-3">
+          <h1 className="text-[14px] font-semibold text-[#181d27]">Offramp</h1>
+          <span className="text-[12px] text-[#c1c5cd]">{transactions.length}</span>
+          {(pendingCount > 0 || completedCount > 0) && (
+            <>
+              <span className="h-3 w-px bg-[#f2f4f7]" />
+              <span className="text-[12px] text-[#a4a7ae]">
+                {formatCurrency(totalVolumeUsd, 'USD')} total
+                {pendingCount > 0 ? ` · ${pendingCount} pending` : ''}
+              </span>
+            </>
+          )}
         </div>
         <div className="grid grid-cols-[90px_1fr_110px_120px_90px_20px] gap-3 border-b border-[#f2f4f7] px-5 py-2">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Asset</span>
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Destination</span>
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Status</span>
-          <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Fiat value</span>
-          <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Date</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">Asset</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">Destination</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">Status</span>
+          <span className="text-right text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">Fiat value</span>
+          <span className="text-right text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">Date</span>
           <span />
         </div>
         {transactions.length === 0 ? (
@@ -80,10 +63,10 @@ export function OfframpClient({
           <div className="divide-y divide-[#f9fafb]">
             {transactions.map((tx) => {
               const statusMap = {
-                pending:    { dot: 'bg-[#2563eb]', label: 'Pending',    bg: 'bg-[#eff4ff]', text: 'text-[#717680]' },
-                processing: { dot: 'bg-[#f59e0b]', label: 'Processing', bg: 'bg-[#fffaeb]', text: 'text-[#717680]' },
-                completed:  { dot: 'bg-[#12b76a]', label: 'Completed',  bg: 'bg-[#ecfdf3]', text: 'text-[#717680]' },
-                failed:     { dot: 'bg-[#f04438]', label: 'Failed',     bg: 'bg-[#fff1f0]', text: 'text-[#717680]' },
+                pending:    { dot: 'bg-[#2563eb]', label: 'Pending',    bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
+                processing: { dot: 'bg-[#f59e0b]', label: 'Processing', bg: 'bg-[#fffaeb]', text: 'text-[#92400e]' },
+                completed:  { dot: 'bg-[#12b76a]', label: 'Completed',  bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
+                failed:     { dot: 'bg-[#f04438]', label: 'Failed',     bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
               } as const;
               const s = statusMap[tx.status as keyof typeof statusMap] ?? statusMap.pending;
               return (
