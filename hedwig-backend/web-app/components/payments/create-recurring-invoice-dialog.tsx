@@ -75,7 +75,7 @@ function ChainDropdown({ value, onChange }: { value: string; onChange: (v: strin
               className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-[#f9fafb] ${value === chain.value ? 'bg-[#f5f8ff]' : ''}`}
             >
               <img src={chain.logo} alt={chain.label} className="h-5 w-5 rounded-full object-cover" />
-              <span className={`text-[13px] font-medium ${value === chain.value ? 'text-[#2563eb]' : 'text-[#181d27]'}`}>{chain.label}</span>
+              <span className={`text-[13px] font-medium ${value === chain.value ? 'text-[#717680]' : 'text-[#181d27]'}`}>{chain.label}</span>
             </button>
           ))}
         </div>
@@ -269,7 +269,7 @@ export function CreateRecurringInvoiceDialog({ open, clients, accessToken, prefi
                     onClick={() => set('frequency', f.value)}
                     className={`flex flex-col items-center rounded-xl border px-2 py-2.5 text-center transition-colors ${
                       form.frequency === f.value
-                        ? 'border-[#2563eb] bg-[#eff4ff] text-[#2563eb]'
+                        ? 'border-[#2563eb] bg-[#eff4ff] text-[#717680]'
                         : 'border-[#e9eaeb] text-[#717680] hover:border-[#c0c3c9]'
                     }`}
                   >
@@ -326,7 +326,7 @@ export function CreateRecurringInvoiceDialog({ open, clients, accessToken, prefi
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className={`text-[13px] font-semibold ${form.autoSend ? 'text-[#2563eb]' : 'text-[#181d27]'}`}>
+                  <p className={`text-[13px] font-semibold ${form.autoSend ? 'text-[#717680]' : 'text-[#181d27]'}`}>
                     Auto-send invoices
                   </p>
                   <p className="mt-0.5 text-[12px] leading-[1.5] text-[#717680]">

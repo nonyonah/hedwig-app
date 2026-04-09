@@ -15,11 +15,11 @@ function formatDate(value?: string | null) {
 
 const STATUS_STYLE: Record<string, { bg: string; dot: string; text: string; label: string }> = {
   draft:     { bg: 'bg-[#f2f4f7]', dot: 'bg-[#a4a7ae]', text: 'text-[#535862]', label: 'Draft' },
-  review:    { bg: 'bg-[#fffaeb]', dot: 'bg-[#f59e0b]', text: 'text-[#92400e]', label: 'In review' },
-  sent:      { bg: 'bg-[#eff4ff]', dot: 'bg-[#2563eb]', text: 'text-[#1d4ed8]', label: 'Sent' },
-  approved:  { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#027a48]', label: 'Approved' },
-  signed:    { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#027a48]', label: 'Signed' },
-  completed: { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#027a48]', label: 'Completed' },
+  review:    { bg: 'bg-[#fffaeb]', dot: 'bg-[#f59e0b]', text: 'text-[#717680]', label: 'In review' },
+  sent:      { bg: 'bg-[#eff4ff]', dot: 'bg-[#2563eb]', text: 'text-[#717680]', label: 'Sent' },
+  approved:  { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#717680]', label: 'Approved' },
+  signed:    { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#717680]', label: 'Signed' },
+  completed: { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#717680]', label: 'Completed' },
 };
 
 export default async function PublicContractPage({
@@ -53,8 +53,8 @@ export default async function PublicContractPage({
         {/* Success banner */}
         {query.approved === 'true' ? (
           <div className="flex items-center gap-3 rounded-2xl border border-[#abefc6] bg-[#ecfdf3] px-5 py-4">
-            <CheckCircle className="h-5 w-5 shrink-0 text-[#079455]" weight="fill" />
-            <p className="text-[14px] font-semibold text-[#067647]">Contract approved successfully.</p>
+            <CheckCircle className="h-5 w-5 shrink-0 text-[#717680]" weight="fill" />
+            <p className="text-[14px] font-semibold text-[#717680]">Contract approved successfully.</p>
           </div>
         ) : null}
 
@@ -115,7 +115,7 @@ export default async function PublicContractPage({
             <div className="border-t border-[#e9eaeb] px-6 py-5">
               <div className="flex items-start gap-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#eff4ff]">
-                  <Signature className="h-5 w-5 text-[#2563eb]" weight="bold" />
+                  <Signature className="h-5 w-5 text-[#717680]" weight="bold" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold text-[#181d27]">Your signature is required</p>
@@ -134,11 +134,11 @@ export default async function PublicContractPage({
             <div className="border-t border-[#e9eaeb] px-6 py-5">
               <div className="flex items-start gap-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#ecfdf3]">
-                  <CheckCircle className="h-5 w-5 text-[#079455]" weight="fill" />
+                  <CheckCircle className="h-5 w-5 text-[#717680]" weight="fill" />
                 </div>
                 <div>
-                  <p className="text-[14px] font-semibold text-[#067647]">Contract approved</p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[#4ade80]/80 text-[#27a462]">
+                  <p className="text-[14px] font-semibold text-[#717680]">Contract approved</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[#717680]/80 text-[#717680]">
                     This contract has already been approved. No further action is needed.
                   </p>
                 </div>

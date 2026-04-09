@@ -80,7 +80,7 @@ export function PromptComposer({ onDraft }: { onDraft: (draft: { invoiceDraft?: 
             {...form.register('prompt')}
             className="bg-[#fcfcfd]"
           />
-          {form.formState.errors.prompt ? <p className="text-sm text-amber-700">{form.formState.errors.prompt.message}</p> : null}
+          {form.formState.errors.prompt ? <p className="text-sm text-[#717680]">{form.formState.errors.prompt.message}</p> : null}
           <div className="flex flex-wrap gap-3">
             <Button disabled={loading} type="submit">
               <MagicWand className="h-4 w-4" weight="bold" />

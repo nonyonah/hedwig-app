@@ -24,7 +24,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { hedwigApi } from '@/lib/api/client';
-import { PageHeader } from '@/components/data/page-header';
 import { cn, formatShortDate } from '@/lib/utils';
 import type { Invoice, Milestone, Project, Reminder } from '@/lib/models/entities';
 
@@ -88,10 +87,10 @@ const iconByKind = {
 } satisfies Record<PlannerItem['kind'], typeof ClockCountdown>;
 
 const badgeToneByKind: Record<PlannerItem['kind'], string> = {
-  reminder: 'bg-[#eff4ff] text-[#2563eb]',
-  milestone: 'bg-[#ecfdf3] text-[#067647]',
-  invoice: 'bg-[#fffaeb] text-[#b54708]',
-  project: 'bg-[#f4f3ff] text-[#6941c6]'
+  reminder: 'bg-[#eff4ff] text-[#717680]',
+  milestone: 'bg-[#ecfdf3] text-[#717680]',
+  invoice: 'bg-[#fffaeb] text-[#717680]',
+  project: 'bg-[#f4f3ff] text-[#717680]'
 };
 
 function ConnectCalendarDialog({ accessToken, onClose }: { accessToken: string | null; onClose: () => void }) {
@@ -152,7 +151,7 @@ function ConnectCalendarDialog({ accessToken, onClose }: { accessToken: string |
           )}
 
           {error && (
-            <div className="rounded-2xl bg-[#fff1f0] px-4 py-3 text-[13px] text-[#b42318]">{error}</div>
+            <div className="rounded-2xl bg-[#fff1f0] px-4 py-3 text-[13px] text-[#717680]">{error}</div>
           )}
 
           {subscribeUrl && (
@@ -165,7 +164,7 @@ function ConnectCalendarDialog({ accessToken, onClose }: { accessToken: string |
                     onClick={copyUrl}
                     type="button"
                   >
-                    {copied ? <Check className="h-3.5 w-3.5 text-[#16a34a]" weight="bold" /> : <CopySimple className="h-3.5 w-3.5" weight="bold" />}
+                    {copied ? <Check className="h-3.5 w-3.5 text-[#717680]" weight="bold" /> : <CopySimple className="h-3.5 w-3.5" weight="bold" />}
                     {copied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
@@ -218,6 +217,7 @@ export function CalendarClient({
   const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]['value']>('all');
   const [editableReminders, setEditableReminders] = useState<Reminder[]>(data.reminders);
+  const [calendarAnchorDate, setCalendarAnchorDate] = useState<Date>(() => startOfDay(new Date()));
   const [isEditingReminder, setIsEditingReminder] = useState(false);
   const [isSavingReminder, setIsSavingReminder] = useState(false);
   const [reminderFeedback, setReminderFeedback] = useState<string | null>(null);
@@ -268,29 +268,30 @@ export function CalendarClient({
     const filteredItems =
       activeFilter === 'all' ? mergedItems : mergedItems.filter((item) => item.kind === activeFilter);
 
-    const today = startOfDay(new Date());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    const anchorDate = startOfDay(calendarAnchorDate);
+    const anchorTomorrow = new Date(anchorDate);
+    anchorTomorrow.setDate(anchorDate.getDate() + 1);
+    const realToday = startOfDay(new Date());
 
     const nextSevenDays = Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() + index);
+      const date = new Date(anchorDate);
+      date.setDate(anchorDate.getDate() + index);
       const entries = filteredItems.filter((item) => isSameDay(new Date(item.date), date));
 
       return {
         date,
         entries,
-        isToday: isSameDay(date, today)
+        isToday: isSameDay(date, realToday)
       };
     });
 
-    const overdue = filteredItems.filter((item) => startOfDay(new Date(item.date)) < today);
-    const todayItems = filteredItems.filter((item) => isSameDay(new Date(item.date), today));
-    const tomorrowItems = filteredItems.filter((item) => isSameDay(new Date(item.date), tomorrow));
+    const overdue = filteredItems.filter((item) => startOfDay(new Date(item.date)) < anchorDate);
+    const todayItems = filteredItems.filter((item) => isSameDay(new Date(item.date), anchorDate));
+    const tomorrowItems = filteredItems.filter((item) => isSameDay(new Date(item.date), anchorTomorrow));
 
     const futureGroups = new Map<string, PlannerItem[]>();
     filteredItems
-      .filter((item) => startOfDay(new Date(item.date)) > tomorrow)
+      .filter((item) => startOfDay(new Date(item.date)) > anchorTomorrow)
       .forEach((item) => {
         const key = startOfDay(new Date(item.date)).toISOString();
         const current = futureGroups.get(key) || [];
@@ -299,17 +300,20 @@ export function CalendarClient({
       });
 
     return {
-      monthLabel: formatMonthHeading(today),
+      monthLabel: formatMonthHeading(anchorDate),
       stats: {
         total: filteredItems.length,
         overdue: overdue.length,
         today: todayItems.length,
-        upcoming: filteredItems.filter((item) => startOfDay(new Date(item.date)) > today).length
+        upcoming: filteredItems.filter((item) => startOfDay(new Date(item.date)) > anchorDate).length
       },
       filteredItems,
       overdue,
       todayItems,
       tomorrowItems,
+      anchorDate,
+      anchorTomorrow,
+      isAnchorToday: isSameDay(anchorDate, realToday),
       nextSevenDays,
       futureGroups: Array.from(futureGroups.entries()).map(([key, items]) => ({
         key,
@@ -321,7 +325,7 @@ export function CalendarClient({
           ? mergedItems.find((item) => item.kind === 'reminder' && item.id === selectedReminderId) ?? null
           : null
     };
-  }, [activeFilter, data.invoices, data.milestones, data.projects, editableReminders, selectedReminderId]);
+  }, [activeFilter, calendarAnchorDate, data.invoices, data.milestones, data.projects, editableReminders, selectedReminderId]);
 
   useEffect(() => {
     if (!calendarState.selectedReminder) {
@@ -373,35 +377,39 @@ export function CalendarClient({
     }
   };
 
+  const shiftAnchorMonth = (delta: number) => {
+    setCalendarAnchorDate((current) => {
+      const next = new Date(current);
+      next.setMonth(next.getMonth() + delta);
+      return startOfDay(next);
+    });
+  };
+
+  const goToToday = () => {
+    setCalendarAnchorDate(startOfDay(new Date()));
+  };
+
   return (
     <div className="space-y-6">
       {showConnectDialog && (
         <ConnectCalendarDialog accessToken={accessToken} onClose={() => setShowConnectDialog(false)} />
       )}
-      <PageHeader
-        eyebrow="Calendar"
-        title="Upcoming"
-        description="See reminders, milestones, invoice due dates, and project deadlines in one clean planning view."
-        actions={
-          <>
-            <button
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-3.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
-              type="button"
-              onClick={() => setShowConnectDialog(true)}
-            >
-              <CalendarPlus className="h-4 w-4 text-[#8d9096]" weight="bold" />
-              Connect calendar
-            </button>
-            <button
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-3.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
-              type="button"
-            >
-              <Eye className="h-4 w-4 text-[#8d9096]" weight="bold" />
-              Display
-            </button>
-          </>
-        }
-      />
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-[15px] font-semibold text-[#181d27]">Calendar</h1>
+          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Reminders, milestones, invoice due dates, and project deadlines at a glance.</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 pt-0.5">
+          <button
+            className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#d5d7da] bg-white px-3 text-[13px] font-medium text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
+            type="button"
+            onClick={() => setShowConnectDialog(true)}
+          >
+            <CalendarPlus className="h-3.5 w-3.5 text-[#8d9096]" weight="bold" />
+            Connect calendar
+          </button>
+        </div>
+      </div>
 
       <section className="rounded-2xl bg-white px-6 py-5 shadow-xs ring-1 ring-[#e9eaeb]">
         <div className="flex flex-col gap-4 border-b border-[#f2f4f7] pb-5 lg:flex-row lg:items-center lg:justify-between">
@@ -427,18 +435,21 @@ export function CalendarClient({
             <button
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white text-[#8d9096] shadow-xs transition hover:bg-[#fafafa]"
               type="button"
+              onClick={() => shiftAnchorMonth(-1)}
             >
               <CaretLeft className="h-4 w-4" weight="bold" />
             </button>
             <button
               className="inline-flex h-9 items-center rounded-full border border-[#d5d7da] bg-white px-3.5 text-[13px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
               type="button"
+              onClick={goToToday}
             >
               Today
             </button>
             <button
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white text-[#8d9096] shadow-xs transition hover:bg-[#fafafa]"
               type="button"
+              onClick={() => shiftAnchorMonth(1)}
             >
               <CaretRight className="h-4 w-4" weight="bold" />
             </button>
@@ -494,16 +505,17 @@ export function CalendarClient({
                 tone="overdue"
               />
 
-              <DateGroup date={new Date()} items={calendarState.todayItems} labelPrefix="Today" onNavigate={(href) => router.push(href)} />
+              <DateGroup
+                date={calendarState.anchorDate}
+                items={calendarState.todayItems}
+                labelPrefix={calendarState.isAnchorToday ? 'Today' : undefined}
+                onNavigate={(href) => router.push(href)}
+              />
 
               <DateGroup
-                date={(() => {
-                  const tomorrow = new Date();
-                  tomorrow.setDate(tomorrow.getDate() + 1);
-                  return tomorrow;
-                })()}
+                date={calendarState.anchorTomorrow}
                 items={calendarState.tomorrowItems}
-                labelPrefix="Tomorrow"
+                labelPrefix={calendarState.isAnchorToday ? 'Tomorrow' : undefined}
                 onNavigate={(href) => router.push(href)}
               />
 
@@ -652,7 +664,7 @@ function TaskGroup({
           <h3 className="text-[16px] font-semibold text-[#181d27]">{title}</h3>
         </div>
         {titleAction ? (
-          <button className={cn('text-[13px] font-semibold', tone === 'overdue' ? 'text-[#d92d20]' : 'text-[#2563eb]')} type="button">
+          <button className={cn('text-[13px] font-semibold', tone === 'overdue' ? 'text-[#717680]' : 'text-[#717680]')} type="button">
             {titleAction}
           </button>
         ) : null}

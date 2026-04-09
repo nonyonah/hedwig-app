@@ -15,16 +15,16 @@ import { formatCompactCurrency, formatShortDate } from '@/lib/utils';
 import { CreateRecurringInvoiceDialog } from './create-recurring-invoice-dialog';
 
 const FREQ_LABELS: Record<string, { label: string; short: string; color: string }> = {
-  weekly:    { label: 'Weekly',    short: 'Wk',  color: 'bg-[#f0fdf4] text-[#16a34a]' },
-  biweekly:  { label: 'Bi-weekly', short: 'Bwk', color: 'bg-[#f0fdf4] text-[#16a34a]' },
-  monthly:   { label: 'Monthly',   short: 'Mo',  color: 'bg-[#eff4ff] text-[#2563eb]' },
-  quarterly: { label: 'Quarterly', short: 'Qtr', color: 'bg-[#fdf4ff] text-[#9333ea]' },
-  annual:    { label: 'Annual',    short: 'Yr',  color: 'bg-[#fff7ed] text-[#ea580c]' },
+  weekly:    { label: 'Weekly',    short: 'Wk',  color: 'bg-[#f0fdf4] text-[#717680]' },
+  biweekly:  { label: 'Bi-weekly', short: 'Bwk', color: 'bg-[#f0fdf4] text-[#717680]' },
+  monthly:   { label: 'Monthly',   short: 'Mo',  color: 'bg-[#eff4ff] text-[#717680]' },
+  quarterly: { label: 'Quarterly', short: 'Qtr', color: 'bg-[#fdf4ff] text-[#717680]' },
+  annual:    { label: 'Annual',    short: 'Yr',  color: 'bg-[#fff7ed] text-[#717680]' },
 };
 
 const STATUS_STYLES: Record<RecurringInvoice['status'], { dot: string; label: string; bg: string; text: string }> = {
-  active:    { dot: 'bg-[#12b76a]', label: 'Active',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  paused:    { dot: 'bg-[#f79009]', label: 'Paused',    bg: 'bg-[#fffaeb]', text: 'text-[#b54708]' },
+  active:    { dot: 'bg-[#12b76a]', label: 'Active',    bg: 'bg-[#ecfdf3]', text: 'text-[#717680]' },
+  paused:    { dot: 'bg-[#f79009]', label: 'Paused',    bg: 'bg-[#fffaeb]', text: 'text-[#717680]' },
   cancelled: { dot: 'bg-[#a4a7ae]', label: 'Cancelled', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
 };
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowLeft, Buildings, CheckCircle, CreditCard, Envelope, MapPin, NotePencil, Phone, Wallet, Warning } from '@/components/ui/lucide-icons';
+import { ArrowLeft, Buildings, Envelope, MapPin, NotePencil, Phone, Wallet } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -20,75 +20,52 @@ import type { Client, Contract, Invoice, PaymentLink, Project } from '@/lib/mode
 import { cn, formatCompactCurrency, formatShortDate } from '@/lib/utils';
 import { useToast } from '@/components/providers/toast-provider';
 
-/* ── Helpers ────────────────────────────────────────────────────── */
 function initials(name: string) {
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+  return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
-const STATUS_STYLES: Record<Client['status'], string> = {
-  active:   'bg-[#dcfce7] text-[#15803d]',
-  at_risk:  'bg-[#fef9c3] text-[#854d0e]',
-  inactive: 'bg-[#f4f4f5] text-[#71717a]'
-};
-const STATUS_LABEL: Record<Client['status'], string> = {
-  active: 'Active', at_risk: 'At risk', inactive: 'Inactive'
-};
+const CLIENT_STATUS = {
+  active:   { label: 'Active',   bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]', dot: 'bg-[#12b76a]' },
+  at_risk:  { label: 'At risk',  bg: 'bg-[#fffaeb]', text: 'text-[#92400e]', dot: 'bg-[#f59e0b]' },
+  inactive: { label: 'Inactive', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]', dot: 'bg-[#a4a7ae]' },
+} as const;
 
-const INV_STATUS_STYLES: Record<Invoice['status'], string> = {
-  draft:   'bg-[#f4f4f5] text-[#71717a]',
-  sent:    'bg-[#dbeafe] text-[#1d4ed8]',
-  paid:    'bg-[#dcfce7] text-[#15803d]',
-  overdue: 'bg-[#fee2e2] text-[#dc2626]'
-};
+const INV_STATUS = {
+  draft:   { label: 'Draft',   bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
+  sent:    { label: 'Sent',    bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
+  paid:    { label: 'Paid',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
+  overdue: { label: 'Overdue', bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
+} as const;
 
-const PROJ_STATUS_STYLES: Record<Project['status'], string> = {
-  active:    'bg-[#dbeafe] text-[#1d4ed8]',
-  paused:    'bg-[#fef9c3] text-[#854d0e]',
-  completed: 'bg-[#dcfce7] text-[#15803d]'
-};
+const PROJ_STATUS = {
+  active:    { label: 'Active',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
+  paused:    { label: 'Paused',    bg: 'bg-[#fffaeb]', text: 'text-[#92400e]' },
+  completed: { label: 'Completed', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
+} as const;
 
-function Badge({ label, className }: { label: string; className: string }) {
+function Pill({ bg, text, label }: { bg: string; text: string; label: string }) {
   return (
-    <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize', className)}>
+    <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize', bg, text)}>
       {label}
     </span>
   );
 }
 
-function DetailRow({ label, value, icon }: { label: string; value?: string | null; icon?: React.ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-3.5 border-b border-[#f2f4f7] last:border-0">
-      <div className="flex items-center gap-2 min-w-[130px]">
-        {icon && <span className="text-[#a4a7ae]">{icon}</span>}
-        <span className="text-[13px] text-[#717680]">{label}</span>
-      </div>
-      <span className="text-[13px] font-medium text-[#181d27] text-right break-all">
-        {value || <span className="text-[#d0d5dd]">—</span>}
-      </span>
-    </div>
-  );
-}
-
-function SectionCard({
-  title,
-  action,
-  children,
-  className
-}: {
+function SectionCard({ title, count, action, children }: {
   title: string;
+  count?: number;
   action?: React.ReactNode;
   children: React.ReactNode;
-  className?: string;
 }) {
   return (
-    <div className={cn('rounded-2xl bg-white ring-1 ring-[#e9eaeb]', className)}>
-      <div className="flex items-center justify-between px-5 py-4 border-b border-[#f2f4f7]">
-        <h2 className="text-[14px] font-semibold text-[#181d27]">{title}</h2>
+    <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#f2f4f7]">
+      <div className="flex items-center justify-between border-b border-[#f2f4f7] px-5 py-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-[13px] font-semibold text-[#181d27]">{title}</h2>
+          {typeof count === 'number' && (
+            <span className="text-[12px] text-[#c1c5cd]">{count}</span>
+          )}
+        </div>
         {action}
       </div>
       {children}
@@ -96,13 +73,14 @@ function SectionCard({
   );
 }
 
-function EmptyRow({ text }: { text: string }) {
-  return (
-    <div className="px-5 py-8 text-center text-[13px] text-[#a4a7ae]">{text}</div>
-  );
+function ColHead({ children }: { children: React.ReactNode }) {
+  return <th className="px-5 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">{children}</th>;
 }
 
-/* ── Main component ─────────────────────────────────────────────── */
+function EmptyRow({ text }: { text: string }) {
+  return <div className="px-5 py-10 text-center text-[13px] text-[#a4a7ae]">{text}</div>;
+}
+
 export function ClientDetailClient({
   initialClient,
   projects,
@@ -134,32 +112,17 @@ export function ClientDetailClient({
     setForm((cur) => ({ ...cur, [field]: value }));
 
   const openEdit = () => {
-    setForm({
-      name: client.name,
-      email: client.email,
-      company: client.company || '',
-      phone: client.phone || '',
-      address: client.address || ''
-    });
+    setForm({ name: client.name, email: client.email, company: client.company || '', phone: client.phone || '', address: client.address || '' });
     setEditOpen(true);
   };
 
   const saveClient = async () => {
-    if (!accessToken) {
-      toast({ type: 'error', title: 'Session expired', message: 'Please sign in again.' });
-      return;
-    }
+    if (!accessToken) { toast({ type: 'error', title: 'Session expired' }); return; }
     setIsSaving(true);
     try {
       const updated = await hedwigApi.updateClient(
         client.id,
-        {
-          name: form.name.trim(),
-          email: form.email.trim(),
-          company: form.company.trim() || undefined,
-          phone: form.phone.trim() || undefined,
-          address: form.address.trim() || undefined
-        },
+        { name: form.name.trim(), email: form.email.trim(), company: form.company.trim() || undefined, phone: form.phone.trim() || undefined, address: form.address.trim() || undefined },
         { accessToken, disableMockFallback: true }
       );
       setClient(updated);
@@ -172,192 +135,206 @@ export function ClientDetailClient({
     }
   };
 
+  const s = CLIENT_STATUS[client.status] ?? CLIENT_STATUS.inactive;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-[13px]">
-        <Link href="/clients" className="flex items-center gap-1.5 text-[#717680] hover:text-[#414651] transition-colors">
-          <ArrowLeft className="h-3.5 w-3.5" weight="bold" />
+      <div className="flex items-center gap-1.5 text-[13px]">
+        <Link href="/clients" className="flex items-center gap-1.5 text-[#a4a7ae] transition-colors hover:text-[#525866]">
+          <ArrowLeft className="h-3 w-3" weight="bold" />
           Clients
         </Link>
-        <span className="text-[#d0d5dd]">/</span>
-        <span className="font-medium text-[#181d27]">{client.name}</span>
+        <span className="text-[#e9eaeb]">/</span>
+        <span className="text-[#525866]">{client.name}</span>
       </div>
 
-      {/* Page hero */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#2563eb] text-white text-[18px] font-bold shadow-sm">
-            {initials(client.name)}
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-[22px] font-semibold text-[#181d27] leading-tight">{client.name}</h1>
-              <Badge label={STATUS_LABEL[client.status]} className={STATUS_STYLES[client.status]} />
+      {/* Record header */}
+      <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#f2f4f7]">
+        <div className="flex items-center justify-between border-b border-[#f2f4f7] px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2563eb] text-[13px] font-bold text-white">
+              {initials(client.name)}
             </div>
-            {client.company && (
-              <p className="mt-0.5 text-[14px] text-[#717680]">{client.company}</p>
-            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-[15px] font-semibold text-[#181d27]">{client.name}</h1>
+                <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', s.bg, s.text)}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', s.dot)} />
+                  {s.label}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
+                {client.company ? `${client.company} · ` : ''}
+                {formatCompactCurrency(client.totalBilledUsd)} billed
+                {client.outstandingUsd > 0 ? ` · ${formatCompactCurrency(client.outstandingUsd)} outstanding` : ''}
+              </p>
+            </div>
           </div>
+          <Button size="sm" variant="secondary" onClick={openEdit}>
+            <NotePencil className="h-3.5 w-3.5" weight="bold" />
+            Edit
+          </Button>
         </div>
-        <Button size="sm" onClick={openEdit}>
-          <NotePencil className="h-4 w-4" weight="bold" />
-          Edit
-        </Button>
-      </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {[
-          { label: 'Outstanding', value: formatCompactCurrency(client.outstandingUsd), icon: <Warning className="h-4 w-4 text-[#f59e0b]" weight="fill" />, highlight: client.outstandingUsd > 0 },
-          { label: 'Lifetime billed', value: formatCompactCurrency(client.totalBilledUsd), icon: <CreditCard className="h-4 w-4 text-[#2563eb]" weight="fill" />, highlight: false },
-          { label: 'Projects', value: `${projects.length}`, icon: <Buildings className="h-4 w-4 text-[#717680]" weight="fill" />, highlight: false },
-          { label: 'Last activity', value: formatShortDate(client.lastActivityAt), icon: <CheckCircle className="h-4 w-4 text-[#717680]" weight="fill" />, highlight: false }
-        ].map((m) => (
-          <div key={m.label} className="rounded-xl bg-white ring-1 ring-[#e9eaeb] px-4 py-3.5">
-            <div className="flex items-center gap-2 mb-1">{m.icon}<span className="text-[12px] text-[#717680]">{m.label}</span></div>
-            <p className={cn('text-[20px] font-semibold', m.highlight ? 'text-[#dc2626]' : 'text-[#181d27]')}>{m.value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
-        <div className="space-y-5">
-          {/* Details card */}
-          <SectionCard
-            title="Details"
-            action={
-              <button onClick={openEdit} className="text-[13px] font-medium text-[#2563eb] hover:text-[#1d4ed8] transition-colors">
-                Edit
-              </button>
-            }
-          >
-            <div className="px-5">
-              <DetailRow label="Name" value={client.name} icon={<Buildings className="h-3.5 w-3.5" weight="regular" />} />
-              <DetailRow label="Email" value={client.email} icon={<Envelope className="h-3.5 w-3.5" weight="regular" />} />
-              <DetailRow label="Company" value={client.company} icon={<Buildings className="h-3.5 w-3.5" weight="regular" />} />
-              <DetailRow label="Phone" value={client.phone} icon={<Phone className="h-3.5 w-3.5" weight="regular" />} />
-              <DetailRow label="Address" value={client.address} icon={<MapPin className="h-3.5 w-3.5" weight="regular" />} />
-              <DetailRow label="Wallet" value={client.walletAddress ? `${client.walletAddress.slice(0, 8)}…${client.walletAddress.slice(-6)}` : null} icon={<Wallet className="h-3.5 w-3.5" weight="regular" />} />
+        {/* Details rows */}
+        <div className="divide-y divide-[#f9fafb] px-5">
+          {[
+            { label: 'Email',   value: client.email,   icon: <Envelope className="h-3.5 w-3.5" weight="regular" /> },
+            { label: 'Company', value: client.company,  icon: <Buildings className="h-3.5 w-3.5" weight="regular" /> },
+            { label: 'Phone',   value: client.phone,    icon: <Phone className="h-3.5 w-3.5" weight="regular" /> },
+            { label: 'Address', value: client.address,  icon: <MapPin className="h-3.5 w-3.5" weight="regular" /> },
+            { label: 'Wallet',  value: client.walletAddress ? `${client.walletAddress.slice(0, 8)}…${client.walletAddress.slice(-6)}` : null, icon: <Wallet className="h-3.5 w-3.5" weight="regular" /> },
+          ].map(({ label, value, icon }) => (
+            <div key={label} className="flex items-center gap-3 py-2.5">
+              <div className="flex w-[120px] shrink-0 items-center gap-2 text-[#c1c5cd]">
+                {icon}
+                <span className="text-[12px] text-[#a4a7ae]">{label}</span>
+              </div>
+              <span className="text-[13px] text-[#414651]">
+                {value || <span className="text-[#d0d5dd]">—</span>}
+              </span>
             </div>
-          </SectionCard>
+          ))}
+        </div>
+      </div>
 
+      {/* Two-column: related records */}
+      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+        <div className="space-y-4">
           {/* Projects */}
-          <SectionCard title={`Projects (${projects.length})`}>
+          <SectionCard title="Projects" count={projects.length}>
             {projects.length === 0 ? (
-              <EmptyRow text="No projects linked to this client yet." />
+              <EmptyRow text="No projects linked to this client." />
             ) : (
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#f2f4f7]">
-                    {['Project', 'Status', 'Progress', 'Budget', 'Next deadline'].map((h) => (
-                      <th key={h} className="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-[#a4a7ae]">{h}</th>
-                    ))}
+                    <ColHead>Project</ColHead>
+                    <ColHead>Status</ColHead>
+                    <ColHead>Progress</ColHead>
+                    <ColHead>Budget</ColHead>
+                    <ColHead>Deadline</ColHead>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#f2f4f7]">
-                  {projects.map((p) => (
-                    <tr key={p.id} className="hover:bg-[#fafafa] transition-colors">
-                      <td className="px-5 py-3">
-                        <Link href={`/projects/${p.id}`} className="text-[13px] font-medium text-[#181d27] hover:text-[#2563eb] transition-colors">
-                          {p.name}
-                        </Link>
-                      </td>
-                      <td className="px-5 py-3">
-                        <Badge label={p.status} className={PROJ_STATUS_STYLES[p.status]} />
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-20 rounded-full bg-[#f2f4f7] overflow-hidden">
-                            <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${p.progress}%` }} />
+                <tbody className="divide-y divide-[#f9fafb]">
+                  {projects.map((p) => {
+                    const ps = PROJ_STATUS[p.status] ?? PROJ_STATUS.active;
+                    return (
+                      <tr key={p.id} className="transition-colors hover:bg-[#fafafa]">
+                        <td className="px-5 py-2.5">
+                          <Link href={`/projects/${p.id}`} className="text-[13px] font-medium text-[#252b37] transition-colors hover:text-[#2563eb]">
+                            {p.name}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-2.5">
+                          <Pill bg={ps.bg} text={ps.text} label={ps.label} />
+                        </td>
+                        <td className="px-5 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1 w-16 overflow-hidden rounded-full bg-[#f2f4f7]">
+                              <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${p.progress}%` }} />
+                            </div>
+                            <span className="text-[12px] tabular-nums text-[#8d9096]">{p.progress}%</span>
                           </div>
-                          <span className="text-[12px] text-[#717680]">{p.progress}%</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-[13px] text-[#414651]">{formatCompactCurrency(p.budgetUsd)}</td>
-                      <td className="px-5 py-3 text-[13px] text-[#414651]">{formatShortDate(p.nextDeadlineAt)}</td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[#8d9096]">{formatCompactCurrency(p.budgetUsd)}</td>
+                        <td className="px-5 py-2.5 text-[12px] text-[#a4a7ae]">{formatShortDate(p.nextDeadlineAt)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
           </SectionCard>
 
           {/* Invoices */}
-          <SectionCard title={`Invoices (${invoices.length})`}>
+          <SectionCard title="Invoices" count={invoices.length}>
             {invoices.length === 0 ? (
               <EmptyRow text="No invoices for this client yet." />
             ) : (
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#f2f4f7]">
-                    {['Invoice', 'Status', 'Amount', 'Due'].map((h) => (
-                      <th key={h} className="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-[#a4a7ae]">{h}</th>
-                    ))}
+                    <ColHead>Invoice</ColHead>
+                    <ColHead>Status</ColHead>
+                    <ColHead>Amount</ColHead>
+                    <ColHead>Due</ColHead>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#f2f4f7]">
-                  {invoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-[#fafafa] transition-colors">
-                      <td className="px-5 py-3">
-                        <Link href={`/payments?invoice=${inv.id}`} className="text-[13px] font-medium text-[#181d27] hover:text-[#2563eb] transition-colors">
-                          {inv.number}
-                        </Link>
-                      </td>
-                      <td className="px-5 py-3">
-                        <Badge label={inv.status} className={INV_STATUS_STYLES[inv.status]} />
-                      </td>
-                      <td className="px-5 py-3 text-[13px] font-medium text-[#181d27]">{formatCompactCurrency(inv.amountUsd)}</td>
-                      <td className="px-5 py-3 text-[13px] text-[#414651]">{formatShortDate(inv.dueAt)}</td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-[#f9fafb]">
+                  {invoices.map((inv) => {
+                    const is = INV_STATUS[inv.status] ?? INV_STATUS.draft;
+                    return (
+                      <tr key={inv.id} className="transition-colors hover:bg-[#fafafa]">
+                        <td className="px-5 py-2.5">
+                          <Link href={`/payments?invoice=${inv.id}`} className="text-[13px] font-medium text-[#252b37] transition-colors hover:text-[#2563eb]">
+                            {inv.number}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-2.5"><Pill bg={is.bg} text={is.text} label={is.label} /></td>
+                        <td className="px-5 py-2.5 text-[13px] font-semibold tabular-nums text-[#252b37]">{formatCompactCurrency(inv.amountUsd)}</td>
+                        <td className="px-5 py-2.5 text-[12px] text-[#a4a7ae]">{formatShortDate(inv.dueAt)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
           </SectionCard>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-4">
           {/* Contracts */}
-          <SectionCard title={`Contracts (${contracts.length})`}>
+          <SectionCard title="Contracts" count={contracts.length}>
             {contracts.length === 0 ? (
               <EmptyRow text="No contracts yet." />
             ) : (
-              <div className="divide-y divide-[#f2f4f7]">
-                {contracts.map((c) => (
-                  <Link key={c.id} href={`/contracts?contract=${c.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-[#fafafa] transition-colors">
-                    <div>
-                      <p className="text-[13px] font-medium text-[#181d27]">{c.title}</p>
-                      {c.signedAt && <p className="text-[12px] text-[#a4a7ae] mt-0.5">Signed {formatShortDate(c.signedAt)}</p>}
-                    </div>
-                    <Badge
-                      label={c.status}
-                      className={c.status === 'signed' ? 'bg-[#dcfce7] text-[#15803d]' : c.status === 'review' ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'bg-[#f4f4f5] text-[#71717a]'}
-                    />
-                  </Link>
-                ))}
+              <div className="divide-y divide-[#f9fafb]">
+                {contracts.map((c) => {
+                  const cs = c.status === 'signed'
+                    ? { bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' }
+                    : c.status === 'review'
+                    ? { bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' }
+                    : { bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' };
+                  return (
+                    <Link key={c.id} href={`/contracts?contract=${c.id}`} className="flex items-center justify-between px-5 py-3 transition-colors hover:bg-[#fafafa]">
+                      <div>
+                        <p className="text-[13px] font-medium text-[#252b37]">{c.title}</p>
+                        {c.signedAt && <p className="mt-0.5 text-[11px] text-[#a4a7ae]">Signed {formatShortDate(c.signedAt)}</p>}
+                      </div>
+                      <Pill bg={cs.bg} text={cs.text} label={c.status} />
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </SectionCard>
 
           {/* Payment links */}
-          <SectionCard title={`Payment links (${paymentLinks.length})`}>
+          <SectionCard title="Payment links" count={paymentLinks.length}>
             {paymentLinks.length === 0 ? (
               <EmptyRow text="No payment links yet." />
             ) : (
-              <div className="divide-y divide-[#f2f4f7]">
-                {paymentLinks.map((pl) => (
-                  <div key={pl.id} className="px-5 py-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[13px] font-medium text-[#181d27]">{pl.title}</p>
-                      <Badge
-                        label={pl.status}
-                        className={pl.status === 'paid' ? 'bg-[#dcfce7] text-[#15803d]' : pl.status === 'active' ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'bg-[#f4f4f5] text-[#71717a]'}
-                      />
+              <div className="divide-y divide-[#f9fafb]">
+                {paymentLinks.map((pl) => {
+                  const ps = pl.status === 'paid'
+                    ? { bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' }
+                    : pl.status === 'active'
+                    ? { bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' }
+                    : { bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' };
+                  return (
+                    <div key={pl.id} className="px-5 py-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[13px] font-medium text-[#252b37]">{pl.title}</p>
+                        <Pill bg={ps.bg} text={ps.text} label={pl.status} />
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-[#a4a7ae]">
+                        {formatCompactCurrency(pl.amountUsd)} · {pl.asset} on {pl.chain}
+                      </p>
                     </div>
-                    <p className="mt-0.5 text-[12px] text-[#a4a7ae]">{formatCompactCurrency(pl.amountUsd)} · {pl.asset} on {pl.chain}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </SectionCard>
@@ -366,38 +343,31 @@ export function ClientDetailClient({
 
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={(v) => !isSaving && setEditOpen(v)}>
-        <DialogContent className="max-w-[480px]">
+        <DialogContent className="max-w-[440px]">
           <DialogHeader>
             <DialogTitle>Edit client</DialogTitle>
-            <DialogDescription>Update the contact details for {client.name}.</DialogDescription>
+            <DialogDescription>Update contact details for {client.name}.</DialogDescription>
           </DialogHeader>
-          <DialogBody className="space-y-4">
-            {[
-              { label: 'Full name', field: 'name' as const, placeholder: 'Jane Smith', required: true },
-              { label: 'Email', field: 'email' as const, placeholder: 'jane@example.com', required: true },
-              { label: 'Company', field: 'company' as const, placeholder: 'Acme Corp' },
-              { label: 'Phone', field: 'phone' as const, placeholder: '+1 555 000 0000' },
-              { label: 'Address', field: 'address' as const, placeholder: '123 Main St, New York' }
-            ].map(({ label, field, placeholder, required }) => (
+          <DialogBody className="space-y-3.5">
+            {([
+              { label: 'Full name', field: 'name' as const, placeholder: 'Jane Smith', required: true as boolean },
+              { label: 'Email', field: 'email' as const, placeholder: 'jane@example.com', required: true as boolean },
+              { label: 'Company', field: 'company' as const, placeholder: 'Acme Corp', required: false as boolean },
+              { label: 'Phone', field: 'phone' as const, placeholder: '+1 555 000 0000', required: false as boolean },
+              { label: 'Address', field: 'address' as const, placeholder: '123 Main St, New York', required: false as boolean }
+            ]).map(({ label, field, placeholder, required }) => (
               <div key={field}>
-                <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">
-                  {label} {required && <span className="text-[#f04438]">*</span>}
+                <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">
+                  {label}{required && <span className="ml-0.5 text-[#f04438]">*</span>}
                 </label>
-                <Input
-                  placeholder={placeholder}
-                  value={form[field]}
-                  onChange={(e) => updateField(field, e.target.value)}
-                  disabled={isSaving}
-                />
+                <Input placeholder={placeholder} value={form[field]} onChange={(e) => updateField(field, e.target.value)} disabled={isSaving} />
               </div>
             ))}
           </DialogBody>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary" disabled={isSaving}>Cancel</Button>
-            </DialogClose>
+            <DialogClose asChild><Button variant="secondary" disabled={isSaving}>Cancel</Button></DialogClose>
             <Button onClick={saveClient} disabled={isSaving || !form.name.trim() || !form.email.trim()}>
-              {isSaving ? 'Saving…' : 'Save changes'}
+              {isSaving ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>

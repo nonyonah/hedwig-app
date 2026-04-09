@@ -25,25 +25,25 @@ const toastConfig: Record<
 > = {
   success: {
     icon: CheckCircle,
-    iconClass: 'text-[#17b26a]',
+    iconClass: 'text-[#717680]',
     borderClass: 'border-l-[#17b26a]',
     bgClass: 'bg-white'
   },
   error: {
     icon: XCircle,
-    iconClass: 'text-[#f04438]',
+    iconClass: 'text-[#717680]',
     borderClass: 'border-l-[#f04438]',
     bgClass: 'bg-white'
   },
   warning: {
     icon: Warning,
-    iconClass: 'text-[#f79009]',
+    iconClass: 'text-[#717680]',
     borderClass: 'border-l-[#f79009]',
     bgClass: 'bg-white'
   },
   info: {
     icon: Info,
-    iconClass: 'text-[#2563eb]',
+    iconClass: 'text-[#717680]',
     borderClass: 'border-l-[#2563eb]',
     bgClass: 'bg-white'
   }

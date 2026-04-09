@@ -107,7 +107,7 @@ export function WalletAssetsTable({
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <p className="text-[11px] text-[#a4a7ae]">{asset.symbol}</p>
                         {change !== 0 && (
-                          <span className={`text-[10px] font-semibold ${isPositive ? 'text-[#12b76a]' : 'text-[#f04438]'}`}>
+                          <span className={`text-[10px] font-semibold ${isPositive ? 'text-[#717680]' : 'text-[#717680]'}`}>
                             {isPositive ? '+' : ''}{change.toFixed(2)}%
                           </span>
                         )}

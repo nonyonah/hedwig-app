@@ -20,7 +20,6 @@ import {
   ArrowsClockwise,
   Warning,
 } from '@/components/ui/lucide-icons';
-import { PageHeader } from '@/components/data/page-header';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -265,17 +264,16 @@ export function InsightsClient({
   return (
     <div className="flex flex-col gap-6">
       {/* Page header */}
-      <PageHeader
-        eyebrow="Analytics"
-        title="Insights"
-        description="AI-powered metrics and trends from your account activity."
-        actions={
-          <Button variant="secondary" onClick={() => fetchData(range)} disabled={loading}>
-            <ArrowsClockwise className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} weight="bold" />
-            Refresh
-          </Button>
-        }
-      />
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-[15px] font-semibold text-[#181d27]">Insights</h1>
+          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">AI-powered metrics and trends from your account activity.</p>
+        </div>
+        <Button variant="secondary" onClick={() => fetchData(range)} disabled={loading} className="shrink-0 mt-0.5">
+          <ArrowsClockwise className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} weight="bold" />
+          Refresh
+        </Button>
+      </div>
 
       {/* Range filter + timestamp */}
       <div className="flex items-center justify-between">
@@ -325,9 +323,9 @@ export function InsightsClient({
                 </p>
               )}
               <div className="mt-1.5 flex items-center gap-1">
-                {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#12b76a]" weight="bold" />}
-                {earningsTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[#f04438]" weight="bold" />}
-                <p className={`text-[11px] ${earningsTrend === 'up' ? 'text-[#12b76a]' : earningsTrend === 'down' ? 'text-[#f04438]' : 'text-[#a4a7ae]'}`}>
+                {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#717680]" weight="bold" />}
+                {earningsTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[#717680]" weight="bold" />}
+                <p className={`text-[11px] ${earningsTrend === 'up' ? 'text-[#717680]' : earningsTrend === 'down' ? 'text-[#717680]' : 'text-[#a4a7ae]'}`}>
                   {earningsDeltaPct >= 0 ? '+' : ''}{earningsDeltaPct.toFixed(0)}% vs previous
                 </p>
               </div>
@@ -417,7 +415,7 @@ export function InsightsClient({
                 <div className="grid w-full grid-cols-2 gap-px overflow-hidden rounded-xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
                   <div className="flex flex-col items-center bg-white px-4 py-3">
                     <p className="text-[11px] text-[#a4a7ae]">{hasExceededTarget ? 'Exceeded by' : 'Remaining'}</p>
-                    <p className={`mt-0.5 text-[16px] font-bold tracking-[-0.03em] ${hasExceededTarget ? 'text-[#12b76a]' : 'text-[#181d27]'}`}>
+                    <p className={`mt-0.5 text-[16px] font-bold tracking-[-0.03em] ${hasExceededTarget ? 'text-[#717680]' : 'text-[#181d27]'}`}>
                       {hasExceededTarget
                         ? `+$${(monthlyEarnings - monthlyTarget).toLocaleString()}`
                         : `$${remainingAmount.toLocaleString()}`}
@@ -435,8 +433,8 @@ export function InsightsClient({
               {/* Footer: trend + set target */}
               <div className="flex items-center justify-between border-t border-[#f5f5f5] px-5 py-3">
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                  earningsTrend === 'up' ? 'bg-[#ecfdf3] text-[#027a48]' :
-                  earningsTrend === 'down' ? 'bg-[#fff1f0] text-[#b42318]' :
+                  earningsTrend === 'up' ? 'bg-[#ecfdf3] text-[#717680]' :
+                  earningsTrend === 'down' ? 'bg-[#fff1f0] text-[#717680]' :
                   'bg-[#f2f4f7] text-[#717680]'
                 }`}>
                   {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3" weight="bold" />}
@@ -459,7 +457,7 @@ export function InsightsClient({
             <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
               <div className="flex items-center gap-2.5 border-b border-[#f5f5f5] px-5 py-4">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
-                  <Sparkle className="h-4 w-4 text-[#2563eb]" weight="fill" />
+                  <Sparkle className="h-4 w-4 text-[#717680]" weight="fill" />
                 </div>
                 <div>
                   <h2 className="text-[16px] font-semibold text-[#181d27]">AI Insights</h2>
@@ -506,7 +504,7 @@ export function InsightsClient({
                           <p className="text-[14px] font-semibold text-[#181d27]">{insight.title}</p>
                           <p className="mt-0.5 text-[13px] text-[#717680]">{insight.description}</p>
                           {insight.actionLabel && (
-                            <p className="mt-1.5 text-[12px] font-semibold text-[#2563eb]">{insight.actionLabel}</p>
+                            <p className="mt-1.5 text-[12px] font-semibold text-[#717680]">{insight.actionLabel}</p>
                           )}
                         </div>
                         <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[#d5d7da] group-hover:text-[#a4a7ae] transition-colors" />

@@ -322,7 +322,7 @@ export function PublicSolanaCheckout({
       ) : null}
 
       {error ? (
-        <div className="mt-4 rounded-2xl border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-sm text-[#b42318]">
+        <div className="mt-4 rounded-2xl border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-sm text-[#717680]">
           {error}
         </div>
       ) : null}
@@ -337,7 +337,7 @@ export function PublicSolanaCheckout({
       </button>
 
       <div className="mt-3 flex items-center gap-2 text-xs text-[#717680]">
-        <CheckCircle className="h-4 w-4 text-[#079455]" weight="fill" />
+        <CheckCircle className="h-4 w-4 text-[#717680]" weight="fill" />
         This checkout now runs directly inside Hedwig.
       </div>
     </div>

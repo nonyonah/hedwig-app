@@ -141,11 +141,11 @@ export function FeaturesShowcase() {
 
 function PaymentsPanel() {
   const rows = [
-    { net: '/icons/networks/base.png', name: 'Brand sprint invoice', client: 'Acme Corp', amount: '1,800 USDC', status: 'Paid', c: 'bg-[#ecfdf3] text-[#027a48]' },
+    { net: '/icons/networks/base.png', name: 'Brand sprint invoice', client: 'Acme Corp', amount: '1,800 USDC', status: 'Paid', c: 'bg-[#ecfdf3] text-[#717680]' },
     { net: '/icons/networks/solana.png', name: 'Logo package', client: 'Ola Design', amount: '450 USDC', status: 'Sent', c: 'bg-[#f2f4f7] text-[#344054]' },
-    { net: '/icons/networks/base.png', name: 'Web redesign — M2', client: 'Zenith Labs', amount: '3,200 USDC', status: 'Overdue', c: 'bg-[#fffaeb] text-[#b54708]' },
+    { net: '/icons/networks/base.png', name: 'Web redesign — M2', client: 'Zenith Labs', amount: '3,200 USDC', status: 'Overdue', c: 'bg-[#fffaeb] text-[#717680]' },
     { net: '/icons/networks/solana.png', name: 'Motion kit delivery', client: 'Spark Studio', amount: '900 USDC', status: 'Draft', c: 'bg-[#f2f4f7] text-[#344054]' },
-    { net: '/icons/networks/base.png', name: 'Copywriting retainer', client: 'Bloom Media', amount: '2,000 USDC', status: 'Paid', c: 'bg-[#ecfdf3] text-[#027a48]' },
+    { net: '/icons/networks/base.png', name: 'Copywriting retainer', client: 'Bloom Media', amount: '2,000 USDC', status: 'Paid', c: 'bg-[#ecfdf3] text-[#717680]' },
   ];
   return (
     <div className="flex h-full flex-col">
@@ -193,11 +193,11 @@ function PaymentsPanel() {
 
 function ClientsPanel() {
   const clients = [
-    { initials: 'AC', color: 'bg-[#eff4ff] text-[#2563eb]', name: 'Acme Corp', email: 'hello@acmecorp.io', projects: 3, billed: '$6,400' },
-    { initials: 'OD', color: 'bg-[#ecfdf3] text-[#027a48]', name: 'Ola Design', email: 'ola@oladesign.co', projects: 1, billed: '$1,800' },
-    { initials: 'ZL', color: 'bg-[#fffaeb] text-[#b54708]', name: 'Zenith Labs', email: 'work@zenithlabs.com', projects: 2, billed: '$9,200' },
-    { initials: 'SS', color: 'bg-[#f4f3ff] text-[#6941c6]', name: 'Spark Studio', email: 'team@sparkstudio.co', projects: 1, billed: '$900' },
-    { initials: 'BM', color: 'bg-[#fdf2fa] text-[#c11574]', name: 'Bloom Media', email: 'hi@bloommedia.com', projects: 2, billed: '$4,000' },
+    { initials: 'AC', color: 'bg-[#eff4ff] text-[#717680]', name: 'Acme Corp', email: 'hello@acmecorp.io', projects: 3, billed: '$6,400' },
+    { initials: 'OD', color: 'bg-[#ecfdf3] text-[#717680]', name: 'Ola Design', email: 'ola@oladesign.co', projects: 1, billed: '$1,800' },
+    { initials: 'ZL', color: 'bg-[#fffaeb] text-[#717680]', name: 'Zenith Labs', email: 'work@zenithlabs.com', projects: 2, billed: '$9,200' },
+    { initials: 'SS', color: 'bg-[#f4f3ff] text-[#717680]', name: 'Spark Studio', email: 'team@sparkstudio.co', projects: 1, billed: '$900' },
+    { initials: 'BM', color: 'bg-[#fdf2fa] text-[#717680]', name: 'Bloom Media', email: 'hi@bloommedia.com', projects: 2, billed: '$4,000' },
   ];
   return (
     <div className="flex h-full flex-col">
@@ -249,12 +249,12 @@ function ProjectsPanel() {
               <p className="text-[13px] font-semibold text-[#181d27]">Web redesign — Zenith Labs</p>
               <p className="mt-0.5 text-[11px] text-[#a4a7ae]">Due Apr 20 · $6,000 total</p>
             </div>
-            <span className="rounded-full bg-[#eff4ff] px-2.5 py-1 text-[11px] font-semibold text-[#2563eb]">In progress</span>
+            <span className="rounded-full bg-[#eff4ff] px-2.5 py-1 text-[11px] font-semibold text-[#717680]">In progress</span>
           </div>
           <div className="px-4 pt-3 pb-2">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-[11px] font-semibold text-[#a4a7ae]">Progress</p>
-              <p className="text-[11px] font-semibold text-[#2563eb]">2 of 4 milestones</p>
+              <p className="text-[11px] font-semibold text-[#717680]">2 of 4 milestones</p>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-[#f2f4f7]">
               <div className="h-full w-1/2 rounded-full bg-[#2563eb]" />
@@ -298,7 +298,7 @@ function ContractPanel() {
               <p className="text-[14px] font-semibold text-[#181d27]">Creator partnership — Ola Design</p>
               <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Sent Jan 12 · 3 milestones · $4,800 total</p>
             </div>
-            <span className="rounded-full bg-[#fffaeb] px-2.5 py-1 text-[11px] font-semibold text-[#b54708]">Awaiting signature</span>
+            <span className="rounded-full bg-[#fffaeb] px-2.5 py-1 text-[11px] font-semibold text-[#717680]">Awaiting signature</span>
           </div>
           <div className="divide-y divide-[#f9fafb]">
             {[
@@ -318,7 +318,7 @@ function ContractPanel() {
                 </div>
                 <div className="text-right">
                   <p className="text-[12px] font-semibold text-[#181d27]">{m.amount}</p>
-                  <p className={`text-[11px] font-semibold ${m.invoice === 'Paid' ? 'text-[#17b26a]' : m.invoice === 'Pending' ? 'text-[#b54708]' : 'text-[#a4a7ae]'}`}>{m.invoice}</p>
+                  <p className={`text-[11px] font-semibold ${m.invoice === 'Paid' ? 'text-[#717680]' : m.invoice === 'Pending' ? 'text-[#717680]' : 'text-[#a4a7ae]'}`}>{m.invoice}</p>
                 </div>
               </div>
             ))}
@@ -376,7 +376,7 @@ function WalletPanel() {
                 </div>
                 <div className="text-right">
                   <p className="text-[13px] font-semibold text-[#181d27]">{a.val}</p>
-                  <p className={`text-[11px] font-semibold ${a.up ? 'text-[#17b26a]' : 'text-[#f04438]'}`}>{a.change}</p>
+                  <p className={`text-[11px] font-semibold ${a.up ? 'text-[#717680]' : 'text-[#717680]'}`}>{a.change}</p>
                 </div>
               </div>
             ))}

@@ -75,7 +75,7 @@ export default async function PublicPaymentLinkPage({
                 <h1 className="mt-1 truncate text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{document.title}</h1>
                 <p className="mt-1 text-[12px] text-[#a4a7ae]">from {merchantName}</p>
               </div>
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#eff4ff] px-2.5 py-1 text-[11px] font-semibold text-[#1d4ed8]">
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#eff4ff] px-2.5 py-1 text-[11px] font-semibold text-[#717680]">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#2563eb]" />
                 Active
               </span>

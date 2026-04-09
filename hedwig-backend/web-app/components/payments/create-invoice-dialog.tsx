@@ -81,7 +81,7 @@ export function CreateInvoiceDialog({ accessToken, onClose, onCreated }: Props) 
           <div className="flex items-center justify-between border-b border-[#e9eaeb] px-6 py-4">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#eff4ff]">
-                <FileText className="h-4 w-4 text-[#2563eb]" weight="bold" />
+                <FileText className="h-4 w-4 text-[#717680]" weight="bold" />
               </div>
               <div>
                 <p className="text-[15px] font-semibold text-[#181d27]">New invoice</p>
@@ -103,7 +103,7 @@ export function CreateInvoiceDialog({ accessToken, onClose, onCreated }: Props) 
               {/* Amount */}
               <div>
                 <label className="mb-1.5 block text-[12px] font-semibold text-[#344054]">
-                  Amount (USD) <span className="text-[#f04438]">*</span>
+                  Amount (USD) <span className="text-[#717680]">*</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] text-[#717680]">$</span>
@@ -119,13 +119,13 @@ export function CreateInvoiceDialog({ accessToken, onClose, onCreated }: Props) 
                     }`}
                   />
                 </div>
-                {errors.amount && <p className="mt-1 text-[11px] text-[#f04438]">{errors.amount}</p>}
+                {errors.amount && <p className="mt-1 text-[11px] text-[#717680]">{errors.amount}</p>}
               </div>
 
               {/* Due date */}
               <div>
                 <label className="mb-1.5 block text-[12px] font-semibold text-[#344054]">
-                  Due date <span className="text-[#f04438]">*</span>
+                  Due date <span className="text-[#717680]">*</span>
                 </label>
                 <input
                   type="date"
@@ -135,7 +135,7 @@ export function CreateInvoiceDialog({ accessToken, onClose, onCreated }: Props) 
                     errors.dueDate ? 'border-[#f04438] focus:border-[#f04438]' : 'border-[#d5d7da] focus:border-[#2563eb]'
                   }`}
                 />
-                {errors.dueDate && <p className="mt-1 text-[11px] text-[#f04438]">{errors.dueDate}</p>}
+                {errors.dueDate && <p className="mt-1 text-[11px] text-[#717680]">{errors.dueDate}</p>}
               </div>
 
               {/* Client name */}

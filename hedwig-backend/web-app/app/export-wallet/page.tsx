@@ -131,12 +131,12 @@ export default function ExportWalletPage() {
             <div className="space-y-5 p-6">
               <div className="rounded-2xl border border-[#fddcab] bg-[#fffaeb] p-4">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#b54708] ring-1 ring-[#fedf89]">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#717680] ring-1 ring-[#fedf89]">
                     <Warning className="h-5 w-5" weight="fill" />
                   </div>
                   <div>
-                    <p className="text-[15px] font-semibold text-[#7a2e0e]">Never share your private key</p>
-                    <p className="mt-1 text-[13px] leading-5 text-[#934b16]">
+                    <p className="text-[15px] font-semibold text-[#717680]">Never share your private key</p>
+                    <p className="mt-1 text-[13px] leading-5 text-[#717680]">
                       Hedwig support, clients, and partners will never ask for it. Save it in a password manager or another secure offline location.
                     </p>
                   </div>
@@ -145,13 +145,13 @@ export default function ExportWalletPage() {
 
               {!ready ? (
                 <div className="flex items-center gap-3 rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] px-4 py-4 text-[14px] font-medium text-[#414651]">
-                  <SpinnerGap className="h-4 w-4 animate-spin text-[#2563eb]" weight="bold" />
+                  <SpinnerGap className="h-4 w-4 animate-spin text-[#717680]" weight="bold" />
                   Preparing secure wallet recovery…
                 </div>
               ) : !authenticated ? (
                 <div className="rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] p-5">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eff4ff] text-[#2563eb]">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eff4ff] text-[#717680]">
                       <SignIn className="h-5 w-5" weight="fill" />
                     </div>
                     <div>
@@ -227,7 +227,7 @@ export default function ExportWalletPage() {
                     </div>
 
                     {error ? (
-                      <div className="mt-4 rounded-2xl border border-[#fda29b] bg-[#fef3f2] px-4 py-3 text-[13px] text-[#b42318]">
+                      <div className="mt-4 rounded-2xl border border-[#fda29b] bg-[#fef3f2] px-4 py-3 text-[13px] text-[#717680]">
                         {error}
                       </div>
                     ) : null}
@@ -258,14 +258,14 @@ export default function ExportWalletPage() {
               </div>
               <div className="space-y-3 p-5">
                 <div className="flex items-start gap-3 rounded-2xl border border-[#f2f4f7] bg-[#fcfcfd] p-4">
-                  <CheckCircle className="mt-0.5 h-5 w-5 text-[#17b26a]" weight="fill" />
+                  <CheckCircle className="mt-0.5 h-5 w-5 text-[#717680]" weight="fill" />
                   <div>
                     <p className="text-[14px] font-semibold text-[#181d27]">Confirm the correct chain</p>
                     <p className="mt-1 text-[13px] leading-5 text-[#717680]">Choose Base or Solana before exporting so you recover the wallet you actually use.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 rounded-2xl border border-[#f2f4f7] bg-[#fcfcfd] p-4">
-                  <ShieldCheck className="mt-0.5 h-5 w-5 text-[#2563eb]" weight="fill" />
+                  <ShieldCheck className="mt-0.5 h-5 w-5 text-[#717680]" weight="fill" />
                   <div>
                     <p className="text-[14px] font-semibold text-[#181d27]">Store the key offline</p>
                     <p className="mt-1 text-[13px] leading-5 text-[#717680]">Use a password manager or another offline method that only you control.</p>

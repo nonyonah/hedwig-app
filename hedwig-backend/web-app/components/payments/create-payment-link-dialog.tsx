@@ -82,7 +82,7 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
           <div className="flex items-center justify-between border-b border-[#e9eaeb] px-6 py-4">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ecfdf3]">
-                <LinkSimple className="h-4 w-4 text-[#12b76a]" weight="bold" />
+                <LinkSimple className="h-4 w-4 text-[#717680]" weight="bold" />
               </div>
               <div>
                 <p className="text-[15px] font-semibold text-[#181d27]">New payment link</p>
@@ -119,7 +119,7 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
               {/* Amount */}
               <div>
                 <label className="mb-1.5 block text-[12px] font-semibold text-[#344054]">
-                  Amount (USDC) <span className="text-[#f04438]">*</span>
+                  Amount (USDC) <span className="text-[#717680]">*</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] text-[#717680]">$</span>
@@ -135,14 +135,14 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
                     }`}
                   />
                 </div>
-                {errors.amount && <p className="mt-1 text-[11px] text-[#f04438]">{errors.amount}</p>}
+                {errors.amount && <p className="mt-1 text-[11px] text-[#717680]">{errors.amount}</p>}
                 <p className="mt-1 text-[11px] text-[#a4a7ae]">Fixed to USDC · settled on Base</p>
               </div>
 
               {/* Expiry date */}
               <div>
                 <label className="mb-1.5 block text-[12px] font-semibold text-[#344054]">
-                  Expiry date <span className="text-[#f04438]">*</span>
+                  Expiry date <span className="text-[#717680]">*</span>
                 </label>
                 <input
                   type="date"
@@ -152,7 +152,7 @@ export function CreatePaymentLinkDialog({ accessToken, onClose, onCreated }: Pro
                     errors.dueDate ? 'border-[#f04438] focus:border-[#f04438]' : 'border-[#d5d7da] focus:border-[#2563eb]'
                   }`}
                 />
-                {errors.dueDate && <p className="mt-1 text-[11px] text-[#f04438]">{errors.dueDate}</p>}
+                {errors.dueDate && <p className="mt-1 text-[11px] text-[#717680]">{errors.dueDate}</p>}
               </div>
 
               {/* Description */}

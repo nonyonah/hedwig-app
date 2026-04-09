@@ -139,7 +139,7 @@ function LandingPage() {
                           key={item}
                           className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium ${
                             item === 'Dashboard'
-                              ? 'bg-[#f5f8ff] font-semibold text-[#2563eb]'
+                              ? 'bg-[#f5f8ff] font-semibold text-[#717680]'
                               : 'text-[#535862]'
                           }`}
                         >
@@ -178,9 +178,9 @@ function LandingPage() {
                       </div>
                       <div className="divide-y divide-[#f9fafb]">
                         {[
-                          { net: '/icons/networks/base.png', name: 'Brand sprint invoice', client: 'Acme Corp', amount: '1,800 USDC', status: 'Paid', color: 'text-[#027a48] bg-[#ecfdf3]' },
+                          { net: '/icons/networks/base.png', name: 'Brand sprint invoice', client: 'Acme Corp', amount: '1,800 USDC', status: 'Paid', color: 'text-[#717680] bg-[#ecfdf3]' },
                           { net: '/icons/networks/solana.png', name: 'Logo package', client: 'Ola Design', amount: '450 USDC', status: 'Sent', color: 'text-[#344054] bg-[#f2f4f7]' },
-                          { net: '/icons/networks/base.png', name: 'Web redesign — M2', client: 'Zenith Labs', amount: '3,200 USDC', status: 'Overdue', color: 'text-[#b54708] bg-[#fffaeb]' },
+                          { net: '/icons/networks/base.png', name: 'Web redesign — M2', client: 'Zenith Labs', amount: '3,200 USDC', status: 'Overdue', color: 'text-[#717680] bg-[#fffaeb]' },
                           { net: '/icons/networks/solana.png', name: 'Motion kit delivery', client: 'Spark Studio', amount: '900 USDC', status: 'Draft', color: 'text-[#344054] bg-[#f2f4f7]' },
                         ].map((tx) => (
                           <div key={tx.name} className="flex items-center justify-between px-4 py-2.5">
@@ -248,9 +248,9 @@ function LandingPage() {
           </AnimateIn>
           <div className="grid gap-px overflow-hidden rounded-[28px] border border-[#e9eaeb] bg-[#e9eaeb] md:grid-cols-3">
             {[
-              { step: '01', label: 'Capture the work', desc: 'Create a client, open a project, define milestones. Every commercial detail stays attached from the start.', accent: 'bg-[#eff4ff] text-[#2563eb]' },
-              { step: '02', label: 'Send the agreement', desc: 'Generate a contract and payment request in one flow. The client signs and pays without leaving the link.', accent: 'bg-[#ecfdf3] text-[#027a48]' },
-              { step: '03', label: 'Collect and settle', desc: 'USDC lands in your wallet instantly. Track it live and move to your bank whenever you choose.', accent: 'bg-[#fffaeb] text-[#b54708]' },
+              { step: '01', label: 'Capture the work', desc: 'Create a client, open a project, define milestones. Every commercial detail stays attached from the start.', accent: 'bg-[#eff4ff] text-[#717680]' },
+              { step: '02', label: 'Send the agreement', desc: 'Generate a contract and payment request in one flow. The client signs and pays without leaving the link.', accent: 'bg-[#ecfdf3] text-[#717680]' },
+              { step: '03', label: 'Collect and settle', desc: 'USDC lands in your wallet instantly. Track it live and move to your bank whenever you choose.', accent: 'bg-[#fffaeb] text-[#717680]' },
             ].map(({ step, label, desc, accent }, i) => (
               <AnimateIn key={step} delay={i * 80}>
                 <div className="flex h-full flex-col bg-white px-8 py-10">
@@ -312,7 +312,7 @@ function LandingPage() {
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.35),transparent_55%)]" />
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(37,99,235,0.20),transparent_55%)]" />
               <div className="relative">
-                <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.12em] text-[#93c5fd]">Start now</p>
+                <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.12em] text-[#717680]">Start now</p>
                 <h2 className="text-[32px] font-bold tracking-[-0.04em] text-white md:text-[48px]">
                   Make your money workflow<br className="hidden md:block" /> feel as polished as your work.
                 </h2>

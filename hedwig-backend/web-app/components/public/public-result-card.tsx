@@ -27,9 +27,9 @@ export function PublicResultCard({
         <div className="px-8 py-8 text-center">
           <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full ${isSuccess ? 'bg-[#ecfdf3]' : 'bg-[#fef3f2]'}`}>
             {isSuccess ? (
-              <CheckCircle className="h-9 w-9 text-[#079455]" weight="fill" />
+              <CheckCircle className="h-9 w-9 text-[#717680]" weight="fill" />
             ) : (
-              <WarningCircle className="h-9 w-9 text-[#d92d20]" weight="fill" />
+              <WarningCircle className="h-9 w-9 text-[#717680]" weight="fill" />
             )}
           </div>
 

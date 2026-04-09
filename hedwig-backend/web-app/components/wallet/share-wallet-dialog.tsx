@@ -127,7 +127,7 @@ export function ShareWalletDialog({
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] bg-white shadow-xs transition duration-100 hover:bg-[#f5f5f5] disabled:opacity-40"
                 >
                   {copied ? (
-                    <Check className="h-3.5 w-3.5 text-[#12b76a]" weight="bold" />
+                    <Check className="h-3.5 w-3.5 text-[#717680]" weight="bold" />
                   ) : (
                     <Copy className="h-3.5 w-3.5 text-[#717680]" weight="bold" />
                   )}

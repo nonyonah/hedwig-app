@@ -9,7 +9,6 @@ import {
   LinkSimple,
   MagnifyingGlass,
   Repeat,
-  Sparkle,
   User,
   X,
 } from '@/components/ui/lucide-icons';
@@ -82,11 +81,11 @@ function searchData(data: CachedData, query: string): SearchResult[] {
 }
 
 const KIND_META = {
-  invoice: { label: 'Invoice', Icon: FileText, href: '/payments', color: 'text-[#2563eb]', bg: 'bg-[#eff4ff]' },
-  'payment-link': { label: 'Payment link', Icon: LinkSimple, href: '/payments', color: 'text-[#16a34a]', bg: 'bg-[#f0fdf4]' },
+  invoice: { label: 'Invoice', Icon: FileText, href: '/payments', color: 'text-[#717680]', bg: 'bg-[#eff4ff]' },
+  'payment-link': { label: 'Payment link', Icon: LinkSimple, href: '/payments', color: 'text-[#717680]', bg: 'bg-[#f0fdf4]' },
   client: { label: 'Client', Icon: User, href: '/clients', color: 'text-[#717680]', bg: 'bg-[#f2f4f7]' },
-  contract: { label: 'Contract', Icon: IdentificationCard, href: '/contracts', color: 'text-[#9333ea]', bg: 'bg-[#fdf4ff]' },
-  recurring: { label: 'Recurring', Icon: Repeat, href: '/payments', color: 'text-[#ea580c]', bg: 'bg-[#fff7ed]' },
+  contract: { label: 'Contract', Icon: IdentificationCard, href: '/contracts', color: 'text-[#717680]', bg: 'bg-[#fdf4ff]' },
+  recurring: { label: 'Recurring', Icon: Repeat, href: '/payments', color: 'text-[#717680]', bg: 'bg-[#fff7ed]' },
 };
 
 function ResultRow({ result, onClick }: { result: SearchResult; onClick: () => void }) {
@@ -196,9 +195,9 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
     setOpen(false);
   };
 
-  const handleAskAI = () => {
+  const handleOpenCreate = () => {
     setOpen(false);
-    window.dispatchEvent(new CustomEvent('hedwig:open-chat', { detail: { query } }));
+    window.dispatchEvent(new CustomEvent('hedwig:open-create-menu'));
   };
 
   return (
@@ -232,7 +231,13 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && query.trim()) handleAskAI();
+                  if (e.key === 'Enter' && query.trim()) {
+                    if (results.length > 0) {
+                      handleNav(KIND_META[results[0].kind].href);
+                      return;
+                    }
+                    handleOpenCreate();
+                  }
                 }}
                 className="flex-1 bg-transparent text-[14px] text-[#181d27] placeholder-[#a4a7ae] outline-none"
               />
@@ -268,21 +273,21 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
               ))}
             </div>
 
-            {/* Ask AI footer */}
+            {/* Quick create footer */}
             <div className="border-t border-[#f2f4f7] p-1.5">
               <button
                 type="button"
-                onClick={handleAskAI}
+                onClick={handleOpenCreate}
                 className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-[#eff4ff]"
               >
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eff4ff] transition-colors group-hover:bg-[#dbeafe]">
-                  <Sparkle className="h-3.5 w-3.5 text-[#2563eb]" weight="fill" />
+                  <ArrowRight className="h-3.5 w-3.5 text-[#717680]" weight="bold" />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-[13px] font-semibold text-[#2563eb]">
-                    {query.trim() ? `Ask Hedwig: "${query}"` : 'Ask Hedwig AI'}
+                  <p className="text-[13px] font-semibold text-[#717680]">
+                    {query.trim() ? `Create from "${query}"` : 'Open structured create menu'}
                   </p>
-                  <p className="text-[11px] text-[#717680]">Let the AI find or create anything for you</p>
+                  <p className="text-[11px] text-[#717680]">Create invoices, payment links, clients, and projects.</p>
                 </div>
               </button>
             </div>

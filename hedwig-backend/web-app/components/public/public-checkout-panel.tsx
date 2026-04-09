@@ -62,8 +62,8 @@ export function PublicCheckoutPanel({
   if (!activeChain || availableChains.length === 0) {
     return (
       <div className="rounded-2xl border border-[#fecdca] bg-[#fef3f2] p-5 shadow-xs">
-        <p className="text-[13px] font-semibold text-[#b42318]">Merchant wallet unavailable</p>
-        <p className="mt-1.5 text-[12px] leading-relaxed text-[#b42318]">
+        <p className="text-[13px] font-semibold text-[#717680]">Merchant wallet unavailable</p>
+        <p className="mt-1.5 text-[12px] leading-relaxed text-[#717680]">
           This payment page does not have a supported merchant wallet configured yet. Please try again later.
         </p>
       </div>

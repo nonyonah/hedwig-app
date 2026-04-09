@@ -58,12 +58,15 @@ export function ClientsClient({
 
   return (
     <div className="space-y-4">
+      <div>
+        <h1 className="text-[15px] font-semibold text-[#181d27]">Clients</h1>
+        <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Manage your client relationships and track outstanding work.</p>
+      </div>
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
         {/* Unified header */}
         <div className="flex items-center gap-3 border-b border-[#f2f4f7] px-5 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <h1 className="shrink-0 text-[14px] font-semibold text-[#181d27]">Clients</h1>
-            <span className="text-[12px] text-[#c1c5cd]">{clients.length}</span>
+            <span className="text-[12px] font-medium text-[#717680]">{clients.length} clients</span>
             {totalOutstanding > 0 && (
               <>
                 <span className="h-3 w-px shrink-0 bg-[#f2f4f7]" />

@@ -13,6 +13,28 @@ type RangeKey = '7d' | '30d' | '90d' | '1y' | 'ytd';
 const INSIGHTS_PAGE_SIZE = Math.max(100, Number(process.env.INSIGHTS_PAGE_SIZE || 500));
 const INSIGHTS_MAX_ROWS = Math.max(INSIGHTS_PAGE_SIZE, Number(process.env.INSIGHTS_MAX_ROWS || 20000));
 
+const summarizeSupabaseError = (error: any): string => {
+    if (!error) return 'unknown error';
+    if (typeof error === 'string') return error;
+
+    const parts = [
+        error.message,
+        error.details,
+        error.hint,
+        error.code ? `code=${error.code}` : null,
+    ].filter((part): part is string => Boolean(part && String(part).trim().length > 0));
+
+    if (parts.length > 0) {
+        return parts.join(' | ');
+    }
+
+    try {
+        return JSON.stringify(error);
+    } catch {
+        return 'unknown error';
+    }
+};
+
 const toNumber = (value: unknown): number => {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value === 'string') {
@@ -45,7 +67,7 @@ async function fetchPagedRows<T>(
         const to = from + INSIGHTS_PAGE_SIZE - 1;
         const { data, error } = await fetchPage(from, to);
         if (error) {
-            throw new Error(`${label} query failed: ${error.message || 'unknown error'}`);
+            throw new Error(`${label} query failed: ${summarizeSupabaseError(error)}`);
         }
         const page = data || [];
         rows.push(...page);
@@ -64,7 +86,7 @@ async function fetchPagedRows<T>(
 
 const getCountOrThrow = (label: string, result: { count: number | null; error: any }): number => {
     if (result.error) {
-        throw new Error(`${label} count query failed: ${result.error.message || 'unknown error'}`);
+        throw new Error(`${label} count query failed: ${summarizeSupabaseError(result.error)}`);
     }
     return Number(result.count || 0);
 };
@@ -109,18 +131,20 @@ router.get('/assistant-summary', authenticate, async (req: Request, res: Respons
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
                 .eq('type', 'INVOICE')
-                .eq('status', 'OVERDUE'),
+                .in('status', ['DRAFT', 'SENT', 'VIEWED'])
+                .not('content->>due_date', 'is', null)
+                .lt('content->>due_date', nowIso),
             supabase
                 .from('documents')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
                 .eq('type', 'PAYMENT_LINK')
-                .in('status', ['ACTIVE', 'SENT', 'PENDING']),
+                .in('status', ['DRAFT', 'SENT', 'VIEWED']),
             supabase
                 .from('projects')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
-                .in('status', ['ACTIVE', 'ONGOING', 'ON_HOLD', 'PAUSED']),
+                .in('status', ['ACTIVE', 'ONGOING', 'ON_HOLD']),
             supabase
                 .from('offramp_orders')
                 .select('id', { count: 'exact', head: true })
@@ -149,10 +173,10 @@ router.get('/assistant-summary', authenticate, async (req: Request, res: Respons
         const pendingWithdrawals = getCountOrThrow('pending_withdrawals', pendingWithdrawalsResult);
 
         if (calendarRes.error) {
-            throw new Error(`calendar query failed: ${calendarRes.error.message || 'unknown error'}`);
+            throw new Error(`calendar query failed: ${summarizeSupabaseError(calendarRes.error)}`);
         }
         if (notificationsRes.error) {
-            throw new Error(`notifications query failed: ${notificationsRes.error.message || 'unknown error'}`);
+            throw new Error(`notifications query failed: ${summarizeSupabaseError(notificationsRes.error)}`);
         }
 
         const upcomingEvent = (calendarRes.data || [])[0] || null;
@@ -188,7 +212,10 @@ router.get('/assistant-summary', authenticate, async (req: Request, res: Respons
             },
         });
     } catch (error) {
-        logger.error('Failed to build assistant summary', { error: error instanceof Error ? error.message : 'Unknown' });
+        logger.error('Failed to build assistant summary', {
+            error: error instanceof Error ? error.message : 'Unknown',
+            stack: error instanceof Error ? error.stack : undefined,
+        });
         next(error);
     }
 });

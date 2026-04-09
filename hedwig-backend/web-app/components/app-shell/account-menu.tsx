@@ -2,18 +2,23 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Lifebuoy, Moon, SignOut, Sun } from '@/components/ui/lucide-icons';
+import { Faders, Lifebuoy, Moon, SignOut, Sun } from '@/components/ui/lucide-icons';
 import { Avatar } from '@/components/ui/avatar';
+import {
+  applyThemePreference,
+  getStoredThemePreference,
+  setStoredThemePreference,
+  THEME_EVENT,
+  type WebThemePreference
+} from '@/lib/settings/preferences';
 import { cn } from '@/lib/utils';
-
-type ThemeOption = 'light' | 'dark';
 
 const themeOptions: Array<{ value: ThemeOption; label: string; icon: typeof Sun }> = [
   { value: 'light', label: 'Light mode', icon: Sun },
-  { value: 'dark', label: 'Dark mode', icon: Moon }
+  { value: 'dark', label: 'Dark mode', icon: Moon },
+  { value: 'system', label: 'System mode', icon: Faders }
 ];
-
-const STORAGE_KEY = 'hedwig-web-theme';
+type ThemeOption = WebThemePreference;
 
 export function AccountMenu({
   fullName,
@@ -29,10 +34,30 @@ export function AccountMenu({
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem(STORAGE_KEY) as ThemeOption | null;
-    const nextTheme = storedTheme && themeOptions.some((option) => option.value === storedTheme) ? storedTheme : 'light';
-    document.documentElement.dataset.theme = nextTheme;
+    const nextTheme = getStoredThemePreference();
+    applyThemePreference(nextTheme);
     setTheme(nextTheme);
+
+    const syncTheme = () => {
+      const current = getStoredThemePreference();
+      applyThemePreference(current);
+      setTheme(current);
+    };
+
+    const syncThemeEvent = () => syncTheme();
+    const syncStorage = (event: StorageEvent) => {
+      if (event.key == null || event.key === 'settings_theme' || event.key === 'hedwig-web-theme') {
+        syncTheme();
+      }
+    };
+
+    window.addEventListener(THEME_EVENT, syncThemeEvent);
+    window.addEventListener('storage', syncStorage);
+
+    return () => {
+      window.removeEventListener(THEME_EVENT, syncThemeEvent);
+      window.removeEventListener('storage', syncStorage);
+    };
   }, []);
 
   useEffect(() => {
@@ -58,8 +83,8 @@ export function AccountMenu({
   }, []);
 
   const applyTheme = (nextTheme: ThemeOption) => {
-    document.documentElement.dataset.theme = nextTheme;
-    window.localStorage.setItem(STORAGE_KEY, nextTheme);
+    applyThemePreference(nextTheme);
+    setStoredThemePreference(nextTheme);
     setTheme(nextTheme);
   };
 
@@ -127,8 +152,8 @@ export function AccountMenu({
               href="/sign-out"
               onClick={() => setOpen(false)}
             >
-              <SignOut className="h-5 w-5 text-[#f04438]" weight="regular" />
-              <span className="text-[14px] font-semibold text-[#d92d20]">Sign out</span>
+              <SignOut className="h-5 w-5 text-[#717680]" weight="regular" />
+              <span className="text-[14px] font-semibold text-[#717680]">Sign out</span>
             </Link>
           </div>
         </div>

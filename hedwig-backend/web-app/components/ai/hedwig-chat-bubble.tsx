@@ -63,9 +63,9 @@ type Message = {
 };
 
 const INTENT_META: Record<string, { label: string; color: string; Icon: any }> = {
-  invoice:           { label: 'Invoice',          color: 'bg-[#eff4ff] text-[#2563eb]',  Icon: FileText },
-  payment_link:      { label: 'Payment Link',      color: 'bg-[#f0fdf4] text-[#16a34a]',  Icon: LinkSimple },
-  recurring_invoice: { label: 'Recurring Invoice', color: 'bg-[#fdf4ff] text-[#9333ea]',  Icon: ArrowsClockwise },
+  invoice:           { label: 'Invoice',          color: 'bg-[#eff4ff] text-[#717680]',  Icon: FileText },
+  payment_link:      { label: 'Payment Link',      color: 'bg-[#f0fdf4] text-[#717680]',  Icon: LinkSimple },
+  recurring_invoice: { label: 'Recurring Invoice', color: 'bg-[#fdf4ff] text-[#717680]',  Icon: ArrowsClockwise },
 };
 
 const EXAMPLES = [
@@ -384,7 +384,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
                     <button
                       key={ex}
                       onClick={() => { setInput(ex); inputRef.current?.focus(); }}
-                      className="rounded-xl border border-[#e9eaeb] bg-[#f9fafb] px-3 py-2 text-left text-[12px] text-[#535862] transition hover:border-[#2563eb] hover:bg-[#eff4ff] hover:text-[#2563eb]"
+                      className="rounded-xl border border-[#e9eaeb] bg-[#f9fafb] px-3 py-2 text-left text-[12px] text-[#535862] transition hover:border-[#2563eb] hover:bg-[#eff4ff] hover:text-[#717680]"
                     >
                       {ex}
                     </button>
@@ -428,14 +428,14 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
                   {/* Creating */}
                   {msg.actionState === 'creating' && (
                     <div className="flex items-center gap-2 rounded-xl bg-[#f9fafb] px-3 py-2 text-[12px] text-[#717680]">
-                      <SpinnerGap className="h-3.5 w-3.5 animate-spin text-[#2563eb]" weight="bold" />
+                      <SpinnerGap className="h-3.5 w-3.5 animate-spin text-[#717680]" weight="bold" />
                       Creating…
                     </div>
                   )}
 
                   {/* Done */}
                   {msg.actionState === 'done' && (
-                    <div className="flex items-center gap-2 rounded-xl bg-[#f0fdf4] px-3 py-2 text-[12px] text-[#16a34a]">
+                    <div className="flex items-center gap-2 rounded-xl bg-[#f0fdf4] px-3 py-2 text-[12px] text-[#717680]">
                       <CheckCircle className="h-3.5 w-3.5" weight="fill" />
                       {msg.actionResult}
                     </div>
@@ -443,7 +443,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
 
                   {/* Error */}
                   {msg.actionState === 'error' && (
-                    <div className="flex items-center gap-2 rounded-xl bg-[#fff1f0] px-3 py-2 text-[12px] text-[#b42318]">
+                    <div className="flex items-center gap-2 rounded-xl bg-[#fff1f0] px-3 py-2 text-[12px] text-[#717680]">
                       <XCircle className="h-3.5 w-3.5" weight="fill" />
                       {msg.actionResult}
                     </div>

@@ -21,8 +21,8 @@ export function MetricCard({ label, value, change, trend = 'up', icon }: { label
         {change ? (
           <div className={cn('mt-3 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12px] font-medium',
             trend === 'up'
-              ? 'border-[#abefc6] bg-[#ecfdf3] text-[#067647]'
-              : 'border-[#fedf89] bg-[#fffaeb] text-[#b54708]'
+              ? 'border-[#abefc6] bg-[#ecfdf3] text-[#717680]'
+              : 'border-[#fedf89] bg-[#fffaeb] text-[#717680]'
           )}>
             {trend === 'up' ? <ArrowUpRight className="h-3.5 w-3.5" weight="bold" /> : <ArrowDownRight className="h-3.5 w-3.5" weight="bold" />}
             {change}

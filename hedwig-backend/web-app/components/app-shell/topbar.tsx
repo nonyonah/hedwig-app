@@ -5,6 +5,7 @@ import {
   FileText,
   FolderSimple,
   LinkSimple,
+  PencilSimple,
   SidebarSimple,
   User,
 } from '@/components/ui/lucide-icons';
@@ -72,13 +73,13 @@ export function AppTopbar({ collapsed, onToggleSidebar, unreadCount, accessToken
             aria-label="Create"
             onClick={() => setCreateOpen((p) => !p)}
             className={cn(
-              'flex h-7 w-7 items-center justify-center rounded-md text-[13px] font-semibold transition',
+              'flex h-8 w-8 items-center justify-center rounded-full border border-[#e9eaeb] text-[13px] font-semibold transition',
               createOpen
-                ? 'bg-[#f5f5f5] text-[#181d27]'
-                : 'text-[#8d9096] hover:bg-[#f5f5f5] hover:text-[#414651]'
+                ? 'bg-[#f5f5f5] text-[#414651]'
+                : 'bg-white text-[#8d9096] hover:bg-[#f5f5f5] hover:text-[#414651]'
             )}
           >
-            <span className="text-[16px] leading-none">+</span>
+            <PencilSimple className="h-4 w-4" weight="bold" />
           </button>
 
           {createOpen && (
@@ -104,7 +105,7 @@ export function AppTopbar({ collapsed, onToggleSidebar, unreadCount, accessToken
         </div>
 
         <GlobalSearch accessToken={accessToken} />
-        <NotificationBell unreadCount={unreadCount} />
+        <NotificationBell unreadCount={unreadCount} accessToken={accessToken ?? null} />
         <AccountMenu
           avatarUrl={user.avatarUrl}
           email={user.email}

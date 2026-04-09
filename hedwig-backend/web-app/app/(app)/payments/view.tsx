@@ -21,8 +21,8 @@ import {
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
 import { RecurringInvoicesSection } from '@/components/payments/recurring-invoices-section';
 import { hedwigApi } from '@/lib/api/client';
-import { PageHeader } from '@/components/data/page-header';
 import { Button } from '@/components/ui/button';
+import { ClientPortal } from '@/components/ui/client-portal';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import type { RowActionItem } from '@/components/data/row-actions-menu';
@@ -318,36 +318,43 @@ export function PaymentsClient({
 
   /* ─── render ─── */
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Payments"
-        title="Invoices & payment links"
-        description="Collect stablecoins or bank payments through one workflow."
-      />
-
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-[15px] font-semibold text-[#181d27]">Payments</h1>
+        <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Invoice clients and collect payments in one workflow.</p>
+      </div>
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-        <StatItem
-          icon={<CurrencyDollar className="h-4 w-4 text-[#f04438]" weight="bold" />}
-          label="Outstanding"
-          value={formatCompactCurrency(stats.outstanding, currency)}
-          sub="awaiting payment"
-          accent="text-[#f04438]"
-        />
-        <StatItem
-          icon={<CheckCircle className="h-4 w-4 text-[#12b76a]" weight="bold" />}
-          label="Total collected"
-          value={formatCompactCurrency(stats.paid, currency)}
-          sub="from paid invoices"
-          accent="text-[#12b76a]"
-        />
-        <StatItem
-          icon={<LinkSimple className="h-4 w-4 text-[#2563eb]" weight="bold" />}
-          label="Active links"
-          value={`${stats.activeLinks}`}
-          sub="ready to share"
-          accent="text-[#2563eb]"
-        />
+        <div className="flex flex-col bg-white px-5 py-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[12px] font-medium text-[#717680]">Outstanding</p>
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
+              <CurrencyDollar className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
+            </div>
+          </div>
+          <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{formatCompactCurrency(stats.outstanding, currency)}</p>
+          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">Awaiting payment</p>
+        </div>
+        <div className="flex flex-col bg-white px-5 py-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[12px] font-medium text-[#717680]">Collected</p>
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
+              <CheckCircle className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
+            </div>
+          </div>
+          <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{formatCompactCurrency(stats.paid, currency)}</p>
+          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">From paid invoices</p>
+        </div>
+        <div className="flex flex-col bg-white px-5 py-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[12px] font-medium text-[#717680]">Active links</p>
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
+              <LinkSimple className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
+            </div>
+          </div>
+          <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{stats.activeLinks}</p>
+          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">Ready to share</p>
+        </div>
       </div>
 
       {/* Highlighted invoice banner */}
@@ -364,8 +371,22 @@ export function PaymentsClient({
 
       {/* Main card */}
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
+        {/* Unified header */}
+        <div className="flex items-center gap-3 border-b border-[#f2f4f7] px-5 py-3">
+          <span className="text-[12px] font-medium text-[#717680]">{allInvoiceItems.length + paymentLinkItems.length} records</span>
+          {(stats.outstanding > 0 || stats.paid > 0) && (
+            <>
+              <span className="h-3 w-px shrink-0 bg-[#f2f4f7]" />
+              <span className="truncate text-[12px] text-[#a4a7ae]">
+                {formatCompactCurrency(stats.outstanding, currency)} outstanding · {formatCompactCurrency(stats.paid, currency)} collected
+                {stats.activeLinks > 0 ? ` · ${stats.activeLinks} active link${stats.activeLinks > 1 ? 's' : ''}` : ''}
+              </span>
+            </>
+          )}
+        </div>
+
         {/* Tab bar */}
-        <div className="flex items-center border-b border-[#e9eaeb] px-5">
+        <div className="flex items-center border-b border-[#f2f4f7] px-5">
           <TabBtn active={activeTab === 'invoices'} onClick={() => setActiveTab('invoices')}>
             Invoices
             <CountBadge n={allInvoiceItems.length} />
@@ -382,7 +403,7 @@ export function PaymentsClient({
         </div>
 
         {/* Filter chips */}
-        <div className="flex items-center gap-2 border-b border-[#f2f4f7] px-5 py-2.5">
+        <div className="flex items-center gap-1 border-b border-[#f2f4f7] px-5 py-2">
           {activeTab === 'invoices'
             ? (['all', 'draft', 'sent', 'paid', 'overdue'] as const).map((s) => (
                 <FilterChip key={s} active={invoiceFilter === s} onClick={() => setInvoiceFilter(s)}>
@@ -405,12 +426,12 @@ export function PaymentsClient({
         {/* Table header — hidden on recurring tab (it has its own headers) */}
         {activeTab !== 'recurring' && (
           <div className="grid grid-cols-[1fr_120px_110px_100px_44px] gap-3 border-b border-[#f2f4f7] px-5 py-2">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">
               {activeTab === 'invoices' ? 'Invoice' : 'Title'}
             </span>
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Status</span>
-            <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Amount</span>
-            <span className="text-right text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">Status</span>
+            <span className="text-right text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">Amount</span>
+            <span className="text-right text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">
               {activeTab === 'invoices' ? 'Due' : 'Chain'}
             </span>
             <span />
@@ -456,7 +477,7 @@ export function PaymentsClient({
                           {inv.title || inv.number}
                         </p>
                         {inv.recurringInvoiceId && (
-                          <span className="shrink-0 rounded-full bg-[#fdf4ff] px-1.5 py-0.5 text-[10px] font-semibold text-[#9333ea]">Recurring</span>
+                          <span className="shrink-0 rounded-full bg-[#fdf4ff] px-1.5 py-0.5 text-[10px] font-semibold text-[#717680]">Recurring</span>
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-[11px] text-[#a4a7ae]">
@@ -517,15 +538,15 @@ export function PaymentsClient({
 
       {/* Detail side panel */}
       {(hasPanel || !!selectedRecurring) && (
-        <>
+        <ClientPortal>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-black/25 backdrop-blur-sm animate-in fade-in-0 duration-200"
             onClick={() => { setSelectedInvoice(null); setSelectedPaymentLink(null); setSelectedRecurring(null); }}
           />
 
           {/* Panel */}
-          <div className="fixed inset-y-0 right-0 z-50 flex w-[440px] flex-col overflow-hidden bg-white shadow-2xl ring-1 ring-[#e9eaeb]">
+          <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-[440px] flex-col overflow-hidden bg-white shadow-2xl ring-1 ring-[#e9eaeb] animate-in slide-in-from-right-full duration-300 ease-out">
             {selectedRecurring ? (
               <RecurringPanel
                 item={selectedRecurring}
@@ -560,7 +581,7 @@ export function PaymentsClient({
               />
             ) : null}
           </div>
-        </>
+        </ClientPortal>
       )}
 
       <DeleteDialog
@@ -581,7 +602,7 @@ export function PaymentsClient({
             <div className="flex items-center justify-between border-b border-[#f2f4f7] px-5 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eff4ff]">
-                  <Envelope className="h-4 w-4 text-[#2563eb]" weight="bold" />
+                  <Envelope className="h-4 w-4 text-[#717680]" weight="bold" />
                 </div>
                 <div>
                   <p className="text-[14px] font-semibold text-[#181d27]">
@@ -600,7 +621,7 @@ export function PaymentsClient({
               </button>
             </div>
             <div className="px-5 py-4">
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">
+              <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">
                 Email address
               </label>
               <input
@@ -649,7 +670,7 @@ function InvoicePanel({
             <PanelCustomRow
               label="Recurring"
               value={
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#fdf4ff] px-2.5 py-1 text-[11px] font-semibold text-[#9333ea]">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#fdf4ff] px-2.5 py-1 text-[11px] font-semibold text-[#717680]">
                   <span>&#x21bb;</span> Auto-generated
                 </span>
               }
@@ -692,7 +713,7 @@ function InvoicePanel({
         )}
         <Button
           variant="ghost"
-          className="w-full text-[#b42318] hover:bg-[#fff1f0] hover:text-[#b42318]"
+          className="w-full text-[#717680] hover:bg-[#fff1f0] hover:text-[#717680]"
           onClick={onDelete}
         >
           <Trash className="h-4 w-4" /> Delete invoice
@@ -757,7 +778,7 @@ function PaymentLinkPanel({
         )}
         <Button
           variant="ghost"
-          className="w-full text-[#b42318] hover:bg-[#fff1f0] hover:text-[#b42318]"
+          className="w-full text-[#717680] hover:bg-[#fff1f0] hover:text-[#717680]"
           onClick={onDelete}
         >
           <Trash className="h-4 w-4" /> Delete link
@@ -785,7 +806,7 @@ function RecurringPanel({
         <p className="text-[32px] font-bold tracking-[-0.03em] text-[#181d27] leading-none mb-3">
           {formatCompactCurrency(item.amountUsd, currency)}
         </p>
-        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold bg-[#fdf4ff] text-[#9333ea]">
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold bg-[#fdf4ff] text-[#717680]">
           <Repeat className="h-3 w-3" /> {FREQ_LABELS[item.frequency] || item.frequency}
         </span>
       </div>
@@ -803,7 +824,7 @@ function RecurringPanel({
       </div>
       <div className="border-t border-[#e9eaeb] px-6 py-5">
         <p className="text-[11px] text-[#a4a7ae]">
-          Manage this template from the <button className="font-semibold text-[#2563eb] hover:underline" onClick={onClose}>Recurring tab</button> above.
+          Manage this template from the <button className="font-semibold text-[#717680] hover:underline" onClick={onClose}>Recurring tab</button> above.
         </p>
       </div>
     </>
@@ -815,7 +836,7 @@ function PanelHeader({ label, id, onClose }: { label: string; id: string; onClos
   return (
     <div className="flex items-center justify-between border-b border-[#e9eaeb] px-6 py-4">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">{label}</p>
+        <p className="text-[11px] font-medium uppercase tracking-wider text-[#c1c5cd]">{label}</p>
         <p className="mt-0.5 text-[16px] font-bold text-[#181d27] leading-tight truncate max-w-[320px]">{id}</p>
       </div>
       <button
@@ -858,28 +879,15 @@ function PanelCustomRow({ label, value }: { label: string; value: React.ReactNod
 }
 
 /* ─── misc small components ─── */
-function StatItem({ icon, label, value, sub, accent }: { icon: React.ReactNode; label: string; value: string; sub: string; accent: string }) {
-  return (
-    <div className="bg-white px-5 py-4">
-      <div className="flex items-center gap-2 mb-2">
-        {icon}
-        <span className="text-[12px] font-medium text-[#717680]">{label}</span>
-      </div>
-      <p className={`text-[22px] font-bold tracking-[-0.03em] ${accent}`}>{value}</p>
-      <p className="mt-1 text-[11px] text-[#a4a7ae]">{sub}</p>
-    </div>
-  );
-}
-
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-2 border-b-2 px-1 py-3.5 text-[13px] font-semibold transition-colors mr-5 ${
+      className={`flex items-center gap-2 border-b-2 px-1 py-3 text-[13px] font-medium transition-colors mr-5 ${
         active
-          ? 'border-[#2563eb] text-[#2563eb]'
-          : 'border-transparent text-[#717680] hover:text-[#344054]'
+          ? 'border-[#2563eb] text-[#181d27]'
+          : 'border-transparent text-[#a4a7ae] hover:text-[#535862]'
       }`}
     >
       {children}
@@ -900,10 +908,10 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
+      className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
         active
-          ? 'bg-[#eff4ff] text-[#2563eb]'
-          : 'text-[#717680] hover:bg-[#f2f4f7] hover:text-[#344054]'
+          ? 'bg-[#f5f5f5] text-[#181d27]'
+          : 'text-[#8d9096] hover:bg-[#f9fafb] hover:text-[#414651]'
       }`}
     >
       {children}

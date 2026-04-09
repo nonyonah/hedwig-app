@@ -37,7 +37,7 @@ export function DeleteDialog({
         </DialogHeader>
         {itemLabel ? (
           <DialogBody>
-            <div className="rounded-[15px] border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-sm font-medium text-[#b42318]">
+            <div className="rounded-[15px] border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-sm font-medium text-[#717680]">
               {itemLabel}
             </div>
           </DialogBody>

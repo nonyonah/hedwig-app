@@ -12,6 +12,7 @@ import {
   YAxis
 } from 'recharts';
 import { ArrowDown, ArrowSquareOut, ArrowUp, Check, Copy, Globe, XLogo, X } from '@/components/ui/lucide-icons';
+import { ClientPortal } from '@/components/ui/client-portal';
 import type { WalletAsset } from '@/lib/models/entities';
 
 const TIMEFRAMES = ['1D', '7D', '1M', '3M', '1Y'] as const;
@@ -103,7 +104,7 @@ function CopyButton({ text }: { text: string }) {
       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] text-[#a4a7ae] transition hover:border-[#d0d5dd] hover:text-[#717680]"
     >
       {copied
-        ? <Check className="h-3 w-3 text-[#12b76a]" weight="bold" />
+        ? <Check className="h-3 w-3 text-[#717680]" weight="bold" />
         : <Copy className="h-3 w-3" weight="bold" />
       }
     </button>
@@ -184,12 +185,12 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
     : null;
 
   return (
-    <>
+    <ClientPortal>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={onClose} />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[480px] flex-col bg-white shadow-2xl">
+      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-white shadow-2xl animate-in slide-in-from-right-full duration-300 ease-out">
 
         {/* ── Header ── */}
         <div className="flex items-center gap-4 border-b border-[#e9eaeb] px-5 py-4">
@@ -252,7 +253,7 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
                 }
               </p>
               {!loading && change !== null && (
-                <span className={`mb-0.5 flex items-center gap-1 text-[13px] font-semibold ${isPositive ? 'text-[#12b76a]' : 'text-[#f04438]'}`}>
+                <span className={`mb-0.5 flex items-center gap-1 text-[13px] font-semibold ${isPositive ? 'text-[#717680]' : 'text-[#717680]'}`}>
                   {isPositive ? <ArrowUp className="h-3.5 w-3.5" weight="bold" /> : <ArrowDown className="h-3.5 w-3.5" weight="bold" />}
                   {Math.abs(change).toFixed(2)}%
                 </span>
@@ -392,6 +393,6 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
           <div className="h-8" />
         </div>
       </div>
-    </>
+    </ClientPortal>
   );
 }

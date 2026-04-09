@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useState } from 'react';
 import { ArrowRight, Check, PaperPlaneRight, SpinnerGap, Warning, X } from '@/components/ui/lucide-icons';
+import { ClientPortal } from '@/components/ui/client-portal';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { encodeFunctionData, parseUnits, isAddress } from 'viem';
@@ -238,12 +239,12 @@ export function SendTokenDialog({
   const chainIcon = CHAIN_ICON[selected.chain];
 
   return (
-    <>
+    <ClientPortal>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={step === 'signing' ? undefined : onClose} />
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={step === 'signing' ? undefined : onClose} />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[440px] flex-col bg-white shadow-2xl">
+      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[440px] flex-col bg-white shadow-2xl animate-in slide-in-from-right-full duration-300 ease-out">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#e9eaeb] px-5 py-4">
@@ -307,7 +308,7 @@ export function SendTokenDialog({
               {/* Recipient */}
               <div>
                 <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">
-                  Recipient address <span className="text-[#f04438]">*</span>
+                  Recipient address <span className="text-[#717680]">*</span>
                 </label>
                 <input
                   type="text"
@@ -317,7 +318,7 @@ export function SendTokenDialog({
                   className="w-full rounded-full border border-[#d5d7da] bg-white px-4 py-2.5 font-mono text-[13px] text-[#181d27] placeholder-[#a4a7ae] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
                 />
                 {recipient.length > 5 && !recipientValid && (
-                  <p className="mt-1.5 text-[11px] text-[#f04438]">
+                  <p className="mt-1.5 text-[11px] text-[#717680]">
                     {isEvm ? 'Invalid EVM address (must start with 0x)' : 'Invalid Solana address'}
                   </p>
                 )}
@@ -327,12 +328,12 @@ export function SendTokenDialog({
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <label className="text-[13px] font-semibold text-[#414651]">
-                    Amount <span className="text-[#f04438]">*</span>
+                    Amount <span className="text-[#717680]">*</span>
                   </label>
                   <button
                     type="button"
                     onClick={() => setAmount(String(maxBalance))}
-                    className="text-[11px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]"
+                    className="text-[11px] font-semibold text-[#717680] hover:text-[#717680]"
                   >
                     Max: {fmt(maxBalance, selected.symbol)}
                   </button>
@@ -353,7 +354,7 @@ export function SendTokenDialog({
                   </span>
                 </div>
                 {numericAmount > maxBalance && numericAmount > 0 && (
-                  <p className="mt-1.5 text-[11px] text-[#f04438]">Amount exceeds your balance</p>
+                  <p className="mt-1.5 text-[11px] text-[#717680]">Amount exceeds your balance</p>
                 )}
               </div>
 
@@ -407,7 +408,7 @@ export function SendTokenDialog({
               </div>
 
               <div className="rounded-2xl border border-[#fef0c7] bg-[#fffaeb] px-4 py-3.5">
-                <p className="text-[12px] leading-[1.6] text-[#92400e]">
+                <p className="text-[12px] leading-[1.6] text-[#717680]">
                   Your Privy wallet will ask you to confirm this transaction. Double-check the recipient address — crypto transfers cannot be reversed.
                 </p>
               </div>
@@ -436,7 +437,7 @@ export function SendTokenDialog({
           {step === 'signing' && (
             <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#eff4ff]">
-                <SpinnerGap className="h-8 w-8 animate-spin text-[#2563eb]" weight="bold" />
+                <SpinnerGap className="h-8 w-8 animate-spin text-[#717680]" weight="bold" />
               </div>
               <div>
                 <p className="text-[16px] font-bold text-[#181d27]">Waiting for your signature</p>
@@ -451,7 +452,7 @@ export function SendTokenDialog({
           {step === 'done' && (
             <div className="flex flex-col items-center gap-5 py-12 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#ecfdf3]">
-                <Check className="h-8 w-8 text-[#12b76a]" weight="bold" />
+                <Check className="h-8 w-8 text-[#717680]" weight="bold" />
               </div>
               <div>
                 <p className="text-[16px] font-bold text-[#181d27]">Transaction submitted!</p>
@@ -476,7 +477,7 @@ export function SendTokenDialog({
           {step === 'error' && (
             <div className="flex flex-col items-center gap-5 py-12 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#fff1f0]">
-                <Warning className="h-8 w-8 text-[#f04438]" weight="bold" />
+                <Warning className="h-8 w-8 text-[#717680]" weight="bold" />
               </div>
               <div>
                 <p className="text-[16px] font-bold text-[#181d27]">Transaction failed</p>
@@ -496,6 +497,6 @@ export function SendTokenDialog({
           )}
         </div>
       </div>
-    </>
+    </ClientPortal>
   );
 }

@@ -78,7 +78,7 @@ export function RowActionsMenu({
                 }}
                 className={cn(
                   'flex w-full items-center rounded-md px-2.5 py-2 text-left text-[14px] font-medium transition duration-100 hover:bg-[#fafafa]',
-                  item.destructive ? 'text-[#d92d20] hover:bg-[#fef2f2]' : 'text-[#414651]'
+                  item.destructive ? 'text-[#717680] hover:bg-[#fef2f2]' : 'text-[#414651]'
                 )}
               >
                 {item.label}

@@ -61,7 +61,7 @@ export function EntityTable({
                           onClick={cell.onClick}
                           className={cn(
                             'inline-flex items-center gap-1 font-semibold',
-                            cell.destructive ? 'text-[#d92d20]' : 'text-primary'
+                            cell.destructive ? 'text-[#717680]' : 'text-primary'
                           )}
                         >
                           {cell.value}

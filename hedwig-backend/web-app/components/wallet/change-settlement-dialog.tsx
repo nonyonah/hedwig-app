@@ -77,7 +77,7 @@ export function ChangeSettlementDialog({
       <button
         type="button"
         onClick={() => { setSelected(currentChain); setOpen(true); }}
-        className="text-[12px] font-semibold text-[#2563eb] transition hover:underline"
+        className="text-[12px] font-semibold text-[#717680] transition hover:underline"
       >
         Change
       </button>
@@ -108,7 +108,7 @@ export function ChangeSettlementDialog({
                 >
                   <Image src={option.icon} alt={option.label} width={36} height={36} className="rounded-full shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className={`text-[14px] font-semibold ${isSelected ? 'text-[#1d4ed8]' : 'text-[#181d27]'}`}>
+                    <p className={`text-[14px] font-semibold ${isSelected ? 'text-[#717680]' : 'text-[#181d27]'}`}>
                       {option.label}
                     </p>
                     <p className="mt-0.5 text-[12px] text-[#717680]">{option.description}</p>
@@ -123,7 +123,7 @@ export function ChangeSettlementDialog({
             })}
 
             {error && (
-              <p className="rounded-xl bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">{error}</p>
+              <p className="rounded-xl bg-[#fef3f2] px-3 py-2 text-[12px] text-[#717680]">{error}</p>
             )}
           </DialogBody>
 

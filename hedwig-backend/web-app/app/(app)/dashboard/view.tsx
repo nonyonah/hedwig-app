@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   Bell,
@@ -56,8 +56,24 @@ type MetricCard = {
   icon: typeof FileText;
 };
 
+function getTimeOfDayGreeting(hour: number) {
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  if (hour >= 17 && hour < 22) return 'Good evening';
+  return 'Good night';
+}
+
 export function DashboardClient({ greetingName, data }: { greetingName: string; data: DashboardData }) {
   const { currency } = useCurrency();
+  const [hour, setHour] = useState(() => new Date().getHours());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setHour(new Date().getHours());
+    }, 60_000);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   const dashboardState = useMemo(() => {
     const overdueInvoices = data.invoices.filter((invoice) => invoice.status === 'overdue');
@@ -217,16 +233,12 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Page header — UUI: text-display-xs (24px) font-semibold, text-primary */}
-      <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-[24px] font-semibold text-[#181d27]">
-            Good morning, {greetingName}
-          </h1>
-          <p className="mt-1 text-[14px] text-[#717680]">
-            Here&rsquo;s what&rsquo;s happening across your work and money today.
-          </p>
-        </div>
+      {/* Page header */}
+      <div>
+        <h1 className="text-[15px] font-semibold text-[#181d27]">
+          {getTimeOfDayGreeting(hour)}, {greetingName}
+        </h1>
+        <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Here&rsquo;s what&rsquo;s happening today.</p>
       </div>
 
       {/* Financial snapshot — gap-px stats bar */}
@@ -271,7 +283,7 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
             </div>
             {dashboardState.actionItems.filter((item) => !item.complete).length > 0 ? (
               /* UUI badge: error color, pill */
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#fef3f2] px-1.5 text-[11px] font-semibold text-[#d92d20]">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#fef3f2] px-1.5 text-[11px] font-semibold text-[#717680]">
                 {dashboardState.actionItems.filter((item) => !item.complete).length}
               </span>
             ) : null}
@@ -287,7 +299,7 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
                 <div
                   className={`mt-[1px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
                     item.complete
-                      ? 'border-[#17b26a] bg-[#ecfdf3] text-[#17b26a]'
+                      ? 'border-[#17b26a] bg-[#ecfdf3] text-[#717680]'
                       : 'border-[#d5d7da] bg-white text-transparent'
                   }`}
                 >
@@ -335,7 +347,7 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
           <div className="mb-3 flex items-center gap-2.5">
             {/* UUI featured icon: brand color */}
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
-              <Sparkle className="h-4 w-4 text-[#2563eb]" weight="fill" />
+              <Sparkle className="h-4 w-4 text-[#717680]" weight="fill" />
             </div>
             <p className="text-[16px] font-semibold text-[#181d27]">Assistant summary</p>
           </div>
