@@ -37,8 +37,12 @@ type Props = {
 };
 
 const CHAINS = [
-  { value: 'BASE',   label: 'Base',   logo: '/icons/networks/base.png' },
-  { value: 'SOLANA', label: 'Solana', logo: '/icons/networks/solana.png' },
+  { value: 'BASE',     label: 'Base',     logo: '/icons/networks/base.png' },
+  { value: 'ARBITRUM', label: 'Arbitrum', logo: '/icons/networks/arbitrum.png' },
+  { value: 'POLYGON',  label: 'Polygon',  logo: '/icons/networks/polygon.png' },
+  { value: 'CELO',     label: 'Celo',     logo: '/icons/networks/celo.png' },
+  { value: 'LISK',     label: 'Lisk',     logo: '/icons/networks/lisk.png' },
+  { value: 'SOLANA',   label: 'Solana',   logo: '/icons/networks/solana.png' },
 ];
 
 function ChainDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {

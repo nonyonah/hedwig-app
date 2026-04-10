@@ -57,7 +57,7 @@ export interface BankDetails {
 export interface OfframpOrderRequest {
     amount: number;
     token: 'USDC' | 'USDT';
-    network: 'base' | 'solana';
+    network: 'base' | 'solana' | 'arbitrum' | 'polygon' | 'celo' | 'lisk';
     rate: string; // Rate fetched from getExchangeRate
     recipient: BankDetails;
     returnAddress: string; // User's wallet address for refunds
@@ -137,14 +137,17 @@ export class PaycrestService {
     private static getNetworkCandidates(network: string): string[] {
         const normalized = String(network || '').toLowerCase();
 
-        if (normalized === 'base') {
-            // Paycrest docs currently show `ethereum` in sender order examples.
-            // We still try `base` first to preserve the current integration, then
-            // fall back to `ethereum` if the provider rejects the network value.
-            return ['base', 'ethereum'];
-        }
+        // Paycrest network identifiers (try most specific first, fall back to aliases)
+        const candidates: Record<string, string[]> = {
+            base:     ['base', 'ethereum'],
+            arbitrum: ['arbitrum', 'arbitrum-one'],
+            polygon:  ['polygon', 'matic'],
+            celo:     ['celo'],
+            lisk:     ['lisk'],
+            solana:   ['solana'],
+        };
 
-        return [normalized];
+        return candidates[normalized] ?? [normalized];
     }
 
     private static toNumber(value: any): number | null {

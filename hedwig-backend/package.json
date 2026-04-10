@@ -12,6 +12,7 @@
     "bridge:webhook:test": "tsx scripts/bridgeWebhook.ts test",
     "bridge:webhook:logs": "tsx scripts/bridgeWebhook.ts logs",
     "bridge:webhook:events": "tsx scripts/bridgeWebhook.ts events",
+    "alchemy:webhooks:sync-addresses": "tsx scripts/syncAlchemyWebhookAddresses.ts",
     "backfill:document-relations": "tsx scripts/backfillDocumentRelations.ts",
     "onesignal:import-users": "tsx src/scripts/import-users-to-onesignal.ts",
     "db:generate": "prisma generate",

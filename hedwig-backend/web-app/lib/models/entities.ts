@@ -93,7 +93,7 @@ export interface PaymentLink {
   amountUsd: number;
   title: string;
   asset: 'USDC' | 'USDT';
-  chain: 'Base' | 'Solana';
+  chain: string;
   remindersEnabled?: boolean;
   clientEmail?: string;
 }
@@ -113,7 +113,7 @@ export interface PaymentLinkDraft {
   title: string;
   amountUsd: number;
   asset: 'USDC' | 'USDT';
-  chain: 'Base' | 'Solana';
+  chain: string;
   memo?: string;
 }
 
@@ -153,7 +153,7 @@ export interface Contract {
 
 export interface WalletAccount {
   id: EntityId;
-  chain: 'Base' | 'Solana';
+  chain: string;
   address: string;
   label: string;
 }
@@ -162,7 +162,7 @@ export interface WalletAsset {
   id: EntityId;
   symbol: string;
   name: string;
-  chain: 'Base' | 'Solana';
+  chain: string;
   balance: number;
   valueUsd: number;
   changePct24h: number;
@@ -173,7 +173,7 @@ export interface WalletTransaction {
   kind: 'receive' | 'send' | 'payment' | 'settlement';
   asset: string;
   amount: number;
-  chain: 'Base' | 'Solana';
+  chain: string;
   createdAt: string;
   counterparty: string;
 }

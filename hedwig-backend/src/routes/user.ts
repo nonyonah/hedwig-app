@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
+import { EmailService } from '../services/email';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('User');
@@ -151,32 +152,23 @@ router.patch('/profile', authenticate, async (req: Request, res: Response, next)
 
 /**
  * DELETE /api/users/account
- * Request account deletion (soft delete with 90-day grace period)
+ * Permanently delete the user account and all associated data.
  */
 router.delete('/account', authenticate, async (req: Request, res: Response, next) => {
     try {
         const privyId = req.user!.id;
 
-        // Calculate deletion date (90 days from now)
-        const now = new Date();
-        const deletionDate = new Date(now);
-        deletionDate.setDate(deletionDate.getDate() + 90);
+        logger.info('Account deletion requested', { privyId });
 
-        logger.info('Account deletion requested', { privyId, scheduledFor: deletionDate });
-
-        // Update user with deletion timestamps
-        const { data: user, error } = await supabase
+        // Fetch user first so we have email/name for the confirmation email
+        const { data: user, error: fetchError } = await supabase
             .from('users')
-            .update({
-                deleted_at: now.toISOString(),
-                deletion_scheduled_for: deletionDate.toISOString(),
-            })
-            .eq('privy_id', privyId)
             .select('id, email, first_name')
+            .eq('privy_id', privyId)
             .maybeSingle();
 
-        if (error) {
-            throw new Error(`Failed to delete account: ${error.message}`);
+        if (fetchError) {
+            throw new Error(`Failed to fetch user: ${fetchError.message}`);
         }
 
         if (!user) {
@@ -187,19 +179,29 @@ router.delete('/account', authenticate, async (req: Request, res: Response, next
             return;
         }
 
-        logger.info('Account marked for deletion', { 
-            userId: user.id, 
-            email: user.email,
-            deletionScheduledFor: deletionDate.toISOString() 
+        // Hard delete — cascades to all related records via FK constraints
+        const { error: deleteError } = await supabase
+            .from('users')
+            .delete()
+            .eq('privy_id', privyId);
+
+        if (deleteError) {
+            throw new Error(`Failed to delete account: ${deleteError.message}`);
+        }
+
+        logger.info('Account permanently deleted', { userId: user.id, email: user.email });
+
+        // Send confirmation email (fire-and-forget — don't block the response)
+        EmailService.sendAccountDeletionEmail({
+            to: user.email,
+            firstName: user.first_name,
+        }).catch((err) => {
+            logger.error('Failed to send account deletion email', { error: err?.message });
         });
 
         res.json({
             success: true,
-            data: {
-                message: 'Account scheduled for deletion',
-                deletionScheduledFor: deletionDate.toISOString(),
-                daysRemaining: 90,
-            },
+            data: { message: 'Account permanently deleted.' },
         });
     } catch (error) {
         next(error);

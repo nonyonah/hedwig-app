@@ -88,6 +88,30 @@ export interface KycStatusSummary {
   isApproved: boolean;
 }
 
+export interface BillingStatusSummary {
+  plan: 'free' | 'pro';
+  appUserId: string;
+  entitlement: {
+    id: string;
+    isActive: boolean;
+    expiresAt: string | null;
+    productId: string | null;
+    store: string | null;
+    environment: string | null;
+    willRenew: boolean | null;
+    isTrial: boolean;
+    billingIssueDetected: boolean;
+    latestEventType: string | null;
+    latestEventAt: string | null;
+    updatedAt: string | null;
+  };
+  featureFlags: {
+    webCheckoutEnabled: boolean;
+    mobilePaywallEnabled: boolean;
+    enforcementEnabled: boolean;
+  };
+}
+
 export interface CreateClientInput {
   name: string;
   email?: string;
@@ -1574,6 +1598,36 @@ export const hedwigApi = {
     } catch {
       return {};
     }
+  },
+
+  async billingStatus(options?: ApiOptions): Promise<BillingStatusSummary> {
+    if (shouldUseMockFallback(options)) {
+      return {
+        plan: 'free',
+        appUserId: 'mock-user',
+        entitlement: {
+          id: 'pro',
+          isActive: false,
+          expiresAt: null,
+          productId: null,
+          store: null,
+          environment: null,
+          willRenew: null,
+          isTrial: false,
+          billingIssueDetected: false,
+          latestEventType: null,
+          latestEventAt: null,
+          updatedAt: null
+        },
+        featureFlags: {
+          webCheckoutEnabled: true,
+          mobilePaywallEnabled: false,
+          enforcementEnabled: false
+        }
+      };
+    }
+
+    return request<BillingStatusSummary>('/api/billing/status', options);
   },
 
   async getUserProfile(options?: ApiOptions): Promise<User> {

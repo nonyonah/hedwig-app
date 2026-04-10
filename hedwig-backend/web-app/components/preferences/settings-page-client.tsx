@@ -16,7 +16,6 @@ import {
   WarningCircle
 } from '@/components/ui/lucide-icons';
 import { Avatar } from '@/components/ui/avatar';
-import { DeleteDialog } from '@/components/data/delete-dialog';
 import { useToast } from '@/components/providers/toast-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,10 +34,7 @@ import { hedwigApi, type KycStatusSummary } from '@/lib/api/client';
 import { backendConfig } from '@/lib/auth/config';
 import {
   applyThemePreference,
-  getStoredBoolean,
   getStoredThemePreference,
-  HAPTICS_KEY,
-  setStoredBoolean,
   setStoredThemePreference,
   subscribeToSystemTheme,
   THEME_EVENT,
@@ -76,34 +72,6 @@ const THEME_OPTIONS: Array<{ value: WebThemePreference; label: string }> = [
   { value: 'system', label: 'System' }
 ];
 
-function ToggleSwitch({
-  checked,
-  onChange,
-  disabled
-}: {
-  checked: boolean;
-  onChange: (next: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-        checked ? 'bg-[#12b76a]' : 'bg-[#d0d5dd]'
-      } disabled:cursor-not-allowed disabled:opacity-60`}
-    >
-      <span
-        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-          checked ? 'translate-x-5' : 'translate-x-0.5'
-        }`}
-      />
-    </button>
-  );
-}
 
 function SettingsSection({
   title,
@@ -157,8 +125,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const [themePreference, setThemePreference] = useState<WebThemePreference>('system');
-  const [hapticsEnabled, setHapticsEnabled] = useState(true);
-
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
 
@@ -173,6 +139,8 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [isFetchingCalendarLink, setIsFetchingCalendarLink] = useState(false);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<'warn' | 'confirm'>('warn');
+  const [keysConfirmed, setKeysConfirmed] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const fullName = useMemo(() => `${firstName} ${lastName}`.trim() || email || 'User', [email, firstName, lastName]);
@@ -182,8 +150,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     const storedTheme = getStoredThemePreference();
     setThemePreference(storedTheme);
     applyThemePreference(storedTheme);
-    setHapticsEnabled(getStoredBoolean(HAPTICS_KEY, true));
-  }, []);
+}, []);
 
   useEffect(() => {
     const syncTheme = () => setThemePreference(getStoredThemePreference());
@@ -360,6 +327,12 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     }
   };
 
+  const openDeleteDialog = () => {
+    setDeleteStep('warn');
+    setKeysConfirmed(false);
+    setDeleteOpen(true);
+  };
+
   const handleDeleteAccount = async () => {
     if (!accessToken) return;
     setIsDeletingAccount(true);
@@ -374,32 +347,21 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
       const data = await response.json().catch(() => null);
 
       if (!response.ok || !data?.success) {
-        throw new Error(data?.error?.message || 'Failed to schedule account deletion.');
+        throw new Error(data?.error?.message || 'Failed to delete account.');
       }
 
       setDeleteOpen(false);
       toast({
         type: 'success',
-        title: 'Account scheduled for deletion',
-        message: 'You can restore it by signing in again before permanent deletion.'
+        title: 'Account deleted',
+        message: 'Your account has been permanently removed. A confirmation email has been sent.'
       });
-      router.push('/sign-out');
+      setTimeout(() => router.push('/sign-out'), 2000);
     } catch (error: any) {
       toast({ type: 'error', title: 'Delete account failed', message: error?.message || 'Please try again.' });
     } finally {
       setIsDeletingAccount(false);
     }
-  };
-
-  const setLocalPreference = (
-    key: string,
-    value: boolean,
-    setter: (enabled: boolean) => void,
-    label: string
-  ) => {
-    setter(value);
-    setStoredBoolean(key, value);
-    toast({ type: 'success', title: `${label} ${value ? 'enabled' : 'disabled'}` });
   };
 
   return (
@@ -457,13 +419,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 </button>
               ))}
             </div>
-          </SettingsRow>
-
-          <SettingsRow label="Haptic Feedback" description="Keep this in sync with mobile interactions.">
-            <ToggleSwitch
-              checked={hapticsEnabled}
-              onChange={(next) => setLocalPreference(HAPTICS_KEY, next, setHapticsEnabled, 'Haptic feedback')}
-            />
           </SettingsRow>
 
           <SettingsRow label="Connection diagnostics" description="Run a quick API reachability check.">
@@ -540,7 +495,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 Log out
               </Link>
             </Button>
-            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)}>
+            <Button size="sm" variant="destructive" onClick={openDeleteDialog}>
               <Trash className="h-4 w-4" weight="bold" />
               Delete account
             </Button>
@@ -651,15 +606,68 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
         </DialogContent>
       </Dialog>
 
-      <DeleteDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        onConfirm={handleDeleteAccount}
-        isDeleting={isDeletingAccount}
-        title="Delete account"
-        description="Your account will be scheduled for permanent deletion. You can restore access by signing in again before the retention window ends."
-        itemLabel={email || fullName}
-      />
+      {/* Account deletion — 2-step dialog */}
+      <Dialog open={deleteOpen} onOpenChange={(open) => { if (!isDeletingAccount) setDeleteOpen(open); }}>
+        <DialogContent className="max-w-[480px]">
+          {deleteStep === 'warn' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Before you delete your account</DialogTitle>
+                <DialogDescription>This action is permanent and cannot be undone.</DialogDescription>
+              </DialogHeader>
+              <DialogBody className="space-y-4">
+                <div className="flex items-start gap-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3">
+                  <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#92400e]" weight="fill" />
+                  <div>
+                    <p className="text-[13px] font-semibold text-[#92400e]">Export your private keys first</p>
+                    <p className="mt-0.5 text-[12px] leading-5 text-[#b45309]">
+                      Once your account is deleted, you will permanently lose access to your embedded wallet. To avoid loss of funds, export your private keys before proceeding.
+                    </p>
+                  </div>
+                </div>
+                <Button asChild variant="secondary" className="w-full">
+                  <Link href="/export-wallet" target="_blank" rel="noopener noreferrer">
+                    <Key className="h-4 w-4" weight="bold" />
+                    Export private keys
+                  </Link>
+                </Button>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={keysConfirmed}
+                    onChange={(e) => setKeysConfirmed(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#d5d7da] accent-[#2563eb]"
+                  />
+                  <span className="text-[13px] text-[#414651]">
+                    I have exported my private keys and understand that deleting my account will permanently remove access to my wallet.
+                  </span>
+                </label>
+              </DialogBody>
+              <DialogFooter>
+                <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+                <Button variant="destructive" disabled={!keysConfirmed} onClick={() => setDeleteStep('confirm')}>
+                  Continue to delete
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Confirm account deletion</DialogTitle>
+                <DialogDescription>
+                  This will permanently delete <strong>{email || fullName}</strong> and all associated data. This cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="secondary" onClick={() => setDeleteStep('warn')} disabled={isDeletingAccount}>Back</Button>
+                <Button variant="destructive" onClick={handleDeleteAccount} disabled={isDeletingAccount}>
+                  {isDeletingAccount ? 'Deleting…' : 'Delete my account'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

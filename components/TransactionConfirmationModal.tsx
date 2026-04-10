@@ -36,14 +36,19 @@ const ICONS = {
     base: require('../assets/icons/networks/base.png'),
     celo: require('../assets/icons/networks/celo.png'),
     solana: require('../assets/icons/networks/solana.png'),
+    arbitrum: require('../assets/icons/networks/arbitrum.png'),
+    polygon: require('../assets/icons/networks/polygon.png'),
+    lisk: require('../assets/icons/networks/lisk.png'),
 };
 
-// Chain configurations with explorer URLs
-// Solana is temporarily disabled
 const CHAINS: Record<string, any> = {
-    'base': { name: 'Base', icon: ICONS.base, explorer: 'https://basescan.org/tx/', type: 'evm' },
-    'celo': { name: 'Celo', icon: ICONS.celo, explorer: 'https://celoscan.io/tx/', type: 'evm' },
-    'stacks': { name: 'Stacks Mainnet', icon: require('../assets/icons/networks/stacks.png'), explorer: 'https://explorer.hiro.so/txid/', type: 'stacks' },
+    'base':     { name: 'Base',     icon: ICONS.base,     explorer: 'https://basescan.org/tx/',          type: 'evm' },
+    'celo':     { name: 'Celo',     icon: ICONS.celo,     explorer: 'https://celoscan.io/tx/',           type: 'evm' },
+    'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum, explorer: 'https://arbiscan.io/tx/',           type: 'evm' },
+    'polygon':  { name: 'Polygon',  icon: ICONS.polygon,  explorer: 'https://polygonscan.com/tx/',       type: 'evm' },
+    'lisk':     { name: 'Lisk',     icon: ICONS.lisk,     explorer: 'https://blockscout.lisk.com/tx/',   type: 'evm' },
+    'solana':   { name: 'Solana',   icon: ICONS.solana,   explorer: 'https://explorer.solana.com/tx/',   type: 'solana' },
+    'stacks':   { name: 'Stacks',   icon: require('../assets/icons/networks/stacks.png'), explorer: 'https://explorer.hiro.so/txid/', type: 'stacks' },
 };
 
 // ERC20 ABI for transfers

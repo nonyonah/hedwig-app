@@ -16,7 +16,6 @@ import {
     Modal,
     TouchableWithoutFeedback,
     LayoutAnimation,
-    Animated,
     UIManager,
 } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
@@ -27,30 +26,192 @@ import { useAuth } from '../../hooks/useAuth';
 import { TrueSheet } from '@hedwig/true-sheet';
 import { OfframpConfirmationModal } from '../../components/OfframpConfirmationModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
-let ContextMenu: any = null;
-let ExpoButton: any = null;
-let Host: any = null;
-if (Platform.OS === 'ios') {
-    try {
-        const SwiftUI = require('@expo/ui/swift-ui');
-        ContextMenu = SwiftUI.ContextMenu;
-        ExpoButton = SwiftUI.Button;
-        Host = SwiftUI.Host;
-    } catch (e) { }
-}
 import { SolanaBridgeModal } from '../../components/SolanaBridgeModal';
 import { useEmbeddedSolanaWallet, useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { useWallet } from '../../hooks/useWallet';
-import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import Analytics from '../../services/analytics';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
+// iOS: direct SwiftUI BottomSheet (liquid glass, proper dismiss animation)
+let SUI_Host: any = null;
+let SUI_BottomSheet: any = null;
+let SUI_Group: any = null;
+let SUI_RNHostView: any = null;
+let suiDetents: any = null;
+let suiDragIndicator: any = null;
+if (Platform.OS === 'ios') {
+    try {
+        const SwiftUI = require('@expo/ui/swift-ui');
+        SUI_Host = SwiftUI.Host;
+        SUI_BottomSheet = SwiftUI.BottomSheet;
+        SUI_Group = SwiftUI.Group;
+        SUI_RNHostView = SwiftUI.RNHostView;
+        const mods = require('@expo/ui/swift-ui/modifiers');
+        suiDetents = mods.presentationDetents;
+        suiDragIndicator = mods.presentationDragIndicator;
+    } catch (e) {}
+}
+
+// Android: Jetpack Compose ModalBottomSheet
+let JCModalBottomSheet: any = null;
+if (Platform.OS === 'android') {
+    try {
+        const JC = require('@expo/ui/jetpack-compose');
+        JCModalBottomSheet = JC.ModalBottomSheet;
+    } catch (e) {}
+}
+
+// ── SelectorSheet ─────────────────────────────────────────────────────────────
+type SheetOption = { id: string; label: string; icon?: any; flagEmoji?: string };
+
+function SelectorSheet({
+    visible,
+    onClose,
+    title,
+    options,
+    selectedId,
+    onSelect,
+}: {
+    visible: boolean;
+    onClose: () => void;
+    title: string;
+    options: SheetOption[];
+    selectedId: string;
+    onSelect: (id: string) => void;
+}) {
+    const themeColors = useThemeColors();
+    const [mounted, setMounted] = useState(false);
+
+    // Mount immediately when visible, unmount after dismiss animation completes
+    useEffect(() => {
+        if (visible) {
+            setMounted(true);
+        } else if (mounted) {
+            const t = setTimeout(() => setMounted(false), 350);
+            return () => clearTimeout(t);
+        }
+    }, [visible]);
+
+    if (!mounted) return null;
+
+    const listContent = (
+        <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={sheetStyles.listContent}
+            bounces={false}
+        >
+            <Text style={[sheetStyles.title, { color: themeColors.textPrimary }]}>{title}</Text>
+            {options.map((opt, index) => (
+                <TouchableOpacity
+                    key={opt.id}
+                    style={[
+                        sheetStyles.row,
+                        index < options.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: themeColors.surface },
+                    ]}
+                    onPress={() => { onSelect(opt.id); onClose(); }}
+                >
+                    {opt.icon ? (
+                        <Image source={opt.icon} style={sheetStyles.icon} />
+                    ) : opt.flagEmoji ? (
+                        <Text style={sheetStyles.flag}>{opt.flagEmoji}</Text>
+                    ) : null}
+                    <Text style={[sheetStyles.label, { color: themeColors.textPrimary }]}>{opt.label}</Text>
+                    {opt.id === selectedId && (
+                        <CheckCircle size={18} color={Colors.primary} fill={Colors.primary} />
+                    )}
+                </TouchableOpacity>
+            ))}
+        </ScrollView>
+    );
+
+    // iOS — SwiftUI BottomSheet with liquid glass system background
+    if (Platform.OS === 'ios' && SUI_Host && SUI_BottomSheet && SUI_Group && SUI_RNHostView) {
+        const modifiers = [
+            suiDetents?.([{ fraction: 0.45 }]),
+            suiDragIndicator?.('visible'),
+        ].filter(Boolean);
+        return (
+            <SUI_Host style={StyleSheet.absoluteFill}>
+                <SUI_BottomSheet
+                    isPresented={visible}
+                    onIsPresentedChange={(isPresented: boolean) => {
+                        // fires when user swipes the sheet away — notify parent
+                        if (!isPresented) onClose();
+                    }}
+                >
+                    <SUI_Group modifiers={modifiers}>
+                        <SUI_RNHostView>
+                            {/* transparent so SwiftUI material background shows through */}
+                            <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+                                {listContent}
+                            </View>
+                        </SUI_RNHostView>
+                    </SUI_Group>
+                </SUI_BottomSheet>
+            </SUI_Host>
+        );
+    }
+
+    // Android — Jetpack Compose ModalBottomSheet
+    if (JCModalBottomSheet && visible) {
+        return (
+            <JCModalBottomSheet onDismissRequest={onClose}>
+                <View style={{ backgroundColor: themeColors.background }}>
+                    {listContent}
+                </View>
+            </JCModalBottomSheet>
+        );
+    }
+
+    return null;
+}
+
+const sheetStyles = StyleSheet.create({
+    title: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 18,
+        marginBottom: 8,
+    },
+    listContent: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 40,
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        gap: 12,
+    },
+    icon: { width: 28, height: 28, borderRadius: 14 },
+    flag: { fontSize: 22 },
+    label: {
+        flex: 1,
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 16,
+    },
+});
+
 // Network options
 const NETWORKS = [
-    { id: 'base', name: 'Base', icon: require('../../assets/icons/networks/base.png') },
-    { id: 'solana', name: 'Solana', icon: require('../../assets/icons/networks/solana.png') },
+    { id: 'base',     name: 'Base',     icon: require('../../assets/icons/networks/base.png') },
+    { id: 'arbitrum', name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
+    { id: 'polygon',  name: 'Polygon',  icon: require('../../assets/icons/networks/polygon.png') },
+    { id: 'celo',     name: 'Celo',     icon: require('../../assets/icons/networks/celo.png') },
+    { id: 'lisk',     name: 'Lisk',     icon: require('../../assets/icons/networks/lisk.png') },
+    { id: 'solana',   name: 'Solana',   icon: require('../../assets/icons/networks/solana.png') },
 ];
+
+// Token options — lisk only supports USDT
+const TOKENS_BY_NETWORK: Record<string, Array<{ id: string; name: string; icon: any }>> = {
+    base:     [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }, { id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
+    arbitrum: [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }, { id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
+    polygon:  [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }, { id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
+    celo:     [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }, { id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
+    lisk:     [{ id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
+    solana:   [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }, { id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
+};
 
 // Country / fiat currency options
 const COUNTRIES = [
@@ -84,7 +245,9 @@ export default function CreateWithdrawalScreen() {
     // Form State
     const [amount, setAmount] = useState('');
     const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS[0]);
+    const [selectedToken, setSelectedToken] = useState<{ id: string; name: string; icon: any }>(TOKENS_BY_NETWORK['base'][0]);
     const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
+    const [openSheet, setOpenSheet] = useState<'network' | 'token' | 'country' | null>(null);
     const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
     const [accountNumber, setAccountNumber] = useState('');
     const [accountName, setAccountName] = useState('');
@@ -114,10 +277,8 @@ export default function CreateWithdrawalScreen() {
     const solanaAddress = (solanaWalletHook as any)?.wallets?.[0]?.address || '';
 
     // Modal States
-    const [isNetworkSelectorVisible, setIsNetworkSelectorVisible] = useState(false);
     const [isBridgeModalVisible, setIsBridgeModalVisible] = useState(false);
     const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
-    const networkDropdownAnimation = useState(new Animated.Value(0))[0];
 
     // Enable LayoutAnimation on Android
     if (Platform.OS === 'android' && (UIManager as any).setLayoutAnimationEnabledExperimental) {
@@ -148,9 +309,11 @@ export default function CreateWithdrawalScreen() {
     }, []);
 
     useEffect(() => {
-        Analytics.withdrawalFlowStep('network_selected', {
-            network: selectedNetwork.id,
-        });
+        Analytics.withdrawalFlowStep('network_selected', { network: selectedNetwork.id });
+        // Reset token to first available for new network (e.g. lisk has no USDC)
+        const available = TOKENS_BY_NETWORK[selectedNetwork.id] ?? TOKENS_BY_NETWORK['base'];
+        const stillValid = available.find(t => t.id === selectedToken.id);
+        if (!stillValid) setSelectedToken(available[0]);
     }, [selectedNetwork.id]);
 
     useEffect(() => {
@@ -234,7 +397,7 @@ export default function CreateWithdrawalScreen() {
                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
                 const rateNetwork = selectedNetwork.id === 'solana' ? 'base' : selectedNetwork.id;
                 const response = await fetch(
-                    `${apiUrl}/api/offramp/rates?token=USDC&amount=${parsedAmount}&currency=${selectedCountry.currency}&network=${rateNetwork}`,
+                    `${apiUrl}/api/offramp/rates?token=${selectedToken.id}&amount=${parsedAmount}&currency=${selectedCountry.currency}&network=${rateNetwork}`,
                     {
                         headers: {
                             Authorization: `Bearer ${token}`,
@@ -537,24 +700,6 @@ export default function CreateWithdrawalScreen() {
     // Render item for bank list
 
 
-    const handleOpenChainSheet = useCallback(() => {
-        Keyboard.dismiss();
-        if (!isNetworkSelectorVisible) {
-            setIsNetworkSelectorVisible(true);
-            Animated.spring(networkDropdownAnimation, {
-                toValue: 1,
-                damping: 15,
-                stiffness: 150,
-                useNativeDriver: true,
-            }).start();
-        } else {
-            Animated.timing(networkDropdownAnimation, {
-                toValue: 0,
-                duration: 200,
-                useNativeDriver: true,
-            }).start(() => setIsNetworkSelectorVisible(false));
-        }
-    }, [isNetworkSelectorVisible, networkDropdownAnimation]);
 
     const handleOpenBankSheet = useCallback(() => {
         Analytics.withdrawalFlowStep('bank_selector_opened', {
@@ -604,7 +749,31 @@ export default function CreateWithdrawalScreen() {
                             Enter withdrawal details
                         </Text>
 
-                        {/* Amount Input with Chain Selector */}
+                        {/* Network selector */}
+                        <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Network</Text>
+                        <TouchableOpacity onPress={() => setOpenSheet('network')}>
+                            <View style={[styles.authInputContainer, styles.selectorContainer, { backgroundColor: themeColors.surface }]}>
+                                <Image source={selectedNetwork.icon} style={[styles.chainBadgeIcon, { marginRight: 8 }]} />
+                                <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0, flex: 1 }]}>
+                                    {selectedNetwork.name}
+                                </Text>
+                                <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                            </View>
+                        </TouchableOpacity>
+
+                        {/* Token selector */}
+                        <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Token</Text>
+                        <TouchableOpacity onPress={() => setOpenSheet('token')}>
+                            <View style={[styles.authInputContainer, styles.selectorContainer, { backgroundColor: themeColors.surface }]}>
+                                <Image source={selectedToken.icon} style={[styles.chainBadgeIcon, { marginRight: 8 }]} />
+                                <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0, flex: 1 }]}>
+                                    {selectedToken.name}
+                                </Text>
+                                <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                            </View>
+                        </TouchableOpacity>
+
+                        {/* Amount Input */}
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Amount</Text>
                         <View style={[styles.authInputContainer, { backgroundColor: themeColors.surface }]}>
                             <TextInput
@@ -615,48 +784,6 @@ export default function CreateWithdrawalScreen() {
                                 placeholderTextColor={themeColors.textSecondary}
                                 keyboardType="decimal-pad"
                             />
-                            {/* Chain Badge - using wallet page ContextMenu pattern */}
-                            {Platform.OS === 'ios' && Host ? (
-                                <Host>
-                                    <ContextMenu>
-                                        <ContextMenu.Trigger>
-                                            <View style={[styles.chainBadge, { backgroundColor: themeColors.background }]}>
-                                                <Image source={selectedNetwork.icon} style={styles.chainBadgeIcon} />
-                                                <Text style={[styles.chainBadgeName, { color: themeColors.textPrimary }]}>
-                                                    {selectedNetwork.name}
-                                                </Text>
-                                                <CaretDown size={12} color={themeColors.textSecondary} strokeWidth={3} />
-                                            </View>
-                                        </ContextMenu.Trigger>
-                                        <ContextMenu.Items>
-                                            {NETWORKS.map((network) => (
-                                                <ExpoButton
-                                                    key={network.id}
-                                                    label={network.name}
-                                                    onPress={() => setSelectedNetwork(network)}
-                                                />
-                                            ))}
-                                        </ContextMenu.Items>
-                                    </ContextMenu>
-                                </Host>
-                            ) : (
-                                <AndroidDropdownMenu
-                                    options={NETWORKS.map((network) => ({
-                                        label: network.name,
-                                        onPress: () => setSelectedNetwork(network),
-                                        icon: <Image source={network.icon} style={styles.chainBadgeIcon} />,
-                                    }))}
-                                    trigger={
-                                        <View style={[styles.chainBadge, { backgroundColor: themeColors.background }]}>
-                                            <Image source={selectedNetwork.icon} style={styles.chainBadgeIcon} />
-                                            <Text style={[styles.chainBadgeName, { color: themeColors.textPrimary }]}>
-                                                {selectedNetwork.name}
-                                            </Text>
-                                            <CaretDown size={12} color={themeColors.textSecondary} strokeWidth={3} />
-                                        </View>
-                                    }
-                                />
-                            )}
                         </View>
                         {(isFetchingFiatEquivalent || fiatEquivalent) ? (
                             <Text style={[styles.fiatEquivalentText, { color: themeColors.textSecondary }]}>
@@ -665,7 +792,6 @@ export default function CreateWithdrawalScreen() {
                                     : `≈ ${selectedCountry.currency} ${fiatEquivalent}`}
                             </Text>
                         ) : null}
-
 
                         {/* Solana Bridge Disclaimer */}
                         {selectedNetwork.id === 'solana' && (
@@ -684,48 +810,17 @@ export default function CreateWithdrawalScreen() {
                             </View>
                         )}
 
-                        {/* Country / Currency Selector - using wallet page ContextMenu pattern */}
+                        {/* Country / Currency Selector */}
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Country</Text>
-                        {Platform.OS === 'ios' && Host ? (
-                            <Host style={{ marginBottom: 16 }}>
-                                <ContextMenu>
-                                    <ContextMenu.Trigger>
-                                        <View style={[styles.authInputContainer, { backgroundColor: themeColors.surface, height: 43, marginBottom: 0 }]}>
-                                            <Text style={{ fontSize: 18, lineHeight: 22, marginRight: 4 }}>{selectedCountry.flag}</Text>
-                                            <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0 }]}>
-                                                {selectedCountry.name} ({selectedCountry.currency})
-                                            </Text>
-                                            <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                                        </View>
-                                    </ContextMenu.Trigger>
-                                    <ContextMenu.Items>
-                                        {COUNTRIES.map((country) => (
-                                            <ExpoButton
-                                                key={country.id}
-                                                label={`${country.flag} ${country.name} (${country.currency})`}
-                                                onPress={() => setSelectedCountry(country)}
-                                            />
-                                        ))}
-                                    </ContextMenu.Items>
-                                </ContextMenu>
-                            </Host>
-                        ) : (
-                            <AndroidDropdownMenu
-                                options={COUNTRIES.map((country) => ({
-                                    label: `${country.flag} ${country.name} (${country.currency})`,
-                                    onPress: () => setSelectedCountry(country),
-                                }))}
-                                trigger={
-                                    <View style={[styles.authInputContainer, { backgroundColor: themeColors.surface, height: 43, marginBottom: 16 }]}>
-                                        <Text style={{ fontSize: 18, lineHeight: 22, marginRight: 4 }}>{selectedCountry.flag}</Text>
-                                        <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0 }]}>
-                                            {selectedCountry.name} ({selectedCountry.currency})
-                                        </Text>
-                                        <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
-                                    </View>
-                                }
-                            />
-                        )}
+                        <TouchableOpacity onPress={() => setOpenSheet('country')}>
+                            <View style={[styles.authInputContainer, styles.selectorContainer, { backgroundColor: themeColors.surface, marginBottom: 16 }]}>
+                                <Text style={{ fontSize: 18, lineHeight: 22, marginRight: 4 }}>{selectedCountry.flag}</Text>
+                                <Text style={[styles.authInput, { color: themeColors.textPrimary, paddingVertical: 0 }]}>
+                                    {selectedCountry.name} ({selectedCountry.currency})
+                                </Text>
+                                <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
+                            </View>
+                        </TouchableOpacity>
 
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Beneficiaries</Text>
                         <TouchableOpacity
@@ -855,7 +950,7 @@ export default function CreateWithdrawalScreen() {
                 onClose={() => setIsConfirmModalVisible(false)}
                 data={amount && selectedBank ? {
                     amount,
-                    token: 'USDC',
+                    token: selectedToken.id,
                     network: selectedNetwork.id, // This will be 'base' after bridge completes
                     fiatCurrency: selectedCountry.currency,
                     bankName: selectedBank.name,
@@ -915,6 +1010,41 @@ export default function CreateWithdrawalScreen() {
                     </ScrollView>
                 </View>
             </TrueSheet>
+
+            {/* Selector Sheets */}
+            <SelectorSheet
+                visible={openSheet === 'network'}
+                onClose={() => setOpenSheet(null)}
+                title="Network"
+                options={NETWORKS.map((n) => ({ id: n.id, label: n.name, icon: n.icon }))}
+                selectedId={selectedNetwork.id}
+                onSelect={(id) => {
+                    const net = NETWORKS.find((n) => n.id === id);
+                    if (net) setSelectedNetwork(net);
+                }}
+            />
+            <SelectorSheet
+                visible={openSheet === 'token'}
+                onClose={() => setOpenSheet(null)}
+                title="Token"
+                options={(TOKENS_BY_NETWORK[selectedNetwork.id] ?? TOKENS_BY_NETWORK['base']).map((t) => ({ id: t.id, label: t.name, icon: t.icon }))}
+                selectedId={selectedToken.id}
+                onSelect={(id) => {
+                    const tok = (TOKENS_BY_NETWORK[selectedNetwork.id] ?? TOKENS_BY_NETWORK['base']).find((t) => t.id === id);
+                    if (tok) setSelectedToken(tok);
+                }}
+            />
+            <SelectorSheet
+                visible={openSheet === 'country'}
+                onClose={() => setOpenSheet(null)}
+                title="Country"
+                options={COUNTRIES.map((c) => ({ id: c.id, label: `${c.name} (${c.currency})`, flagEmoji: c.flag }))}
+                selectedId={selectedCountry.id}
+                onSelect={(id) => {
+                    const country = COUNTRIES.find((c) => c.id === id);
+                    if (country) setSelectedCountry(country);
+                }}
+            />
 
             {/* Solana Bridge Modal */}
             <SolanaBridgeModal
@@ -1041,6 +1171,10 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         flexDirection: 'row',
         alignItems: 'center',
+    },
+    selectorContainer: {
+        minHeight: 56,
+        justifyContent: 'center',
     },
     authInput: {
         fontFamily: 'GoogleSansFlex_400Regular',

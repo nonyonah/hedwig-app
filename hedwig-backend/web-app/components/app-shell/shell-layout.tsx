@@ -16,6 +16,7 @@ type ShellLayoutProps = {
   unreadCount: number;
   isDemo?: boolean;
   accessToken?: string | null;
+  lockedRoutes?: string[];
   user: {
     avatarUrl?: string | null;
     email: string;
@@ -23,7 +24,7 @@ type ShellLayoutProps = {
   };
 };
 
-export function ShellLayout({ children, unreadCount, user, isDemo, accessToken }: ShellLayoutProps) {
+export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, lockedRoutes = [] }: ShellLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken }
         )}
         <TokenRefresher />
         <div className="flex min-h-screen">
-          <AppSidebar collapsed={collapsed} onToggle={toggleSidebar} />
+          <AppSidebar collapsed={collapsed} onToggle={toggleSidebar} lockedRoutes={lockedRoutes} />
           <div className="flex min-w-0 flex-1 flex-col transition-[padding,width] duration-200 ease-out">
             <AppTopbar
               collapsed={collapsed}

@@ -42,6 +42,8 @@ import creationBoxRoutes from './routes/creation-box';
 import solanaRpcRoutes from './routes/solanaRpc';
 import usdAccountRoutes from './routes/usdAccounts';
 import bridgeUsdWebhookRoutes from './routes/bridgeUsdWebhook';
+import billingRoutes from './routes/billing';
+import revenuecatWebhookRoutes from './routes/revenuecatWebhook';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -373,6 +375,10 @@ schedulerRouter.post('/token-cleanup', async (_req, res) => {
     res.json({ accepted: true });
     await NotificationService.cleanupExpoDeviceTokens();
 });
+schedulerRouter.post('/onboarding-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendOnboardingIncompleteNudges();
+});
 
 app.use('/internal/scheduler', schedulerRouter);
 
@@ -410,6 +416,7 @@ app.use('/api/webhooks/paycrest', (req, _res, next) => {
 });
 app.use('/api/webhooks/paycrest', paycrestWebhookRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/webhooks/revenuecat', revenuecatWebhookRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);
@@ -424,6 +431,7 @@ app.use('/api/webhooks/didit', diditWebhookRoutes);
 app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);
 app.use('/api/creation-box', aiLimiter, creationBoxRoutes);
 app.use('/api/solana/rpc', solanaRpcLimiter, solanaRpcRoutes);
+app.use('/api/billing', financialLimiter, billingRoutes);
 app.use('/api/usd-accounts', (req, _res, next) => {
     logger.info('USD account route hit', {
         method: req.method,

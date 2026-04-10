@@ -5,6 +5,24 @@ import { useMemo, useState } from 'react';
 import { PublicCheckoutPanel } from '@/components/public/public-checkout-panel';
 import type { PublicPaymentToken, PublicSettlementChain } from '@/lib/payments/public-constants';
 
+const CHAIN_META: Record<string, { icon: string; label: string }> = {
+  base:     { icon: '/icons/networks/base.png',     label: 'Base' },
+  solana:   { icon: '/icons/networks/solana.png',   label: 'Solana' },
+  arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
+  polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
+  celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
+  lisk:     { icon: '/icons/networks/lisk.png',     label: 'Lisk' },
+};
+function getChainMeta(chain: string) {
+  return CHAIN_META[chain.toLowerCase()] ?? CHAIN_META['base'];
+}
+
+const TOKEN_META: Record<string, { icon: string; label: string }> = {
+  USDC: { icon: '/icons/tokens/usdc.png', label: 'USDC' },
+  USDT: { icon: '/icons/tokens/usdt.png', label: 'USDT' },
+  ETH:  { icon: '/icons/tokens/eth.png',  label: 'ETH' },
+};
+
 function formatCurrency(amount: number, currency = 'USD') {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -40,10 +58,12 @@ export function PublicPaymentLinkPanel({
   }, [preferredChain, solanaMerchantAddress, token, evmMerchantAddress]);
 
   const [selectedChain, setSelectedChain] = useState<PublicSettlementChain>(initialChain);
+  const [selectedToken, setSelectedToken] = useState<PublicPaymentToken>(
+    token === 'USDT' ? 'USDT' : 'USDC'
+  );
 
-  const networkLabel = selectedChain === 'solana' ? 'Solana' : 'Base';
-  const chainIcon = selectedChain === 'solana' ? '/icons/networks/solana.png' : '/icons/networks/base.png';
-  const tokenIcon = token === 'ETH' ? '/icons/tokens/eth.png' : '/icons/tokens/usdc.png';
+  const { icon: chainIcon, label: networkLabel } = getChainMeta(selectedChain);
+  const { icon: tokenIcon, label: tokenLabel } = TOKEN_META[selectedToken] ?? TOKEN_META['USDC'];
 
   return (
     <div className="space-y-6">
@@ -57,8 +77,8 @@ export function PublicPaymentLinkPanel({
           <div className="rounded-[14px] border border-[#e9eaeb] bg-[#fcfcfd] px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#717680]">Token</p>
             <div className="mt-2 inline-flex items-center gap-2 text-base font-semibold text-[#181d27]">
-              <Image src={tokenIcon} alt={token} width={18} height={18} className="rounded-full" />
-              {currencyLabel}
+              <Image src={tokenIcon} alt={tokenLabel} width={18} height={18} className="rounded-full" />
+              {tokenLabel}
             </div>
           </div>
           <div className="rounded-[14px] border border-[#e9eaeb] bg-[#fcfcfd] px-4 py-3">
@@ -90,6 +110,8 @@ export function PublicPaymentLinkPanel({
         solanaMerchantAddress={solanaMerchantAddress}
         selectedChain={selectedChain}
         onSelectedChainChange={setSelectedChain}
+        selectedToken={selectedToken}
+        onSelectedTokenChange={setSelectedToken}
       />
     </div>
   );

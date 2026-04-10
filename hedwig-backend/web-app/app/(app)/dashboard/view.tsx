@@ -148,7 +148,7 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
         id: 'wallet',
         title: 'Wallet balance',
         value: formatCurrency(data.totals.walletUsd, currency),
-        helper: 'Base and Solana assets',
+        helper: 'Base, Arbitrum, Polygon, Celo, Lisk & Solana',
         href: '/wallet',
         icon: Wallet
       },
@@ -253,16 +253,20 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
             >
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[12px] font-medium text-[#717680]">{card.title}</p>
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-                  {card.id === 'wallet' ? (
-                    <div className="flex items-center pl-0.5">
-                      <Image src="/icons/networks/base.png" alt="Base" width={13} height={13} className="rounded-full ring-1 ring-white" />
-                      <Image src="/icons/networks/solana.png" alt="Solana" width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
-                    </div>
-                  ) : (
+                {card.id === 'wallet' ? (
+                  <div className="flex items-center">
+                    <Image src="/icons/networks/base.png"     alt="Base"     width={13} height={13} className="rounded-full ring-1 ring-white" />
+                    <Image src="/icons/networks/arbitrum.png" alt="Arbitrum" width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
+                    <Image src="/icons/networks/polygon.png"  alt="Polygon"  width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
+                    <Image src="/icons/networks/celo.png"     alt="Celo"     width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
+                    <Image src="/icons/networks/lisk.png"     alt="Lisk"     width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
+                    <Image src="/icons/networks/solana.png"   alt="Solana"   width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
+                  </div>
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
                     <Icon className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{card.value}</p>
               <p className="mt-1.5 text-[11px] text-[#a4a7ae]">{card.helper}</p>

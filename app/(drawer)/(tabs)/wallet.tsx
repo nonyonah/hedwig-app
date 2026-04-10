@@ -35,10 +35,36 @@ import IOSGlassIconButton from '../../../components/ui/IOSGlassIconButton';
 import TokenDetailSheet, { SelectedToken } from '../../../components/TokenDetailSheet';
 import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, updateUsdSettlement, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 
-const CHAINS = [
-    { id: 'base', name: 'Base', icon: require('../../../assets/icons/networks/base.png') },
+// Settlement chains (USD account - EVM and Solana)
+const SETTLEMENT_CHAINS = [
+    { id: 'base',   name: 'EVM',    icon: require('../../../assets/icons/tokens/eth.png') },
     { id: 'solana', name: 'Solana', icon: require('../../../assets/icons/networks/solana.png') },
 ];
+
+// All supported chains for wallet display
+const CHAIN_ICON_MAP: Record<string, any> = {
+    base:     require('../../../assets/icons/networks/base.png'),
+    solana:   require('../../../assets/icons/networks/solana.png'),
+    arbitrum: require('../../../assets/icons/networks/arbitrum.png'),
+    polygon:  require('../../../assets/icons/networks/polygon.png'),
+    celo:     require('../../../assets/icons/networks/celo.png'),
+    lisk:     require('../../../assets/icons/networks/lisk.png'),
+};
+
+const getChainIcon = (chain: string) => CHAIN_ICON_MAP[chain?.toLowerCase()] ?? CHAIN_ICON_MAP['base'];
+
+// Token metadata map — must stay at module level so Metro resolves require() at build time
+const TOKEN_META_MAP: Record<string, { name: string; symbol: string; icon: any; decimals: number }> = {
+    eth:  { name: 'Ethereum', symbol: 'ETH',  icon: require('../../../assets/icons/tokens/eth.png'),      decimals: 18 },
+    usdc: { name: 'USD Coin', symbol: 'USDC', icon: require('../../../assets/icons/tokens/usdc.png'),     decimals: 6 },
+    usdt: { name: 'Tether',   symbol: 'USDT', icon: require('../../../assets/icons/tokens/usdt.png'),     decimals: 6 },
+    sol:  { name: 'Solana',   symbol: 'SOL',  icon: require('../../../assets/icons/networks/solana.png'), decimals: 9 },
+};
+
+const CHAIN_DISPLAY_NAMES: Record<string, string> = {
+    base: 'Base', arbitrum: 'Arbitrum', polygon: 'Polygon',
+    celo: 'Celo', lisk: 'Lisk', solana: 'Solana',
+};
 
 const toNumber = (value: unknown): number => {
     if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
@@ -110,7 +136,7 @@ export default function WalletScreen() {
     const [selectedChain, setSelectedChain] = useState<'base' | 'solana'>('base');
 
     // Network Filter & Dropdown
-    const [networkFilter, setNetworkFilter] = useState<'all' | 'base' | 'solana'>('all');
+    const [networkFilter, setNetworkFilter] = useState<'all' | 'base' | 'solana' | 'arbitrum' | 'polygon' | 'celo' | 'lisk'>('all');
     const [usdStatus, setUsdStatus] = useState<UsdAccountStatus | null>(null);
     const [usdDetails, setUsdDetails] = useState<UsdAccountDetails | null>(null);
     const [usdTransfers, setUsdTransfers] = useState<UsdTransfer[]>([]);
@@ -285,7 +311,7 @@ export default function WalletScreen() {
     );
 
     const selectedAddress = selectedChain === 'solana' ? (solanaAddress || '') : (baseAddress || '');
-    const selectedChainMeta = CHAINS.find((chain) => chain.id === selectedChain) || CHAINS[0];
+    const selectedChainMeta = SETTLEMENT_CHAINS.find((chain) => chain.id === selectedChain) || SETTLEMENT_CHAINS[0];
 
     const copySelectedAddress = async () => {
         if (!selectedAddress) return;
@@ -355,55 +381,38 @@ export default function WalletScreen() {
     const hasActiveUsdAccountDetails = Boolean(usdDetails?.ach?.accountNumberMasked);
     const canAccessUsdAccountFeature = Boolean(usdStatus?.featureEnabled);
 
-    const baseUSDC = walletBalances.find(b => b.chain === 'base' && b.asset === 'usdc');
-    const baseETH = walletBalances.find(b => b.chain === 'base' && b.asset === 'eth');
-    const solanaSOL = walletBalances.find(b => b.chain === 'solana' && b.asset === 'sol');
-    const solanaUSDC = walletBalances.find(b => b.chain === 'solana' && b.asset === 'usdc');
+    // Helpers to look up a specific balance entry from API
+    const bal = (chain: string, asset: string) => walletBalances.find(b => b.chain === chain && b.asset === asset);
 
+    // All tokens always shown — zero balance if API hasn't returned them yet
     const allTokens = [
-        ...(baseETH ? [{
-            chain: 'base',
-            name: 'Ethereum',
-            symbol: 'ETH',
-            balance: getTokenBalance(baseETH, 18),
-            balanceUsd: toNumber(baseETH.display_values?.usd),
-            icon: require('../../../assets/icons/tokens/eth.png')
-        }] : []),
-        ...(baseUSDC ? [{
-            chain: 'base',
-            name: 'USD Coin',
-            symbol: 'USDC',
-            balance: getTokenBalance(baseUSDC, 6),
-            balanceUsd: toNumber(baseUSDC.display_values?.usd),
-            icon: require('../../../assets/icons/tokens/usdc.png')
-        }] : []),
-        ...(solanaAddress ? [{
-            chain: 'solana',
-            name: 'Solana',
-            symbol: 'SOL',
-            balance: getTokenBalance(solanaSOL, 9),
-            balanceUsd: toNumber(solanaSOL?.display_values?.usd),
-            icon: require('../../../assets/icons/networks/solana.png')
-        }] : []),
-        ...(solanaAddress ? [{
-            chain: 'solana',
-            name: 'USD Coin',
-            symbol: 'USDC',
-            balance: getTokenBalance(solanaUSDC, 6),
-            balanceUsd: toNumber(solanaUSDC?.display_values?.usd),
-            icon: require('../../../assets/icons/tokens/usdc.png')
-        }] : [])
+        // Base
+        { chain: 'base',     name: 'Ethereum', symbol: 'ETH',  balance: getTokenBalance(bal('base','eth'),    18), balanceUsd: toNumber(bal('base','eth')?.display_values?.usd),    icon: require('../../../assets/icons/tokens/eth.png') },
+        { chain: 'base',     name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('base','usdc'),    6), balanceUsd: toNumber(bal('base','usdc')?.display_values?.usd),   icon: require('../../../assets/icons/tokens/usdc.png') },
+        // Arbitrum
+        { chain: 'arbitrum', name: 'Ethereum', symbol: 'ETH',  balance: getTokenBalance(bal('arbitrum','eth'), 18), balanceUsd: toNumber(bal('arbitrum','eth')?.display_values?.usd),  icon: require('../../../assets/icons/tokens/eth.png') },
+        { chain: 'arbitrum', name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('arbitrum','usdc'), 6), balanceUsd: toNumber(bal('arbitrum','usdc')?.display_values?.usd), icon: require('../../../assets/icons/tokens/usdc.png') },
+        { chain: 'arbitrum', name: 'Tether',   symbol: 'USDT', balance: getTokenBalance(bal('arbitrum','usdt'), 6), balanceUsd: toNumber(bal('arbitrum','usdt')?.display_values?.usd), icon: require('../../../assets/icons/tokens/usdt.png') },
+        // Polygon
+        { chain: 'polygon',  name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('polygon','usdc'),  6), balanceUsd: toNumber(bal('polygon','usdc')?.display_values?.usd),  icon: require('../../../assets/icons/tokens/usdc.png') },
+        { chain: 'polygon',  name: 'Tether',   symbol: 'USDT', balance: getTokenBalance(bal('polygon','usdt'),  6), balanceUsd: toNumber(bal('polygon','usdt')?.display_values?.usd),  icon: require('../../../assets/icons/tokens/usdt.png') },
+        // Celo
+        { chain: 'celo',     name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('celo','usdc'),     6), balanceUsd: toNumber(bal('celo','usdc')?.display_values?.usd),     icon: require('../../../assets/icons/tokens/usdc.png') },
+        { chain: 'celo',     name: 'Tether',   symbol: 'USDT', balance: getTokenBalance(bal('celo','usdt'),     6), balanceUsd: toNumber(bal('celo','usdt')?.display_values?.usd),     icon: require('../../../assets/icons/tokens/usdt.png') },
+        // Lisk (USDT only)
+        { chain: 'lisk',     name: 'Tether',   symbol: 'USDT', balance: getTokenBalance(bal('lisk','usdt'),     6), balanceUsd: toNumber(bal('lisk','usdt')?.display_values?.usd),     icon: require('../../../assets/icons/tokens/usdt.png') },
+        // Solana (only if wallet has a Solana address)
+        ...(solanaAddress ? [
+            { chain: 'solana', name: 'Solana',   symbol: 'SOL',  balance: getTokenBalance(bal('solana','sol'),  9), balanceUsd: toNumber(bal('solana','sol')?.display_values?.usd),  icon: require('../../../assets/icons/networks/solana.png') },
+            { chain: 'solana', name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('solana','usdc'), 6), balanceUsd: toNumber(bal('solana','usdc')?.display_values?.usd), icon: require('../../../assets/icons/tokens/usdc.png') },
+        ] : []),
     ];
 
     const filteredTokens = allTokens.filter(t => {
         return networkFilter === 'all' || t.chain === networkFilter;
     });
 
-    const getNetworkIcon = (filter: string) => {
-        if (filter === 'base') return require('../../../assets/icons/networks/base.png');
-        if (filter === 'solana') return require('../../../assets/icons/networks/solana.png');
-        return null;
-    };
+    const getNetworkIcon = (filter: string) => CHAIN_ICON_MAP[filter] ?? null;
 
     const handleUsdKyc = async () => {
         try {
@@ -602,23 +611,31 @@ export default function WalletScreen() {
                                                     <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
                                                 )}
                                                 <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
-                                                    {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
+                                                    {networkFilter === 'all' ? 'All Networks' : CHAIN_DISPLAY_NAMES[networkFilter] ?? networkFilter}
                                                 </Text>
                                                 <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
                                             </View>
                                         )}
                                     >
                                         <ExpoButton label="All Networks" onPress={() => setNetworkFilter('all')} />
-                                        <ExpoButton label="Base" onPress={() => setNetworkFilter('base')} />
-                                        <ExpoButton label="Solana" onPress={() => setNetworkFilter('solana')} />
+                                        <ExpoButton label="Base"     onPress={() => setNetworkFilter('base')} />
+                                        <ExpoButton label="Arbitrum" onPress={() => setNetworkFilter('arbitrum')} />
+                                        <ExpoButton label="Polygon"  onPress={() => setNetworkFilter('polygon')} />
+                                        <ExpoButton label="Celo"     onPress={() => setNetworkFilter('celo')} />
+                                        <ExpoButton label="Lisk"     onPress={() => setNetworkFilter('lisk')} />
+                                        <ExpoButton label="Solana"   onPress={() => setNetworkFilter('solana')} />
                                     </Menu>
                                 </Host>
                             ) : (
                                 <AndroidDropdownMenu
                                     options={[
                                         { label: 'All Networks', onPress: () => setNetworkFilter('all') },
-                                        { label: 'Base', onPress: () => setNetworkFilter('base') },
-                                        { label: 'Solana', onPress: () => setNetworkFilter('solana') },
+                                        { label: 'Base',     onPress: () => setNetworkFilter('base') },
+                                        { label: 'Arbitrum', onPress: () => setNetworkFilter('arbitrum') },
+                                        { label: 'Polygon',  onPress: () => setNetworkFilter('polygon') },
+                                        { label: 'Celo',     onPress: () => setNetworkFilter('celo') },
+                                        { label: 'Lisk',     onPress: () => setNetworkFilter('lisk') },
+                                        { label: 'Solana',   onPress: () => setNetworkFilter('solana') },
                                     ]}
                                     trigger={
                                         <View style={[styles.networkFilterButton, { backgroundColor: themeColors.surface }]}>
@@ -626,7 +643,7 @@ export default function WalletScreen() {
                                                 <Image source={getNetworkIcon(networkFilter)} style={styles.networkFilterIcon} />
                                             )}
                                             <Text style={[styles.networkFilterText, { color: themeColors.textPrimary }]}>
-                                                {networkFilter === 'all' ? 'All Networks' : networkFilter === 'base' ? 'Base' : 'Solana'}
+                                                {networkFilter === 'all' ? 'All Networks' : CHAIN_DISPLAY_NAMES[networkFilter] ?? networkFilter}
                                             </Text>
                                             <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
                                         </View>
@@ -650,7 +667,7 @@ export default function WalletScreen() {
                                         <Image source={item.icon} style={styles.tokenIconImage} />
                                         <View style={styles.chainBadgeOverlay}>
                                             <Image
-                                                source={item.chain === 'base' ? require('../../../assets/icons/networks/base.png') : require('../../../assets/icons/networks/solana.png')}
+                                                source={getChainIcon(item.chain)}
                                                 style={styles.chainBadgeIcon}
                                             />
                                         </View>
@@ -680,7 +697,7 @@ export default function WalletScreen() {
                                         </Text>
                                     ) : (
                                         <Text style={[styles.chainLabel, { color: themeColors.textSecondary }]}>
-                                            {item.chain === 'base' ? 'Base' : 'Solana'}
+                                            {CHAIN_DISPLAY_NAMES[item.chain] ?? item.chain}
                                         </Text>
                                     )}
                                 </View>
@@ -689,7 +706,7 @@ export default function WalletScreen() {
                         {filteredTokens.length === 0 && (
                             <View style={styles.emptyState}>
                                 <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                                    No tokens found on {networkFilter === 'all' ? 'any network' : networkFilter === 'base' ? 'Base' : 'Solana'}
+                                    No tokens found on {networkFilter === 'all' ? 'any network' : CHAIN_DISPLAY_NAMES[networkFilter] ?? networkFilter}
                                 </Text>
                             </View>
                         )}
@@ -732,14 +749,14 @@ export default function WalletScreen() {
                                             </View>
                                         )}
                                     >
-                                        <ExpoButton label="Base" onPress={() => setSelectedChain('base')} />
+                                        <ExpoButton label="EVM" onPress={() => setSelectedChain('base')} />
                                         <ExpoButton label="Solana" onPress={() => setSelectedChain('solana')} />
                                     </Menu>
                                 </Host>
                             ) : (
                                 <AndroidDropdownMenu
                                     options={[
-                                        { label: 'Base', onPress: () => setSelectedChain('base') },
+                                        { label: 'EVM', onPress: () => setSelectedChain('base') },
                                         { label: 'Solana', onPress: () => setSelectedChain('solana') },
                                     ]}
                                     trigger={

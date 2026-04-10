@@ -70,6 +70,10 @@ const ICONS = {
     usdt: require('../../assets/icons/tokens/usdt.png'),
     base: require('../../assets/icons/networks/base.png'),
     solana: require('../../assets/icons/networks/solana.png'),
+    arbitrum: require('../../assets/icons/networks/arbitrum.png'),
+    polygon: require('../../assets/icons/networks/polygon.png'),
+    celo: require('../../assets/icons/networks/celo.png'),
+    lisk: require('../../assets/icons/networks/lisk.png'),
     statusSuccess: require('../../assets/icons/status/success.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
     statusFailed: require('../../assets/icons/status/failed.png'),
@@ -78,8 +82,12 @@ const ICONS = {
 };
 
 const CHAINS: Record<string, { name: string; icon: any }> = {
-    'base': { name: 'Base', icon: ICONS.base },
-    'solana': { name: 'Solana', icon: ICONS.solana },
+    'base':     { name: 'Base',     icon: ICONS.base },
+    'solana':   { name: 'Solana',   icon: ICONS.solana },
+    'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum },
+    'polygon':  { name: 'Polygon',  icon: ICONS.polygon },
+    'celo':     { name: 'Celo',     icon: ICONS.celo },
+    'lisk':     { name: 'Lisk',     icon: ICONS.lisk },
 };
 
 // Map token symbols to available icons (fallback to eth for native tokens, usdc for stablecoins)

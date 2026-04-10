@@ -86,6 +86,11 @@ export const SchedulerService = {
             withLock('paycrest-rate-nudges', hourlyLockTtl, () => this.sendPaycrestRateNudges())
                 .catch((e) => logger.error('paycrest-rate-nudges lock error', { error: e?.message }));
         });
+
+        cron.schedule('45 * * * *', () => {
+            withLock('onboarding-nudges', hourlyLockTtl, () => this.sendOnboardingIncompleteNudges())
+                .catch((e) => logger.error('onboarding-nudges lock error', { error: e?.message }));
+        });
     },
 
     timestampMs(value: string | null | undefined): number | null {
@@ -686,6 +691,140 @@ export const SchedulerService = {
             });
         } catch (error: any) {
             logger.error('Error sending Paycrest rate nudges', { error: error?.message });
+        }
+    },
+
+    /**
+     * Nudge users who signed up but haven't completed any key action yet:
+     * no clients created and no invoices/payment links sent.
+     *
+     * Timing:
+     *  - First nudge: 24 h after registration
+     *  - Second nudge (if still inactive): 72 h after registration
+     *  - No further nudges after 7 days
+     *
+     * Requires DB column: users.last_onboarding_nudge_at (timestamptz, nullable)
+     * Migration: ALTER TABLE users ADD COLUMN IF NOT EXISTS last_onboarding_nudge_at timestamptz;
+     */
+    async sendOnboardingIncompleteNudges() {
+        try {
+            const now = Date.now();
+            const ONE_HOUR_MS = 60 * 60 * 1000;
+            const ONE_DAY_MS = 24 * ONE_HOUR_MS;
+            const THREE_DAYS_MS = 3 * ONE_DAY_MS;
+            const SEVEN_DAYS_MS = 7 * ONE_DAY_MS;
+            const NUDGE_CADENCE_MS = 48 * ONE_HOUR_MS; // min gap between nudges per user
+
+            // Users who registered between 1 h and 7 days ago — still in the onboarding window
+            const windowStart = new Date(now - SEVEN_DAYS_MS).toISOString();
+            const windowEnd   = new Date(now - ONE_HOUR_MS).toISOString();
+
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, created_at, last_login, last_onboarding_nudge_at')
+                .gte('created_at', windowStart)
+                .lte('created_at', windowEnd)
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch users for onboarding nudges', { error: error.message });
+                return;
+            }
+            if (!users || users.length === 0) {
+                logger.debug('No users in onboarding window');
+                return;
+            }
+
+            // Filter: skip users who were nudged recently
+            const eligible = users.filter((user: any) => {
+                const lastNudgeMs = this.timestampMs(user.last_onboarding_nudge_at);
+                if (lastNudgeMs !== null && (now - lastNudgeMs) < NUDGE_CADENCE_MS) return false;
+                return true;
+            });
+
+            if (eligible.length === 0) {
+                logger.debug('No users eligible for onboarding nudges after cadence filter');
+                return;
+            }
+
+            // For each candidate, check if they have any clients or documents
+            const inactive: any[] = [];
+            await processInBatches(eligible, SCHEDULER_CONCURRENCY, async (user) => {
+                const [{ count: clientCount }, { count: docCount }] = await Promise.all([
+                    supabase.from('clients').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+                    supabase.from('documents').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+                ]);
+                if ((clientCount ?? 0) === 0 && (docCount ?? 0) === 0) {
+                    inactive.push(user);
+                }
+            });
+
+            if (inactive.length === 0) {
+                logger.debug('All onboarding-window users have activity — no nudges needed');
+                return;
+            }
+
+            logger.info('Sending onboarding incomplete nudges', { count: inactive.length });
+
+            await processInBatches(inactive, SCHEDULER_CONCURRENCY, async (user) => {
+                try {
+                    const firstName = String(user.first_name || '').trim();
+                    const ageMs = now - (this.timestampMs(user.created_at) ?? now);
+                    const isSecondNudge = ageMs > THREE_DAYS_MS;
+
+                    const pushTitle = isSecondNudge
+                        ? 'Your workspace is waiting'
+                        : 'Get started with Hedwig';
+                    const pushBody = isSecondNudge
+                        ? (firstName ? `${firstName}, you're one step away from sending your first invoice.` : 'You\'re one step away from sending your first invoice.')
+                        : (firstName ? `${firstName}, add a client and send your first invoice in minutes.` : 'Add a client and send your first invoice in minutes.');
+
+                    // Push notification
+                    await NotificationService.notifyUser(user.id, {
+                        title: pushTitle,
+                        body: pushBody,
+                        data: {
+                            type: 'onboarding_incomplete',
+                            route: '/(drawer)/(tabs)',
+                        },
+                    });
+
+                    // Email
+                    if (user.email) {
+                        await EmailService.sendOnboardingIncompleteEmail({
+                            to: user.email,
+                            firstName,
+                            isSecondNudge,
+                        });
+                    }
+
+                    // In-app notification
+                    await supabase.from('notifications').insert({
+                        user_id: user.id,
+                        type: 'announcement',
+                        title: pushTitle,
+                        message: pushBody,
+                        metadata: { nudge_type: 'onboarding_incomplete', nudge_number: isSecondNudge ? 2 : 1 },
+                        is_read: false,
+                    });
+
+                    // Record nudge timestamp
+                    await supabase
+                        .from('users')
+                        .update({ last_onboarding_nudge_at: new Date().toISOString() })
+                        .eq('id', user.id);
+
+                    await BackendAnalytics.capture(String(user.privy_id || user.id), 'onboarding_nudge_sent', {
+                        user_id: user.id,
+                        nudge_number: isSecondNudge ? 2 : 1,
+                        channels: user.email ? ['push', 'email', 'in_app'] : ['push', 'in_app'],
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to send onboarding nudge for user', { userId: user.id, error: err?.message });
+                }
+            });
+        } catch (error: any) {
+            logger.error('Error in sendOnboardingIncompleteNudges', { error: error?.message });
         }
     },
 

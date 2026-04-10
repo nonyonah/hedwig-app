@@ -67,6 +67,8 @@ const ICONS = {
     celo: require('../../assets/icons/networks/celo.png'),
     solana: require('../../assets/icons/networks/solana.png'),
     arbitrum: require('../../assets/icons/networks/arbitrum.png'),
+    polygon: require('../../assets/icons/networks/polygon.png'),
+    lisk: require('../../assets/icons/networks/lisk.png'),
     optimism: require('../../assets/icons/networks/optimism.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
     statusSuccess: require('../../assets/icons/status/success.png'),
@@ -172,6 +174,8 @@ export default function PaymentLinksScreen() {
         if (c.includes('solana')) return ICONS.solana;
         if (c.includes('celo')) return ICONS.celo;
         if (c.includes('arbitrum')) return ICONS.arbitrum;
+        if (c.includes('polygon') || c.includes('matic')) return ICONS.polygon;
+        if (c.includes('lisk')) return ICONS.lisk;
         if (c.includes('optimism')) return ICONS.optimism;
         return ICONS.base;
     };
@@ -697,10 +701,14 @@ export default function PaymentLinksScreen() {
                     <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Chain</Text>
                     <View style={styles.chainValue}>
                         <View style={{ flexDirection: 'row', marginRight: 6 }}>
-                            <Image source={ICONS.solana} style={[styles.smallIcon, { width: 16, height: 16 }]} />
-                            <Image source={ICONS.base} style={[styles.smallIcon, { width: 16, height: 16, marginLeft: -6 }]} />
+                            <Image source={ICONS.base}     style={{ width: 16, height: 16, borderRadius: 8 }} />
+                            <Image source={ICONS.arbitrum} style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
+                            <Image source={ICONS.polygon}  style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
+                            <Image source={ICONS.celo}     style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
+                            <Image source={ICONS.lisk}     style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
+                            <Image source={ICONS.solana}   style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                         </View>
-                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>Multichain</Text>
+                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>6 networks</Text>
                     </View>
                 </View>
             </View>
@@ -766,12 +774,11 @@ export default function PaymentLinksScreen() {
                     </View>
                     <View style={styles.iconContainer}>
                         <Image source={ICONS.usdc} style={styles.cardTokenIcon} />
-                        <View style={styles.cardChainBadge}>
-                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                                <View style={{ flexDirection: 'row' }}>
-                                    <Image source={ICONS.solana} style={{ width: 14, height: 14, borderRadius: 7 }} />
-                                    <Image source={ICONS.base} style={{ width: 14, height: 14, borderRadius: 7, marginLeft: -6 }} />
-                                </View>
+                        <View style={[styles.cardChainBadge, { width: 'auto', height: 'auto', flexDirection: 'row' }]}>
+                            <Image source={ICONS.base}   style={{ width: 13, height: 13, borderRadius: 6.5, borderWidth: 1, borderColor: '#fff' }} />
+                            <Image source={ICONS.solana} style={{ width: 13, height: 13, borderRadius: 6.5, borderWidth: 1, borderColor: '#fff', marginLeft: -4 }} />
+                            <View style={{ width: 13, height: 13, borderRadius: 6.5, backgroundColor: '#e9eaeb', borderWidth: 1, borderColor: '#fff', marginLeft: -4, alignItems: 'center', justifyContent: 'center' }}>
+                                <Text style={{ fontSize: 6, fontWeight: '700', color: '#717680' }}>+4</Text>
                             </View>
                         </View>
                     </View>

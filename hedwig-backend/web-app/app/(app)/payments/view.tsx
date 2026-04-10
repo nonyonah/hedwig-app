@@ -56,23 +56,28 @@ function StatusPill({ dot, label, bg, text }: { dot: string; label: string; bg: 
   );
 }
 
+const ALL_CHAINS = [
+  { src: '/icons/networks/base.png',     alt: 'Base' },
+  { src: '/icons/networks/arbitrum.png', alt: 'Arbitrum' },
+  { src: '/icons/networks/polygon.png',  alt: 'Polygon' },
+  { src: '/icons/networks/celo.png',     alt: 'Celo' },
+  { src: '/icons/networks/lisk.png',     alt: 'Lisk' },
+  { src: '/icons/networks/solana.png',   alt: 'Solana' },
+];
+
 function MultiChainStack({ size = 16 }: { size?: number }) {
   return (
     <div className="flex items-center pl-0.5">
-      <Image
-        src="/icons/networks/base.png"
-        alt="Base"
-        width={size}
-        height={size}
-        className="rounded-full ring-1 ring-white"
-      />
-      <Image
-        src="/icons/networks/solana.png"
-        alt="Solana"
-        width={size}
-        height={size}
-        className="-ml-1 rounded-full ring-1 ring-white"
-      />
+      {ALL_CHAINS.map((chain, i) => (
+        <Image
+          key={chain.alt}
+          src={chain.src}
+          alt={chain.alt}
+          width={size}
+          height={size}
+          className={`rounded-full ring-1 ring-white${i > 0 ? ' -ml-1' : ''}`}
+        />
+      ))}
     </div>
   );
 }
@@ -81,7 +86,7 @@ function MultiChainInline({ muted = false }: { muted?: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <MultiChainStack size={14} />
-      <span className={muted ? 'text-[#717680]' : 'text-[#344054]'}>Base &amp; Solana</span>
+      <span className={muted ? 'text-[#717680]' : 'text-[#344054]'}>6 networks</span>
     </span>
   );
 }

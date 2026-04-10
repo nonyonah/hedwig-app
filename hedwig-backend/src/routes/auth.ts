@@ -116,12 +116,13 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
             user = updatedUser;
         }
 
-        // Register wallet addresses with Alchemy webhooks for real-time notifications
-        if (walletAddresses?.ethereum || walletAddresses?.solana) {
+        // Register wallet addresses with Alchemy webhooks for real-time notifications.
+        // Use persisted DB values so this also works when request payload omits walletAddresses.
+        if (user?.ethereum_wallet_address || user?.solana_wallet_address) {
             try {
                 await AlchemyAddressService.registerUserWallets({
-                    ethereum: walletAddresses.ethereum,
-                    solana: walletAddresses.solana
+                    ethereum: user.ethereum_wallet_address,
+                    solana: user.solana_wallet_address
                 });
                 logger.info('Registered wallets with Alchemy webhooks');
             } catch (webhookError: any) {

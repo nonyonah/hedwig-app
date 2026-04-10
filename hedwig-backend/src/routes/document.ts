@@ -168,7 +168,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                 senderName,
                 amount: amount.toString(),
                 currency: 'USD',
-                description: providedTitle || clientName || undefined,
+                description: description || providedTitle || undefined,
                 linkId: doc.id,
                 paymentUrl: shareableUrl
             }));
@@ -301,9 +301,8 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
                 senderName,
                 amount: amount.toString(),
                 currency: currency || 'USDC',
-                description: providedTitle || clientName || undefined,
+                description: description || providedTitle || undefined,
                 linkId: doc.id,
-                network: String(chain || 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base',
                 paymentUrl: shareableUrl
             }));
 
@@ -444,7 +443,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     senderName,
                     amount: amount.toString(),
                     currency: 'USD',
-                    description: title || clientName || undefined,
+                    description: description || title || undefined,
                     linkId: doc.id,
                     paymentUrl: shareableUrl
                 }));
@@ -546,9 +545,8 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
                     senderName,
                     amount: amount.toString(),
                     currency: currency || 'USDC',
-                    description: title || clientName || undefined,
+                    description: description || title || undefined,
                     linkId: doc.id,
-                    network: String(doc.chain || 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base',
                     paymentUrl: shareableUrl
                 }));
 

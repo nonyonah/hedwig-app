@@ -25,12 +25,19 @@ const ICONS = {
     usdc: require('../assets/icons/tokens/usdc.png'),
     base: require('../assets/icons/networks/base.png'),
     celo: require('../assets/icons/networks/celo.png'),
+    solana: require('../assets/icons/networks/solana.png'),
+    arbitrum: require('../assets/icons/networks/arbitrum.png'),
+    polygon: require('../assets/icons/networks/polygon.png'),
+    lisk: require('../assets/icons/networks/lisk.png'),
 };
 
-// Chain configurations
 const CHAINS: Record<string, any> = {
-    'base': { name: 'Base', icon: ICONS.base, type: 'evm' },
-    'celo': { name: 'Celo', icon: ICONS.celo, type: 'evm' },
+    'base':     { name: 'Base',     icon: ICONS.base,     type: 'evm' },
+    'celo':     { name: 'Celo',     icon: ICONS.celo,     type: 'evm' },
+    'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum, type: 'evm' },
+    'polygon':  { name: 'Polygon',  icon: ICONS.polygon,  type: 'evm' },
+    'lisk':     { name: 'Lisk',     icon: ICONS.lisk,     type: 'evm' },
+    'solana':   { name: 'Solana',   icon: ICONS.solana,   type: 'solana' },
 };
 
 // RPC URLs

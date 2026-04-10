@@ -2,7 +2,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme, Appearance, ColorSchemeName } from 'react-native';
-import * as SystemUI from 'expo-system-ui';
+let SystemUI: { setBackgroundColorAsync: (color: string) => Promise<void> } | null = null;
+try { SystemUI = require('expo-system-ui'); } catch { /* native module not available in this build */ }
 
 export type Currency = 'USD' | 'NGN' | 'GHS' | 'KES';
 export type Theme = 'light' | 'dark' | 'system';
@@ -132,7 +133,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     useEffect(() => {
         const targetBackground = currentTheme === 'dark' ? '#000000' : '#FFFFFF';
-        SystemUI.setBackgroundColorAsync(targetBackground).catch(() => {
+        SystemUI?.setBackgroundColorAsync(targetBackground).catch(() => {
             // No-op: background color sync is best-effort.
         });
     }, [currentTheme]);

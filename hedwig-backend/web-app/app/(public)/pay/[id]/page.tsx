@@ -6,6 +6,18 @@ import { PublicResultCard } from '@/components/public/public-result-card';
 import { fetchPublicDocument } from '@/lib/api/public-documents';
 import { getExplorerUrl, getSolanaExplorerUrl, resolvePublicSettlementChain, type PublicPaymentToken } from '@/lib/payments/public-constants';
 
+const CHAIN_META: Record<string, { icon: string; label: string }> = {
+  base:     { icon: '/icons/networks/base.png',     label: 'Base' },
+  solana:   { icon: '/icons/networks/solana.png',   label: 'Solana' },
+  arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
+  polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
+  celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
+  lisk:     { icon: '/icons/networks/lisk.png',     label: 'Lisk' },
+};
+function getChainMeta(chain: string) {
+  return CHAIN_META[chain.toLowerCase()] ?? CHAIN_META['base'];
+}
+
 function formatCurrency(amount: number, currency = 'USD') {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -32,8 +44,7 @@ export default async function PublicPaymentLinkPage({
   const paymentToken: PublicPaymentToken = String(document.currency || 'USDC').toUpperCase() === 'ETH' ? 'ETH' : 'USDC';
   const paymentCurrency = String(document.currency || 'USDC').toUpperCase();
   const settlementChain = resolvePublicSettlementChain(document.chain, document.content?.blockradar_url);
-  const chainIcon = settlementChain === 'solana' ? '/icons/networks/solana.png' : '/icons/networks/base.png';
-  const chainLabel = settlementChain === 'solana' ? 'Solana' : 'Base';
+  const { icon: chainIcon, label: chainLabel } = getChainMeta(document.chain || settlementChain);
   const tokenIcon = paymentToken === 'ETH' ? '/icons/tokens/eth.png' : '/icons/tokens/usdc.png';
   const usdAccount = document.user?.usd_account;
   const hasUsdBankDetails = Boolean(usdAccount?.account_number && usdAccount?.routing_number);

@@ -129,6 +129,30 @@ class AlchemyWebhooksService {
             return key;
         }
 
+        if (networkLower.includes('arbitrum')) {
+            const key = process.env.ALCHEMY_SIGNING_KEY_ARBITRUM || genericKey;
+            logger.debug('Using Arbitrum signing key', { present: !!key });
+            return key;
+        }
+
+        if (networkLower.includes('optimism')) {
+            const key = process.env.ALCHEMY_SIGNING_KEY_OPTIMISM || genericKey;
+            logger.debug('Using Optimism signing key', { present: !!key });
+            return key;
+        }
+
+        if (networkLower.includes('polygon') || networkLower.includes('matic')) {
+            const key = process.env.ALCHEMY_SIGNING_KEY_POLYGON || genericKey;
+            logger.debug('Using Polygon signing key', { present: !!key });
+            return key;
+        }
+
+        if (networkLower.includes('celo')) {
+            const key = process.env.ALCHEMY_SIGNING_KEY_CELO || genericKey;
+            logger.debug('Using Celo signing key', { present: !!key });
+            return key;
+        }
+
         // Solana networks
         if (networkLower.includes('solana')) {
             const key = process.env.ALCHEMY_SIGNING_KEY_SOLANA || genericKey;

@@ -309,7 +309,6 @@ export const EmailService = {
                     <div class="card">
                         <p class="amount-label">Amount Requested</p>
                         <p class="amount-value">${data.amount} <span class="amount-currency">${data.currency}</span></p>
-                        ${data.network ? `<p style="margin-top: 8px; color: #a4a7ae; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;">${data.network}</p>` : ''}
                     </div>
 
                     ${data.description ? `<p class="description" style="text-align:center;">${data.description}</p>` : ''}
@@ -838,5 +837,129 @@ export const EmailService = {
             logger.error('Proposal accepted notification failed', { error: error instanceof Error ? error.message : 'Unknown' });
             return false;
         }
-    }
+    },
+
+    async sendAccountDeletionEmail(data: {
+        to: string;
+        firstName: string;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping account deletion email.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const name = data.firstName || 'there';
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Your Hedwig account has been deleted</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Account</p>
+                    <h1 class="heading">Your account has been deleted</h1>
+                    <p class="description">Hi ${name}, this email confirms that your Hedwig account and all associated data have been permanently deleted as requested.</p>
+                    <p class="description">If you did not request this or believe this was a mistake, please contact our support team immediately at <a href="mailto:support@hedwigbot.xyz" style="color:#2563eb;text-decoration:none;">support@hedwigbot.xyz</a>.</p>
+                    <hr class="divider" />
+                    <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">Thank you for using Hedwig. We hope to see you again in the future.</p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: 'Your Hedwig account has been deleted',
+                html,
+            });
+            logger.info('Account deletion email sent', { to: data.to });
+            return true;
+        } catch (error) {
+            logger.error('Account deletion email failed', { error: error instanceof Error ? error.message : 'Unknown' });
+            return false;
+        }
+    },
+
+    async sendOnboardingIncompleteEmail(data: {
+        to: string;
+        firstName: string;
+        isSecondNudge?: boolean;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping onboarding nudge email.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const name = data.firstName || 'there';
+        const dashboardUrl = `${APP_URL}/dashboard`;
+
+        const subject = data.isSecondNudge
+            ? 'Your Hedwig workspace is waiting'
+            : 'Get started with Hedwig';
+
+        const heading = data.isSecondNudge
+            ? 'Your workspace is waiting'
+            : 'Get started with Hedwig';
+
+        const body = data.isSecondNudge
+            ? `Hi ${name}, you set up your Hedwig account but haven't added any clients or sent an invoice yet. Your workspace is ready — it only takes a minute to send your first payment request.`
+            : `Hi ${name}, welcome to Hedwig! Your account is set up and ready to go. Add your first client and send an invoice to start getting paid faster.`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${subject}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Getting started</p>
+                    <h1 class="heading">${heading}</h1>
+                    <p class="description">${body}</p>
+                    <div class="btn-container">
+                        <a href="${dashboardUrl}" class="btn">Open Hedwig</a>
+                    </div>
+                    <hr class="divider" />
+                    <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">You're receiving this because you recently created a Hedwig account. If you'd rather not hear from us, you can ignore this email.</p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject,
+                html,
+            });
+            logger.info('Onboarding nudge email sent', { to: data.to, isSecondNudge: data.isSecondNudge });
+            return true;
+        } catch (error) {
+            logger.error('Onboarding nudge email failed', { error: error instanceof Error ? error.message : 'Unknown' });
+            return false;
+        }
+    },
 };

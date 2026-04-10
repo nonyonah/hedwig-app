@@ -1,11 +1,10 @@
-import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { CalendarBlank, Repeat, User } from '@/components/ui/lucide-icons';
 import { PublicDocumentFrame } from '@/components/public/public-document-frame';
-import { PublicCheckoutPanel } from '@/components/public/public-checkout-panel';
 import { PublicResultCard } from '@/components/public/public-result-card';
+import { PublicInvoiceRightPanel } from '@/components/public/public-invoice-right-panel';
 import { fetchPublicDocument } from '@/lib/api/public-documents';
-import { getExplorerUrl, getSolanaExplorerUrl, resolvePublicSettlementChain } from '@/lib/payments/public-constants';
+import { getSolanaExplorerUrl, getExplorerUrl, resolvePublicSettlementChain } from '@/lib/payments/public-constants';
 
 function formatCurrency(amount: number, currency = 'USD') {
   return new Intl.NumberFormat('en-US', {
@@ -50,8 +49,6 @@ export default async function PublicInvoicePage({
   const evmWalletAddress = document.user?.ethereum_wallet_address || null;
   const solanaWalletAddress = document.user?.solana_wallet_address || null;
   const settlementChain = resolvePublicSettlementChain(document.chain, document.content?.blockradar_url);
-  const chainIcon = settlementChain === 'solana' ? '/icons/networks/solana.png' : '/icons/networks/base.png';
-  const chainLabel = settlementChain === 'solana' ? 'Solana' : 'Base';
   const isPaid = String(document.status).toLowerCase() === 'paid';
   const txHash = String((document.content as any)?.tx_hash || '');
   const explorerUrl = txHash
@@ -181,70 +178,18 @@ export default async function PublicInvoicePage({
         </div>
 
         {/* ── Right: payment panel ── */}
-        <div className="space-y-4">
-
-          {/* Amount due card */}
-          <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
-            <div className="border-b border-[#e9eaeb] bg-[#f8f9fc] px-5 py-5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Amount due</p>
-              <p className="mt-1.5 text-[34px] font-bold tracking-[-0.04em] leading-none text-[#181d27]">
-                {formatCurrency(Number(document.amount || 0))}
-              </p>
-              {isRecurring && (
-                <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#717680]">
-                  <Repeat className="h-3 w-3" />
-                  This is a recurring invoice — auto-generated on a scheduled basis.
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 px-5 py-3.5">
-              <div className="flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-[#fafafa] px-3 py-1.5 text-[12px] font-medium text-[#414651]">
-                <Image src={chainIcon} alt={chainLabel} width={14} height={14} className="rounded-full" />
-                {chainLabel}
-              </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-[#fafafa] px-3 py-1.5 text-[12px] font-medium text-[#414651]">
-                <Image src="/icons/tokens/usdc.png" alt="USDC" width={14} height={14} className="rounded-full" />
-                USDC
-              </div>
-            </div>
-          </div>
-
-          {/* Checkout widget */}
-          <PublicCheckoutPanel
-            documentId={document.id}
-            amount={Number(document.amount || 0)}
-            title={document.title}
-            preferredChain={settlementChain}
-            token="USDC"
-            evmMerchantAddress={evmWalletAddress}
-            solanaMerchantAddress={solanaWalletAddress}
-          />
-
-          {/* USD bank transfer option */}
-          {document.user?.usd_account?.account_number && document.user?.usd_account?.routing_number ? (
-            <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
-              <div className="border-b border-[#e9eaeb] px-5 py-4">
-                <p className="text-[13px] font-semibold text-[#181d27]">Or pay via bank transfer</p>
-                <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Wire / ACH directly to the freelancer's USD account</p>
-              </div>
-              <div className="divide-y divide-[#f2f4f7] px-5">
-                <BankDetailRow label="Bank" value={document.user.usd_account.bank_name || 'Bridge USD account'} />
-                <BankDetailRow label="Account #" value={`••••${document.user.usd_account.account_number.slice(-4)}`} mono />
-                <BankDetailRow label="Routing #" value={`••••${document.user.usd_account.routing_number.slice(-4)}`} mono />
-              </div>
-            </div>
-          ) : null}
-        </div>
+        <PublicInvoiceRightPanel
+          documentId={document.id}
+          amount={Number(document.amount || 0)}
+          title={document.title}
+          preferredChain={settlementChain}
+          token="USDC"
+          evmMerchantAddress={evmWalletAddress}
+          solanaMerchantAddress={solanaWalletAddress}
+          isRecurring={isRecurring}
+          usdAccount={document.user?.usd_account ?? null}
+        />
       </div>
     </PublicDocumentFrame>
-  );
-}
-
-function BankDetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center justify-between py-3">
-      <span className="text-[12px] text-[#717680]">{label}</span>
-      <span className={`text-[13px] font-semibold text-[#181d27] ${mono ? 'font-mono text-[12px]' : ''}`}>{value}</span>
-    </div>
   );
 }

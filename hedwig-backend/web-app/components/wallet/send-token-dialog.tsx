@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Check, PaperPlaneRight, SpinnerGap, Warning, X } from '@/components/ui/lucide-icons';
 import { ClientPortal } from '@/components/ui/client-portal';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
@@ -41,15 +41,21 @@ const USDC_SOL_DEVNET  = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJD
 
 type SendStep = 'form' | 'review' | 'signing' | 'done' | 'error';
 
-const TOKEN_ICON: Record<string, string> = {
-  'Base:ETH':    '/icons/tokens/eth.png',
-  'Base:USDC':   '/icons/tokens/usdc.png',
-  'Solana:SOL':  '/icons/networks/solana.png',
-  'Solana:USDC': '/icons/tokens/usdc.png'
+// Chain meta derived from asset.chain value
+const CHAIN_META: Record<string, { icon: string; label: string }> = {
+  Base:     { icon: '/icons/networks/base.png',     label: 'Base' },
+  Solana:   { icon: '/icons/networks/solana.png',   label: 'Solana' },
+  Arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
+  Polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
+  Celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
+  Lisk:     { icon: '/icons/networks/lisk.png',     label: 'Lisk' },
 };
-const CHAIN_ICON: Record<string, string> = {
-  Base:   '/icons/networks/base.png',
-  Solana: '/icons/networks/solana.png'
+
+const TOKEN_META: Record<string, { icon: string }> = {
+  ETH:  { icon: '/icons/tokens/eth.png' },
+  USDC: { icon: '/icons/tokens/usdc.png' },
+  USDT: { icon: '/icons/tokens/usdt.png' },
+  SOL:  { icon: '/icons/networks/solana.png' },
 };
 
 function fmt(n: number, sym: string) {
@@ -70,14 +76,48 @@ export function SendTokenDialog({
   const { wallets: evmWallets } = useWallets();
   const { wallets: solanaWallets } = useSolanaWallets();
 
-  const [selected, setSelected] = useState<WalletAsset>(assets[0]);
+  // Derive unique chains + tokens from assets
+  const chains = Array.from(new Map(assets.map((a) => [a.chain, a])).keys());
+  const [selectedChain, setSelectedChain] = useState<string>(assets[0]?.chain ?? '');
+  const tokensForChain = assets.filter((a) => {
+    if (a.chain !== selectedChain) return false;
+    if (selectedChain === 'Lisk') return a.symbol === 'USDT';
+    return true;
+  });
+  const [selectedAssetId, setSelectedAssetId] = useState<string>(assets[0]?.id ?? '');
+  const selected = assets.find((a) => a.id === selectedAssetId) ?? tokensForChain[0] ?? assets[0];
+
+  const [chainOpen,  setChainOpen]  = useState(false);
+  const [tokenOpen,  setTokenOpen]  = useState(false);
+  const chainRef = useRef<HTMLDivElement>(null);
+  const tokenRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (chainRef.current && !chainRef.current.contains(e.target as Node)) setChainOpen(false);
+      if (tokenRef.current && !tokenRef.current.contains(e.target as Node)) setTokenOpen(false);
+    }
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, []);
+
+  const handleChainSelect = (chain: string) => {
+    setSelectedChain(chain);
+    setChainOpen(false);
+    // For Lisk, reset to USDT; otherwise first token of the chain
+    const first = chain === 'Lisk'
+      ? assets.find((a) => a.chain === chain && a.symbol === 'USDT') ?? assets.find((a) => a.chain === chain)
+      : assets.find((a) => a.chain === chain);
+    if (first) setSelectedAssetId(first.id);
+  };
+
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount]       = useState('');
   const [step, setStep]           = useState<SendStep>('form');
   const [txHash, setTxHash]       = useState<string | null>(null);
   const [error, setError]         = useState<string | null>(null);
 
-  const isEvm    = selected.chain === 'Base';
+  const isEvm    = selected.chain === 'Base' || !['Solana'].includes(selected.chain);
   const isSolana = selected.chain === 'Solana';
 
   const evmWallet    = evmWallets.find((w) => w.walletClientType === 'privy') ?? evmWallets[0];
@@ -235,8 +275,8 @@ export function SendTokenDialog({
         : `https://solscan.io/tx/${txHash}`)
     : null;
 
-  const tokenIcon = TOKEN_ICON[`${selected.chain}:${selected.symbol}`];
-  const chainIcon = CHAIN_ICON[selected.chain];
+  const tokenIcon = TOKEN_META[selected.symbol]?.icon ?? null;
+  const chainIcon = CHAIN_META[selected.chain]?.icon ?? null;
 
   return (
     <ClientPortal>
@@ -266,60 +306,110 @@ export function SendTokenDialog({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-6 space-y-5">
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
 
           {/* ── Form step ── */}
           {step === 'form' && (
             <>
-              {/* Token selector */}
-              <div>
-                <p className="mb-2 text-[13px] font-semibold text-[#414651]">Token</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {assets.map((a) => (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => setSelected(a)}
-                      className={`flex items-center gap-3 rounded-2xl border p-3.5 text-left transition ${
-                        selected.id === a.id
-                          ? 'border-[#2563eb] bg-[#eff6ff] ring-1 ring-[#2563eb]'
-                          : 'border-[#e9eaeb] hover:bg-[#fafafa]'
-                      }`}
-                    >
-                      <div className="relative shrink-0">
-                        {TOKEN_ICON[`${a.chain}:${a.symbol}`]
-                          ? <Image src={TOKEN_ICON[`${a.chain}:${a.symbol}`]} alt={a.symbol} width={32} height={32} className="rounded-full" />
-                          : <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f2f4f7] text-[11px] font-bold text-[#667085]">{a.symbol.slice(0,3)}</div>
-                        }
-                        {CHAIN_ICON[a.chain] && (
-                          <Image src={CHAIN_ICON[a.chain]} alt={a.chain} width={14} height={14}
-                            className="absolute -bottom-0.5 -right-0.5 rounded-full ring-1 ring-white" />
+              {/* Chain dropdown */}
+              <div ref={chainRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => { setChainOpen((o) => !o); setTokenOpen(false); }}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-[#e9eaeb] bg-white px-4 py-3 shadow-xs transition hover:bg-[#fafafa]"
+                >
+                  {CHAIN_META[selectedChain]
+                    ? <Image src={CHAIN_META[selectedChain].icon} alt={selectedChain} width={20} height={20} className="rounded-full" />
+                    : <div className="h-5 w-5 rounded-full bg-[#f2f4f7]" />}
+                  <span className="flex-1 text-left text-[13px] font-semibold text-[#181d27]">
+                    {CHAIN_META[selectedChain]?.label ?? selectedChain}
+                  </span>
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Network</span>
+                  <svg className={`h-4 w-4 text-[#a4a7ae] transition-transform ${chainOpen ? 'rotate-180' : ''}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {chainOpen && (
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white shadow-lg">
+                    {chains.map((chain) => (
+                      <button key={chain} type="button" onClick={() => handleChainSelect(chain)}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium transition ${
+                          chain === selectedChain ? 'bg-[#f8f9fc] text-[#181d27]' : 'text-[#414651] hover:bg-[#fafafa]'
+                        }`}>
+                        {CHAIN_META[chain]
+                          ? <Image src={CHAIN_META[chain].icon} alt={chain} width={20} height={20} className="rounded-full" />
+                          : <div className="h-5 w-5 rounded-full bg-[#f2f4f7]" />}
+                        <span className="flex-1 text-left">{CHAIN_META[chain]?.label ?? chain}</span>
+                        {chain === selectedChain && (
+                          <svg className="h-4 w-4 text-[#181d27]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
                         )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-[#181d27]">{a.symbol}</p>
-                        <p className="text-[11px] text-[#a4a7ae]">{fmt(a.balance, a.symbol)}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Token dropdown */}
+              <div ref={tokenRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => { setTokenOpen((o) => !o); setChainOpen(false); }}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-[#e9eaeb] bg-white px-4 py-3 shadow-xs transition hover:bg-[#fafafa]"
+                >
+                  {TOKEN_META[selected?.symbol]
+                    ? <Image src={TOKEN_META[selected.symbol].icon} alt={selected.symbol} width={20} height={20} className="rounded-full" />
+                    : <div className="h-5 w-5 rounded-full bg-[#f2f4f7]" />}
+                  <span className="flex-1 text-left text-[13px] font-semibold text-[#181d27]">
+                    {selected?.symbol}
+                  </span>
+                  <span className="text-[11px] font-semibold text-[#a4a7ae]">
+                    {fmt(selected?.balance ?? 0, selected?.symbol ?? '')}
+                  </span>
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae] ml-2">Token</span>
+                  <svg className={`h-4 w-4 text-[#a4a7ae] transition-transform ${tokenOpen ? 'rotate-180' : ''}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {tokenOpen && (
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white shadow-lg">
+                    {tokensForChain.map((a) => (
+                      <button key={a.id} type="button" onClick={() => { setSelectedAssetId(a.id); setTokenOpen(false); }}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium transition ${
+                          a.id === selected?.id ? 'bg-[#f8f9fc] text-[#181d27]' : 'text-[#414651] hover:bg-[#fafafa]'
+                        }`}>
+                        {TOKEN_META[a.symbol]
+                          ? <Image src={TOKEN_META[a.symbol].icon} alt={a.symbol} width={20} height={20} className="rounded-full" />
+                          : <div className="h-5 w-5 rounded-full bg-[#f2f4f7]" />}
+                        <span className="flex-1 text-left">{a.symbol}</span>
+                        <span className="text-[12px] text-[#a4a7ae]">{fmt(a.balance, a.symbol)}</span>
+                        {a.id === selected?.id && (
+                          <svg className="h-4 w-4 text-[#181d27]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Recipient */}
               <div>
-                <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">
-                  Recipient address <span className="text-[#717680]">*</span>
-                </label>
+                <label className="mb-1.5 block text-[13px] font-semibold text-[#414651]">Recipient address</label>
                 <input
                   type="text"
-                  placeholder={isEvm ? '0x…' : 'Solana wallet address'}
+                  placeholder={isSolana ? 'Solana wallet address' : '0x…'}
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value.trim())}
                   className="w-full rounded-full border border-[#d5d7da] bg-white px-4 py-2.5 font-mono text-[13px] text-[#181d27] placeholder-[#a4a7ae] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
                 />
                 {recipient.length > 5 && !recipientValid && (
-                  <p className="mt-1.5 text-[11px] text-[#717680]">
-                    {isEvm ? 'Invalid EVM address (must start with 0x)' : 'Invalid Solana address'}
+                  <p className="mt-1 text-[11px] text-[#a4a7ae]">
+                    {isSolana ? 'Invalid Solana address' : 'Invalid EVM address'}
                   </p>
                 )}
               </div>
@@ -327,15 +417,10 @@ export function SendTokenDialog({
               {/* Amount */}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <label className="text-[13px] font-semibold text-[#414651]">
-                    Amount <span className="text-[#717680]">*</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setAmount(String(maxBalance))}
-                    className="text-[11px] font-semibold text-[#717680] hover:text-[#717680]"
-                  >
-                    Max: {fmt(maxBalance, selected.symbol)}
+                  <label className="text-[13px] font-semibold text-[#414651]">Amount</label>
+                  <button type="button" onClick={() => setAmount(String(maxBalance))}
+                    className="text-[11px] text-[#2563eb] hover:underline">
+                    Max: {fmt(maxBalance, selected?.symbol ?? '')}
                   </button>
                 </div>
                 <div className="relative">
@@ -350,11 +435,11 @@ export function SendTokenDialog({
                     className="w-full rounded-full border border-[#d5d7da] bg-white py-2.5 pl-4 pr-16 text-[15px] font-semibold text-[#181d27] placeholder-[#d0d5dd] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-semibold text-[#717680]">
-                    {selected.symbol}
+                    {selected?.symbol}
                   </span>
                 </div>
                 {numericAmount > maxBalance && numericAmount > 0 && (
-                  <p className="mt-1.5 text-[11px] text-[#717680]">Amount exceeds your balance</p>
+                  <p className="mt-1 text-[11px] text-[#a4a7ae]">Exceeds your balance</p>
                 )}
               </div>
 
@@ -362,9 +447,9 @@ export function SendTokenDialog({
                 type="button"
                 disabled={!canProceed || !ready}
                 onClick={() => setStep('review')}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#2563eb] px-5 py-3 text-[14px] font-semibold text-white shadow-xs transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#2563eb] px-5 py-3 text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Review transaction <ArrowRight className="h-4 w-4" weight="bold" />
+                Review <ArrowRight className="h-4 w-4" weight="bold" />
               </button>
             </>
           )}

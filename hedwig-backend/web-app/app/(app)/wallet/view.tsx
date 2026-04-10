@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { ArrowsLeftRight, ArrowSquareOut, Bank, Coins, SpinnerGap, Wallet } from '@/components/ui/lucide-icons';
-import { PageHeader } from '@/components/data/page-header';
 import { useToast } from '@/components/providers/toast-provider';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { ChangeSettlementDialog } from '@/components/wallet/change-settlement-dialog';
@@ -14,30 +13,56 @@ import { hedwigApi } from '@/lib/api/client';
 import type { AccountTransaction, UsdAccount, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
 
-const chainIconByName: Record<'Base' | 'Solana', string> = {
-  Base: '/icons/networks/base.png',
-  Solana: '/icons/networks/solana.png'
+const chainIconByName: Record<string, string> = {
+  Base:     '/icons/networks/base.png',
+  Solana:   '/icons/networks/solana.png',
+  Arbitrum: '/icons/networks/arbitrum.png',
+  Polygon:  '/icons/networks/polygon.png',
+  Celo:     '/icons/networks/celo.png',
+  Lisk:     '/icons/networks/lisk.png',
 };
 
 const tokenIconByKey: Record<string, string> = {
-  'Base:ETH': '/icons/tokens/eth.png',
-  'Base:USDC': '/icons/tokens/usdc.png',
-  'Solana:SOL': '/icons/networks/solana.png',
-  'Solana:USDC': '/icons/tokens/usdc.png'
+  'Base:ETH':       '/icons/tokens/eth.png',
+  'Base:USDC':      '/icons/tokens/usdc.png',
+  'Base:USDT':      '/icons/tokens/usdt.png',
+  'Solana:SOL':     '/icons/networks/solana.png',
+  'Solana:USDC':    '/icons/tokens/usdc.png',
+  'Solana:USDT':    '/icons/tokens/usdt.png',
+  'Arbitrum:ETH':   '/icons/tokens/eth.png',
+  'Arbitrum:USDC':  '/icons/tokens/usdc.png',
+  'Arbitrum:USDT':  '/icons/tokens/usdt.png',
+  'Polygon:USDC':   '/icons/tokens/usdc.png',
+  'Polygon:USDT':   '/icons/tokens/usdt.png',
+  'Celo:USDC':      '/icons/tokens/usdc.png',
+  'Celo:USDT':      '/icons/tokens/usdt.png',
+  'Lisk:USDC':      '/icons/tokens/usdc.png',
+  'Lisk:USDT':      '/icons/tokens/usdt.png',
 };
 
 const supportedAssets: Array<{ chain: WalletAsset['chain']; symbol: string; name: string }> = [
   { chain: 'Base', symbol: 'ETH', name: 'Ethereum' },
   { chain: 'Base', symbol: 'USDC', name: 'USD Coin' },
+  { chain: 'Base', symbol: 'USDT', name: 'Tether' },
   { chain: 'Solana', symbol: 'SOL', name: 'Solana' },
-  { chain: 'Solana', symbol: 'USDC', name: 'USD Coin' }
+  { chain: 'Solana', symbol: 'USDC', name: 'USD Coin' },
+  { chain: 'Solana', symbol: 'USDT', name: 'Tether' },
+  { chain: 'Arbitrum', symbol: 'ETH', name: 'Ethereum' },
+  { chain: 'Arbitrum', symbol: 'USDC', name: 'USD Coin' },
+  { chain: 'Arbitrum', symbol: 'USDT', name: 'Tether' },
+  { chain: 'Polygon', symbol: 'USDC', name: 'USD Coin' },
+  { chain: 'Polygon', symbol: 'USDT', name: 'Tether' },
+  { chain: 'Celo', symbol: 'USDC', name: 'USD Coin' },
+  { chain: 'Celo', symbol: 'USDT', name: 'Tether' },
+  { chain: 'Lisk', symbol: 'USDC', name: 'USD Coin' },
+  { chain: 'Lisk', symbol: 'USDT', name: 'Tether' },
 ];
 
 const TX_KIND: Record<WalletTransaction['kind'], { dot: string; bg: string; text: string }> = {
-  receive: { dot: 'bg-[#12b76a]', bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
-  send: { dot: 'bg-[#f04438]', bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
-  payment: { dot: 'bg-[#2563eb]', bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
-  settlement: { dot: 'bg-[#f59e0b]', bg: 'bg-[#fffaeb]', text: 'text-[#92400e]' }
+  receive: { dot: 'bg-[#12b76a]', bg: 'bg-[#ecfdf3]', text: 'text-[#717680]' },
+  send: { dot: 'bg-[#f04438]', bg: 'bg-[#fff1f0]', text: 'text-[#717680]' },
+  payment: { dot: 'bg-[#2563eb]', bg: 'bg-[#eff4ff]', text: 'text-[#717680]' },
+  settlement: { dot: 'bg-[#f59e0b]', bg: 'bg-[#fffaeb]', text: 'text-[#717680]' }
 };
 
 const USD_TX_STATUS: Record<AccountTransaction['status'], { dot: string; label: string }> = {
@@ -62,11 +87,17 @@ type ActionState = 'enroll' | 'bridge_kyc' | 'refresh' | null;
 export function WalletView({
   initialWalletData,
   initialAccountsData,
-  accessToken: serverAccessToken
+  accessToken: serverAccessToken,
+  isUsdAccountRegionLocked = false,
+  usdAccountRegionLockReason = null,
+  regionCountryCode = null,
 }: {
   initialWalletData: WalletData;
   initialAccountsData: AccountsData;
   accessToken: string | null;
+  isUsdAccountRegionLocked?: boolean;
+  usdAccountRegionLockReason?: string | null;
+  regionCountryCode?: string | null;
 }) {
   const { toast } = useToast();
   const { getAccessToken } = usePrivy();
@@ -139,6 +170,14 @@ export function WalletView({
   }, [toast]);
 
   const handleEnroll = useCallback(async () => {
+    if (isUsdAccountRegionLocked) {
+      toast({
+        type: 'warning',
+        title: 'USD account unavailable',
+        message: usdAccountRegionLockReason || 'This feature is not available in your region yet.'
+      });
+      return;
+    }
     setActionState('enroll');
     try {
       const token = await getFreshToken();
@@ -190,9 +229,17 @@ export function WalletView({
     } finally {
       setActionState(null);
     }
-  }, [getFreshToken, openBridgeKyc, refreshUsdAccount, toast, usdAccount]);
+  }, [getFreshToken, isUsdAccountRegionLocked, openBridgeKyc, refreshUsdAccount, toast, usdAccount, usdAccountRegionLockReason]);
 
   const handleOpenBridgeKyc = useCallback(async () => {
+    if (isUsdAccountRegionLocked) {
+      toast({
+        type: 'warning',
+        title: 'USD account unavailable',
+        message: usdAccountRegionLockReason || 'This feature is not available in your region yet.'
+      });
+      return;
+    }
     setActionState('bridge_kyc');
     try {
       const token = await getFreshToken();
@@ -210,9 +257,17 @@ export function WalletView({
     } finally {
       setActionState(null);
     }
-  }, [getFreshToken, openBridgeKyc, toast]);
+  }, [getFreshToken, isUsdAccountRegionLocked, openBridgeKyc, toast, usdAccountRegionLockReason]);
 
   const handleRefresh = useCallback(async () => {
+    if (isUsdAccountRegionLocked) {
+      toast({
+        type: 'warning',
+        title: 'USD account unavailable',
+        message: usdAccountRegionLockReason || 'This feature is not available in your region yet.'
+      });
+      return;
+    }
     setActionState('refresh');
     try {
       await refreshUsdAccount(true);
@@ -225,9 +280,10 @@ export function WalletView({
     } finally {
       setActionState(null);
     }
-  }, [refreshUsdAccount, toast]);
+  }, [isUsdAccountRegionLocked, refreshUsdAccount, toast, usdAccountRegionLockReason]);
 
   const handleSettlementUpdated = useCallback(async () => {
+    if (isUsdAccountRegionLocked) return;
     const refreshed = await refreshUsdAccount(false);
     setUsdAccount(refreshed.usdAccount);
     setAccountTransactions(refreshed.accountTransactions);
@@ -236,30 +292,33 @@ export function WalletView({
       title: 'Settlement chain updated',
       message: `USD deposits will now settle to ${refreshed.usdAccount.settlementChain}.`
     });
-  }, [refreshUsdAccount, toast]);
+  }, [isUsdAccountRegionLocked, refreshUsdAccount, toast]);
 
   const hasAssignedAccount = Boolean(usdAccount.hasAssignedAccount || usdAccount.accountNumberMasked || usdAccount.routingNumberMasked);
   const hasBridgeEnrollment = Boolean(usdAccount.bridgeCustomerId || hasAssignedAccount);
   const effectiveUsdStatus = hasBridgeEnrollment ? usdAccount.status : 'not_started';
   const effectiveBridgeStatus = hasBridgeEnrollment ? (usdAccount.bridgeKycStatus || 'not_started') : 'not_started';
 
-  const usdStatusLabel =
-    effectiveUsdStatus === 'active'
+  const usdStatusLabel = isUsdAccountRegionLocked
+    ? 'Unavailable'
+    : effectiveUsdStatus === 'active'
       ? 'Active'
       : effectiveUsdStatus === 'pending_kyc'
         ? 'Pending setup'
         : 'Not started';
-  const usdStatusDot =
-    effectiveUsdStatus === 'active'
+  const usdStatusDot = isUsdAccountRegionLocked
+    ? 'bg-[#a4a7ae]'
+    : effectiveUsdStatus === 'active'
       ? 'bg-[#12b76a]'
       : effectiveUsdStatus === 'pending_kyc'
         ? 'bg-[#f59e0b]'
         : 'bg-[#a4a7ae]';
-  const usdStatusTone =
-    effectiveUsdStatus === 'active'
-      ? 'bg-[#ecfdf3] text-[#027a48]'
+  const usdStatusTone = isUsdAccountRegionLocked
+    ? 'bg-[#f2f4f7] text-[#717680]'
+    : effectiveUsdStatus === 'active'
+      ? 'bg-[#ecfdf3] text-[#717680]'
       : effectiveUsdStatus === 'pending_kyc'
-        ? 'bg-[#fffaeb] text-[#b54708]'
+        ? 'bg-[#fffaeb] text-[#717680]'
         : 'bg-[#f2f4f7] text-[#717680]';
 
   const needsDiditKyc = usdAccount.diditKycStatus !== 'approved';
@@ -271,17 +330,19 @@ export function WalletView({
     bridgeApproved,
     hasAssignedAccount,
     hasBridgeEnrollment,
-    actionState
+    actionState,
+    isRegionLocked: isUsdAccountRegionLocked,
+    regionLockReason: usdAccountRegionLockReason,
+    regionCountryCode
   });
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <PageHeader
-          eyebrow="Wallet"
-          title="Wallet & USD account"
-          description="Your crypto portfolio, Bridge USD account, and transaction history in one place."
-        />
+        <div>
+          <h1 className="text-[15px] font-semibold text-[#181d27]">Wallet</h1>
+          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Your crypto balances and banking details in one place.</p>
+        </div>
         <div className="shrink-0 pt-1">
           <ShareWalletDialog
             baseAddress={baseAccount?.address ?? null}
@@ -293,7 +354,7 @@ export function WalletView({
       <div className="grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
         <div className="bg-white px-5 py-4">
           <div className="mb-2 flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-[#2563eb]" weight="bold" />
+            <Wallet className="h-4 w-4 text-[#717680]" weight="bold" />
             <span className="text-[12px] font-medium text-[#717680]">Crypto portfolio</span>
           </div>
           <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCurrency(totalCrypto)}</p>
@@ -301,15 +362,15 @@ export function WalletView({
         </div>
         <div className="bg-white px-5 py-4">
           <div className="mb-2 flex items-center gap-2">
-            <Bank className="h-4 w-4 text-[#12b76a]" weight="bold" />
+            <Bank className="h-4 w-4 text-[#717680]" weight="bold" />
             <span className="text-[12px] font-medium text-[#717680]">USD account</span>
           </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#12b76a]">{formatCurrency(usdAccount.balanceUsd)}</p>
+          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#717680]">{formatCurrency(usdAccount.balanceUsd)}</p>
           <p className="mt-1 text-[11px] text-[#a4a7ae]">{usdStatusLabel}</p>
         </div>
         <div className="bg-white px-5 py-4">
           <div className="mb-2 flex items-center gap-2">
-            <Coins className="h-4 w-4 text-[#f59e0b]" weight="bold" />
+            <Coins className="h-4 w-4 text-[#717680]" weight="bold" />
             <span className="text-[12px] font-medium text-[#717680]">Assets tracked</span>
           </div>
           <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{allAssets.length}</p>
@@ -351,6 +412,9 @@ export function WalletView({
             account={usdAccount}
             hasBridgeEnrollment={hasBridgeEnrollment}
             actionState={actionState}
+            isRegionLocked={isUsdAccountRegionLocked}
+            regionLockReason={usdAccountRegionLockReason}
+            regionCountryCode={regionCountryCode}
             onEnroll={handleEnroll}
             onOpenBridgeKyc={handleOpenBridgeKyc}
             onRefresh={handleRefresh}
@@ -368,11 +432,13 @@ export function WalletView({
                   <ChainIcon chain={usdAccount.settlementChain} size={16} />
                   <span className="text-[13px] font-semibold text-[#181d27]">{usdAccount.settlementChain}</span>
                 </div>
-                <ChangeSettlementDialog
-                  currentChain={usdAccount.settlementChain}
-                  accessToken={serverAccessToken ?? ''}
-                  onUpdated={handleSettlementUpdated}
-                />
+                {!isUsdAccountRegionLocked ? (
+                  <ChangeSettlementDialog
+                    currentChain={usdAccount.settlementChain}
+                    accessToken={serverAccessToken ?? ''}
+                    onUpdated={handleSettlementUpdated}
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -432,7 +498,7 @@ export function WalletView({
                 return (
                   <div key={tx.id} className="grid grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa]">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ecfdf3] text-[#027a48]">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ecfdf3] text-[#717680]">
                         <Bank className="h-4 w-4" weight="bold" />
                       </div>
                       <div className="min-w-0">
@@ -461,6 +527,9 @@ function UsdSetupPanel({
   account,
   hasBridgeEnrollment,
   actionState,
+  isRegionLocked,
+  regionLockReason,
+  regionCountryCode,
   onEnroll,
   onOpenBridgeKyc,
   onRefresh
@@ -468,6 +537,9 @@ function UsdSetupPanel({
   account: UsdAccount;
   hasBridgeEnrollment: boolean;
   actionState: ActionState;
+  isRegionLocked: boolean;
+  regionLockReason?: string | null;
+  regionCountryCode?: string | null;
   onEnroll: () => void;
   onOpenBridgeKyc: () => void;
   onRefresh: () => void;
@@ -475,7 +547,17 @@ function UsdSetupPanel({
   const needsDiditKyc = account.diditKycStatus !== 'approved';
   const hasAssignedAccount = Boolean(account.hasAssignedAccount || account.accountNumberMasked || account.routingNumberMasked);
   const bridgeApproved = hasBridgeEnrollment && account.bridgeKycStatus === 'approved';
-  const state = getUsdSetupState({ account, needsDiditKyc, bridgeApproved, hasAssignedAccount, hasBridgeEnrollment, actionState });
+  const state = getUsdSetupState({
+    account,
+    needsDiditKyc,
+    bridgeApproved,
+    hasAssignedAccount,
+    hasBridgeEnrollment,
+    actionState,
+    isRegionLocked,
+    regionLockReason,
+    regionCountryCode
+  });
 
   return (
     <div className="border-b border-[#e9eaeb] px-5 py-4">
@@ -593,12 +675,13 @@ function mergeSupportedAssets(walletAssets: WalletAsset[]) {
 }
 
 function groupAssetsByChain(walletAssets: WalletAsset[]) {
-  return walletAssets.reduce<Record<WalletAsset['chain'], WalletAsset[]>>(
+  return walletAssets.reduce<Record<string, WalletAsset[]>>(
     (groups, asset) => {
+      if (!groups[asset.chain]) groups[asset.chain] = [];
       groups[asset.chain].push(asset);
       return groups;
     },
-    { Base: [], Solana: [] }
+    {}
   );
 }
 
@@ -608,7 +691,10 @@ function getUsdSetupState({
   bridgeApproved,
   hasAssignedAccount,
   hasBridgeEnrollment,
-  actionState
+  actionState,
+  isRegionLocked,
+  regionLockReason,
+  regionCountryCode
 }: {
   account: UsdAccount;
   needsDiditKyc: boolean;
@@ -616,7 +702,21 @@ function getUsdSetupState({
   hasAssignedAccount: boolean;
   hasBridgeEnrollment: boolean;
   actionState: ActionState;
+  isRegionLocked: boolean;
+  regionLockReason?: string | null;
+  regionCountryCode?: string | null;
 }) {
+  if (isRegionLocked) {
+    return {
+      tone: 'border-[#e9eaeb] bg-[#fcfcfd]',
+      title: 'USD accounts are unavailable in your region',
+      description: `${regionLockReason || 'This feature is not currently available where you are located.'}${regionCountryCode ? ` (Detected region: ${regionCountryCode})` : ''}`,
+      primaryAction: null,
+      secondaryAction: null,
+      caption: 'Region locked'
+    } as const;
+  }
+
   if (account.featureEnabled === false) {
     return {
       tone: 'border-[#e9eaeb] bg-[#fcfcfd]',

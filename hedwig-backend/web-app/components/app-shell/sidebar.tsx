@@ -9,12 +9,15 @@ import { cn } from '@/lib/utils';
 
 export function AppSidebar({
   collapsed,
-  onToggle
+  onToggle,
+  lockedRoutes = []
 }: {
   collapsed: boolean;
   onToggle: () => void;
+  lockedRoutes?: string[];
 }) {
   const pathname = usePathname();
+  const lockedRouteSet = new Set(lockedRoutes);
   const sidebarWidth = collapsed ? 'w-[64px]' : 'w-[220px]';
   const placeholderWidth = collapsed ? 'w-[64px]' : 'w-[220px]';
 
@@ -62,7 +65,7 @@ export function AppSidebar({
               <div className={cn('my-1.5 h-px bg-[#f2f4f7]', collapsed ? 'mx-1' : 'mx-0')} />
             )}
             <ul className="flex flex-col gap-0.5">
-              {group.items.map((item) => {
+              {group.items.filter((item) => !lockedRouteSet.has(item.href)).map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 const Icon = item.icon;
                 return (

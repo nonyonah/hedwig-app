@@ -10,7 +10,9 @@ import Button from '../../components/Button';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
     detectRecipientChain,
+    EVM_CHAINS,
     getTokenOptionsForChain,
+    isValidSendChain,
     parseNumeric,
     SendChain,
     shortenAddress,
@@ -61,7 +63,7 @@ export default function SendCryptoScreen() {
 
     const params = useLocalSearchParams<{ recipient?: string; chain?: string; token?: string }>();
     const recipient = typeof params.recipient === 'string' ? params.recipient.trim() : '';
-    const routeChain = params.chain === 'base' || params.chain === 'solana' ? params.chain : null;
+    const routeChain = typeof params.chain === 'string' && isValidSendChain(params.chain) ? params.chain : null;
     const detectedChain = detectRecipientChain(recipient);
     const chain = (routeChain || detectedChain) as SendChain | null;
     const tokenAsset = typeof params.token === 'string' ? params.token.toLowerCase() : '';
@@ -178,8 +180,8 @@ export default function SendCryptoScreen() {
             return;
         }
 
-        if (selectedOption.chain === 'base' && !evmAddress) {
-            Alert.alert('Wallet unavailable', 'No Base wallet found for this account.');
+        if (EVM_CHAINS.has(selectedOption.chain) && !evmAddress) {
+            Alert.alert('Wallet unavailable', 'No EVM wallet found for this account.');
             return;
         }
 

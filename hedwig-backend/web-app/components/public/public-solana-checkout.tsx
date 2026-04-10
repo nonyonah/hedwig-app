@@ -110,12 +110,14 @@ export function PublicSolanaCheckout({
   documentId,
   amount,
   title,
-  merchantAddress
+  merchantAddress,
+  token = 'USDC'
 }: {
   documentId: string;
   amount: number;
   title: string;
   merchantAddress?: string | null;
+  token?: 'USDC' | 'USDT';
 }) {
   const router = useRouter();
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -126,13 +128,14 @@ export function PublicSolanaCheckout({
 
   const supportsDirectCheckout = Boolean(merchantAddress);
   const chainIcon = '/icons/networks/solana.png';
-  const tokenIcon = '/icons/tokens/usdc.png';
+  const tokenIcon = token === 'USDT' ? '/icons/tokens/usdt.png' : '/icons/tokens/usdc.png';
+  const tokenSymbol = token ?? 'USDC';
 
   const buttonLabel = useMemo(() => {
     if (!supportsDirectCheckout) return 'Merchant wallet unavailable';
     if (!walletAddress) return 'Connect wallet';
-    return isPaying ? 'Processing…' : `Pay ${amount} USDC`;
-  }, [amount, isPaying, supportsDirectCheckout, walletAddress]);
+    return isPaying ? 'Processing…' : `Pay ${amount} ${tokenSymbol}`;
+  }, [amount, isPaying, supportsDirectCheckout, tokenSymbol, walletAddress]);
 
   const connectWallet = async () => {
     setError(null);
@@ -167,7 +170,7 @@ export function PublicSolanaCheckout({
       const connection = await createConnection(activeCluster);
       const fromPubkey = new PublicKey(publicKey);
       const toPubkey = new PublicKey(merchantAddress);
-      const mintPubkey = new PublicKey(SOLANA_TOKENS[activeCluster].USDC);
+      const mintPubkey = new PublicKey(SOLANA_TOKENS[activeCluster][tokenSymbol]);
 
       const fromTokenAccount = await getAssociatedTokenAddress(mintPubkey, fromPubkey);
       const toTokenAccount = await getAssociatedTokenAddress(mintPubkey, toPubkey);
@@ -237,7 +240,7 @@ export function PublicSolanaCheckout({
           txHash: signature,
           payer: publicKey,
           chain: 'solana',
-          token: 'USDC',
+          token: tokenSymbol,
           amount
         })
       });
@@ -248,7 +251,7 @@ export function PublicSolanaCheckout({
         throw new Error(message || 'Your transaction was confirmed, but Hedwig could not update the payment status yet.');
       }
 
-      router.push(`/success?txHash=${encodeURIComponent(signature)}&amount=${encodeURIComponent(String(amount))}&symbol=USDC`);
+      router.push(`/success?txHash=${encodeURIComponent(signature)}&amount=${encodeURIComponent(String(amount))}&symbol=${encodeURIComponent(tokenSymbol)}`);
       router.refresh();
     } catch (err: unknown) {
       setError(getErrorMessage(err) || 'Payment failed.');
@@ -263,12 +266,12 @@ export function PublicSolanaCheckout({
         <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#f8f9fc]">
           <Image src={chainIcon} alt="Solana" width={28} height={28} className="rounded-full" />
           <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-white shadow-xs">
-            <Image src={tokenIcon} alt="USDC" width={14} height={14} className="rounded-full" />
+            <Image src={tokenIcon} alt={tokenSymbol} width={14} height={14} className="rounded-full" />
           </span>
         </div>
         <div>
           <p className="text-sm font-medium text-[#717680]">Crypto checkout</p>
-          <p className="text-sm font-semibold text-[#181d27]">USDC on {cluster === 'devnet' ? 'Solana Devnet' : 'Solana'}</p>
+          <p className="text-sm font-semibold text-[#181d27]">{tokenSymbol} on {cluster === 'devnet' ? 'Solana Devnet' : 'Solana'}</p>
         </div>
       </div>
 
@@ -282,15 +285,15 @@ export function PublicSolanaCheckout({
           {cluster === 'devnet' ? 'Solana Devnet' : 'Solana'}
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-[#e9eaeb] bg-[#fcfcfd] px-3 py-1.5 text-xs font-medium text-[#414651]">
-          <Image src={tokenIcon} alt="USDC" width={16} height={16} className="rounded-full" />
-          USDC
+          <Image src={tokenIcon} alt={tokenSymbol} width={16} height={16} className="rounded-full" />
+          {tokenSymbol}
         </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] p-4 text-sm text-[#414651]">
         <div className="flex items-center justify-between">
           <span>Amount</span>
-          <span className="font-semibold text-[#181d27]">{amount} USDC</span>
+          <span className="font-semibold text-[#181d27]">{amount} {tokenSymbol}</span>
         </div>
         <div className="mt-3 flex items-center justify-between">
           <span>Merchant wallet</span>

@@ -3,15 +3,22 @@
 import Image from 'next/image';
 import { useState } from 'react';
 import { ArrowsDownUp, Bank, CaretRight, Check, CheckCircle, ClockCountdown, Copy, SpinnerGap, Warning, X } from '@/components/ui/lucide-icons';
+import { ClientPortal } from '@/components/ui/client-portal';
 import type { OfframpTransaction } from '@/lib/models/entities';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
 
 
 export function OfframpClient({
-  initialTransactions
+  initialTransactions,
+  isRegionLocked = false,
+  regionLockReason = null,
+  countryCode = null,
 }: {
   initialTransactions: OfframpTransaction[];
   accessToken: string | null;
+  isRegionLocked?: boolean;
+  regionLockReason?: string | null;
+  countryCode?: string | null;
 }) {
   const [transactions] = useState(initialTransactions);
   const [selectedTx, setSelectedTx] = useState<OfframpTransaction | null>(null);
@@ -31,11 +38,24 @@ export function OfframpClient({
 
   return (
     <div className="space-y-4">
-      {/* Transactions table */}
+      <div>
+        <h1 className="text-[15px] font-semibold text-[#181d27]">Offramp</h1>
+        <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Convert your crypto balances to local currency.</p>
+      </div>
+      {isRegionLocked ? (
+        <div className="rounded-2xl border border-[#e9eaeb] bg-white px-5 py-5 shadow-xs">
+          <p className="text-[14px] font-semibold text-[#181d27]">Offramp is unavailable in your region</p>
+          <p className="mt-1 text-[13px] leading-6 text-[#717680]">
+            {regionLockReason || 'This feature is not currently available where you are located.'}
+            {countryCode ? ` (Detected region: ${countryCode})` : ''}
+          </p>
+        </div>
+      ) : null}
+      {!isRegionLocked ? (
+        /* Transactions table */
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
         <div className="flex items-center gap-2.5 border-b border-[#f2f4f7] px-5 py-3">
-          <h1 className="text-[14px] font-semibold text-[#181d27]">Offramp</h1>
-          <span className="text-[12px] text-[#c1c5cd]">{transactions.length}</span>
+          <span className="text-[12px] font-medium text-[#717680]">{transactions.length} transactions</span>
           {(pendingCount > 0 || completedCount > 0) && (
             <>
               <span className="h-3 w-px bg-[#f2f4f7]" />
@@ -91,9 +111,10 @@ export function OfframpClient({
           </div>
         )}
       </div>
+      ) : null}
 
       {/* ══ Offramp detail panel ════════════════════════════════ */}
-      {selectedTx && <OfframpDetailPanel tx={selectedTx} onClose={() => setSelectedTx(null)} />}
+      {!isRegionLocked && selectedTx ? <OfframpDetailPanel tx={selectedTx} onClose={() => setSelectedTx(null)} /> : null}
     </div>
   );
 }
@@ -141,9 +162,9 @@ function OfframpDetailPanel({ tx, onClose }: { tx: OfframpTransaction; onClose: 
   const fullTime = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <>
+    <ClientPortal>
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={onClose} />
-      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[440px] flex-col bg-white shadow-2xl animate-in slide-in-from-right-full duration-300 ease-out">
+      <div className="fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-[440px] flex-col bg-white shadow-2xl animate-in slide-in-from-right-full duration-300 ease-out">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#e9eaeb] px-5 py-4">
@@ -218,6 +239,6 @@ function OfframpDetailPanel({ tx, onClose }: { tx: OfframpTransaction; onClose: 
           <div className="h-8" />
         </div>
       </div>
-    </>
+    </ClientPortal>
   );
 }

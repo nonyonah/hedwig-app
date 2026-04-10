@@ -8,20 +8,37 @@ import { SendTokenDialog } from '@/components/wallet/send-token-dialog';
 import type { WalletAsset } from '@/lib/models/entities';
 import { formatCurrency } from '@/lib/utils';
 
-const chainIconByName: Record<'Base' | 'Solana', string> = {
-  Base:   '/icons/networks/base.png',
-  Solana: '/icons/networks/solana.png'
+const chainIconByName: Record<string, string> = {
+  Base:     '/icons/networks/base.png',
+  Solana:   '/icons/networks/solana.png',
+  Arbitrum: '/icons/networks/arbitrum.png',
+  Polygon:  '/icons/networks/polygon.png',
+  Celo:     '/icons/networks/celo.png',
+  Lisk:     '/icons/networks/lisk.png',
 };
 
 const tokenIconByKey: Record<string, string> = {
-  'Base:ETH':    '/icons/tokens/eth.png',
-  'Base:USDC':   '/icons/tokens/usdc.png',
-  'Solana:SOL':  '/icons/networks/solana.png',
-  'Solana:USDC': '/icons/tokens/usdc.png'
+  'Base:ETH':       '/icons/tokens/eth.png',
+  'Base:USDC':      '/icons/tokens/usdc.png',
+  'Base:USDT':      '/icons/tokens/usdt.png',
+  'Solana:SOL':     '/icons/networks/solana.png',
+  'Solana:USDC':    '/icons/tokens/usdc.png',
+  'Solana:USDT':    '/icons/tokens/usdt.png',
+  'Arbitrum:ETH':   '/icons/tokens/eth.png',
+  'Arbitrum:USDC':  '/icons/tokens/usdc.png',
+  'Arbitrum:USDT':  '/icons/tokens/usdt.png',
+  'Polygon:USDC':   '/icons/tokens/usdc.png',
+  'Polygon:USDT':   '/icons/tokens/usdt.png',
+  'Celo:USDC':      '/icons/tokens/usdc.png',
+  'Celo:USDT':      '/icons/tokens/usdt.png',
+  'Lisk:USDC':      '/icons/tokens/usdc.png',
+  'Lisk:USDT':      '/icons/tokens/usdt.png',
 };
 
-function ChainIcon({ chain, size = 16 }: { chain: 'Base' | 'Solana'; size?: number }) {
-  return <Image src={chainIconByName[chain]} alt={chain} width={size} height={size} className="rounded-full shrink-0" />;
+function ChainIcon({ chain, size = 16 }: { chain: string; size?: number }) {
+  const src = chainIconByName[chain];
+  if (!src) return null;
+  return <Image src={src} alt={chain} width={size} height={size} className="rounded-full shrink-0" />;
 }
 
 function TokenIcon({ chain, symbol, label, size = 32 }: { chain: WalletAsset['chain']; symbol: string; label: string; size?: number }) {
@@ -52,7 +69,7 @@ export function WalletAssetsTable({
         <div className="flex items-center justify-between border-b border-[#e9eaeb] px-5 py-4">
           <div>
             <p className="text-[15px] font-semibold text-[#181d27]">Asset portfolio</p>
-            <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Live balances across Base and Solana · tap any row for details</p>
+            <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Live balances across all supported chains · tap any row for details</p>
           </div>
           <div className="flex items-center gap-3">
             <p className="text-[14px] font-semibold text-[#181d27]">

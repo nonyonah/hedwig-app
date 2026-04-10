@@ -8,6 +8,7 @@ import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
     detectRecipientChain,
     getTokenOptionsForChain,
+    isValidSendChain,
     parseNumeric,
     SendChain,
     shortenAddress,
@@ -38,7 +39,7 @@ export default function SendTokenScreen() {
     const params = useLocalSearchParams<{ recipient?: string; chain?: string }>();
 
     const recipient = typeof params.recipient === 'string' ? params.recipient.trim() : '';
-    const routeChain = params.chain === 'base' || params.chain === 'solana' ? params.chain : null;
+    const routeChain = typeof params.chain === 'string' && isValidSendChain(params.chain) ? params.chain : null;
     const detectedChain = detectRecipientChain(recipient);
     const chain = (routeChain || detectedChain) as SendChain | null;
 
@@ -105,7 +106,7 @@ export default function SendTokenScreen() {
                                 pathname: '/wallet/send',
                                 params: {
                                     recipient,
-                                    chain,
+                                    chain: option.chain, // use the token's actual chain, not the detected chain
                                     token: option.asset,
                                 },
                             })
