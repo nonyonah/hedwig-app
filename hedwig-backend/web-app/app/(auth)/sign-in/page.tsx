@@ -201,6 +201,9 @@ export default function SignInPage() {
         {stage === 'landing' && (
           <div>
             <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Sign in to Hedwig</h1>
+            <p className="mt-2 text-[13px] text-[#717680]">
+              Manage projects, invoices, and payments in one workspace.
+            </p>
 
             <div className="mt-8 space-y-3">
               {/* Google */}

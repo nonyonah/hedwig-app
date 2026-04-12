@@ -18,6 +18,9 @@ import {
 } from '@/components/ui/lucide-icons';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
+import type { BillingStatusSummary } from '@/lib/api/client';
+import { canUseFeature } from '@/lib/billing/feature-gates';
+import { ProLockCard } from '@/components/billing/pro-lock-card';
 import type { Contract, Invoice, Milestone, PaymentLink } from '@/lib/models/entities';
 
 type DashboardData = {
@@ -63,9 +66,18 @@ function getTimeOfDayGreeting(hour: number) {
   return 'Good night';
 }
 
-export function DashboardClient({ greetingName, data }: { greetingName: string; data: DashboardData }) {
+export function DashboardClient({
+  greetingName,
+  data,
+  billing,
+}: {
+  greetingName: string;
+  data: DashboardData;
+  billing: BillingStatusSummary | null;
+}) {
   const { currency } = useCurrency();
   const [hour, setHour] = useState(() => new Date().getHours());
+  const canUseAssistantSummary = canUseFeature('assistant_summary_advanced', billing);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -347,21 +359,29 @@ export function DashboardClient({ greetingName, data }: { greetingName: string; 
 
       {/* Bottom row: assistant summary + next reminder */}
       <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-        <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="mb-3 flex items-center gap-2.5">
-            {/* UUI featured icon: brand color */}
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
-              <Sparkle className="h-4 w-4 text-[#717680]" weight="fill" />
+        {canUseAssistantSummary ? (
+          <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+            <div className="mb-3 flex items-center gap-2.5">
+              {/* UUI featured icon: brand color */}
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
+                <Sparkle className="h-4 w-4 text-[#717680]" weight="fill" />
+              </div>
+              <p className="text-[16px] font-semibold text-[#181d27]">Assistant summary</p>
             </div>
-            <p className="text-[16px] font-semibold text-[#181d27]">Assistant summary</p>
-          </div>
-          <p className="text-[14px] leading-relaxed text-[#535862]">
-            {data.assistantSummary ||
-              dashboardState.latestNotification?.body ||
-              dashboardState.latestActivity?.summary ||
-              'Payment activity, reminders, contracts, and wallet movements will surface here as a concise operating brief.'}
-          </p>
-        </article>
+            <p className="text-[14px] leading-relaxed text-[#535862]">
+              {data.assistantSummary ||
+                dashboardState.latestNotification?.body ||
+                dashboardState.latestActivity?.summary ||
+                'Payment activity, reminders, contracts, and wallet movements are summarized here.'}
+            </p>
+          </article>
+        ) : (
+          <ProLockCard
+            title="Assistant summary is on Pro"
+            description="Unlock proactive summaries for payments, reminders, and project updates."
+            compact
+          />
+        )}
 
         <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
           <div className="mb-3 flex items-center justify-between">

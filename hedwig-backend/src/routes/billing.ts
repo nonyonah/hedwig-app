@@ -11,6 +11,63 @@ import {
 const logger = createLogger('Billing');
 const router = Router();
 
+const PRO_MONTHLY_PRICE_USD = 5;
+const PRO_ANNUAL_PRICE_USD = 48;
+const PRO_ANNUAL_DISCOUNT_PERCENT = 20;
+
+type BillingInterval = 'monthly' | 'annual';
+
+const getCheckoutBaseUrl = (interval: BillingInterval): string | null => {
+    const envKey = interval === 'annual'
+        ? process.env.REVENUECAT_WEB_CHECKOUT_ANNUAL_URL
+        : process.env.REVENUECAT_WEB_CHECKOUT_MONTHLY_URL;
+    const normalized = String(envKey || '').trim();
+    return normalized || null;
+};
+
+const buildCheckoutUrl = (params: {
+    interval: BillingInterval;
+    appUserId: string;
+    returnUrl?: string | null;
+}): string | null => {
+    const base = getCheckoutBaseUrl(params.interval);
+    if (!base) return null;
+
+    try {
+        const url = new URL(base);
+        if (!url.searchParams.has('app_user_id')) {
+            url.searchParams.set('app_user_id', params.appUserId);
+        }
+        if (params.returnUrl && !url.searchParams.has('return_url')) {
+            url.searchParams.set('return_url', params.returnUrl);
+        }
+        return url.toString();
+    } catch {
+        const query = new URLSearchParams();
+        query.set('app_user_id', params.appUserId);
+        if (params.returnUrl) query.set('return_url', params.returnUrl);
+        const separator = base.includes('?') ? '&' : '?';
+        return `${base}${separator}${query.toString()}`;
+    }
+};
+
+const pricingResponse = {
+    monthly: {
+        id: 'pro-monthly',
+        interval: 'monthly',
+        priceUsd: PRO_MONTHLY_PRICE_USD,
+        label: '$5/month',
+    },
+    annual: {
+        id: 'pro-annual',
+        interval: 'annual',
+        priceUsd: PRO_ANNUAL_PRICE_USD,
+        label: '$48/year',
+        monthlyEquivalentUsd: Number((PRO_ANNUAL_PRICE_USD / 12).toFixed(2)),
+        discountPercent: PRO_ANNUAL_DISCOUNT_PERCENT,
+    },
+} as const;
+
 router.get('/status', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
         const privyId = req.user!.id;
@@ -65,5 +122,93 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
     }
 });
 
-export default router;
+router.get('/checkout-config', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
 
+        await syncRevenueCatStateForUser(user as any);
+        const state = await getRevenueCatStateForUser(user as any);
+
+        const isActive = Boolean(state?.is_active);
+        const appUserId = String(state?.app_user_id || user.id);
+
+        res.json({
+            success: true,
+            data: {
+                appUserId,
+                plan: isActive ? 'pro' : 'free',
+                entitlement: {
+                    id: REVENUECAT_PRIMARY_ENTITLEMENT,
+                    isActive,
+                },
+                pricing: pricingResponse,
+                checkout: {
+                    monthlyEnabled: Boolean(getCheckoutBaseUrl('monthly')),
+                    annualEnabled: Boolean(getCheckoutBaseUrl('annual')),
+                },
+            },
+        });
+    } catch (error) {
+        logger.error('Failed to fetch billing checkout config', {
+            error: error instanceof Error ? error.message : 'Unknown',
+        });
+        next(error);
+    }
+});
+
+router.post('/checkout-link', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const intervalRaw = String(req.body?.interval || 'monthly').trim().toLowerCase();
+        const interval: BillingInterval = intervalRaw === 'annual' ? 'annual' : 'monthly';
+        const returnUrl = typeof req.body?.returnUrl === 'string' ? req.body.returnUrl.trim() : null;
+
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        await syncRevenueCatStateForUser(user as any);
+        const state = await getRevenueCatStateForUser(user as any);
+        const appUserId = String(state?.app_user_id || user.id);
+
+        const checkoutUrl = buildCheckoutUrl({
+            interval,
+            appUserId,
+            returnUrl,
+        });
+
+        if (!checkoutUrl) {
+            res.status(503).json({
+                success: false,
+                error: {
+                    message: `Checkout is not configured for ${interval} billing.`,
+                },
+            });
+            return;
+        }
+
+        res.json({
+            success: true,
+            data: {
+                interval,
+                appUserId,
+                checkoutUrl,
+                pricing: pricingResponse[interval],
+            },
+        });
+    } catch (error) {
+        logger.error('Failed to create billing checkout link', {
+            error: error instanceof Error ? error.message : 'Unknown',
+        });
+        next(error);
+    }
+});
+
+export default router;

@@ -859,6 +859,123 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
 });
 
 /**
+ * POST /api/documents/:id/viewed
+ * Mark public invoice/payment-link as viewed (idempotent first-view tracking)
+ */
+router.post('/:id/viewed', async (req: Request, res: Response, next) => {
+    try {
+        const { id } = req.params;
+        const viewer = typeof req.body?.viewer === 'string' ? req.body.viewer.trim() : null;
+
+        const { data: doc, error: fetchError } = await supabase
+            .from('documents')
+            .select('id,user_id,type,status,title,content,amount,currency')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !doc) {
+            res.status(404).json({ success: false, error: { message: 'Document not found' } });
+            return;
+        }
+
+        const docType = String(doc.type || '').toUpperCase();
+        if (docType !== 'INVOICE' && docType !== 'PAYMENT_LINK') {
+            res.status(400).json({
+                success: false,
+                error: { message: 'View tracking is only supported for invoices and payment links' },
+            });
+            return;
+        }
+
+        const existingContent =
+            doc.content && typeof doc.content === 'object' ? { ...doc.content } as Record<string, any> : {};
+        const existingViewedAt = existingContent.viewed_at || existingContent.first_viewed_at || null;
+        const nowIso = new Date().toISOString();
+        const viewedAt = existingViewedAt ? String(existingViewedAt) : nowIso;
+        const alreadyViewed = Boolean(existingViewedAt);
+
+        if (!alreadyViewed) {
+            const status = String(doc.status || '').toUpperCase();
+            const nextStatus = status === 'DRAFT' || status === 'SENT' ? 'VIEWED' : status;
+
+            const { error: updateError } = await supabase
+                .from('documents')
+                .update({
+                    status: nextStatus,
+                    content: {
+                        ...existingContent,
+                        viewed_at: nowIso,
+                        first_viewed_at: nowIso,
+                        first_viewed_by: viewer || null,
+                    },
+                })
+                .eq('id', id);
+
+            if (updateError) {
+                throw new AppError(`Failed to mark document as viewed: ${updateError.message}`, 500);
+            }
+
+            const notificationType = docType === 'INVOICE' ? 'invoice_viewed' : 'payment_link_viewed';
+            const href = docType === 'INVOICE' ? `/payments?invoice=${doc.id}` : `/payments?link=${doc.id}`;
+
+            const { data: existingNotif, error: notifLookupError } = await supabase
+                .from('notifications')
+                .select('id')
+                .eq('user_id', doc.user_id)
+                .eq('type', notificationType)
+                .contains('metadata', { document_id: doc.id })
+                .limit(1)
+                .maybeSingle();
+
+            if (notifLookupError) {
+                logger.warn('Document viewed notification lookup failed', {
+                    documentId: doc.id,
+                    error: notifLookupError.message,
+                });
+            }
+
+            if (!existingNotif) {
+                const title = docType === 'INVOICE' ? 'Invoice viewed' : 'Payment link opened';
+                const body = docType === 'INVOICE'
+                    ? `${doc.title || 'An invoice'} was opened by a client.`
+                    : `${doc.title || 'Your payment link'} was opened by a client.`;
+                await supabase.from('notifications').insert({
+                    user_id: doc.user_id,
+                    type: notificationType,
+                    title,
+                    message: body,
+                    metadata: {
+                        document_id: doc.id,
+                        document_type: docType,
+                        amount: Number(doc.amount || 0),
+                        currency: String(doc.currency || 'USD'),
+                        href,
+                        entityId: doc.id,
+                        entityType: docType.toLowerCase(),
+                        viewedAt: nowIso,
+                        viewer: viewer || null,
+                    },
+                    is_read: false,
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            data: {
+                documentId: doc.id,
+                type: docType,
+                status: alreadyViewed ? String(doc.status || '').toUpperCase() : 'VIEWED',
+                viewedAt,
+                firstViewTracked: !alreadyViewed,
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * GET /api/documents/:id/public
  * Get public document details by ID (for sharing)
  */
@@ -1056,7 +1173,12 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
                         tx_hash: txHash,
                         chain: chain,
                         payer_email: payerEmail || null,
-                        payer_address: payer
+                        payer_address: payer,
+                        href: String(doc.type || '').toUpperCase() === 'PAYMENT_LINK'
+                            ? `/payments?link=${doc.id}`
+                            : `/payments?invoice=${doc.id}`,
+                        entityId: doc.id,
+                        entityType: String(doc.type || '').toLowerCase(),
                     },
                     is_read: false
                 });

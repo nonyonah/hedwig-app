@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, BellRinging, CheckCircle, X } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
@@ -11,6 +12,8 @@ interface NotificationItem {
   body: string;
   read: boolean;
   createdAt: string;
+  href?: string | null;
+  metadata?: Record<string, unknown>;
 }
 
 function mapNotification(raw: any): NotificationItem {
@@ -20,6 +23,12 @@ function mapNotification(raw: any): NotificationItem {
     body: String(raw?.message || raw?.body || ''),
     read: Boolean(raw?.is_read ?? raw?.read ?? false),
     createdAt: String(raw?.created_at || raw?.createdAt || new Date().toISOString()),
+    href: typeof raw?.href === 'string'
+      ? raw.href
+      : typeof raw?.metadata?.href === 'string'
+        ? raw.metadata.href
+        : null,
+    metadata: raw?.metadata && typeof raw.metadata === 'object' ? raw.metadata : undefined,
   };
 }
 
@@ -41,6 +50,7 @@ export function NotificationBell({
   unreadCount: number;
   accessToken?: string | null;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [localUnread, setLocalUnread] = useState(unreadCount);
@@ -195,6 +205,14 @@ export function NotificationBell({
     }
   };
 
+  const handleNotificationClick = async (notification: NotificationItem) => {
+    await markOneRead(notification.id);
+    if (notification.href) {
+      setOpen(false);
+      router.push(notification.href);
+    }
+  };
+
   return (
     <div className="relative" ref={panelRef}>
       <button
@@ -269,7 +287,9 @@ export function NotificationBell({
                 {items.map((n) => (
                   <li
                     key={n.id}
-                    onClick={() => void markOneRead(n.id)}
+                    onClick={() => {
+                      void handleNotificationClick(n);
+                    }}
                     className={cn(
                       'relative flex cursor-pointer items-start gap-3 px-4 py-3.5 transition hover:bg-[#fafafa]',
                       !n.read && 'bg-[#eff6ff]/40'

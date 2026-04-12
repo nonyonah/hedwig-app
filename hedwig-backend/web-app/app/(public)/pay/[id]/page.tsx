@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { PublicDocumentFrame } from '@/components/public/public-document-frame';
 import { PublicPaymentLinkPanel } from '@/components/public/public-payment-link-panel';
 import { PublicResultCard } from '@/components/public/public-result-card';
+import { DocumentViewTracker } from '@/components/public/document-view-tracker';
 import { fetchPublicDocument } from '@/lib/api/public-documents';
 import { getExplorerUrl, getSolanaExplorerUrl, resolvePublicSettlementChain, type PublicPaymentToken } from '@/lib/payments/public-constants';
 
@@ -73,6 +74,7 @@ export default async function PublicPaymentLinkPage({
 
   return (
     <PublicDocumentFrame title="Payment link">
+      <DocumentViewTracker documentId={document.id} />
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
 
         {/* ── Left: payment detail card ── */}

@@ -195,6 +195,7 @@ const normalizeInvoiceStatus = (value?: string | null): Invoice['status'] => {
   const status = String(value || '').toLowerCase();
   if (status === 'paid') return 'paid';
   if (status === 'overdue') return 'overdue';
+  if (status === 'viewed') return 'viewed';
   if (status === 'sent') return 'sent';
   return 'draft';
 };
@@ -430,6 +431,7 @@ const mapBackendInvoice = (document: any): Invoice => {
     remindersEnabled: content.reminders_enabled !== false,
     recurringInvoiceId: content.recurring_invoice_id || undefined,
     clientEmail: content.recipient_email || content.client_email || undefined,
+    viewedAt: content.viewed_at || content.first_viewed_at || undefined,
   };
 };
 
@@ -533,7 +535,15 @@ const mapBackendNotification = (notification: any): Notification => ({
   title: String(notification.title || 'Notification'),
   body: String(notification.message || notification.body || ''),
   createdAt: String(notification.created_at || notification.createdAt || new Date().toISOString()),
-  read: Boolean(notification.is_read ?? notification.read ?? false)
+  read: Boolean(notification.is_read ?? notification.read ?? false),
+  href: typeof notification.href === 'string'
+    ? notification.href
+    : typeof notification.metadata?.href === 'string'
+      ? notification.metadata.href
+      : null,
+  entityId: notification.entityId || notification.metadata?.entityId || notification.metadata?.document_id || null,
+  entityType: notification.entityType || notification.metadata?.entityType || notification.metadata?.document_type || null,
+  metadata: notification.metadata || undefined,
 });
 
 const mapBackendTransaction = (transaction: any): WalletTransaction => ({

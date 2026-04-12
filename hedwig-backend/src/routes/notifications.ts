@@ -9,6 +9,52 @@ const logger = createLogger('NotificationsRoute');
 
 const router = Router();
 
+const toObject = (value: unknown): Record<string, any> => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return value as Record<string, any>;
+    }
+    return {};
+};
+
+const buildFallbackHref = (type: string, metadata: Record<string, any>): string | null => {
+    const lowerType = String(type || '').toLowerCase();
+    const documentId = metadata.document_id || metadata.documentId || metadata.entityId;
+    const projectId = metadata.project_id || metadata.projectId || metadata.entityId;
+
+    if (documentId) {
+        const documentType = String(metadata.document_type || metadata.documentType || '').toLowerCase();
+        if (documentType.includes('payment_link') || lowerType.includes('payment_link') || lowerType.includes('link')) {
+            return `/payments?link=${documentId}`;
+        }
+        return `/payments?invoice=${documentId}`;
+    }
+
+    if (projectId && (lowerType.includes('project') || metadata.entityType === 'project')) {
+        return `/projects/${projectId}`;
+    }
+
+    if (lowerType.includes('wallet') || lowerType.includes('crypto') || lowerType.includes('offramp')) {
+        return '/wallet';
+    }
+
+    return null;
+};
+
+const normalizeNotificationRecord = (notification: Record<string, any>) => {
+    const metadata = toObject(notification.metadata);
+    const href = typeof metadata.href === 'string' && metadata.href.trim().length > 0
+        ? metadata.href.trim()
+        : buildFallbackHref(String(notification.type || ''), metadata);
+
+    return {
+        ...notification,
+        metadata,
+        href,
+        entityId: metadata.entityId || metadata.document_id || metadata.project_id || null,
+        entityType: metadata.entityType || metadata.document_type || null,
+    };
+};
+
 const canSendBroadcast = (user: any): boolean => {
     if (process.env.NOTIFICATION_BROADCAST_ENABLED !== 'true') return false;
 
@@ -444,11 +490,14 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
         }
 
         logger.debug('Found notifications', { count: notifications?.length || 0 });
+        const normalizedNotifications = (notifications || []).map((notification: any) =>
+            normalizeNotificationRecord(notification)
+        );
 
         res.json({
             success: true,
             data: {
-                notifications: notifications || [],
+                notifications: normalizedNotifications,
                 total: count || 0,
                 limit,
                 offset,

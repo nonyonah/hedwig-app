@@ -11,6 +11,36 @@ const logger = createLogger('Projects');
 
 const router = Router();
 
+const createProjectInAppNotification = async (params: {
+    userId: string;
+    projectId: string;
+    title: string;
+    message: string;
+    type: string;
+}) => {
+    const { error } = await supabase.from('notifications').insert({
+        user_id: params.userId,
+        type: params.type,
+        title: params.title,
+        message: params.message,
+        metadata: {
+            project_id: params.projectId,
+            href: `/projects/${params.projectId}`,
+            entityId: params.projectId,
+            entityType: 'project',
+        },
+        is_read: false,
+    });
+
+    if (error) {
+        logger.warn('Failed to create project notification', {
+            projectId: params.projectId,
+            type: params.type,
+            error: error.message,
+        });
+    }
+};
+
 /**
  * GET /api/projects
  * Get all projects for the authenticated user
@@ -571,6 +601,14 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
             createdInvoiceCount,
         });
 
+        await createProjectInAppNotification({
+            userId: user.id,
+            projectId: project.id,
+            type: 'project_created',
+            title: 'Project created',
+            message: `${project.name} is set up and ready for delivery.`,
+        });
+
         res.json({
             success: true,
             data: {
@@ -814,6 +852,17 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
                 }
             }
         }
+
+        const normalizedStatus = String(project.status || '').toUpperCase();
+        await createProjectInAppNotification({
+            userId: user.id,
+            projectId: project.id,
+            type: normalizedStatus === 'COMPLETED' ? 'project_completed' : 'project_updated',
+            title: normalizedStatus === 'COMPLETED' ? 'Project completed' : 'Project updated',
+            message: normalizedStatus === 'COMPLETED'
+                ? `${project.name} was marked as completed.`
+                : `${project.name} details were updated.`,
+        });
 
         res.json({
             success: true,

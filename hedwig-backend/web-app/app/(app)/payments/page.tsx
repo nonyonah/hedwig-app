@@ -20,6 +20,7 @@ export default async function PaymentsPage({
     hedwigApi.recurringInvoices({ accessToken: session.accessToken }).catch(() => []),
     hedwigApi.clients({ accessToken: session.accessToken }).catch(() => mockClients),
   ]);
+  const billing = await hedwigApi.billingStatus({ accessToken: session.accessToken }).catch(() => null);
 
   const params = (await searchParams) ?? {};
 
@@ -31,6 +32,7 @@ export default async function PaymentsPage({
       paymentLinks={data.paymentLinks}
       recurringInvoices={recurringInvoices}
       clients={clients}
+      billing={billing}
     />
   );
 }

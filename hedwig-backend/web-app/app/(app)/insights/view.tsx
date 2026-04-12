@@ -34,6 +34,9 @@ import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { formatCompactCurrency } from '@/lib/utils';
 import { backendConfig } from '@/lib/auth/config';
+import type { BillingStatusSummary } from '@/lib/api/client';
+import { canUseFeature } from '@/lib/billing/feature-gates';
+import { ProLockCard } from '@/components/billing/pro-lock-card';
 
 /* ─── types ─── */
 type InsightsRange = '7d' | '30d' | '90d' | '1y';
@@ -73,6 +76,33 @@ interface InsightsData {
   summary: InsightsSummary;
   series: { earnings: { key: string; value: number }[] };
   insights: InsightItem[];
+}
+
+interface TaxSummaryMonthlyBucket {
+  month: string;
+  incomeUsd: number;
+  estimatedFeesUsd: number;
+  withdrawalsUsd: number;
+  netEstimateUsd: number;
+}
+
+interface TaxSummaryData {
+  year: number;
+  generatedAt: string;
+  feeMethod: string;
+  totals: {
+    incomeUsd: number;
+    estimatedFeesUsd: number;
+    withdrawalsUsd: number;
+    netEstimateUsd: number;
+  };
+  monthly: TaxSummaryMonthlyBucket[];
+  topClients: Array<{
+    clientId: string;
+    name: string;
+    incomeUsd: number;
+    invoiceCount: number;
+  }>;
 }
 
 const RANGE_LABELS: Record<InsightsRange, string> = {
@@ -192,14 +222,17 @@ function SetTargetDialog({ open, current, onSave, onClose, isSaving }: {
 
 /* ─── main component ─── */
 export function InsightsClient({
-  accessToken, initialData, initialTarget,
+  accessToken, initialData, initialTarget, billing,
 }: {
   accessToken: string | null;
   initialData: InsightsData;
   initialTarget: number;
+  billing: BillingStatusSummary | null;
 }) {
   const { currency } = useCurrency();
   const { toast } = useToast();
+  const canViewAdvancedInsights = canUseFeature('assistant_summary_advanced', billing);
+  const canViewTaxSummary = canUseFeature('tax_summary', billing);
 
   const [range, setRange] = useState<InsightsRange>('30d');
   const [data, setData] = useState<InsightsData>(initialData);
@@ -208,6 +241,10 @@ export function InsightsClient({
   const [monthlyTarget, setMonthlyTarget] = useState(initialTarget);
   const [showTargetDialog, setShowTargetDialog] = useState(false);
   const [isSavingTarget, setIsSavingTarget] = useState(false);
+  const [taxYear, setTaxYear] = useState<number>(new Date().getUTCFullYear());
+  const [taxSummary, setTaxSummary] = useState<TaxSummaryData | null>(null);
+  const [taxLoading, setTaxLoading] = useState(false);
+  const [taxError, setTaxError] = useState<string | null>(null);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
@@ -249,6 +286,34 @@ export function InsightsClient({
     }
   };
 
+  const fetchTaxSummary = useCallback(async (year: number) => {
+    if (!accessToken) return;
+    setTaxLoading(true);
+    setTaxError(null);
+    try {
+      const response = await fetch(`${backendConfig.apiBaseUrl}/api/insights/tax-summary?year=${year}`, {
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error?.message || 'Failed to load tax summary');
+      }
+      if (mounted.current) setTaxSummary(payload.data as TaxSummaryData);
+    } catch (taxErr: any) {
+      if (mounted.current) {
+        setTaxError(taxErr?.message || 'Could not load tax summary');
+      }
+    } finally {
+      if (mounted.current) setTaxLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!canViewTaxSummary) return;
+    void fetchTaxSummary(taxYear);
+  }, [canViewTaxSummary, fetchTaxSummary, taxYear]);
+
   const { summary, insights, series } = data;
   const sparkValues = series.earnings.map((p) => p.value);
   const monthlyEarnings = summary?.monthlyEarnings ?? 0;
@@ -267,7 +332,7 @@ export function InsightsClient({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[15px] font-semibold text-[#181d27]">Insights</h1>
-          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">AI-powered metrics and trends from your account activity.</p>
+          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Operational metrics and trends from your account activity.</p>
         </div>
         <Button variant="secondary" onClick={() => fetchData(range)} disabled={loading} className="shrink-0 mt-0.5">
           <ArrowsClockwise className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} weight="bold" />
@@ -386,7 +451,7 @@ export function InsightsClient({
             </Link>
           </div>
 
-          {/* Two-column: monthly progress + AI insights */}
+          {/* Two-column: monthly progress + insights feed */}
           <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
 
             {/* Monthly progress card */}
@@ -453,72 +518,79 @@ export function InsightsClient({
               </div>
             </article>
 
-            {/* AI Insights card */}
-            <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-              <div className="flex items-center gap-2.5 border-b border-[#f5f5f5] px-5 py-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
-                  <Sparkle className="h-4 w-4 text-[#717680]" weight="fill" />
+            {canViewAdvancedInsights ? (
+              <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+                <div className="flex items-center gap-2.5 border-b border-[#f5f5f5] px-5 py-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
+                    <Sparkle className="h-4 w-4 text-[#717680]" weight="fill" />
+                  </div>
+                  <div>
+                    <h2 className="text-[16px] font-semibold text-[#181d27]">Insights feed</h2>
+                    <p className="mt-0.5 text-[13px] text-[#717680]">Priority updates from your account activity.</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-[16px] font-semibold text-[#181d27]">AI Insights</h2>
-                  <p className="mt-0.5 text-[13px] text-[#717680]">Generated from your account activity.</p>
-                </div>
-              </div>
 
-              {isEmpty ? (
-                <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
-                  <p className="text-[14px] font-semibold text-[#414651]">No activity yet</p>
-                  <p className="mt-1 text-[13px] text-[#a4a7ae]">
-                    Create an invoice, payment link, or project to start receiving tailored insights.
-                  </p>
-                </div>
-              ) : loading ? (
-                <div className="divide-y divide-[#f5f5f5]">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-start gap-3 px-5 py-4 animate-pulse">
-                      <div className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-[#f2f4f7]" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-3.5 w-2/3 rounded bg-[#f2f4f7]" />
-                        <div className="h-3 w-full rounded bg-[#f2f4f7]" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="divide-y divide-[#f5f5f5]">
-                  {insights.map((insight) => {
-                    const dotColor =
-                      insight.trend === 'up' ? 'bg-[#12b76a]' :
-                      insight.trend === 'down' ? 'bg-[#f04438]' :
-                      'bg-[#2563eb]';
-                    const dotBg =
-                      insight.trend === 'up' ? 'bg-[#ecfdf3]' :
-                      insight.trend === 'down' ? 'bg-[#fff1f0]' :
-                      'bg-[#eff4ff]';
-                    const inner = (
-                      <div className="group flex items-start gap-3 px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
-                        <div className={`mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${dotBg}`}>
-                          <span className={`h-2 w-2 rounded-full ${dotColor}`} />
+                {isEmpty ? (
+                  <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
+                    <p className="text-[14px] font-semibold text-[#414651]">No account activity yet</p>
+                    <p className="mt-1 text-[13px] text-[#a4a7ae]">
+                      Create an invoice, payment link, or project to start populating this feed.
+                    </p>
+                  </div>
+                ) : loading ? (
+                  <div className="divide-y divide-[#f5f5f5]">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-start gap-3 px-5 py-4 animate-pulse">
+                        <div className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-[#f2f4f7]" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3.5 w-2/3 rounded bg-[#f2f4f7]" />
+                          <div className="h-3 w-full rounded bg-[#f2f4f7]" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[14px] font-semibold text-[#181d27]">{insight.title}</p>
-                          <p className="mt-0.5 text-[13px] text-[#717680]">{insight.description}</p>
-                          {insight.actionLabel && (
-                            <p className="mt-1.5 text-[12px] font-semibold text-[#717680]">{insight.actionLabel}</p>
-                          )}
-                        </div>
-                        <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[#d5d7da] group-hover:text-[#a4a7ae] transition-colors" />
                       </div>
-                    );
-                    return insight.actionRoute ? (
-                      <Link key={insight.id} href={insight.actionRoute}>{inner}</Link>
-                    ) : (
-                      <div key={insight.id}>{inner}</div>
-                    );
-                  })}
-                </div>
-              )}
-            </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[#f5f5f5]">
+                    {insights.map((insight) => {
+                      const dotColor =
+                        insight.trend === 'up' ? 'bg-[#12b76a]' :
+                        insight.trend === 'down' ? 'bg-[#f04438]' :
+                        'bg-[#2563eb]';
+                      const dotBg =
+                        insight.trend === 'up' ? 'bg-[#ecfdf3]' :
+                        insight.trend === 'down' ? 'bg-[#fff1f0]' :
+                        'bg-[#eff4ff]';
+                      const inner = (
+                        <div className="group flex items-start gap-3 px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
+                          <div className={`mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${dotBg}`}>
+                            <span className={`h-2 w-2 rounded-full ${dotColor}`} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[14px] font-semibold text-[#181d27]">{insight.title}</p>
+                            <p className="mt-0.5 text-[13px] text-[#717680]">{insight.description}</p>
+                            {insight.actionLabel && (
+                              <p className="mt-1.5 text-[12px] font-semibold text-[#717680]">{insight.actionLabel}</p>
+                            )}
+                          </div>
+                          <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[#d5d7da] group-hover:text-[#a4a7ae] transition-colors" />
+                        </div>
+                      );
+                      return insight.actionRoute ? (
+                        <Link key={insight.id} href={insight.actionRoute}>{inner}</Link>
+                      ) : (
+                        <div key={insight.id}>{inner}</div>
+                      );
+                    })}
+                  </div>
+                )}
+              </article>
+            ) : (
+              <ProLockCard
+                title="Insights feed is on Pro"
+                description="Unlock priority insights across payments, cash flow, and project activity."
+                compact
+              />
+            )}
           </div>
 
           {/* Workstream mini-cards */}
@@ -561,6 +633,105 @@ export function InsightsClient({
                     </div>
                   </Link>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Tax summary */}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[16px] font-semibold text-[#181d27]">Tax summary</h2>
+              {canViewTaxSummary ? (
+                <div className="inline-flex items-center gap-2">
+                  <select
+                    value={taxYear}
+                    onChange={(event) => setTaxYear(Number(event.target.value))}
+                    className="rounded-lg border border-[#d5d7da] bg-white px-2.5 py-1.5 text-[12px] font-semibold text-[#414651] outline-none"
+                  >
+                    {Array.from({ length: 6 }).map((_, index) => {
+                      const year = new Date().getUTCFullYear() - index;
+                      return (
+                        <option key={year} value={year}>{year}</option>
+                      );
+                    })}
+                  </select>
+                  <Button variant="secondary" onClick={() => fetchTaxSummary(taxYear)} disabled={taxLoading}>
+                    Refresh
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+
+            {!canViewTaxSummary ? (
+              <ProLockCard
+                title="Tax summaries are on Pro"
+                description="Get monthly income, fee estimates, withdrawals, and net totals with yearly rollups."
+                compact
+              />
+            ) : taxError ? (
+              <div className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+                <p className="text-[14px] font-semibold text-[#181d27]">Could not load tax summary</p>
+                <p className="mt-1 text-[13px] text-[#717680]">{taxError}</p>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+                <div className="grid grid-cols-4 gap-px bg-[#e9eaeb]">
+                  {[
+                    { title: 'Income', value: taxSummary?.totals.incomeUsd || 0 },
+                    { title: 'Estimated fees', value: taxSummary?.totals.estimatedFeesUsd || 0 },
+                    { title: 'Withdrawals', value: taxSummary?.totals.withdrawalsUsd || 0 },
+                    { title: 'Net estimate', value: taxSummary?.totals.netEstimateUsd || 0 },
+                  ].map((card) => (
+                    <div key={card.title} className="bg-white px-4 py-3.5">
+                      <p className="text-[11px] text-[#717680]">{card.title}</p>
+                      <p className="mt-1 text-[18px] font-bold tracking-[-0.02em] text-[#181d27]">
+                        {formatCompactCurrency(card.value, currency)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t border-[#f2f4f7] px-5 py-3">
+                  <p className="text-[12px] text-[#717680]">
+                    {taxSummary
+                      ? `Generated ${formatTimeAgo(taxSummary.generatedAt).replace('Updated ', '')}. Method: ${taxSummary.feeMethod === 'transactions' ? 'transaction fees' : '1% estimated fee model'}.`
+                      : taxLoading
+                        ? 'Loading tax summary…'
+                        : 'No tax summary available yet.'}
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto border-t border-[#f2f4f7]">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="border-b border-[#f2f4f7] bg-[#fafafa]">
+                        <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Month</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Income</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Fees</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Withdrawals</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Net</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#f9fafb]">
+                      {(taxSummary?.monthly || []).map((bucket) => (
+                        <tr key={bucket.month} className="hover:bg-[#fafafa]">
+                          <td className="px-4 py-2.5 text-[12px] font-semibold text-[#414651]">{bucket.month}</td>
+                          <td className="px-4 py-2.5 text-right text-[12px] text-[#181d27]">{formatCompactCurrency(bucket.incomeUsd, currency)}</td>
+                          <td className="px-4 py-2.5 text-right text-[12px] text-[#717680]">{formatCompactCurrency(bucket.estimatedFeesUsd, currency)}</td>
+                          <td className="px-4 py-2.5 text-right text-[12px] text-[#717680]">{formatCompactCurrency(bucket.withdrawalsUsd, currency)}</td>
+                          <td className="px-4 py-2.5 text-right text-[12px] font-semibold text-[#181d27]">{formatCompactCurrency(bucket.netEstimateUsd, currency)}</td>
+                        </tr>
+                      ))}
+                      {!taxLoading && (taxSummary?.monthly || []).length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-[13px] text-[#a4a7ae]">
+                            No tax activity found for {taxYear}.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>

@@ -77,13 +77,14 @@ export interface Invoice {
   clientId: EntityId;
   projectId?: EntityId;
   title?: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  status: 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue';
   amountUsd: number;
   dueAt: string;
   number: string;
   remindersEnabled?: boolean;
   recurringInvoiceId?: string;
   clientEmail?: string;
+  viewedAt?: string;
 }
 
 export interface PaymentLink {
@@ -233,6 +234,10 @@ export interface Notification {
   body: string;
   createdAt: string;
   read: boolean;
+  href?: string | null;
+  entityId?: string | null;
+  entityType?: string | null;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Activity {

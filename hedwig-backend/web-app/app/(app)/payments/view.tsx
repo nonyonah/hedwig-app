@@ -19,6 +19,7 @@ import {
   Info
 } from '@/components/ui/lucide-icons';
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
+import type { BillingStatusSummary } from '@/lib/api/client';
 import { RecurringInvoicesSection } from '@/components/payments/recurring-invoices-section';
 import { hedwigApi } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
@@ -30,11 +31,14 @@ import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { formatCompactCurrency, formatShortDate } from '@/lib/utils';
 import { backendConfig } from '@/lib/auth/config';
+import { canUseFeature } from '@/lib/billing/feature-gates';
+import { ProLockCard } from '@/components/billing/pro-lock-card';
 
 /* ─── status helpers ─── */
 const INV_STATUS: Record<Invoice['status'], { dot: string; label: string; bg: string; text: string }> = {
   draft:   { dot: 'bg-[#a4a7ae]', label: 'Draft',   bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
   sent:    { dot: 'bg-[#2563eb]', label: 'Sent',    bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
+  viewed:  { dot: 'bg-[#2563eb]', label: 'Viewed',  bg: 'bg-[#eff4ff]', text: 'text-[#717680]' },
   paid:    { dot: 'bg-[#12b76a]', label: 'Paid',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
   overdue: { dot: 'bg-[#f04438]', label: 'Overdue', bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
 };
@@ -99,6 +103,7 @@ export function PaymentsClient({
   highlightedInvoiceId,
   recurringInvoices = [],
   clients = [],
+  billing,
 }: {
   accessToken: string | null;
   invoices: Invoice[];
@@ -106,9 +111,11 @@ export function PaymentsClient({
   highlightedInvoiceId?: string | null;
   recurringInvoices?: RecurringInvoice[];
   clients?: Client[];
+  billing: BillingStatusSummary | null;
 }) {
   const { currency } = useCurrency();
   const { toast } = useToast();
+  const canUseRecurringAutomation = canUseFeature('recurring_invoice_automation', billing);
 
   const [invoiceItems, setInvoiceItems] = useState(invoices);
   const [paymentLinkItems, setPaymentLinkItems] = useState(paymentLinks);
@@ -403,14 +410,19 @@ export function PaymentsClient({
           <TabBtn active={activeTab === 'recurring'} onClick={() => setActiveTab('recurring')}>
             <Repeat className="h-3.5 w-3.5" />
             Recurring
-            <CountBadge n={recurringInvoices.length} />
+            <CountBadge n={canUseRecurringAutomation ? recurringInvoices.length : 0} />
+            {!canUseRecurringAutomation ? (
+              <span className="rounded-full bg-[#f2f4f7] px-2 py-0.5 text-[10px] font-semibold text-[#717680]">
+                Pro
+              </span>
+            ) : null}
           </TabBtn>
         </div>
 
         {/* Filter chips */}
         <div className="flex items-center gap-1 border-b border-[#f2f4f7] px-5 py-2">
           {activeTab === 'invoices'
-            ? (['all', 'draft', 'sent', 'paid', 'overdue'] as const).map((s) => (
+            ? (['all', 'draft', 'sent', 'viewed', 'paid', 'overdue'] as const).map((s) => (
                 <FilterChip key={s} active={invoiceFilter === s} onClick={() => setInvoiceFilter(s)}>
                   {s === 'all' ? 'All' : INV_STATUS[s]?.label ?? s}
                 </FilterChip>
@@ -445,14 +457,25 @@ export function PaymentsClient({
 
         {/* Recurring tab content */}
         {activeTab === 'recurring' && (
-          <RecurringInvoicesSection
-            initialItems={recurringInvoices}
-            clients={clients}
-            accessToken={accessToken}
-            asTabContent
-            statusFilter={recurringFilter}
-            onRowClick={(r) => setSelectedRecurring(r)}
-          />
+          canUseRecurringAutomation ? (
+            <RecurringInvoicesSection
+              initialItems={recurringInvoices}
+              clients={clients}
+              accessToken={accessToken}
+              asTabContent
+              statusFilter={recurringFilter}
+              onRowClick={(r) => setSelectedRecurring(r)}
+            />
+          ) : (
+            <div className="p-5">
+              <ProLockCard
+                title="Recurring automation is on Pro"
+                description="Automatically schedule invoices and keep client billing on track."
+                href="/pricing"
+                compact
+              />
+            </div>
+          )
         )}
 
         {/* Rows — invoices/payment-links tabs only */}
@@ -671,6 +694,7 @@ function InvoicePanel({
         <div className="divide-y divide-[#f2f4f7] px-6 py-2">
           <PanelRow label="Invoice number" value={invoice.number} />
           <PanelRow label="Due date" value={formatShortDate(invoice.dueAt)} />
+          {invoice.viewedAt ? <PanelRow label="First viewed" value={formatShortDate(invoice.viewedAt)} /> : null}
           {invoice.recurringInvoiceId && (
             <PanelCustomRow
               label="Recurring"

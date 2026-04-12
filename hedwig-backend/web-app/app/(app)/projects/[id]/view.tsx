@@ -36,6 +36,7 @@ const MILESTONE_STATUS = {
 const INV_STATUS = {
   draft:   { label: 'Draft',   bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
   sent:    { label: 'Sent',    bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' },
+  viewed:  { label: 'Viewed',  bg: 'bg-[#f0f9ff]', text: 'text-[#0e7490]' },
   paid:    { label: 'Paid',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
   overdue: { label: 'Overdue', bg: 'bg-[#fff1f0]', text: 'text-[#b42318]' },
 } as const;

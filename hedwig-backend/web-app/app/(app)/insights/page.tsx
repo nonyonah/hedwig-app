@@ -4,9 +4,10 @@ import { InsightsClient } from './view';
 
 export default async function InsightsPage() {
   const session = await getCurrentSession();
-  const [insightsData, profileData] = await Promise.all([
+  const [insightsData, profileData, billing] = await Promise.all([
     hedwigApi.insights('30d', { accessToken: session.accessToken }),
     hedwigApi.userProfile({ accessToken: session.accessToken }),
+    hedwigApi.billingStatus({ accessToken: session.accessToken }).catch(() => null),
   ]);
 
   return (
@@ -14,6 +15,7 @@ export default async function InsightsPage() {
       accessToken={session.accessToken}
       initialData={insightsData}
       initialTarget={profileData.monthlyTarget ?? 10000}
+      billing={billing}
     />
   );
 }

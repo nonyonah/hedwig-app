@@ -8,7 +8,7 @@ import { HedwigPostHogProvider } from '@/components/providers/posthog-provider';
 
 export const metadata: Metadata = {
   title: 'Hedwig',
-  description: 'Freelancer operating system for work, payments, deadlines, wallet activity, and AI-assisted billing.',
+  description: 'Freelancer operating system for projects, payments, deadlines, and wallet activity.',
   icons: {
     icon: '/hedwig-icon.png',
     shortcut: '/hedwig-icon.png',

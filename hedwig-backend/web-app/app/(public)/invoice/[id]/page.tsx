@@ -3,6 +3,7 @@ import { CalendarBlank, Repeat, User } from '@/components/ui/lucide-icons';
 import { PublicDocumentFrame } from '@/components/public/public-document-frame';
 import { PublicResultCard } from '@/components/public/public-result-card';
 import { PublicInvoiceRightPanel } from '@/components/public/public-invoice-right-panel';
+import { DocumentViewTracker } from '@/components/public/document-view-tracker';
 import { fetchPublicDocument } from '@/lib/api/public-documents';
 import { getSolanaExplorerUrl, getExplorerUrl, resolvePublicSettlementChain } from '@/lib/payments/public-constants';
 
@@ -26,6 +27,7 @@ function formatDate(value?: string | null) {
 const STATUS_STYLE: Record<string, { bg: string; dot: string; text: string; label: string }> = {
   draft:   { bg: 'bg-[#f2f4f7]', dot: 'bg-[#a4a7ae]', text: 'text-[#535862]', label: 'Draft' },
   sent:    { bg: 'bg-[#eff4ff]', dot: 'bg-[#2563eb]', text: 'text-[#717680]', label: 'Sent' },
+  viewed:  { bg: 'bg-[#eff4ff]', dot: 'bg-[#2563eb]', text: 'text-[#717680]', label: 'Viewed' },
   paid:    { bg: 'bg-[#ecfdf3]', dot: 'bg-[#12b76a]', text: 'text-[#717680]', label: 'Paid' },
   overdue: { bg: 'bg-[#fef3f2]', dot: 'bg-[#f04438]', text: 'text-[#717680]', label: 'Overdue' }
 };
@@ -83,6 +85,7 @@ export default async function PublicInvoicePage({
 
   return (
     <PublicDocumentFrame title="Invoice">
+      <DocumentViewTracker documentId={document.id} />
       <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
 
         {/* ── Left: invoice document ── */}

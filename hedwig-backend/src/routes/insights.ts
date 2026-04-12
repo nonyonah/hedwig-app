@@ -423,4 +423,200 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
     }
 });
 
+router.get('/tax-summary', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const yearRaw = Number(req.query.year || new Date().getUTCFullYear());
+        const year = Number.isFinite(yearRaw) ? Math.floor(yearRaw) : new Date().getUTCFullYear();
+        if (year < 2000 || year > 2100) {
+            res.status(400).json({
+                success: false,
+                error: { message: 'Invalid year parameter' },
+            });
+            return;
+        }
+
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const start = new Date(Date.UTC(year, 0, 1));
+        const end = new Date(Date.UTC(year + 1, 0, 1));
+        const startIso = start.toISOString();
+        const endIso = end.toISOString();
+
+        const [paidDocuments, completedWithdrawals, feeTransactions] = await Promise.all([
+            fetchPagedRows<any>('tax_paid_documents', (from, to) =>
+                supabase
+                    .from('documents')
+                    .select('id,type,status,amount,created_at,client_id')
+                    .eq('user_id', user.id)
+                    .in('type', ['INVOICE', 'PAYMENT_LINK'])
+                    .eq('status', 'PAID')
+                    .gte('created_at', startIso)
+                    .lt('created_at', endIso)
+                    .order('created_at', { ascending: false })
+                    .range(from, to)
+            ),
+            fetchPagedRows<any>('tax_offramp_withdrawals', (from, to) =>
+                supabase
+                    .from('offramp_orders')
+                    .select('id,status,fiat_amount,created_at')
+                    .eq('user_id', user.id)
+                    .eq('status', 'COMPLETED')
+                    .gte('created_at', startIso)
+                    .lt('created_at', endIso)
+                    .order('created_at', { ascending: false })
+                    .range(from, to)
+            ),
+            fetchPagedRows<any>('tax_fee_transactions', (from, to) =>
+                supabase
+                    .from('transactions')
+                    .select('id,type,status,amount,created_at')
+                    .eq('user_id', user.id)
+                    .gte('created_at', startIso)
+                    .lt('created_at', endIso)
+                    .order('created_at', { ascending: false })
+                    .range(from, to)
+            ),
+        ]);
+
+        const clientIds = Array.from(
+            new Set(
+                paidDocuments
+                    .map((doc) => doc.client_id)
+                    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+            )
+        );
+
+        let clientNameById = new Map<string, string>();
+        if (clientIds.length > 0) {
+            const { data: clients, error: clientsError } = await supabase
+                .from('clients')
+                .select('id,name')
+                .in('id', clientIds);
+            if (clientsError) {
+                throw new Error(`tax clients query failed: ${summarizeSupabaseError(clientsError)}`);
+            }
+            clientNameById = new Map((clients || []).map((client: any) => [String(client.id), String(client.name || 'Client')]));
+        }
+
+        const monthLabel = (date: Date) =>
+            `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+
+        const monthlyMap: Record<string, { incomeUsd: number; feesFromTransactionsUsd: number; estimatedFeesUsd: number; withdrawalsUsd: number; netEstimateUsd: number }> = {};
+        for (let month = 0; month < 12; month += 1) {
+            const key = monthLabel(new Date(Date.UTC(year, month, 1)));
+            monthlyMap[key] = {
+                incomeUsd: 0,
+                feesFromTransactionsUsd: 0,
+                estimatedFeesUsd: 0,
+                withdrawalsUsd: 0,
+                netEstimateUsd: 0,
+            };
+        }
+
+        const clientTotals = new Map<string, { name: string; incomeUsd: number; invoiceCount: number }>();
+
+        for (const doc of paidDocuments) {
+            const createdAt = new Date(doc.created_at);
+            const key = monthLabel(createdAt);
+            const amount = toNumber(doc.amount);
+            if (monthlyMap[key]) monthlyMap[key].incomeUsd += amount;
+
+            const clientId = String(doc.client_id || '').trim();
+            if (!clientId) continue;
+            const current = clientTotals.get(clientId) || {
+                name: clientNameById.get(clientId) || 'Client',
+                incomeUsd: 0,
+                invoiceCount: 0,
+            };
+            current.incomeUsd += amount;
+            current.invoiceCount += 1;
+            clientTotals.set(clientId, current);
+        }
+
+        for (const withdrawal of completedWithdrawals) {
+            const createdAt = new Date(withdrawal.created_at);
+            const key = monthLabel(createdAt);
+            const amount = toNumber(withdrawal.fiat_amount);
+            if (monthlyMap[key]) monthlyMap[key].withdrawalsUsd += amount;
+        }
+
+        let hasExplicitFeeRows = false;
+        for (const tx of feeTransactions) {
+            const txType = normalizeStatus(tx.type);
+            if (!txType.includes('FEE')) continue;
+            const createdAt = new Date(tx.created_at);
+            const key = monthLabel(createdAt);
+            const amount = Math.abs(toNumber(tx.amount));
+            if (monthlyMap[key]) {
+                monthlyMap[key].feesFromTransactionsUsd += amount;
+                hasExplicitFeeRows = true;
+            }
+        }
+
+        for (const bucket of Object.values(monthlyMap)) {
+            const fallbackEstimate = bucket.incomeUsd * 0.01;
+            bucket.estimatedFeesUsd = hasExplicitFeeRows
+                ? bucket.feesFromTransactionsUsd
+                : Number(fallbackEstimate.toFixed(2));
+            bucket.netEstimateUsd = Number(
+                (bucket.incomeUsd - bucket.estimatedFeesUsd - bucket.withdrawalsUsd).toFixed(2)
+            );
+        }
+
+        const monthly = Object.entries(monthlyMap).map(([month, value]) => ({
+            month,
+            incomeUsd: Number(value.incomeUsd.toFixed(2)),
+            estimatedFeesUsd: Number(value.estimatedFeesUsd.toFixed(2)),
+            withdrawalsUsd: Number(value.withdrawalsUsd.toFixed(2)),
+            netEstimateUsd: Number(value.netEstimateUsd.toFixed(2)),
+        }));
+
+        const totals = monthly.reduce(
+            (acc, bucket) => {
+                acc.incomeUsd += bucket.incomeUsd;
+                acc.estimatedFeesUsd += bucket.estimatedFeesUsd;
+                acc.withdrawalsUsd += bucket.withdrawalsUsd;
+                acc.netEstimateUsd += bucket.netEstimateUsd;
+                return acc;
+            },
+            { incomeUsd: 0, estimatedFeesUsd: 0, withdrawalsUsd: 0, netEstimateUsd: 0 }
+        );
+
+        const topClients = Array.from(clientTotals.entries())
+            .map(([clientId, value]) => ({
+                clientId,
+                name: value.name,
+                incomeUsd: Number(value.incomeUsd.toFixed(2)),
+                invoiceCount: value.invoiceCount,
+            }))
+            .sort((a, b) => b.incomeUsd - a.incomeUsd)
+            .slice(0, 8);
+
+        res.json({
+            success: true,
+            data: {
+                year,
+                generatedAt: new Date().toISOString(),
+                totals: {
+                    incomeUsd: Number(totals.incomeUsd.toFixed(2)),
+                    estimatedFeesUsd: Number(totals.estimatedFeesUsd.toFixed(2)),
+                    withdrawalsUsd: Number(totals.withdrawalsUsd.toFixed(2)),
+                    netEstimateUsd: Number(totals.netEstimateUsd.toFixed(2)),
+                },
+                monthly,
+                topClients,
+                feeMethod: hasExplicitFeeRows ? 'transactions' : 'estimated_1_percent_of_income',
+            },
+        });
+    } catch (error) {
+        logger.error('Failed to build tax summary', { error: error instanceof Error ? error.message : 'Unknown' });
+        next(error);
+    }
+});
+
 export default router;

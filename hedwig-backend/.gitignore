@@ -51,6 +51,6 @@ uploads/
 public/documents/
 
 # Clarinet/Stacks - SECURITY: Contains private mnemonics
-settings/
+/settings/
 .cache/
 deployments/
