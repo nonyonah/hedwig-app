@@ -2,6 +2,7 @@ import {
   CalendarDots,
   Cards,
   ChartBar,
+  CurrencyDollar,
   CreditCard,
   Faders,
   FolderSimple,
@@ -38,6 +39,9 @@ export const navigationGroups = [
   },
   {
     label: 'System',
-    items: [{ title: 'Settings', href: '/settings', icon: Faders, count: null, muted: false }]
+    items: [
+      { title: 'Pricing', href: '/pricing', icon: CurrencyDollar, count: null, muted: false },
+      { title: 'Settings', href: '/settings', icon: Faders, count: null, muted: false }
+    ]
   }
 ] as const;

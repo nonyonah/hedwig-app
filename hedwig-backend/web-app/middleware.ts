@@ -6,6 +6,7 @@ const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.hedwi
 const PUBLIC_PATHS = [
   '/sign-in',
   '/sign-out',
+  '/pricing',
   '/api/auth/session',
   '/api/auth/sign-out',
   '/api/auth/demo',

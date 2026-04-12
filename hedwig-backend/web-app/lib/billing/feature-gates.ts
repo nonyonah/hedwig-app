@@ -3,12 +3,14 @@ import type { BillingStatusSummary } from '@/lib/api/client';
 export type ProFeature =
   | 'assistant_summary_advanced'
   | 'recurring_invoice_automation'
-  | 'tax_summary';
+  | 'tax_summary'
+  | 'usd_account';
 
 export const PRO_FEATURE_LABELS: Record<ProFeature, string> = {
   assistant_summary_advanced: 'Assistant summary',
   recurring_invoice_automation: 'Recurring invoice automation',
   tax_summary: 'Tax summaries',
+  usd_account: 'USD account',
 };
 
 export function isProPlan(billing: BillingStatusSummary | null | undefined): boolean {
@@ -27,6 +29,7 @@ export function canUseFeature(
     case 'assistant_summary_advanced':
     case 'recurring_invoice_automation':
     case 'tax_summary':
+    case 'usd_account':
       return true;
     default:
       return false;

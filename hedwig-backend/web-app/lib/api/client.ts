@@ -112,6 +112,35 @@ export interface BillingStatusSummary {
   };
 }
 
+export interface BillingCheckoutConfigSummary {
+  appUserId: string;
+  plan: 'free' | 'pro';
+  entitlement: {
+    id: string;
+    isActive: boolean;
+  };
+  pricing: {
+    monthly: {
+      id: string;
+      interval: 'monthly';
+      priceUsd: number;
+      label: string;
+    };
+    annual: {
+      id: string;
+      interval: 'annual';
+      priceUsd: number;
+      label: string;
+      monthlyEquivalentUsd: number;
+      discountPercent: number;
+    };
+  };
+  checkout: {
+    monthlyEnabled: boolean;
+    annualEnabled: boolean;
+  };
+}
+
 export interface CreateClientInput {
   name: string;
   email?: string;
@@ -1638,6 +1667,33 @@ export const hedwigApi = {
     }
 
     return request<BillingStatusSummary>('/api/billing/status', options);
+  },
+
+  async billingCheckoutConfig(options?: ApiOptions): Promise<BillingCheckoutConfigSummary> {
+    if (shouldUseMockFallback(options)) {
+      return {
+        appUserId: 'mock-user',
+        plan: 'free',
+        entitlement: { id: 'pro', isActive: false },
+        pricing: {
+          monthly: { id: 'pro-monthly', interval: 'monthly', priceUsd: 5, label: '$5/month' },
+          annual: {
+            id: 'pro-annual',
+            interval: 'annual',
+            priceUsd: 48,
+            label: '$48/year',
+            monthlyEquivalentUsd: 4,
+            discountPercent: 20
+          }
+        },
+        checkout: {
+          monthlyEnabled: false,
+          annualEnabled: false
+        }
+      };
+    }
+
+    return request<BillingCheckoutConfigSummary>('/api/billing/checkout-config', options);
   },
 
   async getUserProfile(options?: ApiOptions): Promise<User> {

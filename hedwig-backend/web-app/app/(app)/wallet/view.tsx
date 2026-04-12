@@ -88,6 +88,7 @@ export function WalletView({
   initialWalletData,
   initialAccountsData,
   accessToken: serverAccessToken,
+  isUsdAccountPaywalled = false,
   isUsdAccountRegionLocked = false,
   usdAccountRegionLockReason = null,
   regionCountryCode = null,
@@ -95,6 +96,7 @@ export function WalletView({
   initialWalletData: WalletData;
   initialAccountsData: AccountsData;
   accessToken: string | null;
+  isUsdAccountPaywalled?: boolean;
   isUsdAccountRegionLocked?: boolean;
   usdAccountRegionLockReason?: string | null;
   regionCountryCode?: string | null;
@@ -170,6 +172,14 @@ export function WalletView({
   }, [toast]);
 
   const handleEnroll = useCallback(async () => {
+    if (isUsdAccountPaywalled) {
+      toast({
+        type: 'warning',
+        title: 'Upgrade required',
+        message: 'USD accounts are a Pro feature. Upgrade on the pricing page to unlock this.'
+      });
+      return;
+    }
     if (isUsdAccountRegionLocked) {
       toast({
         type: 'warning',
@@ -229,9 +239,17 @@ export function WalletView({
     } finally {
       setActionState(null);
     }
-  }, [getFreshToken, isUsdAccountRegionLocked, openBridgeKyc, refreshUsdAccount, toast, usdAccount, usdAccountRegionLockReason]);
+  }, [getFreshToken, isUsdAccountPaywalled, isUsdAccountRegionLocked, openBridgeKyc, refreshUsdAccount, toast, usdAccount, usdAccountRegionLockReason]);
 
   const handleOpenBridgeKyc = useCallback(async () => {
+    if (isUsdAccountPaywalled) {
+      toast({
+        type: 'warning',
+        title: 'Upgrade required',
+        message: 'USD accounts are a Pro feature. Upgrade on the pricing page to unlock this.'
+      });
+      return;
+    }
     if (isUsdAccountRegionLocked) {
       toast({
         type: 'warning',
@@ -257,9 +275,17 @@ export function WalletView({
     } finally {
       setActionState(null);
     }
-  }, [getFreshToken, isUsdAccountRegionLocked, openBridgeKyc, toast, usdAccountRegionLockReason]);
+  }, [getFreshToken, isUsdAccountPaywalled, isUsdAccountRegionLocked, openBridgeKyc, toast, usdAccountRegionLockReason]);
 
   const handleRefresh = useCallback(async () => {
+    if (isUsdAccountPaywalled) {
+      toast({
+        type: 'warning',
+        title: 'Upgrade required',
+        message: 'USD accounts are a Pro feature. Upgrade on the pricing page to unlock this.'
+      });
+      return;
+    }
     if (isUsdAccountRegionLocked) {
       toast({
         type: 'warning',
@@ -280,10 +306,10 @@ export function WalletView({
     } finally {
       setActionState(null);
     }
-  }, [isUsdAccountRegionLocked, refreshUsdAccount, toast, usdAccountRegionLockReason]);
+  }, [isUsdAccountPaywalled, isUsdAccountRegionLocked, refreshUsdAccount, toast, usdAccountRegionLockReason]);
 
   const handleSettlementUpdated = useCallback(async () => {
-    if (isUsdAccountRegionLocked) return;
+    if (isUsdAccountPaywalled || isUsdAccountRegionLocked) return;
     const refreshed = await refreshUsdAccount(false);
     setUsdAccount(refreshed.usdAccount);
     setAccountTransactions(refreshed.accountTransactions);
@@ -292,28 +318,34 @@ export function WalletView({
       title: 'Settlement chain updated',
       message: `USD deposits will now settle to ${refreshed.usdAccount.settlementChain}.`
     });
-  }, [isUsdAccountRegionLocked, refreshUsdAccount, toast]);
+  }, [isUsdAccountPaywalled, isUsdAccountRegionLocked, refreshUsdAccount, toast]);
 
   const hasAssignedAccount = Boolean(usdAccount.hasAssignedAccount || usdAccount.accountNumberMasked || usdAccount.routingNumberMasked);
   const hasBridgeEnrollment = Boolean(usdAccount.bridgeCustomerId || hasAssignedAccount);
   const effectiveUsdStatus = hasBridgeEnrollment ? usdAccount.status : 'not_started';
   const effectiveBridgeStatus = hasBridgeEnrollment ? (usdAccount.bridgeKycStatus || 'not_started') : 'not_started';
 
-  const usdStatusLabel = isUsdAccountRegionLocked
+  const usdStatusLabel = isUsdAccountPaywalled
+    ? 'Pro'
+    : isUsdAccountRegionLocked
     ? 'Unavailable'
     : effectiveUsdStatus === 'active'
       ? 'Active'
       : effectiveUsdStatus === 'pending_kyc'
         ? 'Pending setup'
         : 'Not started';
-  const usdStatusDot = isUsdAccountRegionLocked
+  const usdStatusDot = isUsdAccountPaywalled
+    ? 'bg-[#2563eb]'
+    : isUsdAccountRegionLocked
     ? 'bg-[#a4a7ae]'
     : effectiveUsdStatus === 'active'
       ? 'bg-[#12b76a]'
       : effectiveUsdStatus === 'pending_kyc'
         ? 'bg-[#f59e0b]'
         : 'bg-[#a4a7ae]';
-  const usdStatusTone = isUsdAccountRegionLocked
+  const usdStatusTone = isUsdAccountPaywalled
+    ? 'bg-[#eff4ff] text-[#175cd3]'
+    : isUsdAccountRegionLocked
     ? 'bg-[#f2f4f7] text-[#717680]'
     : effectiveUsdStatus === 'active'
       ? 'bg-[#ecfdf3] text-[#717680]'
@@ -331,6 +363,7 @@ export function WalletView({
     hasAssignedAccount,
     hasBridgeEnrollment,
     actionState,
+    isPaywalled: isUsdAccountPaywalled,
     isRegionLocked: isUsdAccountRegionLocked,
     regionLockReason: usdAccountRegionLockReason,
     regionCountryCode
@@ -412,6 +445,7 @@ export function WalletView({
             account={usdAccount}
             hasBridgeEnrollment={hasBridgeEnrollment}
             actionState={actionState}
+            isPaywalled={isUsdAccountPaywalled}
             isRegionLocked={isUsdAccountRegionLocked}
             regionLockReason={usdAccountRegionLockReason}
             regionCountryCode={regionCountryCode}
@@ -432,7 +466,7 @@ export function WalletView({
                   <ChainIcon chain={usdAccount.settlementChain} size={16} />
                   <span className="text-[13px] font-semibold text-[#181d27]">{usdAccount.settlementChain}</span>
                 </div>
-                {!isUsdAccountRegionLocked ? (
+                {!isUsdAccountPaywalled && !isUsdAccountRegionLocked ? (
                   <ChangeSettlementDialog
                     currentChain={usdAccount.settlementChain}
                     accessToken={serverAccessToken ?? ''}
@@ -527,6 +561,7 @@ function UsdSetupPanel({
   account,
   hasBridgeEnrollment,
   actionState,
+  isPaywalled,
   isRegionLocked,
   regionLockReason,
   regionCountryCode,
@@ -537,6 +572,7 @@ function UsdSetupPanel({
   account: UsdAccount;
   hasBridgeEnrollment: boolean;
   actionState: ActionState;
+  isPaywalled: boolean;
   isRegionLocked: boolean;
   regionLockReason?: string | null;
   regionCountryCode?: string | null;
@@ -554,6 +590,7 @@ function UsdSetupPanel({
     hasAssignedAccount,
     hasBridgeEnrollment,
     actionState,
+    isPaywalled,
     isRegionLocked,
     regionLockReason,
     regionCountryCode
@@ -573,7 +610,14 @@ function UsdSetupPanel({
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          {state.primaryAction === 'enroll' ? (
+          {state.primaryAction === 'upgrade' ? (
+            <Link
+              href="/pricing"
+              className="inline-flex items-center justify-center rounded-full bg-[#2563eb] px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+            >
+              Upgrade to Pro
+            </Link>
+          ) : state.primaryAction === 'enroll' ? (
             <ActionButton
               busy={actionState === 'enroll'}
               onClick={onEnroll}
@@ -692,6 +736,7 @@ function getUsdSetupState({
   hasAssignedAccount,
   hasBridgeEnrollment,
   actionState,
+  isPaywalled,
   isRegionLocked,
   regionLockReason,
   regionCountryCode
@@ -702,10 +747,22 @@ function getUsdSetupState({
   hasAssignedAccount: boolean;
   hasBridgeEnrollment: boolean;
   actionState: ActionState;
+  isPaywalled: boolean;
   isRegionLocked: boolean;
   regionLockReason?: string | null;
   regionCountryCode?: string | null;
 }) {
+  if (isPaywalled) {
+    return {
+      tone: 'border-[#dbeafe] bg-[#f5f9ff]',
+      title: 'USD account is a Pro feature',
+      description: 'Upgrade to Pro to generate ACH account details, complete verification, and settle USD deposits.',
+      primaryAction: 'upgrade',
+      secondaryAction: null,
+      caption: 'Pro plan required'
+    } as const;
+  }
+
   if (isRegionLocked) {
     return {
       tone: 'border-[#e9eaeb] bg-[#fcfcfd]',
