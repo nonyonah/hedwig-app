@@ -47,12 +47,6 @@ function LandingPage() {
             >
               Privacy
             </Link>
-            <Link
-              href="/terms"
-              className="text-[13px] font-semibold text-[#717680] transition-colors duration-200 hover:text-[#181d27]"
-            >
-              Terms
-            </Link>
             <a
               href="/api/auth/demo"
               className="inline-flex h-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white px-5 text-[13px] font-semibold text-[#344054] transition-all duration-200 hover:bg-[#f9fafb] hover:border-[#c0c3c9]"
