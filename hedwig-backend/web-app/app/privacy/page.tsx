@@ -1,204 +1,206 @@
-const PRIVACY_POLICY_HTML = `
-<style>
-  [data-custom-class='body'], [data-custom-class='body'] * {
-          background: transparent !important;
-        }
-[data-custom-class='title'], [data-custom-class='title'] * {
-          font-family: Arial !important;
-font-size: 26px !important;
-color: #000000 !important;
-        }
-[data-custom-class='subtitle'], [data-custom-class='subtitle'] * {
-          font-family: Arial !important;
-color: #595959 !important;
-font-size: 14px !important;
-        }
-[data-custom-class='heading_1'], [data-custom-class='heading_1'] * {
-          font-family: Arial !important;
-font-size: 19px !important;
-color: #000000 !important;
-        }
-[data-custom-class='heading_2'], [data-custom-class='heading_2'] * {
-          font-family: Arial !important;
-font-size: 17px !important;
-color: #000000 !important;
-        }
-[data-custom-class='body_text'], [data-custom-class='body_text'] * {
-          color: #595959 !important;
-font-size: 14px !important;
-font-family: Arial !important;
-        }
-[data-custom-class='link'], [data-custom-class='link'] * {
-          color: #3030F1 !important;
-font-size: 14px !important;
-font-family: Arial !important;
-word-break: break-word !important;
-        }
-</style>
-<div data-custom-class="body" style="max-width: 980px; margin: 0 auto; padding: 2rem 1.25rem 4rem 1.25rem;">
-  <div>
-    <strong>
-      <span data-custom-class="title"><h1>PRIVACY POLICY</h1></span>
-    </strong>
-  </div>
-  <div>
-    <strong><span data-custom-class="subtitle">Last updated April 02, 2026</span></strong>
-  </div>
+import type { ReactNode } from 'react';
 
-  <div style="line-height: 1.5; margin-top: 1.5rem;">
-    <span data-custom-class="body_text">
-      This Privacy Notice for <strong>Rift Labs</strong> ("we," "us," or "our"), describes how and why we might access,
-      collect, store, use, and/or share ("process") your personal information when you use our services ("Services"),
-      including when you visit <a data-custom-class="link" href="https://www.hedwigbot.xyz" target="_blank" rel="noopener noreferrer">https://www.hedwigbot.xyz</a>
-      or use the Hedwig mobile application.
-    </span>
-  </div>
+const TOC = [
+  { id: 'infocollect', title: '1. WHAT INFORMATION DO WE COLLECT?' },
+  { id: 'infouse', title: '2. HOW DO WE PROCESS YOUR INFORMATION?' },
+  { id: 'whoshare', title: '3. WHEN AND WITH WHOM DO WE SHARE YOUR PERSONAL INFORMATION?' },
+  { id: 'cookies', title: '4. DO WE USE COOKIES AND OTHER TRACKING TECHNOLOGIES?' },
+  { id: 'ai', title: '5. DO WE OFFER ARTIFICIAL INTELLIGENCE-BASED PRODUCTS?' },
+  { id: 'sociallogins', title: '6. HOW DO WE HANDLE YOUR SOCIAL LOGINS?' },
+  { id: 'inforetain', title: '7. HOW LONG DO WE KEEP YOUR INFORMATION?' },
+  { id: 'infosafe', title: '8. HOW DO WE KEEP YOUR INFORMATION SAFE?' },
+  { id: 'privacyrights', title: '9. WHAT ARE YOUR PRIVACY RIGHTS?' },
+  { id: 'dnt', title: '10. CONTROLS FOR DO-NOT-TRACK FEATURES' },
+  { id: 'policyupdates', title: '11. DO WE MAKE UPDATES TO THIS NOTICE?' },
+  { id: 'contact', title: '12. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?' },
+  { id: 'request', title: '13. HOW CAN YOU REVIEW, UPDATE, OR DELETE THE DATA WE COLLECT FROM YOU?' },
+];
 
-  <div style="line-height: 1.5; margin-top: 1rem;">
-    <span data-custom-class="body_text">
-      Questions or concerns? Reading this Privacy Notice will help you understand your privacy rights and choices.
-      If you still have any questions, contact us at
-      <a data-custom-class="link" href="mailto:nonyonah@gmail.com">nonyonah@gmail.com</a>.
-    </span>
-  </div>
-
-  <div style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>SUMMARY OF KEY POINTS</h2></span></strong>
-  </div>
-
-  <ul>
-    <li data-custom-class="body_text">We collect personal information you provide directly to us (for example name and email).</li>
-    <li data-custom-class="body_text">We do not process sensitive personal information.</li>
-    <li data-custom-class="body_text">We may process your information to provide and improve our Services, secure accounts, and comply with legal obligations.</li>
-    <li data-custom-class="body_text">We may share information in limited situations with affiliates, service providers, and business partners where needed.</li>
-    <li data-custom-class="body_text">You can request access, correction, or deletion of your data via our data subject request form.</li>
-  </ul>
-
-  <div style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>TABLE OF CONTENTS</h2></span></strong>
-  </div>
-  <div style="line-height: 1.5;">
-    <a data-custom-class="link" href="#infocollect">1. WHAT INFORMATION DO WE COLLECT?</a><br/>
-    <a data-custom-class="link" href="#infouse">2. HOW DO WE PROCESS YOUR INFORMATION?</a><br/>
-    <a data-custom-class="link" href="#whoshare">3. WHEN AND WITH WHOM DO WE SHARE YOUR PERSONAL INFORMATION?</a><br/>
-    <a data-custom-class="link" href="#cookies">4. DO WE USE COOKIES AND OTHER TRACKING TECHNOLOGIES?</a><br/>
-    <a data-custom-class="link" href="#ai">5. DO WE OFFER ARTIFICIAL INTELLIGENCE-BASED PRODUCTS?</a><br/>
-    <a data-custom-class="link" href="#sociallogins">6. HOW DO WE HANDLE YOUR SOCIAL LOGINS?</a><br/>
-    <a data-custom-class="link" href="#inforetain">7. HOW LONG DO WE KEEP YOUR INFORMATION?</a><br/>
-    <a data-custom-class="link" href="#infosafe">8. HOW DO WE KEEP YOUR INFORMATION SAFE?</a><br/>
-    <a data-custom-class="link" href="#privacyrights">9. WHAT ARE YOUR PRIVACY RIGHTS?</a><br/>
-    <a data-custom-class="link" href="#DNT">10. CONTROLS FOR DO-NOT-TRACK FEATURES</a><br/>
-    <a data-custom-class="link" href="#policyupdates">11. DO WE MAKE UPDATES TO THIS NOTICE?</a><br/>
-    <a data-custom-class="link" href="#contact">12. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?</a><br/>
-    <a data-custom-class="link" href="#request">13. HOW CAN YOU REVIEW, UPDATE, OR DELETE THE DATA WE COLLECT FROM YOU?</a>
-  </div>
-
-  <div id="infocollect" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>1. WHAT INFORMATION DO WE COLLECT?</h2></span></strong>
-    <div><strong><span data-custom-class="heading_2"><h3>Personal information you disclose to us</h3></span></strong></div>
-    <span data-custom-class="body_text">
-      We collect personal information that you voluntarily provide to us when you register on the Services or contact us.
-      This may include your name and email address.
-    </span>
-  </div>
-
-  <div id="infouse" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>2. HOW DO WE PROCESS YOUR INFORMATION?</h2></span></strong>
-    <span data-custom-class="body_text">
-      We process your information to facilitate account creation and authentication, provide Services, respond to support requests,
-      send service communications, and comply with legal obligations.
-    </span>
-  </div>
-
-  <div id="whoshare" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>3. WHEN AND WITH WHOM DO WE SHARE YOUR PERSONAL INFORMATION?</h2></span></strong>
-    <span data-custom-class="body_text">
-      We may share personal information with service providers and business partners where necessary to operate our Services,
-      and in connection with business transfers where legally required.
-    </span>
-  </div>
-
-  <div id="cookies" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>4. DO WE USE COOKIES AND OTHER TRACKING TECHNOLOGIES?</h2></span></strong>
-    <span data-custom-class="body_text">
-      We may use cookies and similar technologies to maintain service security, improve reliability, and support analytics.
-    </span>
-  </div>
-
-  <div id="ai" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>5. DO WE OFFER ARTIFICIAL INTELLIGENCE-BASED PRODUCTS?</h2></span></strong>
-    <span data-custom-class="body_text">
-      Yes. We offer AI-powered features including AI bots and AI insights. These may rely on third-party AI service providers.
-    </span>
-  </div>
-
-  <div id="sociallogins" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>6. HOW DO WE HANDLE YOUR SOCIAL LOGINS?</h2></span></strong>
-    <span data-custom-class="body_text">
-      If you use social sign-in, we may receive profile information from your social provider, such as name and email.
-    </span>
-  </div>
-
-  <div id="inforetain" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>7. HOW LONG DO WE KEEP YOUR INFORMATION?</h2></span></strong>
-    <span data-custom-class="body_text">
-      We keep personal information for as long as needed to provide Services and satisfy legal, accounting, and security obligations.
-    </span>
-  </div>
-
-  <div id="infosafe" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>8. HOW DO WE KEEP YOUR INFORMATION SAFE?</h2></span></strong>
-    <span data-custom-class="body_text">
-      We use reasonable technical and organizational safeguards. No method of transmission or storage is guaranteed 100% secure.
-    </span>
-  </div>
-
-  <div id="privacyrights" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>9. WHAT ARE YOUR PRIVACY RIGHTS?</h2></span></strong>
-    <span data-custom-class="body_text">
-      Depending on your jurisdiction, you may have rights to access, update, or delete your personal information.
-    </span>
-  </div>
-
-  <div id="DNT" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>10. CONTROLS FOR DO-NOT-TRACK FEATURES</h2></span></strong>
-    <span data-custom-class="body_text">
-      We do not currently respond to Do-Not-Track browser signals due to the absence of a uniform standard.
-    </span>
-  </div>
-
-  <div id="policyupdates" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>11. DO WE MAKE UPDATES TO THIS NOTICE?</h2></span></strong>
-    <span data-custom-class="body_text">
-      Yes. We may update this notice to remain compliant with applicable laws and service changes.
-    </span>
-  </div>
-
-  <div id="contact" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>12. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?</h2></span></strong>
-    <span data-custom-class="body_text">
-      Contact: <a data-custom-class="link" href="mailto:nonso@hedwigbot.xyz">nonso@hedwigbot.xyz</a><br/>
-      Rift Labs, No 10b Press Lane Achara Layout, Enugu, Enugu 400105, Nigeria.
-    </span>
-  </div>
-
-  <div id="request" style="line-height: 1.5; margin-top: 2rem;">
-    <strong><span data-custom-class="heading_1"><h2>13. HOW CAN YOU REVIEW, UPDATE, OR DELETE THE DATA WE COLLECT FROM YOU?</h2></span></strong>
-    <span data-custom-class="body_text">
-      Submit a data subject request here:
-      <a data-custom-class="link" href="https://app.termly.io/dsar/8b850757-c4c8-4c8c-8ea2-1b460a42c38d" target="_blank" rel="noopener noreferrer">
-        data subject access request
-      </a>.
-    </span>
-  </div>
-
-  <div style="margin-top: 2rem;">
-    <span data-custom-class='body_text'>This Privacy Policy was created using Termly's </span>
-    <a href="https://termly.io/products/privacy-policy-generator/" target="_blank" rel="noopener noreferrer" data-custom-class='link'>Privacy Policy Generator</a>
-  </div>
-</div>
-`;
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-24 space-y-3">
+      <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[#181d27]">{title}</h2>
+      <div className="space-y-3 text-[14px] leading-7 text-[#535862]">{children}</div>
+    </section>
+  );
+}
 
 export default function PrivacyPolicyPage() {
-  return <div dangerouslySetInnerHTML={{ __html: PRIVACY_POLICY_HTML }} />;
+  return (
+    <main className="min-h-screen bg-[#fafafa]">
+      <div className="mx-auto w-full max-w-[980px] px-5 pb-16 pt-14 md:px-8">
+        <header className="space-y-3 border-b border-[#e9eaeb] pb-8">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a4a7ae]">Legal</p>
+          <h1 className="text-[32px] font-bold tracking-[-0.03em] text-[#181d27]">Privacy Policy</h1>
+          <p className="text-[14px] text-[#717680]">Last updated April 02, 2026</p>
+          <p className="max-w-[760px] text-[14px] leading-7 text-[#535862]">
+            This Privacy Notice for <strong>Rift Labs</strong> (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) explains how we access,
+            collect, store, use, and share your personal information when you use Hedwig services, including
+            <a className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]" href="https://www.hedwigbot.xyz" target="_blank" rel="noopener noreferrer">
+              www.hedwigbot.xyz
+            </a>
+            and the Hedwig mobile application.
+          </p>
+          <p className="text-[14px] leading-7 text-[#535862]">
+            Questions or concerns? Contact us at
+            <a className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]" href="mailto:nonyonah@gmail.com">
+              nonyonah@gmail.com
+            </a>
+            .
+          </p>
+        </header>
+
+        <section className="mt-10 space-y-3 rounded-2xl border border-[#e9eaeb] bg-white p-6">
+          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[#181d27]">Summary Of Key Points</h2>
+          <ul className="list-disc space-y-2 pl-5 text-[14px] leading-7 text-[#535862]">
+            <li>We collect personal information you provide directly to us, including names and email addresses.</li>
+            <li>We do not process sensitive personal information.</li>
+            <li>We may process personal data to provide services, maintain accounts, secure our platform, and comply with law.</li>
+            <li>We may share information with affiliates, business partners, and service providers where needed.</li>
+            <li>You can submit a data subject request to review, update, or delete your personal data.</li>
+          </ul>
+        </section>
+
+        <section className="mt-8 space-y-2 rounded-2xl border border-[#e9eaeb] bg-white p-6">
+          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[#181d27]">Table Of Contents</h2>
+          <div className="flex flex-col gap-1">
+            {TOC.map((entry) => (
+              <a
+                key={entry.id}
+                href={`#${entry.id}`}
+                className="text-[14px] text-[#2563eb] hover:text-[#1d4ed8]"
+              >
+                {entry.title}
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <div className="mt-10 space-y-10 rounded-2xl border border-[#e9eaeb] bg-white p-6 md:p-8">
+          <Section id="infocollect" title="1. WHAT INFORMATION DO WE COLLECT?">
+            <h3 className="text-[16px] font-semibold text-[#181d27]">Personal information you disclose to us</h3>
+            <p>We collect personal information that you voluntarily provide when you register on our services, request support, or contact us directly.</p>
+            <p>The information we collect may include names and email addresses.</p>
+            <p>We do not process sensitive personal information.</p>
+            <p>
+              If you register with social login providers, we may receive certain profile information from the provider,
+              such as your name and email address.
+            </p>
+            <p>
+              If you use our mobile application, we may request access to device features like calendar and notifications
+              so features work as expected.
+            </p>
+          </Section>
+
+          <Section id="infouse" title="2. HOW DO WE PROCESS YOUR INFORMATION?">
+            <p>We process personal information to create and manage accounts, provide requested services, and respond to support inquiries.</p>
+            <p>We also process data for security, fraud prevention, legal compliance, and service communications.</p>
+            <p>Where required, we process information for marketing only in line with your communication preferences.</p>
+          </Section>
+
+          <Section id="whoshare" title="3. WHEN AND WITH WHOM DO WE SHARE YOUR PERSONAL INFORMATION?">
+            <p>We may share information in limited and necessary situations, including business transfers and corporate reorganizations.</p>
+            <p>We may share information with affiliates and business partners when required to provide or improve services.</p>
+          </Section>
+
+          <Section id="cookies" title="4. DO WE USE COOKIES AND OTHER TRACKING TECHNOLOGIES?">
+            <p>Yes. We use cookies and similar technologies to support core site functionality, security, analytics, and reliability.</p>
+            <p>
+              Third-party providers may use tracking technologies for analytics and service optimization based on your settings
+              and applicable laws.
+            </p>
+          </Section>
+
+          <Section id="ai" title="5. DO WE OFFER ARTIFICIAL INTELLIGENCE-BASED PRODUCTS?">
+            <p>Yes. Hedwig includes AI features such as AI bots and AI insights.</p>
+            <p>
+              We may use third-party AI providers, including Google Cloud AI, to process relevant inputs and outputs needed
+              to deliver these features.
+            </p>
+          </Section>
+
+          <Section id="sociallogins" title="6. HOW DO WE HANDLE YOUR SOCIAL LOGINS?">
+            <p>If you log in using a third-party social account, we may receive profile information from that provider.</p>
+            <p>We use that information only for account authentication and service access as described in this notice.</p>
+          </Section>
+
+          <Section id="inforetain" title="7. HOW LONG DO WE KEEP YOUR INFORMATION?">
+            <p>We keep information only as long as needed for the purposes in this notice, unless longer retention is required by law.</p>
+            <p>When data is no longer needed, we delete or anonymize it where feasible.</p>
+          </Section>
+
+          <Section id="infosafe" title="8. HOW DO WE KEEP YOUR INFORMATION SAFE?">
+            <p>We apply appropriate technical and organizational security measures to protect personal information.</p>
+            <p>
+              No internet transmission or storage system can be guaranteed fully secure, and you should use services in secure
+              environments whenever possible.
+            </p>
+          </Section>
+
+          <Section id="privacyrights" title="9. WHAT ARE YOUR PRIVACY RIGHTS?">
+            <p>Depending on your location, you may have rights to access, correct, delete, or restrict processing of your personal data.</p>
+            <p>You may also withdraw consent where consent is the legal basis for processing.</p>
+          </Section>
+
+          <Section id="dnt" title="10. CONTROLS FOR DO-NOT-TRACK FEATURES">
+            <p>
+              Most browsers include a Do-Not-Track feature. Because there is no uniform standard, we do not currently respond
+              to DNT signals automatically.
+            </p>
+          </Section>
+
+          <Section id="policyupdates" title="11. DO WE MAKE UPDATES TO THIS NOTICE?">
+            <p>Yes. We may update this Privacy Notice to reflect legal, operational, or product changes.</p>
+            <p>When updated, we revise the date at the top of this page.</p>
+          </Section>
+
+          <Section id="contact" title="12. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?">
+            <p>
+              Email:
+              <a className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]" href="mailto:nonso@hedwigbot.xyz">
+                nonso@hedwigbot.xyz
+              </a>
+            </p>
+            <p>Rift Labs, No 10b Press Lane Achara Layout, Enugu, Enugu 400105, Nigeria</p>
+          </Section>
+
+          <Section id="request" title="13. HOW CAN YOU REVIEW, UPDATE, OR DELETE THE DATA WE COLLECT FROM YOU?">
+            <p>
+              To submit a data access, update, or deletion request, use our form:
+              <a
+                className="mx-1 text-[#2563eb] hover:text-[#1d4ed8]"
+                href="https://app.termly.io/dsar/8b850757-c4c8-4c8c-8ea2-1b460a42c38d"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                data subject access request
+              </a>
+              .
+            </p>
+          </Section>
+        </div>
+
+        <footer className="mt-8 text-[13px] text-[#717680]">
+          This Privacy Policy was created using Termly&apos;s
+          <a
+            className="ml-1 text-[#2563eb] hover:text-[#1d4ed8]"
+            href="https://termly.io/products/privacy-policy-generator/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Privacy Policy Generator
+          </a>
+          .
+        </footer>
+      </div>
+    </main>
+  );
 }

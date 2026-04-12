@@ -34,7 +34,25 @@ function LandingPage() {
           <Link href="/">
             <Image src="/hedwig-logo.png" alt="Hedwig" width={38} height={38} priority />
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-5">
+            <Link
+              href="/pricing"
+              className="text-[13px] font-semibold text-[#717680] transition-colors duration-200 hover:text-[#181d27]"
+            >
+              Pricing
+            </Link>
+            <Link
+              href="/privacy"
+              className="text-[13px] font-semibold text-[#717680] transition-colors duration-200 hover:text-[#181d27]"
+            >
+              Privacy
+            </Link>
+            <Link
+              href="/terms"
+              className="text-[13px] font-semibold text-[#717680] transition-colors duration-200 hover:text-[#181d27]"
+            >
+              Terms
+            </Link>
             <a
               href="/api/auth/demo"
               className="inline-flex h-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white px-5 text-[13px] font-semibold text-[#344054] transition-all duration-200 hover:bg-[#f9fafb] hover:border-[#c0c3c9]"
@@ -340,6 +358,10 @@ function LandingPage() {
           </Link>
           <p className="text-[12px] text-[#a4a7ae]">© {new Date().getFullYear()} Hedwig. All rights reserved.</p>
           <div className="flex items-center gap-5">
+            <Link href="/pricing" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Pricing</Link>
+            <Link href="/privacy" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Privacy</Link>
+            <Link href="/terms" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Terms</Link>
+            <Link href="/returns" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Returns</Link>
             <Link href="/sign-in" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Sign in</Link>
             <a href="mailto:support@hedwigbot.xyz" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Support</a>
             <a href="https://x.com/hedwigagent" target="_blank" rel="noreferrer" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">X</a>
