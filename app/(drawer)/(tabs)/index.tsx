@@ -5,9 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors, Colors } from '../../../theme/colors';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { UniversalCreationBox } from '../../../components/UniversalCreationBox';
 import { AnimatedListItem } from '../../../components/AnimatedListItem';
-import { TransactionConfirmationModal } from '../../../components/TransactionConfirmationModal';
 import { useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -75,12 +73,6 @@ export default function HomeDashboard() {
 
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [showCreationBox, setShowCreationBox] = useState(false);
-
-    // Transaction Modal State
-    const [showTransactionModal, setShowTransactionModal] = useState(false);
-    const [transactionData, setTransactionData] = useState<any>(null);
-    const transactionModalRef = React.useRef<any>(null);
 
     const emitTabBarScrollOffset = useCallback((offsetY: number) => {
         if (Platform.OS !== 'android') return;
@@ -394,18 +386,6 @@ export default function HomeDashboard() {
         </View>
     );
 
-    const handleTransfer = (data: any) => {
-        setShowCreationBox(false);
-        setTransactionData({
-            amount: data.amount?.toString() || '0',
-            token: data.token || 'USDC',
-            recipient: data.recipient || '',
-            network: data.network || 'base'
-        });
-        setShowTransactionModal(true);
-        setTimeout(() => { transactionModalRef.current?.present(); }, 100);
-    };
-
     const openProjectActivity = (projectId?: string, milestoneId?: string, fallbackFilter?: string) => {
         router.push({
             pathname: '/projects',
@@ -532,7 +512,7 @@ export default function HomeDashboard() {
                             All clear
                         </Text>
                         <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                            Tap the + button to create invoices, payment{"\n"}links, contracts, or send tokens.
+                            Tap the + button to create invoices, payment{"\n"}links, contracts, or send USDC.
                         </Text>
                     </View>
                 ) : (
@@ -557,33 +537,10 @@ export default function HomeDashboard() {
 
             <TouchableOpacity
                 style={[styles.fab, { backgroundColor: '#2563EB' }]}
-                onPress={() => {
-                    if (Platform.OS === 'ios') {
-                        setShowCreationBox(true);
-                        return;
-                    }
-                    router.push('/creation-box');
-                }}
+                onPress={() => router.push('/creation-box')}
             >
                 <Plus size={32} color="#FFFFFF" strokeWidth={3} />
             </TouchableOpacity>
-            {Platform.OS === 'ios' && (
-                <UniversalCreationBox
-                    visible={showCreationBox}
-                    onClose={() => setShowCreationBox(false)}
-                    onTransfer={handleTransfer}
-                />
-            )}
-            <TransactionConfirmationModal
-                ref={transactionModalRef}
-                visible={showTransactionModal}
-                onClose={() => setShowTransactionModal(false)}
-                data={transactionData}
-                onSuccess={(hash) => {
-                    console.log('Transaction successful:', hash);
-                }}
-            />
-
         </SafeAreaView>
     );
 }

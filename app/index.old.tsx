@@ -162,7 +162,8 @@ export default function HomeScreen() {
     const router = useRouter();
     const params = useLocalSearchParams<{ conversationId?: string }>();
     const { isReady, user, logout, getAccessToken } = useAuth();
-    const { wallets: evmWallets } = useWallet();
+    const walletHook = useWallet() as any;
+    const evmWallets = walletHook?.wallets || [];
     const themeColors = useThemeColors();
     const keyboardAppearance = useKeyboardAppearance();
     const ethereumWallet = evmWallets?.[0]; // Use first wallet from our hook
@@ -185,7 +186,7 @@ export default function HomeScreen() {
     const [offrampData, setOfframpData] = useState<any>(null);
     const [isSolanaBridgeVisible, setIsSolanaBridgeVisible] = useState(false);
     const [solanaBridgeData, setSolanaBridgeData] = useState<{
-        token: 'SOL' | 'USDC';
+        token: 'USDC';
         amount: number;
         fiatCurrency?: string;
         bankName?: string;
@@ -820,7 +821,7 @@ export default function HomeScreen() {
                     Analytics.aiFunctionTriggered('CONFIRM_SOLANA_BRIDGE');
                     const bridgeParams = data.data.parameters;
                     setSolanaBridgeData({
-                        token: bridgeParams.token || 'SOL',
+                        token: 'USDC',
                         amount: parseFloat(bridgeParams.amount || '0'),
                         // Store bank details for use after bridging
                         fiatCurrency: bridgeParams.fiatCurrency || 'NGN',
@@ -1404,7 +1405,7 @@ export default function HomeScreen() {
             <SolanaBridgeModal
                 visible={isSolanaBridgeVisible}
                 onClose={() => setIsSolanaBridgeVisible(false)}
-                token={solanaBridgeData?.token || 'SOL'}
+                token={solanaBridgeData?.token || 'USDC'}
                 amount={solanaBridgeData?.amount || 0}
                 solanaAddress={walletAddresses.solana || ''}
                 baseAddress={walletAddresses.evm || ''}

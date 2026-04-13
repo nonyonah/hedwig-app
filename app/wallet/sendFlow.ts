@@ -1,12 +1,12 @@
-export type SendChain = 'base' | 'solana' | 'arbitrum' | 'polygon' | 'celo' | 'lisk';
+export type SendChain = 'base' | 'solana' | 'arbitrum' | 'polygon' | 'celo';
 
-export const EVM_CHAINS = new Set<SendChain>(['base', 'arbitrum', 'polygon', 'celo', 'lisk']);
+export const EVM_CHAINS = new Set<SendChain>(['base', 'arbitrum', 'polygon', 'celo']);
 
 export interface SendTokenOption {
     id: string;
     chain: SendChain;
     chainLabel: string;
-    asset: 'usdc' | 'usdt' | 'eth' | 'sol';
+    asset: 'usdc';
     token: string;
     name: string;
     decimals: number;
@@ -27,28 +27,6 @@ export const SEND_TOKEN_OPTIONS: SendTokenOption[] = [
         tokenIcon: require('../../assets/icons/tokens/usdc.png'),
         chainIcon: require('../../assets/icons/networks/base.png'),
     },
-    {
-        id: 'base-usdt',
-        chain: 'base',
-        chainLabel: 'Base',
-        asset: 'usdt',
-        token: 'USDT',
-        name: 'Tether',
-        decimals: 6,
-        tokenIcon: require('../../assets/icons/tokens/usdt.png'),
-        chainIcon: require('../../assets/icons/networks/base.png'),
-    },
-    {
-        id: 'base-eth',
-        chain: 'base',
-        chainLabel: 'Base',
-        asset: 'eth',
-        token: 'ETH',
-        name: 'Ethereum',
-        decimals: 18,
-        tokenIcon: require('../../assets/icons/tokens/eth.png'),
-        chainIcon: require('../../assets/icons/networks/base.png'),
-    },
     // Arbitrum
     {
         id: 'arbitrum-usdc',
@@ -59,28 +37,6 @@ export const SEND_TOKEN_OPTIONS: SendTokenOption[] = [
         name: 'USD Coin',
         decimals: 6,
         tokenIcon: require('../../assets/icons/tokens/usdc.png'),
-        chainIcon: require('../../assets/icons/networks/arbitrum.png'),
-    },
-    {
-        id: 'arbitrum-usdt',
-        chain: 'arbitrum',
-        chainLabel: 'Arbitrum',
-        asset: 'usdt',
-        token: 'USDT',
-        name: 'Tether',
-        decimals: 6,
-        tokenIcon: require('../../assets/icons/tokens/usdt.png'),
-        chainIcon: require('../../assets/icons/networks/arbitrum.png'),
-    },
-    {
-        id: 'arbitrum-eth',
-        chain: 'arbitrum',
-        chainLabel: 'Arbitrum',
-        asset: 'eth',
-        token: 'ETH',
-        name: 'Ethereum',
-        decimals: 18,
-        tokenIcon: require('../../assets/icons/tokens/eth.png'),
         chainIcon: require('../../assets/icons/networks/arbitrum.png'),
     },
     // Polygon
@@ -95,17 +51,6 @@ export const SEND_TOKEN_OPTIONS: SendTokenOption[] = [
         tokenIcon: require('../../assets/icons/tokens/usdc.png'),
         chainIcon: require('../../assets/icons/networks/polygon.png'),
     },
-    {
-        id: 'polygon-usdt',
-        chain: 'polygon',
-        chainLabel: 'Polygon',
-        asset: 'usdt',
-        token: 'USDT',
-        name: 'Tether',
-        decimals: 6,
-        tokenIcon: require('../../assets/icons/tokens/usdt.png'),
-        chainIcon: require('../../assets/icons/networks/polygon.png'),
-    },
     // Celo
     {
         id: 'celo-usdc',
@@ -118,29 +63,6 @@ export const SEND_TOKEN_OPTIONS: SendTokenOption[] = [
         tokenIcon: require('../../assets/icons/tokens/usdc.png'),
         chainIcon: require('../../assets/icons/networks/celo.png'),
     },
-    {
-        id: 'celo-usdt',
-        chain: 'celo',
-        chainLabel: 'Celo',
-        asset: 'usdt',
-        token: 'USDT',
-        name: 'Tether',
-        decimals: 6,
-        tokenIcon: require('../../assets/icons/tokens/usdt.png'),
-        chainIcon: require('../../assets/icons/networks/celo.png'),
-    },
-    // Lisk (USDT only)
-    {
-        id: 'lisk-usdt',
-        chain: 'lisk',
-        chainLabel: 'Lisk',
-        asset: 'usdt',
-        token: 'USDT',
-        name: 'Tether',
-        decimals: 6,
-        tokenIcon: require('../../assets/icons/tokens/usdt.png'),
-        chainIcon: require('../../assets/icons/networks/lisk.png'),
-    },
     // Solana
     {
         id: 'solana-usdc',
@@ -151,17 +73,6 @@ export const SEND_TOKEN_OPTIONS: SendTokenOption[] = [
         name: 'USD Coin',
         decimals: 6,
         tokenIcon: require('../../assets/icons/tokens/usdc.png'),
-        chainIcon: require('../../assets/icons/networks/solana.png'),
-    },
-    {
-        id: 'solana-sol',
-        chain: 'solana',
-        chainLabel: 'Solana',
-        asset: 'sol',
-        token: 'SOL',
-        name: 'Solana',
-        decimals: 9,
-        tokenIcon: require('../../assets/icons/networks/solana.png'),
         chainIcon: require('../../assets/icons/networks/solana.png'),
     },
 ];
@@ -194,7 +105,7 @@ export const getTokenOptionsForChain = (chain: SendChain): SendTokenOption[] => 
 };
 
 export const isValidSendChain = (value: string): value is SendChain =>
-    ['base', 'solana', 'arbitrum', 'polygon', 'celo', 'lisk'].includes(value);
+    ['base', 'solana', 'arbitrum', 'polygon', 'celo'].includes(value);
 
 export const shortenAddress = (value: string, start = 6, end = 4): string => {
     const trimmed = value.trim();

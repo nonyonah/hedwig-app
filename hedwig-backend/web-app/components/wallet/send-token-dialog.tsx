@@ -7,7 +7,7 @@ import { ClientPortal } from '@/components/ui/client-portal';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { encodeFunctionData, parseUnits, isAddress } from 'viem';
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { PublicKey, Transaction } from '@solana/web3.js';
 import { createTransferCheckedInstruction, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import {
   getChainId,
@@ -48,18 +48,14 @@ const CHAIN_META: Record<string, { icon: string; label: string }> = {
   Arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
   Polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
   Celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
-  Lisk:     { icon: '/icons/networks/lisk.png',     label: 'Lisk' },
 };
 
 const TOKEN_META: Record<string, { icon: string }> = {
-  ETH:  { icon: '/icons/tokens/eth.png' },
   USDC: { icon: '/icons/tokens/usdc.png' },
-  USDT: { icon: '/icons/tokens/usdt.png' },
-  SOL:  { icon: '/icons/networks/solana.png' },
 };
 
 function fmt(n: number, sym: string) {
-  const dec = sym === 'USDC' || sym === 'USDT' ? 2 : n >= 1 ? 6 : 8;
+  const dec = sym === 'USDC' ? 2 : n >= 1 ? 6 : 8;
   return `${n.toLocaleString(undefined, { maximumFractionDigits: dec })} ${sym}`;
 }
 
@@ -79,11 +75,7 @@ export function SendTokenDialog({
   // Derive unique chains + tokens from assets
   const chains = Array.from(new Map(assets.map((a) => [a.chain, a])).keys());
   const [selectedChain, setSelectedChain] = useState<string>(assets[0]?.chain ?? '');
-  const tokensForChain = assets.filter((a) => {
-    if (a.chain !== selectedChain) return false;
-    if (selectedChain === 'Lisk') return a.symbol === 'USDT';
-    return true;
-  });
+  const tokensForChain = assets.filter((a) => a.chain === selectedChain);
   const [selectedAssetId, setSelectedAssetId] = useState<string>(assets[0]?.id ?? '');
   const selected = assets.find((a) => a.id === selectedAssetId) ?? tokensForChain[0] ?? assets[0];
 
@@ -104,10 +96,7 @@ export function SendTokenDialog({
   const handleChainSelect = (chain: string) => {
     setSelectedChain(chain);
     setChainOpen(false);
-    // For Lisk, reset to USDT; otherwise first token of the chain
-    const first = chain === 'Lisk'
-      ? assets.find((a) => a.chain === chain && a.symbol === 'USDT') ?? assets.find((a) => a.chain === chain)
-      : assets.find((a) => a.chain === chain);
+    const first = assets.find((a) => a.chain === chain);
     if (first) setSelectedAssetId(first.id);
   };
 
@@ -182,15 +171,6 @@ export function SendTokenDialog({
     }
 
     // 3. Build and send the transaction on the correct chain
-    if (selected.symbol === 'ETH') {
-      const weiHex = `0x${parseUnits(amount, 18).toString(16)}`;
-      const hash = await provider.request({
-        method: 'eth_sendTransaction',
-        params: [{ from: evmWallet.address, to: recipient, value: weiHex, chainId: targetNet.chainIdHex }]
-      });
-      return String(hash);
-    }
-
     // ERC-20 USDC — use the right contract for mainnet vs testnet
     const usdcAddress = EVM_TOKENS[evmChain].USDC;
     const data = encodeFunctionData({
@@ -226,19 +206,14 @@ export function SendTokenDialog({
     const recipientPk = new PublicKey(recipient);
     const tx = new Transaction();
 
-    if (selected.symbol === 'SOL') {
-      const lamports = Math.round(numericAmount * 1e9);
-      tx.add(SystemProgram.transfer({ fromPubkey: senderPk, toPubkey: recipientPk, lamports }));
-    } else {
-      // SPL USDC transfer — transfer from sender ATA to recipient ATA
-      const senderAta    = await getAssociatedTokenAddress(usdcMint, senderPk);
-      const recipientAta = await getAssociatedTokenAddress(usdcMint, recipientPk);
-      const microUnits   = Math.round(numericAmount * 1e6);
-      tx.add(createTransferCheckedInstruction(
-        senderAta, usdcMint, recipientAta, senderPk,
-        microUnits, 6, [], TOKEN_PROGRAM_ID
-      ));
-    }
+    // SPL USDC transfer — transfer from sender ATA to recipient ATA
+    const senderAta    = await getAssociatedTokenAddress(usdcMint, senderPk);
+    const recipientAta = await getAssociatedTokenAddress(usdcMint, recipientPk);
+    const microUnits   = Math.round(numericAmount * 1e6);
+    tx.add(createTransferCheckedInstruction(
+      senderAta, usdcMint, recipientAta, senderPk,
+      microUnits, 6, [], TOKEN_PROGRAM_ID
+    ));
 
     tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
     tx.feePayer = senderPk;

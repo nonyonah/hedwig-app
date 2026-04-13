@@ -11,7 +11,7 @@ import { TrueSheet } from '@hedwig/true-sheet';
 
 import {
     NetworkBase, NetworkSolana,
-    TokenETH, TokenUSDC, TokenSOL
+    TokenUSDC
 } from './CryptoIcons';
 import { getUserGradient } from '../utils/gradientUtils';
 import { modalHaptic } from './ui/ModalStyles';
@@ -42,7 +42,6 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         color: '#0052FF',
         addressType: 'evm',
         tokens: [
-            { symbol: 'ETH', icon: TokenETH },
             { symbol: 'USDC', icon: TokenUSDC }
         ]
     },
@@ -53,7 +52,6 @@ const SUPPORTED_CHAINS: ChainInfo[] = [
         color: '#14F195',
         addressType: 'solana',
         tokens: [
-            { symbol: 'SOL', icon: TokenSOL },
             { symbol: 'USDC', icon: TokenUSDC }
         ]
     }
@@ -203,21 +201,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
 
                 balanceData.forEach((bal: any) => {
                     if (bal.chain === 'base') {
-                        if (bal.asset === 'eth') {
-                            newBalances['Base_ETH'] = parseFloat(bal.display_values?.eth || bal.raw_value || '0') / (bal.raw_value_decimals ? Math.pow(10, bal.raw_value_decimals) : 1e18);
-                            newBalances['Base_ETH'] = newBalances['Base_ETH'].toFixed(6);
-                            totalUsd += parseFloat(bal.display_values?.usd || '0');
-                        } else if (bal.asset === 'usdc') {
+                        if (bal.asset === 'usdc') {
                             newBalances['Base_USDC'] = parseFloat(bal.display_values?.usdc || bal.raw_value || '0') / (bal.raw_value_decimals ? Math.pow(10, bal.raw_value_decimals) : 1e6);
                             newBalances['Base_USDC'] = newBalances['Base_USDC'].toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
                         }
                     } else if (bal.chain === 'solana') {
-                        if (bal.asset === 'sol') {
-                            newBalances['Solana_SOL'] = parseFloat(bal.display_values?.sol || bal.raw_value || '0') / (bal.raw_value_decimals ? Math.pow(10, bal.raw_value_decimals) : 1e9);
-                            newBalances['Solana_SOL'] = newBalances['Solana_SOL'].toFixed(6);
-                            totalUsd += parseFloat(bal.display_values?.usd || '0');
-                        } else if (bal.asset === 'usdc') {
+                        if (bal.asset === 'usdc') {
                             newBalances['Solana_USDC'] = parseFloat(bal.display_values?.usdc || bal.raw_value || '0') / (bal.raw_value_decimals ? Math.pow(10, bal.raw_value_decimals) : 1e6);
                             newBalances['Solana_USDC'] = newBalances['Solana_USDC'].toFixed(2);
                             totalUsd += parseFloat(bal.display_values?.usd || '0');
@@ -427,9 +417,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
                                             <Text style={[styles.menuItemTitle, { color: themeColors.textPrimary }]}>{selectedChain.name}</Text>
                                             <Text style={[styles.menuItemSubtitle, { color: themeColors.textSecondary }]}>
                                                 {selectedChain.addressType === 'evm'
-                                                    ? `${parseFloat(balances['Base_ETH'] || '0').toFixed(4)} ETH`
+                                                    ? `${parseFloat(balances['Base_USDC'] || '0').toFixed(2)} USDC`
                                                     : selectedChain.addressType === 'solana'
-                                                        ? `${parseFloat(balances['Solana_SOL'] || '0').toFixed(4)} SOL`
+                                                        ? `${parseFloat(balances['Solana_USDC'] || '0').toFixed(2)} USDC`
                                                         : `${parseFloat(balances['Bitcoin Testnet_BTC'] || '0').toFixed(6)} BTC`
                                                 }
                                             </Text>
@@ -467,7 +457,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
 
                             <View style={styles.assetList}>
                                 {selectedChain.tokens.map((token, idx) => {
-                                    // Construct key for balance lookup e.g. Base_ETH or Solana Devnet_SOL
+                                    // Construct key for balance lookup e.g. Base_USDC or Solana_USDC
                                     const key = `${selectedChain.name}_${token.symbol}`;
                                     const balance = balances[key] || '0.00';
 

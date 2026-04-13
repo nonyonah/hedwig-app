@@ -39,7 +39,7 @@ const ICONS = {
 
 // Bridge quote interface
 interface BridgeQuote {
-    token: 'SOL' | 'USDC';
+    token: 'USDC';
     amount: number;
     estimatedReceiveAmount: number;
     relayFee: number;
@@ -60,7 +60,7 @@ interface BridgeTransaction {
 interface SolanaBridgeModalProps {
     visible: boolean;
     onClose: () => void;
-    token: 'SOL' | 'USDC';
+    token: 'USDC';
     amount: number;
     solanaAddress: string;
     baseAddress: string;
@@ -393,7 +393,7 @@ export const SolanaBridgeModal = forwardRef<TrueSheet, SolanaBridgeModalProps>((
                     <View style={[styles.feeContainer, { backgroundColor: themeColors.surface }]}>
                         <View style={styles.feeRow}>
                             <Text style={[styles.feeLabel, { color: themeColors.textSecondary }]}>Relay Fee</Text>
-                            <Text style={[styles.feeValue, { color: themeColors.textPrimary }]}>{quote.relayFee} SOL</Text>
+                            <Text style={[styles.feeValue, { color: themeColors.textPrimary }]}>{quote.relayFee}</Text>
                         </View>
                         <View style={styles.feeRow}>
                             <Text style={[styles.feeLabel, { color: themeColors.textSecondary }]}>Estimated Time</Text>

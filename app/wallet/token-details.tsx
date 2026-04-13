@@ -56,20 +56,14 @@ type ChartResponse = {
 };
 
 const TOKEN_ICON_MAP: Record<string, any> = {
-    ETH: require('../../assets/icons/tokens/eth.png'),
     USDC: require('../../assets/icons/tokens/usdc.png'),
-    USDT: require('../../assets/icons/tokens/usdt.png'),
-    SOL: require('../../assets/icons/networks/solana.png'),
 };
 
 const TOKEN_CG_MAP: Record<string, string> = {
-    ETH: 'ethereum',
-    SOL: 'solana',
     USDC: 'usd-coin',
-    USDT: 'tether',
 };
 
-const STABLECOIN_SYMBOLS = new Set(['USDC', 'USDT']);
+const STABLECOIN_SYMBOLS = new Set(['USDC']);
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
     { label: '1D', value: '1' },
@@ -208,7 +202,7 @@ export default function TokenDetailsScreen() {
             range = max - min;
         }
 
-        // Generic low-volatility guard for all tokens (including ETH/SOL when movement is tiny).
+        // Generic low-volatility guard when movement is tiny.
         const midpoint = chart.reduce((sum, value) => sum + value, 0) / chart.length || 1;
         const relativeRange = midpoint > 0 ? range / midpoint : 0;
         if (relativeRange < 0.02) {

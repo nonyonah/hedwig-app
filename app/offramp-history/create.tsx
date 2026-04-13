@@ -199,18 +199,16 @@ const NETWORKS = [
     { id: 'arbitrum', name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
     { id: 'polygon',  name: 'Polygon',  icon: require('../../assets/icons/networks/polygon.png') },
     { id: 'celo',     name: 'Celo',     icon: require('../../assets/icons/networks/celo.png') },
-    { id: 'lisk',     name: 'Lisk',     icon: require('../../assets/icons/networks/lisk.png') },
     { id: 'solana',   name: 'Solana',   icon: require('../../assets/icons/networks/solana.png') },
 ];
 
-// Token options — lisk only supports USDT
+// Token options (USDC-only)
 const TOKENS_BY_NETWORK: Record<string, Array<{ id: string; name: string; icon: any }>> = {
-    base:     [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }, { id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
-    arbitrum: [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }, { id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
-    polygon:  [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }, { id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
-    celo:     [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }, { id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
-    lisk:     [{ id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
-    solana:   [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }, { id: 'USDT', name: 'USDT', icon: require('../../assets/icons/tokens/usdt.png') }],
+    base:     [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
+    arbitrum: [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
+    polygon:  [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
+    celo:     [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
+    solana:   [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
 };
 
 // Country / fiat currency options
@@ -310,7 +308,7 @@ export default function CreateWithdrawalScreen() {
 
     useEffect(() => {
         Analytics.withdrawalFlowStep('network_selected', { network: selectedNetwork.id });
-        // Reset token to first available for new network (e.g. lisk has no USDC)
+        // Reset token to the default option for the selected network
         const available = TOKENS_BY_NETWORK[selectedNetwork.id] ?? TOKENS_BY_NETWORK['base'];
         const stillValid = available.find(t => t.id === selectedToken.id);
         if (!stillValid) setSelectedToken(available[0]);
@@ -1051,7 +1049,7 @@ export default function CreateWithdrawalScreen() {
                 ref={bridgeModalRef}
                 visible={isBridgeModalVisible}
                 onClose={() => setIsBridgeModalVisible(false)}
-                token={'SOL'} // Default to SOL for now, logic could be enhanced to detect token
+                token={'USDC'}
                 amount={parseFloat(amount) || 0}
                 solanaAddress={solanaAddress}
                 baseAddress={evmAddress}

@@ -8,6 +8,7 @@ import NotificationService from '../services/notifications';
 import { createCalendarEventFromSource, markCalendarEventCompleted } from './calendar';
 import { createLogger } from '../utils/logger';
 import { buildIncomingPaymentCopy } from '../utils/notificationCopy';
+import { anchorDocumentPaidProof } from '../services/celoProofRegistry';
 // import BlockradarService from '../services/blockradar'; // REMOVED: Reverting to direct wallet-to-wallet payments
 
 const logger = createLogger('Documents');
@@ -1096,6 +1097,8 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
             return;
         }
 
+        const paidAtIso = new Date().toISOString();
+
         // Update document status to PAID
         const { data: updatedDoc, error: updateError } = await supabase
             .from('documents')
@@ -1103,7 +1106,7 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
                 status: 'PAID',
                 content: {
                     ...doc.content,
-                    paid_at: new Date().toISOString(),
+                    paid_at: paidAtIso,
                     tx_hash: txHash,
                     payment_chain: chain,
                     payment_token: token,
@@ -1223,6 +1226,23 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
         } else {
             await markCalendarEventCompleted('invoice', id as string);
         }
+
+        void anchorDocumentPaidProof({
+            documentId: id as string,
+            txHash: txHash || null,
+            chain: chain || null,
+            token: token || null,
+            amount: amount ?? null,
+            payer: payer || null,
+            paidAtIso,
+        }).then((result) => {
+            if (!result.anchored && result.reason !== 'disabled') {
+                logger.warn('Document paid proof was not anchored', {
+                    documentId: id,
+                    reason: result.reason,
+                });
+            }
+        });
 
         res.json({
             success: true,

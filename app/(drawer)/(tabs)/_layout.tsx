@@ -28,7 +28,6 @@ export default function TabLayout() {
     const {
         isLoadingBillingStatus,
         hasActiveEntitlement,
-        isMobilePaywallEnabled,
         isBillingEnforcementEnabled,
     } = useBillingStatus();
     const themeColors = useThemeColors();
@@ -47,7 +46,6 @@ export default function TabLayout() {
         if (isLoadingBillingStatus) return;
 
         const shouldEnforcePaywall =
-            isMobilePaywallEnabled &&
             isBillingEnforcementEnabled &&
             !hasActiveEntitlement;
 
@@ -58,7 +56,6 @@ export default function TabLayout() {
         hasActiveEntitlement,
         isBillingEnforcementEnabled,
         isLoadingBillingStatus,
-        isMobilePaywallEnabled,
         isReady,
         router,
         user,
@@ -66,7 +63,7 @@ export default function TabLayout() {
 
     if (!isReady || (user && isLoadingBillingStatus)) return null;
 
-    if (user && isMobilePaywallEnabled && isBillingEnforcementEnabled && !hasActiveEntitlement) {
+    if (user && isBillingEnforcementEnabled && !hasActiveEntitlement) {
         return null;
     }
 

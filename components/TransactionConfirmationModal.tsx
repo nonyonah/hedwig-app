@@ -18,8 +18,6 @@ import {
     PublicKey,
     Transaction,
     TransactionInstruction,
-    SystemProgram,
-    LAMPORTS_PER_SOL,
     clusterApiUrl
 } from '@solana/web3.js';
 
@@ -38,7 +36,6 @@ const ICONS = {
     solana: require('../assets/icons/networks/solana.png'),
     arbitrum: require('../assets/icons/networks/arbitrum.png'),
     polygon: require('../assets/icons/networks/polygon.png'),
-    lisk: require('../assets/icons/networks/lisk.png'),
 };
 
 const CHAINS: Record<string, any> = {
@@ -46,7 +43,6 @@ const CHAINS: Record<string, any> = {
     'celo':     { name: 'Celo',     icon: ICONS.celo,     explorer: 'https://celoscan.io/tx/',           type: 'evm' },
     'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum, explorer: 'https://arbiscan.io/tx/',           type: 'evm' },
     'polygon':  { name: 'Polygon',  icon: ICONS.polygon,  explorer: 'https://polygonscan.com/tx/',       type: 'evm' },
-    'lisk':     { name: 'Lisk',     icon: ICONS.lisk,     explorer: 'https://blockscout.lisk.com/tx/',   type: 'evm' },
     'solana':   { name: 'Solana',   icon: ICONS.solana,   explorer: 'https://explorer.solana.com/tx/',   type: 'solana' },
     'stacks':   { name: 'Stacks',   icon: require('../assets/icons/networks/stacks.png'), explorer: 'https://explorer.hiro.so/txid/', type: 'stacks' },
 };
@@ -195,7 +191,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
 
         // Skip gas estimation for Solana
         if (isSolanaNetwork(network)) {
-            setEstimatedGas('~0.000005 SOL');
+            setEstimatedGas('Network fee applies');
             return;
         }
 
@@ -207,10 +203,6 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
             const rpcProvider = new ethers.JsonRpcProvider(rpcUrl);
             const tokenSymbol = data.token.toUpperCase();
 
-            const isNative =
-                (network === 'base' && tokenSymbol === 'ETH') ||
-                (network === 'celo' && tokenSymbol === 'CELO');
-
             // Get wallet address
             if (!evmWallets || evmWallets.length === 0) return;
             const provider = await evmWallets[0].getProvider();
@@ -221,37 +213,26 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
             const feeData = await rpcProvider.getFeeData();
             const gasPrice = feeData.gasPrice || 1000000000n;
 
-            let gasEstimate: bigint;
-            if (isNative) {
-                const value = ethers.parseEther(data.amount);
-                gasEstimate = await rpcProvider.estimateGas({
-                    from: fromAddress,
-                    to: data.recipient,
-                    value: value
-                });
-            } else {
-                const chainTokens = TOKEN_ADDRESSES[network as keyof typeof TOKEN_ADDRESSES];
-                const tokenAddress = chainTokens ? (chainTokens as any)[tokenSymbol] : null;
-                if (!tokenAddress) return;
+            const chainTokens = TOKEN_ADDRESSES[network as keyof typeof TOKEN_ADDRESSES];
+            const tokenAddress = chainTokens ? (chainTokens as any)[tokenSymbol] : null;
+            if (!tokenAddress) return;
 
-                const decimals = 6;
-                const amountWei = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, decimals)));
-                const recipientPadded = data.recipient.slice(2).toLowerCase().padStart(64, '0');
-                const amountPadded = amountWei.toString(16).padStart(64, '0');
-                const txData = '0xa9059cbb' + recipientPadded + amountPadded;
+            const decimals = 6;
+            const amountWei = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, decimals)));
+            const recipientPadded = data.recipient.slice(2).toLowerCase().padStart(64, '0');
+            const amountPadded = amountWei.toString(16).padStart(64, '0');
+            const txData = '0xa9059cbb' + recipientPadded + amountPadded;
 
-                gasEstimate = await rpcProvider.estimateGas({
-                    from: fromAddress,
-                    to: tokenAddress,
-                    data: txData
-                });
-            }
+            const gasEstimate = await rpcProvider.estimateGas({
+                from: fromAddress,
+                to: tokenAddress,
+                data: txData
+            });
 
             const gasCost = gasEstimate * gasPrice;
             const gasCostEth = ethers.formatEther(gasCost);
             const gasCostFloat = parseFloat(gasCostEth);
-            const symbol = network === 'celo' ? 'CELO' : 'ETH';
-            setEstimatedGas(`~${gasCostFloat.toFixed(6)} ${symbol}`);
+            setEstimatedGas(`~${gasCostFloat.toFixed(6)} gas`);
         } catch (error: any) {
             console.log('Gas estimation error:', error.message);
             setGasError('Unable to estimate');
@@ -301,199 +282,132 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
         const connection = new Connection(clusterApiUrl('mainnet-beta'), 'confirmed');
 
         const tokenSymbol = data.token.toUpperCase();
+        // ========================================
+        // SPL TOKEN (USDC) TRANSFER
+        // ========================================
+        console.log('[Solana] Processing SPL Token transfer...');
 
-        if (tokenSymbol === 'SOL') {
-            // Native SOL transfer
-            const lamports = Math.floor(parseFloat(data.amount) * LAMPORTS_PER_SOL);
+        const mintAddress = TOKEN_ADDRESSES.solana.USDC;
+        if (!mintAddress) {
+            throw new Error(`${tokenSymbol} is not supported on Solana`);
+        }
 
-            const transaction = new Transaction().add(
-                SystemProgram.transfer({
-                    fromPubkey: new PublicKey(fromAddress),
-                    toPubkey: new PublicKey(data.recipient),
-                    lamports: lamports,
-                })
-            );
-
-            // Get recent blockhash
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-            transaction.recentBlockhash = blockhash;
-            transaction.feePayer = new PublicKey(fromAddress);
-
-            // Get the Privy provider
-            const provider = await wallet.getProvider();
-
-            console.log('[Solana] Sending transaction via Privy provider...');
-
-            // Privy's EmbeddedSolanaWalletProvider expects:
-            // request({ method: 'signAndSendTransaction', params: { transaction, connection } })
-            const result = await provider.request({
-                method: 'signAndSendTransaction',
-                params: {
-                    transaction: transaction,
-                    connection: connection,
-                },
-                // sponsor: true, // Enable gas sponsorship (temporarily disabled)
-            });
-
-            const signature = result.signature;
-            console.log('Solana Transaction Signature:', signature);
-
-            // Wait for confirmation using polling (avoids WebSocket issues)
-            let confirmed = false;
-            let attempts = 0;
-            const maxAttempts = 30;
-
-            while (!confirmed && attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                attempts++;
-
-                try {
-                    const status = await connection.getSignatureStatuses([signature]);
-                    if (status.value[0]) {
-                        const confirmationStatus = status.value[0].confirmationStatus;
-                        if (confirmationStatus === 'confirmed' || confirmationStatus === 'finalized') {
-                            confirmed = true;
-                            console.log('[Solana] Transaction confirmed!', confirmationStatus);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('[Solana] Confirmation check error:', e);
-                }
-            }
-
-            if (!confirmed) {
-                console.warn('Transaction confirmation timed out, but transaction was sent:', signature);
-            }
-
-            return signature;
-        } else {
-            // ========================================
-            // SPL TOKEN (USDC) TRANSFER
-            // ========================================
-            console.log('[Solana] Processing SPL Token transfer...');
-
-            const mintAddress = TOKEN_ADDRESSES.solana.USDC;
-            if (!mintAddress) {
-                throw new Error(`${tokenSymbol} is not supported on Solana`);
-            }
-
-            const mintPubkey = new PublicKey(mintAddress);
-            const senderPubkey = new PublicKey(fromAddress);
-            const recipientPubkey = new PublicKey(data.recipient);
+        const mintPubkey = new PublicKey(mintAddress);
+        const senderPubkey = new PublicKey(fromAddress);
+        const recipientPubkey = new PublicKey(data.recipient);
 
             // Convert amount to smallest units (USDC has 6 decimals)
-            const amount = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, USDC_DECIMALS)));
+        const amount = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, USDC_DECIMALS)));
 
-            console.log(`[Solana] Transferring ${amount} ${tokenSymbol} units`);
+        console.log(`[Solana] Transferring ${amount} ${tokenSymbol} units`);
 
             // Derive Associated Token Accounts
-            const [senderATA] = await PublicKey.findProgramAddress(
-                [senderPubkey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintPubkey.toBuffer()],
-                ASSOCIATED_TOKEN_PROGRAM_ID
-            );
-            const [recipientATA] = await PublicKey.findProgramAddress(
-                [recipientPubkey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintPubkey.toBuffer()],
-                ASSOCIATED_TOKEN_PROGRAM_ID
-            );
+        const [senderATA] = await PublicKey.findProgramAddress(
+            [senderPubkey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintPubkey.toBuffer()],
+            ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+        const [recipientATA] = await PublicKey.findProgramAddress(
+            [recipientPubkey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mintPubkey.toBuffer()],
+            ASSOCIATED_TOKEN_PROGRAM_ID
+        );
 
-            console.log('[Solana] ATAs:', { sender: senderATA.toString(), recipient: recipientATA.toString() });
+        console.log('[Solana] ATAs:', { sender: senderATA.toString(), recipient: recipientATA.toString() });
 
-            const transaction = new Transaction();
+        const transaction = new Transaction();
 
             // Check if recipient ATA exists, create if not
-            const recipientATAInfo = await connection.getAccountInfo(recipientATA);
-            if (!recipientATAInfo) {
-                console.log('[Solana] Creating recipient ATA...');
-                // Create Associated Token Account instruction
-                transaction.add(
-                    new TransactionInstruction({
-                        keys: [
-                            { pubkey: senderPubkey, isSigner: true, isWritable: true },
-                            { pubkey: recipientATA, isSigner: false, isWritable: true },
-                            { pubkey: recipientPubkey, isSigner: false, isWritable: false },
-                            { pubkey: mintPubkey, isSigner: false, isWritable: false },
-                            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-                            { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-                        ],
-                        programId: ASSOCIATED_TOKEN_PROGRAM_ID,
-                        data: Buffer.alloc(0),
-                    })
-                );
-            }
-
-            // Create SPL Token transfer instruction
-            // Instruction layout: byte 0 = 3 (Transfer), bytes 1-8 = amount (u64 LE)
-            const transferData = Buffer.alloc(9);
-            transferData.writeUInt8(3, 0); // Transfer instruction
-            // Write u64 little-endian
-            const low = Number(amount & BigInt(0xFFFFFFFF));
-            const high = Number((amount >> BigInt(32)) & BigInt(0xFFFFFFFF));
-            transferData.writeUInt32LE(low, 1);
-            transferData.writeUInt32LE(high, 5);
-
+        const recipientATAInfo = await connection.getAccountInfo(recipientATA);
+        if (!recipientATAInfo) {
+            console.log('[Solana] Creating recipient ATA...');
+            const splSystemProgram = new PublicKey('11111111111111111111111111111111');
             transaction.add(
                 new TransactionInstruction({
                     keys: [
-                        { pubkey: senderATA, isSigner: false, isWritable: true },
+                        { pubkey: senderPubkey, isSigner: true, isWritable: true },
                         { pubkey: recipientATA, isSigner: false, isWritable: true },
-                        { pubkey: senderPubkey, isSigner: true, isWritable: false },
+                        { pubkey: recipientPubkey, isSigner: false, isWritable: false },
+                        { pubkey: mintPubkey, isSigner: false, isWritable: false },
+                        { pubkey: splSystemProgram, isSigner: false, isWritable: false },
+                        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
                     ],
-                    programId: TOKEN_PROGRAM_ID,
-                    data: transferData,
+                    programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+                    data: Buffer.alloc(0),
                 })
             );
+        }
+
+            // Create SPL Token transfer instruction
+            // Instruction layout: byte 0 = 3 (Transfer), bytes 1-8 = amount (u64 LE)
+        const transferData = Buffer.alloc(9);
+        transferData.writeUInt8(3, 0); // Transfer instruction
+        // Write u64 little-endian
+        const low = Number(amount & BigInt(0xFFFFFFFF));
+        const high = Number((amount >> BigInt(32)) & BigInt(0xFFFFFFFF));
+        transferData.writeUInt32LE(low, 1);
+        transferData.writeUInt32LE(high, 5);
+
+        transaction.add(
+            new TransactionInstruction({
+                keys: [
+                    { pubkey: senderATA, isSigner: false, isWritable: true },
+                    { pubkey: recipientATA, isSigner: false, isWritable: true },
+                    { pubkey: senderPubkey, isSigner: true, isWritable: false },
+                ],
+                programId: TOKEN_PROGRAM_ID,
+                data: transferData,
+            })
+        );
 
             // Get recent blockhash
-            const { blockhash } = await connection.getLatestBlockhash();
-            transaction.recentBlockhash = blockhash;
-            transaction.feePayer = senderPubkey;
+        const { blockhash } = await connection.getLatestBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = senderPubkey;
 
             // Get the Privy provider and send transaction
-            const provider = await wallet.getProvider();
+        const provider = await wallet.getProvider();
 
-            console.log('[Solana] Sending SPL Token transaction via Privy provider...');
+        console.log('[Solana] Sending SPL Token transaction via Privy provider...');
 
-            const result = await provider.request({
-                method: 'signAndSendTransaction',
-                params: {
-                    transaction: transaction,
-                    connection: connection,
-                },
-                // sponsor: true, // Enable gas sponsorship (temporarily disabled)
-            });
+        const result = await provider.request({
+            method: 'signAndSendTransaction',
+            params: {
+                transaction: transaction,
+                connection: connection,
+            },
+            // sponsor: true, // Enable gas sponsorship (temporarily disabled)
+        });
 
-            const signature = result.signature;
-            console.log('Solana SPL Token Transaction Signature:', signature);
+        const signature = result.signature;
+        console.log('Solana SPL Token Transaction Signature:', signature);
 
             // Wait for confirmation using polling
-            let confirmed = false;
-            let attempts = 0;
-            const maxAttempts = 30;
+        let confirmed = false;
+        let attempts = 0;
+        const maxAttempts = 30;
 
-            while (!confirmed && attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                attempts++;
+        while (!confirmed && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            attempts++;
 
-                try {
-                    const status = await connection.getSignatureStatuses([signature]);
-                    if (status.value[0]) {
-                        const confirmationStatus = status.value[0].confirmationStatus;
-                        if (confirmationStatus === 'confirmed' || confirmationStatus === 'finalized') {
-                            confirmed = true;
-                            console.log('[Solana] SPL Token Transaction confirmed!', confirmationStatus);
-                        }
+            try {
+                const status = await connection.getSignatureStatuses([signature]);
+                if (status.value[0]) {
+                    const confirmationStatus = status.value[0].confirmationStatus;
+                    if (confirmationStatus === 'confirmed' || confirmationStatus === 'finalized') {
+                        confirmed = true;
+                        console.log('[Solana] SPL Token Transaction confirmed!', confirmationStatus);
                     }
-                } catch (e) {
-                    console.warn('[Solana] Confirmation check error:', e);
                 }
+            } catch (e) {
+                console.warn('[Solana] Confirmation check error:', e);
             }
-
-            if (!confirmed) {
-                console.warn('Transaction confirmation timed out, but transaction was sent:', signature);
-            }
-
-            return signature;
         }
+
+        if (!confirmed) {
+            console.warn('Transaction confirmation timed out, but transaction was sent:', signature);
+        }
+
+        return signature;
     };
 
     // Handle EVM transaction (Base, Celo)
@@ -557,84 +471,46 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
 
         let transactionHash: string;
 
-        const isNative =
-            (network === 'base' && tokenSymbol === 'ETH') ||
-            (network === 'celo' && tokenSymbol === 'CELO');
+        // ERC20 Transfer (USDC only)
+        const chainTokens = TOKEN_ADDRESSES[network as keyof typeof TOKEN_ADDRESSES];
+        const tokenAddress = chainTokens ? (chainTokens as any)[tokenSymbol] : null;
 
-        if (isNative) {
-            const value = ethers.parseEther(data.amount);
-
-            // Get gas estimate
-            const gasEstimate = await rpcProvider.estimateGas({
-                from: fromAddress,
-                to: data.recipient,
-                value: value
-            });
-
-            const gasLimit = '0x' + (gasEstimate * 150n / 100n).toString(16);
-            const valueHex = '0x' + value.toString(16);
-
-            const txParams = {
-                from: fromAddress,
-                to: data.recipient,
-                value: valueHex,
-                gasLimit: gasLimit,
-                nonce: nonceHex,
-                maxFeePerGas: '0x' + maxFeePerGas.toString(16),
-                maxPriorityFeePerGas: '0x' + maxPriorityFeePerGas.toString(16),
-                chainId: targetChainId
-            };
-
-            console.log('Native TX Params:', JSON.stringify(txParams, null, 2));
-
-            transactionHash = await provider.request({
-                method: 'eth_sendTransaction',
-                params: [txParams],
-                // sponsor: true, // Enable gas sponsorship (temporarily disabled)
-            }) as string;
-
-        } else {
-            // ERC20 Transfer
-            const chainTokens = TOKEN_ADDRESSES[network as keyof typeof TOKEN_ADDRESSES];
-            const tokenAddress = chainTokens ? (chainTokens as any)[tokenSymbol] : null;
-
-            if (!tokenAddress) {
-                throw new Error(`Token ${tokenSymbol} not supported on ${network}`);
-            }
-
-            const decimals = 6;
-            const amountWei = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, decimals)));
-            const recipientPadded = data.recipient.slice(2).toLowerCase().padStart(64, '0');
-            const amountPadded = amountWei.toString(16).padStart(64, '0');
-            const txData = '0xa9059cbb' + recipientPadded + amountPadded;
-
-            const gasEstimate = await rpcProvider.estimateGas({
-                from: fromAddress,
-                to: tokenAddress,
-                data: txData
-            });
-
-            const gasLimit = '0x' + (gasEstimate * 150n / 100n).toString(16);
-
-            const txParams = {
-                from: fromAddress,
-                to: tokenAddress,
-                data: txData,
-                gasLimit: gasLimit,
-                nonce: nonceHex,
-                maxFeePerGas: '0x' + maxFeePerGas.toString(16),
-                maxPriorityFeePerGas: '0x' + maxPriorityFeePerGas.toString(16),
-                chainId: targetChainId
-            };
-
-            console.log('ERC20 TX Params:', JSON.stringify(txParams, null, 2));
-
-            transactionHash = await provider.request({
-                method: 'eth_sendTransaction',
-                params: [txParams],
-                // sponsor: true, // Enable gas sponsorship (temporarily disabled)
-            }) as string;
+        if (!tokenAddress) {
+            throw new Error(`Token ${tokenSymbol} not supported on ${network}`);
         }
+
+        const decimals = 6;
+        const amountWei = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, decimals)));
+        const recipientPadded = data.recipient.slice(2).toLowerCase().padStart(64, '0');
+        const amountPadded = amountWei.toString(16).padStart(64, '0');
+        const txData = '0xa9059cbb' + recipientPadded + amountPadded;
+
+        const gasEstimate = await rpcProvider.estimateGas({
+            from: fromAddress,
+            to: tokenAddress,
+            data: txData
+        });
+
+        const gasLimit = '0x' + (gasEstimate * 150n / 100n).toString(16);
+
+        const txParams = {
+            from: fromAddress,
+            to: tokenAddress,
+            data: txData,
+            gasLimit: gasLimit,
+            nonce: nonceHex,
+            maxFeePerGas: '0x' + maxFeePerGas.toString(16),
+            maxPriorityFeePerGas: '0x' + maxPriorityFeePerGas.toString(16),
+            chainId: targetChainId
+        };
+
+        console.log('ERC20 TX Params:', JSON.stringify(txParams, null, 2));
+
+        transactionHash = await provider.request({
+            method: 'eth_sendTransaction',
+            params: [txParams],
+            // sponsor: true, // Enable gas sponsorship (temporarily disabled)
+        }) as string;
 
         console.log('Transaction Hash:', transactionHash);
 
@@ -769,9 +645,9 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
     // Early return already handled at the top of the component
     const network = normalizeNetwork(data.network);
     const chain = CHAINS[network] || CHAINS['solana'];
-    const modalDetents = modalState === 'failed'
+    const modalDetents = (modalState === 'failed'
         ? [Platform.OS === 'ios' ? 0.66 : 0.76]
-        : ['auto'];
+        : ['auto']) as any;
 
     const renderContent = () => {
         switch (modalState) {

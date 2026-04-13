@@ -219,8 +219,6 @@ function LandingPage() {
                         <div className="mt-3 flex gap-1.5">
                           {[
                             { src: '/icons/tokens/usdc.png', label: 'USDC' },
-                            { src: '/icons/tokens/eth.png', label: 'ETH' },
-                            { src: '/icons/networks/solana.png', label: 'SOL' },
                           ].map((t) => (
                             <div key={t.label} className="flex items-center gap-1 rounded-full border border-[#e9eaeb] bg-[#f9fafb] px-2 py-1">
                               <Image src={t.src} alt={t.label} width={12} height={12} className="rounded-full" />
@@ -230,12 +228,12 @@ function LandingPage() {
                         </div>
                       </div>
                       <div className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-[#e9eaeb]">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">USD Account</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">USDC Settlement</p>
                         <div className="mt-2 flex items-center gap-2">
                           <span className="h-2 w-2 rounded-full bg-[#17b26a]" />
-                          <p className="text-[12px] font-semibold text-[#181d27]">Ready to settle</p>
+                          <p className="text-[12px] font-semibold text-[#181d27]">Ready to bridge</p>
                         </div>
-                        <p className="mt-1 text-[10px] text-[#717680]">Bridge · Bank transfer</p>
+                        <p className="mt-1 text-[10px] text-[#717680]">Unified USDC across chains</p>
                       </div>
                     </div>
                   </div>

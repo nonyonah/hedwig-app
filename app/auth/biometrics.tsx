@@ -152,7 +152,7 @@ export default function BiometricsScreen() {
 
                 if (ethAddress) {
                     newWallets.ethereum = ethAddress;
-                    console.log('Extracted ETH address:', ethAddress);
+                    console.log('Extracted EVM address:', ethAddress);
                 }
             } else {
                 console.log('Skipping EVM creation. Create fn exists:', !!ethWalletHook.create, 'Wallets length:', ethWalletHook.wallets.length);
@@ -175,13 +175,13 @@ export default function BiometricsScreen() {
                 // 1. Check result address (Provider object usually has it)
                 if (solResult?.address) {
                     solAddress = solResult.address;
-                    console.log('Found SOL address in result:', solAddress);
+                    console.log('Found Solana address in result:', solAddress);
                 }
 
                 // 2. Check public key if it exists
                 if (!solAddress && solResult?.publicKey) {
                     solAddress = solResult.publicKey.toString();
-                    console.log('Found SOL address from publicKey:', solAddress);
+                    console.log('Found Solana address from publicKey:', solAddress);
                 }
 
                 // 3. Check internal _account property (based on logs)
@@ -191,10 +191,10 @@ export default function BiometricsScreen() {
 
                     if (account.address) {
                         solAddress = account.address;
-                        console.log('Found SOL address in _account:', solAddress);
+                        console.log('Found Solana address in _account:', solAddress);
                     } else if (account.publicKey) {
                         solAddress = account.publicKey.toString();
-                        console.log('Found SOL address in _account.publicKey:', solAddress);
+                        console.log('Found Solana address in _account.publicKey:', solAddress);
                     }
                 }
 
@@ -205,13 +205,13 @@ export default function BiometricsScreen() {
                     );
                     if ((solAccount as any)?.address) {
                         solAddress = (solAccount as any).address;
-                        console.log('Found SOL address in linked_accounts:', solAddress);
+                        console.log('Found Solana address in linked_accounts:', solAddress);
                     }
                 }
 
                 if (solAddress) {
                     newWallets.solana = solAddress;
-                    console.log('Extracted SOL address:', solAddress);
+                    console.log('Extracted Solana address:', solAddress);
                 }
             } else {
                 console.log('Skipping Solana creation. Create fn exists:', !!solWalletHook.create, 'Wallets length:', solWalletHook.wallets?.length);

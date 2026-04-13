@@ -117,7 +117,7 @@ export function PublicSolanaCheckout({
   amount: number;
   title: string;
   merchantAddress?: string | null;
-  token?: 'USDC' | 'USDT';
+  token?: 'USDC';
 }) {
   const router = useRouter();
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -128,7 +128,7 @@ export function PublicSolanaCheckout({
 
   const supportsDirectCheckout = Boolean(merchantAddress);
   const chainIcon = '/icons/networks/solana.png';
-  const tokenIcon = token === 'USDT' ? '/icons/tokens/usdt.png' : '/icons/tokens/usdc.png';
+  const tokenIcon = '/icons/tokens/usdc.png';
   const tokenSymbol = token ?? 'USDC';
 
   const buttonLabel = useMemo(() => {

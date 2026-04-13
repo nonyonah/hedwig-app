@@ -19,43 +19,22 @@ const chainIconByName: Record<string, string> = {
   Arbitrum: '/icons/networks/arbitrum.png',
   Polygon:  '/icons/networks/polygon.png',
   Celo:     '/icons/networks/celo.png',
-  Lisk:     '/icons/networks/lisk.png',
 };
 
 const tokenIconByKey: Record<string, string> = {
-  'Base:ETH':       '/icons/tokens/eth.png',
   'Base:USDC':      '/icons/tokens/usdc.png',
-  'Base:USDT':      '/icons/tokens/usdt.png',
-  'Solana:SOL':     '/icons/networks/solana.png',
   'Solana:USDC':    '/icons/tokens/usdc.png',
-  'Solana:USDT':    '/icons/tokens/usdt.png',
-  'Arbitrum:ETH':   '/icons/tokens/eth.png',
   'Arbitrum:USDC':  '/icons/tokens/usdc.png',
-  'Arbitrum:USDT':  '/icons/tokens/usdt.png',
   'Polygon:USDC':   '/icons/tokens/usdc.png',
-  'Polygon:USDT':   '/icons/tokens/usdt.png',
   'Celo:USDC':      '/icons/tokens/usdc.png',
-  'Celo:USDT':      '/icons/tokens/usdt.png',
-  'Lisk:USDC':      '/icons/tokens/usdc.png',
-  'Lisk:USDT':      '/icons/tokens/usdt.png',
 };
 
 const supportedAssets: Array<{ chain: WalletAsset['chain']; symbol: string; name: string }> = [
-  { chain: 'Base', symbol: 'ETH', name: 'Ethereum' },
   { chain: 'Base', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Base', symbol: 'USDT', name: 'Tether' },
-  { chain: 'Solana', symbol: 'SOL', name: 'Solana' },
   { chain: 'Solana', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Solana', symbol: 'USDT', name: 'Tether' },
-  { chain: 'Arbitrum', symbol: 'ETH', name: 'Ethereum' },
   { chain: 'Arbitrum', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Arbitrum', symbol: 'USDT', name: 'Tether' },
   { chain: 'Polygon', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Polygon', symbol: 'USDT', name: 'Tether' },
   { chain: 'Celo', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Celo', symbol: 'USDT', name: 'Tether' },
-  { chain: 'Lisk', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Lisk', symbol: 'USDT', name: 'Tether' },
 ];
 
 const TX_KIND: Record<WalletTransaction['kind'], { dot: string; bg: string; text: string }> = {
@@ -411,7 +390,7 @@ export function WalletView({
             <span className="text-[12px] font-medium text-[#717680]">Assets tracked</span>
           </div>
           <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{allAssets.length}</p>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">ETH, USDC, SOL, USDC</p>
+          <p className="mt-1 text-[11px] text-[#a4a7ae]">USDC across supported chains</p>
         </div>
         {usdAccountsEnabled ? (
           <div className="bg-white px-5 py-4">

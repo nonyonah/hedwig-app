@@ -8,6 +8,11 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "contract:celo:compile": "npx hardhat compile --config hedwig-backend/hardhat.config.cjs",
+    "contract:celo:deploy": "npx hardhat run --config hedwig-backend/hardhat.config.cjs --network celo hedwig-backend/scripts/deploy-proof-registry.js",
+    "contract:celo:verify": "npx hardhat run --config hedwig-backend/hardhat.config.cjs --network celo hedwig-backend/scripts/verify-proof-registry.js",
+    "contract:celo:deploy:sepolia": "npx hardhat run --config hedwig-backend/hardhat.config.cjs --network celoSepolia hedwig-backend/scripts/deploy-proof-registry.js",
+    "contract:celo:verify:sepolia": "npx hardhat run --config hedwig-backend/hardhat.config.cjs --network celoSepolia hedwig-backend/scripts/verify-proof-registry.js",
     "postinstall": "node scripts/patch-freeport-async.js"
   },
   "dependencies": {
@@ -27,6 +32,7 @@
     "@hugeicons/core-free-icons": "^4.0.0",
     "@hugeicons/react-native": "^1.0.13",
     "@lodev09/react-native-true-sheet": "^3.9.9",
+    "@openzeppelin/contracts": "^5.6.1",
     "@privy-io/expo": "^0.60.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "^8.6.0",
@@ -116,9 +122,8 @@
     "viem": "^2.43.2"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
-    "@nomicfoundation/hardhat-ethers": "^4.0.4",
-    "@nomicfoundation/hardhat-verify": "^3.0.9",
+    "@nomicfoundation/hardhat-ethers": "^3.1.0",
+    "@nomicfoundation/hardhat-verify": "^2.1.2",
     "@peculiar/webcrypto": "^1.5.0",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
@@ -132,6 +137,7 @@
     "chai": "^6.2.2",
     "ethers": "^6.16.0",
     "events": "^3.3.0",
+    "hardhat": "^2.26.3",
     "hardhat-gas-reporter": "^2.3.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",

@@ -110,7 +110,9 @@ export default function SettingsScreen() {
     const {
         hasActiveEntitlement,
         isLoadingBillingStatus,
+        billingStatusError,
         isMobilePaywallEnabled,
+        isBillingEnforcementEnabled,
     } = useBillingStatus({ autoConfigureRevenueCat: false });
 
 
@@ -575,23 +577,31 @@ export default function SettingsScreen() {
 
                 <View style={styles.spacer} />
 
-                {(isMobilePaywallEnabled || hasActiveEntitlement) ? (
-                    <>
-                        <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Billing</Text>
-                        <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
-                            <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/paywall')}>
-                                <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Manage subscription</Text>
-                                <View style={styles.settingValueContainer}>
-                                    <Text style={[styles.settingValue, { color: themeColors.textSecondary }]}>
-                                        {isLoadingBillingStatus ? 'Checking...' : hasActiveEntitlement ? 'Pro active' : 'Upgrade'}
-                                    </Text>
-                                    <CaretRight size={20} color={themeColors.textSecondary} />
-                                </View>
-                            </TouchableOpacity>
-                        </View>
-                        <View style={styles.spacer} />
-                    </>
-                ) : null}
+                <>
+                    <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Billing</Text>
+                    <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
+                        <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/paywall')}>
+                            <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Manage subscription</Text>
+                            <View style={styles.settingValueContainer}>
+                                <Text style={[styles.settingValue, { color: themeColors.textSecondary }]}>
+                                    {isLoadingBillingStatus
+                                        ? 'Checking...'
+                                        : hasActiveEntitlement
+                                            ? 'Pro active'
+                                            : isBillingEnforcementEnabled
+                                                ? 'Required'
+                                                : isMobilePaywallEnabled
+                                                    ? 'Upgrade'
+                                                    : billingStatusError
+                                                        ? 'Unavailable'
+                                                        : 'Set up'}
+                                </Text>
+                                <CaretRight size={20} color={themeColors.textSecondary} />
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.spacer} />
+                </>
 
                 {/* Security */}
                 <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Security</Text>

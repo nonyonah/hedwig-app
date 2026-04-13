@@ -19,9 +19,7 @@ const TIMEFRAMES = ['1D', '7D', '1M', '3M', '1Y'] as const;
 type Timeframe = typeof TIMEFRAMES[number];
 
 const TOKEN_ICON: Record<string, string> = {
-  'Base:ETH':    '/icons/tokens/eth.png',
   'Base:USDC':   '/icons/tokens/usdc.png',
-  'Solana:SOL':  '/icons/networks/solana.png',
   'Solana:USDC': '/icons/tokens/usdc.png'
 };
 const CHAIN_ICON: Record<string, string> = {
@@ -67,7 +65,7 @@ function fmtSupply(n: number | null, symbol: string) {
 
 function fmtCrypto(n: number, symbol: string) {
   if (n <= 0) return `0 ${symbol}`;
-  const dec = symbol === 'USDC' || symbol === 'USDT' ? 2 : n >= 1 ? 4 : 6;
+  const dec = 2;
   return `${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: dec })} ${symbol}`;
 }
 
@@ -174,7 +172,7 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
   const change       = market?.change24h ?? asset.changePct24h ?? 0;
   const isPositive   = change >= 0;
   const chartColor   = loading ? '#e9eaeb' : isPositive ? '#12b76a' : '#f04438';
-  const priceDecimals = asset.symbol === 'USDC' || asset.symbol === 'USDT' ? 4 : 2;
+  const priceDecimals = 4;
 
   const contractAddr = market?.contractAddress ?? null;
   const explorerLink = contractAddr

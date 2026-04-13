@@ -13,8 +13,10 @@ const EVM_CHAIN_META: Record<string, { icon: string; label: string }> = {
   arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
   polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
   celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
-  lisk:     { icon: '/icons/networks/lisk.png',     label: 'Lisk' },
 };
+
+const MINIPAY_ADD_CASH_URL = 'https://minipay-production.up.railway.app/?page=wallet&feature=add_cash';
+const CELO_CHAIN_IDS = new Set([42220, 44787]);
 
 type Eip1193Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -50,11 +52,9 @@ async function ensureWalletOnTargetChain(provider: Eip1193Provider, targetChainI
     421614: { chainId: '0x66eee', chainName: 'Arbitrum Sepolia', nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://sepolia-rollup.arbitrum.io/rpc'], blockExplorerUrls: ['https://sepolia.arbiscan.io'] },
     80002: { chainId: '0x13882', chainName: 'Polygon Amoy', nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 }, rpcUrls: ['https://rpc-amoy.polygon.technology'], blockExplorerUrls: ['https://amoy.polygonscan.com'] },
     44787: { chainId: '0xaef3', chainName: 'Celo Alfajores', nativeCurrency: { name: 'Celo', symbol: 'CELO', decimals: 18 }, rpcUrls: ['https://alfajores-forno.celo-testnet.org'], blockExplorerUrls: ['https://alfajores.celoscan.io'] },
-    4202: { chainId: '0x106a', chainName: 'Lisk Sepolia', nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://rpc.sepolia-api.lisk.com'], blockExplorerUrls: ['https://sepolia-blockscout.lisk.com'] },
     42161: { chainId: '0xa4b1', chainName: 'Arbitrum One', nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://arb1.arbitrum.io/rpc'], blockExplorerUrls: ['https://arbiscan.io'] },
     137: { chainId: '0x89', chainName: 'Polygon', nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 }, rpcUrls: ['https://polygon-rpc.com'], blockExplorerUrls: ['https://polygonscan.com'] },
     42220: { chainId: '0xa4ec', chainName: 'Celo', nativeCurrency: { name: 'Celo', symbol: 'CELO', decimals: 18 }, rpcUrls: ['https://forno.celo.org'], blockExplorerUrls: ['https://celoscan.io'] },
-    1135: { chainId: '0x46f', chainName: 'Lisk', nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://rpc.api.lisk.com'], blockExplorerUrls: ['https://blockscout.lisk.com'] },
   };
 
   try {
@@ -108,7 +108,7 @@ export function PublicEvmCheckout({
   documentId: string;
   amount: number;
   title: string;
-  token?: 'USDC' | 'USDT' | 'ETH';
+  token?: 'USDC';
   merchantAddress?: string | null;
   selectedChain?: string;
 }) {
@@ -119,6 +119,7 @@ export function PublicEvmCheckout({
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
 
+  const isMiniPay = typeof window !== 'undefined' && Boolean((window as any).ethereum?.isMiniPay);
   const hasEthereum = typeof window !== 'undefined' && typeof (window as any).ethereum !== 'undefined';
   const supportsDirectCheckout = Boolean(merchantAddress);
 
@@ -129,7 +130,7 @@ export function PublicEvmCheckout({
     ? (resolvedEvmChain === 'baseSepolia' ? 'Base Sepolia' : (EVM_CHAIN_META[resolvedEvmChain]?.label ?? chainMeta.label))
     : chainMeta.label;
 
-  const tokenIcon = token === 'ETH' ? '/icons/tokens/eth.png' : token === 'USDT' ? '/icons/tokens/usdt.png' : '/icons/tokens/usdc.png';
+  const tokenIcon = '/icons/tokens/usdc.png';
 
   const buttonLabel = useMemo(() => {
     if (!supportsDirectCheckout) return 'Merchant wallet unavailable';
@@ -140,7 +141,11 @@ export function PublicEvmCheckout({
   const connectWallet = async () => {
     setError(null);
     if (!hasEthereum) {
-      setError('No injected EVM wallet found. Install MetaMask, Coinbase Wallet, or another compatible wallet.');
+      setError(
+        selectedChain === 'celo'
+          ? 'No injected wallet found. Open this page in MiniPay or install an EVM wallet.'
+          : 'No injected EVM wallet found. Install MetaMask, Coinbase Wallet, or another compatible wallet.'
+      );
       return null;
     }
 
@@ -149,8 +154,19 @@ export function PublicEvmCheckout({
     const chainIdValue = await provider.request({ method: 'eth_chainId' });
     const account = Array.isArray(accounts) ? String(accounts[0] || '') : '';
     const chainId = typeof chainIdValue === 'string' ? parseInt(chainIdValue, 16) : Number(chainIdValue);
+
+    if (isMiniPay && selectedChain !== 'celo') {
+      setError('MiniPay checkout is available on Celo only. Select Celo to continue.');
+      return null;
+    }
+
     setWalletAddress(account || null);
     return { provider, account, chainId };
+  };
+
+  const openMiniPayAddCash = () => {
+    if (typeof window === 'undefined') return;
+    window.open(MINIPAY_ADD_CASH_URL, '_blank', 'noopener,noreferrer');
   };
 
   const handlePay = async () => {
@@ -166,51 +182,43 @@ export function PublicEvmCheckout({
 
       const evmChain = resolveTargetEvmChain(selectedChain ?? 'base', connection.chainId);
       const targetChainId = getChainId(evmChain);
+
+      if (isMiniPay && !CELO_CHAIN_IDS.has(targetChainId)) {
+        throw new Error('MiniPay currently supports Celo payments in this checkout. Please select Celo.');
+      }
+
       await ensureWalletOnTargetChain(connection.provider, targetChainId);
       setResolvedEvmChain(evmChain);
 
       let hash = '';
 
-      if (token === 'ETH') {
-        const amountWei = parseUnits(amount.toString(), 18);
-        const response = await connection.provider.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: connection.account,
-            to: merchantAddress,
-            value: `0x${amountWei.toString(16)}`
-          }]
-        });
-        hash = String(response);
-      } else {
-        const tokenAddress = token === 'USDT' ? EVM_TOKENS[evmChain].USDT : EVM_TOKENS[evmChain].USDC;
-        const transferData = encodeFunctionData({
-          abi: [
-            {
-              type: 'function',
-              name: 'transfer',
-              stateMutability: 'nonpayable',
-              inputs: [
-                { name: 'to', type: 'address' },
-                { name: 'amount', type: 'uint256' }
-              ],
-              outputs: [{ name: '', type: 'bool' }]
-            }
-          ],
-          functionName: 'transfer',
-          args: [merchantAddress as `0x${string}`, parseUnits(amount.toString(), 6)]
-        });
+      const tokenAddress = EVM_TOKENS[evmChain].USDC;
+      const transferData = encodeFunctionData({
+        abi: [
+          {
+            type: 'function',
+            name: 'transfer',
+            stateMutability: 'nonpayable',
+            inputs: [
+              { name: 'to', type: 'address' },
+              { name: 'amount', type: 'uint256' }
+            ],
+            outputs: [{ name: '', type: 'bool' }]
+          }
+        ],
+        functionName: 'transfer',
+        args: [merchantAddress as `0x${string}`, parseUnits(amount.toString(), 6)]
+      });
 
-        const response = await connection.provider.request({
-          method: 'eth_sendTransaction',
-          params: [{
-            from: connection.account,
-            to: tokenAddress,
-            data: transferData
-          }]
-        });
-        hash = String(response);
-      }
+      const response = await connection.provider.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: connection.account,
+          to: tokenAddress,
+          data: transferData
+        }]
+      });
+      hash = String(response);
 
       setTxHash(hash);
       await waitForReceipt(connection.provider, hash);
@@ -309,6 +317,24 @@ export function PublicEvmCheckout({
       {error ? (
         <div className="mt-4 rounded-full border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-sm text-[#717680]">
           {error}
+        </div>
+      ) : null}
+
+      {selectedChain === 'celo' ? (
+        <div className="mt-4 rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] p-4">
+          <p className="text-sm font-semibold text-[#181d27]">MiniPay on Celo</p>
+          <p className="mt-1 text-xs text-[#717680]">
+            {isMiniPay
+              ? 'MiniPay detected. You can continue checkout directly.'
+              : 'For mobile Celo checkout, you can use MiniPay by Opera.'}
+          </p>
+          <button
+            type="button"
+            onClick={openMiniPayAddCash}
+            className="mt-3 inline-flex items-center justify-center rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-xs font-semibold text-[#181d27] transition hover:bg-[#f8f9fc]"
+          >
+            Add Cash In MiniPay
+          </button>
         </div>
       ) : null}
 

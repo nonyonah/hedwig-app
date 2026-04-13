@@ -24,8 +24,6 @@ const CHAINS = [
 
 const TOKENS = [
     { symbol: 'USDC', name: 'USD Coin', icon: require('../../assets/icons/tokens/usdc.png') },
-    { symbol: 'USDT', name: 'Tether', icon: require('../../assets/icons/tokens/usdt.png') },
-    { symbol: 'ETH', name: 'Ethereum', icon: require('../../assets/icons/tokens/eth.png') },
 ];
 
 // Main component wrapped with AppKitProvider
@@ -149,10 +147,10 @@ function PaymentLinkContent() {
                 throw new Error('No recipient address found');
             }
 
-            // Simple ETH transfer (you can extend this for ERC20 tokens)
+            // Placeholder transfer path (replace with onchain USDC transfer flow)
             const tx = await signer.sendTransaction({
                 to: recipient,
-                value: ethers.parseEther('0'), // Send 0 ETH for now
+                value: ethers.parseEther('0'),
             });
 
             console.log('Transaction sent:', tx.hash);

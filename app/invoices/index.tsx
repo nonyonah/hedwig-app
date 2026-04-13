@@ -76,7 +76,6 @@ const ICONS = {
     solana: require('../../assets/icons/networks/solana.png'),
     arbitrum: require('../../assets/icons/networks/arbitrum.png'),
     polygon: require('../../assets/icons/networks/polygon.png'),
-    lisk: require('../../assets/icons/networks/lisk.png'),
     optimism: require('../../assets/icons/networks/optimism.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
     statusSuccess: require('../../assets/icons/status/success.png'),
@@ -89,7 +88,6 @@ const CHAINS: Record<string, any> = {
     'solana':   { name: 'Solana',   icon: ICONS.solana },
     'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum },
     'polygon':  { name: 'Polygon',  icon: ICONS.polygon },
-    'lisk':     { name: 'Lisk',     icon: ICONS.lisk },
     'optimism': { name: 'Optimism', icon: ICONS.optimism },
 };
 
@@ -253,7 +251,6 @@ export default function InvoicesScreen() {
         if (c.includes('celo'))     return ICONS.celo;
         if (c.includes('arbitrum')) return ICONS.arbitrum;
         if (c.includes('polygon'))  return ICONS.polygon;
-        if (c.includes('lisk'))     return ICONS.lisk;
         if (c.includes('optimism')) return ICONS.optimism;
         return ICONS.base;
     };
@@ -1093,10 +1090,9 @@ export default function InvoicesScreen() {
                                         <Image source={ICONS.arbitrum} style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                                         <Image source={ICONS.polygon}  style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                                         <Image source={ICONS.celo}     style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
-                                        <Image source={ICONS.lisk}     style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                                         <Image source={ICONS.solana}   style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                                     </View>
-                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>6 networks</Text>
+                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>5 networks</Text>
                                 </View>
                             </View>
                         </View>

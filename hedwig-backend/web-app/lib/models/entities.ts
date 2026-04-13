@@ -93,7 +93,7 @@ export interface PaymentLink {
   status: 'active' | 'paid' | 'expired';
   amountUsd: number;
   title: string;
-  asset: 'USDC' | 'USDT';
+  asset: 'USDC';
   chain: string;
   remindersEnabled?: boolean;
   clientEmail?: string;
@@ -113,7 +113,7 @@ export interface PaymentLinkDraft {
   prompt: string;
   title: string;
   amountUsd: number;
-  asset: 'USDC' | 'USDT';
+  asset: 'USDC';
   chain: string;
   memo?: string;
 }

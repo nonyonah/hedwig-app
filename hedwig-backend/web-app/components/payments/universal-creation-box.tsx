@@ -299,7 +299,7 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
           status: linkStatus,
           amountUsd: doc.amount ?? totalAmount,
           title: doc.title ?? finalTitle,
-          asset: rawCurrency === 'USDT' ? 'USDT' : 'USDC',
+          asset: 'USDC',
           chain: String(doc.chain ?? 'BASE').toUpperCase() === 'SOLANA' ? 'Solana' : 'Base',
           remindersEnabled: true,
         };

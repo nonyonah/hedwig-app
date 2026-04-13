@@ -27,7 +27,7 @@ export function OfframpClient({
   const completedCount = transactions.filter((tx) => tx.status === 'completed').length;
   const totalVolumeUsd = transactions.reduce((sum, tx) => {
     const asset = String(tx.asset || '').toUpperCase();
-    if (asset === 'USDC' || asset === 'USDT') {
+    if (asset === 'USDC') {
       return sum + tx.amount;
     }
     if (String(tx.fiatCurrency || '').toUpperCase() === 'USD') {

@@ -23,6 +23,7 @@ const ANDROID_API_KEY =
 let configuredAppUserId: string | null = null;
 
 const isNativePlatform = Platform.OS === 'ios' || Platform.OS === 'android';
+const isExpoGo = Constants.appOwnership === 'expo';
 
 const getRevenueCatApiKey = (): string | null => {
     if (Platform.OS === 'ios') {
@@ -39,7 +40,29 @@ const getRevenueCatApiKey = (): string | null => {
 };
 
 export const isRevenueCatAvailable = (): boolean => {
-    return isNativePlatform && Boolean(getRevenueCatApiKey());
+    return isNativePlatform && !isExpoGo && Boolean(getRevenueCatApiKey());
+};
+
+export const getRevenueCatUnavailableReason = (): string | null => {
+    if (!isNativePlatform) {
+        return 'RevenueCat is only available in iOS/Android native builds.';
+    }
+
+    if (isExpoGo) {
+        return 'RevenueCat is unavailable in Expo Go. Use an EAS development build, preview build, TestFlight, or Play beta build.';
+    }
+
+    if (!getRevenueCatApiKey()) {
+        if (Platform.OS === 'ios') {
+            return 'Missing iOS RevenueCat API key. Set EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY.';
+        }
+        if (Platform.OS === 'android') {
+            return 'Missing Android RevenueCat API key. Set EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY.';
+        }
+        return 'Missing RevenueCat API key for this platform.';
+    }
+
+    return null;
 };
 
 export const isRevenueCatPurchaseCancelled = (error: unknown): boolean => {
@@ -88,4 +111,3 @@ export const purchaseRevenueCatPackage = async (pkg: PurchasesPackage): Promise<
 export const restoreRevenueCatPurchases = async (): Promise<CustomerInfo> => {
     return Purchases.restorePurchases();
 };
-

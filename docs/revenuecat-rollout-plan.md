@@ -125,3 +125,27 @@ If we need to reconcile historical users:
 5. Wire web checkout entry point to RevenueCat web billing.
 6. Add paywall UI gates using `/api/billing/status`.
 7. Enable enforcement only after QA and support playbook are ready.
+
+## Mobile Enablement Checklist (When Paywall Is Not Showing)
+
+Use this checklist in order:
+
+1. Build type:
+   - RevenueCat requires a native build (Expo development client / preview / production build).
+   - It will not run fully in plain Expo Go.
+2. RevenueCat API keys:
+   - Set `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY`
+   - Set `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY`
+   - Add to EAS environment (development, preview, production) before building.
+3. Backend flags:
+   - `BILLING_MOBILE_PAYWALL_ENABLED=true` (show mobile paywall surfaces)
+   - `BILLING_ENFORCEMENT_ENABLED=true` (force-gate premium paths)
+4. Offerings:
+   - Confirm `default` offering exists in RevenueCat.
+   - Confirm at least one package is configured (`$rc_monthly` and/or `$rc_annual`).
+5. Identity:
+   - Confirm mobile logs in with the same `app_user_id` as web (`users.id`).
+6. Verification path:
+   - Open `Settings -> Manage subscription` on mobile.
+   - Confirm offerings load and package prices render.
+   - Purchase in sandbox (TestFlight / Play beta tester account).

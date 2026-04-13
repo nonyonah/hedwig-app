@@ -28,7 +28,6 @@ const ICONS = {
     solana: require('../assets/icons/networks/solana.png'),
     arbitrum: require('../assets/icons/networks/arbitrum.png'),
     polygon: require('../assets/icons/networks/polygon.png'),
-    lisk: require('../assets/icons/networks/lisk.png'),
 };
 
 const CHAINS: Record<string, any> = {
@@ -36,7 +35,6 @@ const CHAINS: Record<string, any> = {
     'celo':     { name: 'Celo',     icon: ICONS.celo,     type: 'evm' },
     'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum, type: 'evm' },
     'polygon':  { name: 'Polygon',  icon: ICONS.polygon,  type: 'evm' },
-    'lisk':     { name: 'Lisk',     icon: ICONS.lisk,     type: 'evm' },
     'solana':   { name: 'Solana',   icon: ICONS.solana,   type: 'solana' },
 };
 
@@ -229,9 +227,9 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
     const [tokensSent, setTokensSent] = useState(false); // Track if tokens were sent to Paycrest
     const [parsedError, setParsedError] = useState<ParsedOfframpError | null>(null);
     const hasTriggeredSuccessNavigation = useRef(false);
-    const modalDetents = modalState === 'failed'
+    const modalDetents = (modalState === 'failed'
         ? [Platform.OS === 'ios' ? 0.66 : 0.76]
-        : ['auto'];
+        : ['auto']) as any;
 
     const kycSheetRef = useRef<TrueSheet>(null);
 

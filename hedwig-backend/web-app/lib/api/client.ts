@@ -252,18 +252,12 @@ const normalizeWalletTransactionKind = (value?: string | null): WalletTransactio
 };
 
 const assetNameBySymbol: Record<string, string> = {
-  USDC: 'USD Coin',
-  USDT: 'Tether USD',
-  ETH: 'Ethereum',
-  SOL: 'Solana'
+  USDC: 'USD Coin'
 };
 
-const supportedWalletAssets = new Set(['Base:ETH', 'Base:USDC', 'Solana:SOL', 'Solana:USDC']);
+const supportedWalletAssets = new Set(['Base:USDC', 'Solana:USDC', 'Arbitrum:USDC', 'Polygon:USDC', 'Celo:USDC']);
 const walletAssetDecimals: Record<string, number> = {
-  ETH: 18,
-  USDC: 6,
-  USDT: 6,
-  SOL: 9
+  USDC: 6
 };
 
 const parseNumericValue = (value: unknown): number => {
@@ -475,7 +469,7 @@ const mapBackendPaymentLink = (document: any): PaymentLink => {
     status: normalizePaymentLinkStatus(document.status),
     amountUsd: Number(document.amount || 0),
     title: String(document.title || 'Payment link'),
-    asset: currency === 'USDT' ? 'USDT' : 'USDC',
+    asset: 'USDC',
     chain: chainValue === 'SOLANA' ? 'Solana' : 'Base',
     remindersEnabled: content.reminders_enabled !== false,
     clientEmail: content.recipient_email || content.client_email || undefined,
@@ -1345,10 +1339,18 @@ export const hedwigApi = {
   async wallet(options?: ApiOptions): Promise<{ walletAccounts: WalletAccount[]; walletAssets: WalletAsset[]; walletTransactions: WalletTransaction[] }> {
     return withFallback(
       async () => {
-        const [transactions, walletBalance] = await Promise.all([
+        const [transactionsResult, walletBalanceResult] = await Promise.allSettled([
           request<any[]>('/api/transactions', options),
           request<{ balances: any[]; address: string | null; solanaAddress: string | null }>('/api/wallet/balance', options)
         ]);
+
+        const transactions = transactionsResult.status === 'fulfilled'
+          ? transactionsResult.value
+          : [];
+
+        const walletBalance = walletBalanceResult.status === 'fulfilled'
+          ? walletBalanceResult.value
+          : { balances: [], address: null, solanaAddress: null };
 
         const walletAccounts: WalletAccount[] = [
           walletBalance.address
@@ -1510,7 +1512,7 @@ export const hedwigApi = {
   async createOfframp(
     payload: {
       amount: number;
-      token: 'USDC' | 'USDT';
+      token: 'USDC';
       network: 'base' | 'solana';
       currency: string;
       bankName: string;

@@ -170,8 +170,8 @@ export const walletAccounts: WalletAccount[] = [
 
 export const walletAssets: WalletAsset[] = [
   { id: 'asset_1', symbol: 'USDC', name: 'USD Coin', chain: 'Base', balance: 12450.2, valueUsd: 12450.2, changePct24h: 0.1 },
-  { id: 'asset_2', symbol: 'SOL', name: 'Solana', chain: 'Solana', balance: 18.2, valueUsd: 2785.4, changePct24h: 3.4 },
-  { id: 'asset_3', symbol: 'ETH', name: 'Ethereum', chain: 'Base', balance: 1.46, valueUsd: 5610.3, changePct24h: 2.1 }
+  { id: 'asset_2', symbol: 'USDC', name: 'USD Coin', chain: 'Solana', balance: 2785.4, valueUsd: 2785.4, changePct24h: 0.0 },
+  { id: 'asset_3', symbol: 'USDC', name: 'USD Coin', chain: 'Arbitrum', balance: 5610.3, valueUsd: 5610.3, changePct24h: 0.0 }
 ];
 
 export const walletTransactions: WalletTransaction[] = [

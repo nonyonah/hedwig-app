@@ -48,13 +48,10 @@ type CoinMarketResponse = {
 type ChartResponse = { prices: [number, number][] };
 
 const TOKEN_CG_MAP: Record<string, string> = {
-    ETH: 'ethereum',
-    SOL: 'solana',
     USDC: 'usd-coin',
-    USDT: 'tether',
 };
 
-const STABLECOIN_SYMBOLS = new Set(['USDC', 'USDT']);
+const STABLECOIN_SYMBOLS = new Set(['USDC']);
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
     { label: '1D', value: '1' },

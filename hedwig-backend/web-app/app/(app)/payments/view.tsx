@@ -65,7 +65,6 @@ const ALL_CHAINS = [
   { src: '/icons/networks/arbitrum.png', alt: 'Arbitrum' },
   { src: '/icons/networks/polygon.png',  alt: 'Polygon' },
   { src: '/icons/networks/celo.png',     alt: 'Celo' },
-  { src: '/icons/networks/lisk.png',     alt: 'Lisk' },
   { src: '/icons/networks/solana.png',   alt: 'Solana' },
 ];
 
@@ -90,7 +89,7 @@ function MultiChainInline({ muted = false }: { muted?: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <MultiChainStack size={14} />
-      <span className={muted ? 'text-[#717680]' : 'text-[#344054]'}>6 networks</span>
+      <span className={muted ? 'text-[#717680]' : 'text-[#344054]'}>5 networks</span>
     </span>
   );
 }

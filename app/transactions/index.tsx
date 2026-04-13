@@ -65,15 +65,12 @@ const { width } = Dimensions.get('window');
 
 // Icons for tokens, networks, and status (matching invoices/payment-links screens)
 const ICONS = {
-    eth: require('../../assets/icons/tokens/eth.png'),
     usdc: require('../../assets/icons/tokens/usdc.png'),
-    usdt: require('../../assets/icons/tokens/usdt.png'),
     base: require('../../assets/icons/networks/base.png'),
     solana: require('../../assets/icons/networks/solana.png'),
     arbitrum: require('../../assets/icons/networks/arbitrum.png'),
     polygon: require('../../assets/icons/networks/polygon.png'),
     celo: require('../../assets/icons/networks/celo.png'),
-    lisk: require('../../assets/icons/networks/lisk.png'),
     statusSuccess: require('../../assets/icons/status/success.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
     statusFailed: require('../../assets/icons/status/failed.png'),
@@ -87,15 +84,11 @@ const CHAINS: Record<string, { name: string; icon: any }> = {
     'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum },
     'polygon':  { name: 'Polygon',  icon: ICONS.polygon },
     'celo':     { name: 'Celo',     icon: ICONS.celo },
-    'lisk':     { name: 'Lisk',     icon: ICONS.lisk },
 };
 
-// Map token symbols to available icons (fallback to eth for native tokens, usdc for stablecoins)
+// USDC-only asset map
 const TOKENS: Record<string, any> = {
-    'ETH': ICONS.eth,
     'USDC': ICONS.usdc,
-    'USDT': ICONS.usdt,
-    'SOL': ICONS.eth, // Fallback to eth icon for SOL (no sol.png available)
 };
 
 // Profile color gradient options (same as in home screen)
@@ -135,40 +128,9 @@ interface UserData {
     avatar?: string;
 }
 
-const STABLECOIN_SYMBOLS = new Set([
-    'USDC',
-    'USDT',
-    'DAI',
-    'BUSD',
-    'FDUSD',
-    'TUSD',
-    'USDP',
-    'GUSD',
-    'LUSD',
-    'FRAX',
-    'PYUSD',
-    'USDE',
-    'USDS',
-    'USD0',
-    'RLUSD',
-    'EURC',
-    'CNGN',
-    'IDRX',
-]);
-
-const SUPPORTED_NON_STABLE_SYMBOLS = new Set(['ETH', 'SOL', 'WETH', 'WSOL']);
-
 const isSupportedTransactionToken = (token?: string): boolean => {
     const symbol = String(token || '').trim().toUpperCase();
-    if (!symbol) return false;
-    if (SUPPORTED_NON_STABLE_SYMBOLS.has(symbol)) return true;
-    if (STABLECOIN_SYMBOLS.has(symbol)) return true;
-
-    // Accept additional stablecoins that follow common USD ticker patterns.
-    if (/^(US|USD)[A-Z0-9]{1,6}$/.test(symbol)) return true;
-    if (/^[A-Z0-9]{1,6}USD$/.test(symbol)) return true;
-
-    return false;
+    return symbol === 'USDC';
 };
 
 export default function TransactionsScreen() {

@@ -14,7 +14,6 @@ type AvailableChain = {
 
 const TOKEN_OPTIONS = [
   { id: 'USDC' as const, label: 'USDC', icon: '/icons/tokens/usdc.png' },
-  { id: 'USDT' as const, label: 'USDT', icon: '/icons/tokens/usdt.png' },
 ];
 
 export function PublicCheckoutPanel({
@@ -49,13 +48,12 @@ export function PublicCheckoutPanel({
       chains.push({ id: 'arbitrum', label: 'Arbitrum', icon: '/icons/networks/arbitrum.png' });
       chains.push({ id: 'polygon',  label: 'Polygon',  icon: '/icons/networks/polygon.png' });
       chains.push({ id: 'celo',     label: 'Celo',     icon: '/icons/networks/celo.png' });
-      chains.push({ id: 'lisk',     label: 'Lisk',     icon: '/icons/networks/lisk.png' });
     }
-    if (solanaMerchantAddress && token !== 'ETH') {
+    if (solanaMerchantAddress) {
       chains.push({ id: 'solana', label: 'Solana', icon: '/icons/networks/solana.png' });
     }
     return chains;
-  }, [evmMerchantAddress, solanaMerchantAddress, token]);
+  }, [evmMerchantAddress, solanaMerchantAddress]);
 
   const initialChain = useMemo<PublicSettlementChain | null>(() => {
     if (availableChains.some((chain) => chain.id === preferredChain)) {
@@ -67,10 +65,8 @@ export function PublicCheckoutPanel({
   const [internalSelectedChain, setInternalSelectedChain] = useState<PublicSettlementChain | null>(initialChain);
   const activeChain = selectedChain ?? internalSelectedChain;
 
-  // Lisk only supports USDT — auto-correct if needed
   const [internalSelectedToken, setInternalSelectedToken] = useState<PublicPaymentToken>(token);
-  const rawToken = selectedToken ?? internalSelectedToken;
-  const activeToken: PublicPaymentToken = activeChain === 'lisk' && rawToken === 'USDC' ? 'USDT' : rawToken;
+  const activeToken: PublicPaymentToken = selectedToken ?? internalSelectedToken;
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [tokenDropdownOpen, setTokenDropdownOpen] = useState(false);
@@ -113,13 +109,8 @@ export function PublicCheckoutPanel({
     );
   }
 
-  // Lisk: only USDT available
-  const visibleTokenOptions = activeChain === 'lisk'
-    ? TOKEN_OPTIONS.filter((t) => t.id === 'USDT')
-    : TOKEN_OPTIONS;
-
-  // Show token dropdown only for USDC/USDT (not ETH), and only when there's more than one option
-  const showTokenDropdown = token !== 'ETH' && visibleTokenOptions.length > 1;
+  const visibleTokenOptions = TOKEN_OPTIONS;
+  const showTokenDropdown = visibleTokenOptions.length > 1;
 
   return (
     <div className="space-y-4">
@@ -242,7 +233,7 @@ export function PublicCheckoutPanel({
           amount={amount}
           title={title}
           merchantAddress={solanaMerchantAddress}
-          token={activeToken === 'ETH' ? 'USDC' : activeToken}
+          token={activeToken}
         />
       ) : (
         <PublicEvmCheckout

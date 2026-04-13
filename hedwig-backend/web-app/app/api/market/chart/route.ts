@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const COINGECKO_ID: Record<string, string> = {
-  ETH:  'ethereum',
   USDC: 'usd-coin',
-  SOL:  'solana',
-  USDT: 'tether',
-  BTC:  'bitcoin'
 };
 
 const DAYS_MAP: Record<string, string> = {
@@ -18,36 +14,21 @@ const DAYS_MAP: Record<string, string> = {
 
 // Well-known on-chain contract addresses, keyed by "Chain:Symbol"
 const CONTRACT_ADDRESS: Record<string, string | null> = {
-  'Base:ETH':    null,
-  'Solana:SOL':  null,
   'Base:USDC':   '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
   'Solana:USDC': 'EPjFWdd5Au7B7WqSqqxS7ZkFvCPScoqB9Ko6z8bn8js',
-  'Base:USDT':   '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2'
 };
 
 const TOKEN_DESCRIPTION: Record<string, string> = {
-  ETH:  'Ethereum is a decentralized, open-source blockchain with smart contract functionality. Ether (ETH) is the native cryptocurrency of the platform and is used to pay transaction fees.',
-  SOL:  'Solana is a high-performance layer-1 blockchain designed for speed and low cost. SOL is the native cryptocurrency used for staking and transaction fees.',
   USDC: 'USD Coin (USDC) is a fully-backed US dollar stablecoin issued by Circle. Each USDC is redeemable 1:1 for US dollars and backed by regulated US financial institutions.',
-  USDT: 'Tether (USDT) is a stablecoin pegged to the US dollar, issued by Tether Limited. It is widely used as a stable store of value in crypto markets.',
-  BTC:  'Bitcoin is the world\'s first cryptocurrency, operating on a decentralised peer-to-peer network. It is widely regarded as digital gold.'
 };
 
 // Ballpark fallback market caps (USD) — used when API is unavailable
 const DEFAULT_MARKET_CAP: Record<string, number> = {
-  ETH:  385_000_000_000,
-  SOL:   72_000_000_000,
   USDC:  61_000_000_000,
-  USDT: 112_000_000_000,
-  BTC: 1_300_000_000_000
 };
 
 const DEFAULT_PRICE: Record<string, number> = {
-  ETH: 3_200,
-  SOL: 140,
   USDC: 1,
-  USDT: 1,
-  BTC: 65_000
 };
 
 function cgHeaders(): HeadersInit {

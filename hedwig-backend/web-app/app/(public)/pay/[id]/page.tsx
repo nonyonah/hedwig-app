@@ -13,7 +13,6 @@ const CHAIN_META: Record<string, { icon: string; label: string }> = {
   arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
   polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
   celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
-  lisk:     { icon: '/icons/networks/lisk.png',     label: 'Lisk' },
 };
 function getChainMeta(chain: string) {
   return CHAIN_META[chain.toLowerCase()] ?? CHAIN_META['base'];
@@ -42,11 +41,11 @@ export default async function PublicPaymentLinkPage({
   const merchantName = [document.user?.first_name, document.user?.last_name].filter(Boolean).join(' ') || document.user?.email || 'Merchant';
   const evmWalletAddress = document.user?.ethereum_wallet_address || null;
   const solanaWalletAddress = document.user?.solana_wallet_address || null;
-  const paymentToken: PublicPaymentToken = String(document.currency || 'USDC').toUpperCase() === 'ETH' ? 'ETH' : 'USDC';
+  const paymentToken: PublicPaymentToken = 'USDC';
   const paymentCurrency = String(document.currency || 'USDC').toUpperCase();
   const settlementChain = resolvePublicSettlementChain(document.chain, document.content?.blockradar_url);
   const { icon: chainIcon, label: chainLabel } = getChainMeta(document.chain || settlementChain);
-  const tokenIcon = paymentToken === 'ETH' ? '/icons/tokens/eth.png' : '/icons/tokens/usdc.png';
+  const tokenIcon = '/icons/tokens/usdc.png';
   const isPaid = String(document.status).toLowerCase() === 'paid';
   const txHash = String((document.content as any)?.tx_hash || '');
   const explorerUrl = txHash
@@ -120,6 +119,7 @@ export default async function PublicPaymentLinkPage({
               <ol className="space-y-1.5 text-[12px] leading-relaxed text-[#717680]">
                 <li>1. Select your preferred network in the checkout panel.</li>
                 <li>2. Connect a wallet that holds {paymentCurrency} on {chainLabel}.</li>
+                {settlementChain === 'celo' ? <li>2a. MiniPay by Opera is supported for Celo checkout.</li> : null}
                 <li>3. Confirm the amount and approve the transaction.</li>
                 <li>4. Wait for the confirmation screen before closing this page.</li>
               </ol>

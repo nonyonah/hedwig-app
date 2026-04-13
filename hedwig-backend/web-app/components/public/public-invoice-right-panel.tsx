@@ -12,7 +12,6 @@ const CHAIN_META: Record<string, { icon: string; label: string }> = {
   arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
   polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
   celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
-  lisk:     { icon: '/icons/networks/lisk.png',     label: 'Lisk' },
 };
 function getChainMeta(chain: string) {
   return CHAIN_META[chain.toLowerCase()] ?? CHAIN_META['base'];
@@ -20,8 +19,6 @@ function getChainMeta(chain: string) {
 
 const TOKEN_META: Record<string, { icon: string; label: string }> = {
   USDC: { icon: '/icons/tokens/usdc.png', label: 'USDC' },
-  USDT: { icon: '/icons/tokens/usdt.png', label: 'USDT' },
-  ETH:  { icon: '/icons/tokens/eth.png',  label: 'ETH' },
 };
 
 function formatCurrency(amount: number, currency = 'USD') {
@@ -52,9 +49,7 @@ export function PublicInvoiceRightPanel({
   isRecurring?: boolean;
 }) {
   const [selectedChain, setSelectedChain] = useState<PublicSettlementChain>(preferredChain);
-  const [selectedToken, setSelectedToken] = useState<PublicPaymentToken>(
-    token === 'USDT' ? 'USDT' : 'USDC'
-  );
+  const [selectedToken, setSelectedToken] = useState<PublicPaymentToken>('USDC');
 
   const { icon: chainIcon, label: chainLabel } = getChainMeta(selectedChain);
   const { icon: tokenIcon, label: tokenLabel } = TOKEN_META[selectedToken] ?? TOKEN_META['USDC'];

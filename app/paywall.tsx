@@ -16,6 +16,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useBillingStatus } from '../hooks/useBillingStatus';
 import {
     configureRevenueCatForUser,
+    getRevenueCatUnavailableReason,
     getRevenueCatOfferings,
     isRevenueCatAvailable,
     isRevenueCatPurchaseCancelled,
@@ -84,10 +85,11 @@ export default function PaywallScreen() {
 
     const loadOfferings = useCallback(async () => {
         if (!billingStatus?.appUserId) return;
-        if (!isMobilePaywallEnabled) return;
         if (!isRevenueCatAvailable()) {
+            const unavailableReason = getRevenueCatUnavailableReason();
             setPaywallError(
-                'RevenueCat is not configured for this build. Add platform API keys to continue.'
+                unavailableReason ||
+                    'RevenueCat is not configured for this build. Add platform API keys to continue.'
             );
             return;
         }
@@ -136,7 +138,7 @@ export default function PaywallScreen() {
         } finally {
             setIsLoadingOfferings(false);
         }
-    }, [billingStatus?.appUserId, isMobilePaywallEnabled]);
+    }, [billingStatus?.appUserId]);
 
     useEffect(() => {
         void loadOfferings();
@@ -183,8 +185,7 @@ export default function PaywallScreen() {
         }
     }, [refreshBillingStatus]);
 
-    const canCloseWithoutPurchasing =
-        isMobilePaywallEnabled && !isBillingEnforcementEnabled;
+    const canCloseWithoutPurchasing = !isBillingEnforcementEnabled;
 
     if (!isReady || isLoadingBillingStatus || (hasActiveEntitlement && user)) {
         return (
@@ -206,6 +207,11 @@ export default function PaywallScreen() {
                 <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
                     Unlock premium workflows and keep access synced across iOS, Android, and web.
                 </Text>
+                {!isMobilePaywallEnabled ? (
+                    <Text style={[styles.offeringMeta, { color: themeColors.textSecondary }]}>
+                        Mobile paywall enforcement is currently off. You can still test purchases and restore access from here.
+                    </Text>
+                ) : null}
 
                 {offering?.identifier ? (
                     <Text style={[styles.offeringMeta, { color: themeColors.textSecondary }]}>
@@ -384,4 +390,3 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
 });
-

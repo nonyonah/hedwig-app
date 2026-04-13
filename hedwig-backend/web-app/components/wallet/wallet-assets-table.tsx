@@ -14,25 +14,14 @@ const chainIconByName: Record<string, string> = {
   Arbitrum: '/icons/networks/arbitrum.png',
   Polygon:  '/icons/networks/polygon.png',
   Celo:     '/icons/networks/celo.png',
-  Lisk:     '/icons/networks/lisk.png',
 };
 
 const tokenIconByKey: Record<string, string> = {
-  'Base:ETH':       '/icons/tokens/eth.png',
   'Base:USDC':      '/icons/tokens/usdc.png',
-  'Base:USDT':      '/icons/tokens/usdt.png',
-  'Solana:SOL':     '/icons/networks/solana.png',
   'Solana:USDC':    '/icons/tokens/usdc.png',
-  'Solana:USDT':    '/icons/tokens/usdt.png',
-  'Arbitrum:ETH':   '/icons/tokens/eth.png',
   'Arbitrum:USDC':  '/icons/tokens/usdc.png',
-  'Arbitrum:USDT':  '/icons/tokens/usdt.png',
   'Polygon:USDC':   '/icons/tokens/usdc.png',
-  'Polygon:USDT':   '/icons/tokens/usdt.png',
   'Celo:USDC':      '/icons/tokens/usdc.png',
-  'Celo:USDT':      '/icons/tokens/usdt.png',
-  'Lisk:USDC':      '/icons/tokens/usdc.png',
-  'Lisk:USDT':      '/icons/tokens/usdt.png',
 };
 
 function ChainIcon({ chain, size = 16 }: { chain: string; size?: number }) {

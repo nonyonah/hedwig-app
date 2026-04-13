@@ -150,7 +150,7 @@ export function DashboardClient({
         id: 'wallet',
         title: 'Wallet balance',
         value: formatCurrency(data.totals.walletUsd, currency),
-        helper: 'Base, Arbitrum, Polygon, Celo, Lisk & Solana',
+        helper: 'Base, Arbitrum, Polygon, Celo & Solana',
         href: '/wallet',
         icon: Wallet
       },
@@ -256,7 +256,6 @@ export function DashboardClient({
                     <Image src="/icons/networks/arbitrum.png" alt="Arbitrum" width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
                     <Image src="/icons/networks/polygon.png"  alt="Polygon"  width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
                     <Image src="/icons/networks/celo.png"     alt="Celo"     width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
-                    <Image src="/icons/networks/lisk.png"     alt="Lisk"     width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
                     <Image src="/icons/networks/solana.png"   alt="Solana"   width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
                   </div>
                 ) : (

@@ -68,7 +68,6 @@ const ICONS = {
     solana: require('../../assets/icons/networks/solana.png'),
     arbitrum: require('../../assets/icons/networks/arbitrum.png'),
     polygon: require('../../assets/icons/networks/polygon.png'),
-    lisk: require('../../assets/icons/networks/lisk.png'),
     optimism: require('../../assets/icons/networks/optimism.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
     statusSuccess: require('../../assets/icons/status/success.png'),
@@ -175,7 +174,6 @@ export default function PaymentLinksScreen() {
         if (c.includes('celo')) return ICONS.celo;
         if (c.includes('arbitrum')) return ICONS.arbitrum;
         if (c.includes('polygon') || c.includes('matic')) return ICONS.polygon;
-        if (c.includes('lisk')) return ICONS.lisk;
         if (c.includes('optimism')) return ICONS.optimism;
         return ICONS.base;
     };
@@ -705,10 +703,9 @@ export default function PaymentLinksScreen() {
                             <Image source={ICONS.arbitrum} style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                             <Image source={ICONS.polygon}  style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                             <Image source={ICONS.celo}     style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
-                            <Image source={ICONS.lisk}     style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                             <Image source={ICONS.solana}   style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                         </View>
-                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>6 networks</Text>
+                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>5 networks</Text>
                     </View>
                 </View>
             </View>

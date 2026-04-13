@@ -60,13 +60,11 @@ const { width } = Dimensions.get('window');
 // Icons
 const ICONS = {
     usdc: require('../../assets/icons/tokens/usdc.png'),
-    usdt: require('../../assets/icons/tokens/usdt.png'),
     base: require('../../assets/icons/networks/base.png'),
     solana: require('../../assets/icons/networks/solana.png'),
     arbitrum: require('../../assets/icons/networks/arbitrum.png'),
     polygon: require('../../assets/icons/networks/polygon.png'),
     celo: require('../../assets/icons/networks/celo.png'),
-    lisk: require('../../assets/icons/networks/lisk.png'),
 };
 
 const CHAINS: Record<string, { name: string; icon: any }> = {
@@ -75,12 +73,10 @@ const CHAINS: Record<string, { name: string; icon: any }> = {
     'ARBITRUM': { name: 'Arbitrum', icon: ICONS.arbitrum },
     'POLYGON':  { name: 'Polygon',  icon: ICONS.polygon },
     'CELO':     { name: 'Celo',     icon: ICONS.celo },
-    'LISK':     { name: 'Lisk',     icon: ICONS.lisk },
 };
 
 const TOKENS: Record<string, any> = {
     'USDC': ICONS.usdc,
-    'USDT': ICONS.usdt,
 };
 
 // Status configurations with colors and icons

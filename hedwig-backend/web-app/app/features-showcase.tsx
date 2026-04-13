@@ -342,8 +342,8 @@ function WalletPanel() {
             <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Total balance</p>
             <p className="mt-2 text-[26px] font-bold leading-none tracking-[-0.03em] text-[#181d27]">$8,240</p>
             <div className="mt-2.5 flex gap-1.5">
-              {['/icons/tokens/usdc.png', '/icons/tokens/eth.png', '/icons/networks/solana.png'].map((src) => (
-                <Image key={src} src={src} alt="" width={16} height={16} className="rounded-full ring-1 ring-white" />
+              {['/icons/tokens/usdc.png', '/icons/tokens/usdc.png', '/icons/tokens/usdc.png'].map((src, index) => (
+                <Image key={`${src}-${index}`} src={src} alt="" width={16} height={16} className="rounded-full ring-1 ring-white" />
               ))}
             </div>
           </div>
@@ -351,9 +351,9 @@ function WalletPanel() {
             <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475467]">Networks</p>
             <div className="mt-2 flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-[#17b26a]" />
-              <p className="text-[14px] font-semibold text-[#181d27]">6 connected</p>
+              <p className="text-[14px] font-semibold text-[#181d27]">5 connected</p>
             </div>
-            <p className="mt-1 text-[11px] text-[#667085]">Base · Solana · Arbitrum · Polygon · Celo · Lisk</p>
+            <p className="mt-1 text-[11px] text-[#667085]">Base · Solana · Arbitrum · Polygon · Celo</p>
           </div>
         </div>
         <div className="overflow-hidden rounded-xl bg-white ring-1 ring-[#e9eaeb]">
@@ -363,8 +363,8 @@ function WalletPanel() {
           <div className="divide-y divide-[#f9fafb]">
             {[
               { src: '/icons/tokens/usdc.png', label: 'USDC', chain: 'Base', val: '$6,200', change: '+$1,800', up: true },
-              { src: '/icons/tokens/eth.png', label: 'ETH', chain: 'Base', val: '$1,420', change: '-$180', up: false },
-              { src: '/icons/networks/solana.png', label: 'SOL', chain: 'Solana', val: '$620', change: '+$90', up: true },
+              { src: '/icons/tokens/usdc.png', label: 'USDC', chain: 'Arbitrum', val: '$1,420', change: '-$180', up: false },
+              { src: '/icons/tokens/usdc.png', label: 'USDC', chain: 'Solana', val: '$620', change: '+$90', up: true },
             ].map((a) => (
               <div key={a.label} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2.5">
