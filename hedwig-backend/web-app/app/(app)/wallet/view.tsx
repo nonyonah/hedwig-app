@@ -88,6 +88,7 @@ export function WalletView({
   initialWalletData,
   initialAccountsData,
   accessToken: serverAccessToken,
+  usdAccountsEnabled = false,
   isUsdAccountPaywalled = false,
   isUsdAccountRegionLocked = false,
   usdAccountRegionLockReason = null,
@@ -96,6 +97,7 @@ export function WalletView({
   initialWalletData: WalletData;
   initialAccountsData: AccountsData;
   accessToken: string | null;
+  usdAccountsEnabled?: boolean;
   isUsdAccountPaywalled?: boolean;
   isUsdAccountRegionLocked?: boolean;
   usdAccountRegionLockReason?: string | null;
@@ -120,7 +122,7 @@ export function WalletView({
   const assetsByChain = useMemo(() => groupAssetsByChain(allAssets), [allAssets]);
   const totalCrypto = allAssets.reduce((sum, asset) => sum + asset.valueUsd, 0);
   const recentWalletTx = walletTransactions.slice(0, 6);
-  const recentUsdTx = accountTransactions.slice(0, 6);
+  const recentUsdTx = usdAccountsEnabled ? accountTransactions.slice(0, 6) : [];
 
   const getFreshToken = useCallback(async (): Promise<string | null> => {
     try {
@@ -374,7 +376,7 @@ export function WalletView({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[15px] font-semibold text-[#181d27]">Wallet</h1>
-          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Your crypto balances and banking details in one place.</p>
+          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Your crypto balances and transaction activity in one place.</p>
         </div>
         <div className="shrink-0 pt-1">
           <ShareWalletDialog
@@ -384,7 +386,7 @@ export function WalletView({
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
+      <div className={`grid gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb] ${usdAccountsEnabled ? 'grid-cols-4' : 'grid-cols-2'}`}>
         <div className="bg-white px-5 py-4">
           <div className="mb-2 flex items-center gap-2">
             <Wallet className="h-4 w-4 text-[#717680]" weight="bold" />
@@ -393,14 +395,16 @@ export function WalletView({
           <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCurrency(totalCrypto)}</p>
           <p className="mt-1 text-[11px] text-[#a4a7ae]">Base + Solana</p>
         </div>
-        <div className="bg-white px-5 py-4">
-          <div className="mb-2 flex items-center gap-2">
-            <Bank className="h-4 w-4 text-[#717680]" weight="bold" />
-            <span className="text-[12px] font-medium text-[#717680]">USD account</span>
+        {usdAccountsEnabled ? (
+          <div className="bg-white px-5 py-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Bank className="h-4 w-4 text-[#717680]" weight="bold" />
+              <span className="text-[12px] font-medium text-[#717680]">USD account</span>
+            </div>
+            <p className="text-[22px] font-bold tracking-[-0.03em] text-[#717680]">{formatCurrency(usdAccount.balanceUsd)}</p>
+            <p className="mt-1 text-[11px] text-[#a4a7ae]">{usdStatusLabel}</p>
           </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#717680]">{formatCurrency(usdAccount.balanceUsd)}</p>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">{usdStatusLabel}</p>
-        </div>
+        ) : null}
         <div className="bg-white px-5 py-4">
           <div className="mb-2 flex items-center gap-2">
             <Coins className="h-4 w-4 text-[#717680]" weight="bold" />
@@ -409,22 +413,25 @@ export function WalletView({
           <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{allAssets.length}</p>
           <p className="mt-1 text-[11px] text-[#a4a7ae]">ETH, USDC, SOL, USDC</p>
         </div>
-        <div className="bg-white px-5 py-4">
-          <div className="mb-2 flex items-center gap-2">
-            <ArrowsLeftRight className="h-4 w-4 text-[#717680]" weight="bold" />
-            <span className="text-[12px] font-medium text-[#717680]">Auto-settlement</span>
+        {usdAccountsEnabled ? (
+          <div className="bg-white px-5 py-4">
+            <div className="mb-2 flex items-center gap-2">
+              <ArrowsLeftRight className="h-4 w-4 text-[#717680]" weight="bold" />
+              <span className="text-[12px] font-medium text-[#717680]">Auto-settlement</span>
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <ChainIcon chain={usdAccount.settlementChain} size={20} />
+              <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{usdAccount.settlementChain}</p>
+            </div>
+            <p className="mt-1 text-[11px] text-[#a4a7ae]">USD deposits settle here</p>
           </div>
-          <div className="mt-1 flex items-center gap-2">
-            <ChainIcon chain={usdAccount.settlementChain} size={20} />
-            <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{usdAccount.settlementChain}</p>
-          </div>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">USD deposits settle here</p>
-        </div>
+        ) : null}
       </div>
 
       <WalletAssetsTable assetsByChain={assetsByChain} totalCrypto={totalCrypto} />
 
-      <div className="grid gap-5 xl:grid-cols-[400px_1fr]">
+      <div className={usdAccountsEnabled ? 'grid gap-5 xl:grid-cols-[400px_1fr]' : ''}>
+        {usdAccountsEnabled ? (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
           <div className="border-b border-[#e9eaeb] px-5 py-4">
             <div className="flex items-center justify-between">
@@ -483,11 +490,14 @@ export function WalletView({
             </div>
           </div>
         </div>
+        ) : null}
 
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
           <div className="border-b border-[#e9eaeb] px-5 py-4">
             <p className="text-[15px] font-semibold text-[#181d27]">Recent activity</p>
-            <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Wallet transactions and USD transfers</p>
+            <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
+              {usdAccountsEnabled ? 'Wallet transactions and USD transfers' : 'Wallet transactions'}
+            </p>
           </div>
 
           <div className="grid grid-cols-[1fr_100px_100px_90px] gap-3 border-b border-[#f2f4f7] px-5 py-2">
@@ -500,7 +510,11 @@ export function WalletView({
           {recentWalletTx.length === 0 && recentUsdTx.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
               <Wallet className="h-8 w-8 text-[#d0d5dd]" weight="duotone" />
-              <p className="text-[13px] text-[#a4a7ae]">No activity yet. Transfers, payments, and settlements will appear here.</p>
+              <p className="text-[13px] text-[#a4a7ae]">
+                {usdAccountsEnabled
+                  ? 'No activity yet. Transfers, payments, and settlements will appear here.'
+                  : 'No activity yet. Wallet transfers and payments will appear here.'}
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-[#f9fafb]">
@@ -527,7 +541,7 @@ export function WalletView({
                 );
               })}
 
-              {recentUsdTx.map((tx) => {
+              {usdAccountsEnabled ? recentUsdTx.map((tx) => {
                 const status = USD_TX_STATUS[tx.status] ?? USD_TX_STATUS.pending;
                 return (
                   <div key={tx.id} className="grid grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa]">
@@ -548,7 +562,7 @@ export function WalletView({
                     <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(tx.createdAt)}</p>
                   </div>
                 );
-              })}
+              }) : null}
             </div>
           )}
         </div>

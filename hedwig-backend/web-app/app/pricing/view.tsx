@@ -23,7 +23,6 @@ const PRO_FEATURES = [
   'Assistant summary and priority feed',
   'Recurring invoice automation',
   'Tax summaries (monthly and yearly)',
-  'USD account with ACH details',
   'Subscription sync across web and mobile',
 ];
 
@@ -33,7 +32,6 @@ const FEATURE_ROWS: Array<{ feature: string; free: boolean; pro: boolean }> = [
   { feature: 'Assistant summary feed', free: false, pro: true },
   { feature: 'Recurring invoice automation', free: false, pro: true },
   { feature: 'Tax summary reports', free: false, pro: true },
-  { feature: 'USD account with ACH details', free: false, pro: true },
   { feature: 'Priority product updates', free: false, pro: true },
 ];
 

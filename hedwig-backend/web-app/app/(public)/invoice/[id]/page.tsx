@@ -190,7 +190,6 @@ export default async function PublicInvoicePage({
           evmMerchantAddress={evmWalletAddress}
           solanaMerchantAddress={solanaWalletAddress}
           isRecurring={isRecurring}
-          usdAccount={document.user?.usd_account ?? null}
         />
       </div>
     </PublicDocumentFrame>

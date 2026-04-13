@@ -47,8 +47,6 @@ export default async function PublicPaymentLinkPage({
   const settlementChain = resolvePublicSettlementChain(document.chain, document.content?.blockradar_url);
   const { icon: chainIcon, label: chainLabel } = getChainMeta(document.chain || settlementChain);
   const tokenIcon = paymentToken === 'ETH' ? '/icons/tokens/eth.png' : '/icons/tokens/usdc.png';
-  const usdAccount = document.user?.usd_account;
-  const hasUsdBankDetails = Boolean(usdAccount?.account_number && usdAccount?.routing_number);
   const isPaid = String(document.status).toLowerCase() === 'paid';
   const txHash = String((document.content as any)?.tx_hash || '');
   const explorerUrl = txHash
@@ -129,7 +127,7 @@ export default async function PublicPaymentLinkPage({
           </div>
         </div>
 
-        {/* ── Right: checkout + bank transfer ── */}
+        {/* ── Right: checkout ── */}
         <div className="space-y-4">
           <PublicPaymentLinkPanel
             documentId={document.id}
@@ -141,31 +139,8 @@ export default async function PublicPaymentLinkPage({
             evmMerchantAddress={evmWalletAddress}
             solanaMerchantAddress={solanaWalletAddress}
           />
-
-          {hasUsdBankDetails ? (
-            <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
-              <div className="border-b border-[#e9eaeb] px-5 py-4">
-                <p className="text-[13px] font-semibold text-[#181d27]">Or pay via bank transfer</p>
-                <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Wire / ACH directly to the merchant's USD account</p>
-              </div>
-              <div className="divide-y divide-[#f2f4f7] px-5">
-                <BankDetailRow label="Bank" value={usdAccount?.bank_name || 'Bridge USD account'} />
-                <BankDetailRow label="Account #" value={usdAccount?.account_number ?? ''} mono />
-                <BankDetailRow label="Routing #" value={usdAccount?.routing_number ?? ''} mono />
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
     </PublicDocumentFrame>
-  );
-}
-
-function BankDetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center justify-between py-3">
-      <span className="text-[12px] text-[#717680]">{label}</span>
-      <span className={`text-[13px] font-semibold text-[#181d27] ${mono ? 'font-mono text-[12px]' : ''}`}>{value}</span>
-    </div>
   );
 }

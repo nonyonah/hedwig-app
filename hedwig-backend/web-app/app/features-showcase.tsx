@@ -29,9 +29,9 @@ const ITEMS = [
     preview: <ContractPanel />,
   },
   {
-    title: 'Wallet, USD account & offramp',
+    title: 'Wallet and onchain treasury',
     description:
-      'Receive USDC on Base or Solana, hold in your embedded wallet, and move to your bank whenever you need.',
+      'Receive and manage onchain balances in one embedded wallet across supported networks.',
     preview: <WalletPanel />,
   },
 ];
@@ -334,7 +334,7 @@ function WalletPanel() {
     <div className="flex h-full flex-col">
       <div className="border-b border-[#f5f5f5] px-6 py-4">
         <p className="text-[11px] font-bold uppercase tracking-widest text-[#a4a7ae]">Money</p>
-        <h3 className="mt-1 text-[18px] font-semibold text-[#181d27]">Wallet &amp; offramp</h3>
+        <h3 className="mt-1 text-[18px] font-semibold text-[#181d27]">Wallet</h3>
       </div>
       <div className="flex-1 overflow-auto px-6 py-4">
         <div className="mb-3 grid grid-cols-2 gap-3">
@@ -348,12 +348,12 @@ function WalletPanel() {
             </div>
           </div>
           <div className="rounded-xl bg-[#eff4ff] p-4 ring-1 ring-[#dbe6ff]">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475467]">USD account</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475467]">Networks</p>
             <div className="mt-2 flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-[#17b26a]" />
-              <p className="text-[14px] font-semibold text-[#181d27]">Active</p>
+              <p className="text-[14px] font-semibold text-[#181d27]">6 connected</p>
             </div>
-            <p className="mt-1 text-[11px] text-[#667085]">Bridge · Bank transfer</p>
+            <p className="mt-1 text-[11px] text-[#667085]">Base · Solana · Arbitrum · Polygon · Celo · Lisk</p>
           </div>
         </div>
         <div className="overflow-hidden rounded-xl bg-white ring-1 ring-[#e9eaeb]">

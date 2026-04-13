@@ -134,16 +134,6 @@ export function DashboardClient({
             : `${completedProjects.length} project${completedProjects.length > 1 ? 's are' : ' is'} already wrapped up`,
         href: '/projects',
         complete: dueSoonMilestones.length === 0
-      },
-      {
-        id: 'usd-account',
-        title: data.totals.usdAccountUsd > 0 ? 'Move USD account balance when needed' : 'USD account is ready for clients',
-        meta:
-          data.totals.usdAccountUsd > 0
-            ? `${formatCurrency(data.totals.usdAccountUsd, currency)} available in checking`
-            : 'Share banking details for clients who prefer USD transfers',
-        href: '/wallet',
-        complete: false
       }
     ];
 
@@ -163,14 +153,6 @@ export function DashboardClient({
         helper: 'Base, Arbitrum, Polygon, Celo, Lisk & Solana',
         href: '/wallet',
         icon: Wallet
-      },
-      {
-        id: 'usd-account',
-        title: 'USD account',
-        value: formatCurrency(data.totals.usdAccountUsd, currency),
-        helper: 'Client-friendly bank transfers',
-        href: '/wallet',
-        icon: IdentificationCard
       },
       {
         id: 'notifications',
@@ -254,7 +236,10 @@ export function DashboardClient({
       </div>
 
       {/* Financial snapshot — gap-px stats bar */}
-      <div className="grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
+      <div
+        className="grid gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]"
+        style={{ gridTemplateColumns: `repeat(${dashboardState.summaryCards.length}, minmax(0, 1fr))` }}
+      >
         {dashboardState.summaryCards.map((card) => {
           const Icon = card.icon;
           return (

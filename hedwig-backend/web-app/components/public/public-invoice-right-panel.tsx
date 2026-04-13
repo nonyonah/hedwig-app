@@ -40,8 +40,7 @@ export function PublicInvoiceRightPanel({
   token,
   evmMerchantAddress,
   solanaMerchantAddress,
-  isRecurring,
-  usdAccount
+  isRecurring
 }: {
   documentId: string;
   amount: number;
@@ -51,11 +50,6 @@ export function PublicInvoiceRightPanel({
   evmMerchantAddress?: string | null;
   solanaMerchantAddress?: string | null;
   isRecurring?: boolean;
-  usdAccount?: {
-    account_number?: string | null;
-    routing_number?: string | null;
-    bank_name?: string | null;
-  } | null;
 }) {
   const [selectedChain, setSelectedChain] = useState<PublicSettlementChain>(preferredChain);
   const [selectedToken, setSelectedToken] = useState<PublicPaymentToken>(
@@ -107,30 +101,6 @@ export function PublicInvoiceRightPanel({
         selectedToken={selectedToken}
         onSelectedTokenChange={setSelectedToken}
       />
-
-      {/* USD bank transfer option */}
-      {usdAccount?.account_number && usdAccount?.routing_number ? (
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
-          <div className="border-b border-[#e9eaeb] px-5 py-4">
-            <p className="text-[13px] font-semibold text-[#181d27]">Or pay via bank transfer</p>
-            <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Wire / ACH directly to the freelancer's USD account</p>
-          </div>
-          <div className="divide-y divide-[#f2f4f7] px-5">
-            <BankDetailRow label="Bank" value={usdAccount.bank_name || 'Bridge USD account'} />
-            <BankDetailRow label="Account #" value={`••••${usdAccount.account_number.slice(-4)}`} mono />
-            <BankDetailRow label="Routing #" value={`••••${usdAccount.routing_number.slice(-4)}`} mono />
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function BankDetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center justify-between py-3">
-      <span className="text-[12px] text-[#717680]">{label}</span>
-      <span className={`text-[13px] font-semibold text-[#181d27] ${mono ? 'font-mono text-[12px]' : ''}`}>{value}</span>
     </div>
   );
 }
