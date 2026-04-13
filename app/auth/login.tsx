@@ -28,6 +28,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 const DEMO_EMAIL = 'demo@hedwig.app';
 const DEMO_CODE = '123456';
 const PRIVACY_POLICY_URL = 'https://www.hedwigbot.xyz/privacy';
+const TERMS_OF_SERVICE_URL = 'https://www.hedwigbot.xyz/terms';
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -193,12 +194,26 @@ export default function LoginScreen() {
         }
     };
 
+    const openExternalLegalUrl = async (url: string) => {
+        try {
+            const supported = await Linking.canOpenURL(url);
+            if (!supported) {
+                Alert.alert('Unable to open link', 'Please try again in a browser.');
+                return;
+            }
+            await Linking.openURL(url);
+        } catch (error) {
+            console.error('Failed to open legal link:', error);
+            Alert.alert('Unable to open link', 'Please try again in a browser.');
+        }
+    };
+
     const openTerms = () => {
-        Linking.openURL('https://hedwig.app/terms');
+        void openExternalLegalUrl(TERMS_OF_SERVICE_URL);
     };
 
     const openPrivacy = () => {
-        Linking.openURL(PRIVACY_POLICY_URL);
+        void openExternalLegalUrl(PRIVACY_POLICY_URL);
     };
 
     return (

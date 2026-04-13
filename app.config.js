@@ -8,12 +8,24 @@ module.exports = ({ config }) => {
     process.env.ONESIGNAL_APP_ID ||
     existingExtra.oneSignalAppId ||
     '';
+  const revenueCatAppleApiKey =
+    process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY ||
+    process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY ||
+    existingExtra.revenueCatAppleApiKey ||
+    '';
+  const revenueCatGoogleApiKey =
+    process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY ||
+    process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY ||
+    existingExtra.revenueCatGoogleApiKey ||
+    '';
 
   return {
     ...baseConfig,
     extra: {
       ...existingExtra,
       oneSignalAppId,
+      revenueCatAppleApiKey,
+      revenueCatGoogleApiKey,
     },
     android: {
       ...(baseConfig.android ?? {}),

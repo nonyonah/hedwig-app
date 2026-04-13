@@ -154,6 +154,7 @@ function ThemedStack() {
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/profile" />
             <Stack.Screen name="auth/biometrics" />
+            <Stack.Screen name="paywall" />
             <Stack.Screen name="invoice/create" />
             <Stack.Screen name="invoice/[id]" />
             <Stack.Screen name="payment-link/create" />
@@ -199,6 +200,7 @@ function WebLayout() {
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/profile" />
             <Stack.Screen name="auth/biometrics" />
+            <Stack.Screen name="paywall" />
             <Stack.Screen name="invoice/create" />
             <Stack.Screen name="invoice/[id]" />
             <Stack.Screen name="payment-link/create" />

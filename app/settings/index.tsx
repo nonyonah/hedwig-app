@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
 import { useAuth } from '../../hooks/useAuth';
+import { useBillingStatus } from '../../hooks/useBillingStatus';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { Sidebar } from '../../components/Sidebar';
@@ -106,6 +107,11 @@ export default function SettingsScreen() {
     } = useSettings();
     const themeColors = useThemeColors();
     const { user, logout, getAccessToken } = useAuth();
+    const {
+        hasActiveEntitlement,
+        isLoadingBillingStatus,
+        isMobilePaywallEnabled,
+    } = useBillingStatus({ autoConfigureRevenueCat: false });
 
 
     const { replayTutorial } = useTutorial();
@@ -568,6 +574,24 @@ export default function SettingsScreen() {
                 </View>
 
                 <View style={styles.spacer} />
+
+                {(isMobilePaywallEnabled || hasActiveEntitlement) ? (
+                    <>
+                        <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Billing</Text>
+                        <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
+                            <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/paywall')}>
+                                <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Manage subscription</Text>
+                                <View style={styles.settingValueContainer}>
+                                    <Text style={[styles.settingValue, { color: themeColors.textSecondary }]}>
+                                        {isLoadingBillingStatus ? 'Checking...' : hasActiveEntitlement ? 'Pro active' : 'Upgrade'}
+                                    </Text>
+                                    <CaretRight size={20} color={themeColors.textSecondary} />
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.spacer} />
+                    </>
+                ) : null}
 
                 {/* Security */}
                 <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Security</Text>

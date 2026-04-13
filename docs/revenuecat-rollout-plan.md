@@ -117,9 +117,11 @@ If we need to reconcile historical users:
 1. Configure RevenueCat webhook auth and entitlement env:
    - `REVENUECAT_WEBHOOK_AUTH`
    - `REVENUECAT_PRIMARY_ENTITLEMENT_ID=pro`
-2. Set rollout flags as desired.
-3. Configure products + offerings in RevenueCat dashboard.
-4. Wire web checkout entry point to RevenueCat web billing.
-5. Add paywall UI gates using `/api/billing/status`.
-6. Enable enforcement only after QA and support playbook are ready.
-
+2. Configure mobile RevenueCat SDK keys in Expo env:
+   - `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY`
+   - `EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY`
+3. Set rollout flags as desired.
+4. Configure products + offerings in RevenueCat dashboard.
+5. Wire web checkout entry point to RevenueCat web billing.
+6. Add paywall UI gates using `/api/billing/status`.
+7. Enable enforcement only after QA and support playbook are ready.
