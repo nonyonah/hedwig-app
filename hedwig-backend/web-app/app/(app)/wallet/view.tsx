@@ -9,6 +9,7 @@ import { useToast } from '@/components/providers/toast-provider';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { ChangeSettlementDialog } from '@/components/wallet/change-settlement-dialog';
 import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
+import { GatewayUnifiedBalanceCard } from '@/components/wallet/gateway-unified-balance-card';
 import { hedwigApi } from '@/lib/api/client';
 import type { AccountTransaction, UsdAccount, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
@@ -18,7 +19,6 @@ const chainIconByName: Record<string, string> = {
   Solana:   '/icons/networks/solana.png',
   Arbitrum: '/icons/networks/arbitrum.png',
   Polygon:  '/icons/networks/polygon.png',
-  Celo:     '/icons/networks/celo.png',
 };
 
 const tokenIconByKey: Record<string, string> = {
@@ -26,7 +26,6 @@ const tokenIconByKey: Record<string, string> = {
   'Solana:USDC':    '/icons/tokens/usdc.png',
   'Arbitrum:USDC':  '/icons/tokens/usdc.png',
   'Polygon:USDC':   '/icons/tokens/usdc.png',
-  'Celo:USDC':      '/icons/tokens/usdc.png',
 };
 
 const supportedAssets: Array<{ chain: WalletAsset['chain']; symbol: string; name: string }> = [
@@ -34,7 +33,6 @@ const supportedAssets: Array<{ chain: WalletAsset['chain']; symbol: string; name
   { chain: 'Solana', symbol: 'USDC', name: 'USD Coin' },
   { chain: 'Arbitrum', symbol: 'USDC', name: 'USD Coin' },
   { chain: 'Polygon', symbol: 'USDC', name: 'USD Coin' },
-  { chain: 'Celo', symbol: 'USDC', name: 'USD Coin' },
 ];
 
 const TX_KIND: Record<WalletTransaction['kind'], { dot: string; bg: string; text: string }> = {
@@ -408,6 +406,8 @@ export function WalletView({
       </div>
 
       <WalletAssetsTable assetsByChain={assetsByChain} totalCrypto={totalCrypto} />
+
+      <GatewayUnifiedBalanceCard accessToken={serverAccessToken} />
 
       <div className={usdAccountsEnabled ? 'grid gap-5 xl:grid-cols-[400px_1fr]' : ''}>
         {usdAccountsEnabled ? (

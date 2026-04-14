@@ -44,6 +44,7 @@ import usdAccountRoutes from './routes/usdAccounts';
 import bridgeUsdWebhookRoutes from './routes/bridgeUsdWebhook';
 import billingRoutes from './routes/billing';
 import revenuecatWebhookRoutes from './routes/revenuecatWebhook';
+import gatewayRoutes from './routes/gateway';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -432,6 +433,7 @@ app.use('/api/webhooks/blockradar', blockradarWebhookRoutes);
 app.use('/api/creation-box', aiLimiter, creationBoxRoutes);
 app.use('/api/solana/rpc', solanaRpcLimiter, solanaRpcRoutes);
 app.use('/api/billing', financialLimiter, billingRoutes);
+app.use('/api/gateway', financialLimiter, gatewayRoutes);
 app.use('/api/usd-accounts', (req, _res, next) => {
     logger.info('USD account route hit', {
         method: req.method,
