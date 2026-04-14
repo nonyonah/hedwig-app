@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { TrueSheet } from '@hedwig/true-sheet';
 import { BlurView } from 'expo-blur';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -60,6 +60,7 @@ interface Client {
 
 export default function ClientsScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams<{ create?: string }>();
     const { getAccessToken, user } = useAuth();
     const themeColors = useThemeColors();
     const [clients, setClients] = useState<Client[]>([]);
@@ -89,6 +90,7 @@ export default function ClientsScreen() {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [profileIcon, setProfileIcon] = useState<{ type: 'gradient' | 'emoji' | 'image'; colorIndex?: number; emoji?: string; imageUri?: string }>({ type: 'gradient', colorIndex: 0 });
     const [walletAddresses, setWalletAddresses] = useState<{ evm?: string; solana?: string; bitcoin?: string }>({});
+    const hasAutoOpenedCreateRef = useRef(false);
 
     // Profile color gradient options
     const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
@@ -212,7 +214,7 @@ export default function ClientsScreen() {
         detailSheetRef.current?.dismiss();
     };
 
-    const openFormModal = (client?: Client) => {
+    const openFormModal = useCallback((client?: Client) => {
         if (client) {
             setIsEditing(true);
             setSelectedClient(client);
@@ -229,15 +231,33 @@ export default function ClientsScreen() {
             setFormCompany('');
         }
         formSheetRef.current?.present();
-    };
+    }, []);
 
-    const closeFormModal = () => {
+    useEffect(() => {
+        if (params.create !== '1') {
+            hasAutoOpenedCreateRef.current = false;
+            return;
+        }
+
+        if (hasAutoOpenedCreateRef.current) {
+            return;
+        }
+
+        hasAutoOpenedCreateRef.current = true;
+        const timer = setTimeout(() => {
+            openFormModal();
+        }, 80);
+
+        return () => clearTimeout(timer);
+    }, [openFormModal, params.create]);
+
+    const closeFormModal = useCallback(() => {
         formSheetRef.current?.dismiss();
         setFormName('');
         setFormEmail('');
         setFormPhone('');
         setFormCompany('');
-    };
+    }, []);
     const handleSaveClient = async () => {
         if (!formName.trim()) {
             Alert.alert('Error', 'Name is required');

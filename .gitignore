@@ -50,7 +50,6 @@ yarn-error.*
 .env.local
 
 credentials.json
-google-services.json
 hedwig-backend/google-services.json
 GoogleService-Info.plist
 

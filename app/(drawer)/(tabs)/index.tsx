@@ -13,6 +13,7 @@ import { getUserGradient } from '../../../utils/gradientUtils';
 import { joinApiUrl } from '../../../utils/apiBaseUrl';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import * as HugeiconsCore from '@hugeicons/core-free-icons';
+import UniversalCreationBox from '../../../components/UniversalCreationBox';
 
 const Plus = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).Add01Icon} {...props} />;
 const Inbox = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).InboxIcon} {...props} />;
@@ -73,6 +74,7 @@ export default function HomeDashboard() {
 
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [isCreationBoxVisible, setIsCreationBoxVisible] = useState(false);
 
     const emitTabBarScrollOffset = useCallback((offsetY: number) => {
         if (Platform.OS !== 'android') return;
@@ -537,10 +539,15 @@ export default function HomeDashboard() {
 
             <TouchableOpacity
                 style={[styles.fab, { backgroundColor: '#2563EB' }]}
-                onPress={() => router.push('/creation-box')}
+                onPress={() => setIsCreationBoxVisible(true)}
             >
                 <Plus size={32} color="#FFFFFF" strokeWidth={3} />
             </TouchableOpacity>
+
+            <UniversalCreationBox
+                visible={isCreationBoxVisible}
+                onClose={() => setIsCreationBoxVisible(false)}
+            />
         </SafeAreaView>
     );
 }

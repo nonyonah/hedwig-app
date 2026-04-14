@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import { Purchases } from '@revenuecat/purchases-js';
 import {
   ArrowsClockwise,
   CalendarBlank,
@@ -30,8 +31,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useTutorial } from '@/components/tutorial/tutorial-provider';
-import { hedwigApi, type KycStatusSummary } from '@/lib/api/client';
+import { hedwigApi, type BillingStatusSummary, type KycStatusSummary } from '@/lib/api/client';
 import { backendConfig } from '@/lib/auth/config';
+import { isProPlan } from '@/lib/billing/feature-gates';
 import {
   applyThemePreference,
   getStoredThemePreference,
@@ -71,6 +73,13 @@ const THEME_OPTIONS: Array<{ value: WebThemePreference; label: string }> = [
   { value: 'dark', label: 'Dark' },
   { value: 'system', label: 'System' }
 ];
+
+const WEB_BILLING_SANDBOX_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_WEB_BILLING_SANDBOX_API_KEY?.trim() || '';
+const WEB_BILLING_PROD_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_WEB_BILLING_API_KEY?.trim() || '';
+const WEB_BILLING_USE_SANDBOX = process.env.NEXT_PUBLIC_REVENUECAT_USE_SANDBOX !== 'false';
+const WEB_BILLING_API_KEY = WEB_BILLING_USE_SANDBOX
+  ? WEB_BILLING_SANDBOX_API_KEY || WEB_BILLING_PROD_API_KEY
+  : WEB_BILLING_PROD_API_KEY || WEB_BILLING_SANDBOX_API_KEY;
 
 
 function SettingsSection({
@@ -142,15 +151,20 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [deleteStep, setDeleteStep] = useState<'warn' | 'confirm'>('warn');
   const [keysConfirmed, setKeysConfirmed] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [billingStatus, setBillingStatus] = useState<BillingStatusSummary | null>(null);
+  const [isLoadingBilling, setIsLoadingBilling] = useState(false);
+  const [isOpeningSubscriptionManagement, setIsOpeningSubscriptionManagement] = useState(false);
+  const [managementUrl, setManagementUrl] = useState<string | null>(null);
 
   const fullName = useMemo(() => `${firstName} ${lastName}`.trim() || email || 'User', [email, firstName, lastName]);
   const kycBadge = KYC_BADGE[kycStatus];
+  const isProUser = isProPlan(billingStatus);
 
   useEffect(() => {
     const storedTheme = getStoredThemePreference();
     setThemePreference(storedTheme);
     applyThemePreference(storedTheme);
-}, []);
+  }, []);
 
   useEffect(() => {
     const syncTheme = () => setThemePreference(getStoredThemePreference());
@@ -171,6 +185,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     if (!accessToken) return;
     void loadUserProfile();
     void loadKycStatus();
+    void loadBillingStatus();
   }, [accessToken]);
 
   const loadUserProfile = async () => {
@@ -194,6 +209,77 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
       setIsKycApproved(Boolean(status.isApproved));
     } catch {
       // Keep local defaults if status fetch fails.
+    }
+  };
+
+  const loadBillingStatus = async () => {
+    if (!accessToken) return;
+    setIsLoadingBilling(true);
+    try {
+      const billing = await hedwigApi.billingStatus({ accessToken, disableMockFallback: true });
+      setBillingStatus(billing);
+    } catch {
+      setBillingStatus(null);
+    } finally {
+      setIsLoadingBilling(false);
+    }
+  };
+
+  const resolveManagementUrl = async (appUserId: string): Promise<string | null> => {
+    if (!WEB_BILLING_API_KEY) return null;
+
+    let purchases: Purchases;
+    if (!Purchases.isConfigured()) {
+      purchases = Purchases.configure({
+        apiKey: WEB_BILLING_API_KEY,
+        appUserId
+      });
+    } else {
+      purchases = Purchases.getSharedInstance();
+      if (purchases.getAppUserId() !== appUserId) {
+        await purchases.changeUser(appUserId);
+      }
+    }
+
+    const customerInfo = await purchases.getCustomerInfo();
+    return customerInfo.managementURL || null;
+  };
+
+  const openSubscriptionManagement = async () => {
+    if (managementUrl) {
+      window.open(managementUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (!billingStatus?.appUserId) {
+      router.push('/pricing');
+      return;
+    }
+
+    setIsOpeningSubscriptionManagement(true);
+    try {
+      const url = await resolveManagementUrl(billingStatus.appUserId);
+      if (url) {
+        setManagementUrl(url);
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      toast({
+        type: 'info',
+        title: 'Subscription management',
+        message: 'Management URL was unavailable. Opened pricing page instead.'
+      });
+      router.push('/pricing');
+    } catch (error: any) {
+      toast({
+        type: 'error',
+        title: 'Could not open subscription management',
+        message: error?.message || 'Please try again from pricing.'
+      });
+      router.push('/pricing');
+    } finally {
+      setIsOpeningSubscriptionManagement(false);
     }
   };
 
@@ -376,7 +462,10 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           <div className="flex items-center gap-4 border-b border-[#f2f4f7] px-5 py-4">
             <Avatar className="h-12 w-12 text-[14px]" label={fullName} src={avatarUrl} />
             <div>
-              <p className="text-[16px] font-semibold text-[#181d27]">{fullName}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[16px] font-semibold text-[#181d27]">{fullName}</p>
+                {isProUser ? <Badge variant="success">Pro</Badge> : null}
+              </div>
               <p className="text-[13px] text-[#717680]">{email}</p>
             </div>
           </div>
@@ -457,6 +546,34 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             >
               Open
               <CaretRight className="h-4 w-4 text-[#a4a7ae]" />
+            </button>
+          </SettingsRow>
+        </SettingsSection>
+
+        <SettingsSection title="Billing" description="Manage your Hedwig Pro plan across web and mobile.">
+          <SettingsRow
+            label="Plan"
+            description="Your current subscription status."
+          >
+            <Badge variant={isProUser ? 'success' : 'neutral'}>
+              {isLoadingBilling ? 'Checking…' : isProUser ? 'Pro active' : 'Free plan'}
+            </Badge>
+          </SettingsRow>
+
+          <SettingsRow
+            label="Cancel or change plan"
+            description="Open RevenueCat subscription management."
+          >
+            <button
+              type="button"
+              onClick={() => {
+                void openSubscriptionManagement();
+              }}
+              disabled={isOpeningSubscriptionManagement}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isOpeningSubscriptionManagement ? 'Opening…' : 'Manage'}
+              <CaretRight className="h-3.5 w-3.5 text-[#a4a7ae]" />
             </button>
           </SettingsRow>
         </SettingsSection>

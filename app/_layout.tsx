@@ -33,7 +33,11 @@ import { getApiBaseUrl, joinApiUrl, rewriteApiUrlForRuntime } from '../utils/api
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
-const ONESIGNAL_APP_ID = Constants.expoConfig?.extra?.oneSignalAppId || process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID || '';
+const ONESIGNAL_APP_ID =
+    Constants.expoConfig?.extra?.oneSignalAppId ||
+    process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID ||
+    process.env.ONESIGNAL_APP_ID ||
+    '';
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || '';
 
 declare global {
@@ -154,7 +158,13 @@ function ThemedStack() {
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/profile" />
             <Stack.Screen name="auth/biometrics" />
-            <Stack.Screen name="paywall" />
+            <Stack.Screen
+                name="paywall"
+                options={{
+                    presentation: 'fullScreenModal',
+                    headerShown: false,
+                }}
+            />
             <Stack.Screen name="invoice/create" />
             <Stack.Screen name="invoice/[id]" />
             <Stack.Screen name="payment-link/create" />
@@ -200,7 +210,13 @@ function WebLayout() {
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/profile" />
             <Stack.Screen name="auth/biometrics" />
-            <Stack.Screen name="paywall" />
+            <Stack.Screen
+                name="paywall"
+                options={{
+                    presentation: 'fullScreenModal',
+                    headerShown: false,
+                }}
+            />
             <Stack.Screen name="invoice/create" />
             <Stack.Screen name="invoice/[id]" />
             <Stack.Screen name="payment-link/create" />
@@ -372,7 +388,7 @@ function PushNotificationBootstrap() {
                                 has_email: userEmail ? 'true' : 'false',
                                 app_version: String(
                                     Constants.expoConfig?.version ||
-                                    Constants.manifest?.version ||
+                                    (Constants as any).manifest?.version ||
                                     '1.0.0'
                                 ),
                             });

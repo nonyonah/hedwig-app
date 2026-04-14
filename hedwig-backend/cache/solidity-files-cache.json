@@ -1,1 +1,493 @@
-{"_format":"","paths":{"artifacts":"out","build_infos":"out/build-info","sources":"contracts","tests":"test","scripts":"script","libraries":["lib"]},"files":{"contracts/HedwigPayment.sol":{"lastModificationDate":1770371877709,"contentHash":"8dac8f63d19ad10f","interfaceReprHash":null,"sourceName":"contracts/HedwigPayment.sol","imports":["lib/openzeppelin-contracts/contracts/access/Ownable.sol","lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol","lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol","lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol","lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol","lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol","lib/openzeppelin-contracts/contracts/utils/Context.sol","lib/openzeppelin-contracts/contracts/utils/Pausable.sol","lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol","lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol","lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol"],"versionRequirement":"^0.8.28","artifacts":{"HedwigPayment":{"0.8.28":{"default":{"path":"HedwigPayment.sol/HedwigPayment.json","build_id":"dda1aa4d6ac2436d"}}}},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/access/Ownable.sol":{"lastModificationDate":1770379245826,"contentHash":"aeede215495e3727","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/access/Ownable.sol","imports":["lib/openzeppelin-contracts/contracts/utils/Context.sol"],"versionRequirement":"^0.8.20","artifacts":{"Ownable":{"0.8.28":{"default":{"path":"Ownable.sol/Ownable.json","build_id":"dda1aa4d6ac2436d"}}}},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol":{"lastModificationDate":1770379245849,"contentHash":"1822a75bab6fed91","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol","imports":["lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol","lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol","lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol","lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol"],"versionRequirement":">=0.6.2","artifacts":{"IERC1363":{"0.8.28":{"default":{"path":"IERC1363.sol/IERC1363.json","build_id":"dda1aa4d6ac2436d"}}}},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol":{"lastModificationDate":1770379245851,"contentHash":"1a826f6d4b769022","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol","imports":["lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol"],"versionRequirement":">=0.4.16","artifacts":{},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol":{"lastModificationDate":1770379245852,"contentHash":"e318fc72a6d9cc43","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol","imports":["lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol"],"versionRequirement":">=0.4.16","artifacts":{},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol":{"lastModificationDate":1770379245926,"contentHash":"1dcd768972ff31b3","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol","imports":[],"versionRequirement":">=0.4.16","artifacts":{"IERC20":{"0.8.28":{"default":{"path":"IERC20.sol/IERC20.json","build_id":"dda1aa4d6ac2436d"}}}},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol":{"lastModificationDate":1770379245932,"contentHash":"f9342855928500dd","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol","imports":["lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol","lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol","lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol","lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol","lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol"],"versionRequirement":"^0.8.20","artifacts":{"SafeERC20":{"0.8.28":{"default":{"path":"SafeERC20.sol/SafeERC20.json","build_id":"dda1aa4d6ac2436d"}}}},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/utils/Context.sol":{"lastModificationDate":1770379245946,"contentHash":"16db1f8b2f7183f5","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/utils/Context.sol","imports":[],"versionRequirement":"^0.8.20","artifacts":{"Context":{"0.8.28":{"default":{"path":"Context.sol/Context.json","build_id":"dda1aa4d6ac2436d"}}}},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/utils/Pausable.sol":{"lastModificationDate":1770379245950,"contentHash":"5972d615b5a74f4d","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/utils/Pausable.sol","imports":["lib/openzeppelin-contracts/contracts/utils/Context.sol"],"versionRequirement":"^0.8.20","artifacts":{"Pausable":{"0.8.28":{"default":{"path":"Pausable.sol/Pausable.json","build_id":"dda1aa4d6ac2436d"}}}},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol":{"lastModificationDate":1770379245952,"contentHash":"a70644ba3ffaf8d5","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol","imports":["lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol"],"versionRequirement":"^0.8.20","artifacts":{"ReentrancyGuard":{"0.8.28":{"default":{"path":"ReentrancyGuard.sol/ReentrancyGuard.json","build_id":"dda1aa4d6ac2436d"}}}},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol":{"lastModificationDate":1770379245954,"contentHash":"261e9fcb6515866e","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol","imports":[],"versionRequirement":"^0.8.20","artifacts":{"StorageSlot":{"0.8.28":{"default":{"path":"StorageSlot.sol/StorageSlot.json","build_id":"dda1aa4d6ac2436d"}}}},"seenByCompiler":true},"lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol":{"lastModificationDate":1770379245967,"contentHash":"021ac46c8076d0ee","interfaceReprHash":null,"sourceName":"lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol","imports":[],"versionRequirement":">=0.4.16","artifacts":{"IERC165":{"0.8.28":{"default":{"path":"IERC165.sol/IERC165.json","build_id":"dda1aa4d6ac2436d"}}}},"seenByCompiler":true}},"builds":["dda1aa4d6ac2436d"],"profiles":{"default":{"solc":{"optimizer":{"enabled":true,"runs":200},"metadata":{"useLiteralContent":false,"bytecodeHash":"ipfs","appendCBOR":true},"outputSelection":{"*":{"*":["abi","evm.bytecode.object","evm.bytecode.sourceMap","evm.bytecode.linkReferences","evm.deployedBytecode.object","evm.deployedBytecode.sourceMap","evm.deployedBytecode.linkReferences","evm.deployedBytecode.immutableReferences","evm.methodIdentifiers","metadata"]}},"evmVersion":"prague","viaIR":true,"libraries":{}},"vyper":{"evmVersion":"prague","outputSelection":{"*":{"*":["abi","evm.bytecode","evm.deployedBytecode"]}}}}},"preprocessed":false,"mocks":[]}
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/Users/macintoshhd/Work/hedwig-app/hedwig-backend/contracts/HedwigPayment.sol": {
+      "lastModificationDate": 1770381701302,
+      "contentHash": "404cd6b015ce0cfb158ce5c3d0d3d3bb",
+      "sourceName": "contracts/HedwigPayment.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
+        "@openzeppelin/contracts/utils/Pausable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.28"
+      ],
+      "artifacts": [
+        "HedwigPayment"
+      ]
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+      "lastModificationDate": 1776121871032,
+      "contentHash": "9261adf6457863de3e9892f51317ec89",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.4.16"
+      ],
+      "artifacts": [
+        "IERC20"
+      ]
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol": {
+      "lastModificationDate": 1776121871095,
+      "contentHash": "6e5efb502dd6652d12ad15eea2c5bdf4",
+      "sourceName": "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./StorageSlot.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ReentrancyGuard"
+      ]
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
+      "lastModificationDate": 1776121871086,
+      "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
+      "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Ownable"
+      ]
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol": {
+      "lastModificationDate": 1776121871102,
+      "contentHash": "bf8e9c3398d381dc66c5302267927386",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../IERC20.sol",
+        "../../../interfaces/IERC1363.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "SafeERC20"
+      ]
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/utils/Pausable.sol": {
+      "lastModificationDate": 1776121871092,
+      "contentHash": "0d47b53e10b1985efbb396f937626279",
+      "sourceName": "@openzeppelin/contracts/utils/Pausable.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Pausable"
+      ]
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/utils/StorageSlot.sol": {
+      "lastModificationDate": 1776121871119,
+      "contentHash": "e656d64c4ce918f3d13030b91c935134",
+      "sourceName": "@openzeppelin/contracts/utils/StorageSlot.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "StorageSlot"
+      ]
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/utils/Context.sol": {
+      "lastModificationDate": 1776121870848,
+      "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
+      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Context"
+      ]
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/interfaces/IERC1363.sol": {
+      "lastModificationDate": 1776121871025,
+      "contentHash": "a7fd0f05e36b0d0a21c75340c9c639ec",
+      "sourceName": "@openzeppelin/contracts/interfaces/IERC1363.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./IERC20.sol",
+        "./IERC165.sol"
+      ],
+      "versionPragmas": [
+        ">=0.6.2"
+      ],
+      "artifacts": [
+        "IERC1363"
+      ]
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/interfaces/IERC20.sol": {
+      "lastModificationDate": 1776121871031,
+      "contentHash": "68620db2da7583d9a4919096ac77f577",
+      "sourceName": "@openzeppelin/contracts/interfaces/IERC20.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../token/ERC20/IERC20.sol"
+      ],
+      "versionPragmas": [
+        ">=0.4.16"
+      ],
+      "artifacts": []
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/interfaces/IERC165.sol": {
+      "lastModificationDate": 1776121871027,
+      "contentHash": "947853028399b7de34bcc3704ee06e99",
+      "sourceName": "@openzeppelin/contracts/interfaces/IERC165.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/introspection/IERC165.sol"
+      ],
+      "versionPragmas": [
+        ">=0.4.16"
+      ],
+      "artifacts": []
+    },
+    "/Users/macintoshhd/Work/hedwig-app/node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": {
+      "lastModificationDate": 1776121871028,
+      "contentHash": "7074c93b1ea0a122063f26ddd1db1032",
+      "sourceName": "@openzeppelin/contracts/utils/introspection/IERC165.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.4.16"
+      ],
+      "artifacts": [
+        "IERC165"
+      ]
+    },
+    "/Users/macintoshhd/Work/hedwig-app/hedwig-backend/contracts/HedwigProofRegistry.sol": {
+      "lastModificationDate": 1776108754764,
+      "contentHash": "67ab0bcc40ce2ba216f6a29be36af5d6",
+      "sourceName": "contracts/HedwigProofRegistry.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.28"
+      ],
+      "artifacts": [
+        "HedwigProofRegistry"
+      ]
+    }
+  }
+}

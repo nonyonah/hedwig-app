@@ -110,9 +110,8 @@ export default function SettingsScreen() {
     const {
         hasActiveEntitlement,
         isLoadingBillingStatus,
-        billingStatusError,
-        isMobilePaywallEnabled,
         isBillingEnforcementEnabled,
+        refreshBillingStatus,
     } = useBillingStatus({ autoConfigureRevenueCat: false });
 
 
@@ -168,8 +167,9 @@ export default function SettingsScreen() {
         React.useCallback(() => {
             if (user) {
                 fetchUserData();
+                void refreshBillingStatus();
             }
-        }, [user])
+        }, [refreshBillingStatus, user])
     );
 
     const loadBiometricsState = async () => {
@@ -443,7 +443,6 @@ export default function SettingsScreen() {
         setRecoveryAcknowledged(false);
     };
 
-
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: themeColors.background }]}>
             {/* Header */}
@@ -485,9 +484,16 @@ export default function SettingsScreen() {
                         </LinearGradient>
                     )}
                     <View style={styles.profileInfo}>
-                        <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>
-                            {userName.firstName ? `${userName.firstName} ${userName.lastName}`.trim() : 'Edit Profile'}
-                        </Text>
+                        <View style={styles.profileNameRow}>
+                            <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>
+                                {userName.firstName ? `${userName.firstName} ${userName.lastName}`.trim() : 'Edit Profile'}
+                            </Text>
+                            {hasActiveEntitlement ? (
+                                <View style={styles.proBadge}>
+                                    <Text style={styles.proBadgeText}>PRO</Text>
+                                </View>
+                            ) : null}
+                        </View>
                         <Text style={[styles.profileSubtitle, { color: themeColors.textSecondary }]}>Update name and photo</Text>
                     </View>
                     <CaretRight size={20} color={themeColors.textSecondary} />
@@ -580,8 +586,19 @@ export default function SettingsScreen() {
                 <>
                     <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Billing</Text>
                     <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
-                        <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/paywall')}>
-                            <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Manage subscription</Text>
+                        <TouchableOpacity
+                            style={styles.settingRow}
+                            onPress={() => {
+                                if (hasActiveEntitlement) {
+                                    router.push({ pathname: '/paywall', params: { mode: 'manage' } });
+                                    return;
+                                }
+                                router.push('/paywall');
+                            }}
+                        >
+                            <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>
+                                {hasActiveEntitlement ? 'Manage subscription' : 'View Pro plan'}
+                            </Text>
                             <View style={styles.settingValueContainer}>
                                 <Text style={[styles.settingValue, { color: themeColors.textSecondary }]}>
                                     {isLoadingBillingStatus
@@ -590,11 +607,7 @@ export default function SettingsScreen() {
                                             ? 'Pro active'
                                             : isBillingEnforcementEnabled
                                                 ? 'Required'
-                                                : isMobilePaywallEnabled
-                                                    ? 'Upgrade'
-                                                    : billingStatusError
-                                                        ? 'Unavailable'
-                                                        : 'Set up'}
+                                                : 'Upgrade'}
                                 </Text>
                                 <CaretRight size={20} color={themeColors.textSecondary} />
                             </View>
@@ -1506,11 +1519,28 @@ const styles = StyleSheet.create({
     profileInfo: {
         flex: 1,
     },
+    profileNameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 4,
+    },
     profileName: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 18,
         color: Colors.textPrimary,
-        marginBottom: 4,
+    },
+    proBadge: {
+        backgroundColor: '#1D4ED8',
+        borderRadius: 999,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+    },
+    proBadgeText: {
+        color: '#FFFFFF',
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 10,
+        letterSpacing: 0.5,
     },
     profileSubtitle: {
         fontFamily: 'GoogleSansFlex_400Regular',

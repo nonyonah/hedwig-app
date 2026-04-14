@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Image,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -11,50 +10,31 @@ import {
     TextInput,
     View,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
-import { usePrivy } from '@privy-io/expo';
-import { useThemeColors } from '../../theme/colors';
-import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { getPostHogClient } from '../../services/analytics';
+import { useThemeColors } from '../../theme/colors';
+import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/Button';
+import { getPostHogClient } from '../../services/analytics';
 
-export default function CreateInvoiceScreen() {
+export default function CreateClientScreen() {
     const router = useRouter();
-    const params = useLocalSearchParams<{
-        clientName?: string;
-        amount?: string;
-        description?: string;
-        dueDate?: string;
-        recipientEmail?: string;
-    }>();
-    const { getAccessToken } = usePrivy();
-    const [isLoading, setIsLoading] = useState(false);
     const themeColors = useThemeColors();
+    const { getAccessToken } = useAuth();
 
-    useAnalyticsScreen('Create Invoice');
+    const [isLoading, setIsLoading] = useState(false);
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
+    const [company, setCompany] = useState('');
 
-    const [formData, setFormData] = useState({
-        clientName: params.clientName || '',
-        amount: params.amount || '',
-        description: params.description || '',
-        dueDate: params.dueDate || '',
-        recipientEmail: params.recipientEmail || '',
-        currency: 'USDC',
-    });
-
-    const setAmount = (raw: string) => {
-        const cleaned = raw.replace(/[^0-9.]/g, '');
-        const parts = cleaned.split('.');
-        const normalized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
-        setFormData((prev) => ({ ...prev, amount: normalized }));
-    };
+    const canSubmit = useMemo(() => name.trim().length > 0 && !isLoading, [isLoading, name]);
 
     const handleCreate = async () => {
-        if (!formData.amount || !formData.clientName.trim()) {
-            Alert.alert('Missing fields', 'Please enter at least client name and amount.');
+        if (!name.trim()) {
+            Alert.alert('Missing fields', 'Please enter the client name.');
             return;
         }
 
@@ -63,42 +43,40 @@ export default function CreateInvoiceScreen() {
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-            const response = await fetch(`${apiUrl}/api/documents/invoice`, {
+            const response = await fetch(`${apiUrl}/api/clients`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    clientName: formData.clientName.trim(),
-                    amount: parseFloat(formData.amount),
-                    currency: formData.currency,
-                    description: formData.description.trim() || undefined,
-                    dueDate: formData.dueDate.trim() || undefined,
-                    recipientEmail: formData.recipientEmail.trim() || undefined,
-                    title: `Invoice for ${formData.clientName.trim()}`,
+                    name: name.trim(),
+                    email: email.trim() || undefined,
+                    phone: phone.trim() || undefined,
+                    company: company.trim() || undefined,
                 }),
             });
 
             const data = await response.json().catch(() => null);
             if (!response.ok || !data?.success) {
-                throw new Error(data?.error?.message || 'Failed to create invoice');
+                throw new Error(data?.error?.message || 'Failed to create client.');
             }
 
-            const document = data?.data?.document;
+            const client = data?.data?.client;
             const posthog = getPostHogClient();
-            await posthog.capture('invoice_created', {
-                invoice_id: document?.id,
-                amount: document?.amount,
-                currency: document?.currency,
-                client_id: document?.client_id ?? document?.clientId,
+            await posthog.capture('client_created', {
+                client_id: client?.id,
+                client_name: client?.name,
             });
 
-            Alert.alert('Success', 'Invoice created successfully!', [
-                { text: 'OK', onPress: () => router.back() },
+            Alert.alert('Success', 'Client created successfully.', [
+                {
+                    text: 'OK',
+                    onPress: () => router.back(),
+                },
             ]);
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+            const message = error instanceof Error ? error.message : 'Something went wrong.';
             Alert.alert('Error', message);
         } finally {
             setIsLoading(false);
@@ -115,7 +93,7 @@ export default function CreateInvoiceScreen() {
                     circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
                     icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
                 />
-                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Create Invoice</Text>
+                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Create Client</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -124,67 +102,55 @@ export default function CreateInvoiceScreen() {
                 style={styles.flex}
             >
                 <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-                    <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Invoice details</Text>
+                    <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Client details</Text>
 
                     <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}> 
                         <TextInput
                             style={[styles.input, { color: themeColors.textPrimary }]}
                             placeholder="Client name"
                             placeholderTextColor={themeColors.textSecondary}
-                            value={formData.clientName}
-                            onChangeText={(text) => setFormData((prev) => ({ ...prev, clientName: text }))}
-                        />
-                    </View>
-
-                    <View style={[styles.inputContainer, styles.amountContainer, { backgroundColor: themeColors.surface }]}> 
-                        <Image source={require('../../assets/icons/tokens/usdc.png')} style={styles.tokenLogo} />
-                        <TextInput
-                            style={[styles.input, styles.amountInput, { color: themeColors.textPrimary }]}
-                            placeholder="Amount"
-                            placeholderTextColor={themeColors.textSecondary}
-                            keyboardType="decimal-pad"
-                            value={formData.amount}
-                            onChangeText={setAmount}
-                        />
-                        <Text style={[styles.currencyText, { color: themeColors.textSecondary }]}>USDC</Text>
-                    </View>
-
-                    <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}> 
-                        <TextInput
-                            style={[styles.input, { color: themeColors.textPrimary }]}
-                            placeholder="Description"
-                            placeholderTextColor={themeColors.textSecondary}
-                            value={formData.description}
-                            onChangeText={(text) => setFormData((prev) => ({ ...prev, description: text }))}
+                            value={name}
+                            onChangeText={setName}
                         />
                     </View>
 
                     <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}> 
                         <TextInput
                             style={[styles.input, { color: themeColors.textPrimary }]}
-                            placeholder="Due date (YYYY-MM-DD)"
-                            placeholderTextColor={themeColors.textSecondary}
-                            value={formData.dueDate}
-                            onChangeText={(text) => setFormData((prev) => ({ ...prev, dueDate: text }))}
-                        />
-                    </View>
-
-                    <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}> 
-                        <TextInput
-                            style={[styles.input, { color: themeColors.textPrimary }]}
-                            placeholder="Recipient email (optional)"
+                            placeholder="Email (optional)"
                             placeholderTextColor={themeColors.textSecondary}
                             keyboardType="email-address"
                             autoCapitalize="none"
-                            value={formData.recipientEmail}
-                            onChangeText={(text) => setFormData((prev) => ({ ...prev, recipientEmail: text }))}
+                            value={email}
+                            onChangeText={setEmail}
+                        />
+                    </View>
+
+                    <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}> 
+                        <TextInput
+                            style={[styles.input, { color: themeColors.textPrimary }]}
+                            placeholder="Phone (optional)"
+                            placeholderTextColor={themeColors.textSecondary}
+                            keyboardType="phone-pad"
+                            value={phone}
+                            onChangeText={setPhone}
+                        />
+                    </View>
+
+                    <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}> 
+                        <TextInput
+                            style={[styles.input, { color: themeColors.textPrimary }]}
+                            placeholder="Company (optional)"
+                            placeholderTextColor={themeColors.textSecondary}
+                            value={company}
+                            onChangeText={setCompany}
                         />
                     </View>
 
                     <Button
-                        title={isLoading ? 'Creating...' : 'Create Invoice'}
+                        title={isLoading ? 'Creating...' : 'Create Client'}
                         onPress={handleCreate}
-                        disabled={isLoading}
+                        disabled={!canSubmit}
                         size="large"
                         style={{ ...styles.ctaButton, backgroundColor: themeColors.primary }}
                         textStyle={styles.ctaText}
@@ -246,23 +212,6 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_400Regular',
         fontSize: 16,
         paddingVertical: 14,
-    },
-    amountContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    amountInput: {
-        flex: 1,
-    },
-    tokenLogo: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-    },
-    currencyText: {
-        fontFamily: 'GoogleSansFlex_500Medium',
-        fontSize: 14,
     },
     ctaButton: {
         marginTop: 14,
