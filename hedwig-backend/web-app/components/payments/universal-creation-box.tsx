@@ -22,6 +22,7 @@ import { backendConfig } from '@/lib/auth/config';
 import { useToast } from '@/components/providers/toast-provider';
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
 import { CreateRecurringInvoiceDialog } from './create-recurring-invoice-dialog';
+import { usePostHog } from 'posthog-js/react';
 
 /* ── types ── */
 interface LineItem {
@@ -74,6 +75,19 @@ const EXAMPLES = [
 /* ── component ── */
 export function UniversalCreationBox({ accessToken, clients = [], onCreated }: Props) {
   const { toast } = useToast();
+  const posthog = usePostHog();
+
+  const capturePostHog = useCallback((event: string, properties: Record<string, unknown>) => {
+    if (posthog) {
+      posthog.capture(event, properties);
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      (window as Window & { posthog?: { capture?: (name: string, props?: Record<string, unknown>) => void } })
+        .posthog
+        ?.capture?.(event, properties);
+    }
+  }, [posthog]);
 
   /* input */
   const [text, setText] = useState('');
@@ -287,6 +301,22 @@ export function UniversalCreationBox({ accessToken, clients = [], onCreated }: P
       }
 
       const doc = result.data?.document ?? result.data ?? {};
+
+      if (isPaymentLink) {
+        capturePostHog('payment_link_created', {
+          payment_link_id: doc?.id,
+          amount: doc?.amount,
+          currency: doc?.currency,
+          client_id: doc?.client_id ?? doc?.clientId,
+        });
+      } else {
+        capturePostHog('invoice_created', {
+          invoice_id: doc?.id,
+          amount: doc?.amount,
+          currency: doc?.currency,
+          client_id: doc?.client_id ?? doc?.clientId,
+        });
+      }
 
       if (isPaymentLink) {
         const rawStatus = String(doc.status ?? '').toLowerCase();

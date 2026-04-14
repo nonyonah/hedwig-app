@@ -13,7 +13,7 @@ import { Typography } from '../../styles/typography';
 import { Sidebar } from '../../components/Sidebar';
 import { ProfileModal } from '../../components/ProfileModal';
 import { LinearGradient } from 'expo-linear-gradient';
-import Analytics from '../../services/analytics';
+import { getPostHogClient } from '../../services/analytics';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
@@ -282,8 +282,11 @@ export default function ClientsScreen() {
                     ));
                 } else {
                     setClients(prev => [data.data.client, ...prev]);
-                    // Track client created
-                    Analytics.clientCreated(user?.id || 'unknown', data.data.client.id);
+                    const posthog = getPostHogClient();
+                    await posthog.capture('client_created', {
+                        client_id: data?.data?.client?.id,
+                        client_name: data?.data?.client?.name,
+                    });
                 }
                 closeFormModal();
                 // detailSheetRef.current?.dismiss(); // Optional: close detail modal on save?

@@ -10,6 +10,7 @@ import * as Application from 'expo-application';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
+import type { PostHog } from 'posthog-react-native';
 
 // PostHog configuration - Expo requires EXPO_PUBLIC_ prefix for client-side env vars
 const POSTHOG_API_KEY = process.env.EXPO_PUBLIC_POSTHOG_API_KEY || '';
@@ -32,6 +33,12 @@ let lastActivityTime: number = Date.now();
 let isInitialized = false;
 let eventQueue: any[] = [];
 let flushTimer: NodeJS.Timeout | null = null;
+
+type PostHogCaptureClient = Pick<PostHog, 'capture'>;
+
+const posthogCaptureClient: PostHogCaptureClient = {
+    capture: (eventName: string, properties?: Record<string, any>) => trackEvent(eventName, properties),
+};
 
 // Common properties added to all events
 const getCommonProperties = () => ({
@@ -212,10 +219,10 @@ export async function initializeAnalytics(userId?: string): Promise<void> {
 }
 
 /**
- * Get the PostHog client instance (returns null - using HTTP API directly)
+ * Get the PostHog capture client used across the app.
  */
-export function getPostHogClient(): null {
-    return null;
+export function getPostHogClient(): PostHogCaptureClient {
+    return posthogCaptureClient;
 }
 
 /**

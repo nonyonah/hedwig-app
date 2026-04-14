@@ -9,6 +9,7 @@ import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAuth } from '../../hooks/useAuth';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { getPostHogClient } from '../../services/analytics';
 
 export default function CreateProjectScreen() {
     const router = useRouter();
@@ -94,6 +95,12 @@ export default function CreateProjectScreen() {
 
             const projectId = projectData.data.project.id;
             const clientId = projectData.data.project.clientId;
+            const posthog = getPostHogClient();
+            await posthog.capture('project_created', {
+                project_id: projectData?.data?.project?.id,
+                project_name: projectData?.data?.project?.title,
+                client_id: projectData?.data?.project?.clientId,
+            });
             const createdMilestones = projectData.data.milestones || []; // Get created milestones with IDs
 
             // 2. Create Contract (Auto-generated)

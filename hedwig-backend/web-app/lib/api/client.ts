@@ -645,6 +645,12 @@ const authHeaders = (accessToken: string) => ({
   'x-hedwig-shared-backend': backendConfig.apiBaseUrl
 });
 
+function capturePostHogEvent(event: string, properties: Record<string, unknown>): void {
+  if (typeof window === 'undefined') return;
+  const posthog = (window as Window & { posthog?: { capture?: (name: string, props?: Record<string, unknown>) => void } }).posthog;
+  posthog?.capture?.(event, properties);
+}
+
 async function request<T>(path: string, options?: ApiOptions, init?: RequestInit): Promise<T> {
   if (!options?.accessToken) {
     throw new Error(`Missing access token for ${path}`);
@@ -824,6 +830,10 @@ export const hedwigApi = {
           method: 'POST',
           body: JSON.stringify(input)
         });
+        capturePostHogEvent('client_created', {
+          client_id: data?.client?.id,
+          client_name: data?.client?.name,
+        });
         return mapCreatedClient(data.client);
       },
       async () => {
@@ -963,6 +973,12 @@ export const hedwigApi = {
         );
 
         const createdProject = projectResponse.project;
+
+        capturePostHogEvent('project_created', {
+          project_id: createdProject?.id,
+          project_name: createdProject?.title ?? createdProject?.name,
+          client_id: createdProject?.clientId ?? createdProject?.client_id,
+        });
 
         return {
           project: mapCreatedProject(createdProject, createdProject.clientId || input.clientId || ''),
@@ -1232,6 +1248,12 @@ export const hedwigApi = {
       })
     });
     const doc = result.document ?? result.invoice ?? result;
+    capturePostHogEvent('invoice_created', {
+      invoice_id: doc?.id,
+      amount: doc?.amount,
+      currency: doc?.currency,
+      client_id: doc?.clientId ?? doc?.client_id,
+    });
     return {
       id: doc.id,
       clientId: doc.clientId ?? '',
@@ -1266,6 +1288,12 @@ export const hedwigApi = {
       })
     });
     const doc = result.document ?? result.paymentLink ?? result;
+    capturePostHogEvent('payment_link_created', {
+      payment_link_id: doc?.id,
+      amount: doc?.amount,
+      currency: doc?.currency,
+      client_id: doc?.clientId ?? doc?.client_id,
+    });
     return {
       id: doc.id,
       clientId: doc.clientId,

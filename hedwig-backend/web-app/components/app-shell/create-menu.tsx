@@ -30,6 +30,7 @@ import { hedwigApi } from '@/lib/api/client';
 import type { Client, Project } from '@/lib/models/entities';
 import type { CreateProjectFlowInput } from '@/lib/api/client';
 import { useToast } from '@/components/providers/toast-provider';
+import { usePostHog } from 'posthog-js/react';
 
 type CreateFlow = 'menu' | 'invoice' | 'payment-link' | 'client' | 'project';
 
@@ -151,6 +152,7 @@ function formatCreatedMessage(flow: Exclude<CreateFlow, 'menu'>): { title: strin
 export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
   const router = useRouter();
   const { toast } = useToast();
+  const posthog = usePostHog();
 
   const [open, setOpen] = useState(false);
   const [flow, setFlow] = useState<CreateFlow>('menu');
@@ -245,6 +247,18 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
     return null;
   };
 
+  const capturePostHog = (event: string, properties: Record<string, unknown>) => {
+    if (posthog) {
+      posthog.capture(event, properties);
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      (window as Window & { posthog?: { capture?: (name: string, props?: Record<string, unknown>) => void } })
+        .posthog
+        ?.capture?.(event, properties);
+    }
+  };
+
   const handleInvoiceCreate = async () => {
     const token = requireSession();
     if (!token) return;
@@ -284,7 +298,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
 
     setIsSubmitting(true);
     try {
-      await postAuthedJson('/api/documents/invoice', token, {
+      const result = await postAuthedJson<{ document?: Record<string, any> }>('/api/documents/invoice', token, {
         title: `Invoice for ${clientName}`,
         amount,
         currency: invoiceForm.currency,
@@ -296,6 +310,13 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
         projectId: invoiceForm.linkedProjectId || undefined,
         remindersEnabled: invoiceForm.reminderEnabled,
         items: parsedItems,
+      });
+      const document = result?.document;
+      capturePostHog('invoice_created', {
+        invoice_id: document?.id,
+        amount: document?.amount,
+        currency: document?.currency,
+        client_id: document?.client_id ?? document?.clientId,
       });
 
       toast({ type: 'success', ...formatCreatedMessage('invoice') });
@@ -333,7 +354,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
 
     setIsSubmitting(true);
     try {
-      await postAuthedJson('/api/documents/payment-link', token, {
+      const result = await postAuthedJson<{ document?: Record<string, any> }>('/api/documents/payment-link', token, {
         title: paymentForm.title.trim(),
         amount,
         currency: paymentForm.currency,
@@ -343,6 +364,13 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
         clientName: clientName || undefined,
         recipientEmail: clientEmail || undefined,
         projectId: paymentForm.linkedProjectId || undefined,
+      });
+      const document = result?.document;
+      capturePostHog('payment_link_created', {
+        payment_link_id: document?.id,
+        amount: document?.amount,
+        currency: document?.currency,
+        client_id: document?.client_id ?? document?.clientId,
       });
 
       toast({ type: 'success', ...formatCreatedMessage('payment-link') });
@@ -371,14 +399,14 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
 
     setIsSubmitting(true);
     try {
-      const result = await postAuthedJson<{ client: Client }>('/api/clients', token, {
+      const createdClient = await hedwigApi.createClient({
         name,
         email: email || undefined,
         company: company || undefined,
         notes: notes || undefined,
-      });
-      if (result?.client) {
-        setClients((current) => [result.client, ...current]);
+      }, { accessToken: token, disableMockFallback: true });
+      if (createdClient) {
+        setClients((current) => [createdClient, ...current]);
       }
 
       toast({ type: 'success', ...formatCreatedMessage('client') });

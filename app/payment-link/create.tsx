@@ -7,6 +7,7 @@ import { usePrivy } from '@privy-io/expo';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { getPostHogClient } from '../../services/analytics';
 
 export default function CreatePaymentLinkScreen() {
     const router = useRouter();
@@ -47,6 +48,15 @@ export default function CreatePaymentLinkScreen() {
             const data = await response.json();
 
             if (data.success) {
+                const document = data?.data?.document;
+                const posthog = getPostHogClient();
+                await posthog.capture('payment_link_created', {
+                    payment_link_id: document?.id,
+                    amount: document?.amount,
+                    currency: document?.currency,
+                    client_id: document?.client_id ?? document?.clientId,
+                });
+
                 Alert.alert('Success', 'Payment Link created successfully!', [
                     { text: 'OK', onPress: () => router.back() }
                 ]);

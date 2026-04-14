@@ -8,6 +8,7 @@ import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { getPostHogClient } from '../../services/analytics';
 
 export default function CreateInvoiceScreen() {
     const router = useRouter();
@@ -59,6 +60,15 @@ export default function CreateInvoiceScreen() {
             const data = await response.json();
 
             if (data.success) {
+                const document = data?.data?.document;
+                const posthog = getPostHogClient();
+                await posthog.capture('invoice_created', {
+                    invoice_id: document?.id,
+                    amount: document?.amount,
+                    currency: document?.currency,
+                    client_id: document?.client_id ?? document?.clientId,
+                });
+
                 Alert.alert('Success', 'Invoice created successfully!', [
                     { text: 'OK', onPress: () => router.back() }
                 ]);

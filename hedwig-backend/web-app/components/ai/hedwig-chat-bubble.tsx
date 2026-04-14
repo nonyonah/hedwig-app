@@ -15,6 +15,7 @@ import {
 import { backendConfig } from '@/lib/auth/config';
 import { CreateRecurringInvoiceDialog } from '@/components/payments/create-recurring-invoice-dialog';
 import { useToast } from '@/components/providers/toast-provider';
+import { usePostHog } from 'posthog-js/react';
 
 /* ── Hedwig logo image ── */
 function HedwigLogoImg({ fill = false, size = 22 }: { fill?: boolean; size?: number }) {
@@ -148,6 +149,19 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
   const { toast } = useToast();
+  const posthog = usePostHog();
+
+  const capturePostHog = useCallback((event: string, properties: Record<string, unknown>) => {
+    if (posthog) {
+      posthog.capture(event, properties);
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      (window as Window & { posthog?: { capture?: (name: string, props?: Record<string, unknown>) => void } })
+        .posthog
+        ?.capture?.(event, properties);
+    }
+  }, [posthog]);
 
   /* Scroll to bottom on new messages */
   useEffect(() => {
@@ -307,6 +321,23 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
       });
       const result = await res.json();
       if (!res.ok || !result.success) throw new Error(result.error?.message ?? 'Failed to create');
+      const document = result?.data?.document;
+
+      if (isPaymentLink) {
+        capturePostHog('payment_link_created', {
+          payment_link_id: document?.id,
+          amount: document?.amount,
+          currency: document?.currency,
+          client_id: document?.client_id ?? document?.clientId,
+        });
+      } else {
+        capturePostHog('invoice_created', {
+          invoice_id: document?.id,
+          amount: document?.amount,
+          currency: document?.currency,
+          client_id: document?.client_id ?? document?.clientId,
+        });
+      }
 
       setMessages((prev) => prev.map((m) => m.id === msgId
         ? { ...m, actionState: 'done', actionResult: `${typeLabel} created successfully.` }
@@ -320,7 +351,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
         : m
       ));
     }
-  }, [accessToken, router, toast]);
+  }, [accessToken, capturePostHog, router, toast]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
