@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import './globals.css';
 import { HedwigPrivyProvider } from '@/components/providers/privy-provider';
 import { AuthGate } from '@/components/providers/auth-gate';
@@ -20,6 +21,24 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
+        <Script id="userback-config" strategy="afterInteractive">
+          {`
+            window.Userback = window.Userback || {};
+            window.Userback.access_token = 'A-znhIWLtmunJ13CTaerlWgH5Zw';
+            window.Userback.user_data = {
+              id: '123456',
+              info: {
+                name: 'someone',
+                email: 'someone@example.com'
+              }
+            };
+          `}
+        </Script>
+        <Script
+          id="userback-widget"
+          src="https://static.userback.io/widget/v1.js"
+          strategy="afterInteractive"
+        />
         <HedwigPrivyProvider>
           <HedwigPostHogProvider>
             <CurrencyProvider>

@@ -24,9 +24,8 @@ const CONTRACTS_ICON = (HugeiconsCore as any).File02Icon;
 const ANALYTICS_ICON = (HugeiconsCore as any).Analytics01Icon;
 const CALENDAR_ICON = (HugeiconsCore as any).Calendar01Icon;
 const CHAT_ICON = (HugeiconsCore as any).AiChat01Icon;
-const TRANSACTION_ICON = (HugeiconsCore as any).TransactionHistoryIcon;
-const WITHDRAWAL_ICON = (HugeiconsCore as any).ReverseWithdrawal01Icon;
 const SETTINGS_ICON = (HugeiconsCore as any).Settings01Icon;
+const FEEDBACK_ICON = (HugeiconsCore as any).SentIcon || (HugeiconsCore as any).MessageCircle || SETTINGS_ICON;
 const SEARCH_ICON = (HugeiconsCore as any).Search01Icon;
 const CLOSE_ICON = (HugeiconsCore as any).Cancel01Icon;
 
@@ -174,9 +173,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { type: 'menu', id: '/', title: 'Home', subtitle: 'Go to home screen' },
                 { type: 'menu', id: '/invoices', title: 'Invoices', subtitle: 'View all invoices' },
                 { type: 'menu', id: '/payment-links', title: 'Payment Links', subtitle: 'View payment links' },
-                { type: 'menu', id: '/transactions', title: 'Transactions', subtitle: 'View transactions' },
-                { type: 'menu', id: '/offramp-history', title: 'Withdrawals', subtitle: 'View withdrawal history' },
                 { type: 'menu', id: '/calendar', title: 'Calendar', subtitle: 'View calendar events' },
+                { type: 'menu', id: '/feedback', title: 'Give Feedback', subtitle: 'Send product feedback' },
                 { type: 'menu', id: '/settings', title: 'Settings', subtitle: 'App settings' },
             ];
 
@@ -527,16 +525,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <View style={styles.settingsSection}>
                                 <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>SETTINGS</Text>
                                 {renderMenuItem(
-                                    TRANSACTION_ICON,
-                                    'Transactions',
-                                    pathname === '/transactions',
-                                    () => handleNavigation('/transactions')
-                                )}
-                                {renderMenuItem(
-                                    WITHDRAWAL_ICON,
-                                    'Withdrawals',
-                                    pathname === '/offramp-history',
-                                    () => handleNavigation('/offramp-history')
+                                    FEEDBACK_ICON,
+                                    'Give Feedback',
+                                    pathname === '/feedback',
+                                    () => handleNavigation('/feedback')
                                 )}
                                 {renderMenuItem(
                                     SETTINGS_ICON,

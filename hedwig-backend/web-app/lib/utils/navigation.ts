@@ -1,7 +1,6 @@
 import {
   CalendarDots,
   Cards,
-  ChartBar,
   CurrencyDollar,
   CreditCard,
   Faders,
@@ -33,8 +32,7 @@ export const navigationGroups = [
     label: 'Money',
     items: [
       { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false },
-      { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false },
-      { title: 'Offramp', href: '/offramp', icon: ChartBar, count: null, muted: false }
+      { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false }
     ]
   },
   {

@@ -171,6 +171,7 @@ function ThemedStack() {
             <Stack.Screen name="payment-link/[id]" />
             <Stack.Screen name="payment-links/index" />
             <Stack.Screen name="settings/index" />
+            <Stack.Screen name="feedback/index" />
             <Stack.Screen name="wallet/send" />
             <Stack.Screen name="wallet/send-address" />
             <Stack.Screen name="wallet/send-token" />
@@ -223,6 +224,7 @@ function WebLayout() {
             <Stack.Screen name="payment-link/[id]" />
             <Stack.Screen name="payment-links/index" />
             <Stack.Screen name="settings/index" />
+            <Stack.Screen name="feedback/index" />
             <Stack.Screen name="wallet/send" />
             <Stack.Screen name="wallet/send-address" />
             <Stack.Screen name="wallet/send-token" />

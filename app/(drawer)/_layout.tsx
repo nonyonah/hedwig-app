@@ -24,8 +24,6 @@ function CustomDrawerContent(props: any) {
 
     const mainMenuItems: { name: string; icon: any; route: string }[] = [
         { name: 'Insights', icon: resolveHugeIcon('Analytics01Icon', 'BarChartIcon', 'BarChart'), route: '/insights' },
-        { name: 'Transactions', icon: resolveHugeIcon('TransactionHistoryIcon', 'TransactionIcon', 'ArrowLeftRight'), route: '/transactions' },
-        { name: 'Withdrawals', icon: resolveHugeIcon('ReverseWithdrawal01Icon', 'DollarSign', 'MoneySend01Icon'), route: '/offramp-history' },
         { name: 'Contracts', icon: resolveHugeIcon('File02Icon', 'DocumentAttachmentIcon', 'Briefcase'), route: '/contracts' },
         { name: 'Calendar', icon: resolveHugeIcon('Calendar01Icon', 'Calendar'), route: '/calendar' },
         { name: 'Projects', icon: resolveHugeIcon('Folder01Icon', 'FolderOpen', 'Folder'), route: '/projects' },
@@ -40,6 +38,11 @@ function CustomDrawerContent(props: any) {
     const handleNavigation = (route: string) => {
         props.navigation.closeDrawer();
         router.push(route as any);
+    };
+
+    const handleFeedbackPress = () => {
+        props.navigation.closeDrawer();
+        router.push('/feedback' as any);
     };
 
     return (
@@ -92,10 +95,7 @@ function CustomDrawerContent(props: any) {
             <View style={styles.footer}>
                 <TouchableOpacity
                     style={[styles.feedbackButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                    onPress={() => {
-                        props.navigation.closeDrawer();
-                        // Add feedback functionality here
-                    }}
+                    onPress={handleFeedbackPress}
                 >
                     {feedbackIcon ? (
                         <HugeiconsIcon icon={feedbackIcon} size={20} color={themeColors.textPrimary} strokeWidth={1.5} />

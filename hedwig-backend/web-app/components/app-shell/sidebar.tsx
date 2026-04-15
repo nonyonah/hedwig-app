@@ -21,6 +21,13 @@ export function AppSidebar({
   const sidebarWidth = collapsed ? 'w-[64px]' : 'w-[220px]';
   const placeholderWidth = collapsed ? 'w-[64px]' : 'w-[220px]';
 
+  const handleFeedbackClick = () => {
+    const userback = (window as any).Userback;
+    if (userback && typeof userback.open === 'function') {
+      userback.open();
+    }
+  };
+
   const sidebarContent = (
     <aside className={cn(
       'flex h-full flex-col overflow-y-auto border-r border-[#f2f4f7] bg-white transition-[width] duration-200 ease-out',
@@ -116,7 +123,8 @@ export function AppSidebar({
       <div className={cn('shrink-0 border-t border-[#f2f4f7] py-2', collapsed ? 'px-2' : 'px-3')}>
         <button
           type="button"
-          title="Help & Support"
+          title="Give feedback"
+          onClick={handleFeedbackClick}
           className={cn(
             'group flex w-full select-none items-center rounded-md text-[#c1c5cd] transition duration-100 ease-linear hover:bg-[#fafafa] hover:text-[#717680]',
             collapsed ? 'justify-center p-2' : 'px-2.5 py-1.5'
@@ -125,7 +133,7 @@ export function AppSidebar({
           <Question className={cn('h-4 w-4 shrink-0', !collapsed && 'mr-2.5')} weight="regular" />
           {!collapsed && (
             <span className="text-[13px] font-medium text-[#8d9096] group-hover:text-[#525866]">
-              Help & Support
+              Give feedback
             </span>
           )}
         </button>
