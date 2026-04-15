@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { getUserback } from '@userback/widget';
 import { Question, SidebarSimple } from '@/components/ui/lucide-icons';
 import { navigationGroups } from '@/lib/utils/navigation';
 import { cn } from '@/lib/utils';
@@ -22,9 +23,19 @@ export function AppSidebar({
   const placeholderWidth = collapsed ? 'w-[64px]' : 'w-[220px]';
 
   const handleFeedbackClick = () => {
-    const userback = (window as any).Userback;
-    if (userback && typeof userback.open === 'function') {
-      userback.open();
+    const widget = getUserback();
+    if (widget && typeof widget.openForm === 'function') {
+      widget.openForm();
+      return;
+    }
+
+    const fallback = (window as Window & { Userback?: { openForm?: () => void; open?: () => void } }).Userback;
+    if (fallback && typeof fallback.openForm === 'function') {
+      fallback.openForm();
+      return;
+    }
+    if (fallback && typeof fallback.open === 'function') {
+      fallback.open();
     }
   };
 

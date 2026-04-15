@@ -1,11 +1,53 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { useThemeColors } from '../../theme/colors';
+import { useAuth } from '../../hooks/useAuth';
 
-const USERBACK_WIDGET_HTML = `<!doctype html>
+type UserbackIdentity = {
+  id: string;
+  info: {
+    name: string;
+    email: string;
+  };
+};
+
+function resolveIdentity(user: any): UserbackIdentity | null {
+  if (!user) return null;
+
+  const email = String(
+    user?.email?.address ||
+    user?.google?.email ||
+    user?.apple?.email ||
+    user?.email ||
+    ''
+  ).trim();
+  if (!email) return null;
+
+  const name = String(
+    user?.google?.name ||
+    [user?.apple?.firstName, user?.apple?.lastName].filter(Boolean).join(' ') ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+    email
+  ).trim();
+  const id = String(user?.id || email).trim();
+  if (!id || !name) return null;
+
+  return {
+    id,
+    info: {
+      name,
+      email
+    }
+  };
+}
+
+function buildFeedbackHtml(token: string, identity: UserbackIdentity | null) {
+  const payload = JSON.stringify({ token, identity }).replace(/</g, '\\u003c');
+
+  return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -28,15 +70,9 @@ const USERBACK_WIDGET_HTML = `<!doctype html>
         border-radius: 16px;
         padding: 24px;
       }
-      h1 {
-        margin: 0 0 8px;
-        font-size: 20px;
-      }
-      p {
-        margin: 0 0 16px;
-        color: #525866;
-        line-height: 1.45;
-      }
+      h1 { margin: 0 0 8px; font-size: 20px; }
+      p { margin: 0 0 16px; color: #525866; line-height: 1.45; }
+      .status { font-size: 13px; margin-top: 12px; color: #717680; }
       button {
         border: none;
         border-radius: 999px;
@@ -53,36 +89,64 @@ const USERBACK_WIDGET_HTML = `<!doctype html>
     <div class="card">
       <h1>Send Feedback</h1>
       <p>The feedback widget should open automatically. If it does not, tap the button below.</p>
-      <button type="button" onclick="window.Userback && typeof window.Userback.open === 'function' && window.Userback.open();">Open Feedback Widget</button>
+      <button type="button" id="open-widget">Open Feedback Widget</button>
+      <p class="status" id="status-text">Preparing feedback widget…</p>
     </div>
     <script>
-      window.Userback = window.Userback || {};
-      window.Userback.access_token = 'A-znhIWLtmunJ13CTaerlWgH5Zw';
-      window.Userback.user_data = {
-        id: '123456',
-        info: {
-          name: 'someone',
-          email: 'someone@example.com'
+      const config = ${payload};
+      const statusEl = document.getElementById('status-text');
+      const openBtn = document.getElementById('open-widget');
+      const setStatus = (text) => {
+        if (statusEl) statusEl.textContent = text;
+      };
+      const openWidget = () => {
+        if (window.Userback && typeof window.Userback.openForm === 'function') {
+          window.Userback.openForm();
+          return;
+        }
+        if (window.Userback && typeof window.Userback.open === 'function') {
+          window.Userback.open();
         }
       };
-      (function(d) {
-        var s = d.createElement('script');
-        s.async = true;
-        s.src = 'https://static.userback.io/widget/v1.js';
-        s.onload = function() {
-          if (window.Userback && typeof window.Userback.open === 'function') {
-            window.Userback.open();
-          }
-        };
-        (d.head || d.body).appendChild(s);
-      })(document);
+      if (openBtn) {
+        openBtn.addEventListener('click', openWidget);
+      }
+
+      if (!config.token) {
+        setStatus('Feedback is unavailable: EXPO_PUBLIC_USERBACK_TOKEN is not configured.');
+      } else {
+        window.Userback = window.Userback || {};
+        window.Userback.access_token = config.token;
+        if (config.identity) {
+          window.Userback.user_data = config.identity;
+        }
+
+        (function(d) {
+          var s = d.createElement('script');
+          s.async = true;
+          s.src = 'https://static.userback.io/widget/v1.js';
+          s.onload = function() {
+            setStatus('Ready');
+            openWidget();
+          };
+          s.onerror = function() {
+            setStatus('Could not load feedback widget. Please try again.');
+          };
+          (d.head || d.body).appendChild(s);
+        })(document);
+      }
     </script>
   </body>
 </html>`;
+}
 
 export default function FeedbackScreen() {
   const router = useRouter();
   const themeColors = useThemeColors();
+  const { user } = useAuth();
+  const token = (process.env.EXPO_PUBLIC_USERBACK_TOKEN || '').trim();
+  const identity = useMemo(() => resolveIdentity(user), [user]);
+  const html = useMemo(() => buildFeedbackHtml(token, identity), [identity, token]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -96,7 +160,7 @@ export default function FeedbackScreen() {
 
       <WebView
         originWhitelist={['*']}
-        source={{ html: USERBACK_WIDGET_HTML }}
+        source={{ html }}
         setSupportMultipleWindows={false}
         javaScriptEnabled
         domStorageEnabled
