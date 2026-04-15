@@ -50,7 +50,12 @@ yarn-error.*
 .env.local
 
 credentials.json
+credentials/
+google-services.json
 hedwig-backend/google-services.json
 GoogleService-Info.plist
+hedwig-backend/artifacts/
+hedwig-backend/cache/
+*.der
 
 setup_eas_secrets.sh
