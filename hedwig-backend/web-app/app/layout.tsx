@@ -9,7 +9,7 @@ import { UserbackProvider } from '@/components/providers/userback-provider';
 
 export const metadata: Metadata = {
   title: 'Hedwig',
-  description: 'Freelancer operating system for projects, payments, deadlines, and wallet activity.',
+  description: 'Freelancer operating system for projects, payments, deadlines, and subscription workflows.',
   icons: {
     icon: '/hedwig-icon.png',
     shortcut: '/hedwig-icon.png',

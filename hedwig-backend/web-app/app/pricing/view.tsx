@@ -15,7 +15,7 @@ type Interval = 'monthly' | 'annual';
 const FREE_FEATURES = [
   'Invoices and payment links',
   'Clients, projects, and contracts',
-  'Wallet and transaction history',
+  'Earnings dashboard and reporting',
   'Basic dashboard metrics',
 ];
 

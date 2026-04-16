@@ -10,7 +10,6 @@ import {
   CaretRight,
   CheckCircle,
   Info,
-  Key,
   Shield,
   SignOut,
   Trash,
@@ -149,7 +148,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteStep, setDeleteStep] = useState<'warn' | 'confirm'>('warn');
-  const [keysConfirmed, setKeysConfirmed] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [billingStatus, setBillingStatus] = useState<BillingStatusSummary | null>(null);
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
@@ -415,7 +413,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
 
   const openDeleteDialog = () => {
     setDeleteStep('warn');
-    setKeysConfirmed(false);
     setDeleteOpen(true);
   };
 
@@ -578,16 +575,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           </SettingsRow>
         </SettingsSection>
 
-        <SettingsSection title="Security" description="Protect account access and recovery paths.">
-          <SettingsRow label="Recovery Phrase" description="Export your embedded wallet recovery material.">
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/export-wallet">
-                <Key className="h-4 w-4" weight="bold" />
-                Open
-              </Link>
-            </Button>
-          </SettingsRow>
-
+        <SettingsSection title="Security" description="Protect account access and verification status.">
           <SettingsRow label="Identity Verification" description="Manage your verification session status.">
             <button
               type="button"
@@ -736,33 +724,16 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 <div className="flex items-start gap-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3">
                   <WarningCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#92400e]" weight="fill" />
                   <div>
-                    <p className="text-[13px] font-semibold text-[#92400e]">Export your private keys first</p>
+                    <p className="text-[13px] font-semibold text-[#92400e]">Final confirmation</p>
                     <p className="mt-0.5 text-[12px] leading-5 text-[#b45309]">
-                      Once your account is deleted, you will permanently lose access to your embedded wallet. To avoid loss of funds, export your private keys before proceeding.
+                      Deleting your account permanently removes your web workspace, invoices, payment links, projects, and contracts.
                     </p>
                   </div>
                 </div>
-                <Button asChild variant="secondary" className="w-full">
-                  <Link href="/export-wallet" target="_blank" rel="noopener noreferrer">
-                    <Key className="h-4 w-4" weight="bold" />
-                    Export private keys
-                  </Link>
-                </Button>
-                <label className="flex cursor-pointer items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={keysConfirmed}
-                    onChange={(e) => setKeysConfirmed(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#d5d7da] accent-[#2563eb]"
-                  />
-                  <span className="text-[13px] text-[#414651]">
-                    I have exported my private keys and understand that deleting my account will permanently remove access to my wallet.
-                  </span>
-                </label>
               </DialogBody>
               <DialogFooter>
                 <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-                <Button variant="destructive" disabled={!keysConfirmed} onClick={() => setDeleteStep('confirm')}>
+                <Button variant="destructive" onClick={() => setDeleteStep('confirm')}>
                   Continue to delete
                 </Button>
               </DialogFooter>

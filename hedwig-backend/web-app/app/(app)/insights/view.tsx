@@ -6,10 +6,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   ArrowDownRight,
-  ArrowsLeftRight,
-  Bank,
   CheckCircle,
-  Coins,
   CurrencyDollar,
   FolderSimple,
   LinkSimple,
@@ -614,9 +611,9 @@ export function InsightsClient({
                 {([
                   { value: String(summary?.paymentLinksCount ?? 0), title: 'Payment links', helper: 'Total created', href: '/payments', Icon: LinkSimple },
                   { value: String(summary?.activeProjects ?? 0), title: 'Active projects', helper: 'In progress', href: '/projects', Icon: FolderSimple },
-                  { value: `$${(summary?.receivedAmount ?? 0).toLocaleString()}`, title: 'Received', helper: 'In this period', href: '/wallet', Icon: Coins },
-                  { value: String(summary?.withdrawalsPending ?? 0), title: 'Withdrawals', helper: 'Pending', href: '/offramp', Icon: Bank },
-                  { value: String(summary?.transactionsCount ?? 0), title: 'Transactions', helper: 'In this period', href: '/wallet', Icon: ArrowsLeftRight },
+                  { value: `$${(summary?.receivedAmount ?? 0).toLocaleString()}`, title: 'Received', helper: 'In this period', href: '/payments', Icon: CurrencyDollar },
+                  { value: String(summary?.pendingInvoicesCount ?? 0), title: 'Pending invoices', helper: 'Awaiting payment', href: '/payments', Icon: Warning },
+                  { value: `${summary?.paidDocuments ?? 0}/${summary?.totalDocuments ?? 0}`, title: 'Paid docs', helper: 'Paid vs total', href: '/payments', Icon: CheckCircle },
                 ] as const).map((card) => (
                   <Link
                     key={card.title}

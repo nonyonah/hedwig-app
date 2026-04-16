@@ -19,7 +19,7 @@ export default async function IndexPage() {
 const NAV_GROUPS = [
   { label: 'Overview', items: ['Dashboard', 'Insights', 'Calendar'] },
   { label: 'Workspace', items: ['Clients', 'Projects', 'Contracts'] },
-  { label: 'Money', items: ['Payments', 'Wallet', 'Offramp'] },
+  { label: 'Money', items: ['Payments'] },
 ];
 
 /* ─────────────────────────────────────────────────────────────── */
@@ -88,8 +88,8 @@ function LandingPage() {
               className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[#667085]"
               style={{ animationDelay: '160ms' }}
             >
-              Hedwig ties clients, projects, contracts, invoices, crypto payments, and your
-              wallet into one clean workflow — built for independent professionals.
+              Hedwig ties clients, projects, contracts, invoices, and payment links into one
+              clean workflow built for independent professionals.
             </p>
             <div
               className="animate-fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
@@ -213,27 +213,24 @@ function LandingPage() {
                     </div>
                     <div className="flex flex-col gap-3">
                       <div className="flex-1 overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-[#e9eaeb]">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Wallet</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Earnings</p>
                         <p className="mt-2 text-[22px] font-bold leading-none tracking-[-0.03em] text-[#181d27]">$8,240</p>
-                        <p className="mt-1 text-[10px] text-[#717680]">Across Base &amp; Solana</p>
+                        <p className="mt-1 text-[10px] text-[#717680]">Paid via invoices and payment links</p>
                         <div className="mt-3 flex gap-1.5">
-                          {[
-                            { src: '/icons/tokens/usdc.png', label: 'USDC' },
-                          ].map((t) => (
-                            <div key={t.label} className="flex items-center gap-1 rounded-full border border-[#e9eaeb] bg-[#f9fafb] px-2 py-1">
-                              <Image src={t.src} alt={t.label} width={12} height={12} className="rounded-full" />
-                              <span className="text-[10px] font-semibold text-[#344054]">{t.label}</span>
+                          {['Invoices', 'Payment links'].map((item) => (
+                            <div key={item} className="flex items-center gap-1 rounded-full border border-[#e9eaeb] bg-[#f9fafb] px-2 py-1">
+                              <span className="text-[10px] font-semibold text-[#344054]">{item}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                       <div className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-[#e9eaeb]">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">USDC Settlement</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Subscription</p>
                         <div className="mt-2 flex items-center gap-2">
                           <span className="h-2 w-2 rounded-full bg-[#17b26a]" />
-                          <p className="text-[12px] font-semibold text-[#181d27]">Ready to bridge</p>
+                          <p className="text-[12px] font-semibold text-[#181d27]">Pro plan active</p>
                         </div>
-                        <p className="mt-1 text-[10px] text-[#717680]">Unified USDC across chains</p>
+                        <p className="mt-1 text-[10px] text-[#717680]">Billing synced across web and mobile</p>
                       </div>
                     </div>
                   </div>
@@ -260,7 +257,7 @@ function LandingPage() {
             {[
               { step: '01', label: 'Capture the work', desc: 'Create a client, open a project, define milestones. Every commercial detail stays attached from the start.', accent: 'bg-[#eff4ff] text-[#717680]' },
               { step: '02', label: 'Send the agreement', desc: 'Generate a contract and payment request in one flow. The client signs and pays without leaving the link.', accent: 'bg-[#ecfdf3] text-[#717680]' },
-              { step: '03', label: 'Collect and settle', desc: 'USDC lands in your wallet instantly. Track it live and move to your bank whenever you choose.', accent: 'bg-[#fffaeb] text-[#717680]' },
+              { step: '03', label: 'Track earnings', desc: 'See paid invoices and payment links in real time, with clear earnings snapshots in Insights.', accent: 'bg-[#fffaeb] text-[#717680]' },
             ].map(({ step, label, desc, accent }, i) => (
               <AnimateIn key={step} delay={i * 80}>
                 <div className="flex h-full flex-col bg-white px-8 py-10">
@@ -287,7 +284,7 @@ function LandingPage() {
                     Run your workflow on the move
                   </h2>
                   <p className="mt-4 max-w-sm text-[15px] leading-7 text-[#667085]">
-                    Open projects, monitor milestones, receive payments, and manage your wallet from iOS and Android.
+                    Open projects, monitor milestones, receive payments, and use wallet plus USD account tools from the iOS and Android companion app.
                   </p>
                   <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                     <AppStoreButton />
@@ -327,7 +324,7 @@ function LandingPage() {
                   Make your money workflow<br className="hidden md:block" /> feel as polished as your work.
                 </h2>
                 <p className="mx-auto mt-5 max-w-lg text-[15px] leading-7 text-[#94a3b8]">
-                  Contracts, invoices, wallets, and payouts — in one system built for the way independent work actually runs.
+                  Contracts, invoices, payment links, and subscription workflows in one system built for the way independent work actually runs.
                 </p>
                 <Link
                   href="/sign-in"

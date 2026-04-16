@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -9,12 +8,12 @@ import {
   CalendarDots,
   ChartBar,
   CheckCircle,
+  CurrencyDollar,
   FileText,
   IdentificationCard,
   Link as LinkIcon,
   Repeat,
-  Sparkle,
-  Wallet
+  Sparkle
 } from '@/components/ui/lucide-icons';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
@@ -121,7 +120,7 @@ export function DashboardClient({
         meta:
           activeLinks.length > 0
             ? `${activeLinks.length} live link${activeLinks.length > 1 ? 's' : ''} collecting payments`
-            : 'Set up a quick checkout for a client without a wallet flow',
+            : 'Set up a quick checkout for a client without extra checkout friction',
         href: '/payments',
         complete: false
       },
@@ -147,12 +146,12 @@ export function DashboardClient({
         icon: FileText
       },
       {
-        id: 'wallet',
-        title: 'Wallet balance',
-        value: formatCurrency(data.totals.walletUsd, currency),
-        helper: 'Base, Arbitrum, Polygon, Celo & Solana',
-        href: '/wallet',
-        icon: Wallet
+        id: 'earnings',
+        title: 'Earnings',
+        value: formatCurrency(data.totals.inflowUsd, currency),
+        helper: 'Paid invoices and payment links',
+        href: '/insights',
+        icon: CurrencyDollar
       },
       {
         id: 'notifications',
@@ -250,19 +249,9 @@ export function DashboardClient({
             >
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[12px] font-medium text-[#717680]">{card.title}</p>
-                {card.id === 'wallet' ? (
-                  <div className="flex items-center">
-                    <Image src="/icons/networks/base.png"     alt="Base"     width={13} height={13} className="rounded-full ring-1 ring-white" />
-                    <Image src="/icons/networks/arbitrum.png" alt="Arbitrum" width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
-                    <Image src="/icons/networks/polygon.png"  alt="Polygon"  width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
-                    <Image src="/icons/networks/celo.png"     alt="Celo"     width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
-                    <Image src="/icons/networks/solana.png"   alt="Solana"   width={13} height={13} className="-ml-1 rounded-full ring-1 ring-white" />
-                  </div>
-                ) : (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-                    <Icon className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-                  </div>
-                )}
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
+                  <Icon className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
+                </div>
               </div>
               <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{card.value}</p>
               <p className="mt-1.5 text-[11px] text-[#a4a7ae]">{card.helper}</p>
@@ -279,7 +268,7 @@ export function DashboardClient({
             <div>
               {/* UUI: text-md (16px) font-semibold text-primary */}
               <h2 className="text-[16px] font-semibold text-[#181d27]">Action items</h2>
-              <p className="mt-0.5 text-[13px] text-[#717680]">Next moves across billing, deadlines, and accounts.</p>
+              <p className="mt-0.5 text-[13px] text-[#717680]">Next moves across billing, deadlines, and earnings.</p>
             </div>
             {dashboardState.actionItems.filter((item) => !item.complete).length > 0 ? (
               /* UUI badge: error color, pill */
@@ -356,7 +345,7 @@ export function DashboardClient({
               {data.assistantSummary ||
                 dashboardState.latestNotification?.body ||
                 dashboardState.latestActivity?.summary ||
-                'Payment activity, reminders, contracts, and wallet movements are summarized here.'}
+                'Payment activity, reminders, contracts, and project updates are summarized here.'}
             </p>
           </article>
         ) : (

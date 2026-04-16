@@ -4,8 +4,6 @@ export type WebScreenId =
   | 'projects'
   | 'contracts'
   | 'payments'
-  | 'wallet'
-  | 'accounts'
   | 'insights'
   | 'calendar'
   | 'settings';
@@ -25,7 +23,7 @@ export const WEB_TUTORIAL_STEPS: WebTutorialStep[] = [
     screenId: 'dashboard',
     route: '/dashboard',
     title: 'Your workspace at a glance',
-    body: 'Dashboard surfaces your earnings, outstanding invoices, active projects, and wallet balance — everything you need to stay on top of your work.',
+    body: 'Dashboard surfaces your earnings, outstanding invoices, and active projects — everything you need to stay on top of your work.',
     position: 'center',
   },
   {
@@ -59,14 +57,6 @@ export const WEB_TUTORIAL_STEPS: WebTutorialStep[] = [
     title: 'Invoices and payment links',
     body: 'Send invoices or create a payment link for quick one-off requests. Track payment status from sent to paid in real time.',
     position: 'top',
-  },
-  {
-    id: 'wallet_intro',
-    screenId: 'wallet',
-    route: '/wallet',
-    title: 'Your embedded wallet',
-    body: 'Your crypto wallet is built right in. View balances across Base and Solana, and send or receive USDC without leaving the app.',
-    position: 'center',
   },
   {
     id: 'insights_intro',

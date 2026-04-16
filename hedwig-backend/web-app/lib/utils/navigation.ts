@@ -7,8 +7,7 @@ import {
   FolderSimple,
   House,
   Sparkle,
-  UsersThree,
-  Wallet
+  UsersThree
 } from '@/components/ui/lucide-icons';
 
 export const navigationGroups = [
@@ -31,8 +30,7 @@ export const navigationGroups = [
   {
     label: 'Money',
     items: [
-      { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false },
-      { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false }
+      { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false }
     ]
   },
   {

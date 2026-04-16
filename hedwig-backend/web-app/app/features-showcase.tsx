@@ -7,7 +7,7 @@ const ITEMS = [
   {
     title: 'Crypto-native payments',
     description:
-      'Payment links and invoices clients settle in USDC directly from their wallet — no account, no bank delay.',
+      'Payment links and invoices clients can settle quickly, with clear status from sent to paid.',
     preview: <PaymentsPanel />,
   },
   {
@@ -29,10 +29,10 @@ const ITEMS = [
     preview: <ContractPanel />,
   },
   {
-    title: 'Wallet and onchain treasury',
+    title: 'Subscription and billing controls',
     description:
-      'Receive and manage onchain balances in one embedded wallet across supported networks.',
-    preview: <WalletPanel />,
+      'Keep web billing subscription-first while the mobile app handles wallet and USD account companion flows.',
+    preview: <SubscriptionPanel />,
   },
 ];
 
@@ -329,54 +329,50 @@ function ContractPanel() {
   );
 }
 
-function WalletPanel() {
+function SubscriptionPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-[#f5f5f5] px-6 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-[#a4a7ae]">Money</p>
-        <h3 className="mt-1 text-[18px] font-semibold text-[#181d27]">Wallet</h3>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-[#a4a7ae]">System</p>
+        <h3 className="mt-1 text-[18px] font-semibold text-[#181d27]">Subscription</h3>
       </div>
       <div className="flex-1 overflow-auto px-6 py-4">
         <div className="mb-3 grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-white p-4 ring-1 ring-[#e9eaeb]">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Total balance</p>
-            <p className="mt-2 text-[26px] font-bold leading-none tracking-[-0.03em] text-[#181d27]">$8,240</p>
-            <div className="mt-2.5 flex gap-1.5">
-              {['/icons/tokens/usdc.png', '/icons/tokens/usdc.png', '/icons/tokens/usdc.png'].map((src, index) => (
-                <Image key={`${src}-${index}`} src={src} alt="" width={16} height={16} className="rounded-full ring-1 ring-white" />
-              ))}
-            </div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Current plan</p>
+            <p className="mt-2 text-[26px] font-bold leading-none tracking-[-0.03em] text-[#181d27]">Pro</p>
+            <p className="mt-2 text-[11px] text-[#667085]">Annual billing enabled</p>
           </div>
           <div className="rounded-xl bg-[#eff4ff] p-4 ring-1 ring-[#dbe6ff]">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475467]">Networks</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#475467]">Renewal</p>
             <div className="mt-2 flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-[#17b26a]" />
-              <p className="text-[14px] font-semibold text-[#181d27]">5 connected</p>
+              <p className="text-[14px] font-semibold text-[#181d27]">Apr 22, 2026</p>
             </div>
-            <p className="mt-1 text-[11px] text-[#667085]">Base · Solana · Arbitrum · Polygon · Celo</p>
+            <p className="mt-1 text-[11px] text-[#667085]">Auto-renew is on</p>
           </div>
         </div>
         <div className="overflow-hidden rounded-xl bg-white ring-1 ring-[#e9eaeb]">
           <div className="border-b border-[#f5f5f5] px-4 py-2.5">
-            <p className="text-[11px] font-semibold text-[#181d27]">Assets</p>
+            <p className="text-[11px] font-semibold text-[#181d27]">Plan activity</p>
           </div>
           <div className="divide-y divide-[#f9fafb]">
             {[
-              { src: '/icons/tokens/usdc.png', label: 'USDC', chain: 'Base', val: '$6,200', change: '+$1,800', up: true },
-              { src: '/icons/tokens/usdc.png', label: 'USDC', chain: 'Arbitrum', val: '$1,420', change: '-$180', up: false },
-              { src: '/icons/tokens/usdc.png', label: 'USDC', chain: 'Solana', val: '$620', change: '+$90', up: true },
-            ].map((a) => (
-              <div key={a.label} className="flex items-center justify-between px-4 py-3">
+              { label: 'Plan upgraded', context: 'From Free to Pro', detail: 'Apr 12, 2026', state: 'Completed' },
+              { label: 'Billing method', context: 'Visa ending 1284', detail: 'Updated Apr 10, 2026', state: 'Active' },
+              { label: 'Mobile companion', context: 'Wallet tools remain in app', detail: 'Linked account', state: 'Connected' },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2.5">
-                  <Image src={a.src} alt={a.label} width={24} height={24} className="rounded-full" />
+                  <div className="h-2 w-2 rounded-full bg-[#17b26a]" />
                   <div>
-                    <p className="text-[13px] font-semibold text-[#181d27]">{a.label}</p>
-                    <p className="text-[11px] text-[#a4a7ae]">{a.chain}</p>
+                    <p className="text-[13px] font-semibold text-[#181d27]">{row.label}</p>
+                    <p className="text-[11px] text-[#a4a7ae]">{row.context}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[13px] font-semibold text-[#181d27]">{a.val}</p>
-                  <p className={`text-[11px] font-semibold ${a.up ? 'text-[#717680]' : 'text-[#717680]'}`}>{a.change}</p>
+                  <p className="text-[13px] font-semibold text-[#181d27]">{row.state}</p>
+                  <p className="text-[11px] font-semibold text-[#717680]">{row.detail}</p>
                 </div>
               </div>
             ))}
