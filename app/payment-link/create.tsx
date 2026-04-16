@@ -1,25 +1,36 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    ActionSheetIOS,
     ActivityIndicator,
     Alert,
+    FlatList,
     Image,
     KeyboardAvoidingView,
+    Modal,
     Platform,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft as CaretLeft } from '../../components/ui/AppIcon';
+import {
+    ChevronLeft as CaretLeft,
+    ChevronDown,
+    X,
+} from '../../components/ui/AppIcon';
 import { usePrivy } from '@privy-io/expo';
 import { useThemeColors } from '../../theme/colors';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { getPostHogClient } from '../../services/analytics';
 import { Button } from '../../components/Button';
+
+type Client = { id: string; name: string; email: string | null };
 
 export default function CreatePaymentLinkScreen() {
     const router = useRouter();
@@ -30,112 +41,242 @@ export default function CreatePaymentLinkScreen() {
 
     useAnalyticsScreen('Create Payment Link');
 
-    const [formData, setFormData] = useState({
-        amount: params.amount || '',
-        description: params.description || '',
-        currency: 'USDC',
-    });
+    // ── Reference data ──
+    const [clients, setClients] = useState<Client[]>([]);
+
+    // ── Selection ──
+    const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+
+    // ── Android-only modal state ──
+    const [showClientModal, setShowClientModal] = useState(false);
+
+    // ── Manual client fields ──
+    const [clientName,     setClientName]     = useState('');
+    const [recipientEmail, setRecipientEmail] = useState('');
+
+    // ── Form ──
+    const [amount,      setAmountRaw]  = useState(params.amount      || '');
+    const [description, setDescription] = useState(params.description || '');
+    const [reminders,   setReminders]  = useState(true);
+    const [notes,       setNotes]      = useState('');
 
     const setAmount = (raw: string) => {
         const cleaned = raw.replace(/[^0-9.]/g, '');
-        const parts = cleaned.split('.');
-        const normalized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
-        setFormData((prev) => ({ ...prev, amount: normalized }));
+        const parts   = cleaned.split('.');
+        setAmountRaw(parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned);
+    };
+
+    // ── Fetch clients ──
+    useEffect(() => {
+        (async () => {
+            try {
+                const token  = await getAccessToken();
+                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                const res    = await fetch(`${apiUrl}/api/clients`, { headers: { Authorization: `Bearer ${token}` } });
+                const d      = await res.json();
+                if (d?.success && Array.isArray(d.data?.clients)) setClients(d.data.clients);
+            } catch { /* non-fatal */ }
+        })();
+    }, []);
+
+    // ── Client selection ──
+    const openClientPicker = () => {
+        if (clients.length === 0) return;
+        if (Platform.OS === 'ios') {
+            ActionSheetIOS.showActionSheetWithOptions(
+                { title: 'Select client', options: ['Cancel', ...clients.map(c => c.name)], cancelButtonIndex: 0 },
+                idx => { if (idx > 0) applyClient(clients[idx - 1]); }
+            );
+        } else {
+            setShowClientModal(true);
+        }
+    };
+
+    const applyClient = (c: Client) => {
+        setSelectedClient(c);
+        setClientName(c.name);
+        setRecipientEmail(c.email || '');
+        setShowClientModal(false);
+    };
+
+    const clearClient = () => {
+        setSelectedClient(null);
+        setClientName('');
+        setRecipientEmail('');
     };
 
     const handleCreate = async () => {
-        if (!formData.amount) {
+        if (!amount) {
             Alert.alert('Missing fields', 'Please enter an amount.');
             return;
         }
-
         setIsLoading(true);
         try {
-            const token = await getAccessToken();
+            const token  = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
-            const response = await fetch(`${apiUrl}/api/documents/payment-link`, {
+            const res = await fetch(`${apiUrl}/api/documents/payment-link`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({
-                    amount: parseFloat(formData.amount),
-                    description: formData.description.trim() || undefined,
-                    currency: formData.currency,
+                    amount: parseFloat(amount),
+                    description: description.trim() || undefined,
+                    currency: 'USDC',
                     title: `Payment link ${new Date().toLocaleDateString()}`,
+                    clientId: selectedClient?.id,
+                    clientName: (selectedClient?.name || clientName.trim()) || undefined,
+                    recipientEmail: (selectedClient?.email || recipientEmail.trim()) || undefined,
+                    remindersEnabled: reminders,
+                    notes: notes.trim() || undefined,
                 }),
             });
 
-            const data = await response.json().catch(() => null);
-            if (!response.ok || !data?.success) {
-                throw new Error(data?.error?.message || 'Failed to create payment link');
-            }
+            const d = await res.json().catch(() => null);
+            if (!res.ok || !d?.success) throw new Error(d?.error?.message || 'Failed to create payment link');
 
-            const document = data?.data?.document;
             const posthog = getPostHogClient();
             await posthog.capture('payment_link_created', {
-                payment_link_id: document?.id,
-                amount: document?.amount,
-                currency: document?.currency,
-                client_id: document?.client_id ?? document?.clientId,
+                payment_link_id: d?.data?.document?.id,
+                amount: d?.data?.document?.amount,
+                currency: d?.data?.document?.currency,
+                client_id: d?.data?.document?.clientId,
             });
 
             Alert.alert('Success', 'Payment link created successfully!', [
                 { text: 'OK', onPress: () => router.back() },
             ]);
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-            Alert.alert('Error', message);
+        } catch (e) {
+            Alert.alert('Error', e instanceof Error ? e.message : 'An unexpected error occurred');
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}> 
-            <View style={[styles.header, { borderBottomColor: themeColors.border }]}> 
+        <SafeAreaView style={[s.container, { backgroundColor: themeColors.background }]}>
+            <View style={s.header}>
                 <IOSGlassIconButton
                     onPress={() => router.back()}
                     systemImage="chevron.left"
-                    containerStyle={styles.backButton}
-                    circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
+                    containerStyle={s.backBtn}
+                    circleStyle={[s.backCircle, { backgroundColor: themeColors.surface }]}
                     icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
                 />
-                <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Create Payment Link</Text>
+                <Text style={[s.headerTitle, { color: themeColors.textPrimary }]}>Create Payment Link</Text>
                 <View style={{ width: 40 }} />
             </View>
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.flex}
-            >
-                <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-                    <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Payment link details</Text>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.flex}>
+                <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
 
-                    <View style={[styles.inputContainer, styles.amountContainer, { backgroundColor: themeColors.surface }]}> 
-                        <Image source={require('../../assets/icons/tokens/usdc.png')} style={styles.tokenLogo} />
+                    {/* ─── 1. Client ─── */}
+                    <Text style={[s.sectionLabel, { color: themeColors.textSecondary }]}>Client</Text>
+
+                    {selectedClient ? (
+                        <View style={[s.card, s.clientRow, { backgroundColor: themeColors.surface }]}>
+                            <View style={[s.avatar, { backgroundColor: themeColors.primary + '18' }]}>
+                                <Text style={[s.avatarText, { color: themeColors.primary }]}>
+                                    {selectedClient.name.charAt(0).toUpperCase()}
+                                </Text>
+                            </View>
+                            <View style={s.flex}>
+                                <Text style={[s.clientName, { color: themeColors.textPrimary }]}>{selectedClient.name}</Text>
+                                {selectedClient.email
+                                    ? <Text style={[s.clientEmail, { color: themeColors.textSecondary }]}>{selectedClient.email}</Text>
+                                    : null}
+                            </View>
+                            <TouchableOpacity onPress={clearClient} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                <X size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <>
+                            {/* ── Picker trigger — always visible ── */}
+                            <TouchableOpacity
+                                style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface, opacity: clients.length > 0 ? 1 : 0.45 }]}
+                                onPress={clients.length > 0 ? openClientPicker : undefined}
+                                activeOpacity={clients.length > 0 ? 0.7 : 1}
+                            >
+                                <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>
+                                    {clients.length > 0 ? 'Select existing client' : 'No saved clients'}
+                                </Text>
+                                <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                            </TouchableOpacity>
+                            <View style={[s.card, { backgroundColor: themeColors.surface }]}>
+                                <TextInput
+                                    style={[s.input, { color: themeColors.textPrimary }]}
+                                    placeholder="Client name (optional)"
+                                    placeholderTextColor={themeColors.textSecondary}
+                                    value={clientName}
+                                    onChangeText={setClientName}
+                                />
+                            </View>
+                            <View style={[s.card, { backgroundColor: themeColors.surface }]}>
+                                <TextInput
+                                    style={[s.input, { color: themeColors.textPrimary }]}
+                                    placeholder="Client email (optional)"
+                                    placeholderTextColor={themeColors.textSecondary}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    value={recipientEmail}
+                                    onChangeText={setRecipientEmail}
+                                />
+                            </View>
+                        </>
+                    )}
+
+                    {/* ─── 2. Amount ─── */}
+                    <Text style={[s.sectionLabel, { color: themeColors.textSecondary }]}>Amount</Text>
+                    <View style={[s.card, s.amountRow, { backgroundColor: themeColors.surface }]}>
+                        <Image source={require('../../assets/icons/tokens/usdc.png')} style={s.tokenLogo} />
                         <TextInput
-                            style={[styles.input, styles.amountInput, { color: themeColors.textPrimary }]}
-                            placeholder="Amount"
+                            style={[s.input, s.flex, { color: themeColors.textPrimary }]}
+                            placeholder="0.00"
                             placeholderTextColor={themeColors.textSecondary}
                             keyboardType="decimal-pad"
-                            value={formData.amount}
+                            value={amount}
                             onChangeText={setAmount}
                         />
-                        <Text style={[styles.currencyText, { color: themeColors.textSecondary }]}>USDC</Text>
+                        <Text style={[s.currencyBadge, { color: themeColors.textSecondary }]}>USDC</Text>
                     </View>
 
-                    <Text style={[styles.helperText, { color: themeColors.textSecondary }]}>USDC is supported across Hedwig.</Text>
-
-                    <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}> 
+                    {/* ─── 3. Description ─── */}
+                    <Text style={[s.sectionLabel, { color: themeColors.textSecondary }]}>Description</Text>
+                    <View style={[s.card, { backgroundColor: themeColors.surface }]}>
                         <TextInput
-                            style={[styles.input, { color: themeColors.textPrimary }]}
-                            placeholder="Description (optional)"
+                            style={[s.input, { color: themeColors.textPrimary }]}
+                            placeholder="What is this payment for? (optional)"
                             placeholderTextColor={themeColors.textSecondary}
-                            value={formData.description}
-                            onChangeText={(text) => setFormData((prev) => ({ ...prev, description: text }))}
+                            value={description}
+                            onChangeText={setDescription}
+                        />
+                    </View>
+
+                    {/* ─── 4. Payment reminders ─── */}
+                    <View style={[s.toggleRow, { backgroundColor: themeColors.surface }]}>
+                        <View style={s.flex}>
+                            <Text style={[s.toggleLabel, { color: themeColors.textPrimary }]}>Payment reminders</Text>
+                            <Text style={[s.toggleSub, { color: themeColors.textSecondary }]}>Notify client when payment is due</Text>
+                        </View>
+                        <Switch
+                            value={reminders}
+                            onValueChange={setReminders}
+                            trackColor={{ false: themeColors.border, true: themeColors.primary }}
+                            thumbColor="#fff"
+                        />
+                    </View>
+
+                    {/* ─── 5. Notes ─── */}
+                    <Text style={[s.sectionLabel, { color: themeColors.textSecondary }]}>Notes</Text>
+                    <View style={[s.card, { backgroundColor: themeColors.surface }]}>
+                        <TextInput
+                            style={[s.input, s.notesInput, { color: themeColors.textPrimary }]}
+                            placeholder="A note visible on the payment link…"
+                            placeholderTextColor={themeColors.textSecondary}
+                            multiline
+                            textAlignVertical="top"
+                            value={notes}
+                            onChangeText={setNotes}
                         />
                     </View>
 
@@ -144,97 +285,95 @@ export default function CreatePaymentLinkScreen() {
                         onPress={handleCreate}
                         disabled={isLoading}
                         size="large"
-                        style={{ ...styles.ctaButton, backgroundColor: themeColors.primary }}
-                        textStyle={styles.ctaText}
+                        style={{ ...s.cta, backgroundColor: themeColors.primary }}
+                        textStyle={{ color: '#fff' }}
                     />
-
-                    {isLoading ? <ActivityIndicator style={styles.loader} color={themeColors.primary} /> : null}
+                    {isLoading && <ActivityIndicator style={{ marginTop: 12 }} color={themeColors.primary} />}
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* ─── Android-only client modal ─── */}
+            {Platform.OS !== 'ios' && (
+                <Modal visible={showClientModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowClientModal(false)}>
+                    <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.background }}>
+                        <View style={s.modalHeader}>
+                            <Text style={[s.modalTitle, { color: themeColors.textPrimary }]}>Select client</Text>
+                            <TouchableOpacity onPress={() => setShowClientModal(false)}>
+                                <X size={20} color={themeColors.textSecondary} strokeWidth={2.5} />
+                            </TouchableOpacity>
+                        </View>
+                        <FlatList
+                            data={clients}
+                            keyExtractor={c => c.id}
+                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32, gap: 8 }}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    style={[s.modalItem, { backgroundColor: themeColors.surface }]}
+                                    onPress={() => applyClient(item)}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={[s.avatar, { backgroundColor: themeColors.primary + '18' }]}>
+                                        <Text style={[s.avatarText, { color: themeColors.primary }]}>{item.name.charAt(0).toUpperCase()}</Text>
+                                    </View>
+                                    <View style={s.flex}>
+                                        <Text style={[s.clientName, { color: themeColors.textPrimary }]}>{item.name}</Text>
+                                        {item.email ? <Text style={[s.clientEmail, { color: themeColors.textSecondary }]}>{item.email}</Text> : null}
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+                        />
+                    </SafeAreaView>
+                </Modal>
+            )}
         </SafeAreaView>
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    flex: {
-        flex: 1,
-    },
+const s = StyleSheet.create({
+    container:   { flex: 1 },
+    flex:        { flex: 1 },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 20, paddingVertical: 16,
     },
-    backButton: {
-        padding: 4,
+    backBtn:     { padding: 4 },
+    backCircle:  { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+    headerTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 22 },
+
+    content:      { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 48, gap: 8 },
+    sectionLabel: {
+        fontFamily: 'GoogleSansFlex_500Medium', fontSize: 11,
+        letterSpacing: 0.6, textTransform: 'uppercase',
+        marginTop: 8, marginBottom: 2, marginLeft: 2,
     },
-    backButtonCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
+
+    card:   { borderRadius: 16, paddingHorizontal: 16, paddingVertical: 4 },
+    input:  { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 16, paddingVertical: 14 },
+
+    clientRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+    avatar:      { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+    avatarText:  { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 15 },
+    clientName:  { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 15 },
+    clientEmail: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 13, marginTop: 2 },
+
+    pickerRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+    pickerLabel: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 16, paddingVertical: 14, flex: 1 },
+
+    amountRow:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    tokenLogo:     { width: 20, height: 20, borderRadius: 10 },
+    currencyBadge: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
+
+    toggleRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14,
     },
-    headerTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 22,
-    },
-    content: {
-        paddingHorizontal: 20,
-        paddingTop: 18,
-        paddingBottom: 40,
-    },
-    sectionTitle: {
-        fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 24,
-        marginBottom: 16,
-    },
-    inputContainer: {
-        borderRadius: 16,
-        marginBottom: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 4,
-    },
-    input: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 16,
-        paddingVertical: 14,
-    },
-    amountContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    amountInput: {
-        flex: 1,
-    },
-    tokenLogo: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-    },
-    currencyText: {
-        fontFamily: 'GoogleSansFlex_500Medium',
-        fontSize: 14,
-    },
-    helperText: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 12,
-        marginBottom: 10,
-        marginLeft: 2,
-    },
-    ctaButton: {
-        marginTop: 10,
-    },
-    ctaText: {
-        color: '#FFFFFF',
-    },
-    loader: {
-        marginTop: 12,
-    },
+    toggleLabel: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 15 },
+    toggleSub:   { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 12, marginTop: 2 },
+
+    notesInput: { minHeight: 80, paddingVertical: 14 },
+    cta:        { marginTop: 8, borderRadius: 100 },
+
+    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
+    modalTitle:  { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 },
+    modalItem:   { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14 },
 });

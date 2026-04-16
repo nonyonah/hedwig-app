@@ -85,7 +85,7 @@ export default function CreateClientScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}> 
-            <View style={[styles.header, { borderBottomColor: themeColors.border }]}> 
+            <View style={styles.header}>
                 <IOSGlassIconButton
                     onPress={() => router.back()}
                     systemImage="chevron.left"
@@ -176,7 +176,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 20,
         paddingVertical: 16,
-        borderBottomWidth: 1,
     },
     backButton: {
         padding: 4,

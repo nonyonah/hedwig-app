@@ -88,22 +88,21 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
     }, [closeOnce]);
 
     const handleSelect = useCallback((action: CreateAction) => {
+        // Dismiss the sheet first, then push so the back stack includes home
+        void sheetRef.current?.dismiss().catch(() => {});
         if (action === 'invoice') {
-            router.replace('/invoice/create');
+            router.push('/invoice/create');
             return;
         }
-
         if (action === 'payment-link') {
-            router.replace('/payment-link/create');
+            router.push('/payment-link/create');
             return;
         }
-
         if (action === 'project') {
-            router.replace('/projects/create');
+            router.push('/projects/create');
             return;
         }
-
-        router.replace('/clients/create');
+        router.push('/clients/create');
     }, [router]);
 
     if (!visible) {
@@ -114,15 +113,14 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
         <TrueSheet
             ref={sheetRef}
             detents={['auto']}
-            cornerRadius={Platform.OS === 'ios' ? 46 : 24}
+            cornerRadius={Platform.OS === 'ios' ? 38 : 20}
             backgroundColor={Platform.OS === 'ios' ? undefined : colors.background}
             onDidDismiss={closeOnce}
         >
-            <View style={[styles.container, { paddingBottom: Math.max(insets.bottom + 8, 18) }]}>
+            <View style={[styles.container, { paddingBottom: Math.max(insets.bottom + 4, 14) }]}>
                 <View style={styles.headerRow}>
                     <View style={styles.headerCopy}>
                         <Text style={[styles.title, { color: colors.textPrimary }]}>Create</Text>
-                        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Choose what you want to create.</Text>
                     </View>
                     <TouchableOpacity
                         style={[styles.closeButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
@@ -132,7 +130,7 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                         accessibilityRole="button"
                         accessibilityLabel="Close create menu"
                     >
-                        <X size={18} color={colors.textPrimary} strokeWidth={2.8} />
+                        <X size={16} color={colors.textPrimary} strokeWidth={2.8} />
                     </TouchableOpacity>
                 </View>
 
@@ -150,13 +148,13 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                                 accessibilityRole="button"
                             >
                                 <View style={[styles.iconWrap, { backgroundColor: colors.background }]}>
-                                    <item.Icon size={18} color={colors.textPrimary} strokeWidth={2.2} />
+                                    <item.Icon size={16} color={colors.textPrimary} strokeWidth={2.2} />
                                 </View>
                                 <View style={styles.rowCopy}>
                                     <Text style={[styles.rowTitle, { color: colors.textPrimary }]}>{item.title}</Text>
                                     <Text style={[styles.rowDescription, { color: colors.textSecondary }]}>{item.description}</Text>
                                 </View>
-                                <ChevronRight size={16} color={colors.textSecondary} strokeWidth={2.6} />
+                                <ChevronRight size={14} color={colors.textSecondary} strokeWidth={2.6} />
                             </TouchableOpacity>
                             {index < CREATE_ITEMS.length - 1 ? (
                                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -172,14 +170,14 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
 const styles = StyleSheet.create({
     container: {
         paddingHorizontal: 16,
-        paddingTop: Platform.OS === 'ios' ? 26 : 18,
-        maxHeight: 560,
+        paddingTop: Platform.OS === 'ios' ? 20 : 14,
+        maxHeight: 460,
     },
     headerRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 14,
+        marginBottom: 10,
         gap: 12,
     },
     headerCopy: {
@@ -187,17 +185,12 @@ const styles = StyleSheet.create({
     },
     title: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 24,
-    },
-    subtitle: {
-        marginTop: 4,
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 13,
+        fontSize: 20,
     },
     closeButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         borderWidth: 1,
         alignItems: 'center',
         justifyContent: 'center',
@@ -212,32 +205,32 @@ const styles = StyleSheet.create({
     row: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 10,
         paddingHorizontal: 12,
-        paddingVertical: 12,
+        paddingVertical: 10,
     },
     iconWrap: {
-        width: 34,
-        height: 34,
-        borderRadius: 10,
+        width: 30,
+        height: 30,
+        borderRadius: 9,
         alignItems: 'center',
         justifyContent: 'center',
     },
     rowCopy: {
         flex: 1,
-        gap: 2,
+        gap: 1,
     },
     rowTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 15,
+        fontSize: 14,
     },
     rowDescription: {
         fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 12,
-        lineHeight: 17,
+        fontSize: 11,
+        lineHeight: 15,
     },
     divider: {
-        marginLeft: 58,
+        marginLeft: 52,
         height: StyleSheet.hairlineWidth,
     },
 });

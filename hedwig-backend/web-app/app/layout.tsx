@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import './globals.css';
 import { HedwigPrivyProvider } from '@/components/providers/privy-provider';
 import { AuthGate } from '@/components/providers/auth-gate';
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="font-sans antialiased">
         <HedwigPrivyProvider>
           <HedwigPostHogProvider>
-            <UserbackProvider />
+            <Suspense fallback={null}>
+              <UserbackProvider />
+            </Suspense>
             <CurrencyProvider>
               <ToastProvider>
                 <AuthGate>{children}</AuthGate>

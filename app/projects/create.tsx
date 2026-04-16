@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert,
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { ChevronLeft as CaretLeft, Plus, X, DollarSign as CurrencyDollar, Calendar, User, FileText } from '../../components/ui/AppIcon';
+import { ChevronLeft as CaretLeft, ChevronDown, Plus, X, DollarSign as CurrencyDollar, Calendar, User, FileText } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { Typography } from '../../styles/typography';
 import { useAuth } from '../../hooks/useAuth';
@@ -45,16 +45,8 @@ export default function CreateProjectScreen() {
         setMilestones(newMilestones);
     };
 
-    const handleDateChange = (event: any, selectedDate?: Date) => {
-        const currentDate = selectedDate || date;
-        // On Android, the picker closes automatically. On iOS, we might want to keep it or close it.
-        // For simplicity, we'll toggle off if it's Android or if user confirmed.
-        console.log('Date changed:', selectedDate);
-        // On Android, the picker closes automatically. On iOS, we might want to keep it or close it.
-        // For simplicity, we'll toggle off if it's Android or if user confirmed.
-        if (Platform.OS === 'android') {
-            setShowDatePicker(false);
-        }
+    const handleDateChange = (_: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') setShowDatePicker(false);
         if (selectedDate) {
             setDate(selectedDate);
             setDeadline(selectedDate.toISOString().split('T')[0]);
@@ -223,55 +215,52 @@ export default function CreateProjectScreen() {
                         />
                     </View>
 
-                    <TouchableOpacity onPress={() => {
-                        console.log('Opening date picker');
-                        setShowDatePicker(true);
-                    }}>
-                        <View style={[styles.inputContainer, { backgroundColor: themeColors.surface }]}>
-                            <Text style={[styles.input, { color: deadline ? themeColors.textPrimary : themeColors.textSecondary }]}>
-                                {deadline || "Deadline (YYYY-MM-DD)"}
-                            </Text>
-                        </View>
+                    <TouchableOpacity
+                        style={[styles.inputContainer, styles.pickerRow, { backgroundColor: themeColors.surface }]}
+                        onPress={() => setShowDatePicker(true)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={[styles.input, styles.pickerLabel, { color: deadline ? themeColors.textPrimary : themeColors.textSecondary }]}>
+                            {deadline
+                                ? date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                                : 'Deadline'}
+                        </Text>
+                        <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
                     </TouchableOpacity>
 
-                    {showDatePicker && (
-                        Platform.OS === 'ios' ? (
-                            <Modal
-                                transparent={true}
-                                animationType="slide"
-                                visible={showDatePicker}
-                                onRequestClose={() => setShowDatePicker(false)}
-                            >
-                                <View style={styles.modalOverlay}>
-                                    <View style={[styles.datePickerContainer, { backgroundColor: themeColors.surface }]}>
-                                        <View style={styles.datePickerHeader}>
-                                            <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                                                <Text style={[styles.datePickerButton, { color: Colors.primary }]}>Done</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                        <DateTimePicker
-                                            testID="dateTimePicker"
-                                            value={date}
-                                            mode="date"
-                                            display="spinner"
-                                            onChange={handleDateChange}
-                                            textColor={themeColors.textPrimary}
-                                            minimumDate={new Date()}
-                                            style={{ height: 200, width: '100%' }}
-                                        />
+                    {/* Android: native calendar dialog */}
+                    {showDatePicker && Platform.OS !== 'ios' && (
+                        <DateTimePicker
+                            value={date}
+                            mode="date"
+                            display="default"
+                            minimumDate={new Date()}
+                            onChange={handleDateChange}
+                        />
+                    )}
+
+                    {/* iOS: spinner in slide-up modal */}
+                    {showDatePicker && Platform.OS === 'ios' && (
+                        <Modal transparent animationType="slide" visible onRequestClose={() => setShowDatePicker(false)}>
+                            <View style={styles.modalOverlay}>
+                                <View style={[styles.datePickerContainer, { backgroundColor: themeColors.surface }]}>
+                                    <View style={[styles.datePickerHeader, { borderBottomColor: themeColors.border }]}>
+                                        <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                            <Text style={[styles.datePickerButton, { color: Colors.primary }]}>Done</Text>
+                                        </TouchableOpacity>
                                     </View>
+                                    <DateTimePicker
+                                        value={date}
+                                        mode="date"
+                                        display="spinner"
+                                        minimumDate={new Date()}
+                                        textColor={themeColors.textPrimary}
+                                        onChange={handleDateChange}
+                                        style={{ height: 200, width: '100%' }}
+                                    />
                                 </View>
-                            </Modal>
-                        ) : (
-                            <DateTimePicker
-                                testID="dateTimePicker"
-                                value={date}
-                                mode="date"
-                                display="default"
-                                onChange={handleDateChange}
-                                minimumDate={new Date()}
-                            />
-                        )
+                            </View>
+                        </Modal>
                     )}
 
                     {/* Milestones */}
@@ -467,12 +456,13 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
     },
+    pickerRow:   { flexDirection: 'row', alignItems: 'center', paddingRight: 4 },
+    pickerLabel: { flex: 1, paddingVertical: 14 },
     datePickerHeader: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
         padding: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
     },
     datePickerButton: {
         fontSize: 16,

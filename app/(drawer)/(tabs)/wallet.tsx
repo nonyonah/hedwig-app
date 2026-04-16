@@ -1557,11 +1557,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 16,
-        flexShrink: 1,
-        minWidth: 0,
+        flex: 1,
     },
     tabTitle: { fontFamily: 'GoogleSansFlex_700Bold', fontSize: 22 },
-    tabFilterWrap: { flexShrink: 1, minWidth: 0, marginLeft: 8 },
+    tabFilterWrap: { flexShrink: 0 },
     tabFilterButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1571,10 +1570,8 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.05)',
-        minWidth: 0,
-        maxWidth: 168,
     },
-    tabFilterText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13, flexShrink: 1 },
+    tabFilterText: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 13 },
 
     // ─── Coins ───
     networkFilterButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },

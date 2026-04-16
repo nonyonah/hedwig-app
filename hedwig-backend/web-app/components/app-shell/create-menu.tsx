@@ -48,6 +48,10 @@ const defaultInvoiceForm = {
   linkedProjectId: '',
   reminderEnabled: true,
   lineItems: [] as LineItemForm[],
+  isRecurring: false,
+  frequency: 'monthly' as 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual',
+  startDate: '',
+  autoSend: false,
 };
 
 const defaultPaymentForm = {
@@ -60,6 +64,8 @@ const defaultPaymentForm = {
   clientName: '',
   clientEmail: '',
   linkedProjectId: '',
+  reminderEnabled: true,
+  notes: '',
 };
 
 const defaultClientForm = {
@@ -298,28 +304,41 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
 
     setIsSubmitting(true);
     try {
-      const result = await postAuthedJson<{ document?: Record<string, any> }>('/api/documents/invoice', token, {
-        title: `Invoice for ${clientName}`,
-        amount,
-        currency: invoiceForm.currency,
-        dueDate: invoiceForm.dueDate,
-        description: invoiceForm.notes.trim() || undefined,
-        clientId: selectedClient?.id,
-        clientName,
-        recipientEmail: clientEmail || undefined,
-        projectId: invoiceForm.linkedProjectId || undefined,
-        remindersEnabled: invoiceForm.reminderEnabled,
-        items: parsedItems,
-      });
-      const document = result?.document;
-      capturePostHog('invoice_created', {
-        invoice_id: document?.id,
-        amount: document?.amount,
-        currency: document?.currency,
-        client_id: document?.client_id ?? document?.clientId,
-      });
-
-      toast({ type: 'success', ...formatCreatedMessage('invoice') });
+      if (invoiceForm.isRecurring) {
+        await postAuthedJson<Record<string, any>>('/api/recurring-invoices', token, {
+          clientId: selectedClient?.id,
+          clientName,
+          recipientEmail: clientEmail || undefined,
+          amount,
+          frequency: invoiceForm.frequency,
+          startDate: invoiceForm.startDate,
+          autoSend: invoiceForm.autoSend,
+          remindersEnabled: invoiceForm.reminderEnabled,
+        });
+        toast({ type: 'success', title: 'Recurring invoice created', message: 'Your recurring invoice schedule has been set up.' });
+      } else {
+        const result = await postAuthedJson<{ document?: Record<string, any> }>('/api/documents/invoice', token, {
+          title: `Invoice for ${clientName}`,
+          amount,
+          currency: invoiceForm.currency,
+          dueDate: invoiceForm.dueDate,
+          description: invoiceForm.notes.trim() || undefined,
+          clientId: selectedClient?.id,
+          clientName,
+          recipientEmail: clientEmail || undefined,
+          projectId: invoiceForm.linkedProjectId || undefined,
+          remindersEnabled: invoiceForm.reminderEnabled,
+          items: parsedItems,
+        });
+        const document = result?.document;
+        capturePostHog('invoice_created', {
+          invoice_id: document?.id,
+          amount: document?.amount,
+          currency: document?.currency,
+          client_id: document?.client_id ?? document?.clientId,
+        });
+        toast({ type: 'success', ...formatCreatedMessage('invoice') });
+      }
       closeAndReset();
       router.refresh();
     } catch (error: any) {
@@ -364,6 +383,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
         clientName: clientName || undefined,
         recipientEmail: clientEmail || undefined,
         projectId: paymentForm.linkedProjectId || undefined,
+        remindersEnabled: paymentForm.reminderEnabled,
       });
       const document = result?.document;
       capturePostHog('payment_link_created', {
@@ -701,6 +721,43 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                     description="Automatically notify the client when payment is due."
                   />
 
+                  <Toggle
+                    checked={invoiceForm.isRecurring}
+                    onChange={(checked) => setInvoiceForm((f) => ({ ...f, isRecurring: checked }))}
+                    label="Recurring invoice"
+                    description="Automatically repeat this invoice on a schedule."
+                  />
+                  {invoiceForm.isRecurring && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Frequency" required>
+                        <FormSelect
+                          value={invoiceForm.frequency}
+                          onChange={(value) => setInvoiceForm((f) => ({ ...f, frequency: value as any }))}
+                          options={[
+                            { value: 'weekly', label: 'Weekly' },
+                            { value: 'biweekly', label: 'Bi-weekly' },
+                            { value: 'monthly', label: 'Monthly' },
+                            { value: 'quarterly', label: 'Quarterly' },
+                            { value: 'annual', label: 'Annual' },
+                          ]}
+                        />
+                      </Field>
+                      <Field label="Start date" required>
+                        <Input
+                          type="date"
+                          value={invoiceForm.startDate}
+                          onChange={(e) => setInvoiceForm((f) => ({ ...f, startDate: e.target.value }))}
+                        />
+                      </Field>
+                    </div>
+                  )}
+                  <Toggle
+                    checked={invoiceForm.autoSend}
+                    onChange={(checked) => setInvoiceForm((f) => ({ ...f, autoSend: checked }))}
+                    label="Auto-send"
+                    description="Send each invoice automatically when it's generated."
+                  />
+
                   <Field label="Line items">
                     <div className="space-y-2">
                       {invoiceForm.lineItems.map((item, index) => (
@@ -880,6 +937,19 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
                       placeholder="Visible to whoever opens the payment link…"
                     />
                   </Field>
+                  <Field label="Notes">
+                    <Textarea
+                      value={paymentForm.notes}
+                      onChange={(e) => setPaymentForm((f) => ({ ...f, notes: e.target.value }))}
+                      placeholder="Internal notes — not visible to the payer…"
+                    />
+                  </Field>
+                  <Toggle
+                    checked={paymentForm.reminderEnabled}
+                    onChange={(checked) => setPaymentForm((f) => ({ ...f, reminderEnabled: checked }))}
+                    label="Payment reminders"
+                    description="Automatically notify the client when payment is due."
+                  />
                 </div>
               </Section>
             </div>
