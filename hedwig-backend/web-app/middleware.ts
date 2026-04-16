@@ -66,9 +66,8 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('hedwig_access_token')?.value;
   const isDemo = request.cookies.get('hedwig_demo')?.value === 'true';
 
-  // Demo sessions bypass backend token validation entirely (disabled in production)
-  const isDemoEnabled = process.env.NODE_ENV !== 'production';
-  if (isDemoEnabled && isDemo && token === 'demo') {
+  // Demo sessions bypass backend token validation entirely
+  if (isDemo && token === 'demo') {
     if (pathname === '/sign-in') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
