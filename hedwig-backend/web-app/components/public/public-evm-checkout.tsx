@@ -1,12 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowSquareOut, CheckCircle } from '@/components/ui/lucide-icons';
 import { encodeFunctionData, parseUnits } from 'viem';
 import { backendConfig } from '@/lib/auth/config';
-import { EVM_TOKENS, getChainId, getExplorerUrl, getNetworkModeFromEvmChainId, resolveEvmChainForPayment, resolvePaymentChain, type EvmPaymentChain, type PublicSettlementChain } from '@/lib/payments/public-constants';
+import { EVM_TOKENS, getChainId, getExplorerUrl, resolvePaymentChain, type EvmPaymentChain, type PublicSettlementChain } from '@/lib/payments/public-constants';
 
 const EVM_CHAIN_META: Record<string, { icon: string; label: string }> = {
   base:     { icon: '/icons/networks/base.png',     label: 'Base' },
@@ -15,12 +15,36 @@ const EVM_CHAIN_META: Record<string, { icon: string; label: string }> = {
   celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
 };
 
-const MINIPAY_ADD_CASH_URL = 'https://minipay-production.up.railway.app/?page=wallet&feature=add_cash';
+const MINIPAY_ADD_CASH_URL = 'https://link.minipay.xyz/add_cash?tokens=USDC';
 const CELO_CHAIN_IDS = new Set([42220, 44787]);
 
 type Eip1193Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on?: (event: string, handler: (...args: any[]) => void) => void;
+  removeListener?: (event: string, handler: (...args: any[]) => void) => void;
 };
+
+type MaybeMiniPayProvider = Eip1193Provider & {
+  isMiniPay?: boolean;
+  providers?: MaybeMiniPayProvider[];
+};
+
+function resolveInjectedProviders(): MaybeMiniPayProvider[] {
+  if (typeof window === 'undefined') return [];
+  const injected = (window as any).ethereum as MaybeMiniPayProvider | undefined;
+  if (!injected) return [];
+
+  if (Array.isArray(injected.providers) && injected.providers.length > 0) {
+    return injected.providers;
+  }
+  return [injected];
+}
+
+function resolvePreferredProvider(): MaybeMiniPayProvider | null {
+  const providers = resolveInjectedProviders();
+  if (providers.length === 0) return null;
+  return providers.find((provider) => Boolean(provider?.isMiniPay)) ?? providers[0] ?? null;
+}
 
 function getErrorMessage(err: unknown): string {
   if (typeof err === 'object' && err !== null && 'message' in err) {
@@ -118,9 +142,11 @@ export function PublicEvmCheckout({
   const [isPaying, setIsPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [provider, setProvider] = useState<MaybeMiniPayProvider | null>(null);
+  const [isMiniPay, setIsMiniPay] = useState(false);
+  const miniPayConnectAttemptedRef = useRef(false);
 
-  const isMiniPay = typeof window !== 'undefined' && Boolean((window as any).ethereum?.isMiniPay);
-  const hasEthereum = typeof window !== 'undefined' && typeof (window as any).ethereum !== 'undefined';
+  const hasEthereum = Boolean(provider);
   const supportsDirectCheckout = Boolean(merchantAddress);
 
   const chainMeta = EVM_CHAIN_META[selectedChain ?? 'base'] ?? EVM_CHAIN_META['base'];
@@ -134,39 +160,129 @@ export function PublicEvmCheckout({
 
   const buttonLabel = useMemo(() => {
     if (!supportsDirectCheckout) return 'Merchant wallet unavailable';
-    if (!walletAddress) return 'Connect wallet';
+    if (!walletAddress) return isMiniPay ? 'Connecting to MiniPay…' : 'Connect wallet';
     return isPaying ? 'Processing…' : `Pay ${amount} ${token}`;
-  }, [amount, isPaying, supportsDirectCheckout, token, walletAddress]);
+  }, [amount, isMiniPay, isPaying, supportsDirectCheckout, token, walletAddress]);
 
-  const connectWallet = async () => {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let mounted = true;
+    let intervalId: number | null = null;
+
+    const syncProvider = () => {
+      if (!mounted) return;
+      const nextProvider = resolvePreferredProvider();
+      setProvider((prev) => (prev === nextProvider ? prev : nextProvider));
+      setIsMiniPay(Boolean(nextProvider?.isMiniPay));
+      if (nextProvider?.isMiniPay && intervalId !== null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    syncProvider();
+    intervalId = window.setInterval(syncProvider, 700);
+    const handleFocus = () => syncProvider();
+    const handleEthereumInitialized = () => syncProvider();
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('ethereum#initialized', handleEthereumInitialized as EventListener);
+
+    return () => {
+      mounted = false;
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('ethereum#initialized', handleEthereumInitialized as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!provider?.on) return;
+    const onAccountsChanged = (accounts: unknown) => {
+      const firstAddress = Array.isArray(accounts) ? String(accounts[0] || '') : '';
+      setWalletAddress(firstAddress || null);
+    };
+    provider.on('accountsChanged', onAccountsChanged);
+    return () => {
+      provider.removeListener?.('accountsChanged', onAccountsChanged);
+    };
+  }, [provider]);
+
+  const connectWallet = async ({
+    enforceCeloForMiniPay = true,
+    suppressErrors = false
+  }: {
+    enforceCeloForMiniPay?: boolean;
+    suppressErrors?: boolean;
+  } = {}) => {
     setError(null);
-    if (!hasEthereum) {
-      setError(
-        selectedChain === 'celo'
-          ? 'No injected wallet found. Open this page in MiniPay or install an EVM wallet.'
-          : 'No injected EVM wallet found. Install MetaMask, Coinbase Wallet, or another compatible wallet.'
-      );
+    if (!provider) {
+      if (!suppressErrors) {
+        setError(
+          selectedChain === 'celo'
+            ? 'No injected wallet found. Open this page in MiniPay or install an EVM wallet.'
+            : 'No injected EVM wallet found. Install MetaMask, Coinbase Wallet, or another compatible wallet.'
+        );
+      }
       return null;
     }
 
-    const provider = (window as any).ethereum as Eip1193Provider;
-    const accounts = await provider.request({ method: 'eth_requestAccounts' });
-    const chainIdValue = await provider.request({ method: 'eth_chainId' });
-    const account = Array.isArray(accounts) ? String(accounts[0] || '') : '';
-    const chainId = typeof chainIdValue === 'string' ? parseInt(chainIdValue, 16) : Number(chainIdValue);
+    try {
+      const currentProvider = provider as Eip1193Provider;
+      const accounts = await currentProvider.request({ method: 'eth_requestAccounts' });
+      const chainIdValue = await currentProvider.request({ method: 'eth_chainId' });
+      const account = Array.isArray(accounts) ? String(accounts[0] || '') : '';
+      const chainId = typeof chainIdValue === 'string' ? parseInt(chainIdValue, 16) : Number(chainIdValue);
 
-    if (isMiniPay && selectedChain !== 'celo') {
-      setError('MiniPay checkout is available on Celo only. Select Celo to continue.');
+      if (isMiniPay && enforceCeloForMiniPay && selectedChain !== 'celo') {
+        if (!suppressErrors) {
+          setError('MiniPay checkout is available on Celo only. Select Celo to continue.');
+        }
+        return null;
+      }
+
+      if (!account) {
+        if (!suppressErrors) {
+          setError('Wallet connection failed. Please unlock your wallet and try again.');
+        }
+        return null;
+      }
+
+      setWalletAddress(account);
+      return { provider: currentProvider, account, chainId };
+    } catch (err: unknown) {
+      if (!suppressErrors) {
+        const code = getErrorCode(err);
+        const name = typeof err === 'object' && err !== null && 'name' in err ? String((err as { name?: unknown }).name || '') : '';
+        if (code === 4001 || code === -32604 || name === 'UserRejectedRequestError') {
+          setError('Connection was cancelled. Please try again.');
+        } else if (isMiniPay) {
+          setError('MiniPay connection failed. Unlock MiniPay and try again.');
+        } else {
+          setError(getErrorMessage(err) || 'Wallet connection failed.');
+        }
+      }
       return null;
     }
-
-    setWalletAddress(account || null);
-    return { provider, account, chainId };
   };
+
+  useEffect(() => {
+    if (!isMiniPay || !hasEthereum || walletAddress || miniPayConnectAttemptedRef.current) return;
+    miniPayConnectAttemptedRef.current = true;
+    void connectWallet({ enforceCeloForMiniPay: false, suppressErrors: true });
+  }, [hasEthereum, isMiniPay, walletAddress]);
 
   const openMiniPayAddCash = () => {
     if (typeof window === 'undefined') return;
-    window.open(MINIPAY_ADD_CASH_URL, '_blank', 'noopener,noreferrer');
+    window.location.assign(MINIPAY_ADD_CASH_URL);
+  };
+
+  const openInMiniPay = () => {
+    if (typeof window === 'undefined') return;
+    const url = `https://link.minipay.xyz/browse?url=${encodeURIComponent(window.location.href)}`;
+    window.location.assign(url);
   };
 
   const handlePay = async () => {
@@ -177,7 +293,7 @@ export function PublicEvmCheckout({
       setIsPaying(true);
       const connection = await connectWallet();
       if (!connection?.provider || !connection.account) {
-        throw new Error('Please connect your wallet first.');
+        return;
       }
 
       const evmChain = resolveTargetEvmChain(selectedChain ?? 'base', connection.chainId);
@@ -328,13 +444,24 @@ export function PublicEvmCheckout({
               ? 'MiniPay detected. You can continue checkout directly.'
               : 'For mobile Celo checkout, you can use MiniPay by Opera.'}
           </p>
-          <button
-            type="button"
-            onClick={openMiniPayAddCash}
-            className="mt-3 inline-flex items-center justify-center rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-xs font-semibold text-[#181d27] transition hover:bg-[#f8f9fc]"
-          >
-            Add Cash In MiniPay
-          </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {!isMiniPay ? (
+              <button
+                type="button"
+                onClick={openInMiniPay}
+                className="inline-flex items-center justify-center rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-xs font-semibold text-[#181d27] transition hover:bg-[#f8f9fc]"
+              >
+                Open in MiniPay
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={openMiniPayAddCash}
+              className="inline-flex items-center justify-center rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-xs font-semibold text-[#181d27] transition hover:bg-[#f8f9fc]"
+            >
+              Add Cash In MiniPay
+            </button>
+          </div>
         </div>
       ) : null}
 

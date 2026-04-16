@@ -16,6 +16,17 @@ const TOKEN_OPTIONS = [
   { id: 'USDC' as const, label: 'USDC', icon: '/icons/tokens/usdc.png' },
 ];
 
+function detectMiniPayProvider(): boolean {
+  if (typeof window === 'undefined') return false;
+  const injected = (window as any).ethereum;
+  if (!injected) return false;
+  if (injected.isMiniPay) return true;
+  if (Array.isArray(injected.providers)) {
+    return injected.providers.some((provider: any) => Boolean(provider?.isMiniPay));
+  }
+  return false;
+}
+
 export function PublicCheckoutPanel({
   documentId,
   amount,
@@ -41,32 +52,81 @@ export function PublicCheckoutPanel({
   selectedToken?: PublicPaymentToken | null;
   onSelectedTokenChange?: (t: PublicPaymentToken) => void;
 }) {
+  const [isMiniPay, setIsMiniPay] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let mounted = true;
+    let intervalId: number | null = null;
+
+    const syncMiniPay = () => {
+      if (!mounted) return;
+      const nextIsMiniPay = detectMiniPayProvider();
+      setIsMiniPay((prev) => (prev === nextIsMiniPay ? prev : nextIsMiniPay));
+      if (nextIsMiniPay && intervalId !== null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    syncMiniPay();
+    intervalId = window.setInterval(syncMiniPay, 700);
+    const handleFocus = () => syncMiniPay();
+    const handleEthereumInitialized = () => syncMiniPay();
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('ethereum#initialized', handleEthereumInitialized as EventListener);
+
+    return () => {
+      mounted = false;
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('ethereum#initialized', handleEthereumInitialized as EventListener);
+    };
+  }, []);
+
   const availableChains = useMemo<AvailableChain[]>(() => {
     const chains: AvailableChain[] = [];
     if (evmMerchantAddress) {
-      chains.push({ id: 'base',     label: 'Base',     icon: '/icons/networks/base.png' });
-      chains.push({ id: 'arbitrum', label: 'Arbitrum', icon: '/icons/networks/arbitrum.png' });
-      chains.push({ id: 'polygon',  label: 'Polygon',  icon: '/icons/networks/polygon.png' });
-      chains.push({ id: 'celo',     label: 'Celo',     icon: '/icons/networks/celo.png' });
+      if (isMiniPay) {
+        chains.push({ id: 'celo', label: 'Celo', icon: '/icons/networks/celo.png' });
+      } else {
+        chains.push({ id: 'base',     label: 'Base',     icon: '/icons/networks/base.png' });
+        chains.push({ id: 'arbitrum', label: 'Arbitrum', icon: '/icons/networks/arbitrum.png' });
+        chains.push({ id: 'polygon',  label: 'Polygon',  icon: '/icons/networks/polygon.png' });
+        chains.push({ id: 'celo',     label: 'Celo',     icon: '/icons/networks/celo.png' });
+      }
     }
-    if (solanaMerchantAddress) {
+    if (solanaMerchantAddress && !isMiniPay) {
       chains.push({ id: 'solana', label: 'Solana', icon: '/icons/networks/solana.png' });
     }
     return chains;
-  }, [evmMerchantAddress, solanaMerchantAddress]);
+  }, [evmMerchantAddress, isMiniPay, solanaMerchantAddress]);
 
   const initialChain = useMemo<PublicSettlementChain | null>(() => {
+    if (isMiniPay && availableChains.some((chain) => chain.id === 'celo')) {
+      return 'celo';
+    }
     if (availableChains.some((chain) => chain.id === preferredChain)) {
       return preferredChain;
     }
     return availableChains[0]?.id || null;
-  }, [availableChains, preferredChain]);
+  }, [availableChains, isMiniPay, preferredChain]);
 
   const [internalSelectedChain, setInternalSelectedChain] = useState<PublicSettlementChain | null>(initialChain);
   const activeChain = selectedChain ?? internalSelectedChain;
 
   const [internalSelectedToken, setInternalSelectedToken] = useState<PublicPaymentToken>(token);
   const activeToken: PublicPaymentToken = selectedToken ?? internalSelectedToken;
+
+  useEffect(() => {
+    if (!isMiniPay || !availableChains.some((chain) => chain.id === 'celo')) return;
+    if (activeChain === 'celo') return;
+    setInternalSelectedChain('celo');
+    onSelectedChainChange?.('celo');
+  }, [activeChain, availableChains, isMiniPay, onSelectedChainChange]);
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [tokenDropdownOpen, setTokenDropdownOpen] = useState(false);
@@ -101,9 +161,13 @@ export function PublicCheckoutPanel({
   if (!activeChain || availableChains.length === 0) {
     return (
       <div className="rounded-2xl border border-[#fecdca] bg-[#fef3f2] p-5 shadow-xs">
-        <p className="text-[13px] font-semibold text-[#717680]">Merchant wallet unavailable</p>
+        <p className="text-[13px] font-semibold text-[#717680]">
+          {isMiniPay ? 'MiniPay checkout unavailable for this payment' : 'Merchant wallet unavailable'}
+        </p>
         <p className="mt-1.5 text-[12px] leading-relaxed text-[#717680]">
-          This payment page does not have a supported merchant wallet configured yet. Please try again later.
+          {isMiniPay
+            ? 'MiniPay supports Celo checkout only. Open this payment in another wallet browser if Celo is not available.'
+            : 'This payment page does not have a supported merchant wallet configured yet. Please try again later.'}
         </p>
       </div>
     );

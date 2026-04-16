@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
+import { getPublicWebBaseUrl } from '../../utils/publicWebUrl';
 
 type UserbackIdentity = {
   id: string;
@@ -21,6 +22,9 @@ function resolveIdentity(user: any): UserbackIdentity | null {
     user?.email?.address ||
     user?.google?.email ||
     user?.apple?.email ||
+    (Array.isArray(user?.linkedAccounts)
+      ? user.linkedAccounts.find((account: any) => account?.type === 'email')?.address
+      : '') ||
     user?.email ||
     ''
   ).trim();
@@ -100,16 +104,43 @@ function buildFeedbackHtml(token: string, identity: UserbackIdentity | null) {
         if (statusEl) statusEl.textContent = text;
       };
       const openWidget = () => {
-        if (window.Userback && typeof window.Userback.openForm === 'function') {
-          window.Userback.openForm();
-          return;
-        }
         if (window.Userback && typeof window.Userback.open === 'function') {
-          window.Userback.open();
+          try {
+            window.Userback.open('general', 'form');
+            return true;
+          } catch (error) {}
+          try {
+            window.Userback.open('general');
+            return true;
+          } catch (error) {}
+          try {
+            window.Userback.open();
+            return true;
+          } catch (error) {}
         }
+        if (window.Userback && typeof window.Userback.openForm === 'function') {
+          try {
+            window.Userback.openForm('general', 'form');
+            return true;
+          } catch (error) {}
+          try {
+            window.Userback.openForm('general');
+            return true;
+          } catch (error) {}
+          try {
+            window.Userback.openForm();
+            return true;
+          } catch (error) {}
+        }
+        return false;
       };
       if (openBtn) {
-        openBtn.addEventListener('click', openWidget);
+        openBtn.addEventListener('click', function() {
+          const opened = openWidget();
+          if (!opened) {
+            setStatus('Widget ready, but could not open. Please try again.');
+          }
+        });
       }
 
       if (!config.token) {
@@ -127,7 +158,10 @@ function buildFeedbackHtml(token: string, identity: UserbackIdentity | null) {
           s.src = 'https://static.userback.io/widget/v1.js';
           s.onload = function() {
             setStatus('Ready');
-            openWidget();
+            const opened = openWidget();
+            if (!opened) {
+              setStatus('Widget loaded. Tap "Open Feedback Widget" to continue.');
+            }
           };
           s.onerror = function() {
             setStatus('Could not load feedback widget. Please try again.');
@@ -146,7 +180,30 @@ export default function FeedbackScreen() {
   const { user } = useAuth();
   const token = (process.env.EXPO_PUBLIC_USERBACK_TOKEN || '').trim();
   const identity = useMemo(() => resolveIdentity(user), [user]);
+  const [useHostedPage, setUseHostedPage] = useState(true);
+  const hostedFeedbackUrl = useMemo(() => {
+    try {
+      const baseUrl = getPublicWebBaseUrl(
+        process.env.EXPO_PUBLIC_WEB_CLIENT_URL || process.env.EXPO_PUBLIC_API_URL || ''
+      );
+      const url = new URL('/feedback-widget', `${baseUrl}/`);
+      if (identity) {
+        url.searchParams.set('id', identity.id);
+        url.searchParams.set('name', identity.info.name);
+        url.searchParams.set('email', identity.info.email);
+      }
+      return url.toString();
+    } catch {
+      return '';
+    }
+  }, [identity]);
   const html = useMemo(() => buildFeedbackHtml(token, identity), [identity, token]);
+  const feedbackSource = useMemo(() => {
+    if (useHostedPage && hostedFeedbackUrl) {
+      return { uri: hostedFeedbackUrl };
+    }
+    return { html };
+  }, [hostedFeedbackUrl, html, useHostedPage]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -160,10 +217,23 @@ export default function FeedbackScreen() {
 
       <WebView
         originWhitelist={['*']}
-        source={{ html }}
+        source={feedbackSource}
         setSupportMultipleWindows={false}
         javaScriptEnabled
         domStorageEnabled
+        javaScriptCanOpenWindowsAutomatically
+        thirdPartyCookiesEnabled
+        sharedCookiesEnabled
+        onError={() => {
+          if (useHostedPage) {
+            setUseHostedPage(false);
+          }
+        }}
+        onHttpError={() => {
+          if (useHostedPage) {
+            setUseHostedPage(false);
+          }
+        }}
         style={styles.webview}
         startInLoadingState
         renderLoading={() => (

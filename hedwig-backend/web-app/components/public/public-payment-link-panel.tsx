@@ -49,6 +49,7 @@ export function PublicPaymentLinkPanel({
 }) {
   const initialChain = useMemo<PublicSettlementChain>(() => {
     if (preferredChain === 'solana' && solanaMerchantAddress && token === 'USDC') return 'solana';
+    if (preferredChain !== 'solana' && evmMerchantAddress) return preferredChain;
     if (evmMerchantAddress) return 'base';
     if (solanaMerchantAddress && token === 'USDC') return 'solana';
     return preferredChain;
