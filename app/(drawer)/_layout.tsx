@@ -9,6 +9,8 @@ import { useTutorial } from '../../hooks/useTutorial';
 import { TUTORIAL_STEPS } from '../../constants/tutorialSteps';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import * as HugeiconsCore from '@hugeicons/core-free-icons';
+import { useAuth } from '../../hooks/useAuth';
+import { openUserbackFeedback } from '../../services/userbackNative';
 
 const resolveHugeIcon = (...names: string[]) => {
     const iconSet = HugeiconsCore as Record<string, any>;
@@ -21,6 +23,7 @@ const resolveHugeIcon = (...names: string[]) => {
 function CustomDrawerContent(props: any) {
     const router = useRouter();
     const themeColors = useThemeColors();
+    const { user } = useAuth();
 
     const mainMenuItems: { name: string; icon: any; route: string }[] = [
         { name: 'Insights', icon: resolveHugeIcon('Analytics01Icon', 'BarChartIcon', 'BarChart'), route: '/insights' },
@@ -42,7 +45,13 @@ function CustomDrawerContent(props: any) {
 
     const handleFeedbackPress = () => {
         props.navigation.closeDrawer();
-        router.push('/feedback' as any);
+        setTimeout(() => {
+            void openUserbackFeedback(user).then((opened) => {
+                if (!opened) {
+                    router.push('/feedback' as any);
+                }
+            });
+        }, 300);
     };
 
     return (
