@@ -7,7 +7,8 @@ export const runtime = 'nodejs';
 const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwigbot.xyz').replace(/\/$/, '');
 
 function googleRedirectUri(provider: string) {
-  return `${WEB_BASE_URL}/api/integrations/callback/${provider === 'google_calendar' ? 'google' : provider}`;
+  // Both Gmail and Google Calendar share the same callback route.
+  return `${WEB_BASE_URL}/api/integrations/callback/google`;
 }
 
 function slackRedirectUri() {

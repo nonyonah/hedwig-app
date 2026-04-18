@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -57,21 +58,21 @@ interface Integration {
   last_synced_at: string | null;
 }
 
-const INTEGRATION_META: Record<IntegrationProvider, { label: string; description: string; icon: string }> = {
+const INTEGRATION_META: Record<IntegrationProvider, { label: string; description: string; iconPath: string }> = {
   gmail: {
     label: 'Gmail',
     description: 'Sync emails to match invoices, contracts, and clients automatically.',
-    icon: 'G',
+    iconPath: '/icons/gmail.svg',
   },
   google_calendar: {
     label: 'Google Calendar',
     description: 'Pull upcoming meetings and match them to your projects.',
-    icon: 'C',
+    iconPath: '/icons/google-calendar.svg',
   },
   slack: {
     label: 'Slack',
     description: 'Receive payment and invoice notifications directly in Slack.',
-    icon: 'S',
+    iconPath: '/icons/slack.svg',
   },
 };
 
@@ -582,8 +583,14 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                 return (
                   <div key={provider} className="flex items-center justify-between gap-4 px-5 py-4">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f2f4f7] text-[13px] font-bold text-[#414651]">
-                        {meta.icon}
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f2f4f7]">
+                        <Image
+                          src={meta.iconPath}
+                          alt={`${meta.label} icon`}
+                          width={18}
+                          height={18}
+                          className="h-[18px] w-[18px]"
+                        />
                       </span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">

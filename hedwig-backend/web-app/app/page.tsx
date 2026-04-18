@@ -41,12 +41,6 @@ function LandingPage() {
             >
               Pricing
             </Link>
-            <Link
-              href="/privacy"
-              className="text-[13px] font-semibold text-[#717680] transition-colors duration-200 hover:text-[#181d27]"
-            >
-              Privacy
-            </Link>
             <a
               href="/api/auth/demo"
               className="inline-flex h-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white px-5 text-[13px] font-semibold text-[#344054] transition-all duration-200 hover:bg-[#f9fafb] hover:border-[#c0c3c9]"
@@ -82,7 +76,7 @@ function LandingPage() {
               className="animate-fade-up text-[52px] font-bold leading-[0.97] tracking-[-0.055em] text-[#181d27] md:text-[68px] lg:text-[80px]"
               style={{ animationDelay: '80ms' }}
             >
-              The operating system<br className="hidden sm:block" /> for freelance work.
+              Your workflow<br className="hidden sm:block" /> has been made easier.
             </h1>
             <p
               className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[#667085]"
@@ -99,7 +93,7 @@ function LandingPage() {
                 href="/sign-in"
                 className="inline-flex h-11 items-center gap-2 rounded-full bg-[#2563eb] px-8 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.22)] transition-all duration-200 hover:bg-[#1d4ed8] hover:shadow-[0_12px_32px_rgba(37,99,235,0.32)]"
               >
-                Start using Hedwig
+                Get started
                 <ArrowRight className="h-4 w-4" weight="bold" />
               </Link>
               <a
