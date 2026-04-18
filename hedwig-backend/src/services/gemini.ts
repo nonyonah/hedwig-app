@@ -1152,8 +1152,9 @@ If certain fields are not mentioned, set them to null or empty array.
    * Falls back to deterministic copy if Gemini is unavailable.
    */
   static async generateReengagementNudge(input: {
-    kind: 'dormant_3day' | 'kyc_24h' | 'feature_highlight';
+    kind: 'dormant_3day' | 'kyc_24h' | 'feature_highlight' | 'invoice_followup' | 'client_reactivation' | 'payment_link_boost' | 'integration_teaser' | 'recurring_setup' | 'project_milestone';
     variant?: string;
+    context?: Record<string, string>;
   }): Promise<{
     pushTitle: string;
     pushBody: string;
@@ -1163,11 +1164,11 @@ If certain fields are not mentioned, set them to null or empty array.
     ctaText: string;
   }> {
     const fallbackDormant = {
-      pushTitle: 'We miss you at Hedwig',
-      pushBody: 'Pick up where you left off and get paid faster.',
-      emailSubject: 'Come back to Hedwig',
-      emailHeading: 'Ready to continue where you paused?',
-      emailBody: 'Open Hedwig to continue your projects, invoices, and withdrawals.',
+      pushTitle: 'Your workspace is waiting',
+      pushBody: 'Invoices, clients, and projects — all right where you left them.',
+      emailSubject: 'Still working? Your Hedwig workspace misses you',
+      emailHeading: 'Pick up where you left off',
+      emailBody: 'Your invoices and clients are ready. Jump back in and keep the momentum going.',
       ctaText: 'Open Hedwig',
     };
 
@@ -1190,54 +1191,125 @@ If certain fields are not mentioned, set them to null or empty array.
     };
 
     const fallbackFeatureHighlightControl = {
-      pushTitle: 'More ways to get paid in Hedwig',
-      pushBody: 'Try recurring invoices, payment links, and faster payout tools in your workspace.',
-      emailSubject: 'Explore more ways to get paid with Hedwig',
-      emailHeading: 'More tools are waiting for you',
-      emailBody: 'Set up recurring invoices, share payment links, and manage payouts from one dashboard.',
+      pushTitle: 'Your next invoice in 60 seconds',
+      pushBody: 'Create, send, and get paid — all from one place. Try it now.',
+      emailSubject: 'One tool. Invoices, clients, recurring payments.',
+      emailHeading: 'Everything you need to get paid',
+      emailBody: 'Send invoices, set up recurring billing, and share payment links — all from Hedwig.',
       ctaText: 'Explore Features',
     };
 
     const fallbackFeatureHighlightActivation = {
-      pushTitle: 'Your next client payment can be faster',
-      pushBody: 'Create a payment link in minutes and track every payout in one place.',
-      emailSubject: 'Speed up your next client payment',
-      emailHeading: 'Get paid faster this week',
-      emailBody: 'Create a payment link, send an invoice, and track settlement without leaving Hedwig.',
+      pushTitle: 'Share a payment link today',
+      pushBody: 'Get paid without the back-and-forth. Create a link and send it.',
+      emailSubject: 'Skip the invoice — share a payment link',
+      emailHeading: 'Get paid with one link',
+      emailBody: 'Create a payment link in minutes and let clients pay on their own time.',
       ctaText: 'Create a Payment Link',
     };
 
-    const fallback =
-      input.kind === 'dormant_3day'
-        ? fallbackDormant
-        : input.kind === 'kyc_24h'
-          ? input.variant === 'value_first'
-            ? fallbackKycValueFirst
-            : fallbackKycControl
-          : input.variant === 'activation'
-            ? fallbackFeatureHighlightActivation
-            : fallbackFeatureHighlightControl;
+    const fallbackInvoiceFollowup = {
+      pushTitle: 'Invoice opened — follow up now',
+      pushBody: 'Your client viewed your invoice. A quick message could close the deal.',
+      emailSubject: 'Your invoice was opened — time to follow up?',
+      emailHeading: 'Client opened your invoice',
+      emailBody: 'They looked. Now nudge them to pay. A short follow-up at this moment has the highest close rate.',
+      ctaText: 'Follow Up',
+    };
+
+    const fallbackClientReactivation = {
+      pushTitle: 'Check in with your clients',
+      pushBody: 'It\'s been a while. A quick message keeps the relationship warm.',
+      emailSubject: 'It\'s been a while since your last invoice',
+      emailHeading: 'Time to re-engage',
+      emailBody: 'You haven\'t invoiced in 30+ days. A check-in message or new project could bring in fresh work.',
+      ctaText: 'View Clients',
+    };
+
+    const fallbackPaymentLinkBoost = {
+      pushTitle: 'Your payment link is waiting',
+      pushBody: 'Share it with your client and get paid without any back-and-forth.',
+      emailSubject: 'Your payment link hasn\'t been shared yet',
+      emailHeading: 'Share your link to get paid',
+      emailBody: 'Your payment link is ready. Share it with your client — no invoice needed, they pay in seconds.',
+      ctaText: 'Share Link',
+    };
+
+    const fallbackIntegrationTeaser = {
+      pushTitle: 'Gmail + Hedwig — coming soon',
+      pushBody: 'Send invoices directly from your Gmail inbox. Stay tuned.',
+      emailSubject: 'Gmail integration is coming to Hedwig',
+      emailHeading: 'Invoicing from Gmail — coming soon',
+      emailBody: 'We\'re building Gmail and Slack integrations so Hedwig fits right into your existing workflow.',
+      ctaText: 'Learn More',
+    };
+
+    const fallbackRecurringSetup = {
+      pushTitle: 'Automate your invoices',
+      pushBody: 'You\'ve sent several invoices. Set up recurring billing — never chase payments again.',
+      emailSubject: 'Stop chasing invoices — automate them',
+      emailHeading: 'Set up recurring invoices',
+      emailBody: 'Your clients pay regularly? Set up recurring billing and let Hedwig handle it automatically.',
+      ctaText: 'Set Up Recurring',
+    };
+
+    const fallbackProjectMilestone = {
+      pushTitle: 'Milestone check-in',
+      pushBody: 'A project milestone is coming up. Review progress and send an update.',
+      emailSubject: 'Upcoming milestone — are you on track?',
+      emailHeading: 'Project milestone approaching',
+      emailBody: 'Your next project milestone is due soon. Review progress and keep your client in the loop.',
+      ctaText: 'View Project',
+    };
+
+    const fallbackMap: Record<string, typeof fallbackDormant> = {
+      dormant_3day: fallbackDormant,
+      kyc_24h: input.variant === 'value_first' ? fallbackKycValueFirst : fallbackKycControl,
+      feature_highlight: input.variant === 'activation' ? fallbackFeatureHighlightActivation : fallbackFeatureHighlightControl,
+      invoice_followup: fallbackInvoiceFollowup,
+      client_reactivation: fallbackClientReactivation,
+      payment_link_boost: fallbackPaymentLinkBoost,
+      integration_teaser: fallbackIntegrationTeaser,
+      recurring_setup: fallbackRecurringSetup,
+      project_milestone: fallbackProjectMilestone,
+    };
+
+    const fallback = fallbackMap[input.kind] || fallbackDormant;
+
+    const kindDescriptions: Record<string, string> = {
+      dormant_3day: 'Re-engage a freelancer who hasn\'t opened the app in 3+ days',
+      kyc_24h: 'Remind user to complete identity verification',
+      feature_highlight: 'Highlight product features (invoices, payment links, recurring billing)',
+      invoice_followup: 'Nudge freelancer to follow up after client viewed but didn\'t pay their invoice',
+      client_reactivation: 'Remind freelancer they haven\'t invoiced a client in 30+ days',
+      payment_link_boost: 'Remind freelancer to share their unviewed payment link',
+      integration_teaser: 'Tease upcoming Gmail or Slack integration',
+      recurring_setup: 'Encourage freelancer with 3+ invoices to set up recurring billing',
+      project_milestone: 'Remind freelancer about upcoming project milestone',
+    };
 
     try {
+      const contextNote = input.context
+        ? `\nContext data: ${JSON.stringify(input.context)}`
+        : '';
+
       const prompt = `
-You are Hedwig's lifecycle copywriter.
+You are Hedwig's lifecycle copywriter. Hedwig is a freelancer fintech app for invoicing, payment links, clients, and projects.
 
-Generate concise, human, creative nudge copy for a freelancer fintech app.
+Generate concise, human, creative nudge copy.
 
-Context:
-- Nudge kind: ${input.kind}
-- Variant: ${input.variant || 'control'}
+Goal: ${kindDescriptions[input.kind] || input.kind}
+Variant: ${input.variant || 'control'}${contextNote}
 
 Rules:
-- Keep push title <= 45 characters.
-- Keep push body <= 110 characters.
-- Keep email subject <= 65 characters.
-- Email heading max 8 words.
-- Email body max 20 words.
-- No hype words, no emojis, no markdown.
-- Be action-oriented and clear.
-- Mention KYC only when nudge kind is kyc_24h.
-- For feature_highlight, focus on product capabilities (invoices, payment links, payouts, recurring invoices).
+- Push title: max 45 characters. Specific, not generic.
+- Push body: max 110 characters. Actionable. Make it feel personal.
+- Email subject: max 65 characters. Curiosity or urgency without clickbait.
+- Email heading: max 8 words. Direct.
+- Email body: max 25 words. Practical and warm.
+- No hype words (amazing, incredible, transform), no emojis, no markdown.
+- Write like a sharp colleague, not a marketer.
+- Never mention KYC unless kind is kyc_24h.
 
 Return ONLY valid JSON with this exact shape:
 {

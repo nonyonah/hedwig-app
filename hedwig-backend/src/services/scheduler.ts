@@ -82,14 +82,45 @@ export const SchedulerService = {
                 .catch((e) => logger.error('feature-nudges lock error', { error: e?.message }));
         });
 
-        cron.schedule('35 * * * *', () => {
-            withLock('paycrest-rate-nudges', hourlyLockTtl, () => this.sendPaycrestRateNudges())
-                .catch((e) => logger.error('paycrest-rate-nudges lock error', { error: e?.message }));
-        });
+        // Payout rate nudges disabled — paycrest rate updates paused
+        // cron.schedule('35 * * * *', () => {
+        //     withLock('paycrest-rate-nudges', hourlyLockTtl, () => this.sendPaycrestRateNudges())
+        //         .catch((e) => logger.error('paycrest-rate-nudges lock error', { error: e?.message }));
+        // });
 
         cron.schedule('45 * * * *', () => {
             withLock('onboarding-nudges', hourlyLockTtl, () => this.sendOnboardingIncompleteNudges())
                 .catch((e) => logger.error('onboarding-nudges lock error', { error: e?.message }));
+        });
+
+        // Invoice viewed but unpaid — hourly follow-up nudge to freelancer
+        cron.schedule('5 * * * *', () => {
+            withLock('viewed-followup-nudges', hourlyLockTtl, () => this.sendViewedDocumentFollowUpNudges())
+                .catch((e) => logger.error('viewed-followup-nudges lock error', { error: e?.message }));
+        });
+
+        // Client reactivation — daily at 11am
+        cron.schedule('0 11 * * *', () => {
+            withLock('client-reactivation-nudges', dailyLockTtl, () => this.sendClientReactivationNudges())
+                .catch((e) => logger.error('client-reactivation-nudges lock error', { error: e?.message }));
+        });
+
+        // Recurring invoice upsell — daily at 2pm
+        cron.schedule('0 14 * * *', () => {
+            withLock('recurring-upsell-nudges', dailyLockTtl, () => this.sendRecurringInvoiceUpsellNudges())
+                .catch((e) => logger.error('recurring-upsell-nudges lock error', { error: e?.message }));
+        });
+
+        // Integration teaser (Gmail/Slack) — every Monday at 3am
+        cron.schedule('0 3 * * 1', () => {
+            withLock('integration-teaser-nudges', 6 * 24 * 60 * 60, () => this.sendIntegrationTeaserNudges())
+                .catch((e) => logger.error('integration-teaser-nudges lock error', { error: e?.message }));
+        });
+
+        // Payment link unshared boost — hourly at :30
+        cron.schedule('30 * * * *', () => {
+            withLock('payment-link-boost-nudges', hourlyLockTtl, () => this.sendPaymentLinkBoostNudges())
+                .catch((e) => logger.error('payment-link-boost-nudges lock error', { error: e?.message }));
         });
     },
 
@@ -825,6 +856,551 @@ export const SchedulerService = {
             });
         } catch (error: any) {
             logger.error('Error in sendOnboardingIncompleteNudges', { error: error?.message });
+        }
+    },
+
+    /**
+     * Nudge freelancers when a client opened their invoice or payment link but hasn't paid yet.
+     * Fires 4–48h after the first view. Tracked via content.follow_up_nudge_sent.
+     */
+    async sendViewedDocumentFollowUpNudges() {
+        try {
+            const now = Date.now();
+            const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+            const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+
+            const { data: docs, error } = await supabase
+                .from('documents')
+                .select('id, user_id, type, title, amount, currency, content')
+                .eq('status', 'VIEWED')
+                .in('type', ['INVOICE', 'PAYMENT_LINK'])
+                .limit(SCHEDULER_MAX_DOCUMENTS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch viewed documents for follow-up nudges', { error: error.message });
+                return;
+            }
+            if (!docs || docs.length === 0) return;
+
+            // Filter: viewed in the 4–48h window, not yet nudged
+            const eligible = (docs as any[]).filter((doc) => {
+                const viewedAt = (doc.content as any)?.viewed_at;
+                if (!viewedAt) return false;
+                const viewedMs = Date.parse(viewedAt);
+                if (!Number.isFinite(viewedMs)) return false;
+                if (viewedMs < now - FORTY_EIGHT_HOURS_MS) return false;
+                if (viewedMs > now - FOUR_HOURS_MS) return false;
+                return !(doc.content as any)?.follow_up_nudge_sent;
+            });
+
+            if (eligible.length === 0) return;
+
+            // Group by user — one nudge per user, lead with first doc
+            const byUser = new Map<string, any>();
+            for (const doc of eligible) {
+                const uid = String(doc.user_id);
+                if (!byUser.has(uid)) byUser.set(uid, doc);
+            }
+
+            const userIds = Array.from(byUser.keys());
+            const { data: users } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name')
+                .in('id', userIds);
+
+            const userMap = new Map(((users as any[]) || []).map((u) => [String(u.id), u]));
+
+            logger.info('Sending viewed-document follow-up nudges', { count: byUser.size });
+
+            for (const [userId, doc] of byUser) {
+                try {
+                    const user = userMap.get(userId);
+                    if (!user) continue;
+
+                    const isInvoice = String(doc.type || '').toUpperCase() === 'INVOICE';
+                    const content = (doc.content as any) || {};
+                    const clientName = content.client_name || content.recipient_name || 'your client';
+                    const amount = doc.amount ? `${doc.amount} ${doc.currency || 'USDC'}` : '';
+                    const firstName = String(user.first_name || '').trim();
+
+                    const title = isInvoice ? 'Invoice opened — follow up now' : 'Payment link opened';
+                    const pushBody = firstName
+                        ? `${firstName}, ${clientName} viewed your ${isInvoice ? 'invoice' : 'payment link'}${amount ? ` for ${amount}` : ''}. A quick follow-up can close the deal.`
+                        : `${clientName} viewed your ${isInvoice ? 'invoice' : 'payment link'}${amount ? ` for ${amount}` : ''}. Follow up while it's fresh.`;
+
+                    await NotificationService.notifyUser(userId, {
+                        title,
+                        body: pushBody,
+                        data: { type: 'invoice_viewed_followup', documentId: doc.id, route: '/(drawer)/(tabs)/payments' },
+                    });
+
+                    if (user.email) {
+                        await EmailService.sendSmartReminder(
+                            user.email,
+                            isInvoice ? 'Your invoice was opened — follow up?' : 'Your payment link was opened',
+                            `<p class="eyebrow">Payment update</p><h1 class="heading">${title}</h1><p class="description">${clientName} ${isInvoice ? 'viewed your invoice' : 'opened your payment link'}${amount ? ` for ${amount}` : ''}. Reach out while you're top of mind to close the deal.</p>`,
+                            isInvoice ? `https://hedwigbot.xyz/invoice/${doc.id}` : `https://hedwigbot.xyz/pay/${doc.id}`,
+                            'Follow Up'
+                        );
+                    }
+
+                    await supabase.from('documents').update({
+                        content: { ...content, follow_up_nudge_sent: new Date().toISOString() },
+                    }).eq('id', doc.id);
+
+                    await supabase.from('notifications').insert({
+                        user_id: userId,
+                        type: 'announcement',
+                        title,
+                        message: pushBody,
+                        metadata: { nudge_type: 'viewed_followup', documentId: doc.id },
+                        is_read: false,
+                    });
+
+                    await BackendAnalytics.capture(String(user.privy_id || userId), 'reengagement_nudge_sent', {
+                        user_id: userId,
+                        nudge_type: 'viewed_followup',
+                        channels: user.email ? ['push', 'email', 'in_app'] : ['push', 'in_app'],
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to send viewed follow-up nudge', { userId, error: err?.message });
+                }
+            }
+        } catch (error: any) {
+            logger.error('Error in sendViewedDocumentFollowUpNudges', { error: error?.message });
+        }
+    },
+
+    /**
+     * Re-engage freelancers who have clients but haven't created a document in 30+ days.
+     * Personalizes with the most recently created client's name.
+     */
+    async sendClientReactivationNudges() {
+        try {
+            const CADENCE_DAYS = 14;
+            const cadenceCutoffMs = Date.now() - (CADENCE_DAYS * DAY_MS);
+            const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS).toISOString();
+
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, last_client_reactivation_nudge_at')
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch users for client reactivation nudges', { error: error.message });
+                return;
+            }
+
+            const candidates = ((users as any[]) || []).filter((user) => {
+                const lastNudgeMs = this.timestampMs(user.last_client_reactivation_nudge_at);
+                return lastNudgeMs === null || lastNudgeMs <= cadenceCutoffMs;
+            });
+
+            if (candidates.length === 0) return;
+
+            const eligible: Array<{ user: any; clientName: string }> = [];
+
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user) => {
+                const { count: clientCount } = await supabase
+                    .from('clients')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id);
+
+                if (!clientCount || clientCount === 0) return;
+
+                const { count: recentDocCount } = await supabase
+                    .from('documents')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .gte('created_at', thirtyDaysAgo);
+
+                if (recentDocCount !== null && recentDocCount > 0) return;
+
+                const { data: client } = await supabase
+                    .from('clients')
+                    .select('name')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                eligible.push({ user, clientName: (client as any)?.name || 'your clients' });
+            });
+
+            if (eligible.length === 0) {
+                logger.debug('No users eligible for client reactivation nudges');
+                return;
+            }
+
+            logger.info('Sending client reactivation nudges', { count: eligible.length });
+
+            for (const { user, clientName } of eligible) {
+                try {
+                    const firstName = String(user.first_name || '').trim();
+                    const copy = await GeminiService.generateReengagementNudge({
+                        kind: 'client_reactivation',
+                        context: { clientName },
+                    });
+
+                    const personalizedBody = firstName
+                        ? `${firstName}, ${copy.pushBody}`
+                        : copy.pushBody;
+
+                    await NotificationService.notifyUser(user.id, {
+                        title: copy.pushTitle,
+                        body: personalizedBody,
+                        data: { type: 'client_reactivation', route: '/(drawer)/clients' },
+                    });
+
+                    if (user.email) {
+                        await EmailService.sendSmartReminder(
+                            user.email,
+                            copy.emailSubject,
+                            `<p class="eyebrow">Client update</p><h1 class="heading">${copy.emailHeading}</h1><p class="description">${copy.emailBody}</p>`,
+                            'https://hedwigbot.xyz/clients',
+                            copy.ctaText || 'View Clients'
+                        );
+                    }
+
+                    await supabase.from('notifications').insert({
+                        user_id: user.id,
+                        type: 'announcement',
+                        title: copy.pushTitle,
+                        message: personalizedBody,
+                        metadata: { nudge_type: 'client_reactivation', clientName },
+                        is_read: false,
+                    });
+
+                    await supabase.from('users')
+                        .update({ last_client_reactivation_nudge_at: new Date().toISOString() })
+                        .eq('id', user.id);
+
+                    await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
+                        user_id: user.id,
+                        nudge_type: 'client_reactivation',
+                        channels: user.email ? ['push', 'email', 'in_app'] : ['push', 'in_app'],
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to send client reactivation nudge', { userId: user.id, error: err?.message });
+                }
+            }
+        } catch (error: any) {
+            logger.error('Error in sendClientReactivationNudges', { error: error?.message });
+        }
+    },
+
+    /**
+     * Encourage freelancers with 3+ invoices and no recurring setup to automate billing.
+     */
+    async sendRecurringInvoiceUpsellNudges() {
+        try {
+            const CADENCE_DAYS = 21;
+            const MIN_INVOICE_COUNT = 3;
+            const cadenceCutoffMs = Date.now() - (CADENCE_DAYS * DAY_MS);
+
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, last_recurring_upsell_nudge_at')
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch users for recurring upsell nudges', { error: error.message });
+                return;
+            }
+
+            const candidates = ((users as any[]) || []).filter((user) => {
+                const lastNudgeMs = this.timestampMs(user.last_recurring_upsell_nudge_at);
+                return lastNudgeMs === null || lastNudgeMs <= cadenceCutoffMs;
+            });
+
+            if (candidates.length === 0) return;
+
+            const eligible: any[] = [];
+
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user) => {
+                const { count: recurringCount } = await supabase
+                    .from('recurring_invoices')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .eq('status', 'active');
+
+                if (recurringCount !== null && recurringCount > 0) return;
+
+                const { count: invoiceCount } = await supabase
+                    .from('documents')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .eq('type', 'INVOICE');
+
+                if (!invoiceCount || invoiceCount < MIN_INVOICE_COUNT) return;
+                eligible.push(user);
+            });
+
+            if (eligible.length === 0) {
+                logger.debug('No users eligible for recurring upsell nudges');
+                return;
+            }
+
+            logger.info('Sending recurring invoice upsell nudges', { count: eligible.length });
+
+            const copy = await GeminiService.generateReengagementNudge({ kind: 'recurring_setup' });
+
+            await processInBatches(eligible, SCHEDULER_CONCURRENCY, async (user) => {
+                try {
+                    const firstName = String(user.first_name || '').trim();
+                    const personalizedBody = firstName ? `${firstName}, ${copy.pushBody}` : copy.pushBody;
+
+                    await NotificationService.notifyUser(user.id, {
+                        title: copy.pushTitle,
+                        body: personalizedBody,
+                        data: { type: 'recurring_upsell', route: '/(drawer)/recurring' },
+                    });
+
+                    if (user.email) {
+                        await EmailService.sendSmartReminder(
+                            user.email,
+                            copy.emailSubject,
+                            `<p class="eyebrow">Pro tip</p><h1 class="heading">${copy.emailHeading}</h1><p class="description">${copy.emailBody}</p>`,
+                            'https://hedwigbot.xyz/recurring',
+                            copy.ctaText || 'Set Up Recurring'
+                        );
+                    }
+
+                    await supabase.from('notifications').insert({
+                        user_id: user.id,
+                        type: 'announcement',
+                        title: copy.pushTitle,
+                        message: personalizedBody,
+                        metadata: { nudge_type: 'recurring_upsell' },
+                        is_read: false,
+                    });
+
+                    await supabase.from('users')
+                        .update({ last_recurring_upsell_nudge_at: new Date().toISOString() })
+                        .eq('id', user.id);
+
+                    await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
+                        user_id: user.id,
+                        nudge_type: 'recurring_upsell',
+                        channels: user.email ? ['push', 'email', 'in_app'] : ['push', 'in_app'],
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to send recurring upsell nudge', { userId: user.id, error: err?.message });
+                }
+            });
+        } catch (error: any) {
+            logger.error('Error in sendRecurringInvoiceUpsellNudges', { error: error?.message });
+        }
+    },
+
+    /**
+     * Weekly teaser for upcoming Gmail and Slack integrations.
+     * Alternates between integrations based on the current week.
+     */
+    async sendIntegrationTeaserNudges() {
+        try {
+            const CADENCE_DAYS = 14;
+            const cadenceCutoffMs = Date.now() - (CADENCE_DAYS * DAY_MS);
+            const activeCutoffMs = Date.now() - (45 * DAY_MS);
+
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, last_integration_teaser_at, last_app_opened_at, last_login')
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch users for integration teaser nudges', { error: error.message });
+                return;
+            }
+
+            const oneSignalLastSeenMap = await this.getOneSignalLastSeenMap();
+
+            const candidates = ((users as any[]) || []).filter((user) => {
+                const effectiveMs = this.timestampMs(this.getEffectiveLastActivityAt(user, oneSignalLastSeenMap));
+                if (effectiveMs === null || effectiveMs < activeCutoffMs) return false;
+                const lastTeaserMs = this.timestampMs(user.last_integration_teaser_at);
+                return lastTeaserMs === null || lastTeaserMs <= cadenceCutoffMs;
+            });
+
+            if (candidates.length === 0) {
+                logger.debug('No users eligible for integration teaser nudges');
+                return;
+            }
+
+            // Alternate between Gmail and Slack by week number
+            const weekNumber = Math.floor(Date.now() / (7 * DAY_MS));
+            const integrations = [
+                {
+                    name: 'Gmail',
+                    context: { integration: 'Gmail', description: 'send invoices directly from Gmail' },
+                },
+                {
+                    name: 'Slack',
+                    context: { integration: 'Slack', description: 'get paid notifications in Slack' },
+                },
+            ];
+            const integration = integrations[weekNumber % integrations.length];
+
+            logger.info('Sending integration teaser nudges', { count: candidates.length, integration: integration.name });
+
+            const copy = await GeminiService.generateReengagementNudge({
+                kind: 'integration_teaser',
+                context: integration.context,
+            });
+
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user) => {
+                try {
+                    const firstName = String(user.first_name || '').trim();
+                    const personalizedBody = firstName ? `${firstName}, ${copy.pushBody}` : copy.pushBody;
+
+                    await NotificationService.notifyUser(user.id, {
+                        title: copy.pushTitle,
+                        body: personalizedBody,
+                        data: { type: 'integration_teaser', integration: integration.name },
+                    });
+
+                    if (user.email) {
+                        await EmailService.sendSmartReminder(
+                            user.email,
+                            copy.emailSubject,
+                            `<p class="eyebrow">Coming soon</p><h1 class="heading">${copy.emailHeading}</h1><p class="description">${copy.emailBody}</p>`,
+                            'https://hedwigbot.xyz',
+                            copy.ctaText || 'Learn More'
+                        );
+                    }
+
+                    await supabase.from('notifications').insert({
+                        user_id: user.id,
+                        type: 'announcement',
+                        title: copy.pushTitle,
+                        message: personalizedBody,
+                        metadata: { nudge_type: 'integration_teaser', integration: integration.name },
+                        is_read: false,
+                    });
+
+                    await supabase.from('users')
+                        .update({ last_integration_teaser_at: new Date().toISOString() })
+                        .eq('id', user.id);
+
+                    await BackendAnalytics.capture(String(user.privy_id || user.id), 'reengagement_nudge_sent', {
+                        user_id: user.id,
+                        nudge_type: 'integration_teaser',
+                        integration: integration.name,
+                        channels: user.email ? ['push', 'email', 'in_app'] : ['push', 'in_app'],
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to send integration teaser nudge', { userId: user.id, error: err?.message });
+                }
+            });
+        } catch (error: any) {
+            logger.error('Error in sendIntegrationTeaserNudges', { error: error?.message });
+        }
+    },
+
+    /**
+     * Nudge freelancers about payment links created 3–7 days ago that haven't been viewed yet.
+     * One nudge per user per unviewed link.
+     */
+    async sendPaymentLinkBoostNudges() {
+        try {
+            const THREE_DAYS_MS = 3 * DAY_MS;
+            const SEVEN_DAYS_MS = 7 * DAY_MS;
+
+            const { data: docs, error } = await supabase
+                .from('documents')
+                .select('id, user_id, title, amount, currency, content, created_at')
+                .eq('type', 'PAYMENT_LINK')
+                .in('status', ['DRAFT', 'SENT'])
+                .gte('created_at', new Date(Date.now() - SEVEN_DAYS_MS).toISOString())
+                .lte('created_at', new Date(Date.now() - THREE_DAYS_MS).toISOString())
+                .limit(SCHEDULER_MAX_DOCUMENTS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch payment links for boost nudges', { error: error.message });
+                return;
+            }
+            if (!docs || docs.length === 0) return;
+
+            // Filter: not yet viewed, not already nudged
+            const eligible = (docs as any[]).filter((doc) => {
+                const content = (doc.content as any) || {};
+                return !content.viewed_at && !content.first_viewed_at && !content.payment_link_boost_nudge_sent;
+            });
+
+            if (eligible.length === 0) return;
+
+            // One nudge per user, lead with first eligible doc
+            const byUser = new Map<string, any>();
+            for (const doc of eligible) {
+                const uid = String(doc.user_id);
+                if (!byUser.has(uid)) byUser.set(uid, doc);
+            }
+
+            const userIds = Array.from(byUser.keys());
+            const { data: users } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name')
+                .in('id', userIds);
+
+            const userMap = new Map(((users as any[]) || []).map((u) => [String(u.id), u]));
+
+            logger.info('Sending payment link boost nudges', { count: byUser.size });
+
+            for (const [userId, doc] of byUser) {
+                try {
+                    const user = userMap.get(userId);
+                    if (!user) continue;
+
+                    const firstName = String(user.first_name || '').trim();
+                    const content = (doc.content as any) || {};
+                    const linkTitle = doc.title || 'Your payment link';
+                    const amount = doc.amount ? `${doc.amount} ${doc.currency || 'USDC'}` : '';
+
+                    const title = 'Your payment link is waiting to be shared';
+                    const pushBody = firstName
+                        ? `${firstName}, share "${linkTitle}"${amount ? ` (${amount})` : ''} to start getting paid.`
+                        : `Share "${linkTitle}"${amount ? ` (${amount})` : ''} with your client to get paid.`;
+
+                    await NotificationService.notifyUser(userId, {
+                        title,
+                        body: pushBody,
+                        data: { type: 'payment_link_boost', documentId: doc.id, route: '/(drawer)/(tabs)/payments' },
+                    });
+
+                    if (user.email) {
+                        await EmailService.sendSmartReminder(
+                            user.email,
+                            `"${linkTitle}" hasn't been shared yet`,
+                            `<p class="eyebrow">Payment link</p><h1 class="heading">Share your link to get paid</h1><p class="description">Your payment link "${linkTitle}"${amount ? ` for ${amount}` : ''} hasn't been opened yet. Share it with your client — they pay in seconds, no invoice needed.</p>`,
+                            `https://hedwigbot.xyz/pay/${doc.id}`,
+                            'Share Link'
+                        );
+                    }
+
+                    await supabase.from('documents').update({
+                        content: { ...content, payment_link_boost_nudge_sent: new Date().toISOString() },
+                    }).eq('id', doc.id);
+
+                    await supabase.from('notifications').insert({
+                        user_id: userId,
+                        type: 'announcement',
+                        title,
+                        message: pushBody,
+                        metadata: { nudge_type: 'payment_link_boost', documentId: doc.id },
+                        is_read: false,
+                    });
+
+                    await BackendAnalytics.capture(String(user.privy_id || userId), 'reengagement_nudge_sent', {
+                        user_id: userId,
+                        nudge_type: 'payment_link_boost',
+                        channels: user.email ? ['push', 'email', 'in_app'] : ['push', 'in_app'],
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to send payment link boost nudge', { userId, error: err?.message });
+                }
+            }
+        } catch (error: any) {
+            logger.error('Error in sendPaymentLinkBoostNudges', { error: error?.message });
         }
     },
 

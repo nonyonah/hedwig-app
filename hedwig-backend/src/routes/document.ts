@@ -940,6 +940,18 @@ router.post('/:id/viewed', async (req: Request, res: Response, next) => {
                 const body = docType === 'INVOICE'
                     ? `${doc.title || 'An invoice'} was opened by a client.`
                     : `${doc.title || 'Your payment link'} was opened by a client.`;
+
+                // Push notification to freelancer
+                await NotificationService.notifyUser(doc.user_id, {
+                    title,
+                    body,
+                    data: {
+                        type: notificationType,
+                        documentId: doc.id,
+                        route: docType === 'INVOICE' ? '/(drawer)/(tabs)/payments' : '/(drawer)/(tabs)/payments',
+                    },
+                }).catch((e: any) => logger.warn('Failed to send viewed push notification', { error: e?.message }));
+
                 await supabase.from('notifications').insert({
                     user_id: doc.user_id,
                     type: notificationType,

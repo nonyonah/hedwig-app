@@ -4,12 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowsClockwise,
   CalendarBlank,
   CaretRight,
-  CheckCircle,
-  Info,
-  Shield,
   SignOut,
   Trash,
   WarningCircle
@@ -29,7 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useTutorial } from '@/components/tutorial/tutorial-provider';
-import { hedwigApi, type BillingStatusSummary, type KycStatusSummary } from '@/lib/api/client';
+import { hedwigApi, type BillingStatusSummary } from '@/lib/api/client';
 import { backendConfig } from '@/lib/auth/config';
 import { isProPlan } from '@/lib/billing/feature-gates';
 import {
@@ -49,21 +45,6 @@ type SettingsClientProps = {
     email: string;
     avatarUrl?: string | null;
   };
-};
-
-type KycStatus = KycStatusSummary['status'];
-
-type KycBadgeConfig = {
-  label: string;
-  variant: 'neutral' | 'warning' | 'success' | 'error';
-};
-
-const KYC_BADGE: Record<KycStatus, KycBadgeConfig> = {
-  approved: { label: 'Verified', variant: 'success' },
-  pending: { label: 'Pending', variant: 'warning' },
-  not_started: { label: 'Unverified', variant: 'neutral' },
-  rejected: { label: 'Unverified', variant: 'error' },
-  retry_required: { label: 'Needs retry', variant: 'error' }
 };
 
 const THEME_OPTIONS: Array<{ value: WebThemePreference; label: string }> = [
@@ -128,12 +109,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
 
-  const [kycStatus, setKycStatus] = useState<KycStatus>('not_started');
-  const [isKycApproved, setIsKycApproved] = useState(false);
-  const [kycOpen, setKycOpen] = useState(false);
-  const [isStartingKyc, setIsStartingKyc] = useState(false);
-  const [isRefreshingKyc, setIsRefreshingKyc] = useState(false);
-
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarSubscribeUrl, setCalendarSubscribeUrl] = useState<string | null>(null);
   const [isFetchingCalendarLink, setIsFetchingCalendarLink] = useState(false);
@@ -146,7 +121,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [isOpeningSubscriptionManagement, setIsOpeningSubscriptionManagement] = useState(false);
 
   const fullName = useMemo(() => `${firstName} ${lastName}`.trim() || email || 'User', [email, firstName, lastName]);
-  const kycBadge = KYC_BADGE[kycStatus];
   const isProUser = isProPlan(billingStatus);
 
   useEffect(() => {
@@ -173,7 +147,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   useEffect(() => {
     if (!accessToken) return;
     void loadUserProfile();
-    void loadKycStatus();
     void loadBillingStatus();
   }, [accessToken]);
 
@@ -187,17 +160,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
       setAvatarUrl(profile.avatarUrl || null);
     } catch {
       // Keep server-provided values if profile fetch fails.
-    }
-  };
-
-  const loadKycStatus = async () => {
-    if (!accessToken) return;
-    try {
-      const status = await hedwigApi.getKycStatus({ accessToken, disableMockFallback: true });
-      setKycStatus(status.status);
-      setIsKycApproved(Boolean(status.isApproved));
-    } catch {
-      // Keep local defaults if status fetch fails.
     }
   };
 
@@ -326,43 +288,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     if (!calendarSubscribeUrl) return;
     const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//i, 'webcal://');
     window.open(webcalUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const startKycFlow = async () => {
-    if (!accessToken) return;
-    setIsStartingKyc(true);
-    try {
-      const response = await hedwigApi.startKyc({ accessToken, disableMockFallback: true });
-      setKycStatus(response.status);
-      setIsKycApproved(response.status === 'approved');
-      if (response.url) {
-        window.open(response.url, '_blank', 'noopener,noreferrer');
-      }
-      toast({
-        type: 'success',
-        title: response.url ? 'Verification window opened' : 'Verification started',
-        message: response.message
-      });
-    } catch (error: any) {
-      toast({ type: 'error', title: 'Could not start verification', message: error?.message || 'Please try again.' });
-    } finally {
-      setIsStartingKyc(false);
-    }
-  };
-
-  const refreshKycStatus = async () => {
-    if (!accessToken) return;
-    setIsRefreshingKyc(true);
-    try {
-      const response = await hedwigApi.checkKycStatus({ accessToken, disableMockFallback: true });
-      setKycStatus(response.status);
-      setIsKycApproved(Boolean(response.isApproved));
-      toast({ type: 'info', title: 'Verification status refreshed' });
-    } catch (error: any) {
-      toast({ type: 'error', title: 'Could not refresh status', message: error?.message || 'Please try again.' });
-    } finally {
-      setIsRefreshingKyc(false);
-    }
   };
 
   const openDeleteDialog = () => {
@@ -529,19 +454,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           </SettingsRow>
         </SettingsSection>
 
-        <SettingsSection title="Security" description="Protect account access and verification status.">
-          <SettingsRow label="Identity Verification" description="Manage your verification session status.">
-            <button
-              type="button"
-              onClick={() => setKycOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] transition hover:bg-[#fafafa]"
-            >
-              <Badge variant={kycBadge.variant}>{kycBadge.label}</Badge>
-              <CaretRight className="h-3.5 w-3.5 text-[#a4a7ae]" />
-            </button>
-          </SettingsRow>
-        </SettingsSection>
-
         <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
           <div className="border-b border-[#f2f4f7] px-5 py-4">
             <h2 className="text-[16px] font-semibold text-[#181d27]">Account</h2>
@@ -610,57 +522,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             <Button variant="secondary" onClick={() => setCalendarOpen(false)}>
               Close
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={kycOpen} onOpenChange={setKycOpen}>
-        <DialogContent className="max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>Identity Verification</DialogTitle>
-            <DialogDescription>Complete KYC to unlock full account functionality.</DialogDescription>
-          </DialogHeader>
-          <DialogBody className="space-y-4">
-            <div className="flex items-start gap-3 rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] p-4">
-              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f5f5f5]">
-                {isKycApproved ? (
-                  <CheckCircle className="h-4 w-4 text-[#717680]" weight="fill" />
-                ) : kycStatus === 'pending' ? (
-                  <Info className="h-4 w-4 text-[#717680]" weight="regular" />
-                ) : (
-                  <WarningCircle className="h-4 w-4 text-[#717680]" weight="regular" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="inline-flex items-center gap-2">
-                  <p className="text-[14px] font-semibold text-[#181d27]">Status</p>
-                  <Badge variant={kycBadge.variant}>{kycBadge.label}</Badge>
-                </div>
-                <p className="mt-1 text-[13px] leading-5 text-[#717680]">
-                  {isKycApproved
-                    ? 'Your identity is verified.'
-                    : kycStatus === 'pending'
-                      ? 'Your verification is under review.'
-                      : 'Start verification to access full payouts and account features.'}
-                </p>
-              </div>
-            </div>
-          </DialogBody>
-          <DialogFooter className="justify-between">
-            <Button variant="secondary" onClick={refreshKycStatus} disabled={isRefreshingKyc}>
-              <ArrowsClockwise className="h-4 w-4" weight="bold" />
-              {isRefreshingKyc ? 'Refreshing…' : 'Refresh status'}
-            </Button>
-            {!isKycApproved ? (
-              <Button onClick={startKycFlow} disabled={isStartingKyc}>
-                <Shield className="h-4 w-4" weight="bold" />
-                {isStartingKyc ? 'Opening…' : kycStatus === 'pending' ? 'Continue verification' : 'Start verification'}
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={() => setKycOpen(false)}>
-                Close
-              </Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
