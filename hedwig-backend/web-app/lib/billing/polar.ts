@@ -10,7 +10,7 @@ export const resolvePolarServer = (): PolarServer => (
 );
 
 export const resolvePolarCheckoutSuccessUrl = (): string => (
-  normalize(process.env.POLAR_CHECKOUT_SUCCESS_URL) || `${appBaseUrl()}/pricing`
+  normalize(process.env.POLAR_CHECKOUT_SUCCESS_URL) || `${appBaseUrl()}/pricing/success`
 );
 
 export const resolvePolarCheckoutReturnUrl = (): string => (

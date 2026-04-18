@@ -57,6 +57,8 @@ export async function GET(req: NextRequest): Promise<Response> {
   const customerEmail = req.nextUrl.searchParams.get('customerEmail')?.trim() || undefined;
   const customerName = req.nextUrl.searchParams.get('customerName')?.trim() || undefined;
   const metadata = parseJsonParam(req.nextUrl.searchParams.get('metadata'));
+  const discountId = req.nextUrl.searchParams.get('discountId')?.trim() || undefined;
+  const trialDays = parseInt(req.nextUrl.searchParams.get('trialDays') || '0', 10);
 
   // Build body with snake_case as required by the Polar REST API
   const body: Record<string, unknown> = {
@@ -68,6 +70,8 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (customerEmail) body.customer_email = customerEmail;
   if (customerName) body.customer_name = customerName;
   if (metadata) body.metadata = metadata;
+  if (discountId) body.discount_id = discountId;
+  if (trialDays > 0) body.subscription_trial_period_days = trialDays;
 
   try {
     const response = await fetch(`${polarBaseUrl()}/v1/checkouts/`, {

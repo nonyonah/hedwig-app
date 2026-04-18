@@ -19,10 +19,21 @@ type RevenueCatEvent = {
     [key: string]: unknown;
 };
 
-const REVENUECAT_ACTIVE_EVENTS = new Set(['INITIAL_PURCHASE', 'RENEWAL']);
-const REVENUECAT_INACTIVE_EVENTS = new Set(['CANCELLATION', 'EXPIRATION']);
-const POLAR_ACTIVE_EVENTS = new Set(['subscription.created', 'subscription.updated']);
-const POLAR_INACTIVE_EVENTS = new Set(['subscription.deleted', 'subscription.canceled', 'subscription.revoked']);
+const REVENUECAT_ACTIVE_EVENTS = new Set(['INITIAL_PURCHASE', 'RENEWAL', 'TRIAL_STARTED', 'TRIAL_CONVERTED']);
+const REVENUECAT_INACTIVE_EVENTS = new Set(['CANCELLATION', 'EXPIRATION', 'TRIAL_CANCELLED']);
+const POLAR_ACTIVE_EVENTS = new Set([
+    'subscription.created',
+    'subscription.updated',
+    'subscription.active',
+    'order.paid',
+    'checkout.updated',
+]);
+const POLAR_INACTIVE_EVENTS = new Set([
+    'subscription.deleted',
+    'subscription.canceled',
+    'subscription.cancelled',
+    'subscription.revoked',
+]);
 
 const normalizeString = (value: unknown): string | null => {
     if (typeof value !== 'string') return null;
@@ -246,13 +257,15 @@ const lookupUserByEmail = async (email: string): Promise<string | null> => {
 
 const resolveUserFromPolarPayload = async (payload: unknown): Promise<string | null> => {
     const customerIdCandidates = collectPathStrings(payload, [
-        'data.customer_id',
-        'data.customer.id',
         'data.customer.external_id',
         'data.customer.external_customer_id',
-        'data.customer.external_reference',
+        'data.customer_external_id',
+        'data.external_customer_id',
         'data.customer.metadata.user_id',
         'data.metadata.user_id',
+        'data.customer_id',
+        'data.customer.id',
+        'data.customer.external_reference',
         'customer_id',
         'customer.id',
     ]);
@@ -345,18 +358,21 @@ const resolvePolarSubscriptionStatus = (payload: unknown, eventType: string): Su
     if (POLAR_INACTIVE_EVENTS.has(eventType)) return 'inactive';
     if (!POLAR_ACTIVE_EVENTS.has(eventType)) return null;
 
-    if (eventType === 'subscription.updated') {
-        const status = normalizeString(getPathValue(payload, 'data.status'))
-            || normalizeString(getPathValue(payload, 'data.subscription.status'));
+    const dataStatus = (normalizeString(getPathValue(payload, 'data.status'))
+        || normalizeString(getPathValue(payload, 'data.subscription.status'))
+        || '').toLowerCase();
 
-        if (status) {
-            const normalized = status.toLowerCase();
-            if (['canceled', 'cancelled', 'revoked', 'inactive', 'deleted', 'expired'].includes(normalized)) {
-                return 'inactive';
-            }
-        }
+    if (eventType === 'checkout.updated') {
+        if (['succeeded', 'confirmed'].includes(dataStatus)) return 'active';
+        if (['expired', 'failed'].includes(dataStatus)) return 'inactive';
+        return null; // open/pending — ignore
     }
 
+    if (['canceled', 'cancelled', 'revoked', 'inactive', 'deleted', 'expired'].includes(dataStatus)) {
+        return 'inactive';
+    }
+
+    // 'trialing' still grants access
     return 'active';
 };
 
@@ -370,6 +386,9 @@ const resolvePolarExpiry = (payload: unknown): string | null => {
         getPathValue(payload, 'data.period_end'),
         getPathValue(payload, 'data.subscription.current_period_end'),
         getPathValue(payload, 'data.subscription.current_period_end_at'),
+        getPathValue(payload, 'data.subscription.ends_at'),
+        getPathValue(payload, 'data.subscription.expires_at'),
+        getPathValue(payload, 'data.order.billing_period_end'),
     ];
 
     for (const candidate of candidates) {

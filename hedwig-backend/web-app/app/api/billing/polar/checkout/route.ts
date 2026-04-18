@@ -6,6 +6,9 @@ const normalizeInterval = (value: string | null): BillingInterval => (
   value?.toLowerCase() === 'monthly' ? 'monthly' : 'annual'
 );
 
+const discountIdAnnual = String(process.env.POLAR_DISCOUNT_ID_ANNUAL || '').trim();
+const trialDays = parseInt(String(process.env.POLAR_TRIAL_DAYS || '0'), 10);
+
 export async function GET(req: NextRequest): Promise<Response> {
   const session = await getCurrentSession();
 
@@ -47,6 +50,13 @@ export async function GET(req: NextRequest): Promise<Response> {
       userId: session.user.id,
     })
   );
+
+  if (interval === 'annual' && discountIdAnnual) {
+    redirectUrl.searchParams.set('discountId', discountIdAnnual);
+  }
+  if (trialDays > 0) {
+    redirectUrl.searchParams.set('trialDays', String(trialDays));
+  }
 
   return NextResponse.redirect(redirectUrl);
 }
