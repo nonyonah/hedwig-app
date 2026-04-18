@@ -31,7 +31,26 @@ export function SuccessPageClient({
 
   const isPro = isProPlan(billing);
 
-  // Poll billing status until Pro is confirmed (webhook may lag)
+  // On mount: immediately sync via Polar API so we don't wait for webhook
+  useEffect(() => {
+    if (isPro || !accessToken || !checkoutId) return;
+
+    const syncNow = async () => {
+      try {
+        await fetch('/api/billing/polar/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ checkoutId }),
+        });
+      } catch {
+        // non-fatal — polling will catch it
+      }
+    };
+
+    void syncNow();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll billing status until Pro is confirmed
   useEffect(() => {
     if (isPro || !accessToken || !checkoutId) return;
 
@@ -47,6 +66,8 @@ export function SuccessPageClient({
       }
     };
 
+    // First poll immediately, then every 3s
+    void poll();
     intervalRef.current = setInterval(poll, 3000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);

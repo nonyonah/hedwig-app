@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from '../middleware/auth';
 import { createLogger } from '../utils/logger';
 import { getOrCreateUser } from '../utils/userHelper';
+import { supabase } from '../lib/supabase';
 import {
     getRevenueCatStateForUser,
     REVENUECAT_PRIMARY_ENTITLEMENT,
@@ -250,6 +251,73 @@ router.post('/checkout-link', authenticate, async (req: Request, res: Response, 
             error: error instanceof Error ? error.message : 'Unknown',
         });
         next(error);
+    }
+});
+
+// Called by Next.js /api/billing/polar/sync after a successful checkout redirect.
+// Directly writes subscription_status so we don't depend solely on webhook timing.
+router.post('/polar-sync', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { externalCustomerId, customerEmail, status, expiry, subscriptionId } = req.body as {
+            externalCustomerId?: string | null;
+            customerEmail?: string | null;
+            status: 'active' | 'inactive';
+            expiry?: string | null;
+            subscriptionId?: string | null;
+        };
+
+        const privyId = req.user!.id;
+
+        // Resolve user — prefer the calling user (most reliable), fall back to payload lookup
+        let userId: string | null = null;
+
+        const callerUser = await getOrCreateUser(privyId);
+        if (callerUser) {
+            userId = String(callerUser.id);
+        }
+
+        // Also try external_customer_id / email if different user (admin scenario)
+        if (!userId && externalCustomerId) {
+            const { data } = await supabase
+                .from('users')
+                .select('id')
+                .or(`id.eq.${externalCustomerId},privy_id.eq.${externalCustomerId}`)
+                .maybeSingle();
+            if (data?.id) userId = String(data.id);
+        }
+
+        if (!userId && customerEmail) {
+            const { data } = await supabase
+                .from('users')
+                .select('id')
+                .ilike('email', customerEmail)
+                .maybeSingle();
+            if (data?.id) userId = String(data.id);
+        }
+
+        if (!userId) {
+            res.status(404).json({ success: false, error: 'Could not resolve user for subscription sync.' });
+            return;
+        }
+
+        const { error } = await supabase
+            .from('users')
+            .update({
+                subscription_status:   status,
+                subscription_provider: 'polar',
+                subscription_expiry:   expiry ?? null,
+                updated_at:            new Date().toISOString(),
+            })
+            .eq('id', userId);
+
+        if (error) throw new Error(error.message);
+
+        logger.info('Polar subscription synced via checkout', { userId, status, subscriptionId });
+
+        res.json({ success: true, data: { synced: true, userId, status } });
+    } catch (err) {
+        logger.error('polar-sync failed', { error: err instanceof Error ? err.message : err });
+        next(err);
     }
 });
 
