@@ -7,10 +7,10 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { AnimatedListItem } from '../../../components/AnimatedListItem';
 import { useNavigation } from 'expo-router';
-import { DrawerActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../../utils/gradientUtils';
 import { joinApiUrl } from '../../../utils/apiBaseUrl';
+import { openRootDrawer } from '../../../utils/openRootDrawer';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import * as HugeiconsCore from '@hugeicons/core-free-icons';
 import UniversalCreationBox from '../../../components/UniversalCreationBox';
@@ -462,7 +462,7 @@ export default function HomeDashboard() {
         <SafeAreaView collapsable={false} edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
             <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                 <View style={styles.headerLeft}>
-                    <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+                    <TouchableOpacity onPress={() => openRootDrawer(navigation as any)}>
                         {profileIcon?.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.avatar} />
                         ) : (

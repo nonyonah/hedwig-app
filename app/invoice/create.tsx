@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-    ActionSheetIOS,
     ActivityIndicator,
     Alert,
-    FlatList,
     Image,
     KeyboardAvoidingView,
-    Modal,
     Platform,
     ScrollView,
     StyleSheet,
@@ -16,6 +13,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { Host, Menu, Button as SwiftButton, RNHostView } from '@expo/ui/swift-ui';
+import { DropdownMenu, DropdownMenuItem } from '@expo/ui/jetpack-compose';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -68,10 +67,10 @@ export default function CreateInvoiceScreen() {
     const [selectedClient,  setSelectedClient]  = useState<Client | null>(null);
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
-    // ── Android-only modal state ──
-    const [showClientModal,  setShowClientModal]  = useState(false);
-    const [showProjectModal, setShowProjectModal] = useState(false);
-    const [showFreqModal,    setShowFreqModal]    = useState(false);
+    // ── Dropdown open state (Android) ──
+    const [clientDropdownOpen,  setClientDropdownOpen]  = useState(false);
+    const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+    const [freqDropdownOpen,    setFreqDropdownOpen]    = useState(false);
 
     // ── Form ──
     const [clientName,     setClientName]     = useState(params.clientName     || '');
@@ -125,23 +124,11 @@ export default function CreateInvoiceScreen() {
     }, [selectedClient?.id]);
 
     // ── Client selection ──
-    const openClientPicker = () => {
-        if (clients.length === 0) return;
-        if (Platform.OS === 'ios') {
-            ActionSheetIOS.showActionSheetWithOptions(
-                { title: 'Select client', options: ['Cancel', ...clients.map(c => c.name)], cancelButtonIndex: 0 },
-                idx => { if (idx > 0) applyClient(clients[idx - 1]); }
-            );
-        } else {
-            setShowClientModal(true);
-        }
-    };
-
     const applyClient = (c: Client) => {
         setSelectedClient(c);
         setClientName(c.name);
         setRecipientEmail(c.email || '');
-        setShowClientModal(false);
+        setClientDropdownOpen(false);
     };
 
     const clearClient = () => {
@@ -152,33 +139,9 @@ export default function CreateInvoiceScreen() {
     };
 
     // ── Project selection ──
-    const openProjectPicker = () => {
-        if (projects.length === 0) return;
-        if (Platform.OS === 'ios') {
-            ActionSheetIOS.showActionSheetWithOptions(
-                { title: selectedClient ? `Projects for ${selectedClient.name}` : 'Select project', options: ['Cancel', ...projects.map(p => p.name)], cancelButtonIndex: 0 },
-                idx => { if (idx > 0) applyProject(projects[idx - 1]); }
-            );
-        } else {
-            setShowProjectModal(true);
-        }
-    };
-
     const applyProject = (p: Project) => {
         setSelectedProject(p);
-        setShowProjectModal(false);
-    };
-
-    // ── Frequency selection ──
-    const openFreqPicker = () => {
-        if (Platform.OS === 'ios') {
-            ActionSheetIOS.showActionSheetWithOptions(
-                { title: 'Frequency', options: ['Cancel', ...FREQUENCIES.map(f => f.label)], cancelButtonIndex: 0 },
-                idx => { if (idx > 0) setFrequency(FREQUENCIES[idx - 1].value); }
-            );
-        } else {
-            setShowFreqModal(true);
-        }
+        setProjectDropdownOpen(false);
     };
 
     // ── Line items ──
@@ -304,17 +267,49 @@ export default function CreateInvoiceScreen() {
                         </View>
                     ) : (
                         <>
-                            {/* ── Picker trigger — always visible ── */}
-                            <TouchableOpacity
-                                style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface, opacity: clients.length > 0 ? 1 : 0.45 }]}
-                                onPress={clients.length > 0 ? openClientPicker : undefined}
-                                activeOpacity={clients.length > 0 ? 0.7 : 1}
-                            >
-                                <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>
-                                    {clients.length > 0 ? 'Select existing client' : 'No saved clients'}
-                                </Text>
-                                <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
-                            </TouchableOpacity>
+                            {/* ── Picker trigger — native pull-down ── */}
+                            {clients.length > 0 ? (
+                                Platform.OS === 'ios' ? (
+                                    <Host style={{ alignSelf: 'stretch' }}>
+                                        <Menu label={
+                                            <RNHostView matchContents>
+                                                <View style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}>
+                                                    <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>Select existing client</Text>
+                                                    <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                                                </View>
+                                            </RNHostView>
+                                        }>
+                                            {clients.map(c => (
+                                                <SwiftButton key={c.id} label={c.name} onPress={() => applyClient(c)} />
+                                            ))}
+                                        </Menu>
+                                    </Host>
+                                ) : (
+                                    <DropdownMenu expanded={clientDropdownOpen} onDismissRequest={() => setClientDropdownOpen(false)}>
+                                        <DropdownMenu.Trigger>
+                                            <TouchableOpacity
+                                                style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}
+                                                onPress={() => setClientDropdownOpen(true)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>Select existing client</Text>
+                                                <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                                            </TouchableOpacity>
+                                        </DropdownMenu.Trigger>
+                                        <DropdownMenu.Items>
+                                            {clients.map(c => (
+                                                <DropdownMenuItem key={c.id} onClick={() => applyClient(c)}>
+                                                    <DropdownMenuItem.Text>{c.name}</DropdownMenuItem.Text>
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenu.Items>
+                                    </DropdownMenu>
+                                )
+                            ) : (
+                                <View style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface, opacity: 0.45 }]}>
+                                    <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>No saved clients</Text>
+                                </View>
+                            )}
                             {/* ── Manual name ── */}
                             <View style={[s.card, { backgroundColor: themeColors.surface }]}>
                                 <TextInput
@@ -408,14 +403,42 @@ export default function CreateInvoiceScreen() {
                     {isRecurring && (
                         <>
                             <Text style={[s.sectionLabel, { color: themeColors.textSecondary }]}>Frequency</Text>
-                            <TouchableOpacity
-                                style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}
-                                onPress={openFreqPicker}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={[s.input, s.flex, { color: themeColors.textPrimary }]}>{freqLabel}</Text>
-                                <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
-                            </TouchableOpacity>
+                            {Platform.OS === 'ios' ? (
+                                <Host style={{ alignSelf: 'stretch' }}>
+                                    <Menu label={
+                                        <RNHostView matchContents>
+                                            <View style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}>
+                                                <Text style={[s.input, s.flex, { color: themeColors.textPrimary }]}>{freqLabel}</Text>
+                                                <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                                            </View>
+                                        </RNHostView>
+                                    }>
+                                        {FREQUENCIES.map(f => (
+                                            <SwiftButton key={f.value} label={f.label} onPress={() => setFrequency(f.value)} />
+                                        ))}
+                                    </Menu>
+                                </Host>
+                            ) : (
+                                <DropdownMenu expanded={freqDropdownOpen} onDismissRequest={() => setFreqDropdownOpen(false)}>
+                                    <DropdownMenu.Trigger>
+                                        <TouchableOpacity
+                                            style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}
+                                            onPress={() => setFreqDropdownOpen(true)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={[s.input, s.flex, { color: themeColors.textPrimary }]}>{freqLabel}</Text>
+                                            <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                                        </TouchableOpacity>
+                                    </DropdownMenu.Trigger>
+                                    <DropdownMenu.Items>
+                                        {FREQUENCIES.map(f => (
+                                            <DropdownMenuItem key={f.value} onClick={() => { setFrequency(f.value); setFreqDropdownOpen(false); }}>
+                                                <DropdownMenuItem.Text>{f.label}</DropdownMenuItem.Text>
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenu.Items>
+                                </DropdownMenu>
+                            )}
 
                             <View style={[s.toggleRow, { backgroundColor: themeColors.surface }]}>
                                 <View style={s.flex}>
@@ -443,19 +466,49 @@ export default function CreateInvoiceScreen() {
                                 <X size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
                             </TouchableOpacity>
                         </View>
+                    ) : projects.length > 0 ? (
+                        Platform.OS === 'ios' ? (
+                            <Host style={{ alignSelf: 'stretch' }}>
+                                <Menu label={
+                                    <RNHostView matchContents>
+                                        <View style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}>
+                                            <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>Select project (optional)</Text>
+                                            <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                                        </View>
+                                    </RNHostView>
+                                }>
+                                    {projects.map(p => (
+                                        <SwiftButton key={p.id} label={p.name} onPress={() => applyProject(p)} />
+                                    ))}
+                                </Menu>
+                            </Host>
+                        ) : (
+                            <DropdownMenu expanded={projectDropdownOpen} onDismissRequest={() => setProjectDropdownOpen(false)}>
+                                <DropdownMenu.Trigger>
+                                    <TouchableOpacity
+                                        style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}
+                                        onPress={() => setProjectDropdownOpen(true)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>Select project (optional)</Text>
+                                        <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                                    </TouchableOpacity>
+                                </DropdownMenu.Trigger>
+                                <DropdownMenu.Items>
+                                    {projects.map(p => (
+                                        <DropdownMenuItem key={p.id} onClick={() => applyProject(p)}>
+                                            <DropdownMenuItem.Text>{p.name}</DropdownMenuItem.Text>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenu.Items>
+                            </DropdownMenu>
+                        )
                     ) : (
-                        <TouchableOpacity
-                            style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}
-                            onPress={projects.length > 0 ? openProjectPicker : undefined}
-                            activeOpacity={projects.length > 0 ? 0.7 : 1}
-                        >
+                        <View style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface, opacity: 0.45 }]}>
                             <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>
-                                {projects.length > 0
-                                    ? 'Select project (optional)'
-                                    : selectedClient ? 'No projects for this client' : 'Select a client to see projects'}
+                                {selectedClient ? 'No projects for this client' : 'Select a client to see projects'}
                             </Text>
-                            {projects.length > 0 && <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />}
-                        </TouchableOpacity>
+                        </View>
                     )}
 
                     {/* ─── 6. Payment reminders ─── */}
@@ -530,134 +583,29 @@ export default function CreateInvoiceScreen() {
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* ─── iOS date picker — spinner in slide-up modal ─── */}
+            {/* ─── iOS date picker — inline calendar, no modal ─── */}
             {showDatePicker && Platform.OS === 'ios' && (
-                <Modal transparent animationType="slide" visible onRequestClose={() => setShowDatePicker(false)}>
-                    <View style={s.dateModalOverlay}>
-                        <View style={[s.dateModalSheet, { backgroundColor: themeColors.surface }]}>
-                            <View style={[s.dateModalHeader, { borderBottomColor: themeColors.border }]}>
-                                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                                    <Text style={[s.dateModalDone, { color: themeColors.primary }]}>Done</Text>
-                                </TouchableOpacity>
-                            </View>
-                            <DateTimePicker
-                                value={(isRecurring ? startDate : dueDate) ?? new Date()}
-                                mode="date"
-                                display="spinner"
-                                minimumDate={new Date()}
-                                textColor={themeColors.textPrimary}
-                                onChange={(_, selected) => {
-                                    if (selected) isRecurring ? setStartDate(selected) : setDueDate(selected);
-                                }}
-                                style={{ height: 200, width: '100%' }}
-                            />
-                        </View>
-                    </View>
-                </Modal>
+                <DateTimePicker
+                    value={(isRecurring ? startDate : dueDate) ?? new Date()}
+                    mode="date"
+                    display="inline"
+                    minimumDate={new Date()}
+                    accentColor={themeColors.primary}
+                    textColor={themeColors.textPrimary}
+                    onChange={(_, selected) => {
+                        if (selected) {
+                            isRecurring ? setStartDate(selected) : setDueDate(selected);
+                            setShowDatePicker(false);
+                        }
+                    }}
+                    style={{ backgroundColor: themeColors.surface, borderRadius: 16 }}
+                />
             )}
 
-            {/* ─── Android-only modals ─── */}
-            {Platform.OS !== 'ios' && (
-                <>
-                    <SheetModal
-                        visible={showClientModal}
-                        title="Select client"
-                        onClose={() => setShowClientModal(false)}
-                        bg={themeColors.background}
-                        textPrimary={themeColors.textPrimary}
-                        textSecondary={themeColors.textSecondary}
-                    >
-                        {clients.map(c => (
-                            <TouchableOpacity
-                                key={c.id}
-                                style={[s.modalItem, { backgroundColor: themeColors.surface }]}
-                                onPress={() => applyClient(c)}
-                                activeOpacity={0.7}
-                            >
-                                <View style={[s.avatar, { backgroundColor: themeColors.primary + '18' }]}>
-                                    <Text style={[s.avatarText, { color: themeColors.primary }]}>{c.name.charAt(0).toUpperCase()}</Text>
-                                </View>
-                                <View style={s.flex}>
-                                    <Text style={[s.clientName, { color: themeColors.textPrimary }]}>{c.name}</Text>
-                                    {c.email ? <Text style={[s.clientEmail, { color: themeColors.textSecondary }]}>{c.email}</Text> : null}
-                                </View>
-                            </TouchableOpacity>
-                        ))}
-                    </SheetModal>
-
-                    <SheetModal
-                        visible={showProjectModal}
-                        title="Select project"
-                        onClose={() => setShowProjectModal(false)}
-                        bg={themeColors.background}
-                        textPrimary={themeColors.textPrimary}
-                        textSecondary={themeColors.textSecondary}
-                    >
-                        {projects.map(p => (
-                            <TouchableOpacity
-                                key={p.id}
-                                style={[s.modalItem, { backgroundColor: themeColors.surface }]}
-                                onPress={() => applyProject(p)}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={[s.clientName, s.flex, { color: themeColors.textPrimary }]}>{p.name}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </SheetModal>
-
-                    <SheetModal
-                        visible={showFreqModal}
-                        title="Frequency"
-                        onClose={() => setShowFreqModal(false)}
-                        bg={themeColors.background}
-                        textPrimary={themeColors.textPrimary}
-                        textSecondary={themeColors.textSecondary}
-                    >
-                        {FREQUENCIES.map(f => (
-                            <TouchableOpacity
-                                key={f.value}
-                                style={[s.modalItem, { backgroundColor: f.value === frequency ? themeColors.primary + '12' : themeColors.surface }]}
-                                onPress={() => { setFrequency(f.value); setShowFreqModal(false); }}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={[s.clientName, { color: f.value === frequency ? themeColors.primary : themeColors.textPrimary }]}>
-                                    {f.label}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </SheetModal>
-                </>
-            )}
         </SafeAreaView>
     );
 }
 
-/* ─── Lightweight Android modal sheet ─── */
-function SheetModal({
-    visible, title, onClose, children, bg, textPrimary, textSecondary,
-}: {
-    visible: boolean; title: string; onClose: () => void; children: React.ReactNode;
-    bg: string; textPrimary: string; textSecondary: string;
-}) {
-    return (
-        <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-            <SafeAreaView style={{ flex: 1, backgroundColor: bg }}>
-                <View style={s.modalHeader}>
-                    <Text style={[s.modalTitle, { color: textPrimary }]}>{title}</Text>
-                    <TouchableOpacity onPress={onClose}>
-                        <X size={20} color={textSecondary} strokeWidth={2.5} />
-                    </TouchableOpacity>
-                </View>
-                <FlatList
-                    data={[children]}
-                    keyExtractor={(_, i) => String(i)}
-                    contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32, gap: 8 }}
-                    renderItem={({ item }) => <>{item}</>}
-                />
-            </SafeAreaView>
-        </Modal>
-    );
-}
 
 const s = StyleSheet.create({
     container:   { flex: 1 },
@@ -714,13 +662,6 @@ const s = StyleSheet.create({
 
     notesInput:         { minHeight: 80, paddingVertical: 14 },
     cta:                { marginTop: 8, borderRadius: 100 },
-    dateModalOverlay:  { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-    dateModalSheet:    { width: '100%', paddingBottom: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-    dateModalHeader:   { flexDirection: 'row', justifyContent: 'flex-end', padding: 16, borderBottomWidth: 1 },
-    dateModalDone:     { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 },
 
     // Android modal
-    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
-    modalTitle:  { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 },
-    modalItem:   { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14 },
 });

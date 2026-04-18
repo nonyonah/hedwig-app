@@ -193,7 +193,13 @@
       "Bash(NODE_OPTIONS=\"--max-old-space-size=8192\" eas update --channel production --message \"feat: add Arbitrum, Polygon, Celo, Lisk chains with USDC/USDT; remove haptics; fix email notes; global USD account\" --environment production)",
       "Bash(grep -E \"\\\\.tsx$\")",
       "Bash(grep -n \"recurring\\\\|frequency\\\\|autoSend\\\\|remindersEnabled\\\\|reminderEnabled\" /Users/macintoshhd/Work/hedwig-app/hedwig-backend/src/routes/*.ts)",
-      "Bash(grep -n \"api/projects\" /Users/macintoshhd/Work/hedwig-app/hedwig-backend/src/routes/*.ts)"
+      "Bash(grep -n \"api/projects\" /Users/macintoshhd/Work/hedwig-app/hedwig-backend/src/routes/*.ts)",
+      "Bash(node -e \"const icons = require\\('/Users/macintoshhd/Work/hedwig-app/node_modules/@hugeicons/core-free-icons'\\); const matches = Object.keys\\(icons\\).filter\\(k => /globe|internet|web|earth|world|browser/i.test\\(k\\)\\); console.log\\(matches.join\\('\\\\n'\\)\\);\")",
+      "Bash(node -e \"const icons = require\\('/Users/macintoshhd/Work/hedwig-app/node_modules/@hugeicons/core-free-icons'\\); const matches = Object.keys\\(icons\\).filter\\(k => /Globe|Earth|World|Browser|Web|Link|External/i.test\\(k\\)\\); console.log\\(matches.slice\\(0,20\\).join\\('\\\\n'\\)\\);\")",
+      "Bash(node -e \"const icons = require\\('/Users/macintoshhd/Work/hedwig-app/node_modules/@hugeicons/core-free-icons'\\); console.log\\(Object.keys\\(icons\\).filter\\(k => /link|share|open|extern/i.test\\(k\\)\\).join\\('\\\\n'\\)\\);\")",
+      "Bash(node -e \"const icons = require\\('/Users/macintoshhd/Work/hedwig-app/node_modules/@hugeicons/core-free-icons'\\); const keys = Object.keys\\(icons\\); console.log\\('total:', keys.length\\); console.log\\(keys.slice\\(0,30\\).join\\('\\\\n'\\)\\);\")",
+      "Bash(node -e \"const icons = require\\('/Users/macintoshhd/Work/hedwig-app/node_modules/@hugeicons/core-free-icons/dist/cjs/index.js'\\); const keys = Object.keys\\(icons\\); console.log\\('total:', keys.length\\); console.log\\(keys.filter\\(k => /link|share|extern|open|arrow.*up.*right|launch/i.test\\(k\\)\\).join\\('\\\\n'\\)\\);\")",
+      "WebFetch(domain:docs.blockradar.co)"
     ],
     "deny": [],
     "ask": []

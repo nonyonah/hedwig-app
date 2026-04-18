@@ -141,62 +141,6 @@ export interface BillingCheckoutConfigSummary {
   };
 }
 
-export interface GatewayChainConfigSummary {
-  key: string;
-  label: string;
-  domain: number;
-  chainId: number;
-  chainIdHex: string;
-  rpcUrl: string;
-  blockExplorerUrl: string;
-  nativeCurrency: {
-    name: string;
-    symbol: string;
-    decimals: number;
-  };
-  gatewayWalletAddress: string;
-  gatewayMinterAddress: string;
-  usdcAddress: string;
-}
-
-export interface GatewayConfigSummary {
-  network: 'testnet' | 'mainnet';
-  apiBaseUrl: string;
-  celoSupported: boolean;
-  supportedChains: GatewayChainConfigSummary[];
-  eip712: {
-    domain: { name: string; version: string };
-    types: Record<string, Array<{ name: string; type: string }>>;
-  };
-}
-
-export interface GatewayBalanceSummary {
-  domain: number;
-  depositor: string;
-  balance: string;
-}
-
-export interface GatewayBalancesResponseSummary {
-  depositorAddress: string;
-  chainKeys: string[];
-  token: string;
-  balances: GatewayBalanceSummary[];
-  unifiedBalance: string;
-}
-
-export interface GatewayPrepareTransferSummary {
-  depositorAddress: string;
-  destinationRecipient: string;
-  sourceChain: GatewayChainConfigSummary;
-  destinationChain: GatewayChainConfigSummary;
-  burnIntent: Record<string, any>;
-  typedData: Record<string, any>;
-}
-
-export interface GatewayAttestationSummary {
-  attestation: string;
-  signature: string;
-}
 
 export interface CreateClientInput {
   name: string;
@@ -1487,52 +1431,6 @@ export const hedwigApi = {
       }),
       options
     );
-  },
-
-  async gatewayConfig(options?: ApiOptions): Promise<GatewayConfigSummary> {
-    return request<GatewayConfigSummary>('/api/gateway/config', options);
-  },
-
-  async gatewayBalances(
-    input: { depositorAddress?: string; chainKeys?: string[] },
-    options?: ApiOptions
-  ): Promise<GatewayBalancesResponseSummary> {
-    return request<GatewayBalancesResponseSummary>('/api/gateway/balances', options, {
-      method: 'POST',
-      body: JSON.stringify({
-        depositorAddress: input.depositorAddress,
-        chainKeys: input.chainKeys,
-      })
-    });
-  },
-
-  async gatewayPrepareEvmTransfer(
-    input: {
-      sourceChainKey: string;
-      destinationChainKey: string;
-      amountUsdc: string;
-      destinationRecipient?: string;
-      depositorAddress?: string;
-      maxFeeMicrousdc?: string;
-    },
-    options?: ApiOptions
-  ): Promise<GatewayPrepareTransferSummary> {
-    return request<GatewayPrepareTransferSummary>('/api/gateway/transfer/prepare-evm', options, {
-      method: 'POST',
-      body: JSON.stringify(input)
-    });
-  },
-
-  async gatewayRequestAttestation(
-    input: {
-      requests: Array<{ burnIntent: Record<string, any>; signature: string }>;
-    },
-    options?: ApiOptions
-  ): Promise<GatewayAttestationSummary> {
-    return request<GatewayAttestationSummary>('/api/gateway/transfer/attestation', options, {
-      method: 'POST',
-      body: JSON.stringify(input)
-    });
   },
 
   async accounts(options?: ApiOptions): Promise<{ usdAccount: UsdAccount; accountTransactions: AccountTransaction[] }> {

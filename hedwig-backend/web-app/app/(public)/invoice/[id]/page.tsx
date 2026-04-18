@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { CalendarBlank, Repeat, User } from '@/components/ui/lucide-icons';
 import { PublicDocumentFrame } from '@/components/public/public-document-frame';
+import { PrintTrigger } from '@/components/public/print-trigger';
 import { PublicResultCard } from '@/components/public/public-result-card';
 import { PublicInvoiceRightPanel } from '@/components/public/public-invoice-right-panel';
 import { DocumentViewTracker } from '@/components/public/document-view-tracker';
@@ -33,11 +34,15 @@ const STATUS_STYLE: Record<string, { bg: string; dot: string; text: string; labe
 };
 
 export default async function PublicInvoicePage({
-  params
+  params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ print?: string }>;
 }) {
   const { id } = await params;
+  const query = await searchParams;
+  const shouldPrint = query.print === '1';
   const document = await fetchPublicDocument(id);
 
   if (!document || String(document.type).toUpperCase() !== 'INVOICE') {
@@ -85,6 +90,7 @@ export default async function PublicInvoicePage({
 
   return (
     <PublicDocumentFrame title="Invoice">
+      <PrintTrigger enabled={shouldPrint} />
       <DocumentViewTracker documentId={document.id} />
       <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
 

@@ -1,9 +1,8 @@
 import { Drawer } from 'expo-router/drawer';
 import { usePathname, useRouter } from 'expo-router';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { useThemeColors } from '../../theme/colors';
 import { useEffect, useRef } from 'react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { TutorialCard } from '../../components/TutorialCard';
 import { useTutorial } from '../../hooks/useTutorial';
 import { TUTORIAL_STEPS } from '../../constants/tutorialSteps';
@@ -173,12 +172,14 @@ export default function DrawerLayout() {
     const themeColors = useThemeColors();
 
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
             <GlobalTutorial />
             <Drawer
                 drawerContent={(props) => <CustomDrawerContent {...props} />}
                 screenOptions={{
                     headerShown: false,
+                    swipeEnabled: true,
+                    swipeEdgeWidth: Platform.OS === 'android' ? 40 : undefined,
                     drawerStyle: {
                         backgroundColor: themeColors.background,
                         width: 300,
@@ -193,7 +194,7 @@ export default function DrawerLayout() {
                     }}
                 />
             </Drawer>
-        </GestureHandlerRootView>
+        </View>
     );
 }
 

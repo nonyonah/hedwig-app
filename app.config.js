@@ -3,6 +3,11 @@ const appJson = require('./app.json');
 module.exports = ({ config }) => {
   const baseConfig = config ?? appJson.expo ?? {};
   const existingExtra = baseConfig.extra ?? {};
+  const runtimeVersion =
+    process.env.EXPO_RUNTIME_VERSION ||
+    process.env.RUNTIME_VERSION ||
+    baseConfig.version ||
+    '1.0.0';
   const oneSignalAppId =
     process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID ||
     process.env.ONESIGNAL_APP_ID ||
@@ -21,6 +26,8 @@ module.exports = ({ config }) => {
 
   return {
     ...baseConfig,
+    // Bare workflow does not support runtimeVersion policy objects.
+    runtimeVersion,
     extra: {
       ...existingExtra,
       oneSignalAppId,

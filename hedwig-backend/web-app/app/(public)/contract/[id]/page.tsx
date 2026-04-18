@@ -1,6 +1,7 @@
 import { CalendarBlank, CheckCircle, Signature, User } from '@/components/ui/lucide-icons';
 import { notFound } from 'next/navigation';
 import { PublicDocumentFrame } from '@/components/public/public-document-frame';
+import { PrintTrigger } from '@/components/public/print-trigger';
 import { fetchPublicDocument } from '@/lib/api/public-documents';
 import { ApproveContractButton } from './approve-button';
 
@@ -27,10 +28,11 @@ export default async function PublicContractPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ approved?: string; token?: string }>;
+  searchParams: Promise<{ approved?: string; token?: string; print?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
+  const shouldPrint = query.print === '1';
   const document = await fetchPublicDocument(id);
 
   if (!document || String(document.type).toUpperCase() !== 'CONTRACT') {
@@ -48,6 +50,7 @@ export default async function PublicContractPage({
 
   return (
     <PublicDocumentFrame title="Contract">
+      <PrintTrigger enabled={shouldPrint} />
       <div className="mx-auto max-w-3xl space-y-4">
 
         {/* Success banner */}

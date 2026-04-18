@@ -10,6 +10,7 @@ import {
   CheckCircle,
   CopySimple,
   CurrencyDollar,
+  DownloadSimple,
   Envelope,
   FileText,
   LinkSimple,
@@ -728,6 +729,11 @@ function InvoicePanel({
             </Link>
           </Button>
         </div>
+        <Button variant="secondary" className="w-full" asChild>
+          <Link href={`${publicUrl}?print=1`} target="_blank" rel="noreferrer">
+            <DownloadSimple className="h-4 w-4" /> Download PDF
+          </Link>
+        </Button>
         {invoice.status !== 'paid' && (
           <div className="grid grid-cols-2 gap-2">
             <Button variant="secondary" onClick={onReminder} disabled={isLoading}>
@@ -793,6 +799,11 @@ function PaymentLinkPanel({
             </Link>
           </Button>
         </div>
+        <Button variant="secondary" className="w-full" asChild>
+          <Link href={`${publicUrl}?print=1`} target="_blank" rel="noreferrer">
+            <DownloadSimple className="h-4 w-4" /> Download PDF
+          </Link>
+        </Button>
         {link.status === 'active' && (
           <div className="grid grid-cols-2 gap-2">
             <Button variant="secondary" onClick={onReminder} disabled={isLoading}>

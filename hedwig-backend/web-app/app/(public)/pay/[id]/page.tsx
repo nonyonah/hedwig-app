@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { PublicDocumentFrame } from '@/components/public/public-document-frame';
+import { PrintTrigger } from '@/components/public/print-trigger';
 import { PublicPaymentLinkPanel } from '@/components/public/public-payment-link-panel';
 import { PublicResultCard } from '@/components/public/public-result-card';
 import { DocumentViewTracker } from '@/components/public/document-view-tracker';
@@ -27,11 +28,15 @@ function formatCurrency(amount: number, currency = 'USD') {
 }
 
 export default async function PublicPaymentLinkPage({
-  params
+  params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ print?: string }>;
 }) {
   const { id } = await params;
+  const query = await searchParams;
+  const shouldPrint = query.print === '1';
   const document = await fetchPublicDocument(id);
 
   if (!document || String(document.type).toUpperCase() !== 'PAYMENT_LINK') {
@@ -71,6 +76,7 @@ export default async function PublicPaymentLinkPage({
 
   return (
     <PublicDocumentFrame title="Payment link">
+      <PrintTrigger enabled={shouldPrint} />
       <DocumentViewTracker documentId={document.id} />
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
 

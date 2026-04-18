@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, SectionList, Dimensions, FlatList, LayoutAnimation, Platform, UIManager, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, SectionList, Dimensions, FlatList, Animated, Platform, UIManager, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -53,6 +53,10 @@ interface Section {
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
+
+// Calendar heights for animation
+const STRIP_HEIGHT = 124;  // collapsed: monthLabel (~36) + strip row (~72) + paddingBottom (8) + margin (8)
+const GRID_HEIGHT  = 340;  // expanded: monthLabel + day headers + 6 rows × 40 + drag handle + padding
 
 const toLocalDateKey = (input: Date | string) => {
     const d = new Date(input);
@@ -131,6 +135,7 @@ export default function CalendarScreen() {
 
     const flatListRef = useRef<FlatList<Date>>(null);
     const sectionListRef = useRef<SectionList<CalendarEvent, Section>>(null);
+    const calendarHeight = useRef(new Animated.Value(STRIP_HEIGHT)).current;
 
     useFocusEffect(
         useCallback(() => {
@@ -286,11 +291,16 @@ export default function CalendarScreen() {
     };
 
     const toggleExpanded = () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setExpanded(!expanded);
-        if (!expanded) {
-            setViewDate(new Date(selectedDate));
-        }
+        const toValue = expanded ? STRIP_HEIGHT : GRID_HEIGHT;
+        if (!expanded) setViewDate(new Date(selectedDate));
+        setExpanded(prev => !prev);
+        Animated.spring(calendarHeight, {
+            toValue,
+            useNativeDriver: false,
+            damping: 18,
+            stiffness: 180,
+            mass: 0.8,
+        }).start();
     };
 
     const handleMarkAsPaid = async (event: CalendarEvent) => {
@@ -500,17 +510,16 @@ export default function CalendarScreen() {
                         <IOSGlassIconButton
                             onPress={() => router.back()}
                             systemImage="chevron.left"
-                            containerStyle={styles.backButton}
+                            containerStyle={styles.headerButton}
                             circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
-                            icon={<CaretLeft size={24} color={themeColors.textPrimary} strokeWidth={3} />}
+                            icon={<CaretLeft size={26} color={themeColors.textPrimary} strokeWidth={3.5} />}
                         />
-
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
                         <View style={styles.headerSpacer} />
                     </View>
                 </View>
 
-                <View style={[styles.calendarContainer, { borderColor: themeColors.border }]}>
+                <Animated.View style={[styles.calendarContainer, { height: calendarHeight, borderColor: themeColors.border }]}>
                     <TouchableOpacity
                         style={styles.monthLabel}
                         activeOpacity={0.7}
@@ -538,7 +547,13 @@ export default function CalendarScreen() {
                                 ))}
                             </View>
                             <View style={styles.gridContainer}>
-                                {monthGridDates.map((d, i) => renderGridItem(d, i))}
+                                {Array.from({ length: 6 }, (_, row) => (
+                                    <View key={row} style={styles.gridRow}>
+                                        {monthGridDates.slice(row * 7, row * 7 + 7).map((d, col) =>
+                                            renderGridItem(d, row * 7 + col)
+                                        )}
+                                    </View>
+                                ))}
                             </View>
                             <View style={styles.dragHandleContainer}>
                                 <View style={[styles.dragHandle, { backgroundColor: themeColors.border }]} />
@@ -560,7 +575,7 @@ export default function CalendarScreen() {
                             initialScrollIndex={getInitialScrollIndex()}
                         />
                     )}
-                </View>
+                </Animated.View>
 
                 {isLoading ? (
                     <View style={styles.loadingContainer}>
@@ -674,46 +689,40 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    header: {
-        marginBottom: 8,
-    },
+    header: {},
     headerTop: {
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
         paddingHorizontal: 16,
         paddingVertical: 12,
         height: 60,
-        position: 'relative',
     },
-    backButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        position: 'absolute',
-        left: 16,
-        zIndex: 2,
+    headerButton: {
+        width: 44,
+        height: 44,
+        alignItems: 'flex-start',
     },
     backButtonCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
-        // No border
     },
     headerTitle: {
-        ...Typography.h4,
         fontFamily: 'GoogleSansFlex_700Bold',
-        fontSize: 17,
+        fontSize: Platform.OS === 'android' ? 18 : 20,
+        color: Colors.textPrimary,
         textAlign: 'center',
+        flex: 1,
     },
     headerSpacer: {
-        width: 40,
+        width: 44,
     },
     calendarContainer: {
         borderBottomWidth: StyleSheet.hairlineWidth,
         paddingBottom: 8,
-        overflow: 'hidden', // Add overflow hidden for animation clipping
+        overflow: 'hidden',
     },
     monthLabel: {
         flexDirection: 'row',
@@ -753,23 +762,26 @@ const styles = StyleSheet.create({
     },
     gridHeaderRow: {
         flexDirection: 'row',
-        marginBottom: 12,
-        justifyContent: 'space-between',
-        // Should use full width items now
+        width: SCREEN_WIDTH,
+        marginBottom: 8,
     },
     gridHeaderCheck: {
-        width: SCREEN_WIDTH / 7, // Changed from (SCREEN_WIDTH - 32) / 7
+        flex: 1,
         textAlign: 'center',
         fontSize: 11,
         textTransform: 'uppercase',
     },
     gridContainer: {
+        flexDirection: 'column',
+        width: SCREEN_WIDTH,
+    },
+    gridRow: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
+        width: SCREEN_WIDTH,
     },
     gridItem: {
-        width: SCREEN_WIDTH / 7, // Changed from (SCREEN_WIDTH - 32) / 7
-        height: 44,
+        flex: 1,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
     },

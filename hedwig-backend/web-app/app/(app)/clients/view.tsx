@@ -17,7 +17,33 @@ const CLIENT_STATUS = {
   inactive: { dot: 'bg-[#a4a7ae]', label: 'Inactive', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
 } as const;
 
-const STATUS_FILTERS = ['all', 'active', 'at_risk', 'inactive'] as const;
+type ClientSegment = 'new' | 'active' | 'recurring' | 'inactive';
+
+function getClientSegment(client: Client): ClientSegment {
+  if (client.totalBilledUsd === 0) return 'new';
+  if (client.status === 'active' && client.outstandingUsd > 0) return 'recurring';
+  if (client.status === 'active') return 'active';
+  return 'inactive';
+}
+
+const SEGMENT_META: Record<ClientSegment, { label: string; sub: string }> = {
+  new:       { label: 'New',       sub: 'never invoiced' },
+  active:    { label: 'Active',    sub: 'no outstanding' },
+  recurring: { label: 'Recurring', sub: 'outstanding work' },
+  inactive:  { label: 'Inactive',  sub: 'no recent activity' },
+};
+
+const ALL_FILTERS = ['all', 'new', 'active', 'recurring', 'inactive', 'at_risk'] as const;
+type FilterKey = typeof ALL_FILTERS[number];
+
+const FILTER_LABELS: Record<FilterKey, string> = {
+  all:       'All',
+  new:       'New',
+  active:    'Active',
+  recurring: 'Recurring',
+  inactive:  'Inactive',
+  at_risk:   'At risk',
+};
 
 export function ClientsClient({
   initialClients,
@@ -30,16 +56,31 @@ export function ClientsClient({
   const { toast } = useToast();
 
   const [clients, setClients] = useState(initialClients);
-  const [filter, setFilter] = useState<string>('all');
+  const [filter, setFilter] = useState<FilterKey>('all');
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const segmentCounts = useMemo(() => {
+    const counts = { new: 0, active: 0, recurring: 0, inactive: 0 };
+    for (const c of clients) counts[getClientSegment(c)]++;
+    return counts;
+  }, [clients]);
+
+  const segmentRevenue = useMemo(() => {
+    const totals = { new: 0, active: 0, recurring: 0, inactive: 0 };
+    for (const c of clients) totals[getClientSegment(c)] += c.totalBilledUsd;
+    return totals;
+  }, [clients]);
+
   const totalOutstanding = useMemo(() => clients.reduce((s, c) => s + c.outstandingUsd, 0), [clients]);
 
-  const filtered = useMemo(
-    () => (filter === 'all' ? clients : clients.filter((c) => c.status === filter)),
-    [clients, filter]
-  );
+  const filtered = useMemo(() => {
+    if (filter === 'all') return clients;
+    if (filter === 'new' || filter === 'active' || filter === 'recurring' || filter === 'inactive') {
+      return clients.filter((c) => getClientSegment(c) === filter);
+    }
+    return clients.filter((c) => c.status === filter);
+  }, [clients, filter]);
 
   const handleDelete = async () => {
     if (!clientToDelete || !accessToken) return;
@@ -57,11 +98,36 @@ export function ClientsClient({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
         <h1 className="text-[15px] font-semibold text-[#181d27]">Clients</h1>
         <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Manage your client relationships and track outstanding work.</p>
       </div>
+
+      {/* Segment cards */}
+      <div className="grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
+        {(['new', 'active', 'recurring', 'inactive'] as ClientSegment[]).map((seg) => {
+          const meta = SEGMENT_META[seg];
+          const isSelected = filter === seg;
+          return (
+            <button
+              key={seg}
+              type="button"
+              onClick={() => setFilter(filter === seg ? 'all' : seg)}
+              className={`px-5 py-4 text-left transition-colors ${isSelected ? 'bg-[#f8fbff]' : 'bg-white hover:bg-[#fafafa]'}`}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">{meta.label}</p>
+              <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{segmentCounts[seg]}</p>
+              <p className="mt-0.5 text-[11px] text-[#a4a7ae]">{meta.sub}</p>
+              {segmentRevenue[seg] > 0 && (
+                <p className="mt-1 text-[11px] text-[#717680]">{formatCompactCurrency(segmentRevenue[seg], currency)} billed</p>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Table */}
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
         {/* Unified header */}
         <div className="flex items-center gap-3 border-b border-[#f2f4f7] px-5 py-3">
@@ -76,8 +142,8 @@ export function ClientsClient({
               </>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {STATUS_FILTERS.map((s) => (
+          <div className="flex shrink-0 items-center gap-1 flex-wrap justify-end">
+            {ALL_FILTERS.map((s) => (
               <button
                 key={s}
                 type="button"
@@ -88,7 +154,7 @@ export function ClientsClient({
                     : 'text-[#8d9096] hover:bg-[#f9fafb] hover:text-[#414651]'
                 }`}
               >
-                {s === 'all' ? 'All' : s === 'at_risk' ? 'At risk' : CLIENT_STATUS[s as keyof typeof CLIENT_STATUS]?.label ?? s}
+                {FILTER_LABELS[s]}
               </button>
             ))}
             <div className="mx-1 h-4 w-px bg-[#f2f4f7]" />
@@ -103,8 +169,9 @@ export function ClientsClient({
         </div>
 
         {/* Column headers */}
-        <div className="grid grid-cols-[1fr_110px_120px_120px_90px_44px] gap-3 border-b border-[#f2f4f7] px-5 py-2">
+        <div className="grid grid-cols-[1fr_120px_110px_120px_120px_90px_44px] gap-3 border-b border-[#f2f4f7] px-5 py-2">
           <ColHead>Client</ColHead>
+          <ColHead>Segment</ColHead>
           <ColHead>Status</ColHead>
           <ColHead right>Outstanding</ColHead>
           <ColHead right>Lifetime billed</ColHead>
@@ -119,10 +186,12 @@ export function ClientsClient({
           <div className="divide-y divide-[#f9fafb]">
             {filtered.map((client) => {
               const s = CLIENT_STATUS[client.status] ?? CLIENT_STATUS.inactive;
+              const seg = getClientSegment(client);
+              const segMeta = SEGMENT_META[seg];
               return (
                 <div
                   key={client.id}
-                  className="group grid grid-cols-[1fr_110px_120px_120px_90px_44px] items-center gap-3 px-5 py-3 transition-colors hover:bg-[#fafafa]"
+                  className="group grid grid-cols-[1fr_120px_110px_120px_120px_90px_44px] items-center gap-3 px-5 py-3 transition-colors hover:bg-[#fafafa]"
                 >
                   <Link href={`/clients/${client.id}`} className="flex min-w-0 items-center gap-2.5">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f5f5f5] text-[11px] font-bold text-[#8d9096]">
@@ -137,6 +206,9 @@ export function ClientsClient({
                       )}
                     </div>
                   </Link>
+                  <span className="inline-flex w-fit items-center rounded-full bg-[#f2f4f7] px-2 py-0.5 text-[11px] font-semibold text-[#717680]">
+                    {segMeta.label}
+                  </span>
                   <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.bg} ${s.text}`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
                     {s.label}

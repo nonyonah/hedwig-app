@@ -5,7 +5,6 @@ import { BlurView } from 'expo-blur';
 import { TrueSheet } from '@hedwig/true-sheet';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams, useNavigation, useFocusEffect } from 'expo-router';
-import { DrawerActions } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 let Menu: any = null;
 let ExpoButton: any = null;
@@ -36,6 +35,7 @@ import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
+import { openRootDrawer } from '../../utils/openRootDrawer';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
     List as ListIcon,
@@ -806,7 +806,7 @@ export default function PaymentLinksScreen() {
                     <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                         <View style={styles.headerTop}>
                             <View style={styles.headerLeft}>
-                                <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+                                <TouchableOpacity onPress={() => openRootDrawer(navigation as any)}>
                                     {profileIcon.imageUri ? (
                                         <Image source={{ uri: profileIcon.imageUri }} style={styles.profileIcon} />
                                     ) : (

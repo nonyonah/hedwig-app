@@ -4,12 +4,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { ArrowsLeftRight, ArrowSquareOut, Bank, Coins, SpinnerGap, Wallet } from '@/components/ui/lucide-icons';
+import { ArrowsLeftRight, ArrowSquareOut, ArrowDown, Bank, SpinnerGap, Wallet } from '@/components/ui/lucide-icons';
 import { useToast } from '@/components/providers/toast-provider';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { ChangeSettlementDialog } from '@/components/wallet/change-settlement-dialog';
 import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
-import { GatewayUnifiedBalanceCard } from '@/components/wallet/gateway-unified-balance-card';
 import { hedwigApi } from '@/lib/api/client';
 import type { AccountTransaction, UsdAccount, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
@@ -98,6 +97,9 @@ export function WalletView({
   const allAssets = useMemo(() => mergeSupportedAssets(walletAssets), [walletAssets]);
   const assetsByChain = useMemo(() => groupAssetsByChain(allAssets), [allAssets]);
   const totalCrypto = allAssets.reduce((sum, asset) => sum + asset.valueUsd, 0);
+  const totalReceived = walletTransactions
+    .filter((tx) => tx.kind === 'receive' || tx.kind === 'settlement')
+    .reduce((sum, tx) => sum + tx.amount, 0);
   const recentWalletTx = walletTransactions.slice(0, 6);
   const recentUsdTx = usdAccountsEnabled ? accountTransactions.slice(0, 6) : [];
 
@@ -352,8 +354,8 @@ export function WalletView({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[15px] font-semibold text-[#181d27]">Wallet</h1>
-          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Your crypto balances and transaction activity in one place.</p>
+          <h1 className="text-[15px] font-semibold text-[#181d27]">Revenue</h1>
+          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Your USDC earnings, settlements, and account balances.</p>
         </div>
         <div className="shrink-0 pt-1">
           <ShareWalletDialog
@@ -367,10 +369,10 @@ export function WalletView({
         <div className="bg-white px-5 py-4">
           <div className="mb-2 flex items-center gap-2">
             <Wallet className="h-4 w-4 text-[#717680]" weight="bold" />
-            <span className="text-[12px] font-medium text-[#717680]">Crypto portfolio</span>
+            <span className="text-[12px] font-medium text-[#717680]">Balance</span>
           </div>
           <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCurrency(totalCrypto)}</p>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">Base + Solana</p>
+          <p className="mt-1 text-[11px] text-[#a4a7ae]">USDC across all chains</p>
         </div>
         {usdAccountsEnabled ? (
           <div className="bg-white px-5 py-4">
@@ -384,11 +386,11 @@ export function WalletView({
         ) : null}
         <div className="bg-white px-5 py-4">
           <div className="mb-2 flex items-center gap-2">
-            <Coins className="h-4 w-4 text-[#717680]" weight="bold" />
-            <span className="text-[12px] font-medium text-[#717680]">Assets tracked</span>
+            <ArrowDown className="h-4 w-4 text-[#717680]" weight="regular" />
+            <span className="text-[12px] font-medium text-[#717680]">Total received</span>
           </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{allAssets.length}</p>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">USDC across supported chains</p>
+          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCurrency(totalReceived)}</p>
+          <p className="mt-1 text-[11px] text-[#a4a7ae]">Payments & settlements</p>
         </div>
         {usdAccountsEnabled ? (
           <div className="bg-white px-5 py-4">
@@ -406,8 +408,6 @@ export function WalletView({
       </div>
 
       <WalletAssetsTable assetsByChain={assetsByChain} totalCrypto={totalCrypto} />
-
-      <GatewayUnifiedBalanceCard accessToken={serverAccessToken} />
 
       <div className={usdAccountsEnabled ? 'grid gap-5 xl:grid-cols-[400px_1fr]' : ''}>
         {usdAccountsEnabled ? (
@@ -475,7 +475,7 @@ export function WalletView({
           <div className="border-b border-[#e9eaeb] px-5 py-4">
             <p className="text-[15px] font-semibold text-[#181d27]">Recent activity</p>
             <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
-              {usdAccountsEnabled ? 'Wallet transactions and USD transfers' : 'Wallet transactions'}
+              {usdAccountsEnabled ? 'Incoming payments, settlements, and USD transfers' : 'Incoming payments and on-chain settlements'}
             </p>
           </div>
 

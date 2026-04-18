@@ -8,6 +8,7 @@ import {
   ArrowDownRight,
   CheckCircle,
   CurrencyDollar,
+  DownloadSimple,
   FolderSimple,
   LinkSimple,
   Minus,
@@ -17,6 +18,7 @@ import {
   ArrowsClockwise,
   Warning,
 } from '@/components/ui/lucide-icons';
+import { ExportDialog } from '@/components/export/export-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -238,6 +240,7 @@ export function InsightsClient({
   const [monthlyTarget, setMonthlyTarget] = useState(initialTarget);
   const [showTargetDialog, setShowTargetDialog] = useState(false);
   const [isSavingTarget, setIsSavingTarget] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const [taxYear, setTaxYear] = useState<number>(new Date().getUTCFullYear());
   const [taxSummary, setTaxSummary] = useState<TaxSummaryData | null>(null);
   const [taxLoading, setTaxLoading] = useState(false);
@@ -331,10 +334,17 @@ export function InsightsClient({
           <h1 className="text-[15px] font-semibold text-[#181d27]">Insights</h1>
           <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Operational metrics and trends from your account activity.</p>
         </div>
-        <Button variant="secondary" onClick={() => fetchData(range)} disabled={loading} className="shrink-0 mt-0.5">
-          <ArrowsClockwise className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} weight="bold" />
-          Refresh
-        </Button>
+        <div className="flex shrink-0 items-center gap-2 mt-0.5">
+          <Button variant="secondary" onClick={() => setShowExportDialog(true)}>
+            <DownloadSimple className="h-4 w-4" weight="bold" />
+            Export
+          </Button>
+          <Button variant="secondary" onClick={() => fetchData(range)} disabled={loading}>
+            <ArrowsClockwise className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} weight="bold" />
+            Refresh
+          </Button>
+        </div>
+        <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
       </div>
 
       {/* Range filter + timestamp */}

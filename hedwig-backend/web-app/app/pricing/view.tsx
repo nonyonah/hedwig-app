@@ -236,19 +236,20 @@ export function PricingPageClient({
   };
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-[#fafafa]">
+      {/* Nav */}
       <nav className="sticky top-0 z-40 border-b border-[#eef0f3] bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/hedwig-logo.png" alt="Hedwig" width={32} height={32} priority />
+            <Image src="/hedwig-logo.png" alt="Hedwig" width={28} height={28} priority />
             <span className="text-[14px] font-semibold text-[#181d27]">Hedwig</span>
           </Link>
           <div className="flex items-center gap-5">
-            <Link href="/" className="text-[13px] font-medium text-[#717680] hover:text-[#181d27]">Overview</Link>
-            <span className="text-[13px] font-semibold text-[#181d27]">Pricing</span>
+            <Link href="/" className="text-[13px] text-[#717680] hover:text-[#181d27] transition-colors">Overview</Link>
+            <span className="text-[13px] font-medium text-[#181d27]">Pricing</span>
             <Link
               href={accessToken ? '/dashboard' : '/sign-in'}
-              className="inline-flex h-9 items-center rounded-full border border-[#d5d7da] px-4 text-[13px] font-semibold text-[#344054] hover:bg-[#fafafa]"
+              className="inline-flex h-8 items-center rounded-full border border-[#d5d7da] px-3.5 text-[13px] font-medium text-[#344054] hover:bg-[#f9fafb] transition-colors"
             >
               {accessToken ? 'Open app' : 'Sign in'}
             </Link>
@@ -256,133 +257,147 @@ export function PricingPageClient({
         </div>
       </nav>
 
-      <section className="mx-auto max-w-[1200px] px-6 pb-10 pt-14">
-        <div className="mx-auto max-w-[780px] text-center">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#a4a7ae]">Pricing</p>
-          <h1 className="mt-3 text-[44px] font-bold tracking-[-0.04em] text-[#181d27]">
-            Straightforward pricing for independent teams.
+      {/* Hero */}
+      <section className="bg-white border-b border-[#f1f2f4]">
+        <div className="mx-auto max-w-[1100px] px-6 py-16 text-center">
+          <h1 className="text-[40px] font-bold tracking-[-0.04em] text-[#181d27]">
+            Simple pricing. No surprises.
           </h1>
-          <p className="mt-4 text-[15px] leading-7 text-[#667085]">
-            Start for free. Upgrade to Pro when you need automation, deeper reporting, and assistant workflows.
+          <p className="mt-3 text-[15px] text-[#667085] max-w-[480px] mx-auto leading-relaxed">
+            Start free. Upgrade when you need recurring invoices, tax summaries, and assistant workflows.
           </p>
-        </div>
 
-        <div className="mt-8 flex justify-center">
-          <div className="inline-flex rounded-full bg-[#f5f5f5] p-1">
-            <button
-              type="button"
-              onClick={() => setInterval('monthly')}
-              className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition ${
-                interval === 'monthly' ? 'bg-white text-[#181d27] shadow-xs' : 'text-[#717680]'
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              onClick={() => setInterval('annual')}
-              className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition ${
-                interval === 'annual' ? 'bg-white text-[#181d27] shadow-xs' : 'text-[#717680]'
-              }`}
-            >
-              Annual
-            </button>
+          {/* Toggle */}
+          <div className="mt-8 inline-flex items-center gap-3">
+            <div className="inline-flex rounded-full bg-[#f2f4f7] p-0.5">
+              <button
+                type="button"
+                onClick={() => setInterval('monthly')}
+                className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition-all ${
+                  interval === 'monthly' ? 'bg-white text-[#181d27] shadow-sm' : 'text-[#717680] hover:text-[#414651]'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setInterval('annual')}
+                className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition-all ${
+                  interval === 'annual' ? 'bg-white text-[#181d27] shadow-sm' : 'text-[#717680] hover:text-[#414651]'
+                }`}
+              >
+                Annual
+              </button>
+            </div>
+            {interval === 'annual' && (
+              <span className="inline-flex items-center rounded-full bg-[#ecfdf3] px-2.5 py-1 text-[11px] font-semibold text-[#027a48]">
+                Save 20%
+              </span>
+            )}
           </div>
         </div>
+      </section>
 
-        <div className="mt-10 grid gap-4 lg:grid-cols-2">
-          <article className="rounded-3xl border border-[#e9eaeb] bg-white p-7">
-            <p className="text-[12px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Free</p>
-            <h2 className="mt-2 text-[28px] font-bold tracking-[-0.03em] text-[#181d27]">$0<span className="text-[15px] font-medium text-[#717680]">/month</span></h2>
-            <p className="mt-2 text-[13px] text-[#667085]">Use core workflows to run client work and payments.</p>
-            <div className="mt-5 space-y-2.5">
+      {/* Plans */}
+      <section className="mx-auto max-w-[1100px] px-6 py-10">
+        <div className="grid gap-4 lg:grid-cols-2">
+
+          {/* Free */}
+          <article className="rounded-2xl border border-[#e9eaeb] bg-white p-6">
+            <div className="border-b border-[#f2f4f7] pb-5 mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Free</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-[36px] font-bold tracking-[-0.04em] text-[#181d27]">$0</span>
+                <span className="text-[13px] text-[#a4a7ae]">/ month</span>
+              </div>
+              <p className="mt-1.5 text-[13px] text-[#667085]">Core tools to manage clients, invoices, and payments.</p>
+            </div>
+            <div className="space-y-3 mb-6">
               {FREE_FEATURES.map((item) => (
                 <div key={item} className="flex items-center gap-2.5">
-                  <Check className="h-4 w-4 text-[#717680]" weight="bold" />
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f2f4f7]">
+                    <Check className="h-2.5 w-2.5 text-[#717680]" weight="bold" />
+                  </span>
                   <span className="text-[13px] text-[#414651]">{item}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-6">
-              <Button asChild variant="secondary">
-                <Link href={accessToken ? '/dashboard' : '/sign-in'}>
-                  {accessToken ? 'Continue with Free' : 'Get started'}
-                </Link>
-              </Button>
-            </div>
+            <Button asChild variant="secondary" className="w-full">
+              <Link href={accessToken ? '/dashboard' : '/sign-in'}>
+                {accessToken ? 'Continue with Free' : 'Get started for free'}
+              </Link>
+            </Button>
           </article>
 
-          <article className="relative rounded-3xl border border-[#bfd4ff] bg-[#f8fbff] p-7">
-            <span className="absolute right-6 top-6 inline-flex items-center rounded-full bg-[#ecfdf3] px-2.5 py-1 text-[11px] font-semibold text-[#027a48]">
-              Recommended
-            </span>
-            <div className="flex items-center gap-2">
-              <Sparkle className="h-4 w-4 text-[#717680]" weight="fill" />
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Pro</p>
+          {/* Pro */}
+          <article className="relative rounded-2xl border border-[#2563eb] bg-white p-6 ring-1 ring-[#2563eb]/10">
+            <div className="absolute right-5 top-5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#2563eb] px-2.5 py-1 text-[11px] font-semibold text-white">
+                <Sparkle className="h-2.5 w-2.5" weight="fill" />
+                Recommended
+              </span>
             </div>
-            <h2 className="mt-2 text-[28px] font-bold tracking-[-0.03em] text-[#181d27]">
-              {price.value}
-              <span className="text-[15px] font-medium text-[#717680]">{price.suffix}</span>
-            </h2>
-            <div className="mt-1 flex items-center gap-2">
-              <p className="text-[13px] text-[#667085]">{price.helper}</p>
-              {price.badge ? (
-                <span className="inline-flex rounded-full bg-[#ecfdf3] px-2 py-0.5 text-[11px] font-semibold text-[#027a48]">
-                  {price.badge}
-                </span>
-              ) : null}
+            <div className="border-b border-[#f2f4f7] pb-5 mb-5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">Pro</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-[36px] font-bold tracking-[-0.04em] text-[#181d27]">{price.value}</span>
+                <span className="text-[13px] text-[#a4a7ae]">{price.suffix}</span>
+              </div>
+              <p className="mt-1.5 text-[13px] text-[#667085]">{price.helper} · cancel anytime.</p>
             </div>
-            <div className="mt-5 space-y-2.5">
-              {PRO_FEATURES.map((item) => (
+            <div className="space-y-3 mb-6">
+              {[...FREE_FEATURES, ...PRO_FEATURES].map((item, i) => (
                 <div key={item} className="flex items-center gap-2.5">
-                  <Check className="h-4 w-4 text-[#717680]" weight="bold" />
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${i < FREE_FEATURES.length ? 'bg-[#f2f4f7]' : 'bg-[#eff4ff]'}`}>
+                    <Check className={`h-2.5 w-2.5 font-bold ${i < FREE_FEATURES.length ? 'text-[#717680]' : 'text-[#2563eb]'}`} weight="bold" />
+                  </span>
                   <span className="text-[13px] text-[#414651]">{item}</span>
+                  {i >= FREE_FEATURES.length && (
+                    <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wider text-[#2563eb]">Pro</span>
+                  )}
                 </div>
               ))}
             </div>
-            <div className="mt-6 space-y-2.5">
-              <Button onClick={startCheckout} disabled={isRedirecting || isPro || isBootstrapping}>
-                {isPro ? 'You are on Pro' : isRedirecting ? 'Opening checkout…' : isBootstrapping ? 'Preparing checkout…' : 'Upgrade to Pro'}
+            <div className="space-y-2">
+              <Button onClick={startCheckout} disabled={isRedirecting || isPro || isBootstrapping} className="w-full">
+                {isPro ? 'You are on Pro' : isRedirecting ? 'Opening checkout…' : isBootstrapping ? 'Loading…' : 'Upgrade to Pro'}
               </Button>
               {portalUrl ? (
-                <a
-                  href={portalUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]"
-                >
+                <a href={portalUrl} target="_blank" rel="noreferrer" className="block text-center text-[12px] font-medium text-[#717680] hover:text-[#414651] transition-colors">
                   Manage subscription
                 </a>
               ) : null}
-              {info ? <p className="text-[12px] text-[#717680]">{info}</p> : null}
-              {error ? <p className="text-[12px] text-[#b42318]">{error}</p> : null}
+              {info ? <p className="text-center text-[12px] text-[#717680]">{info}</p> : null}
+              {error ? <p className="text-center text-[12px] text-[#b42318]">{error}</p> : null}
             </div>
           </article>
         </div>
       </section>
 
-      <section className="border-t border-[#f1f2f4] bg-[#fafafa]">
-        <div className="mx-auto max-w-[1200px] px-6 py-12">
-          <h2 className="text-[24px] font-semibold tracking-[-0.02em] text-[#181d27]">Plan comparison</h2>
-          <div className="mt-5 overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white">
-            <div className="grid grid-cols-[1.5fr_0.5fr_0.5fr] border-b border-[#f2f4f7] bg-[#fcfcfd] px-4 py-3">
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Feature</p>
-              <p className="text-center text-[12px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Free</p>
-              <p className="text-center text-[12px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Pro</p>
-            </div>
-            <div className="divide-y divide-[#f9fafb]">
-              {FEATURE_ROWS.map((row) => (
-                <div key={row.feature} className="grid grid-cols-[1.5fr_0.5fr_0.5fr] px-4 py-3">
-                  <p className="text-[13px] text-[#414651]">{row.feature}</p>
-                  <div className="flex items-center justify-center">
-                    {row.free ? <Check className="h-4 w-4 text-[#717680]" weight="bold" /> : <X className="h-4 w-4 text-[#c1c5cd]" />}
-                  </div>
-                  <div className="flex items-center justify-center">
-                    {row.pro ? <Check className="h-4 w-4 text-[#717680]" weight="bold" /> : <X className="h-4 w-4 text-[#c1c5cd]" />}
-                  </div>
+      {/* Comparison table */}
+      <section className="mx-auto max-w-[1100px] px-6 pb-16">
+        <div className="overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white">
+          <div className="grid grid-cols-[1fr_100px_100px] border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Feature</p>
+            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Free</p>
+            <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">Pro</p>
+          </div>
+          <div className="divide-y divide-[#f9fafb]">
+            {FEATURE_ROWS.map((row) => (
+              <div key={row.feature} className="grid grid-cols-[1fr_100px_100px] items-center px-5 py-3.5">
+                <p className="text-[13px] text-[#414651]">{row.feature}</p>
+                <div className="flex items-center justify-center">
+                  {row.free
+                    ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f2f4f7]"><Check className="h-3 w-3 text-[#717680]" weight="bold" /></span>
+                    : <X className="h-4 w-4 text-[#e4e7ec]" />}
                 </div>
-              ))}
-            </div>
+                <div className="flex items-center justify-center">
+                  {row.pro
+                    ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#eff4ff]"><Check className="h-3 w-3 text-[#2563eb]" weight="bold" /></span>
+                    : <X className="h-4 w-4 text-[#e4e7ec]" />}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

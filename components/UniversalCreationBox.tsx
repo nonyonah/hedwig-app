@@ -18,7 +18,6 @@ type CreateAction = 'invoice' | 'payment-link' | 'project' | 'client';
 type CreateItem = {
     id: CreateAction;
     title: string;
-    description: string;
     Icon: React.ComponentType<any>;
 };
 
@@ -33,28 +32,27 @@ const CREATE_ITEMS: CreateItem[] = [
     {
         id: 'invoice',
         title: 'Invoice',
-        description: 'Create invoices with amount, due date, and client details.',
         Icon: FileText,
     },
     {
         id: 'payment-link',
         title: 'Payment Link',
-        description: 'Generate a shareable payment link with a fixed amount.',
         Icon: Link2,
     },
     {
         id: 'project',
         title: 'Project',
-        description: 'Create a project with scope, deadline, and milestones.',
         Icon: FolderOpen,
     },
     {
         id: 'client',
         title: 'Client',
-        description: 'Add a new client profile with contact details.',
         Icon: User,
     },
 ];
+
+const IOS_SHEET_MAX_HEIGHT = 360;
+const ANDROID_SHEET_MAX_HEIGHT = 460;
 
 export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxProps) {
     const router = useRouter();
@@ -117,7 +115,15 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
             backgroundColor={Platform.OS === 'ios' ? undefined : colors.background}
             onDidDismiss={closeOnce}
         >
-            <View style={[styles.container, { paddingBottom: Math.max(insets.bottom + 4, 14) }]}>
+            <View
+                style={[
+                    styles.container,
+                    {
+                        maxHeight: Platform.OS === 'ios' ? IOS_SHEET_MAX_HEIGHT : ANDROID_SHEET_MAX_HEIGHT,
+                        paddingBottom: Math.max(insets.bottom + 2, 12),
+                    },
+                ]}
+            >
                 <View style={styles.headerRow}>
                     <View style={styles.headerCopy}>
                         <Text style={[styles.title, { color: colors.textPrimary }]}>Create</Text>
@@ -134,12 +140,7 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView
-                    style={[styles.list, { borderColor: colors.border, backgroundColor: colors.surface }]}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    bounces={false}
-                >
+                <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} bounces={false}>
                     {CREATE_ITEMS.map((item, index) => (
                         <React.Fragment key={item.id}>
                             <TouchableOpacity
@@ -152,7 +153,6 @@ export function UniversalCreationBox({ visible, onClose }: UniversalCreationBoxP
                                 </View>
                                 <View style={styles.rowCopy}>
                                     <Text style={[styles.rowTitle, { color: colors.textPrimary }]}>{item.title}</Text>
-                                    <Text style={[styles.rowDescription, { color: colors.textSecondary }]}>{item.description}</Text>
                                 </View>
                                 <ChevronRight size={14} color={colors.textSecondary} strokeWidth={2.6} />
                             </TouchableOpacity>
@@ -171,7 +171,6 @@ const styles = StyleSheet.create({
     container: {
         paddingHorizontal: 16,
         paddingTop: Platform.OS === 'ios' ? 20 : 14,
-        maxHeight: 460,
     },
     headerRow: {
         flexDirection: 'row',
@@ -195,19 +194,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    list: {
-        borderRadius: 16,
-        borderWidth: 1,
-    },
     listContent: {
-        paddingVertical: 2,
+        paddingVertical: 4,
     },
     row: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
+        paddingHorizontal: 4,
+        paddingVertical: 12,
     },
     iconWrap: {
         width: 30,
@@ -218,19 +213,13 @@ const styles = StyleSheet.create({
     },
     rowCopy: {
         flex: 1,
-        gap: 1,
     },
     rowTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
-        fontSize: 14,
-    },
-    rowDescription: {
-        fontFamily: 'GoogleSansFlex_400Regular',
-        fontSize: 11,
-        lineHeight: 15,
+        fontSize: 15,
     },
     divider: {
-        marginLeft: 52,
+        marginLeft: 44,
         height: StyleSheet.hairlineWidth,
     },
 });

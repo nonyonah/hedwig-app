@@ -5,7 +5,7 @@ import { X, Send as PaperPlaneTilt, Bug, Lightbulb } from './ui/AppIcon';
 import * as Haptics from 'expo-haptics';
 import { Colors, useThemeColors } from '../theme/colors';
 import { useSettings } from '../context/SettingsContext';
-import { trackEvent } from '../services/analytics';
+import { useAuth } from '../hooks/useAuth';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
 
 type FeedbackType = 'feature' | 'bug' | null;
@@ -17,30 +17,55 @@ interface FeedbackModalProps {
 export const FeedbackModal = forwardRef<TrueSheet, FeedbackModalProps>(({ onClose }, ref) => {
     const themeColors = useThemeColors();
     const { hapticsEnabled } = useSettings();
+    const { getAccessToken } = useAuth();
     const [feedbackType, setFeedbackType] = useState<FeedbackType>(null);
     const [feedback, setFeedback] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const handleSubmit = async () => {
         if (!feedback.trim()) {
-            // Alert causing issue in sheet? Use sheet aware alert or standard alert
+            setSubmitError('Please enter your feedback before submitting.');
             return;
         }
 
         if (!feedbackType) {
+            setSubmitError('Please choose Bug Report or Feature Request.');
             return;
         }
 
         if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setSubmitError(null);
         setIsSubmitting(true);
 
         try {
-            // Track feedback as PostHog event
-            await trackEvent('feedback_submitted', {
-                type: feedbackType,
-                feedback: feedback.trim(),
-                feedback_length: feedback.trim().length,
+            const token = await getAccessToken();
+            if (!token) {
+                throw new Error('You need to be signed in to send feedback.');
+            }
+
+            const apiUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/+$/, '');
+            const response = await fetch(`${apiUrl}/api/feedback`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    type: feedbackType,
+                    message: feedback.trim(),
+                    pageUrl: `hedwig://mobile/${Platform.OS}/feedback-modal`,
+                }),
             });
+
+            const payload = await response.json().catch(() => null);
+            if (!response.ok || !payload?.success) {
+                const message = String(payload?.error?.message || '').trim();
+                if (response.status === 404 && message.includes('Route /api/feedback not found')) {
+                    throw new Error('Backend route /api/feedback is missing. Deploy/restart the latest backend first.');
+                }
+                throw new Error(message || 'Unable to submit feedback right now.');
+            }
 
             // Reset and close
             setFeedbackType(null);
@@ -52,6 +77,7 @@ export const FeedbackModal = forwardRef<TrueSheet, FeedbackModalProps>(({ onClos
 
         } catch (error) {
             console.error('Feedback submission error:', error);
+            setSubmitError(error instanceof Error ? error.message : 'Unable to submit feedback right now.');
         } finally {
             setIsSubmitting(false);
         }
@@ -61,6 +87,7 @@ export const FeedbackModal = forwardRef<TrueSheet, FeedbackModalProps>(({ onClos
         if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setFeedbackType(null);
         setFeedback('');
+        setSubmitError(null);
         if (typeof ref !== 'function') {
             void ref?.current?.dismiss().catch(() => {});
         }
@@ -184,16 +211,23 @@ export const FeedbackModal = forwardRef<TrueSheet, FeedbackModalProps>(({ onClos
                     style={[
                         styles.submitButton,
                         { backgroundColor: Colors.primary },
-                        isSubmitting && { opacity: 0.7 }
+                        (isSubmitting || !feedbackType || !feedback.trim()) && { opacity: 0.7 }
                     ]}
                     onPress={handleSubmit}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !feedbackType || !feedback.trim()}
                 >
                     <PaperPlaneTilt size={20} color="#FFFFFF" strokeWidth={3} />
                     <Text style={styles.submitButtonText}>
                         {isSubmitting ? 'Sending...' : 'Submit Feedback'}
                     </Text>
                 </TouchableOpacity>
+
+                {submitError ? (
+                    <Text style={[styles.statusText, styles.errorText]}>
+                        {submitError}
+                    </Text>
+                ) : null}
+
             </View>
         </TrueSheet>
     );
@@ -265,5 +299,13 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: '#FFFFFF',
+    },
+    statusText: {
+        fontFamily: 'GoogleSansFlex_500Medium',
+        fontSize: 13,
+        marginTop: 12,
+    },
+    errorText: {
+        color: '#EF4444',
     },
 });

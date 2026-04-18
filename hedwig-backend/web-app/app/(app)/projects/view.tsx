@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowRight, Plus, Trash } from '@/components/ui/lucide-icons';
+import { ArrowRight, DownloadSimple, Plus, Trash } from '@/components/ui/lucide-icons';
 import type { Client, Project } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
@@ -43,7 +43,34 @@ export function ProjectsClient({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const activeCount = useMemo(() => projects.filter((p) => p.status === 'active').length, [projects]);
+  const completedCount = useMemo(() => projects.filter((p) => p.status === 'completed').length, [projects]);
   const totalBudget = useMemo(() => projects.reduce((s, p) => s + p.budgetUsd, 0), [projects]);
+
+  const downloadCsv = () => {
+    const rows = filtered.map((p) => [
+      p.id,
+      p.name,
+      p.ownerName,
+      p.status,
+      p.budgetUsd.toFixed(2),
+      `${p.progress}%`,
+      p.nextDeadlineAt ? new Date(p.nextDeadlineAt).toISOString().slice(0, 10) : '',
+      p.contract?.status ?? '',
+    ]);
+    const header = ['project_id', 'name', 'owner', 'status', 'budget_usd', 'progress', 'deadline', 'contract_status'];
+    const csv = [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\n');
+    triggerDownload(csv, `hedwig-projects-${today()}.csv`, 'text/csv');
+  };
+
+  const downloadPdf = () => {
+    const html = buildProjectPdfHtml(filtered);
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 400);
+  };
 
   const filtered = useMemo(
     () => (filter === 'all' ? projects : projects.filter((p) => p.status === filter)),
@@ -71,6 +98,26 @@ export function ProjectsClient({
         <h1 className="text-[15px] font-semibold text-[#181d27]">Projects</h1>
         <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Track deliverables, milestones, and project progress.</p>
       </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
+        <div className="bg-white px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Active</p>
+          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{activeCount}</p>
+          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">in progress</p>
+        </div>
+        <div className="bg-white px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Completed</p>
+          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{completedCount}</p>
+          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">delivered</p>
+        </div>
+        <div className="bg-white px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Total budget</p>
+          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCompactCurrency(totalBudget, currency)}</p>
+          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">across all projects</p>
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
         {/* Unified header */}
         <div className="flex items-center gap-3 border-b border-[#f2f4f7] px-5 py-3">
@@ -101,6 +148,7 @@ export function ProjectsClient({
               </button>
             ))}
             <div className="mx-1 h-4 w-px bg-[#f2f4f7]" />
+            <ExportMenu onCsv={downloadCsv} onPdf={downloadPdf} />
             <Button
               size="sm"
               onClick={() => window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow: 'project' } }))}
@@ -214,4 +262,101 @@ function EmptyState({ text }: { text: string }) {
       <p className="text-[13px] text-[#a4a7ae]">{text}</p>
     </div>
   );
+}
+
+function ExportMenu({ onCsv, onPdf }: { onCsv: () => void; onPdf: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-medium text-[#414651] shadow-xs transition hover:bg-[#f9fafb]"
+      >
+        <DownloadSimple className="h-3.5 w-3.5" weight="bold" />
+        Export
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-20 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-lg">
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3.5 py-2.5 text-[13px] text-[#252b37] hover:bg-[#f9fafb]"
+              onClick={() => { onCsv(); setOpen(false); }}
+            >
+              Download CSV
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3.5 py-2.5 text-[13px] text-[#252b37] hover:bg-[#f9fafb]"
+              onClick={() => { onPdf(); setOpen(false); }}
+            >
+              Download PDF
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function csvCell(val: string | number | null | undefined): string {
+  const s = val === null || val === undefined ? '' : String(val);
+  return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function triggerDownload(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildProjectPdfHtml(projects: Project[]): string {
+  const rows = projects.map((p) => `
+    <tr>
+      <td>${p.name}</td>
+      <td>${p.ownerName}</td>
+      <td>${p.status}</td>
+      <td>$${p.budgetUsd.toLocaleString()}</td>
+      <td>${p.progress}%</td>
+      <td>${p.nextDeadlineAt ? new Date(p.nextDeadlineAt).toLocaleDateString() : '—'}</td>
+      <td>${p.contract?.status ?? '—'}</td>
+    </tr>`).join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Hedwig Projects Export</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 12px; color: #181d27; margin: 32px; }
+  h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  p { color: #717680; margin: 0 0 20px; font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #a4a7ae; padding: 8px 10px; border-bottom: 2px solid #e9eaeb; }
+  td { padding: 8px 10px; border-bottom: 1px solid #f2f4f7; }
+  tr:hover td { background: #fafafa; }
+  @media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+<h1>Projects</h1>
+<p>Exported ${new Date().toLocaleDateString()} · ${projects.length} project${projects.length !== 1 ? 's' : ''}</p>
+<table>
+<thead><tr>
+  <th>Project</th><th>Owner</th><th>Status</th><th>Budget</th><th>Progress</th><th>Deadline</th><th>Contract</th>
+</tr></thead>
+<tbody>${rows}</tbody>
+</table>
+</body>
+</html>`;
 }

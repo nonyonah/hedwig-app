@@ -2,9 +2,8 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { CaretRight, PaperPlaneRight } from '@/components/ui/lucide-icons';
+import { CaretRight } from '@/components/ui/lucide-icons';
 import { TokenDetailPanel } from '@/components/wallet/token-detail-panel';
-import { SendTokenDialog } from '@/components/wallet/send-token-dialog';
 import type { WalletAsset } from '@/lib/models/entities';
 import { formatCurrency } from '@/lib/utils';
 
@@ -47,33 +46,20 @@ export function WalletAssetsTable({
   assetsByChain: Record<string, WalletAsset[]>;
   totalCrypto: number;
 }) {
-  const [selected, setSelected]   = useState<WalletAsset | null>(null);
-  const [sendOpen, setSendOpen]   = useState(false);
-
-  const allAssets = Object.values(assetsByChain).flat();
+  const [selected, setSelected] = useState<WalletAsset | null>(null);
 
   return (
     <>
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
         <div className="flex items-center justify-between border-b border-[#e9eaeb] px-5 py-4">
           <div>
-            <p className="text-[15px] font-semibold text-[#181d27]">Asset portfolio</p>
-            <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Live balances across all supported chains · tap any row for details</p>
+            <p className="text-[15px] font-semibold text-[#181d27]">USDC Balances</p>
+            <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Settled USDC across supported chains · click any row for details</p>
           </div>
-          <div className="flex items-center gap-3">
-            <p className="text-[14px] font-semibold text-[#181d27]">
-              {formatCurrency(totalCrypto)}{' '}
-              <span className="text-[#a4a7ae] font-normal text-[12px]">total</span>
-            </p>
-            <button
-              type="button"
-              onClick={() => setSendOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#2563eb] px-3.5 py-1.5 text-[12px] font-semibold text-white shadow-xs transition hover:bg-[#1d4ed8]"
-            >
-              <PaperPlaneRight className="h-3.5 w-3.5" weight="bold" />
-              Send
-            </button>
-          </div>
+          <p className="text-[14px] font-semibold text-[#181d27]">
+            {formatCurrency(totalCrypto)}{' '}
+            <span className="text-[#a4a7ae] font-normal text-[12px]">total</span>
+          </p>
         </div>
 
         {/* Column headers */}
@@ -148,10 +134,6 @@ export function WalletAssetsTable({
 
       {selected && (
         <TokenDetailPanel asset={selected} onClose={() => setSelected(null)} />
-      )}
-
-      {sendOpen && (
-        <SendTokenDialog assets={allAssets} onClose={() => setSendOpen(false)} />
       )}
     </>
   );

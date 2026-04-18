@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-    ActionSheetIOS,
     ActivityIndicator,
     Alert,
-    FlatList,
     Image,
     KeyboardAvoidingView,
-    Modal,
     Platform,
     ScrollView,
     StyleSheet,
@@ -16,6 +13,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { Host, Menu, Button as SwiftButton, RNHostView } from '@expo/ui/swift-ui';
+import { DropdownMenu, DropdownMenuItem } from '@expo/ui/jetpack-compose';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -47,8 +46,8 @@ export default function CreatePaymentLinkScreen() {
     // ── Selection ──
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
-    // ── Android-only modal state ──
-    const [showClientModal, setShowClientModal] = useState(false);
+    // ── Dropdown open state (Android) ──
+    const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
 
     // ── Manual client fields ──
     const [clientName,     setClientName]     = useState('');
@@ -80,23 +79,11 @@ export default function CreatePaymentLinkScreen() {
     }, []);
 
     // ── Client selection ──
-    const openClientPicker = () => {
-        if (clients.length === 0) return;
-        if (Platform.OS === 'ios') {
-            ActionSheetIOS.showActionSheetWithOptions(
-                { title: 'Select client', options: ['Cancel', ...clients.map(c => c.name)], cancelButtonIndex: 0 },
-                idx => { if (idx > 0) applyClient(clients[idx - 1]); }
-            );
-        } else {
-            setShowClientModal(true);
-        }
-    };
-
     const applyClient = (c: Client) => {
         setSelectedClient(c);
         setClientName(c.name);
         setRecipientEmail(c.email || '');
-        setShowClientModal(false);
+        setClientDropdownOpen(false);
     };
 
     const clearClient = () => {
@@ -191,17 +178,49 @@ export default function CreatePaymentLinkScreen() {
                         </View>
                     ) : (
                         <>
-                            {/* ── Picker trigger — always visible ── */}
-                            <TouchableOpacity
-                                style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface, opacity: clients.length > 0 ? 1 : 0.45 }]}
-                                onPress={clients.length > 0 ? openClientPicker : undefined}
-                                activeOpacity={clients.length > 0 ? 0.7 : 1}
-                            >
-                                <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>
-                                    {clients.length > 0 ? 'Select existing client' : 'No saved clients'}
-                                </Text>
-                                <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
-                            </TouchableOpacity>
+                            {/* ── Picker trigger — native pull-down ── */}
+                            {clients.length > 0 ? (
+                                Platform.OS === 'ios' ? (
+                                    <Host style={{ alignSelf: 'stretch' }}>
+                                        <Menu label={
+                                            <RNHostView matchContents>
+                                                <View style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}>
+                                                    <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>Select existing client</Text>
+                                                    <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                                                </View>
+                                            </RNHostView>
+                                        }>
+                                            {clients.map(c => (
+                                                <SwiftButton key={c.id} label={c.name} onPress={() => applyClient(c)} />
+                                            ))}
+                                        </Menu>
+                                    </Host>
+                                ) : (
+                                    <DropdownMenu expanded={clientDropdownOpen} onDismissRequest={() => setClientDropdownOpen(false)}>
+                                        <DropdownMenu.Trigger>
+                                            <TouchableOpacity
+                                                style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface }]}
+                                                onPress={() => setClientDropdownOpen(true)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>Select existing client</Text>
+                                                <ChevronDown size={16} color={themeColors.textSecondary} strokeWidth={2.5} />
+                                            </TouchableOpacity>
+                                        </DropdownMenu.Trigger>
+                                        <DropdownMenu.Items>
+                                            {clients.map(c => (
+                                                <DropdownMenuItem key={c.id} onClick={() => applyClient(c)}>
+                                                    <DropdownMenuItem.Text>{c.name}</DropdownMenuItem.Text>
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenu.Items>
+                                    </DropdownMenu>
+                                )
+                            ) : (
+                                <View style={[s.card, s.pickerRow, { backgroundColor: themeColors.surface, opacity: 0.45 }]}>
+                                    <Text style={[s.pickerLabel, { color: themeColors.textSecondary }]}>No saved clients</Text>
+                                </View>
+                            )}
                             <View style={[s.card, { backgroundColor: themeColors.surface }]}>
                                 <TextInput
                                     style={[s.input, { color: themeColors.textPrimary }]}
@@ -292,39 +311,6 @@ export default function CreatePaymentLinkScreen() {
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* ─── Android-only client modal ─── */}
-            {Platform.OS !== 'ios' && (
-                <Modal visible={showClientModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowClientModal(false)}>
-                    <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.background }}>
-                        <View style={s.modalHeader}>
-                            <Text style={[s.modalTitle, { color: themeColors.textPrimary }]}>Select client</Text>
-                            <TouchableOpacity onPress={() => setShowClientModal(false)}>
-                                <X size={20} color={themeColors.textSecondary} strokeWidth={2.5} />
-                            </TouchableOpacity>
-                        </View>
-                        <FlatList
-                            data={clients}
-                            keyExtractor={c => c.id}
-                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32, gap: 8 }}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={[s.modalItem, { backgroundColor: themeColors.surface }]}
-                                    onPress={() => applyClient(item)}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={[s.avatar, { backgroundColor: themeColors.primary + '18' }]}>
-                                        <Text style={[s.avatarText, { color: themeColors.primary }]}>{item.name.charAt(0).toUpperCase()}</Text>
-                                    </View>
-                                    <View style={s.flex}>
-                                        <Text style={[s.clientName, { color: themeColors.textPrimary }]}>{item.name}</Text>
-                                        {item.email ? <Text style={[s.clientEmail, { color: themeColors.textSecondary }]}>{item.email}</Text> : null}
-                                    </View>
-                                </TouchableOpacity>
-                            )}
-                        />
-                    </SafeAreaView>
-                </Modal>
-            )}
         </SafeAreaView>
     );
 }
@@ -373,7 +359,4 @@ const s = StyleSheet.create({
     notesInput: { minHeight: 80, paddingVertical: 14 },
     cta:        { marginTop: 8, borderRadius: 100 },
 
-    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
-    modalTitle:  { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 18 },
-    modalItem:   { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14 },
 });

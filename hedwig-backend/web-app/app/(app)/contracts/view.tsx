@@ -117,7 +117,8 @@ export function ContractsClient({
 
   const contractActions = (contract: Contract): RowActionItem[] => {
     const items: RowActionItem[] = [
-      { label: 'Open', onClick: () => window.location.assign(`${backendConfig.publicPagesUrl}/contract/${contract.id}`) },
+      { label: 'Open', onClick: () => { window.open(`${backendConfig.publicPagesUrl}/contract/${contract.id}`, '_blank'); } },
+      { label: 'Download PDF', onClick: () => { window.open(`${backendConfig.publicPagesUrl}/contract/${contract.id}?print=1`, '_blank'); } },
       { label: 'Copy link', onClick: () => copyText(`${backendConfig.publicPagesUrl}/contract/${contract.id}`, 'Contract link copied') }
     ];
     if (contract.status !== 'signed') {
@@ -133,6 +134,26 @@ export function ContractsClient({
         <h1 className="text-[15px] font-semibold text-[#181d27]">Contracts</h1>
         <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Create, send, and manage signed agreements with your clients.</p>
       </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
+        <div className="bg-white px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Total</p>
+          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{contracts.length}</p>
+          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">contracts</p>
+        </div>
+        <div className="bg-white px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Signed</p>
+          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{signedCount}</p>
+          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">fully executed</p>
+        </div>
+        <div className="bg-white px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">In review</p>
+          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{reviewCount}</p>
+          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">awaiting signature</p>
+        </div>
+      </div>
+
       {/* Table card */}
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
         {/* Unified header */}

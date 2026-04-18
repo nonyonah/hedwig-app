@@ -37,13 +37,13 @@ import {
 } from '../../../components/ui/AppIcon';
 import QRCode from 'react-native-qrcode-svg';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
-import { DrawerActions } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import { format, isToday, isYesterday } from 'date-fns';
 import { getUserGradient } from '../../../utils/gradientUtils';
 import { formatCurrency } from '../../../utils/currencyUtils';
+import { openRootDrawer } from '../../../utils/openRootDrawer';
 import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
 import IOSGlassIconButton from '../../../components/ui/IOSGlassIconButton';
 import TokenDetailSheet, { SelectedToken } from '../../../components/TokenDetailSheet';
@@ -795,7 +795,7 @@ export default function WalletScreen() {
             <SafeAreaView collapsable={false} edges={['top']} style={[styles.container, { backgroundColor: themeColors.background }]}>
                 {/* ── Header ── */}
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+                    <TouchableOpacity onPress={() => openRootDrawer(navigation as any)}>
                         {profileIcon?.imageUri ? (
                             <Image source={{ uri: profileIcon.imageUri }} style={styles.profileImage} />
                         ) : (
