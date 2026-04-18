@@ -8,8 +8,6 @@ import {
   exchangeGoogleCode,
   getGoogleUserInfo,
   exchangeSlackCode,
-  buildGoogleAuthUrl,
-  buildSlackAuthUrl,
   type Provider,
 } from '../services/integrations';
 import { syncGmailThreads, matchThreadsToWorkspace, syncGoogleCalendar } from '../services/emailSync';

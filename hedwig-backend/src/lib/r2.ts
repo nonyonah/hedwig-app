@@ -116,7 +116,7 @@ export async function uploadToR2(
   const resp = await fetch(url, {
     method: 'PUT',
     headers: { ...headers, 'Content-Length': String(body.length) },
-    body,
+    body: body as unknown as BodyInit,
   });
 
   if (!resp.ok) {
