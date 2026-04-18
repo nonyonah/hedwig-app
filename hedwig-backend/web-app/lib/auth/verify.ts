@@ -61,8 +61,8 @@ export async function verifyAccessToken(token: string): Promise<User | null | 'n
       return null;
     }
 
-    // Server error (5xx) or unexpected status — fail open
-    if (!response.ok) {
+    // Rate limited or server error — fail open, don't sign the user out
+    if (response.status === 429 || !response.ok) {
       return 'network_error';
     }
 

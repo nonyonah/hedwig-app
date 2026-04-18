@@ -261,13 +261,18 @@ function makeRateLimitStore(prefix: string) {
     });
 }
 
+const jsonRateLimitHandler = (message: string) =>
+    (_req: Request, res: Response) => {
+        res.status(429).json({ success: false, error: message });
+    };
+
 const createLimiter = (prefix: string, max: number, message: string) =>
     rateLimit({
         windowMs: 15 * 60 * 1000,
         max,
         standardHeaders: true,
         legacyHeaders: false,
-        message,
+        handler: jsonRateLimitHandler(message),
         store: makeRateLimitStore(prefix),
     });
 
@@ -289,7 +294,7 @@ const createUserAwareLimiter = (prefix: string, max: number, message: string) =>
         max,
         standardHeaders: true,
         legacyHeaders: false,
-        message,
+        handler: jsonRateLimitHandler(message),
         store: makeRateLimitStore(`${prefix}:user`),
         keyGenerator: getUserAwareRateLimitKey,
     });
@@ -300,7 +305,7 @@ const limiter = rateLimit({
     max: 500,
     standardHeaders: true,
     legacyHeaders: false,
-    message: 'Too many requests from this IP, please try again later.',
+    handler: jsonRateLimitHandler('Too many requests from this IP, please try again later.'),
     skip: (req) => req.originalUrl.startsWith('/api/webhooks/'),
     store: makeRateLimitStore('global'),
 });
