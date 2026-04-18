@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Polar } from '@polar-sh/sdk';
+import { fetch } from 'undici';
 import {
   resolvePolarCheckoutReturnUrl,
   resolvePolarCheckoutSuccessUrl,
   resolvePolarServer
 } from '@/lib/billing/polar';
 
+export const runtime = 'nodejs';
+
 const polarAccessToken = String(process.env.POLAR_ACCESS_TOKEN || '').trim();
+
+const polarBaseUrl = () =>
+  resolvePolarServer() === 'sandbox'
+    ? 'https://sandbox-api.polar.sh'
+    : 'https://api.polar.sh';
 
 const parseJsonParam = (value: string | null): Record<string, string | number | boolean> | undefined => {
   if (!value) return undefined;
@@ -15,9 +22,7 @@ const parseJsonParam = (value: string | null): Record<string, string | number | 
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
     const result: Record<string, string | number | boolean> = {};
     for (const [k, v] of Object.entries(parsed)) {
-      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
-        result[k] = v;
-      }
+      if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') result[k] = v;
     }
     return Object.keys(result).length ? result : undefined;
   } catch {
@@ -48,32 +53,55 @@ export async function GET(req: NextRequest): Promise<Response> {
   const successUrl = new URL(resolvePolarCheckoutSuccessUrl());
   successUrl.searchParams.set('checkoutId', '{CHECKOUT_ID}');
 
+  const externalCustomerId = req.nextUrl.searchParams.get('customerExternalId')?.trim() || undefined;
+  const customerEmail = req.nextUrl.searchParams.get('customerEmail')?.trim() || undefined;
+  const customerName = req.nextUrl.searchParams.get('customerName')?.trim() || undefined;
+  const metadata = parseJsonParam(req.nextUrl.searchParams.get('metadata'));
+
+  // Build body with snake_case as required by the Polar REST API
+  const body: Record<string, unknown> = {
+    products,
+    success_url: successUrl.toString(),
+    return_url: resolvePolarCheckoutReturnUrl(),
+  };
+  if (externalCustomerId) body.external_customer_id = externalCustomerId;
+  if (customerEmail) body.customer_email = customerEmail;
+  if (customerName) body.customer_name = customerName;
+  if (metadata) body.metadata = metadata;
+
   try {
-    const polar = new Polar({
-      accessToken: polarAccessToken,
-      server: resolvePolarServer(),
-    });
-
-    const checkout = await polar.checkouts.create({
-      products,
-      successUrl: successUrl.toString(),
-      returnUrl: resolvePolarCheckoutReturnUrl(),
-      externalCustomerId: req.nextUrl.searchParams.get('customerExternalId')?.trim() || undefined,
-      customerEmail: req.nextUrl.searchParams.get('customerEmail')?.trim() || undefined,
-      customerName: req.nextUrl.searchParams.get('customerName')?.trim() || undefined,
-      metadata: parseJsonParam(req.nextUrl.searchParams.get('metadata')),
-    });
-
-    return NextResponse.redirect(checkout.url, { status: 302 });
-  } catch (error: any) {
-    const status = error?.statusCode ?? error?.status ?? 502;
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Polar checkout session creation failed.',
-        details: error?.message || String(error),
+    const response = await fetch(`${polarBaseUrl()}/v1/checkouts/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${polarAccessToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
-      { status }
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      return NextResponse.json(
+        { success: false, error: 'Polar checkout creation failed.', details: errorText },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json() as { url?: string };
+    const checkoutUrl = String(data?.url || '').trim();
+    if (!checkoutUrl) {
+      return NextResponse.json(
+        { success: false, error: 'Polar did not return a checkout URL.' },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.redirect(checkoutUrl, { status: 302 });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: 'Unable to reach Polar API.', details: error?.message || String(error) },
+      { status: 502 }
     );
   }
 }

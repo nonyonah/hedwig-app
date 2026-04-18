@@ -207,7 +207,11 @@
       "WebFetch(domain:www.mintlify.com)",
       "Bash(node -e \"const p = require\\('./node_modules/@polar-sh/sdk/package.json'\\); console.log\\('version:', p.version\\); const exp = Object.keys\\(p.exports || {}\\).slice\\(0,15\\); console.log\\('exports:', exp\\);\")",
       "Bash(node -e \"const { Polar } = require\\('@polar-sh/sdk'\\); console.log\\('Polar:', typeof Polar\\); const p = new Polar\\({ accessToken: 'test', server: 'sandbox' }\\); console.log\\('methods:', Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(p.checkouts\\)\\).filter\\(m => m !== 'constructor'\\)\\);\")",
-      "Bash(node -e \"const { Polar } = require\\('@polar-sh/sdk'\\); const p = new Polar\\({ accessToken: 'test', server: 'sandbox' }\\); console.log\\('customerSessions:', Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(p.customerSessions\\)\\).filter\\(m => m !== 'constructor'\\)\\); console.log\\('has customerPortal:', !!p.customerPortal\\); if \\(p.customerPortal\\) { console.log\\('customerPortal keys:', Object.keys\\(p.customerPortal\\)\\); }\")"
+      "Bash(node -e \"const { Polar } = require\\('@polar-sh/sdk'\\); const p = new Polar\\({ accessToken: 'test', server: 'sandbox' }\\); console.log\\('customerSessions:', Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(p.customerSessions\\)\\).filter\\(m => m !== 'constructor'\\)\\); console.log\\('has customerPortal:', !!p.customerPortal\\); if \\(p.customerPortal\\) { console.log\\('customerPortal keys:', Object.keys\\(p.customerPortal\\)\\); }\")",
+      "Bash(node -e ' *)",
+      "Bash(curl -s --max-time 5 -o /dev/null -w \"%{http_code}\" https://sandbox-api.polar.sh/v1/checkouts/)",
+      "Bash(curl -s --max-time 5 -o /dev/null -w \"%{http_code}\" https://api.polar.sh/v1/checkouts/)",
+      "Bash(node -e \"require\\('undici'\\); console.log\\('undici available'\\)\")"
     ],
     "deny": [],
     "ask": []
