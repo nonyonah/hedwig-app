@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetch } from 'undici';
 import { resolvePolarPortalReturnUrl, resolvePolarServer } from '@/lib/billing/polar';
 
 export const runtime = 'nodejs';

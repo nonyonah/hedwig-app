@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetch } from 'undici';
 import {
   resolvePolarCheckoutReturnUrl,
   resolvePolarCheckoutSuccessUrl,
