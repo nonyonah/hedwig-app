@@ -17,6 +17,41 @@ const PRO_ANNUAL_DISCOUNT_PERCENT = 20;
 
 type BillingInterval = 'monthly' | 'annual';
 
+const normalizeString = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null;
+    const normalized = value.trim();
+    return normalized || null;
+};
+
+const resolveUnifiedStatus = (user: any): 'active' | 'inactive' | null => {
+    const raw = normalizeString(user?.subscription_status ?? user?.subscriptionStatus);
+    if (!raw) return null;
+    const normalized = raw.toLowerCase();
+    if (normalized === 'active') return 'active';
+    if (normalized === 'inactive') return 'inactive';
+    return null;
+};
+
+const resolveUnifiedProvider = (user: any): 'polar' | 'revenue_cat' | null => {
+    const raw = normalizeString(user?.subscription_provider ?? user?.subscriptionProvider);
+    if (!raw) return null;
+    const normalized = raw.toLowerCase();
+    if (normalized === 'polar') return 'polar';
+    if (normalized === 'revenue_cat') return 'revenue_cat';
+    return null;
+};
+
+const resolveUnifiedExpiry = (user: any): string | null => (
+    normalizeString(user?.subscription_expiry ?? user?.subscriptionExpiry)
+);
+
+const isNotExpired = (isoDate: string | null): boolean => {
+    if (!isoDate) return true;
+    const parsed = Date.parse(isoDate);
+    if (!Number.isFinite(parsed)) return true;
+    return parsed > Date.now();
+};
+
 const getCheckoutBaseUrl = (interval: BillingInterval): string | null => {
     const envKey = interval === 'annual'
         ? process.env.REVENUECAT_WEB_CHECKOUT_ANNUAL_URL
@@ -79,11 +114,15 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
 
         await syncRevenueCatStateForUser(user as any);
         const state = await getRevenueCatStateForUser(user as any);
+        const unifiedStatus = resolveUnifiedStatus(user);
+        const unifiedProvider = resolveUnifiedProvider(user);
+        const unifiedExpiry = resolveUnifiedExpiry(user);
+        const unifiedIsActive = unifiedStatus ? (unifiedStatus === 'active' && isNotExpired(unifiedExpiry)) : null;
 
-        const isActive = Boolean(state?.is_active);
+        const isActive = unifiedIsActive ?? Boolean(state?.is_active);
         const plan = isActive ? 'pro' : 'free';
-        const expiresAt = state?.expires_at || null;
-        const updatedAt = state?.updated_at || null;
+        const expiresAt = unifiedExpiry || state?.expires_at || null;
+        const updatedAt = normalizeString(user?.updated_at ?? user?.updatedAt) || state?.updated_at || null;
         const featureFlags = {
             webCheckoutEnabled: process.env.BILLING_WEB_CHECKOUT_ENABLED !== 'false',
             mobilePaywallEnabled: process.env.BILLING_MOBILE_PAYWALL_ENABLED === 'true',
@@ -99,7 +138,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
                     isActive,
                     expiresAt,
                     productId: state?.product_id || null,
-                    store: state?.store || null,
+                    store: state?.store || (unifiedProvider === 'polar' ? 'POLAR' : unifiedProvider === 'revenue_cat' ? 'REVENUE_CAT' : null),
                     environment: state?.environment || null,
                     willRenew: state?.will_renew ?? null,
                     isTrial: Boolean(state?.is_trial),
@@ -133,8 +172,11 @@ router.get('/checkout-config', authenticate, async (req: Request, res: Response,
 
         await syncRevenueCatStateForUser(user as any);
         const state = await getRevenueCatStateForUser(user as any);
+        const unifiedStatus = resolveUnifiedStatus(user);
+        const unifiedExpiry = resolveUnifiedExpiry(user);
+        const unifiedIsActive = unifiedStatus ? (unifiedStatus === 'active' && isNotExpired(unifiedExpiry)) : null;
 
-        const isActive = Boolean(state?.is_active);
+        const isActive = unifiedIsActive ?? Boolean(state?.is_active);
         const appUserId = String(state?.app_user_id || user.id);
 
         res.json({

@@ -199,7 +199,15 @@
       "Bash(node -e \"const icons = require\\('/Users/macintoshhd/Work/hedwig-app/node_modules/@hugeicons/core-free-icons'\\); console.log\\(Object.keys\\(icons\\).filter\\(k => /link|share|open|extern/i.test\\(k\\)\\).join\\('\\\\n'\\)\\);\")",
       "Bash(node -e \"const icons = require\\('/Users/macintoshhd/Work/hedwig-app/node_modules/@hugeicons/core-free-icons'\\); const keys = Object.keys\\(icons\\); console.log\\('total:', keys.length\\); console.log\\(keys.slice\\(0,30\\).join\\('\\\\n'\\)\\);\")",
       "Bash(node -e \"const icons = require\\('/Users/macintoshhd/Work/hedwig-app/node_modules/@hugeicons/core-free-icons/dist/cjs/index.js'\\); const keys = Object.keys\\(icons\\); console.log\\('total:', keys.length\\); console.log\\(keys.filter\\(k => /link|share|extern|open|arrow.*up.*right|launch/i.test\\(k\\)\\).join\\('\\\\n'\\)\\);\")",
-      "WebFetch(domain:docs.blockradar.co)"
+      "WebFetch(domain:docs.blockradar.co)",
+      "WebFetch(domain:polar.sh)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "WebFetch(domain:docs.polar.sh)",
+      "WebFetch(domain:www.mintlify.com)",
+      "Bash(node -e \"const p = require\\('./node_modules/@polar-sh/sdk/package.json'\\); console.log\\('version:', p.version\\); const exp = Object.keys\\(p.exports || {}\\).slice\\(0,15\\); console.log\\('exports:', exp\\);\")",
+      "Bash(node -e \"const { Polar } = require\\('@polar-sh/sdk'\\); console.log\\('Polar:', typeof Polar\\); const p = new Polar\\({ accessToken: 'test', server: 'sandbox' }\\); console.log\\('methods:', Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(p.checkouts\\)\\).filter\\(m => m !== 'constructor'\\)\\);\")",
+      "Bash(node -e \"const { Polar } = require\\('@polar-sh/sdk'\\); const p = new Polar\\({ accessToken: 'test', server: 'sandbox' }\\); console.log\\('customerSessions:', Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(p.customerSessions\\)\\).filter\\(m => m !== 'constructor'\\)\\); console.log\\('has customerPortal:', !!p.customerPortal\\); if \\(p.customerPortal\\) { console.log\\('customerPortal keys:', Object.keys\\(p.customerPortal\\)\\); }\")"
     ],
     "deny": [],
     "ask": []

@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { Purchases } from '@revenuecat/purchases-js';
 import {
   ArrowsClockwise,
   CalendarBlank,
@@ -72,13 +71,6 @@ const THEME_OPTIONS: Array<{ value: WebThemePreference; label: string }> = [
   { value: 'dark', label: 'Dark' },
   { value: 'system', label: 'System' }
 ];
-
-const WEB_BILLING_SANDBOX_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_WEB_BILLING_SANDBOX_API_KEY?.trim() || '';
-const WEB_BILLING_PROD_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_WEB_BILLING_API_KEY?.trim() || '';
-const WEB_BILLING_USE_SANDBOX = process.env.NEXT_PUBLIC_REVENUECAT_USE_SANDBOX !== 'false';
-const WEB_BILLING_API_KEY = WEB_BILLING_USE_SANDBOX
-  ? WEB_BILLING_SANDBOX_API_KEY || WEB_BILLING_PROD_API_KEY
-  : WEB_BILLING_PROD_API_KEY || WEB_BILLING_SANDBOX_API_KEY;
 
 
 function SettingsSection({
@@ -152,7 +144,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [billingStatus, setBillingStatus] = useState<BillingStatusSummary | null>(null);
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
   const [isOpeningSubscriptionManagement, setIsOpeningSubscriptionManagement] = useState(false);
-  const [managementUrl, setManagementUrl] = useState<string | null>(null);
 
   const fullName = useMemo(() => `${firstName} ${lastName}`.trim() || email || 'User', [email, firstName, lastName]);
   const kycBadge = KYC_BADGE[kycStatus];
@@ -223,52 +214,15 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     }
   };
 
-  const resolveManagementUrl = async (appUserId: string): Promise<string | null> => {
-    if (!WEB_BILLING_API_KEY) return null;
-
-    let purchases: Purchases;
-    if (!Purchases.isConfigured()) {
-      purchases = Purchases.configure({
-        apiKey: WEB_BILLING_API_KEY,
-        appUserId
-      });
-    } else {
-      purchases = Purchases.getSharedInstance();
-      if (purchases.getAppUserId() !== appUserId) {
-        await purchases.changeUser(appUserId);
-      }
-    }
-
-    const customerInfo = await purchases.getCustomerInfo();
-    return customerInfo.managementURL || null;
-  };
-
   const openSubscriptionManagement = async () => {
-    if (managementUrl) {
-      window.open(managementUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
-
-    if (!billingStatus?.appUserId) {
-      router.push('/pricing');
+    if (!accessToken) {
+      router.push('/sign-in');
       return;
     }
 
     setIsOpeningSubscriptionManagement(true);
     try {
-      const url = await resolveManagementUrl(billingStatus.appUserId);
-      if (url) {
-        setManagementUrl(url);
-        window.open(url, '_blank', 'noopener,noreferrer');
-        return;
-      }
-
-      toast({
-        type: 'info',
-        title: 'Subscription management',
-        message: 'Management URL was unavailable. Opened pricing page instead.'
-      });
-      router.push('/pricing');
+      window.location.assign('/api/billing/polar/portal');
     } catch (error: any) {
       toast({
         type: 'error',
@@ -559,7 +513,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
 
           <SettingsRow
             label="Cancel or change plan"
-            description="Open RevenueCat subscription management."
+            description="Open Polar subscription management."
           >
             <button
               type="button"

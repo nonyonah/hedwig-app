@@ -45,6 +45,7 @@ import bridgeUsdWebhookRoutes from './routes/bridgeUsdWebhook';
 import billingRoutes from './routes/billing';
 import revenuecatWebhookRoutes from './routes/revenuecatWebhook';
 import feedbackRoutes from './routes/feedback';
+import paymentWebhooksRoutes from './routes/paymentWebhooks';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -418,6 +419,7 @@ app.use('/api/webhooks/paycrest', (req, _res, next) => {
 app.use('/api/webhooks/paycrest', paycrestWebhookRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/webhooks/revenuecat', revenuecatWebhookRoutes);
+app.use('/api/webhooks/payments', paymentWebhooksRoutes);
 app.use('/api/documents', pdfRoutes); // PDF generation and signing
 app.use('/api/wallet', walletRoutes);
 app.use('/api/notifications', notificationRoutes);

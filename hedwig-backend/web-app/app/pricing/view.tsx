@@ -2,9 +2,8 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ErrorCode, Purchases, PurchasesError, type Offering, type Package } from '@revenuecat/purchases-js';
+import { useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, Sparkle, X } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import type { BillingStatusSummary } from '@/lib/api/client';
@@ -35,35 +34,6 @@ const FEATURE_ROWS: Array<{ feature: string; free: boolean; pro: boolean }> = [
   { feature: 'Priority product updates', free: false, pro: true },
 ];
 
-const SANDBOX_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_WEB_BILLING_SANDBOX_API_KEY?.trim() || '';
-const PROD_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_WEB_BILLING_API_KEY?.trim() || '';
-const USE_SANDBOX = process.env.NEXT_PUBLIC_REVENUECAT_USE_SANDBOX !== 'false';
-const REVENUECAT_API_KEY = USE_SANDBOX ? SANDBOX_API_KEY || PROD_API_KEY : PROD_API_KEY || SANDBOX_API_KEY;
-const PRIMARY_ENTITLEMENT_ID = process.env.NEXT_PUBLIC_REVENUECAT_PRIMARY_ENTITLEMENT_ID?.trim() || 'pro';
-
-const isPackageType = (rcPackage: Package, value: string) =>
-  String(rcPackage.packageType || '').toLowerCase() === value.toLowerCase();
-
-function pickMonthlyPackage(offering: Offering | null): Package | null {
-  if (!offering) return null;
-  return (
-    offering.monthly ||
-    offering.availablePackages.find((item) => isPackageType(item, '$rc_monthly')) ||
-    offering.availablePackages.find((item) => item.identifier.toLowerCase().includes('monthly')) ||
-    null
-  );
-}
-
-function pickAnnualPackage(offering: Offering | null): Package | null {
-  if (!offering) return null;
-  return (
-    offering.annual ||
-    offering.availablePackages.find((item) => isPackageType(item, '$rc_annual')) ||
-    offering.availablePackages.find((item) => item.identifier.toLowerCase().includes('annual')) ||
-    null
-  );
-}
-
 export function PricingPageClient({
   accessToken,
   billing,
@@ -72,167 +42,60 @@ export function PricingPageClient({
   billing: BillingStatusSummary | null;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [interval, setInterval] = useState<Interval>('annual');
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const [isBootstrapping, setIsBootstrapping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [portalUrl, setPortalUrl] = useState<string | null>(null);
-  const [packages, setPackages] = useState<{ monthly: Package | null; annual: Package | null }>({
-    monthly: null,
-    annual: null,
-  });
+  const checkoutId = searchParams.get('checkoutId');
 
   const isPro = isProPlan(billing);
-  const appUserId = billing?.appUserId || null;
-  const hasSdkKey = REVENUECAT_API_KEY.length > 0;
-
-  useEffect(() => {
-    if (!accessToken || !appUserId || !hasSdkKey) return;
-
-    let cancelled = false;
-
-    const bootstrap = async () => {
-      setIsBootstrapping(true);
-      setError(null);
-      setInfo(null);
-      try {
-        let purchases: Purchases;
-        if (!Purchases.isConfigured()) {
-          purchases = Purchases.configure({
-            apiKey: REVENUECAT_API_KEY,
-            appUserId,
-          });
-        } else {
-          purchases = Purchases.getSharedInstance();
-          if (purchases.getAppUserId() !== appUserId) {
-            await purchases.changeUser(appUserId);
-          }
-        }
-
-        const offerings = await purchases.getOfferings();
-        const current = offerings.current;
-        const customerInfo = await purchases.getCustomerInfo();
-
-        if (cancelled) return;
-
-        setPackages({
-          monthly: pickMonthlyPackage(current),
-          annual: pickAnnualPackage(current),
-        });
-        setPortalUrl(customerInfo.managementURL || null);
-        setInfo(
-          purchases.isSandbox()
-            ? 'RevenueCat sandbox mode is active.'
-            : USE_SANDBOX
-              ? 'Using a production RevenueCat key while sandbox mode is requested.'
-              : null
-        );
-      } catch (bootstrapError: any) {
-        if (!cancelled) {
-          setError(bootstrapError?.message || 'Could not initialize billing.');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsBootstrapping(false);
-        }
-      }
-    };
-
-    void bootstrap();
-    return () => {
-      cancelled = true;
-    };
-  }, [accessToken, appUserId, hasSdkKey]);
 
   const price = useMemo(() => {
     if (interval === 'annual') {
-      const formatted = packages.annual?.webBillingProduct?.price?.formattedPrice;
       return {
-        value: formatted || '$48',
+        value: '$48',
         suffix: '/year',
         helper: 'Billed annually',
         badge: 'Save 20%',
       };
     }
 
-    const formatted = packages.monthly?.webBillingProduct?.price?.formattedPrice;
     return {
-      value: formatted || '$5',
+      value: '$5',
       suffix: '/month',
       helper: 'Billed monthly',
       badge: null,
     };
-  }, [interval, packages.annual, packages.monthly]);
+  }, [interval]);
 
   const startCheckout = async () => {
     if (!accessToken) {
       router.push('/sign-in');
       return;
     }
-    if (!appUserId) {
-      setError('Could not resolve account identity for billing.');
-      return;
-    }
-    if (!hasSdkKey) {
-      setError(
-        'Missing RevenueCat key. Set NEXT_PUBLIC_REVENUECAT_WEB_BILLING_SANDBOX_API_KEY (or NEXT_PUBLIC_REVENUECAT_WEB_BILLING_API_KEY).'
-      );
-      return;
-    }
     if (isPro) return;
 
     setIsRedirecting(true);
     setError(null);
+    setInfo('Opening secure checkout…');
 
     try {
-      let purchases: Purchases;
-      if (!Purchases.isConfigured()) {
-        purchases = Purchases.configure({
-          apiKey: REVENUECAT_API_KEY,
-          appUserId,
-        });
-      } else {
-        purchases = Purchases.getSharedInstance();
-        if (purchases.getAppUserId() !== appUserId) {
-          await purchases.changeUser(appUserId);
-        }
-      }
-
-      const targetPackage = interval === 'annual' ? packages.annual : packages.monthly;
-      if (!targetPackage) {
-        const offerings = await purchases.getOfferings();
-        const current = offerings.current;
-        const fallbackPackage = interval === 'annual' ? pickAnnualPackage(current) : pickMonthlyPackage(current);
-        if (!fallbackPackage) {
-          throw new Error(
-            interval === 'annual'
-              ? 'Annual package is not configured in the current RevenueCat offering.'
-              : 'Monthly package is not configured in the current RevenueCat offering.'
-          );
-        }
-        setPackages((prev) => ({
-          monthly: prev.monthly || pickMonthlyPackage(current),
-          annual: prev.annual || pickAnnualPackage(current),
-        }));
-        const result = await purchases.purchase({ rcPackage: fallbackPackage });
-        setPortalUrl(result.customerInfo.managementURL || null);
-      } else {
-        const result = await purchases.purchase({ rcPackage: targetPackage });
-        setPortalUrl(result.customerInfo.managementURL || null);
-      }
-
-      setInfo('Purchase completed. Refreshing your plan status…');
-      router.refresh();
+      window.location.assign(`/api/billing/polar/checkout?interval=${interval}`);
     } catch (checkoutError: any) {
-      if (checkoutError instanceof PurchasesError && checkoutError.errorCode === ErrorCode.UserCancelledError) {
-        setInfo('Checkout cancelled.');
-      } else {
-        setError(checkoutError?.message || 'Could not start checkout right now.');
-      }
-    } finally {
+      setError(checkoutError?.message || 'Could not start checkout right now.');
       setIsRedirecting(false);
+    } finally {
+      // no-op: browser navigates away on success
     }
+  };
+
+  const openSubscriptionManagement = () => {
+    if (!accessToken) {
+      router.push('/sign-in');
+      return;
+    }
+    window.location.assign('/api/billing/polar/portal');
   };
 
   return (
@@ -359,15 +222,23 @@ export function PricingPageClient({
               ))}
             </div>
             <div className="space-y-2">
-              <Button onClick={startCheckout} disabled={isRedirecting || isPro || isBootstrapping} className="w-full">
-                {isPro ? 'You are on Pro' : isRedirecting ? 'Opening checkout…' : isBootstrapping ? 'Loading…' : 'Upgrade to Pro'}
+              <Button onClick={startCheckout} disabled={isRedirecting || isPro} className="w-full">
+                {isPro ? 'You are on Pro' : isRedirecting ? 'Opening checkout…' : 'Upgrade to Pro'}
               </Button>
-              {portalUrl ? (
-                <a href={portalUrl} target="_blank" rel="noreferrer" className="block text-center text-[12px] font-medium text-[#717680] hover:text-[#414651] transition-colors">
+              {accessToken ? (
+                <button
+                  type="button"
+                  onClick={openSubscriptionManagement}
+                  className="block w-full text-center text-[12px] font-medium text-[#717680] hover:text-[#414651] transition-colors"
+                >
                   Manage subscription
-                </a>
+                </button>
               ) : null}
-              {info ? <p className="text-center text-[12px] text-[#717680]">{info}</p> : null}
+              {info || checkoutId ? (
+                <p className="text-center text-[12px] text-[#717680]">
+                  {info || 'Checkout completed. Subscription sync is in progress.'}
+                </p>
+              ) : null}
               {error ? <p className="text-center text-[12px] text-[#b42318]">{error}</p> : null}
             </div>
           </article>
