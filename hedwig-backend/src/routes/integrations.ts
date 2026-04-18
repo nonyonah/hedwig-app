@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { privy } from '../lib/privy';
+import { getPrivyAuthClient } from '../middleware/auth';
 import {
   getIntegrations,
   deleteIntegration,
@@ -30,7 +30,7 @@ async function getUserId(req: Request): Promise<string | null> {
   if (!token) return null;
 
   try {
-    const claims = await privy.verifyAuthToken(token);
+    const claims = await getPrivyAuthClient().verifyAuthToken(token);
     const { data } = await supabase
       .from('users')
       .select('id')
