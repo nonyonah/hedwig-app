@@ -37,6 +37,18 @@ export const getCurrentSession = cache(async (): Promise<HedwigSession> => {
 
   const verifiedUser = await verifyAccessToken(accessToken);
 
+  // Backend unreachable — keep the token alive so the user isn't kicked out
+  // during transient outages or right after a deployment restart.
+  if (verifiedUser === 'network_error') {
+    return {
+      user: null,
+      workspaceId: null,
+      accessToken,
+      isMockSession: false
+    };
+  }
+
+  // Definitively rejected (401/403) — clear the token
   if (!verifiedUser) {
     return {
       user: null,

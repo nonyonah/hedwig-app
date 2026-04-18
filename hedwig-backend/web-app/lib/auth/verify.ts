@@ -39,7 +39,9 @@ function mapVerifiedUser(payload: AuthMeResponse): User | null {
   };
 }
 
-export async function verifyAccessToken(token: string): Promise<User | null> {
+// 'network_error' means the backend was unreachable — don't sign the user out.
+// null means the token was definitively rejected (401/403).
+export async function verifyAccessToken(token: string): Promise<User | null | 'network_error'> {
   if (!token) {
     return null;
   }
@@ -54,8 +56,14 @@ export async function verifyAccessToken(token: string): Promise<User | null> {
       cache: 'no-store'
     });
 
-    if (!response.ok) {
+    // Definitive rejection — token is bad
+    if (response.status === 401 || response.status === 403) {
       return null;
+    }
+
+    // Server error (5xx) or unexpected status — fail open
+    if (!response.ok) {
+      return 'network_error';
     }
 
     const payload = (await response.json()) as AuthMeResponse;
@@ -66,6 +74,7 @@ export async function verifyAccessToken(token: string): Promise<User | null> {
 
     return mapVerifiedUser(payload);
   } catch {
-    return null;
+    // Network error (backend unreachable, timeout, DNS failure, etc.) — fail open
+    return 'network_error';
   }
 }
