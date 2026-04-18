@@ -15,20 +15,20 @@ const FREE_FEATURES = [
   'Invoices and payment links',
   'Clients, projects, and contracts',
   'Earnings dashboard and reporting',
-  'Basic dashboard metrics',
+  'Assistant summary and priority feed',
 ];
 
 const PRO_FEATURES = [
-  'Assistant summary and priority feed',
   'Recurring invoice automation',
   'Tax summaries (monthly and yearly)',
+  'Priority product updates',
   'Subscription sync across web and mobile',
 ];
 
 const FEATURE_ROWS: Array<{ feature: string; free: boolean; pro: boolean }> = [
   { feature: 'Create invoices and payment links', free: true, pro: true },
   { feature: 'Manage clients and projects', free: true, pro: true },
-  { feature: 'Assistant summary feed', free: false, pro: true },
+  { feature: 'Assistant summary feed', free: true, pro: true },
   { feature: 'Recurring invoice automation', free: false, pro: true },
   { feature: 'Tax summary reports', free: false, pro: true },
   { feature: 'Priority product updates', free: false, pro: true },

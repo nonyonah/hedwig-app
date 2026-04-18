@@ -46,6 +46,7 @@ import billingRoutes from './routes/billing';
 import revenuecatWebhookRoutes from './routes/revenuecatWebhook';
 import feedbackRoutes from './routes/feedback';
 import paymentWebhooksRoutes from './routes/paymentWebhooks';
+import integrationsRoutes from './routes/integrations';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -448,6 +449,7 @@ app.use('/api/usd-accounts', (req, _res, next) => {
 });
 app.use('/api/usd-accounts', financialLimiter, usdAccountRoutes);
 app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
+app.use('/api/integrations', integrationsRoutes);
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));

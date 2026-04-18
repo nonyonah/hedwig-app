@@ -10,6 +10,11 @@ const PUBLIC_PATHS = [
   '/api/auth/session',
   '/api/auth/sign-out',
   '/api/auth/demo',
+  // Polar checkout + portal: handle their own auth internally
+  '/api/polar',
+  '/api/billing/polar',
+  // OAuth callbacks arrive from external providers with only a state cookie
+  '/api/integrations/callback',
   '/invoice',
   '/invoices',
   '/pay',
@@ -40,7 +45,8 @@ const clearAuthCookies = (response: NextResponse) => {
   return response;
 };
 
-async function isValidAccessToken(token: string) {
+// Returns true = valid, false = definitively rejected (401/403), null = uncertain (network/server error)
+async function isValidAccessToken(token: string): Promise<boolean | null> {
   try {
     const response = await fetch(`${BACKEND_DIRECT_URL}/api/auth/me`, {
       method: 'GET',
@@ -51,14 +57,22 @@ async function isValidAccessToken(token: string) {
       cache: 'no-store'
     });
 
-    if (!response.ok) {
+    // Definitive rejection — token is bad
+    if (response.status === 401 || response.status === 403) {
       return false;
+    }
+
+    // Server/network error — don't sign the user out, assume the token is still good
+    if (!response.ok) {
+      return null;
     }
 
     const payload = await response.json();
     return Boolean(payload?.success && payload?.data?.user?.id);
   } catch {
-    return false;
+    // Network error (backend unreachable, timeout, etc.) — fail open to avoid
+    // signing users out during transient backend issues or during the Polar checkout flow
+    return null;
   }
 }
 
@@ -96,11 +110,13 @@ export async function middleware(request: NextRequest) {
 
   const validToken = await isValidAccessToken(token);
 
-  if (!validToken) {
+  // Only clear the session and sign the user out on a definitive rejection (false).
+  // null means we couldn't reach the backend — keep the session intact so the user
+  // isn't logged out during the Polar checkout flow or a transient backend blip.
+  if (validToken === false) {
     if (isPublic) {
       return clearAuthCookies(NextResponse.next());
     }
-
     return clearAuthCookies(NextResponse.redirect(new URL('/sign-in', request.url)));
   }
 

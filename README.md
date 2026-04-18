@@ -1,150 +1,189 @@
-# Hedwig Mobile App
+# Hedwig
 
-Hedwig is an AI-powered growth partner for African freelancers. It helps them create professional invoices, proposals, and contracts, and facilitates crypto payments across multiple chains including Base, Solana, Celo, and Stacks (Bitcoin L2).
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 18+
-- Expo Go app on your phone ([iOS](https://apps.apple.com/app/expo-go/id982107779) | [Android](https://play.google.com/store/apps/details?id=host.exp.exponent))
-- Privy App ID (get from https://dashboard.privy.io)
-- Stacks API (testnet/mainnet)
-
-### Setup
-
-1. **Install dependencies** (already done ✅)
-   ```bash
-   cd hedwig-app
-   npm install
-   ```
-
-2. **Configure Privy**
-   
-   Edit `.env` file and add your Privy App ID:
-   ```env
-   EXPO_PUBLIC_PRIVY_APP_ID=your_privy_app_id_here
-   ```
-
-3. **Start Expo**
-   ```bash
-   npm start
-   ```
-
-4. **Test on your phone**
-   - Open Expo Go app
-   - Scan the QR code from terminal
-   - App will load on your device
-
-## 📱 Features
-
-## 📱 Features
-
-- **AI Growth Partner**: Chat interface powered by Gemini to help freelancers manage their business.
-- **Document Generation**: Create professional invoices, proposals, and contracts instantly.
-- **Crypto Payments**: Accept payments across Base, Solana, Celo, and Stacks (Bitcoin L2).
-- **Payment Links & Invoices**: Shareable public pages for clients to pay seamlessly.
-- **Wallet Integration**: Seamless wallet creation and management via Privy (EVM/Solana) and Stacks.
-- **Secure Authentication**: Secure sign-in with biometric security.
-- **Transaction Management**: integrated transaction confirmation with gas estimation and platform fees.
-- **Client & Project Management**: Organize your freelance work efficiently.
-
-## 🎨 Design System
-
-Colors, spacing, and typography extracted from your designs:
-
-- **Primary Blue**: `#3B82F6`
-- **Background**: `#FFFFFF`
-- **Surface**: `#F5F5F5`
-
-See `constants/theme.ts` for full design tokens.
-
-## 📂 Project Structure
-
-```
-hedwig-app/
-├── app/                    # Expo Router screens
-│   ├── _layout.tsx         # Root layout with Privy provider
-│   ├── index.tsx           # Entry point with auth redirect
-│   └── sign-in.tsx         # Login screen ✅
-├── assets/                 # Images and icons
-│   └── logo.png            # Hedwig logo (transparent)
-├── components/             # Reusable UI components
-├── constants/              # Design system constants
-│   └── theme.ts            # Colors, spacing, typography
-├── lib/                    # Configuration
-│   └── privy.ts            # Privy auth config
-└── .env                    # Environment variables
-```
-
-## 🔧 Environment Variables
-
-Create a `.env` file:
-
-```env
-# Required
-EXPO_PUBLIC_PRIVY_APP_ID=your_privy_app_id
-
-# Optional (defaults shown)
-EXPO_PUBLIC_API_URL=http://localhost:3000
-```
-
-## 📱 Testing with Expo Go
-
-1. **Start the dev server**:
-   ```bash
-   npm start
-   ```
-
-2. **Open Expo Go** on your phone
-
-3. **Scan the QR code** from the terminal
-
-4. **Test sign-in**:
-   - Tap "Sign in with Google"
-   - Complete authentication
-   - Privy will create wallets automatically
-
-## 🔐 Privy Configuration
-
-Current setup:
-- **Login Methods**: Google, Apple
-- **Chains**: Base (8453), Celo (42220), Solana, Stacks (Bitcoin L2)
-- **Theme**: Light mode with blue accent (#3B82F6)
-
-Configured in `lib/privy.ts` and `services/stacksWallet.ts`
-
-## 🐛 Troubleshooting
-
-### "PRIVY_APP_ID is not set"
-- Make sure `.env` file exists
-- Add `EXPO_PUBLIC_PRIVY_APP_ID=...`
-- Restart Expo: `npm start`
-
-### "Network request failed"
-- Make sure backend is running: `cd ../hedwig-backend && npm run dev`
-- Check `EXPO_PUBLIC_API_URL` in `.env`
-
-### Expo Go won't connect
-- Make sure phone and computer are on same WiFi
-- Try scanning QR code again
-- Check firewall settings
-
-## 🚢 Building for Production
-
-```bash
-# Build for iOS
-npx expo build:ios
-
-# Build for Android  
-npx expo build:android
-```
-
-## 📝 Next Steps
-
-1. ✅ Fill in `EXPO_PUBLIC_PRIVY_APP_ID` in `.env`
-2. ✅ Test login with Expo Go
-3. 🚀 Explore the AI Chat and generate your first invoice!
+**Hedwig is a payments and business management platform built for African freelancers.** It combines AI-powered invoicing, multi-chain crypto payments, and smart email intelligence into a single workspace — so you spend less time chasing money and more time doing your best work.
 
 ---
 
-**Current Status**: 🚀 Beta Ready - Core features implemented including multi-chain payments and document generation.
+## What Hedwig does
+
+### Get paid faster
+- Create professional **invoices, proposals, and contracts** in seconds with AI assistance
+- Share **payment links** that clients pay via crypto (Base, Solana, Celo, Stacks/Bitcoin L2)
+- Receive payments in USDC across multiple chains — Hedwig handles the wallet, you handle the work
+- Set up **recurring invoices** that auto-send on your schedule (Pro)
+
+### Stay on top of your money
+- **Earnings dashboard** with real-time revenue tracking, conversion rates, and payment history
+- **Tax summaries** — monthly and yearly breakdowns ready for your accountant (Pro)
+- Convert crypto earnings to local currency (NGN, GHS) via integrated offramp
+
+### Manage your workspace
+- Organize **clients, projects, and milestones** in one place
+- Get an **AI assistant** that summarizes your day, surfaces unpaid invoices, and prompts follow-ups
+- **Calendar sync** — invoice due dates and reminders appear in Google Calendar or Apple Calendar
+
+### Email and calendar intelligence (new)
+- Connect **Gmail** to automatically match incoming emails to your clients, projects, and invoices
+- Sync **Google Calendar** to see upcoming meetings alongside your project milestones
+- Attach **Slack** to receive payment and invoice notifications directly in your workspace
+- AI summarizes email threads so you know which ones need action
+- External invoices and contracts sent to you as email attachments are automatically recognized and stored
+
+---
+
+## Tech stack
+
+| Layer | Tech |
+|---|---|
+| Mobile | Expo (React Native), Expo Router |
+| Web dashboard | Next.js 16, React 19, Tailwind CSS |
+| Backend API | Express (Node.js), TypeScript |
+| Database | Supabase (PostgreSQL) |
+| Auth | Privy (embedded wallets + social login) |
+| AI | Google Gemini (assistant, summarization, nudges) |
+| File storage | Cloudflare R2 (documents, email attachments) |
+| Payments | Polar (web subscriptions), RevenueCat (mobile subscriptions) |
+| Notifications | OneSignal (push), Resend (email) |
+| Chains | Base, Solana, Celo, Stacks (Bitcoin L2) |
+
+---
+
+## Project structure
+
+```
+hedwig-app/
+├── app/                          # Expo Router mobile screens
+│   ├── _layout.tsx               # Root layout with Privy + nav providers
+│   ├── (tabs)/                   # Bottom tab screens
+│   └── ...
+├── hedwig-backend/
+│   ├── src/                      # Express API
+│   │   ├── routes/               # REST endpoint handlers
+│   │   ├── services/             # Business logic (AI, email sync, scheduler, etc.)
+│   │   ├── lib/                  # Shared utilities (R2, Redis, Privy, Supabase)
+│   │   └── middleware/           # Auth, error handling, rate limiting
+│   ├── supabase/migrations/      # PostgreSQL schema migrations (001–027)
+│   └── web-app/                  # Next.js web dashboard
+│       ├── app/                  # App Router pages + API routes
+│       ├── components/           # Shared UI components
+│       └── lib/                  # Auth helpers, API client, feature gates
+└── assets/                       # Shared images and icons
+```
+
+---
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 18+
+- A [Supabase](https://supabase.com) project
+- A [Privy](https://privy.io) app (for auth + wallets)
+
+### Mobile (Expo)
+
+```bash
+npm install
+cp .env.example .env
+# Fill in EXPO_PUBLIC_PRIVY_APP_ID and EXPO_PUBLIC_API_URL
+npm start
+```
+
+Open Expo Go on your phone and scan the QR code.
+
+### Backend API
+
+```bash
+cd hedwig-backend
+npm install
+cp .env.example .env.local
+# Fill in required vars (see .env.example comments)
+npm run dev          # starts on port 8080
+```
+
+### Web dashboard
+
+```bash
+cd hedwig-backend/web-app
+npm install
+cp .env.example .env.local
+# Fill in NEXT_PUBLIC_PRIVY_APP_ID, NEXT_PUBLIC_API_URL, POLAR_ACCESS_TOKEN, etc.
+npm run dev          # starts on port 3001
+```
+
+---
+
+## Key environment variables
+
+### Backend (`hedwig-backend/.env`)
+
+| Variable | Purpose |
+|---|---|
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Database access |
+| `PRIVY_APP_ID` / `PRIVY_APP_SECRET` | Auth token verification |
+| `GEMINI_API_KEY` | AI assistant + email summarization |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Gmail + Google Calendar OAuth |
+| `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` | Slack workspace OAuth |
+| `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Cloudflare R2 file storage |
+| `R2_BUCKET_NAME` | R2 bucket for documents and attachments |
+| `ONESIGNAL_APP_ID` / `ONESIGNAL_REST_API_KEY` | Push notifications |
+| `POLAR_WEBHOOK_SECRET` | Polar billing webhook verification |
+| `REVENUECAT_WEBHOOK_AUTH` | RevenueCat billing webhook auth |
+
+### Web app (`hedwig-backend/web-app/.env.local`)
+
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_PRIVY_APP_ID` | Privy client-side auth |
+| `NEXT_PUBLIC_API_URL` | Backend API base URL |
+| `NEXT_PUBLIC_WEB_URL` | Web app origin (used for OAuth redirect URIs) |
+| `POLAR_ACCESS_TOKEN` | Polar server-side billing API |
+| `POLAR_PRODUCT_ID_MONTHLY` / `POLAR_PRODUCT_ID_ANNUAL` | Polar plan product IDs |
+
+---
+
+## Integrations setup
+
+### Gmail / Google Calendar
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials
+2. Create an OAuth 2.0 Client ID (Web application)
+3. Add authorized redirect URIs:
+   - `https://hedwigbot.xyz/api/integrations/callback/google`
+   - `http://localhost:3001/api/integrations/callback/google` (dev)
+4. Enable **Gmail API** and **Google Calendar API** in the API Library
+5. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in backend `.env`
+
+### Slack
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → Create New App
+2. Under OAuth & Permissions, add redirect URL:
+   - `https://hedwigbot.xyz/api/integrations/callback/slack`
+3. Add Bot Token Scopes: `channels:read`, `chat:write`, `users:read`
+4. Set `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` in backend `.env`
+
+### Cloudflare R2
+
+1. Go to Cloudflare dashboard → R2 → Create bucket (e.g. `hedwig-documents`)
+2. Create API token with **Object Read & Write** on the bucket
+3. Set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
+4. Optionally set `R2_PUBLIC_URL` if you've enabled public access or a custom domain
+
+---
+
+## Plans
+
+| Feature | Free | Pro |
+|---|---|---|
+| Invoices, payment links, contracts | ✓ | ✓ |
+| Clients, projects, milestones | ✓ | ✓ |
+| Earnings dashboard + AI assistant | ✓ | ✓ |
+| Recurring invoice automation | — | ✓ |
+| Tax summary reports | — | ✓ |
+| Subscription sync (web + mobile) | — | ✓ |
+
+Subscriptions are managed via [Polar](https://polar.sh) (web) and RevenueCat (mobile), sharing a unified entitlement status in the database.
+
+---
+
+**Current status:** Production — serving active freelancers across West Africa.
