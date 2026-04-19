@@ -32,7 +32,7 @@ async function getUserId(req: Request): Promise<string | null> {
     const { data } = await supabase
       .from('users')
       .select('id')
-      .eq('privy_did', claims.userId)
+      .eq('privy_id', claims.userId)
       .maybeSingle();
     return data?.id ?? null;
   } catch {
