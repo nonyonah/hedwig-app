@@ -211,7 +211,9 @@
       "Bash(node -e ' *)",
       "Bash(curl -s --max-time 5 -o /dev/null -w \"%{http_code}\" https://sandbox-api.polar.sh/v1/checkouts/)",
       "Bash(curl -s --max-time 5 -o /dev/null -w \"%{http_code}\" https://api.polar.sh/v1/checkouts/)",
-      "Bash(node -e \"require\\('undici'\\); console.log\\('undici available'\\)\")"
+      "Bash(node -e \"require\\('undici'\\); console.log\\('undici available'\\)\")",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(grep \"\\\\.ts$\")"
     ],
     "deny": [],
     "ask": []

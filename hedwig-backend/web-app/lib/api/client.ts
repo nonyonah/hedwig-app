@@ -91,6 +91,7 @@ export interface KycStatusSummary {
 export interface BillingStatusSummary {
   plan: 'free' | 'pro';
   appUserId: string;
+  subscriptionProvider?: 'polar' | 'revenue_cat' | null;
   entitlement: {
     id: string;
     isActive: boolean;
@@ -1675,6 +1676,7 @@ export const hedwigApi = {
       return {
         plan: 'free',
         appUserId: 'mock-user',
+        subscriptionProvider: null,
         entitlement: {
           id: 'pro',
           isActive: false,

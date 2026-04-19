@@ -7,6 +7,7 @@ import { configureRevenueCatForUser } from '../services/revenuecat';
 export interface BillingStatusSummary {
     plan: 'free' | 'pro';
     appUserId: string;
+    subscriptionProvider?: 'polar' | 'revenue_cat' | null;
     entitlement: {
         id: string;
         isActive: boolean;
@@ -31,6 +32,7 @@ export interface BillingStatusSummary {
 const getDemoBillingStatus = (): BillingStatusSummary => ({
     plan: 'pro',
     appUserId: 'demo-user-hedwig-app-review',
+    subscriptionProvider: 'revenue_cat',
     entitlement: {
         id: 'pro',
         isActive: true,

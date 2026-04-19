@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
   CalendarBlank,
@@ -48,39 +48,22 @@ type SettingsClientProps = {
   };
 };
 
-type IntegrationProvider = 'gmail' | 'google_calendar' | 'slack';
-
-interface Integration {
-  id: string;
-  provider: IntegrationProvider;
-  status: 'connected' | 'error' | 'token_expired';
-  provider_email: string | null;
-  last_synced_at: string | null;
-}
-
-const INTEGRATION_META: Record<IntegrationProvider, { label: string; description: string; iconPath: string }> = {
-  gmail: {
-    label: 'Gmail',
-    description: 'Sync emails to match invoices, contracts, and clients automatically.',
-    iconPath: '/icons/gmail.svg',
-  },
-  google_calendar: {
-    label: 'Google Calendar',
-    description: 'Pull upcoming meetings and match them to your projects.',
-    iconPath: '/icons/google-calendar.svg',
-  },
-  slack: {
-    label: 'Slack',
-    description: 'Receive payment and invoice notifications directly in Slack.',
-    iconPath: '/icons/slack.svg',
-  },
-};
+type SubscriptionProvider = 'polar' | 'revenue_cat';
 
 const THEME_OPTIONS: Array<{ value: WebThemePreference; label: string }> = [
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
   { value: 'system', label: 'System' }
 ];
+
+const resolveSubscriptionProvider = (billing: BillingStatusSummary | null): SubscriptionProvider | null => {
+  const provider = billing?.subscriptionProvider;
+  if (provider === 'polar' || provider === 'revenue_cat') return provider;
+  const store = String(billing?.entitlement?.store || '').trim().toUpperCase();
+  if (!store) return null;
+  if (store === 'POLAR') return 'polar';
+  return 'revenue_cat';
+};
 
 
 function SettingsSection({
@@ -125,7 +108,6 @@ function SettingsRow({
 
 export function SettingsClient({ accessToken, initialUser }: SettingsClientProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { resetTutorial } = useTutorial();
 
@@ -150,14 +132,12 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
   const [isOpeningSubscriptionManagement, setIsOpeningSubscriptionManagement] = useState(false);
 
-  const [integrations, setIntegrations] = useState<Integration[]>([]);
-  const [isLoadingIntegrations, setIsLoadingIntegrations] = useState(false);
-  const [connectingProvider, setConnectingProvider] = useState<IntegrationProvider | null>(null);
-  const [disconnectingProvider, setDisconnectingProvider] = useState<IntegrationProvider | null>(null);
-  const [syncingProvider, setSyncingProvider] = useState<IntegrationProvider | null>(null);
+  const [clientRemindersEnabled, setClientRemindersEnabled] = useState(true);
+  const [isSavingReminders, setIsSavingReminders] = useState(false);
 
   const fullName = useMemo(() => `${firstName} ${lastName}`.trim() || email || 'User', [email, firstName, lastName]);
   const isProUser = isProPlan(billingStatus);
+  const subscriptionProvider = useMemo(() => resolveSubscriptionProvider(billingStatus), [billingStatus]);
 
   useEffect(() => {
     const storedTheme = getStoredThemePreference();
@@ -184,21 +164,10 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     if (!accessToken) return;
     void loadUserProfile();
     void loadBillingStatus();
-    void loadIntegrations();
+    void handleConnectionDiagnostics();
+    void loadPreferences();
   }, [accessToken]);
 
-  // Handle OAuth callback params
-  useEffect(() => {
-    const connected = searchParams.get('integration_connected');
-    const error     = searchParams.get('integration_error');
-    if (connected) {
-      toast({ type: 'success', title: `${INTEGRATION_META[connected as IntegrationProvider]?.label ?? connected} connected` });
-      void loadIntegrations();
-    }
-    if (error) {
-      toast({ type: 'error', title: 'Integration failed', message: error.replace(/_/g, ' ') });
-    }
-  }, [searchParams]);
 
   const loadUserProfile = async () => {
     if (!accessToken) return;
@@ -229,6 +198,15 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const openSubscriptionManagement = async () => {
     if (!accessToken) {
       router.push('/sign-in');
+      return;
+    }
+
+    if (subscriptionProvider === 'revenue_cat') {
+      toast({
+        type: 'info',
+        title: 'Subscription managed on mobile',
+        message: 'You cannot make changes here because this subscription was purchased through the mobile app.',
+      });
       return;
     }
 
@@ -320,61 +298,36 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     }
   };
 
-  const loadIntegrations = async () => {
+  const loadPreferences = async () => {
     if (!accessToken) return;
-    setIsLoadingIntegrations(true);
     try {
-      const resp = await fetch('/api/integrations/status');
-      const data = await resp.json() as { success: boolean; data: Integration[] };
-      if (data.success) setIntegrations(data.data ?? []);
-    } catch {
-      // non-fatal
-    } finally {
-      setIsLoadingIntegrations(false);
-    }
-  };
-
-  const connectIntegration = (provider: IntegrationProvider) => {
-    setConnectingProvider(provider);
-    window.location.assign(`/api/integrations/connect?provider=${provider}`);
-  };
-
-  const disconnectIntegration = async (provider: IntegrationProvider) => {
-    setDisconnectingProvider(provider);
-    try {
-      await fetch('/api/integrations/disconnect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider }),
+      const resp = await fetch(`${backendConfig.apiBaseUrl}/api/users/preferences`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
-      await loadIntegrations();
-      toast({ type: 'success', title: `${INTEGRATION_META[provider].label} disconnected` });
+      const data = await resp.json() as { success: boolean; data: { clientRemindersEnabled: boolean } };
+      if (data.success) setClientRemindersEnabled(data.data.clientRemindersEnabled);
     } catch {
-      toast({ type: 'error', title: 'Could not disconnect', message: 'Please try again.' });
-    } finally {
-      setDisconnectingProvider(null);
+      // keep default
     }
   };
 
-  const syncIntegration = async (provider: IntegrationProvider) => {
-    setSyncingProvider(provider);
+  const handleToggleReminders = async (enabled: boolean) => {
+    if (!accessToken) return;
+    setClientRemindersEnabled(enabled);
+    setIsSavingReminders(true);
     try {
-      await fetch('/api/integrations/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider }),
+      await fetch(`${backendConfig.apiBaseUrl}/api/users/preferences`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientRemindersEnabled: enabled }),
       });
-      toast({ type: 'info', title: 'Sync started', message: 'Your emails will appear shortly.' });
-      setTimeout(() => void loadIntegrations(), 3000);
     } catch {
-      toast({ type: 'error', title: 'Sync failed', message: 'Please try again.' });
+      setClientRemindersEnabled(!enabled);
+      toast({ type: 'error', title: 'Could not save preference', message: 'Please try again.' });
     } finally {
-      setSyncingProvider(null);
+      setIsSavingReminders(false);
     }
   };
-
-  const getConnectedIntegration = (provider: IntegrationProvider): Integration | undefined =>
-    integrations.find((i) => i.provider === provider);
 
   const openCalendarDialog = () => {
     setCalendarOpen(true);
@@ -530,6 +483,25 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
               <CaretRight className="h-4 w-4 text-[#a4a7ae]" />
             </button>
           </SettingsRow>
+
+          <SettingsRow label="Client reminders" description="Send automatic payment reminders to clients on due dates.">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={clientRemindersEnabled}
+              disabled={isSavingReminders}
+              onClick={() => void handleToggleReminders(!clientRemindersEnabled)}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                clientRemindersEnabled ? 'bg-[#2563eb]' : 'bg-[#d5d7da]'
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition-transform ${
+                  clientRemindersEnabled ? 'translate-x-4' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </SettingsRow>
         </SettingsSection>
 
         <SettingsSection title="Billing" description="Manage your Hedwig Pro plan across web and mobile.">
@@ -538,13 +510,17 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             description="Your current subscription status."
           >
             <Badge variant={isProUser ? 'success' : 'neutral'}>
-              {isLoadingBilling ? 'Checking…' : isProUser ? 'Pro active' : 'Free plan'}
+              {isLoadingBilling ? 'Checking…' : isProUser ? 'Pro' : 'Free plan'}
             </Badge>
           </SettingsRow>
 
           <SettingsRow
             label="Cancel or change plan"
-            description="Open Polar subscription management."
+            description={
+              subscriptionProvider === 'revenue_cat'
+                ? 'This subscription was purchased on mobile.'
+                : 'Open web subscription management.'
+            }
           >
             <button
               type="button"
@@ -554,98 +530,13 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
               disabled={isOpeningSubscriptionManagement}
               className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isOpeningSubscriptionManagement ? 'Opening…' : 'Manage'}
+              {isOpeningSubscriptionManagement
+                ? 'Opening…'
+                : 'Manage'}
               <CaretRight className="h-3.5 w-3.5 text-[#a4a7ae]" />
             </button>
           </SettingsRow>
         </SettingsSection>
-
-        {/* Integrations */}
-        <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="border-b border-[#f2f4f7] px-5 py-4">
-            <h2 className="text-[16px] font-semibold text-[#181d27]">Integrations</h2>
-            <p className="mt-0.5 text-[13px] text-[#717680]">Connect your tools to sync emails, meetings, and notifications.</p>
-          </div>
-          <div className="divide-y divide-[#f2f4f7]">
-            {isLoadingIntegrations ? (
-              <div className="px-5 py-4 text-[13px] text-[#717680]">Loading integrations…</div>
-            ) : (
-              (['gmail', 'google_calendar', 'slack'] as IntegrationProvider[]).map((provider) => {
-                const meta       = INTEGRATION_META[provider];
-                const connected  = getConnectedIntegration(provider);
-                const isConnecting    = connectingProvider === provider;
-                const isDisconnecting = disconnectingProvider === provider;
-                const isSyncing       = syncingProvider === provider;
-                const statusColor = connected
-                  ? connected.status === 'connected' ? 'bg-[#12b76a]' : 'bg-[#f79009]'
-                  : 'bg-[#d0d5dd]';
-
-                return (
-                  <div key={provider} className="flex items-center justify-between gap-4 px-5 py-4">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f2f4f7]">
-                        <Image
-                          src={meta.iconPath}
-                          alt={`${meta.label} icon`}
-                          width={18}
-                          height={18}
-                          className="h-[18px] w-[18px]"
-                        />
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-[14px] font-semibold text-[#181d27]">{meta.label}</p>
-                          <span className={`h-2 w-2 rounded-full ${statusColor}`} />
-                          {connected && (
-                            <span className="text-[11px] font-medium text-[#717680]">
-                              {connected.status === 'connected' ? 'Connected' : 'Token expired — reconnect'}
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 truncate text-[12px] text-[#717680]">
-                          {connected?.provider_email
-                            ? `Syncing ${connected.provider_email}`
-                            : meta.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {connected && connected.status === 'connected' && provider !== 'slack' && (
-                        <button
-                          type="button"
-                          onClick={() => void syncIntegration(provider)}
-                          disabled={isSyncing}
-                          className="rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#414651] transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isSyncing ? 'Syncing…' : 'Sync now'}
-                        </button>
-                      )}
-                      {connected ? (
-                        <button
-                          type="button"
-                          onClick={() => void disconnectIntegration(provider)}
-                          disabled={isDisconnecting}
-                          className="rounded-full border border-[#fda29b] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#b42318] transition hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isDisconnecting ? 'Disconnecting…' : 'Disconnect'}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => connectIntegration(provider)}
-                          disabled={isConnecting}
-                          className="rounded-full bg-[#2563eb] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isConnecting ? 'Redirecting…' : 'Connect'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </section>
 
         <section className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
           <div className="border-b border-[#f2f4f7] px-5 py-4">

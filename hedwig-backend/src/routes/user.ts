@@ -252,4 +252,29 @@ router.post('/account/restore', authenticate, async (req: Request, res: Response
     }
 });
 
+// GET /api/users/preferences
+router.get('/preferences', authenticate, async (req, res, next) => {
+    try {
+        const privyId = req.user!.id;
+        const { data: user, error } = await supabase.from('users').select('id, client_reminders_enabled').eq('privy_id', privyId).single();
+        if (error || !user) { res.status(404).json({ success: false }); return; }
+        res.json({ success: true, data: { clientRemindersEnabled: user.client_reminders_enabled ?? true } });
+    } catch (error) { next(error); }
+});
+
+// PATCH /api/users/preferences
+router.patch('/preferences', authenticate, async (req, res, next) => {
+    try {
+        const privyId = req.user!.id;
+        const { data: user, error } = await supabase.from('users').select('id').eq('privy_id', privyId).single();
+        if (error || !user) { res.status(404).json({ success: false }); return; }
+        const { clientRemindersEnabled } = req.body;
+        await supabase.from('users').update({
+            client_reminders_enabled: Boolean(clientRemindersEnabled),
+            updated_at: new Date().toISOString(),
+        }).eq('id', user.id);
+        res.json({ success: true, data: { clientRemindersEnabled: Boolean(clientRemindersEnabled) } });
+    } catch (error) { next(error); }
+});
+
 export default router;

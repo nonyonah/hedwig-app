@@ -10,6 +10,16 @@ import type { BillingStatusSummary } from '@/lib/api/client';
 import { isProPlan } from '@/lib/billing/feature-gates';
 
 type Interval = 'monthly' | 'annual';
+type SubscriptionProvider = 'polar' | 'revenue_cat';
+
+const resolveSubscriptionProvider = (billing: BillingStatusSummary | null): SubscriptionProvider | null => {
+  const provider = billing?.subscriptionProvider;
+  if (provider === 'polar' || provider === 'revenue_cat') return provider;
+  const store = String(billing?.entitlement?.store || '').trim().toUpperCase();
+  if (!store) return null;
+  if (store === 'POLAR') return 'polar';
+  return 'revenue_cat';
+};
 
 const FREE_FEATURES = [
   'Invoices and payment links',
@@ -50,6 +60,7 @@ export function PricingPageClient({
   const checkoutId = searchParams.get('checkoutId');
 
   const isPro = isProPlan(billing);
+  const subscriptionProvider = useMemo(() => resolveSubscriptionProvider(billing), [billing]);
 
   const price = useMemo(() => {
     if (interval === 'annual') {
@@ -95,6 +106,15 @@ export function PricingPageClient({
       router.push('/sign-in');
       return;
     }
+
+    if (subscriptionProvider === 'revenue_cat') {
+      const message = 'You cannot make changes to this subscription on web because it was purchased through the mobile app.';
+      setError(null);
+      setInfo(message);
+      window.alert(message);
+      return;
+    }
+
     window.location.assign('/api/billing/polar/portal');
   };
 
@@ -207,6 +227,9 @@ export function PricingPageClient({
                 <span className="text-[13px] text-[#a4a7ae]">{price.suffix}</span>
               </div>
               <p className="mt-1.5 text-[13px] text-[#667085]">{price.helper} · cancel anytime.</p>
+              {!isPro && (
+                <p className="mt-1 text-[12px] font-medium text-[#027a48]">7-day free trial included</p>
+              )}
             </div>
             <div className="space-y-3 mb-6">
               {[...FREE_FEATURES, ...PRO_FEATURES].map((item, i) => (
@@ -223,8 +246,11 @@ export function PricingPageClient({
             </div>
             <div className="space-y-2">
               <Button onClick={startCheckout} disabled={isRedirecting || isPro} className="w-full">
-                {isPro ? 'You are on Pro' : isRedirecting ? 'Opening checkout…' : 'Upgrade to Pro'}
+                {isPro ? 'You are on Pro' : isRedirecting ? 'Opening checkout…' : 'Start free trial'}
               </Button>
+              {!isPro && (
+                <p className="text-center text-[11px] text-[#717680]">7 days free · then {price.value}{price.suffix} · cancel anytime</p>
+              )}
               {accessToken ? (
                 <button
                   type="button"

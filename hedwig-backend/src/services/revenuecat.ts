@@ -353,8 +353,23 @@ export const ingestRevenueCatWebhook = async (payload: any) => {
         throw new Error(`Failed to upsert RevenueCat subscription state: ${upsertError.message}`);
     }
 
-    return { duplicate: false, eventId, appUserId, userId };
-};
+    // Mirror the resolved status onto the users table so billing/status reads it correctly.
+    // CANCELLATION sets is_active=false via resolveActiveState but expiry may still be in the future;
+    // we write 'inactive' immediately so the UI reflects the cancellation intent, not just expiry.
+    if (userId) {
+        const newStatus = isActive ? 'active' : 'inactive';
+        await supabase
+            .from('users')
+            .update({
+                subscription_status:   newStatus,
+                subscription_provider: 'revenue_cat',
+                subscription_expiry:   expiresAtIso,
+                updated_at:            new Date().toISOString(),
+            })
+            .eq('id', userId);
+    }
+
+    return { duplicate: false, eventId, appUserId, userId, isActive };
 
 export const getRevenueCatStateForUser = async (user: {
     id: string;

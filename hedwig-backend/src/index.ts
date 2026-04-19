@@ -318,6 +318,7 @@ const financialLimiter = createUserAwareLimiter('finance', 120, 'Too many financ
 const transactionsLimiter = createUserAwareLimiter('transactions', 240, 'Too many transaction requests. Please try again shortly.');
 const insightsLimiter = createUserAwareLimiter('insights', 120, 'Too many insights requests. Please try again shortly.');
 const solanaRpcLimiter = createUserAwareLimiter('solana-rpc', 90, 'Too many Solana RPC requests. Please slow down.');
+const integrationsLimiter = createUserAwareLimiter('integrations', 120, 'Too many integration requests. Please try again later.');
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
@@ -454,7 +455,7 @@ app.use('/api/usd-accounts', (req, _res, next) => {
 });
 app.use('/api/usd-accounts', financialLimiter, usdAccountRoutes);
 app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
-app.use('/api/integrations', integrationsRoutes);
+app.use('/api/integrations', integrationsLimiter, integrationsRoutes);
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));

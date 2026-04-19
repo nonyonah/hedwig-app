@@ -6,6 +6,7 @@ import {
   Faders,
   FolderSimple,
   House,
+  ShareNetwork,
   Sparkle,
   UsersThree,
   Wallet
@@ -38,6 +39,7 @@ export const navigationGroups = [
   {
     label: 'System',
     items: [
+      { title: 'Integrations', href: '/integrations', icon: ShareNetwork, count: null, muted: false },
       { title: 'Pricing', href: '/pricing', icon: CurrencyDollar, count: null, muted: false },
       { title: 'Settings', href: '/settings', icon: Faders, count: null, muted: false }
     ]

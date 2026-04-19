@@ -10,7 +10,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useSettings, Theme } from '../../context/SettingsContext';
 import { useAuth } from '../../hooks/useAuth';
-import { useBillingStatus } from '../../hooks/useBillingStatus';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
 import { Sidebar } from '../../components/Sidebar';
@@ -107,14 +106,6 @@ export default function SettingsScreen() {
     } = useSettings();
     const themeColors = useThemeColors();
     const { user, logout, getAccessToken } = useAuth();
-    const {
-        hasActiveEntitlement,
-        isLoadingBillingStatus,
-        isBillingEnforcementEnabled,
-        refreshBillingStatus,
-    } = useBillingStatus({ autoConfigureRevenueCat: false });
-
-
     const { replayTutorial } = useTutorial();
 
     const [conversations, setConversations] = useState<any[]>([]);
@@ -142,6 +133,7 @@ export default function SettingsScreen() {
     const kycSheetRef = useRef<TrueSheet>(null);
     const [isCheckingConnection, setIsCheckingConnection] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
+    const [clientRemindersEnabled, setClientRemindersEnabled] = useState(true);
 
     // KYC status
     const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
@@ -160,6 +152,8 @@ export default function SettingsScreen() {
         fetchUserData();
         fetchConversations();
         loadBiometricsState();
+        void checkConnection();
+        void loadClientRemindersPreference();
     }, []);
 
     // Refetch profile data when screen comes into focus
@@ -167,9 +161,8 @@ export default function SettingsScreen() {
         React.useCallback(() => {
             if (user) {
                 fetchUserData();
-                void refreshBillingStatus();
             }
-        }, [refreshBillingStatus, user])
+        }, [user])
     );
 
     const loadBiometricsState = async () => {
@@ -346,6 +339,35 @@ export default function SettingsScreen() {
         }
     };
 
+    const loadClientRemindersPreference = async () => {
+        try {
+            const token = await getAccessToken();
+            if (!token) return;
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const res = await fetch(`${apiUrl}/api/users/preferences`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (data.success) setClientRemindersEnabled(data.data.clientRemindersEnabled);
+        } catch {}
+    };
+
+    const toggleClientReminders = async (value: boolean) => {
+        setClientRemindersEnabled(value);
+        try {
+            const token = await getAccessToken();
+            if (!token) return;
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            await fetch(`${apiUrl}/api/users/preferences`, {
+                method: 'PATCH',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clientRemindersEnabled: value }),
+            });
+        } catch {
+            setClientRemindersEnabled(!value);
+        }
+    };
+
     const checkConnection = async () => {
         try {
             setIsCheckingConnection(true);
@@ -488,11 +510,6 @@ export default function SettingsScreen() {
                             <Text style={[styles.profileName, { color: themeColors.textPrimary }]}>
                                 {userName.firstName ? `${userName.firstName} ${userName.lastName}`.trim() : 'Edit Profile'}
                             </Text>
-                            {hasActiveEntitlement ? (
-                                <View style={styles.proBadge}>
-                                    <Text style={styles.proBadgeText}>PRO</Text>
-                                </View>
-                            ) : null}
                         </View>
                         <Text style={[styles.profileSubtitle, { color: themeColors.textSecondary }]}>Update name and photo</Text>
                     </View>
@@ -579,42 +596,22 @@ export default function SettingsScreen() {
                         <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Connect calendar</Text>
                         <CaretRight size={20} color={themeColors.textSecondary} />
                     </TouchableOpacity>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <View style={styles.settingRow}>
+                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Client reminders</Text>
+                        <Switch
+                            trackColor={{ false: themeColors.border, true: Colors.success }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor={themeColors.border}
+                            value={clientRemindersEnabled}
+                            onValueChange={(value) => { void toggleClientReminders(value); }}
+                        />
+                    </View>
                 </View>
 
                 <View style={styles.spacer} />
-
-                <>
-                    <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Billing</Text>
-                    <View style={[styles.settingsGroup, { backgroundColor: themeColors.surface }]}>
-                        <TouchableOpacity
-                            style={styles.settingRow}
-                            onPress={() => {
-                                if (hasActiveEntitlement) {
-                                    router.push({ pathname: '/paywall', params: { mode: 'manage' } });
-                                    return;
-                                }
-                                router.push('/paywall');
-                            }}
-                        >
-                            <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>
-                                {hasActiveEntitlement ? 'Manage subscription' : 'View Pro plan'}
-                            </Text>
-                            <View style={styles.settingValueContainer}>
-                                <Text style={[styles.settingValue, { color: themeColors.textSecondary }]}>
-                                    {isLoadingBillingStatus
-                                        ? 'Checking...'
-                                        : hasActiveEntitlement
-                                            ? 'Pro active'
-                                            : isBillingEnforcementEnabled
-                                                ? 'Required'
-                                                : 'Upgrade'}
-                                </Text>
-                                <CaretRight size={20} color={themeColors.textSecondary} />
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.spacer} />
-                </>
 
                 {/* Security */}
                 <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Security</Text>

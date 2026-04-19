@@ -3,7 +3,6 @@ import React, { useEffect } from 'react';
 import { DynamicColorIOS, Platform, PlatformColor, useColorScheme } from 'react-native';
 
 import { useAuth } from '../../../hooks/useAuth';
-import { useBillingStatus } from '../../../hooks/useBillingStatus';
 import { useThemeColors } from '../../../theme/colors';
 
 const NativeTabs = (() => {
@@ -25,11 +24,6 @@ const getPlatformColorSafe = (resource: string, fallback: string): string => {
 export default function TabLayout() {
     const router = useRouter();
     const { user, isReady } = useAuth();
-    const {
-        isLoadingBillingStatus,
-        hasActiveEntitlement,
-        isBillingEnforcementEnabled,
-    } = useBillingStatus();
     const themeColors = useThemeColors();
     const isAndroid = Platform.OS === 'android';
     const isIOS = Platform.OS === 'ios';
@@ -41,31 +35,7 @@ export default function TabLayout() {
         }
     }, [isReady, user, router]);
 
-    useEffect(() => {
-        if (!isReady || !user) return;
-        if (isLoadingBillingStatus) return;
-
-        const shouldEnforcePaywall =
-            isBillingEnforcementEnabled &&
-            !hasActiveEntitlement;
-
-        if (shouldEnforcePaywall) {
-            router.replace('/paywall');
-        }
-    }, [
-        hasActiveEntitlement,
-        isBillingEnforcementEnabled,
-        isLoadingBillingStatus,
-        isReady,
-        router,
-        user,
-    ]);
-
-    if (!isReady || (user && isLoadingBillingStatus)) return null;
-
-    if (user && isBillingEnforcementEnabled && !hasActiveEntitlement) {
-        return null;
-    }
+    if (!isReady) return null;
 
     if (!NativeTabs) {
         return (

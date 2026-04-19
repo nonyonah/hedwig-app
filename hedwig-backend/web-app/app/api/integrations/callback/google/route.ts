@@ -13,11 +13,11 @@ export async function GET(req: NextRequest): Promise<Response> {
   const error = req.nextUrl.searchParams.get('error');
 
   if (error) {
-    return NextResponse.redirect(`${WEB_BASE_URL}/settings?integration_error=${encodeURIComponent(error)}`);
+    return NextResponse.redirect(`${WEB_BASE_URL}/integrations?integration_error=${encodeURIComponent(error)}`);
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(`${WEB_BASE_URL}/settings?integration_error=missing_params`);
+    return NextResponse.redirect(`${WEB_BASE_URL}/integrations?integration_error=missing_params`);
   }
 
   // Verify state
@@ -25,18 +25,18 @@ export async function GET(req: NextRequest): Promise<Response> {
   const oauthCookie = cookieStore.get('oauth_state')?.value;
 
   if (!oauthCookie) {
-    return NextResponse.redirect(`${WEB_BASE_URL}/settings?integration_error=state_expired`);
+    return NextResponse.redirect(`${WEB_BASE_URL}/integrations?integration_error=state_expired`);
   }
 
   let storedState: { state: string; provider: string };
   try {
     storedState = JSON.parse(oauthCookie);
   } catch {
-    return NextResponse.redirect(`${WEB_BASE_URL}/settings?integration_error=invalid_state`);
+    return NextResponse.redirect(`${WEB_BASE_URL}/integrations?integration_error=invalid_state`);
   }
 
   if (storedState.state !== state) {
-    return NextResponse.redirect(`${WEB_BASE_URL}/settings?integration_error=state_mismatch`);
+    return NextResponse.redirect(`${WEB_BASE_URL}/integrations?integration_error=state_mismatch`);
   }
 
   // Clear state cookie
@@ -64,8 +64,8 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (!resp.ok) {
     const data = await resp.json().catch(() => null) as any;
     const msg  = data?.error || 'oauth_failed';
-    return NextResponse.redirect(`${WEB_BASE_URL}/settings?integration_error=${encodeURIComponent(msg)}`);
+    return NextResponse.redirect(`${WEB_BASE_URL}/integrations?integration_error=${encodeURIComponent(msg)}`);
   }
 
-  return NextResponse.redirect(`${WEB_BASE_URL}/settings?integration_connected=${provider}`);
+  return NextResponse.redirect(`${WEB_BASE_URL}/integrations?integration_connected=${provider}`);
 }

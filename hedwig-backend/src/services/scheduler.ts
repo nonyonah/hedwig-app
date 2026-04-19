@@ -1467,7 +1467,7 @@ export const SchedulerService = {
                 .from('documents')
                 .select(`
                     *,
-                    user:users(id, first_name, last_name, email)
+                    user:users(id, first_name, last_name, email, client_reminders_enabled)
                 `)
                 .in('status', ['DRAFT', 'SENT', 'PENDING'])
                 .not('content->due_date', 'is', null)
@@ -1512,8 +1512,9 @@ export const SchedulerService = {
             const clientName = content.client_name || 'Client';
             const userId = doc.user?.id;
 
-            // Check if reminders are enabled
+            // Check if reminders are enabled (document-level and global user toggle)
             if (content.reminders_enabled === false) return;
+            if (doc.user?.client_reminders_enabled === false) return;
 
             // Determine reminder type
             let reminderType: '3_day' | '1_day' | 'due_today' | null = null;
@@ -1672,7 +1673,8 @@ export const SchedulerService = {
                     user:users(
                         first_name,
                         last_name,
-                        email
+                        email,
+                        client_reminders_enabled
                     )
                 `)
                 .in('status', ['SENT', 'DRAFT'])
@@ -1711,6 +1713,12 @@ export const SchedulerService = {
             const content = doc.content || {};
             const recipientEmail = content.recipient_email || content.client_email;
             const clientName = content.client_name || 'Client';
+
+            // Check global user toggle (manual reminders bypass both checks)
+            if (!isManual && doc.user?.client_reminders_enabled === false) {
+                logger.debug('Skipping: Global reminders disabled by user');
+                return { sent: false, reason: 'Global reminders disabled' };
+            }
 
             // Check if reminders are enabled for this document (default: true for backwards compatibility)
             const remindersEnabled = content.reminders_enabled !== false;
