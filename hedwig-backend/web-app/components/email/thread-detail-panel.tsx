@@ -27,13 +27,24 @@ import {
 } from '@/components/ui/lucide-icons';
 import type { EmailThread, DocumentType } from '@/lib/types/email-intelligence';
 
-function relativeTime(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+function formatEmailTime(iso: string) {
+  const ts = Date.parse(iso);
+  if (!Number.isFinite(ts) || ts <= 0) return '';
+
+  const d = new Date(ts);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterdayStart = todayStart - 86_400_000;
+  const weekStart = todayStart - 6 * 86_400_000;
+
+  const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  if (ts >= todayStart) return timeStr;
+  if (ts >= yesterdayStart) return `Yesterday ${timeStr}`;
+  if (ts >= weekStart) return `${d.toLocaleDateString('en-US', { weekday: 'short' })} ${timeStr}`;
+  if (d.getFullYear() === now.getFullYear())
+    return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${timeStr}`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function formatAmount(amount?: number, currency = 'USD') {
@@ -159,7 +170,7 @@ export function ThreadDetailPanel({
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] font-semibold text-[#181d27]">{thread.subject}</p>
           <p className="mt-0.5 text-[12px] text-[#717680]">
-            {thread.fromName || thread.fromEmail} · {thread.messageCount} {thread.messageCount === 1 ? 'message' : 'messages'} · {relativeTime(thread.lastMessageAt)}
+            {thread.fromName || thread.fromEmail} · {thread.messageCount} {thread.messageCount === 1 ? 'message' : 'messages'} · {formatEmailTime(thread.lastMessageAt)}
           </p>
         </div>
         <button

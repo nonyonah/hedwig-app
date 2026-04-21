@@ -12,6 +12,35 @@ const supabase = createClient(
 
 const GMAIL_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
+type GmailAttachmentPart = {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+};
+
+function collectAttachmentPartsFromPayload(payload: any): GmailAttachmentPart[] {
+  const collected: GmailAttachmentPart[] = [];
+  const queue: any[] = [payload];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) continue;
+
+    const filename = String(current.filename || '').trim();
+    const attachmentId = String(current.body?.attachmentId || '').trim();
+    const mimeType = String(current.mimeType || 'application/octet-stream');
+
+    if (filename && attachmentId) {
+      collected.push({ attachmentId, filename, mimeType });
+    }
+
+    const nested = Array.isArray(current.parts) ? current.parts : [];
+    for (const part of nested) queue.push(part);
+  }
+
+  return collected;
+}
+
 // ─── Gmail API helpers ────────────────────────────────────────────────────────
 
 async function gmailGet(accessToken: string, path: string): Promise<any> {
@@ -44,8 +73,13 @@ export async function syncGmailThreads(userId: string, integrationId: string, ma
     return;
   }
 
-  // Fetch recent thread IDs
-  const listResp = await gmailGet(accessToken, `/threads?maxResults=${maxResults}&labelIds=INBOX`);
+  // Fetch inbox threads with financial document attachments (invoices and contracts only).
+  const financeAttachmentQuery =
+    'in:inbox has:attachment (invoice OR contract OR agreement OR retainer OR statement OR proposal) filename:(pdf OR doc OR docx)';
+  const listResp = await gmailGet(
+    accessToken,
+    `/threads?maxResults=${maxResults}&labelIds=INBOX&q=${encodeURIComponent(financeAttachmentQuery)}`
+  );
   const threads: Array<{ id: string }> = listResp.threads ?? [];
 
   for (const thread of threads) {
@@ -100,15 +134,27 @@ async function ingestThread(
   }
 
   const labels: string[] = (firstMsg.labelIds ?? []).map((l: string) => l.toLowerCase());
-  const hasAttachments   = messages.some((m: any) =>
-    m.payload?.parts?.some((p: any) => p.filename && p.body?.attachmentId)
-  );
+  const attachmentCounts = messages.map((m: any) => collectAttachmentPartsFromPayload(m.payload).length);
+  const attachmentCount = attachmentCounts.reduce((sum, n) => sum + n, 0);
+  const hasAttachments = attachmentCount > 0;
 
+  const internalDateMs = Number(lastMsg?.internalDate ?? firstMsg?.internalDate ?? 0);
   const lastDateHeader = extractHeader(lastHdrs, 'date');
-  const lastMessageAt  = lastDateHeader ? new Date(lastDateHeader).toISOString() : null;
+  const parsedHeaderMs = Date.parse(lastDateHeader);
+  const lastMessageAt =
+    Number.isFinite(internalDateMs) && internalDateMs > 0
+      ? new Date(internalDateMs).toISOString()
+      : Number.isFinite(parsedHeaderMs)
+        ? new Date(parsedHeaderMs).toISOString()
+        : null;
 
   // Run Gemini intelligence detection on subject + snippet
   const intel = await detectThreadIntelligence(subject, snippet, from.email);
+
+  // Only store threads classified as invoice or contract; skip receipts, other, unknown.
+  const isFinancialDoc = intel.detectedType === 'invoice' || intel.detectedType === 'contract';
+  if (!isFinancialDoc && !hasAttachments) return;
+  if (intel.detectedType && intel.detectedType !== 'invoice' && intel.detectedType !== 'contract') return;
 
   const { data: upserted, error } = await supabase
     .from('email_threads')
@@ -124,8 +170,7 @@ async function ingestThread(
       participants:       Array.from(participantSet),
       message_count:      messages.length,
       has_attachments:    hasAttachments,
-      attachment_count:   messages.reduce((n: number, m: any) =>
-        n + (m.payload?.parts?.filter((p: any) => p.filename && p.body?.attachmentId).length ?? 0), 0),
+      attachment_count:   attachmentCount,
       last_message_at:    lastMessageAt,
       labels,
       detected_type:      intel.detectedType    ?? null,
@@ -162,14 +207,14 @@ async function fetchAndStoreAttachments(
   messages: any[]
 ): Promise<void> {
   for (const msg of messages) {
-    const parts: any[] = msg.payload?.parts ?? [];
-    for (const part of parts) {
-      if (!part.filename || !part.body?.attachmentId) continue;
+    const attachmentParts = collectAttachmentPartsFromPayload(msg.payload);
+    for (const part of attachmentParts) {
+      if (!part.filename || !part.attachmentId) continue;
 
       try {
         const attData = await gmailGet(
           accessToken,
-          `/messages/${msg.id}/attachments/${part.body.attachmentId}`
+          `/messages/${msg.id}/attachments/${part.attachmentId}`
         );
 
         const base64 = (attData.data as string).replace(/-/g, '+').replace(/_/g, '/');
@@ -196,14 +241,14 @@ async function fetchAndStoreAttachments(
           .from('email_attachments')
           .select('id')
           .eq('thread_id', threadDbId)
-          .eq('provider_attachment_id', part.body.attachmentId)
+          .eq('provider_attachment_id', part.attachmentId)
           .maybeSingle();
 
         if (!existing) {
           const { data: inserted } = await supabase.from('email_attachments').insert({
             thread_id:              threadDbId,
             user_id:                userId,
-            provider_attachment_id: part.body.attachmentId,
+            provider_attachment_id: part.attachmentId,
             provider_message_id:    msg.id,
             filename,
             content_type:           contentType,
