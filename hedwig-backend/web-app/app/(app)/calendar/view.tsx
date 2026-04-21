@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
   ArrowSquareOut,
+  ArrowsClockwise,
   CaretLeft,
   CaretRight,
   ClockCountdown,
@@ -115,6 +116,7 @@ export function CalendarClient({
   const today = useMemo(() => sod(new Date()), []);
 
   const [gcalConnected, setGcalConnected] = useState<boolean | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [view, setView] = useState<CalendarView>('week');
   const [activeFilter, setActiveFilter] = useState<FilterValue>('all');
   const [anchor, setAnchor] = useState<Date>(today);
@@ -232,6 +234,22 @@ export function CalendarClient({
     }
   };
 
+  const syncCalendar = async () => {
+    if (isSyncing || !accessToken) return;
+    setIsSyncing(true);
+    try {
+      await fetch('/api/integrations/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'google_calendar' }),
+      });
+    } catch {
+      // non-fatal
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const navigate = (delta: number) => {
     setAnchor((prev) => {
       const next = new Date(prev);
@@ -335,10 +353,21 @@ export function CalendarClient({
         <div className="flex shrink-0 items-center gap-3 pt-0.5">
           {gcalConnected !== null &&
             (gcalConnected ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ecfdf3] px-3 py-1.5 text-[12px] font-semibold text-[#12b76a]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />
-                Google Calendar connected
-              </span>
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ecfdf3] px-3 py-1.5 text-[12px] font-semibold text-[#12b76a]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#12b76a]" />
+                  Google Calendar connected
+                </span>
+                <button
+                  type="button"
+                  onClick={syncCalendar}
+                  disabled={isSyncing}
+                  title="Sync Google Calendar"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#e9eaeb] bg-white text-[#717680] shadow-xs transition hover:bg-[#f9fafb] disabled:opacity-50"
+                >
+                  <ArrowsClockwise className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                </button>
+              </>
             ) : (
               <a
                 href="/integrations"

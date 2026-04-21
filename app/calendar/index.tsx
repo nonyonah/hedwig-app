@@ -17,6 +17,7 @@ import {
     CheckCircle as CheckCircleIcon,
     Clock as ClockIcon,
     Tag as TagIcon,
+    RefreshCw as RefreshCwIcon,
 } from '../../components/ui/AppIcon';
 
 const CaretLeft = (props: any) => <ChevronLeftIcon {...props} />;
@@ -25,6 +26,7 @@ const CaretRight = (props: any) => <ChevronRightIcon {...props} />;
 const CheckCircle = (props: any) => <CheckCircleIcon {...props} />;
 const Clock = (props: any) => <ClockIcon {...props} />;
 const Tag = (props: any) => <TagIcon {...props} />;
+const RefreshCw = (props: any) => <RefreshCwIcon {...props} />;
 
 
 // Enable LayoutAnimation on Android
@@ -131,6 +133,7 @@ export default function CalendarScreen() {
     const [daysPastWindow, setDaysPastWindow] = useState(21);
     const [daysFutureWindow, setDaysFutureWindow] = useState(90);
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
     const eventSheetRef = useRef<TrueSheet>(null);
 
     const flatListRef = useRef<FlatList<Date>>(null);
@@ -282,6 +285,25 @@ export default function CalendarScreen() {
     const onRefresh = () => {
         setRefreshing(true);
         fetchEvents();
+    };
+
+    const syncCalendar = async () => {
+        if (isSyncing) return;
+        setIsSyncing(true);
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            await fetch(`${apiUrl}/api/integrations/sync`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: 'google_calendar' }),
+            });
+            await fetchEvents();
+        } catch {
+            // non-fatal
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
     const onLoadMore = () => {
@@ -515,7 +537,13 @@ export default function CalendarScreen() {
                             icon={<CaretLeft size={26} color={themeColors.textPrimary} strokeWidth={3.5} />}
                         />
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
-                        <View style={styles.headerSpacer} />
+                        <IOSGlassIconButton
+                            onPress={syncCalendar}
+                            systemImage="arrow.clockwise"
+                            containerStyle={styles.headerButton}
+                            circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface, opacity: isSyncing ? 0.5 : 1 }]}
+                            icon={<RefreshCw size={18} color={themeColors.textPrimary} strokeWidth={2.8} />}
+                        />
                     </View>
                 </View>
 

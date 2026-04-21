@@ -384,13 +384,33 @@ export default function SettingsScreen() {
         }
     };
 
+    const closeCalendarSheet = async () => {
+        if (shouldUseSwiftUIBottomSheet) {
+            setIsCalendarSheetPresented(false);
+        } else if (TrueSheetComponent && calendarSheetRef.current?.dismiss) {
+            await calendarSheetRef.current.dismiss().catch(() => {});
+        } else {
+            calendarFallbackSheetRef.current?.dismiss();
+        }
+    };
+
     const connectGoogleCalendar = async () => {
         const webBase = getPublicWebBaseUrl();
-        const integrationsUrl = `${webBase}/integrations`;
-        await WebBrowser.openBrowserAsync(integrationsUrl, {
-            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-        });
-        // After user connects in browser, trigger a backend sync
+        const token = await getAccessToken();
+
+        if (!token) {
+            Alert.alert('Sign in required', 'Please sign in again before connecting Google Calendar.');
+            return;
+        }
+
+        const connectUrl = `${webBase}/api/integrations/connect?provider=google_calendar&token=${encodeURIComponent(token)}`;
+
+        await closeCalendarSheet();
+        // openBrowserAsync works on all platforms: cookies survive the Google redirect
+        // chain, the token embedded in the connect URL authenticates the callback, and
+        // the user manually dismisses the browser after the flow completes.
+        await WebBrowser.openBrowserAsync(connectUrl, { showTitle: true }).catch(() => {});
+        // Trigger sync regardless — the backend will no-op if OAuth wasn't completed.
         void triggerCalendarSync();
     };
 
@@ -1230,21 +1250,6 @@ export default function SettingsScreen() {
                                         </View>
                                         <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, opacity: isSyncingCalendar ? 0.6 : 1 }]}
-                                        onPress={triggerCalendarSync}
-                                        activeOpacity={0.75}
-                                        disabled={isSyncingCalendar}
-                                    >
-                                        {isSyncingCalendar ? (
-                                            <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 8 }} />
-                                        ) : (
-                                            <View style={styles.calendarLogoBox}>
-                                                <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
-                                            </View>
-                                        )}
-                                        <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>{isSyncingCalendar ? 'Syncing…' : 'Sync now'}</Text>
-                                    </TouchableOpacity>
                                 </View>
                         </View>
                     </SwiftUIGroup>
@@ -1274,21 +1279,6 @@ export default function SettingsScreen() {
                                     <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
                                 </View>
                                 <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, opacity: isSyncingCalendar ? 0.6 : 1 }]}
-                                onPress={triggerCalendarSync}
-                                activeOpacity={0.75}
-                                disabled={isSyncingCalendar}
-                            >
-                                {isSyncingCalendar ? (
-                                    <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 8 }} />
-                                ) : (
-                                    <View style={styles.calendarLogoBox}>
-                                        <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
-                                    </View>
-                                )}
-                                <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>{isSyncingCalendar ? 'Syncing…' : 'Sync now'}</Text>
                             </TouchableOpacity>
                         </View>
                         <Text style={[styles.calendarSheetSubtitle, { color: themeColors.textSecondary }]}>
@@ -1330,21 +1320,6 @@ export default function SettingsScreen() {
                                 <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
                             </View>
                             <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, opacity: isSyncingCalendar ? 0.6 : 1 }]}
-                            onPress={triggerCalendarSync}
-                            activeOpacity={0.75}
-                            disabled={isSyncingCalendar}
-                        >
-                            {isSyncingCalendar ? (
-                                <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 8 }} />
-                            ) : (
-                                <View style={styles.calendarLogoBox}>
-                                    <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
-                                </View>
-                            )}
-                            <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>{isSyncingCalendar ? 'Syncing…' : 'Sync now'}</Text>
                         </TouchableOpacity>
                     </View>
                     <Text style={[styles.calendarSheetSubtitle, { color: themeColors.textSecondary }]}>

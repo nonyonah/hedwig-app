@@ -28,7 +28,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.redirect(`${WEB_BASE_URL}/integrations?integration_error=state_expired`);
   }
 
-  let storedState: { state: string; provider: string };
+  let storedState: { state: string; provider: string; token?: string };
   try {
     storedState = JSON.parse(oauthCookie);
   } catch {
@@ -45,9 +45,10 @@ export async function GET(req: NextRequest): Promise<Response> {
   const provider   = storedState.provider as 'gmail' | 'google_calendar';
   const redirectUri = `${WEB_BASE_URL}/api/integrations/callback/google`;
 
-  // Get user session
+  // Get user session — for mobile OAuth flows the token is embedded in the state cookie
   const session = await getCurrentSession();
-  if (!session.accessToken) {
+  const accessToken = session.accessToken ?? storedState.token ?? null;
+  if (!accessToken) {
     return NextResponse.redirect(`${WEB_BASE_URL}/sign-in`);
   }
 
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     method: 'POST',
     headers: {
       'Content-Type':  'application/json',
-      Authorization:   `Bearer ${session.accessToken}`,
+      Authorization:   `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ code, redirectUri, provider }),
   });
