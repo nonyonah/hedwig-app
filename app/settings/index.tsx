@@ -22,7 +22,6 @@ import { useKYC } from '../../hooks/useKYC';
 import KYCVerificationModal from '../../components/KYCVerificationModal';
 import { useTutorial } from '../../hooks/useTutorial';
 import { getPublicWebBaseUrl } from '../../utils/publicWebUrl';
-import { Linking } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
@@ -53,9 +52,6 @@ const GOOGLE_CALENDAR_SVG = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org
   </g>
 </svg>`;
 
-const APPLE_CALENDAR_SVG = `<svg viewBox="0 0 41.5 51" xmlns="http://www.w3.org/2000/svg">
-  <path d="M40.2,17.4c-3.4,2.1-5.5,5.7-5.5,9.7c0,4.5,2.7,8.6,6.8,10.3c-0.8,2.6-2,5-3.5,7.2c-2.2,3.1-4.5,6.3-7.9,6.3s-4.4-2-8.4-2c-3.9,0-5.3,2.1-8.5,2.1s-5.4-2.9-7.9-6.5C2,39.5,0.1,33.7,0,27.6c0-9.9,6.4-15.2,12.8-15.2c3.4,0,6.2,2.2,8.3,2.2c2,0,5.2-2.3,9-2.3C34.1,12.2,37.9,14.1,40.2,17.4z M28.3,8.1C30,6.1,30.9,3.6,31,1c0-0.3,0-0.7-0.1-1c-2.9,0.3-5.6,1.7-7.5,3.9c-1.7,1.9-2.7,4.3-2.8,6.9c0,0.3,0,0.6,0.1,0.9c0.2,0,0.5,0.1,0.7,0.1C24.1,11.6,26.6,10.2,28.3,8.1z" fill="black"/>
-</svg>`;
 
 
 const THEMES: { code: Theme; label: string }[] = [
@@ -120,8 +116,7 @@ export default function SettingsScreen() {
     const calendarSheetRef = useRef<TrueSheetLikeRef | null>(null);
     const calendarFallbackSheetRef = useRef<BottomSheetModal>(null);
     const [recoveryAcknowledged, setRecoveryAcknowledged] = useState(false);
-    const [calendarSubscribeUrl, setCalendarSubscribeUrl] = useState<string | null>(null);
-    const [isFetchingCalendarLink, setIsFetchingCalendarLink] = useState(false);
+    const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
     const [isThemeSheetPresented, setIsThemeSheetPresented] = useState(false);
     const [isRecoverySheetPresented, setIsRecoverySheetPresented] = useState(false);
     const [isCalendarSheetPresented, setIsCalendarSheetPresented] = useState(false);
@@ -389,25 +384,30 @@ export default function SettingsScreen() {
         }
     };
 
-    const fetchCalendarSubscribeLink = async () => {
+    const connectGoogleCalendar = async () => {
+        const webBase = getPublicWebBaseUrl();
+        const integrationsUrl = `${webBase}/integrations`;
+        await WebBrowser.openBrowserAsync(integrationsUrl, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+        });
+        // After user connects in browser, trigger a backend sync
+        void triggerCalendarSync();
+    };
+
+    const triggerCalendarSync = async () => {
         try {
-            setIsFetchingCalendarLink(true);
+            setIsSyncingCalendar(true);
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const res = await fetch(`${apiUrl}/api/calendar/ics-token`, {
-                headers: { Authorization: `Bearer ${token}` },
+            await fetch(`${apiUrl}/api/integrations/sync`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: 'google_calendar' }),
             });
-            const data = await res.json();
-            if (data.success && data.data?.subscribeUrl) {
-                setCalendarSubscribeUrl(data.data.subscribeUrl);
-            } else {
-                Alert.alert('Error', 'Failed to fetch calendar subscribe link');
-            }
-        } catch (error) {
-            console.error('Failed to fetch calendar subscribe link:', error);
-            Alert.alert('Error', 'Failed to fetch calendar subscribe link');
+        } catch {
+            // non-fatal
         } finally {
-            setIsFetchingCalendarLink(false);
+            setIsSyncingCalendar(false);
         }
     };
 
@@ -418,9 +418,6 @@ export default function SettingsScreen() {
             await calendarSheetRef.current.present().catch(() => {});
         } else {
             calendarFallbackSheetRef.current?.present();
-        }
-        if (!calendarSubscribeUrl && !isFetchingCalendarLink) {
-            await fetchCalendarSubscribeLink();
         }
     };
 
@@ -1222,18 +1219,10 @@ export default function SettingsScreen() {
                             </View>
                             <Text style={[styles.recoveryTitle, styles.calendarSheetTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
 
-                            {isFetchingCalendarLink ? (
-                                <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
-                            ) : calendarSubscribeUrl ? (
-                                <View style={styles.calendarOptionsContainer}>
-                                    {/* Google Calendar */}
+                            <View style={styles.calendarOptionsContainer}>
                                     <TouchableOpacity
                                         style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
-                                        onPress={() => {
-                                            const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
-                                            const googleUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`;
-                                            Linking.openURL(googleUrl);
-                                        }}
+                                        onPress={connectGoogleCalendar}
                                         activeOpacity={0.75}
                                     >
                                         <View style={styles.calendarLogoBox}>
@@ -1241,30 +1230,22 @@ export default function SettingsScreen() {
                                         </View>
                                         <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
                                     </TouchableOpacity>
-
-                                    {/* Apple Calendar */}
                                     <TouchableOpacity
-                                        style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
-                                        onPress={() => {
-                                            const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
-                                            Linking.openURL(webcalUrl);
-                                        }}
+                                        style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, opacity: isSyncingCalendar ? 0.6 : 1 }]}
+                                        onPress={triggerCalendarSync}
                                         activeOpacity={0.75}
+                                        disabled={isSyncingCalendar}
                                     >
-                                        <View style={styles.calendarLogoBox}>
-                                            <SvgXml xml={APPLE_CALENDAR_SVG} width={28} height={28} />
-                                        </View>
-                                        <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Apple Calendar</Text>
+                                        {isSyncingCalendar ? (
+                                            <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 8 }} />
+                                        ) : (
+                                            <View style={styles.calendarLogoBox}>
+                                                <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
+                                            </View>
+                                        )}
+                                        <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>{isSyncingCalendar ? 'Syncing…' : 'Sync now'}</Text>
                                     </TouchableOpacity>
                                 </View>
-                            ) : (
-                                <Button
-                                    title="Retry"
-                                    onPress={fetchCalendarSubscribeLink}
-                                    variant="secondary"
-                                    size="large"
-                                />
-                            )}
                         </View>
                     </SwiftUIGroup>
                 </SwiftUIBottomSheet>
@@ -1283,44 +1264,35 @@ export default function SettingsScreen() {
                         </View>
                         <Text style={[styles.recoveryTitle, styles.calendarSheetTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
 
-                        {isFetchingCalendarLink ? (
-                            <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
-                        ) : calendarSubscribeUrl ? (
-                            <View style={styles.calendarOptionsContainer}>
-                                {/* Google Calendar */}
-                                <TouchableOpacity
-                                    style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
-                                    onPress={() => {
-                                        const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
-                                        const googleUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`;
-                                        Linking.openURL(googleUrl);
-                                    }}
-                                    activeOpacity={0.75}
-                                >
+                        <View style={styles.calendarOptionsContainer}>
+                            <TouchableOpacity
+                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
+                                onPress={connectGoogleCalendar}
+                                activeOpacity={0.75}
+                            >
+                                <View style={styles.calendarLogoBox}>
+                                    <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
+                                </View>
+                                <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, opacity: isSyncingCalendar ? 0.6 : 1 }]}
+                                onPress={triggerCalendarSync}
+                                activeOpacity={0.75}
+                                disabled={isSyncingCalendar}
+                            >
+                                {isSyncingCalendar ? (
+                                    <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 8 }} />
+                                ) : (
                                     <View style={styles.calendarLogoBox}>
                                         <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
                                     </View>
-                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
-                                </TouchableOpacity>
-
-                                {/* Apple Calendar */}
-                                <TouchableOpacity
-                                    style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
-                                    onPress={() => {
-                                        const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
-                                        Linking.openURL(webcalUrl);
-                                    }}
-                                    activeOpacity={0.75}
-                                >
-                                    <View style={styles.calendarLogoBox}>
-                                        <SvgXml xml={APPLE_CALENDAR_SVG} width={22} height={26} />
-                                    </View>
-                                    <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Apple Calendar</Text>
-                                </TouchableOpacity>
-                            </View>
-                        ) : null}
+                                )}
+                                <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>{isSyncingCalendar ? 'Syncing…' : 'Sync now'}</Text>
+                            </TouchableOpacity>
+                        </View>
                         <Text style={[styles.calendarSheetSubtitle, { color: themeColors.textSecondary }]}>
-                            Subscribe to your Hedwig calendar to see invoice due dates and reminders in your calendar app.
+                            Connect Google Calendar to sync your Hedwig invoices, milestones, and reminders to your calendar.
                         </Text>
                     </View>
                 </TrueSheetComponent>
@@ -1348,44 +1320,35 @@ export default function SettingsScreen() {
                     </View>
                     <Text style={[styles.recoveryTitle, styles.calendarSheetTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
 
-                    {isFetchingCalendarLink ? (
-                        <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 24 }} />
-                    ) : calendarSubscribeUrl ? (
-                        <View style={styles.calendarOptionsContainer}>
-                            {/* Google Calendar */}
-                            <TouchableOpacity
-                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
-                                onPress={() => {
-                                    const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
-                                    const googleUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`;
-                                    Linking.openURL(googleUrl);
-                                }}
-                                activeOpacity={0.75}
-                            >
+                    <View style={styles.calendarOptionsContainer}>
+                        <TouchableOpacity
+                            style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
+                            onPress={connectGoogleCalendar}
+                            activeOpacity={0.75}
+                        >
+                            <View style={styles.calendarLogoBox}>
+                                <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
+                            </View>
+                            <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface, opacity: isSyncingCalendar ? 0.6 : 1 }]}
+                            onPress={triggerCalendarSync}
+                            activeOpacity={0.75}
+                            disabled={isSyncingCalendar}
+                        >
+                            {isSyncingCalendar ? (
+                                <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 8 }} />
+                            ) : (
                                 <View style={styles.calendarLogoBox}>
                                     <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
                                 </View>
-                                <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
-                            </TouchableOpacity>
-
-                            {/* Apple Calendar */}
-                            <TouchableOpacity
-                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
-                                onPress={() => {
-                                    const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//, 'webcal://');
-                                    Linking.openURL(webcalUrl);
-                                }}
-                                activeOpacity={0.75}
-                            >
-                                <View style={styles.calendarLogoBox}>
-                                    <SvgXml xml={APPLE_CALENDAR_SVG} width={22} height={26} />
-                                </View>
-                                <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Apple Calendar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : null}
+                            )}
+                            <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>{isSyncingCalendar ? 'Syncing…' : 'Sync now'}</Text>
+                        </TouchableOpacity>
+                    </View>
                     <Text style={[styles.calendarSheetSubtitle, { color: themeColors.textSecondary }]}>
-                        Subscribe to your Hedwig calendar to see invoice due dates and reminders in your calendar app.
+                        Connect Google Calendar to sync your Hedwig invoices, milestones, and reminders to your calendar.
                     </Text>
                     </BottomSheetView>
                 </BottomSheetModal>

@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
+import { pushHedwigEventsToGoogleCalendar } from '../services/emailSync';
 
 const ICS_SECRET = process.env.ICS_SECRET || 'hedwig-ics-secret-change-in-production';
 
@@ -384,6 +385,9 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
 
         logger.info('Event created');
 
+        // Push to Google Calendar in background (non-blocking)
+        pushHedwigEventsToGoogleCalendar(user.id).catch(() => {});
+
         res.status(201).json({
             success: true,
             data: {
@@ -446,6 +450,9 @@ router.patch('/:id', authenticate, async (req: Request, res: Response, next) => 
         }
 
         logger.info('Event updated');
+
+        // Push updated event to Google Calendar in background (non-blocking)
+        pushHedwigEventsToGoogleCalendar(user.id).catch(() => {});
 
         res.json({
             success: true,
@@ -540,6 +547,8 @@ export async function createCalendarEventFromSource(
         }
 
         logger.debug('Auto-created event from source');
+        // Push to Google Calendar in background (non-blocking)
+        pushHedwigEventsToGoogleCalendar(userId).catch(() => {});
         return event;
     } catch (error) {
         logger.error('Error creating event from source');
