@@ -9,7 +9,7 @@ import {
   upsertIntegration,
   exchangeGoogleCode,
   getGoogleUserInfo,
-  exchangeSlackCode,
+  buildGoogleAuthUrl,
   type Provider,
 } from '../services/integrations';
 import { syncGmailThreads, matchThreadsToWorkspace, syncGoogleCalendar, pushHedwigEventsToGoogleCalendar } from '../services/emailSync';
@@ -51,6 +51,61 @@ async function getUserId(req: Request): Promise<string | null> {
     return null;
   }
 }
+
+// GET /api/integrations/oauth-url — mobile: generate Google OAuth URL directly
+// Returns the accounts.google.com URL so the mobile app can open it without
+// bouncing through hedwigbot.xyz first.
+router.get('/oauth-url', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  const provider = req.query.provider as string;
+  if (!provider || !['gmail', 'google_calendar'].includes(provider)) {
+    res.status(400).json({ success: false, error: 'Invalid provider' }); return;
+  }
+
+  const auth = req.headers.authorization!;
+  const accessToken = auth.slice(7);
+
+  const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwigbot.xyz').replace(/\/$/, '');
+  const redirectUri  = `${WEB_BASE_URL}/api/integrations/callback/google`;
+  const state        = require('crypto').randomBytes(24).toString('hex');
+
+  // Store state → userId + token so the Next.js callback can resolve the user
+  // without needing a browser session cookie.
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  await supabase.from('oauth_pending_states').insert({
+    state,
+    provider,
+    user_id:      userId,
+    access_token: accessToken,
+    expires_at:   expiresAt,
+  });
+
+  const authUrl = buildGoogleAuthUrl(provider as 'gmail' | 'google_calendar', redirectUri, state);
+  res.json({ success: true, data: { url: authUrl } });
+});
+
+// GET /api/integrations/oauth-state/:state — Next.js callback uses this to
+// resolve a mobile OAuth state nonce into a userId + token without cookies.
+router.get('/oauth-state/:state', async (req: Request, res: Response) => {
+  const { state } = req.params;
+  const { data, error } = await supabase
+    .from('oauth_pending_states')
+    .select('user_id, access_token, provider')
+    .eq('state', state)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle();
+
+  if (error || !data) {
+    res.status(404).json({ success: false, error: 'State not found or expired' }); return;
+  }
+
+  // Consume the state so it can't be replayed
+  await supabase.from('oauth_pending_states').delete().eq('state', state);
+
+  res.json({ success: true, data });
+});
 
 // GET /api/integrations — list user's connected integrations
 router.get('/', async (req: Request, res: Response) => {
@@ -134,32 +189,8 @@ router.post('/oauth/google/callback', async (req: Request, res: Response) => {
 });
 
 // POST /api/integrations/oauth/slack/callback — called by Next.js after Slack OAuth
-router.post('/oauth/slack/callback', async (req: Request, res: Response) => {
-  const userId = await getUserId(req);
-  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
-
-  const { code, redirectUri } = req.body as { code: string; redirectUri: string };
-  if (!code || !redirectUri) {
-    res.status(400).json({ success: false, error: 'Missing code or redirectUri' });
-    return;
-  }
-
-  try {
-    const slackData = await exchangeSlackCode(code, redirectUri);
-    await upsertIntegration(
-      userId,
-      'slack',
-      { access_token: slackData.access_token, scope: slackData.scope },
-      slackData.authed_user.id,
-      slackData.team.name,
-      { team_id: slackData.team.id, team_name: slackData.team.name }
-    );
-
-    res.json({ success: true, data: { provider: 'slack', team: slackData.team.name } });
-  } catch (err: any) {
-    logger.error('Slack OAuth callback', { userId, err });
-    res.status(500).json({ success: false, error: err.message || 'Slack OAuth failed' });
-  }
+router.post('/oauth/slack/callback', async (_req: Request, res: Response) => {
+  res.status(410).json({ success: false, error: 'Slack integration is temporarily disabled.' });
 });
 
 // POST /api/integrations/sync — trigger manual sync

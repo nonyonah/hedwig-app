@@ -395,23 +395,34 @@ export default function SettingsScreen() {
     };
 
     const connectGoogleCalendar = async () => {
-        const webBase = getPublicWebBaseUrl();
         const token = await getAccessToken();
-
         if (!token) {
             Alert.alert('Sign in required', 'Please sign in again before connecting Google Calendar.');
             return;
         }
 
-        const connectUrl = `${webBase}/api/integrations/connect?provider=google_calendar&token=${encodeURIComponent(token)}`;
-
         await closeCalendarSheet();
-        // openBrowserAsync works on all platforms: cookies survive the Google redirect
-        // chain, the token embedded in the connect URL authenticates the callback, and
-        // the user manually dismisses the browser after the flow completes.
-        await WebBrowser.openBrowserAsync(connectUrl, { showTitle: true }).catch(() => {});
-        // Trigger sync regardless — the backend will no-op if OAuth wasn't completed.
-        void triggerCalendarSync();
+
+        try {
+            // Ask the Express backend to generate the Google OAuth URL directly.
+            // This skips the hedwigbot.xyz web app entirely — the browser opens
+            // accounts.google.com straight away.
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const resp = await fetch(
+                `${apiUrl}/api/integrations/oauth-url?provider=google_calendar`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const json = await resp.json() as { success: boolean; data?: { url: string } };
+            if (!json.success || !json.data?.url) throw new Error('Could not generate OAuth URL');
+
+            await WebBrowser.openBrowserAsync(json.data.url, { showTitle: true });
+            // Trigger sync after the user closes the browser (OAuth may or may not
+            // have completed — the sync is a no-op if the integration is not set up).
+            void triggerCalendarSync();
+        } catch (err: any) {
+            console.error('Google Calendar connect failed:', err);
+            Alert.alert('Connection failed', 'Could not start Google Calendar sign-in. Please try again.');
+        }
     };
 
     const triggerCalendarSync = async () => {
