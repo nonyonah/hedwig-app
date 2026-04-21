@@ -3,6 +3,7 @@ import {
   Cards,
   CurrencyDollar,
   CreditCard,
+  Envelope,
   Faders,
   FolderSimple,
   House,
@@ -26,7 +27,8 @@ export const navigationGroups = [
     items: [
       { title: 'Clients', href: '/clients', icon: UsersThree, count: null, muted: false },
       { title: 'Projects', href: '/projects', icon: FolderSimple, count: null, muted: false },
-      { title: 'Contracts', href: '/contracts', icon: CreditCard, count: null, muted: false }
+      { title: 'Contracts', href: '/contracts', icon: CreditCard, count: null, muted: false },
+      { title: 'Magic Inbox', href: '/inbox', icon: Envelope, count: null, muted: false }
     ]
   },
   {

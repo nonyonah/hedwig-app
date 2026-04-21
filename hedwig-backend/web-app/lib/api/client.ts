@@ -457,6 +457,7 @@ const mapBackendInvoice = (document: any): Invoice => {
     recurringInvoiceId: content.recurring_invoice_id || undefined,
     clientEmail: content.recipient_email || content.client_email || undefined,
     viewedAt: content.viewed_at || content.first_viewed_at || undefined,
+    source: document.source ?? null,
   };
 };
 

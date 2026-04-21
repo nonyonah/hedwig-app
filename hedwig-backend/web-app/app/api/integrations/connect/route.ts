@@ -25,7 +25,7 @@ function buildGoogleAuthUrl(provider: 'gmail' | 'google_calendar', redirectUri: 
     google_calendar: [
       'openid',
       'email',
-      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar.events',
     ],
   };
 

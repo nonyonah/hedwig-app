@@ -12,12 +12,9 @@ export async function GET(_req: NextRequest): Promise<Response> {
 
   const resp = await fetch(`${backendConfig.apiBaseUrl}/api/integrations`, {
     headers: { Authorization: `Bearer ${session.accessToken}` },
-    next: { revalidate: 30 },
+    cache: 'no-store',
   });
 
   const data = await resp.json().catch(() => ({ success: false, data: [] }));
-  return NextResponse.json(data, {
-    status: resp.status,
-    headers: { 'Cache-Control': 'private, max-age=30' },
-  });
+  return NextResponse.json(data, { status: resp.status });
 }

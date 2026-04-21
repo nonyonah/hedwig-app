@@ -107,23 +107,32 @@ async function ingestThread(
   const lastDateHeader = extractHeader(lastHdrs, 'date');
   const lastMessageAt  = lastDateHeader ? new Date(lastDateHeader).toISOString() : null;
 
+  // Run Gemini intelligence detection on subject + snippet
+  const intel = await detectThreadIntelligence(subject, snippet, from.email);
+
   const { data: upserted, error } = await supabase
     .from('email_threads')
     .upsert({
-      user_id:           userId,
-      integration_id:    integrationId,
-      provider:          'gmail',
+      user_id:            userId,
+      integration_id:     integrationId,
+      provider:           'gmail',
       provider_thread_id: providerThreadId,
       subject,
       snippet,
-      from_email:        from.email,
-      from_name:         from.name,
-      participants:      Array.from(participantSet),
-      message_count:     messages.length,
-      has_attachments:   hasAttachments,
-      last_message_at:   lastMessageAt,
+      from_email:         from.email,
+      from_name:          from.name,
+      participants:       Array.from(participantSet),
+      message_count:      messages.length,
+      has_attachments:    hasAttachments,
+      attachment_count:   messages.reduce((n: number, m: any) =>
+        n + (m.payload?.parts?.filter((p: any) => p.filename && p.body?.attachmentId).length ?? 0), 0),
+      last_message_at:    lastMessageAt,
       labels,
-      updated_at:        new Date().toISOString(),
+      detected_type:      intel.detectedType    ?? null,
+      detected_amount:    intel.detectedAmount   ?? null,
+      detected_currency:  intel.detectedCurrency ?? null,
+      detected_due_date:  intel.detectedDueDate  ?? null,
+      updated_at:         new Date().toISOString(),
     }, { onConflict: 'user_id,provider,provider_thread_id' })
     .select('id, has_attachments')
     .single();
@@ -133,9 +142,14 @@ async function ingestThread(
     return;
   }
 
-  // Phase 4: Fetch and store attachments
+  // Phase 4: Fetch attachments + Gemini Vision analysis
   if (hasAttachments && upserted) {
     await fetchAndStoreAttachments(userId, accessToken, upserted.id, messages);
+  }
+
+  // Generate summary in background (non-blocking)
+  if (upserted) {
+    summarizeThread(userId, upserted.id).catch(() => {});
   }
 }
 
@@ -186,7 +200,7 @@ async function fetchAndStoreAttachments(
           .maybeSingle();
 
         if (!existing) {
-          await supabase.from('email_attachments').insert({
+          const { data: inserted } = await supabase.from('email_attachments').insert({
             thread_id:              threadDbId,
             user_id:                userId,
             provider_attachment_id: part.body.attachmentId,
@@ -196,7 +210,12 @@ async function fetchAndStoreAttachments(
             size_bytes:             buffer.length,
             r2_key:                 r2KeyStored,
             attachment_type:        attachType,
-          });
+          }).select('id').single();
+
+          // Run Gemini Vision on PDFs/images to extract structured invoice data
+          if (inserted?.id && (contentType.includes('pdf') || contentType.startsWith('image/'))) {
+            analyzeAttachmentWithGemini(threadDbId, inserted.id, filename, contentType, buffer).catch(() => {});
+          }
         }
       } catch (err) {
         logger.error('Attachment fetch failed', { userId, msgId: msg.id, part: part.filename, err });
@@ -212,6 +231,180 @@ function inferAttachmentType(filename: string, contentType: string): string {
   if (lower.includes('receipt')) return 'receipt';
   if (contentType.includes('pdf') || lower.endsWith('.pdf')) return 'document';
   return 'other';
+}
+
+// ─── Phase 3a: Gemini invoice intelligence ───────────────────────────────────
+
+interface ThreadIntelligence {
+  detectedType?: 'invoice' | 'contract' | 'receipt' | 'proposal' | 'other';
+  detectedAmount?: number;
+  detectedCurrency?: string;
+  detectedDueDate?: string; // ISO date YYYY-MM-DD
+}
+
+async function detectThreadIntelligence(
+  subject: string,
+  snippet: string,
+  fromEmail: string,
+): Promise<ThreadIntelligence> {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) return {};
+
+  const prompt = `Analyze this email and extract structured business data. Return ONLY valid JSON, no markdown.
+
+Subject: ${subject || '(no subject)'}
+From: ${fromEmail}
+Snippet: ${snippet?.slice(0, 500) || ''}
+
+Return JSON with these fields (all optional, omit if not found):
+{
+  "detectedType": "invoice" | "contract" | "receipt" | "proposal" | "other",
+  "detectedAmount": number (numeric value only, no currency symbols),
+  "detectedCurrency": "USD" | "EUR" | "GBP" | "NGN" | etc.,
+  "detectedDueDate": "YYYY-MM-DD"
+}
+
+Rules:
+- detectedType: "invoice" if requesting payment, "contract" if agreement/retainer, "receipt" if payment confirmation, "proposal" if quote/estimate
+- Only include detectedAmount if a specific monetary amount is clearly mentioned
+- Only include detectedDueDate if a specific due date is mentioned
+- If none of these apply, return {}`;
+
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 200, temperature: 0.1 },
+        }),
+      }
+    );
+    if (!resp.ok) return {};
+
+    const result = await resp.json() as any;
+    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return {};
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const intel: ThreadIntelligence = {};
+    if (['invoice', 'contract', 'receipt', 'proposal', 'other'].includes(parsed.detectedType)) {
+      intel.detectedType = parsed.detectedType;
+    }
+    if (typeof parsed.detectedAmount === 'number' && parsed.detectedAmount > 0) {
+      intel.detectedAmount = parsed.detectedAmount;
+    }
+    if (typeof parsed.detectedCurrency === 'string' && parsed.detectedCurrency.length <= 5) {
+      intel.detectedCurrency = parsed.detectedCurrency.toUpperCase();
+    }
+    if (typeof parsed.detectedDueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.detectedDueDate)) {
+      intel.detectedDueDate = parsed.detectedDueDate;
+    }
+    return intel;
+  } catch {
+    return {};
+  }
+}
+
+// ─── Gemini Vision: extract data from PDF/image invoice attachments ───────────
+
+export async function analyzeAttachmentWithGemini(
+  threadId: string,
+  attachmentId: string,
+  _filename: string,
+  contentType: string,
+  buffer: Buffer,
+): Promise<void> {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) return;
+
+  const supportedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+  if (!supportedTypes.includes(contentType)) return;
+
+  const base64Data = buffer.toString('base64');
+  const mimeType = contentType === 'application/pdf' ? 'application/pdf' : contentType;
+
+  const prompt = `Extract invoice/document data from this file. Return ONLY valid JSON, no markdown.
+
+Return JSON with these fields (all optional, omit if not found):
+{
+  "documentType": "invoice" | "contract" | "receipt" | "proposal",
+  "invoiceNumber": "string",
+  "issuer": "company name",
+  "amount": number,
+  "currency": "USD" | "EUR" etc.,
+  "issueDate": "YYYY-MM-DD",
+  "dueDate": "YYYY-MM-DD",
+  "lineItems": [{"description": "string", "quantity": number, "unitPrice": number, "total": number}],
+  "confidence": 0.0 to 1.0
+}`;
+
+  try {
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType, data: base64Data } },
+              { text: prompt },
+            ],
+          }],
+          generationConfig: { maxOutputTokens: 600, temperature: 0.1 },
+        }),
+      }
+    );
+    if (!resp.ok) return;
+
+    const result = await resp.json() as any;
+    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    await supabase
+      .from('email_attachments')
+      .update({
+        attachment_type: parsed.documentType ?? null,
+        parsed_data: {
+          invoiceNumber:  parsed.invoiceNumber  ?? null,
+          issuer:         parsed.issuer         ?? null,
+          amount:         parsed.amount         ?? null,
+          currency:       parsed.currency       ?? null,
+          issueDate:      parsed.issueDate      ?? null,
+          dueDate:        parsed.dueDate        ?? null,
+          lineItems:      parsed.lineItems      ?? [],
+          confidence:     parsed.confidence     ?? 0,
+          extractedAt:    new Date().toISOString(),
+        },
+      })
+      .eq('id', attachmentId);
+
+    // Propagate detected fields up to the thread if we got useful data
+    if (parsed.documentType || parsed.amount || parsed.dueDate) {
+      const threadUpdate: Record<string, any> = {};
+      if (parsed.documentType) threadUpdate.detected_type = parsed.documentType;
+      if (parsed.amount && parsed.amount > 0) {
+        threadUpdate.detected_amount   = parsed.amount;
+        threadUpdate.detected_currency = parsed.currency ?? 'USD';
+      }
+      if (parsed.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(parsed.dueDate)) {
+        threadUpdate.detected_due_date = parsed.dueDate;
+      }
+      if (Object.keys(threadUpdate).length > 0) {
+        await supabase.from('email_threads').update(threadUpdate).eq('id', threadId);
+      }
+    }
+  } catch {
+    // Vision analysis is best-effort
+  }
 }
 
 // ─── Phase 3: Gemini email summarization ─────────────────────────────────────
@@ -240,7 +433,7 @@ Snippet: ${thread.snippet || ''}
 Write a concise, professional summary. If the email is about a payment, invoice, project update, or contract, mention that explicitly.`;
 
   const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -388,6 +581,90 @@ export async function syncGoogleCalendar(userId: string, integrationId: string):
     .eq('id', integrationId);
 
   logger.info('Google Calendar sync complete', { userId, count: events.length });
+
+  // Push Hedwig events back to Google Calendar
+  await pushHedwigEventsToGoogleCalendar(userId).catch(() => {});
+}
+
+// ─── Phase 7: Push Hedwig events → Google Calendar ───────────────────────────
+
+export async function pushHedwigEventsToGoogleCalendar(userId: string): Promise<void> {
+  const accessToken = await getValidAccessToken(userId, 'google_calendar');
+  if (!accessToken) {
+    logger.warn('No valid Google Calendar token for push', { userId });
+    return;
+  }
+
+  const { data: hedwigEvents } = await supabase
+    .from('calendar_events')
+    .select('id, title, description, event_date, event_type, status, google_event_id')
+    .eq('user_id', userId)
+    .in('status', ['upcoming', 'completed'])
+    .order('event_date', { ascending: true })
+    .limit(200);
+
+  if (!hedwigEvents?.length) return;
+
+  let pushed = 0;
+  let failed = 0;
+
+  for (const event of hedwigEvents) {
+    const startDate = (event.event_date as string).slice(0, 10);
+    const endDay = new Date(startDate + 'T00:00:00Z');
+    endDay.setUTCDate(endDay.getUTCDate() + 1);
+    const endDate = endDay.toISOString().slice(0, 10);
+
+    const gcalBody = JSON.stringify({
+      summary: event.title,
+      description: event.description || undefined,
+      start: { date: startDate },
+      end: { date: endDate },
+      extendedProperties: {
+        private: { hedwigEventId: event.id as string, hedwigEventType: event.event_type as string },
+      },
+    });
+
+    if (event.google_event_id) {
+      const resp = await fetch(`${GCAL_BASE}/calendars/primary/events/${event.google_event_id as string}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: gcalBody,
+      });
+
+      if (resp.status === 404) {
+        // Event was deleted in Google Calendar — clear stored ID so it gets re-created next sync
+        await supabase.from('calendar_events').update({ google_event_id: null }).eq('id', event.id);
+      } else if (resp.status === 403) {
+        logger.warn('Google Calendar write access denied — user needs to reconnect', { userId });
+        return; // Stop pushing; token lacks write scope
+      } else if (resp.ok) {
+        pushed++;
+      } else {
+        failed++;
+      }
+    } else {
+      const resp = await fetch(`${GCAL_BASE}/calendars/primary/events`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: gcalBody,
+      });
+
+      if (resp.status === 403) {
+        logger.warn('Google Calendar write access denied — user needs to reconnect', { userId });
+        return;
+      }
+
+      if (resp.ok) {
+        const created = await resp.json() as { id: string };
+        await supabase.from('calendar_events').update({ google_event_id: created.id }).eq('id', event.id);
+        pushed++;
+      } else {
+        failed++;
+      }
+    }
+  }
+
+  logger.info('Pushed Hedwig events to Google Calendar', { userId, pushed, failed });
 }
 
 // ─── Phase 8: Assistant-ready queries ────────────────────────────────────────

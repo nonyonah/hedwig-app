@@ -18,12 +18,12 @@ interface Integration {
 const INTEGRATION_META: Record<IntegrationProvider, { label: string; description: string; iconPath: string }> = {
   gmail: {
     label: 'Gmail',
-    description: 'Sync emails and match them to invoices, contracts, and clients.',
+    description: 'Sync emails to automatically match invoices and client threads.',
     iconPath: '/icons/gmail.svg',
   },
   google_calendar: {
     label: 'Google Calendar',
-    description: 'Pull upcoming meetings and match them to your projects.',
+    description: 'Sync your calendar to push deadlines and milestones to Google Calendar.',
     iconPath: '/icons/google-calendar.svg',
   },
   slack: {
@@ -83,12 +83,13 @@ export function IntegrationsClient({ accessToken }: { accessToken: string | null
   const disconnectIntegration = async (provider: IntegrationProvider) => {
     setDisconnectingProvider(provider);
     try {
-      await fetch('/api/integrations/disconnect', {
+      const resp = await fetch('/api/integrations/disconnect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider }),
       });
-      await loadIntegrations();
+      if (!resp.ok) throw new Error('Disconnect failed');
+      setIntegrations((prev) => prev.filter((i) => i.provider !== provider));
       toast({ type: 'success', title: `${INTEGRATION_META[provider].label} disconnected` });
     } catch {
       toast({ type: 'error', title: 'Could not disconnect', message: 'Please try again.' });
@@ -118,22 +119,22 @@ export function IntegrationsClient({ accessToken }: { accessToken: string | null
     integrations.find((i) => i.provider === provider);
 
   return (
-    <div className="mx-auto max-w-[900px] px-6 py-8">
-      <div className="mb-6">
-        <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Integrations</h1>
-        <p className="mt-1 text-[13px] text-[#717680]">
-          Connect your tools to sync emails, meetings, and notifications.
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-[15px] font-semibold text-[#181d27]">Integrations</h1>
+        <p className="mt-0.5 text-[13px] text-[#a4a7ae]">
+          Connect your tools to sync meetings and notifications.
         </p>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-[180px] animate-pulse rounded-2xl bg-[#f2f4f7]" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {PROVIDERS.map((provider) => {
             const meta = INTEGRATION_META[provider];
             const connected = getConnected(provider);

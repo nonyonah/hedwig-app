@@ -1,7 +1,7 @@
 -- Phase 1: User integrations foundation (Gmail, Outlook, Google Calendar, Slack)
 CREATE TABLE IF NOT EXISTS user_integrations (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   provider        VARCHAR(50) NOT NULL,          -- 'gmail' | 'google_calendar' | 'slack'
   status          VARCHAR(20) NOT NULL DEFAULT 'connected', -- 'connected' | 'error' | 'token_expired'
   access_token    TEXT,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS user_integrations (
 -- Phase 2: Email threads ingested from Gmail/Outlook
 CREATE TABLE IF NOT EXISTS email_threads (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id               UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id               TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   integration_id        UUID NOT NULL REFERENCES user_integrations(id) ON DELETE CASCADE,
   provider              VARCHAR(50) NOT NULL,
   provider_thread_id    VARCHAR(255) NOT NULL,
@@ -37,9 +37,9 @@ CREATE TABLE IF NOT EXISTS email_threads (
   summary               TEXT,
   summary_generated_at  TIMESTAMPTZ,
   -- Phase 5: Matching engine results
-  matched_client_id     UUID REFERENCES clients(id) ON DELETE SET NULL,
-  matched_project_id    UUID REFERENCES projects(id) ON DELETE SET NULL,
-  matched_document_id   UUID,
+  matched_client_id     TEXT REFERENCES clients(id) ON DELETE SET NULL,
+  matched_project_id    TEXT REFERENCES projects(id) ON DELETE SET NULL,
+  matched_document_id   TEXT,
   matched_document_type VARCHAR(50),
   match_confidence      FLOAT,
   is_archived           BOOLEAN NOT NULL DEFAULT FALSE,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS email_threads (
 CREATE TABLE IF NOT EXISTS email_attachments (
   id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   thread_id               UUID NOT NULL REFERENCES email_threads(id) ON DELETE CASCADE,
-  user_id                 UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id                 TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   provider_attachment_id  VARCHAR(255),
   provider_message_id     VARCHAR(255),
   filename                VARCHAR(500) NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS email_attachments (
 -- Phase 6: Calendar events from Google Calendar / Apple ICS
 CREATE TABLE IF NOT EXISTS external_calendar_events (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id             TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   integration_id      UUID REFERENCES user_integrations(id) ON DELETE SET NULL,
   provider            VARCHAR(50) NOT NULL, -- 'google_calendar' | 'apple_ics'
   provider_event_id   VARCHAR(255),
@@ -79,8 +79,8 @@ CREATE TABLE IF NOT EXISTS external_calendar_events (
   all_day             BOOLEAN NOT NULL DEFAULT FALSE,
   attendees           TEXT[]  NOT NULL DEFAULT '{}',
   -- matching
-  matched_client_id   UUID REFERENCES clients(id) ON DELETE SET NULL,
-  matched_project_id  UUID REFERENCES projects(id) ON DELETE SET NULL,
+  matched_client_id   TEXT REFERENCES clients(id) ON DELETE SET NULL,
+  matched_project_id  TEXT REFERENCES projects(id) ON DELETE SET NULL,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, provider, provider_event_id)

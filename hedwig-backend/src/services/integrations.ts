@@ -48,7 +48,7 @@ export function buildGoogleAuthUrl(provider: 'gmail' | 'google_calendar', redire
     google_calendar: [
       'openid',
       'email',
-      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar.events',
     ],
   };
 

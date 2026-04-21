@@ -370,6 +370,7 @@ export const ingestRevenueCatWebhook = async (payload: any) => {
     }
 
     return { duplicate: false, eventId, appUserId, userId, isActive };
+};
 
 export const getRevenueCatStateForUser = async (user: {
     id: string;
@@ -407,4 +408,3 @@ export const getRevenueCatStateForUser = async (user: {
 
     return null;
 };
-

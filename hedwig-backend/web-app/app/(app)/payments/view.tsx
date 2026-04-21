@@ -16,12 +16,14 @@ import {
   LinkSimple,
   Repeat,
   Trash,
+  UploadSimple,
   X,
   Info
 } from '@/components/ui/lucide-icons';
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { RecurringInvoicesSection } from '@/components/payments/recurring-invoices-section';
+import { ImportInvoiceModal } from '@/components/email/import-invoice-modal';
 import { hedwigApi } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { ClientPortal } from '@/components/ui/client-portal';
@@ -119,6 +121,7 @@ export function PaymentsClient({
 
   const [invoiceItems, setInvoiceItems] = useState(invoices);
   const [paymentLinkItems, setPaymentLinkItems] = useState(paymentLinks);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Map active/paused recurring templates into invoice rows (prefixed IDs so we know they're templates)
   const recurringTemplateRows = useMemo((): Invoice[] =>
@@ -172,10 +175,11 @@ export function PaymentsClient({
     return { paid, outstanding, activeLinks };
   }, [allInvoiceItems, paymentLinkItems]);
 
-  const filteredInvoices = useMemo(
-    () => (invoiceFilter === 'all' ? allInvoiceItems : allInvoiceItems.filter((i) => i.status === invoiceFilter)),
-    [allInvoiceItems, invoiceFilter]
-  );
+  const filteredInvoices = useMemo(() => {
+    if (invoiceFilter === 'all') return allInvoiceItems;
+    if (invoiceFilter === 'imported') return allInvoiceItems.filter((i) => !!i.source);
+    return allInvoiceItems.filter((i) => i.status === invoiceFilter);
+  }, [allInvoiceItems, invoiceFilter]);
   const filteredLinks = useMemo(
     () => (linkFilter === 'all' ? paymentLinkItems : paymentLinkItems.filter((l) => l.status === linkFilter)),
     [paymentLinkItems, linkFilter]
@@ -331,9 +335,19 @@ export function PaymentsClient({
   /* ─── render ─── */
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-[15px] font-semibold text-[#181d27]">Payments</h1>
-        <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Invoice clients and collect payments in one workflow.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[15px] font-semibold text-[#181d27]">Payments</h1>
+          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Invoice clients and collect payments in one workflow.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowImportModal(true)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#f9fafb]"
+        >
+          <UploadSimple className="h-3.5 w-3.5" />
+          Import invoice
+        </button>
       </div>
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
@@ -422,9 +436,9 @@ export function PaymentsClient({
         {/* Filter chips */}
         <div className="flex items-center gap-1 border-b border-[#f2f4f7] px-5 py-2">
           {activeTab === 'invoices'
-            ? (['all', 'draft', 'sent', 'viewed', 'paid', 'overdue'] as const).map((s) => (
+            ? (['all', 'draft', 'sent', 'viewed', 'paid', 'overdue', 'imported'] as const).map((s) => (
                 <FilterChip key={s} active={invoiceFilter === s} onClick={() => setInvoiceFilter(s)}>
-                  {s === 'all' ? 'All' : INV_STATUS[s]?.label ?? s}
+                  {s === 'all' ? 'All' : s === 'imported' ? 'Imported' : INV_STATUS[s as keyof typeof INV_STATUS]?.label ?? s}
                 </FilterChip>
               ))
             : activeTab === 'payment-links'
@@ -506,6 +520,9 @@ export function PaymentsClient({
                         </p>
                         {inv.recurringInvoiceId && (
                           <span className="shrink-0 rounded-full bg-[#fdf4ff] px-1.5 py-0.5 text-[10px] font-semibold text-[#717680]">Recurring</span>
+                        )}
+                        {inv.source && (
+                          <span className="shrink-0 rounded-full bg-[#f0fdf4] px-1.5 py-0.5 text-[10px] font-semibold text-[#15803d]">Imported</span>
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-[11px] text-[#a4a7ae]">
@@ -670,6 +687,16 @@ export function PaymentsClient({
             </div>
           </div>
         </div>
+      )}
+
+      {showImportModal && (
+        <ImportInvoiceModal
+          onClose={() => setShowImportModal(false)}
+          onImported={(doc) => {
+            toast({ type: 'success', title: 'Invoice imported', message: `${doc.filename} has been extracted and is ready for review.` });
+            setShowImportModal(false);
+          }}
+        />
       )}
 
     </div>

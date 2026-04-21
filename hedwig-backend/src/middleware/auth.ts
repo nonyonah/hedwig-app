@@ -67,6 +67,8 @@ function isRetryableAuthError(error: unknown): boolean {
     if (message.includes('invalid compact jws')) return false;
     if (message.includes('jwt') && message.includes('invalid')) return false;
     if (message.includes('token expired')) return false;
+    if (message.includes('"exp" claim')) return false;
+    if (message.includes('claim timestamp check failed')) return false;
 
     if (code && RETRYABLE_NETWORK_ERROR_CODES.has(code)) return true;
     if (message.includes('timeout')) return true;

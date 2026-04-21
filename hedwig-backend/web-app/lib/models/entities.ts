@@ -85,6 +85,7 @@ export interface Invoice {
   recurringInvoiceId?: string;
   clientEmail?: string;
   viewedAt?: string;
+  source?: string | null;
 }
 
 export interface PaymentLink {

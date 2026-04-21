@@ -81,6 +81,11 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('hedwig_access_token')?.value;
   const isDemo = request.cookies.get('hedwig_demo')?.value === 'true';
 
+  // Serve a static, crawler-friendly legal page for OAuth verifiers.
+  if (pathname === '/privacy' || pathname === '/privacy/') {
+    return NextResponse.rewrite(new URL('/privacy.html', request.url));
+  }
+
   // Demo sessions bypass backend token validation entirely
   if (isDemo && token === 'demo') {
     if (pathname === '/sign-in') {

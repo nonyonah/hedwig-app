@@ -58,7 +58,12 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   if (!resp.ok) {
     const data = await resp.json().catch(() => null) as any;
-    const msg  = data?.error || 'oauth_failed';
+    const backendError = String(data?.error || '').trim();
+    const unauthorized = resp.status === 401 || backendError.toLowerCase() === 'unauthorized';
+    const msg = unauthorized ? 'session_expired' : (backendError || 'oauth_failed');
+    if (unauthorized) {
+      return NextResponse.redirect(`${WEB_BASE_URL}/sign-in?next=${encodeURIComponent('/integrations')}`);
+    }
     return NextResponse.redirect(`${WEB_BASE_URL}/integrations?integration_error=${encodeURIComponent(msg)}`);
   }
 
