@@ -41,16 +41,16 @@ export function AppSidebar({
 
   const sidebarContent = (
     <aside className={cn(
-      'flex h-full flex-col overflow-y-auto border-r border-[#f2f4f7] bg-white transition-[width] duration-200 ease-out',
+      'flex h-full flex-col overflow-y-auto border-r border-[#f3f4f6] bg-[#fcfcfd] transition-[width] duration-200 ease-out',
       sidebarWidth
     )}>
       {/* Workspace header */}
       <div className={cn(
-        'flex h-12 shrink-0 items-center border-b border-[#f2f4f7]',
+        'flex h-12 shrink-0 items-center border-b border-[#f3f4f6]',
         collapsed ? 'justify-center px-0' : 'justify-between px-4'
       )}>
         <div className={cn('flex min-w-0 items-center gap-2', collapsed && 'justify-center')}>
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-md ring-1 ring-[#e9eaeb]">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-md ring-1 ring-[#eef0f3]">
             <Image
               src="/hedwig-logo.png"
               alt="Hedwig"
@@ -80,7 +80,7 @@ export function AppSidebar({
         {navigationGroups.map((group, groupIndex) => (
           <div key={`group-${groupIndex}`}>
             {groupIndex > 0 && (
-              <div className={cn('my-1.5 h-px bg-[#f2f4f7]', collapsed ? 'mx-1' : 'mx-0')} />
+              <div className={cn('my-1.5 h-px bg-[#f4f5f7]', collapsed ? 'mx-1' : 'mx-0')} />
             )}
             <ul className="flex flex-col gap-0.5">
               {group.items.filter((item) => !lockedRouteSet.has(item.href)).map((item) => {
@@ -96,8 +96,8 @@ export function AppSidebar({
                         'group flex w-full select-none items-center rounded-md transition duration-100 ease-linear',
                         collapsed ? 'justify-center p-2' : 'px-2.5 py-1.5',
                         active
-                          ? 'bg-[#f5f5f5] text-[#181d27]'
-                          : 'text-[#8d9096] hover:bg-[#fafafa] hover:text-[#414651]'
+                          ? 'bg-[#f4f5f7] text-[#181d27]'
+                          : 'text-[#8d9096] hover:bg-[#f8f9fb] hover:text-[#414651]'
                       )}
                     >
                       <Icon
@@ -131,13 +131,13 @@ export function AppSidebar({
       </nav>
 
       {/* Footer */}
-      <div className={cn('shrink-0 border-t border-[#f2f4f7] py-2', collapsed ? 'px-2' : 'px-3')}>
+      <div className={cn('shrink-0 border-t border-[#f3f4f6] py-2', collapsed ? 'px-2' : 'px-3')}>
         <button
           type="button"
           title="Give feedback"
           onClick={handleFeedbackClick}
           className={cn(
-            'group flex w-full select-none items-center rounded-md text-[#c1c5cd] transition duration-100 ease-linear hover:bg-[#fafafa] hover:text-[#717680]',
+            'group flex w-full select-none items-center rounded-md text-[#c1c5cd] transition duration-100 ease-linear hover:bg-[#f8f9fb] hover:text-[#717680]',
             collapsed ? 'justify-center p-2' : 'px-2.5 py-1.5'
           )}
         >

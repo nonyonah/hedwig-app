@@ -46,7 +46,7 @@ export function AppTopbar({ collapsed, onToggleSidebar, unreadCount, accessToken
   };
 
   return (
-    <div className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between border-b border-[#f2f4f7] bg-white px-4 lg:px-5">
+    <div className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between border-b border-[#f3f4f6] bg-[#fcfcfd]/95 px-4 backdrop-blur-sm lg:px-5">
       {/* Left */}
       <div className="flex min-w-0 items-center gap-2.5">
         {collapsed && (
@@ -54,7 +54,7 @@ export function AppTopbar({ collapsed, onToggleSidebar, unreadCount, accessToken
             type="button"
             onClick={onToggleSidebar}
             aria-label="Expand sidebar"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#c1c5cd] transition hover:bg-[#f5f5f5] hover:text-[#717680]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#c1c5cd] transition hover:bg-[#f4f5f7] hover:text-[#717680]"
           >
             <SidebarSimple className="h-3.5 w-3.5" weight="bold" />
           </button>
@@ -73,17 +73,17 @@ export function AppTopbar({ collapsed, onToggleSidebar, unreadCount, accessToken
             aria-label="Create"
             onClick={() => setCreateOpen((p) => !p)}
             className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-full border border-[#e9eaeb] text-[13px] font-semibold transition',
+              'flex h-8 w-8 items-center justify-center rounded-full border border-[#eef0f3] text-[13px] font-semibold transition',
               createOpen
-                ? 'bg-[#f5f5f5] text-[#414651]'
-                : 'bg-white text-[#8d9096] hover:bg-[#f5f5f5] hover:text-[#414651]'
+                ? 'bg-[#f4f5f7] text-[#414651]'
+                : 'bg-white text-[#8d9096] hover:bg-[#f8f9fb] hover:text-[#414651]'
             )}
           >
             <PencilSimple className="h-4 w-4" weight="bold" />
           </button>
 
           {createOpen && (
-            <div className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-xl border border-[#f2f4f7] bg-white py-1 shadow-lg shadow-black/5">
+            <div className="absolute right-0 top-9 z-50 w-44 overflow-hidden rounded-xl border border-[#f3f4f6] bg-white py-1 shadow-lg shadow-black/5">
               {[
                 { flow: 'invoice' as const, label: 'Invoice', Icon: FileText },
                 { flow: 'payment-link' as const, label: 'Payment link', Icon: LinkSimple },
@@ -94,7 +94,7 @@ export function AppTopbar({ collapsed, onToggleSidebar, unreadCount, accessToken
                   key={flow}
                   type="button"
                   onClick={() => openCreateFlow(flow)}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[#414651] transition hover:bg-[#f9fafb] hover:text-[#181d27]"
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[13px] font-medium text-[#414651] transition hover:bg-[#f8f9fb] hover:text-[#181d27]"
                 >
                   <Icon className="h-3.5 w-3.5 text-[#c1c5cd]" weight="bold" />
                   {label}

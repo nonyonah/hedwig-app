@@ -20,6 +20,15 @@ import {
   walletTransactions as mockWalletTransactions,
   workspace
 } from '@/lib/mock/data';
+import {
+  revenueSummary as mockRevenueSummary,
+  expenses as mockExpenses,
+  clientBreakdown as mockClientBreakdown,
+  projectBreakdown as mockProjectBreakdown,
+  activityFeed as mockActivityFeed,
+  paymentSources as mockPaymentSources,
+} from '@/lib/mock/revenue';
+import type { ExpenseRecord, RevenueSummary } from '@/lib/types/revenue';
 import type {
   AccountTransaction,
   Activity,
@@ -663,14 +672,21 @@ async function request<T>(path: string, options?: ApiOptions, init?: RequestInit
     throw new Error('This action is not available in demo mode. Sign in to use it.');
   }
 
-  const response = await fetch(`${backendConfig.apiBaseUrl}${path}`, {
-    ...init,
-    cache: 'no-store',
-    headers: {
-      ...authHeaders(options.accessToken),
-      ...(init?.headers ?? {})
-    }
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${backendConfig.apiBaseUrl}${path}`, {
+      ...init,
+      cache: 'no-store',
+      headers: {
+        ...authHeaders(options.accessToken),
+        ...(init?.headers ?? {})
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown network error';
+    throw new Error(`Network error calling ${backendConfig.apiBaseUrl}${path}: ${message}`);
+  }
 
   const contentType = response.headers.get('content-type') || '';
   const rawBody = await response.text();
@@ -694,7 +710,7 @@ async function request<T>(path: string, options?: ApiOptions, init?: RequestInit
 
   if (!response.ok || !payload?.success) {
     const message = typeof payload?.error === 'string' ? payload.error : payload?.error?.message;
-    throw new Error(message || `Request failed for ${path}`);
+    throw new Error(message ? `${message} (${path})` : `Request failed for ${backendConfig.apiBaseUrl}${path}`);
   }
 
   return payload.data;
@@ -1922,5 +1938,80 @@ export const hedwigApi = {
       chain: 'Base',
       memo: 'Requested via AI composer'
     };
-  }
+  },
+
+  async revenueSummary(range: string = '30d', options?: ApiOptions): Promise<RevenueSummary> {
+    const safeRange = ['7d', '30d', '90d', '1y', 'ytd'].includes(range) ? range : '30d';
+    return withFallback(
+      () => request<RevenueSummary>(`/api/revenue/summary?range=${safeRange}`, options),
+      () => mockRevenueSummary,
+      options,
+    );
+  },
+
+  async revenueBreakdown(range: string = '30d', options?: ApiOptions) {
+    const safeRange = ['7d', '30d', '90d', '1y', 'ytd'].includes(range) ? range : '30d';
+    return withFallback(
+      () => request<{ clients: any[]; projects: any[] }>(`/api/revenue/breakdown?range=${safeRange}`, options),
+      () => ({ clients: mockClientBreakdown, projects: mockProjectBreakdown }),
+      options,
+    );
+  },
+
+  async revenuePaymentSources(range: string = '30d', options?: ApiOptions) {
+    const safeRange = ['7d', '30d', '90d', '1y', 'ytd'].includes(range) ? range : '30d';
+    return withFallback(
+      () => request<any[]>(`/api/revenue/payment-sources?range=${safeRange}`, options),
+      () => mockPaymentSources,
+      options,
+    );
+  },
+
+  async revenueActivity(options?: ApiOptions) {
+    return withFallback(
+      () => request<any[]>('/api/revenue/activity', options),
+      () => mockActivityFeed,
+      options,
+    );
+  },
+
+  async revenueExpenses(options?: ApiOptions): Promise<ExpenseRecord[]> {
+    return withFallback(
+      () => request<ExpenseRecord[]>('/api/revenue/expenses', options),
+      () => mockExpenses,
+      options,
+    );
+  },
+
+  async createExpense(payload: Partial<ExpenseRecord> & { amount: number }, options?: ApiOptions) {
+    return withFallback(
+      () => request<ExpenseRecord>('/api/revenue/expenses', options, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }),
+      () => ({ ...payload, id: `exp_${Date.now()}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ExpenseRecord),
+      options,
+    );
+  },
+
+  async updateExpense(id: string, payload: Partial<ExpenseRecord>, options?: ApiOptions) {
+    return withFallback(
+      () => request<ExpenseRecord>(`/api/revenue/expenses/${id}`, options, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }),
+      () => ({ id, ...payload } as ExpenseRecord),
+      options,
+    );
+  },
+
+  async deleteExpense(id: string, options?: ApiOptions): Promise<void> {
+    return withFallback(
+      () => request<void>(`/api/revenue/expenses/${id}`, options, { method: 'DELETE' }),
+      () => undefined,
+      options,
+    );
+  },
 };

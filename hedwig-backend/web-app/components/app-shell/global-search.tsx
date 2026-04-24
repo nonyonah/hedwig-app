@@ -206,11 +206,11 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-full border border-[#e9eaeb] bg-[#fafafa] px-3 py-1.5 text-[13px] text-[#a4a7ae] transition-colors hover:border-[#d5d7da] hover:bg-white"
+        className="flex items-center gap-2 rounded-full border border-[#eef0f3] bg-[#f8f9fb] px-3 py-1.5 text-[13px] text-[#98a2b3] transition-colors hover:border-[#e4e7ec] hover:bg-white"
       >
         <MagnifyingGlass className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Search</span>
-        <kbd className="ml-0.5 hidden rounded border border-[#e9eaeb] px-1.5 py-0.5 text-[10px] font-semibold sm:inline">⌘K</kbd>
+        <kbd className="ml-0.5 hidden rounded border border-[#eef0f3] px-1.5 py-0.5 text-[10px] font-semibold sm:inline">⌘K</kbd>
       </button>
 
       {/* Palette overlay */}
@@ -220,9 +220,9 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setOpen(false)} />
 
           {/* Dialog */}
-          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-[#e9eaeb]">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-[#eef0f3]">
             {/* Search input */}
-            <div className="flex items-center gap-3 border-b border-[#f2f4f7] px-4 py-3.5">
+            <div className="flex items-center gap-3 border-b border-[#f3f4f6] px-4 py-3.5">
               <MagnifyingGlass className="h-4 w-4 shrink-0 text-[#a4a7ae]" />
               <input
                 ref={inputRef}
@@ -242,11 +242,11 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
                 className="flex-1 bg-transparent text-[14px] text-[#181d27] placeholder-[#a4a7ae] outline-none"
               />
               {loading && (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#e9eaeb] border-t-[#2563eb]" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#eef0f3] border-t-[#2563eb]" />
               )}
               <button
                 onClick={() => setOpen(false)}
-                className="rounded-full p-1 text-[#a4a7ae] transition-colors hover:bg-[#f2f4f7]"
+                className="rounded-full p-1 text-[#a4a7ae] transition-colors hover:bg-[#f4f5f7]"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

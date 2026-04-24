@@ -94,7 +94,7 @@ export function AccountMenu({
       <button
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex h-9 w-9 items-center justify-center rounded-md text-[#a4a7ae] transition duration-100 ease-linear hover:bg-[#fafafa]"
+        className="flex h-9 w-9 items-center justify-center rounded-md text-[#a4a7ae] transition duration-100 ease-linear hover:bg-[#f8f9fb]"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
@@ -103,9 +103,9 @@ export function AccountMenu({
 
       {open ? (
         /* UUI dropdown: rounded-xl, bg-white, shadow-lg, ring-1 ring-[#e9eaeb] */
-        <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-[264px] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[#e9eaeb]">
+        <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-[264px] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[#eef0f3]">
           {/* Account header */}
-          <div className="border-b border-[#e9eaeb] px-4 py-3.5">
+          <div className="border-b border-[#f3f4f6] px-4 py-3.5">
             <p className="truncate text-[14px] font-semibold text-[#181d27]">{fullName}</p>
             <p className="truncate text-[13px] text-[#717680]">{email}</p>
           </div>
@@ -113,7 +113,7 @@ export function AccountMenu({
           {/* Menu items — UUI: px-1.5 py-1.5 */}
           <div className="flex flex-col gap-0.5 px-1.5 py-1.5">
             <Link
-              className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[#fafafa]"
+              className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[#f8f9fb]"
               href="/pricing"
               onClick={() => setOpen(false)}
             >
@@ -122,7 +122,7 @@ export function AccountMenu({
             </Link>
 
             <Link
-              className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[#fafafa]"
+              className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[#f8f9fb]"
               href="mailto:support@hedwigbot.xyz"
               onClick={() => setOpen(false)}
             >
@@ -140,7 +140,7 @@ export function AccountMenu({
                       'flex h-8 w-8 items-center justify-center rounded-md border transition duration-100',
                       theme === option.value
                         ? 'border-[#2563eb] bg-[#2563eb] text-white'
-                        : 'border-[#e9eaeb] bg-white text-[#a4a7ae] hover:bg-[#fafafa] hover:text-[#717680]'
+                        : 'border-[#eef0f3] bg-white text-[#a4a7ae] hover:bg-[#f8f9fb] hover:text-[#717680]'
                     )}
                     aria-label={option.label}
                     title={option.label}
@@ -155,7 +155,7 @@ export function AccountMenu({
           </div>
 
           {/* Divider + sign out */}
-          <div className="border-t border-[#e9eaeb] px-1.5 py-1.5">
+          <div className="border-t border-[#f3f4f6] px-1.5 py-1.5">
             <Link
               className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[#fef2f2]"
               href="/sign-out"

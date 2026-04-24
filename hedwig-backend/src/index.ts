@@ -47,6 +47,7 @@ import revenuecatWebhookRoutes from './routes/revenuecatWebhook';
 import feedbackRoutes from './routes/feedback';
 import paymentWebhooksRoutes from './routes/paymentWebhooks';
 import integrationsRoutes from './routes/integrations';
+import revenueRoutes from './routes/revenue';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -311,7 +312,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-const authLimiter     = createLimiter('auth',     60,  'Too many authentication requests. Please try again shortly.');
+const authLimiter     = createLimiter('auth',     180, 'Too many authentication requests. Please try again shortly.');
 const aiLimiter       = createUserAwareLimiter('ai',       40,  'Too many AI requests. Please slow down and try again.');
 const documentLimiter = createUserAwareLimiter('docs',    180,  'Too many document requests. Please try again later.');
 const financialLimiter = createUserAwareLimiter('finance', 120, 'Too many financial requests. Please try again later.');
@@ -456,6 +457,7 @@ app.use('/api/usd-accounts', (req, _res, next) => {
 app.use('/api/usd-accounts', financialLimiter, usdAccountRoutes);
 app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 app.use('/api/integrations', integrationsLimiter, integrationsRoutes);
+app.use('/api/revenue', insightsLimiter, revenueRoutes);
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));

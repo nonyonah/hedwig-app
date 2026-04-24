@@ -74,13 +74,18 @@ router.get('/oauth-url', async (req: Request, res: Response) => {
   // Store state → userId + token so the Next.js callback can resolve the user
   // without needing a browser session cookie.
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-  await supabase.from('oauth_pending_states').insert({
+  const { error: stateInsertError } = await supabase.from('oauth_pending_states').insert({
     state,
     provider,
     user_id:      userId,
     access_token: accessToken,
     expires_at:   expiresAt,
   });
+  if (stateInsertError) {
+    logger.error('oauth-url state insert failed', { userId, provider, err: stateInsertError });
+    res.status(500).json({ success: false, error: 'Could not persist OAuth state' });
+    return;
+  }
 
   const authUrl = buildGoogleAuthUrl(provider as 'gmail' | 'google_calendar', redirectUri, state);
   res.json({ success: true, data: { url: authUrl } });
@@ -361,21 +366,35 @@ router.post('/analyze-document', upload.single('file'), async (req: Request, res
 
   const base64Data = file.buffer.toString('base64');
 
-  const prompt = `Extract all invoice/document data from this file. Return ONLY valid JSON, no markdown fences.
+  const prompt = `Analyze this uploaded file and extract invoice data only. Return ONLY valid JSON with no markdown fences or commentary.
 
-Return this exact JSON shape (omit fields you cannot find):
+If the file does not appear to be an invoice, set "documentType" to "unknown" and include only invoice-like fields you can detect confidently.
+
+Use this exact JSON shape and omit any field you cannot confidently extract:
 {
-  "documentType": "invoice" | "contract" | "receipt" | "proposal",
+  "documentType": "invoice" | "unknown",
   "invoiceNumber": "string",
   "issuer": "company or person name",
+  "senderEmail": "email address",
   "recipient": "string",
+  "recipientEmail": "email address",
   "amount": number,
-  "currency": "USD" | "EUR" | "GBP" | "NGN" | etc.,
+  "currency": "USD" | "EUR" | "GBP" | "NGN" | "USDC" | etc.,
   "issueDate": "YYYY-MM-DD",
   "dueDate": "YYYY-MM-DD",
+  "title": "document title or short summary",
+  "projectReference": "project name, scope label, or workstream reference",
   "lineItems": [{"description": "string", "quantity": number, "unitPrice": number, "total": number}],
+  "paymentTerms": "string",
+  "notes": "short notes about missing fields or ambiguity",
   "confidence": number between 0 and 1
-}`;
+}
+
+Rules:
+- If it is clearly an invoice, populate as many invoice fields as possible.
+- If it is not clearly an invoice, set "documentType" to "unknown".
+- Normalize dates to YYYY-MM-DD when possible.
+- Keep lineItems as an array.`;
 
   try {
     const gemResp = await fetch(
@@ -391,7 +410,7 @@ Return this exact JSON shape (omit fields you cannot find):
               { text: prompt },
             ],
           }],
-          generationConfig: { maxOutputTokens: 800, temperature: 0.1 },
+          generationConfig: { maxOutputTokens: 1400, temperature: 0.1 },
         }),
       }
     );
@@ -412,6 +431,16 @@ Return this exact JSON shape (omit fields you cannot find):
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
+    const normalizedDocumentType =
+      typeof parsed.documentType === 'string' ? String(parsed.documentType).toLowerCase() : 'unknown';
+    parsed.documentType = ['invoice'].includes(normalizedDocumentType)
+      ? normalizedDocumentType
+      : 'unknown';
+    parsed.lineItems = Array.isArray(parsed.lineItems) ? parsed.lineItems : [];
+    parsed.title = typeof parsed.title === 'string' ? parsed.title.trim() : parsed.title;
+    parsed.projectReference = typeof parsed.projectReference === 'string' ? parsed.projectReference.trim() : parsed.projectReference;
+    parsed.paymentTerms = typeof parsed.paymentTerms === 'string' ? parsed.paymentTerms.trim() : parsed.paymentTerms;
+    parsed.notes = typeof parsed.notes === 'string' ? parsed.notes.trim() : parsed.notes;
 
     // Load user's clients to build match suggestions
     const { data: clients } = await supabase
@@ -452,7 +481,6 @@ Return this exact JSON shape (omit fields you cannot find):
         approvalStatus: 'pending',
       });
     }
-
     res.json({ success: true, data: { parsed, suggestions } });
   } catch (err: any) {
     logger.error('analyze-document error', { err });

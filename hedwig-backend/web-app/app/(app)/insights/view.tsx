@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
   ArrowUpRight,
   ArrowDownRight,
+  ChartBar,
   CheckCircle,
   CurrencyDollar,
   DownloadSimple,
@@ -18,6 +19,15 @@ import {
   ArrowsClockwise,
   Warning,
 } from '@/components/ui/lucide-icons';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { ExportDialog } from '@/components/export/export-dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,9 +43,14 @@ import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { formatCompactCurrency } from '@/lib/utils';
 import { backendConfig } from '@/lib/auth/config';
+import { hedwigApi } from '@/lib/api/client';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { canUseFeature } from '@/lib/billing/feature-gates';
 import { ProLockCard } from '@/components/billing/pro-lock-card';
+import { buildExpenseAnalysis, buildInsightRisks } from '@/lib/revenue-analytics';
+import type { AnalyticsRange } from '@/lib/revenue-analytics';
+import type { ExpenseRecord, ClientRevenueBreakdown } from '@/lib/types/revenue';
+import type { Invoice } from '@/lib/models/entities';
 
 /* ─── types ─── */
 type InsightsRange = '7d' | '30d' | '90d' | '1y';
@@ -104,6 +119,7 @@ interface TaxSummaryData {
   }>;
 }
 
+/* ─── constants ─── */
 const RANGE_LABELS: Record<InsightsRange, string> = {
   '7d': '7D',
   '30d': '30D',
@@ -111,6 +127,23 @@ const RANGE_LABELS: Record<InsightsRange, string> = {
   '1y': '1 Year',
 };
 const RANGES: InsightsRange[] = ['7d', '30d', '90d', '1y'];
+
+const EXPENSE_CATEGORY_BAR: Record<string, string> = {
+  software: 'bg-[#2563eb]',
+  equipment: 'bg-[#7c3aed]',
+  marketing: 'bg-[#c2410c]',
+  travel: 'bg-[#15803d]',
+  operations: 'bg-[#717680]',
+  contractor: 'bg-[#7e22ce]',
+  subscriptions: 'bg-[#1d4ed8]',
+  other: 'bg-[#a4a7ae]',
+};
+
+const SEVERITY_STYLES = {
+  high:   { dot: 'bg-[#f04438]', bg: 'bg-[#fff1f0]', icon: 'text-[#b42318]', badge: 'text-[#b42318]', label: 'High' },
+  medium: { dot: 'bg-[#f79009]', bg: 'bg-[#fffaeb]', icon: 'text-[#b45309]', badge: 'text-[#b45309]', label: 'Medium' },
+  low:    { dot: 'bg-[#a4a7ae]', bg: 'bg-[#f2f4f7]', icon: 'text-[#717680]', badge: 'text-[#717680]', label: 'Low' },
+};
 
 /* ─── helpers ─── */
 function formatTimeAgo(iso: string | null): string {
@@ -123,7 +156,7 @@ function formatTimeAgo(iso: string | null): string {
   return `Updated ${Math.floor(hrs / 24)}d ago`;
 }
 
-/* ─── SVG ring chart ─── */
+/* ─── ring chart ─── */
 function RingChart({ value, total, size = 132, strokeWidth = 10 }: {
   value: number; total: number; size?: number; strokeWidth?: number;
 }) {
@@ -185,13 +218,9 @@ function SetTargetDialog({ open, current, onSave, onClose, isSaving }: {
           <DialogDescription>Your ring progress tracks earnings toward this goal.</DialogDescription>
         </DialogHeader>
         <DialogBody>
-          <label className="block text-[13px] font-medium text-[#414651]">
-            Monthly target
-          </label>
-          <div className="mt-1.5 flex items-center gap-0 overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-xs transition duration-100 focus-within:border-[#2563eb] focus-within:ring-2 focus-within:ring-[#eff4ff]">
-            <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[14px] font-semibold text-[#a4a7ae]">
-              $
-            </span>
+          <label className="block text-[13px] font-medium text-[#414651]">Monthly target</label>
+          <div className="mt-1.5 flex items-center overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-xs transition duration-100 focus-within:border-[#2563eb] focus-within:ring-2 focus-within:ring-[#eff4ff]">
+            <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[14px] font-semibold text-[#a4a7ae]">$</span>
             <input
               type="number"
               min="1"
@@ -202,17 +231,11 @@ function SetTargetDialog({ open, current, onSave, onClose, isSaving }: {
               className="flex-1 bg-transparent px-3 py-2.5 text-[14px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none"
             />
           </div>
-          <p className="mt-2 text-[12px] text-[#a4a7ae]">
-            Enter the USD amount you aim to earn this month.
-          </p>
+          <p className="mt-2 text-[12px] text-[#a4a7ae]">Enter the USD amount you aim to earn this month.</p>
         </DialogBody>
         <DialogFooter>
-          <Button variant="secondary" onClick={onClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving…' : 'Save target'}
-          </Button>
+          <Button variant="secondary" onClick={onClose} disabled={isSaving}>Cancel</Button>
+          <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving…' : 'Save target'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -221,12 +244,21 @@ function SetTargetDialog({ open, current, onSave, onClose, isSaving }: {
 
 /* ─── main component ─── */
 export function InsightsClient({
-  accessToken, initialData, initialTarget, billing,
+  accessToken,
+  initialData,
+  initialTarget,
+  billing,
+  initialExpenses,
+  clientBreakdown,
+  invoices,
 }: {
   accessToken: string | null;
   initialData: InsightsData;
   initialTarget: number;
   billing: BillingStatusSummary | null;
+  initialExpenses: ExpenseRecord[];
+  clientBreakdown: ClientRevenueBreakdown[];
+  invoices: Invoice[];
 }) {
   const { currency } = useCurrency();
   const { toast } = useToast();
@@ -245,6 +277,7 @@ export function InsightsClient({
   const [taxSummary, setTaxSummary] = useState<TaxSummaryData | null>(null);
   const [taxLoading, setTaxLoading] = useState(false);
   const [taxError, setTaxError] = useState<string | null>(null);
+  const [clientsByRevenue, setClientsByRevenue] = useState<ClientRevenueBreakdown[]>(clientBreakdown);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
@@ -266,7 +299,15 @@ export function InsightsClient({
     }
   }, [accessToken]);
 
-  const handleRangeChange = (r: InsightsRange) => { setRange(r); fetchData(r); };
+  const handleRangeChange = (r: InsightsRange) => {
+    setRange(r);
+    fetchData(r);
+    if (accessToken) {
+      void hedwigApi.revenueBreakdown(r, { accessToken }).then((bd: any) => {
+        if (mounted.current && Array.isArray(bd?.clients)) setClientsByRevenue(bd.clients);
+      }).catch(() => {});
+    }
+  };
 
   const handleSaveTarget = async (newTarget: number) => {
     setIsSavingTarget(true);
@@ -288,22 +329,17 @@ export function InsightsClient({
 
   const fetchTaxSummary = useCallback(async (year: number) => {
     if (!accessToken) return;
-    setTaxLoading(true);
-    setTaxError(null);
+    setTaxLoading(true); setTaxError(null);
     try {
       const response = await fetch(`${backendConfig.apiBaseUrl}/api/insights/tax-summary?year=${year}`, {
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error?.message || 'Failed to load tax summary');
-      }
+      if (!response.ok || !payload?.success) throw new Error(payload?.error?.message || 'Failed to load tax summary');
       if (mounted.current) setTaxSummary(payload.data as TaxSummaryData);
     } catch (taxErr: any) {
-      if (mounted.current) {
-        setTaxError(taxErr?.message || 'Could not load tax summary');
-      }
+      if (mounted.current) setTaxError(taxErr?.message || 'Could not load tax summary');
     } finally {
       if (mounted.current) setTaxLoading(false);
     }
@@ -314,6 +350,7 @@ export function InsightsClient({
     void fetchTaxSummary(taxYear);
   }, [canViewTaxSummary, fetchTaxSummary, taxYear]);
 
+  /* ─── derived ─── */
   const { summary, insights, series } = data;
   const sparkValues = series.earnings.map((p) => p.value);
   const monthlyEarnings = summary?.monthlyEarnings ?? 0;
@@ -326,13 +363,30 @@ export function InsightsClient({
   const isEmpty = !loading && !error && (!summary ||
     (summary.totalDocuments === 0 && summary.transactionsCount === 0 && summary.clientsCount === 0));
 
+  const expenseAnalysis = useMemo(
+    () => buildExpenseAnalysis(initialExpenses, range as AnalyticsRange),
+    [initialExpenses, range],
+  );
+
+  const insightRisks = useMemo(
+    () => buildInsightRisks({
+      range: range as AnalyticsRange,
+      summary: data?.summary,
+      clientBreakdown: clientsByRevenue,
+      expenses: initialExpenses,
+      invoices,
+    }),
+    [range, data?.summary, clientsByRevenue, initialExpenses, invoices],
+  );
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Page header */}
+
+      {/* ── Page header ── */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[15px] font-semibold text-[#181d27]">Insights</h1>
-          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Operational metrics and trends from your account activity.</p>
+          <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Revenue trends, expense patterns, and business intelligence.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 mt-0.5">
           <Button variant="secondary" onClick={() => setShowExportDialog(true)}>
@@ -347,7 +401,7 @@ export function InsightsClient({
         <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
       </div>
 
-      {/* Range filter + timestamp */}
+      {/* ── Range filter + timestamp ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           {RANGES.map((r) => (
@@ -368,7 +422,7 @@ export function InsightsClient({
         <p className="text-[12px] text-[#a4a7ae]">{formatTimeAgo(data.lastUpdatedAt)}</p>
       </div>
 
-      {/* Error state */}
+      {/* ── Error state ── */}
       {error && (
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-10 text-center ring-1 ring-[#e9eaeb] shadow-xs">
           <p className="text-[15px] font-semibold text-[#181d27]">Could not load insights</p>
@@ -379,9 +433,8 @@ export function InsightsClient({
 
       {!error && (
         <>
-          {/* Stats bar */}
-          <div className="grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-            {/* Monthly earnings */}
+          {/* ── Stats bar ── */}
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb] sm:grid-cols-4">
             <Link href="/payments" className="group flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[12px] font-medium text-[#717680]">Monthly earnings</p>
@@ -395,15 +448,14 @@ export function InsightsClient({
                 </p>
               )}
               <div className="mt-1.5 flex items-center gap-1">
-                {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#717680]" weight="bold" />}
-                {earningsTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[#717680]" weight="bold" />}
-                <p className={`text-[11px] ${earningsTrend === 'up' ? 'text-[#717680]' : earningsTrend === 'down' ? 'text-[#717680]' : 'text-[#a4a7ae]'}`}>
+                {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#12b76a]" weight="bold" />}
+                {earningsTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[#f04438]" weight="bold" />}
+                <p className={`text-[11px] ${earningsTrend === 'up' ? 'text-[#12b76a]' : earningsTrend === 'down' ? 'text-[#f04438]' : 'text-[#a4a7ae]'}`}>
                   {earningsDeltaPct >= 0 ? '+' : ''}{earningsDeltaPct.toFixed(0)}% vs previous
                 </p>
               </div>
             </Link>
 
-            {/* Payment rate */}
             <Link href="/payments" className="group flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[12px] font-medium text-[#717680]">Payment rate</p>
@@ -421,7 +473,6 @@ export function InsightsClient({
               </p>
             </Link>
 
-            {/* Pending invoices */}
             <Link href="/payments" className="group flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[12px] font-medium text-[#717680]">Pending invoices</p>
@@ -435,11 +486,10 @@ export function InsightsClient({
                 </p>
               )}
               <p className="mt-1.5 text-[11px] text-[#a4a7ae]">
-                {summary ? `$${summary.pendingInvoicesTotal.toLocaleString()} outstanding` : '—'}
+                {summary ? `${formatCompactCurrency(summary.pendingInvoicesTotal, currency)} outstanding` : '—'}
               </p>
             </Link>
 
-            {/* Active clients */}
             <Link href="/clients" className="group flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[12px] font-medium text-[#717680]">Active clients</p>
@@ -458,10 +508,123 @@ export function InsightsClient({
             </Link>
           </div>
 
-          {/* Two-column: monthly progress + insights feed */}
+          {/* ── Revenue trend chart ── */}
+          <article className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+            <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
+              <div>
+                <h2 className="text-[15px] font-semibold text-[#181d27]">Revenue trend</h2>
+                <p className="mt-0.5 text-[13px] text-[#717680]">Earnings over the selected period.</p>
+              </div>
+              {earningsTrend !== 'neutral' && !loading && (
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                  earningsTrend === 'up' ? 'bg-[#ecfdf3] text-[#027a48]' : 'bg-[#fff1f0] text-[#b42318]'
+                }`}>
+                  {earningsTrend === 'up'
+                    ? <ArrowUpRight className="h-3 w-3" weight="bold" />
+                    : <ArrowDownRight className="h-3 w-3" weight="bold" />}
+                  {earningsDeltaPct >= 0 ? '+' : ''}{earningsDeltaPct.toFixed(0)}% vs prev period
+                </span>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="h-[180px] animate-pulse bg-[#f9fafb]" />
+            ) : series.earnings.length < 2 ? (
+              <div className="flex h-[180px] flex-col items-center justify-center gap-2 text-center">
+                <ChartBar className="h-8 w-8 text-[#e9eaeb]" weight="regular" />
+                <p className="text-[13px] text-[#a4a7ae]">Not enough data to show a trend yet.</p>
+              </div>
+            ) : (
+              <div className="px-2 py-4">
+                <ResponsiveContainer width="100%" height={160}>
+                  <AreaChart data={series.earnings} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+                    <defs>
+                      <linearGradient id="earningsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f2f4f7" vertical={false} />
+                    <XAxis
+                      dataKey="key"
+                      tick={{ fontSize: 11, fill: '#a4a7ae' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickMargin={8}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#a4a7ae' }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={48}
+                      tickFormatter={(v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: '1px solid #e9eaeb',
+                        fontSize: 12,
+                        boxShadow: '0px 4px 6px -1px rgba(10,13,18,0.1)',
+                      }}
+                      formatter={(value: any) => formatCompactCurrency(value as number, currency)}
+                      labelStyle={{ color: '#414651', fontWeight: 600, marginBottom: 4 }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#2563eb"
+                      strokeWidth={2}
+                      fill="url(#earningsGrad)"
+                      dot={false}
+                      activeDot={{ r: 4, strokeWidth: 0, fill: '#2563eb' }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </article>
+
+          {/* ── Risks & recommendations ── */}
+          {insightRisks.length > 0 && (
+            <div>
+              <h2 className="mb-3 text-[15px] font-semibold text-[#181d27]">Risks & recommendations</h2>
+              <div className={`grid gap-3 ${insightRisks.length === 1 ? 'max-w-sm' : insightRisks.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
+                {insightRisks.map((risk) => {
+                  const sev = SEVERITY_STYLES[risk.severity];
+                  const card = (
+                    <article className={`flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb] ${risk.actionRoute ? 'transition duration-100 ease-linear hover:bg-[#fafafa]' : ''}`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${sev.bg}`}>
+                          <Warning className={`h-4 w-4 ${sev.icon}`} weight="fill" />
+                        </div>
+                        <span className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${sev.bg} ${sev.badge}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${sev.dot}`} />
+                          {sev.label}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-semibold text-[#181d27]">{risk.title}</p>
+                        <p className="mt-1 text-[12px] leading-relaxed text-[#717680]">{risk.description}</p>
+                      </div>
+                      {risk.actionLabel && (
+                        <p className="text-[12px] font-semibold text-[#2563eb]">{risk.actionLabel} →</p>
+                      )}
+                    </article>
+                  );
+                  return risk.actionRoute ? (
+                    <Link key={risk.id} href={risk.actionRoute}>{card}</Link>
+                  ) : (
+                    <div key={risk.id}>{card}</div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Monthly progress + Insights feed ── */}
           <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
 
-            {/* Monthly progress card */}
             <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
               <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
                 <div>
@@ -472,7 +635,6 @@ export function InsightsClient({
               </div>
 
               <div className="flex flex-1 flex-col items-center justify-center px-6 py-6 gap-4">
-                {/* Ring chart */}
                 <div className="relative flex items-center justify-center">
                   <RingChart value={monthlyEarnings} total={monthlyTarget} />
                   <div className="absolute flex flex-col items-center">
@@ -483,11 +645,10 @@ export function InsightsClient({
                   </div>
                 </div>
 
-                {/* Left/right stats below ring */}
                 <div className="grid w-full grid-cols-2 gap-px overflow-hidden rounded-xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
                   <div className="flex flex-col items-center bg-white px-4 py-3">
                     <p className="text-[11px] text-[#a4a7ae]">{hasExceededTarget ? 'Exceeded by' : 'Remaining'}</p>
-                    <p className={`mt-0.5 text-[16px] font-bold tracking-[-0.03em] ${hasExceededTarget ? 'text-[#717680]' : 'text-[#181d27]'}`}>
+                    <p className={`mt-0.5 text-[16px] font-bold tracking-[-0.03em] ${hasExceededTarget ? 'text-[#027a48]' : 'text-[#181d27]'}`}>
                       {hasExceededTarget
                         ? `+$${(monthlyEarnings - monthlyTarget).toLocaleString()}`
                         : `$${remainingAmount.toLocaleString()}`}
@@ -502,11 +663,10 @@ export function InsightsClient({
                 </div>
               </div>
 
-              {/* Footer: trend + set target */}
               <div className="flex items-center justify-between border-t border-[#f5f5f5] px-5 py-3">
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                  earningsTrend === 'up' ? 'bg-[#ecfdf3] text-[#717680]' :
-                  earningsTrend === 'down' ? 'bg-[#fff1f0] text-[#717680]' :
+                  earningsTrend === 'up' ? 'bg-[#ecfdf3] text-[#027a48]' :
+                  earningsTrend === 'down' ? 'bg-[#fff1f0] text-[#b42318]' :
                   'bg-[#f2f4f7] text-[#717680]'
                 }`}>
                   {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3" weight="bold" />}
@@ -529,7 +689,7 @@ export function InsightsClient({
               <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
                 <div className="flex items-center gap-2.5 border-b border-[#f5f5f5] px-5 py-4">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
-                    <Sparkle className="h-4 w-4 text-[#717680]" weight="fill" />
+                    <Sparkle className="h-4 w-4 text-[#2563eb]" weight="fill" />
                   </div>
                   <div>
                     <h2 className="text-[16px] font-semibold text-[#181d27]">Insights feed</h2>
@@ -559,14 +719,8 @@ export function InsightsClient({
                 ) : (
                   <div className="divide-y divide-[#f5f5f5]">
                     {insights.map((insight) => {
-                      const dotColor =
-                        insight.trend === 'up' ? 'bg-[#12b76a]' :
-                        insight.trend === 'down' ? 'bg-[#f04438]' :
-                        'bg-[#2563eb]';
-                      const dotBg =
-                        insight.trend === 'up' ? 'bg-[#ecfdf3]' :
-                        insight.trend === 'down' ? 'bg-[#fff1f0]' :
-                        'bg-[#eff4ff]';
+                      const dotColor = insight.trend === 'up' ? 'bg-[#12b76a]' : insight.trend === 'down' ? 'bg-[#f04438]' : 'bg-[#2563eb]';
+                      const dotBg = insight.trend === 'up' ? 'bg-[#ecfdf3]' : insight.trend === 'down' ? 'bg-[#fff1f0]' : 'bg-[#eff4ff]';
                       const inner = (
                         <div className="group flex items-start gap-3 px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
                           <div className={`mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${dotBg}`}>
@@ -576,10 +730,10 @@ export function InsightsClient({
                             <p className="text-[14px] font-semibold text-[#181d27]">{insight.title}</p>
                             <p className="mt-0.5 text-[13px] text-[#717680]">{insight.description}</p>
                             {insight.actionLabel && (
-                              <p className="mt-1.5 text-[12px] font-semibold text-[#717680]">{insight.actionLabel}</p>
+                              <p className="mt-1.5 text-[12px] font-semibold text-[#2563eb]">{insight.actionLabel}</p>
                             )}
                           </div>
-                          <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[#d5d7da] group-hover:text-[#a4a7ae] transition-colors" />
+                          <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[#d5d7da] transition-colors group-hover:text-[#a4a7ae]" />
                         </div>
                       );
                       return insight.actionRoute ? (
@@ -600,7 +754,100 @@ export function InsightsClient({
             )}
           </div>
 
-          {/* Workstream mini-cards */}
+          {/* ── Expense analysis + Client performance ── */}
+          <div className="grid gap-4 lg:grid-cols-2">
+
+            <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+              <div className="border-b border-[#f5f5f5] px-5 py-4">
+                <h2 className="text-[15px] font-semibold text-[#181d27]">Expense breakdown</h2>
+                <p className="mt-0.5 text-[13px] text-[#717680]">Top categories by spend this period.</p>
+              </div>
+
+              {expenseAnalysis.length === 0 ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+                  <p className="text-[13px] font-semibold text-[#414651]">No expenses recorded</p>
+                  <p className="text-[12px] text-[#a4a7ae]">Add expenses on the Revenue page to see spend patterns here.</p>
+                  <Link href="/revenue" className="mt-1 text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]">
+                    Go to Revenue →
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4 px-5 py-5">
+                  {expenseAnalysis.map((item) => {
+                    const barColor = EXPENSE_CATEGORY_BAR[item.category] ?? 'bg-[#a4a7ae]';
+                    return (
+                      <div key={item.category}>
+                        <div className="mb-1.5 flex items-center justify-between">
+                          <p className="text-[13px] font-semibold text-[#181d27]">{item.label}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-semibold text-[#181d27]">
+                              {formatCompactCurrency(item.value, currency)}
+                            </span>
+                            <span className="w-8 text-right text-[11px] font-semibold text-[#a4a7ae]">
+                              {item.pct.toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f2f4f7]">
+                          <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${item.pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </article>
+
+            <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+              <div className="flex items-center justify-between border-b border-[#f5f5f5] px-5 py-4">
+                <div>
+                  <h2 className="text-[15px] font-semibold text-[#181d27]">Client performance</h2>
+                  <p className="mt-0.5 text-[13px] text-[#717680]">Revenue contribution by client.</p>
+                </div>
+                <Link href="/clients" className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]">
+                  All clients <ArrowRight className="h-3.5 w-3.5" weight="bold" />
+                </Link>
+              </div>
+
+              {clientsByRevenue.length === 0 ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+                  <p className="text-[13px] font-semibold text-[#414651]">No client data yet</p>
+                  <p className="text-[12px] text-[#a4a7ae]">Send invoices to clients to see their revenue contribution.</p>
+                </div>
+              ) : (
+                <div className="space-y-4 px-5 py-5">
+                  {clientsByRevenue.slice(0, 4).map((c) => (
+                    <div key={c.clientId}>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-semibold text-[#181d27]">{c.company || c.clientName}</p>
+                          <p className="text-[11px] text-[#a4a7ae]">{c.invoiceCount} invoice{c.invoiceCount !== 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="ml-3 flex items-center gap-2 shrink-0">
+                          <span className="text-[13px] font-semibold text-[#181d27]">
+                            {formatCompactCurrency(c.totalRevenue, currency)}
+                          </span>
+                          <span className="w-9 text-right text-[11px] font-semibold text-[#a4a7ae]">
+                            {c.shareOfTotal.toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f2f4f7]">
+                        <div className="h-full rounded-full bg-[#2563eb] transition-all" style={{ width: `${c.shareOfTotal}%` }} />
+                      </div>
+                      {c.shareOfTotal >= 50 && (
+                        <p className="mt-1 text-[11px] text-[#f79009]">
+                          High concentration — {c.shareOfTotal.toFixed(0)}% of total revenue
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+          </div>
+
+          {/* ── Overview mini-cards ── */}
           <div>
             <h2 className="mb-3 text-[16px] font-semibold text-[#181d27]">Overview</h2>
             {loading ? (
@@ -621,7 +868,7 @@ export function InsightsClient({
                 {([
                   { value: String(summary?.paymentLinksCount ?? 0), title: 'Payment links', helper: 'Total created', href: '/payments', Icon: LinkSimple },
                   { value: String(summary?.activeProjects ?? 0), title: 'Active projects', helper: 'In progress', href: '/projects', Icon: FolderSimple },
-                  { value: `$${(summary?.receivedAmount ?? 0).toLocaleString()}`, title: 'Received', helper: 'In this period', href: '/payments', Icon: CurrencyDollar },
+                  { value: formatCompactCurrency(summary?.receivedAmount ?? 0, currency), title: 'Received', helper: 'In this period', href: '/payments', Icon: CurrencyDollar },
                   { value: String(summary?.pendingInvoicesCount ?? 0), title: 'Pending invoices', helper: 'Awaiting payment', href: '/payments', Icon: Warning },
                   { value: `${summary?.paidDocuments ?? 0}/${summary?.totalDocuments ?? 0}`, title: 'Paid docs', helper: 'Paid vs total', href: '/payments', Icon: CheckCircle },
                 ] as const).map((card) => (
@@ -644,7 +891,7 @@ export function InsightsClient({
             )}
           </div>
 
-          {/* Tax summary */}
+          {/* ── Tax summary ── */}
           <div>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-[16px] font-semibold text-[#181d27]">Tax summary</h2>
@@ -657,9 +904,7 @@ export function InsightsClient({
                   >
                     {Array.from({ length: 6 }).map((_, index) => {
                       const year = new Date().getUTCFullYear() - index;
-                      return (
-                        <option key={year} value={year}>{year}</option>
-                      );
+                      return <option key={year} value={year}>{year}</option>;
                     })}
                   </select>
                   <Button variant="secondary" onClick={() => fetchTaxSummary(taxYear)} disabled={taxLoading}>
