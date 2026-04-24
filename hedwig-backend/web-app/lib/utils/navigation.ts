@@ -1,6 +1,7 @@
 import {
   CalendarDots,
   Cards,
+  ChartBar,
   CurrencyDollar,
   CreditCard,
   Envelope,
@@ -10,7 +11,6 @@ import {
   ShareNetwork,
   Sparkle,
   UsersThree,
-  Wallet
 } from '@/components/ui/lucide-icons';
 
 export const navigationGroups = [
@@ -34,7 +34,7 @@ export const navigationGroups = [
   {
     label: 'Money',
     items: [
-      { title: 'Revenue', href: '/wallet', icon: Wallet, count: null, muted: false },
+      { title: 'Revenue', href: '/revenue', icon: ChartBar, count: null, muted: false },
       { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false }
     ]
   },

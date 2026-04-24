@@ -8,7 +8,7 @@ export default async function InsightsPage() {
   const opts = { accessToken: session.accessToken };
 
   const [insightsData, profileData, billing, expensesData, breakdown, paymentsData] = await Promise.all([
-    hedwigApi.insights('30d', opts),
+    hedwigApi.insights('30d', opts).catch(() => null),
     hedwigApi.userProfile(opts),
     hedwigApi.billingStatus(opts).catch(() => null),
     hedwigApi.revenueExpenses(opts).catch(() => []),

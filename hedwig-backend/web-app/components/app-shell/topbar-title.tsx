@@ -10,6 +10,7 @@ const pageTitles: Array<{ match: RegExp; title: string }> = [
   { match: /^\/contracts(?:\/|$)/, title: 'Contracts' },
   { match: /^\/payments(?:\/|$)/, title: 'Payments' },
   { match: /^\/insights(?:\/|$)/, title: 'Insights' },
+  { match: /^\/revenue(?:\/|$)/, title: 'Revenue' },
   { match: /^\/settings(?:\/|$)/, title: 'Settings' }
 ];
 

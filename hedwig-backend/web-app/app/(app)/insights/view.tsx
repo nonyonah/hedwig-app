@@ -253,7 +253,7 @@ export function InsightsClient({
   invoices,
 }: {
   accessToken: string | null;
-  initialData: InsightsData;
+  initialData: InsightsData | null;
   initialTarget: number;
   billing: BillingStatusSummary | null;
   initialExpenses: ExpenseRecord[];
@@ -266,9 +266,9 @@ export function InsightsClient({
   const canViewTaxSummary = canUseFeature('tax_summary', billing);
 
   const [range, setRange] = useState<InsightsRange>('30d');
-  const [data, setData] = useState<InsightsData>(initialData);
+  const [data, setData] = useState<InsightsData | null>(initialData);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialData === null ? 'Could not load insights data. The server may be temporarily unavailable.' : null);
   const [monthlyTarget, setMonthlyTarget] = useState(initialTarget);
   const [showTargetDialog, setShowTargetDialog] = useState(false);
   const [isSavingTarget, setIsSavingTarget] = useState(false);
@@ -351,7 +351,9 @@ export function InsightsClient({
   }, [canViewTaxSummary, fetchTaxSummary, taxYear]);
 
   /* ─── derived ─── */
-  const { summary, insights, series } = data;
+  const summary = data?.summary ?? null;
+  const insights = data?.insights ?? [];
+  const series = data?.series ?? { earnings: [] };
   const sparkValues = series.earnings.map((p) => p.value);
   const monthlyEarnings = summary?.monthlyEarnings ?? 0;
   const earningsDeltaPct = summary?.earningsDeltaPct ?? 0;
@@ -419,7 +421,7 @@ export function InsightsClient({
             </button>
           ))}
         </div>
-        <p className="text-[12px] text-[#a4a7ae]">{formatTimeAgo(data.lastUpdatedAt)}</p>
+        <p className="text-[12px] text-[#a4a7ae]">{formatTimeAgo(data?.lastUpdatedAt ?? null)}</p>
       </div>
 
       {/* ── Error state ── */}
