@@ -70,6 +70,7 @@ export interface Milestone {
   dueAt: string;
   status: 'upcoming' | 'due_soon' | 'done' | 'late';
   amountUsd?: number;
+  invoiceId?: string;
 }
 
 export interface Invoice {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowLeft, CalendarBlank, CurrencyDollar, FolderSimple, Info, NotePencil, Target } from '@/components/ui/lucide-icons';
+import { ArrowLeft, CalendarBlank, CheckCircle, CurrencyDollar, FolderSimple, Info, NotePencil, Target } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -96,6 +96,8 @@ export function ProjectDetailClient({
 }) {
   const { toast } = useToast();
   const [project, setProject] = useState(initialProject);
+  const [milestoneList, setMilestoneList] = useState(milestones);
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [editOpen, setEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({
@@ -136,8 +138,42 @@ export function ProjectDetailClient({
     }
   };
 
-  const completedMilestones = milestones.filter((m) => m.status === 'done').length;
-  const highlightedMilestone = milestones.find((m) => m.id === highlightedMilestoneId) ?? null;
+  const completeMilestone = async (milestoneId: string) => {
+    if (!accessToken) { toast({ type: 'error', title: 'Session expired' }); return; }
+    setCompletingIds((prev) => new Set(prev).add(milestoneId));
+    try {
+      const resp = await fetch(`/api/backend/api/milestones/${milestoneId}/invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await resp.json().catch(() => ({ success: false })) as {
+        success?: boolean;
+        error?: string | { message?: string };
+        data?: { invoice?: { id: string }; milestone?: { invoiceId: string } };
+      };
+      if (!resp.ok || !data.success) {
+        const msg = typeof data.error === 'string' ? data.error : (data.error as any)?.message || 'Failed to complete milestone';
+        toast({ type: 'error', title: 'Could not complete milestone', message: msg });
+        return;
+      }
+      const invoiceId = data.data?.invoice?.id || data.data?.milestone?.invoiceId;
+      setMilestoneList((prev) =>
+        prev.map((m) => m.id === milestoneId ? { ...m, status: 'done' as const, invoiceId } : m)
+      );
+      toast({
+        type: 'success',
+        title: 'Milestone complete — invoice sent',
+        message: invoiceId ? `Invoice created and sent to client.` : 'Invoice created for this milestone.',
+      });
+    } catch {
+      toast({ type: 'error', title: 'Network error', message: 'Could not reach backend.' });
+    } finally {
+      setCompletingIds((prev) => { const next = new Set(prev); next.delete(milestoneId); return next; });
+    }
+  };
+
+  const completedMilestones = milestoneList.filter((m) => m.status === 'done').length;
+  const highlightedMilestone = milestoneList.find((m) => m.id === highlightedMilestoneId) ?? null;
   const s = PROJ_STATUS[project.status] ?? PROJ_STATUS.active;
 
   return (
@@ -180,7 +216,7 @@ export function ProjectDetailClient({
                 </span>
               </div>
               <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
-                {project.ownerName} · {completedMilestones}/{milestones.length} milestones · {formatCompactCurrency(project.budgetUsd)} budget
+                {project.ownerName} · {completedMilestones}/{milestoneList.length} milestones · {formatCompactCurrency(project.budgetUsd)} budget
               </p>
             </div>
           </div>
@@ -226,8 +262,8 @@ export function ProjectDetailClient({
       <div className="grid gap-4 xl:grid-cols-[1fr_300px]">
         <div className="space-y-4">
           {/* Milestones */}
-          <SectionCard title="Milestones" count={milestones.length}>
-            {milestones.length === 0 ? (
+          <SectionCard title="Milestones" count={milestoneList.length}>
+            {milestoneList.length === 0 ? (
               <EmptyRow text="No milestones on this project yet." />
             ) : (
               <table className="w-full">
@@ -237,11 +273,14 @@ export function ProjectDetailClient({
                     <ColHead>Status</ColHead>
                     <ColHead>Due</ColHead>
                     <ColHead>Amount</ColHead>
+                    <ColHead><span className="sr-only">Actions</span></ColHead>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f9fafb]">
-                  {milestones.map((m) => {
+                  {milestoneList.map((m) => {
                     const ms = MILESTONE_STATUS[m.status] ?? MILESTONE_STATUS.upcoming;
+                    const canComplete = m.status !== 'done' && !m.invoiceId;
+                    const isCompleting = completingIds.has(m.id);
                     return (
                       <tr
                         key={m.id}
@@ -256,6 +295,26 @@ export function ProjectDetailClient({
                         <td className="px-5 py-2.5"><Pill bg={ms.bg} text={ms.text} label={ms.label} /></td>
                         <td className="px-5 py-2.5 text-[12px] text-[#a4a7ae]">{formatShortDate(m.dueAt)}</td>
                         <td className="px-5 py-2.5 text-[13px] tabular-nums text-[#8d9096]">{m.amountUsd ? formatCompactCurrency(m.amountUsd) : '—'}</td>
+                        <td className="px-5 py-2.5 text-right">
+                          {canComplete && (
+                            <button
+                              onClick={() => completeMilestone(m.id)}
+                              disabled={isCompleting}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1 text-[11px] font-semibold text-[#414651] transition-colors hover:bg-[#f9fafb] disabled:opacity-50"
+                            >
+                              <CheckCircle className={cn('h-3.5 w-3.5', isCompleting ? 'text-[#c1c5cd]' : 'text-[#12b76a]')} weight="fill" />
+                              {isCompleting ? 'Sending…' : 'Mark complete'}
+                            </button>
+                          )}
+                          {m.status === 'done' && m.invoiceId && (
+                            <Link
+                              href={`/invoices/${m.invoiceId}`}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-[#2563eb] hover:underline"
+                            >
+                              View invoice
+                            </Link>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}

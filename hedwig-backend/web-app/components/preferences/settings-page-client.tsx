@@ -588,7 +588,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
         </SettingsSection>
 
         <SettingsSection title="Connected Accounts" description="Manage third-party integrations that power your workspace.">
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
+          <div className="flex items-center justify-between gap-4 px-5 py-4 opacity-50">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e9eaeb] bg-white">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -596,49 +596,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
               </div>
               <div className="min-w-0">
                 <p className="text-[14px] font-semibold text-[#181d27]">Google Calendar</p>
-                <p className="mt-0.5 text-[12px] text-[#717680]">
-                  {isLoadingCalendar
-                    ? 'Checking…'
-                    : calendarIntegration
-                      ? `Connected as ${calendarIntegration.provider_email ?? 'unknown'}`
-                      : 'Push deadlines and milestones to Google Calendar'}
-                </p>
               </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {isLoadingCalendar ? null : calendarIntegration ? (
-                <>
-                  <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#079455]">
-                    <CheckCircle className="h-3.5 w-3.5" weight="fill" />
-                    Connected
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void syncCalendar()}
-                    disabled={isSyncingCalendar}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <ArrowsClockwise className={`h-3.5 w-3.5 ${isSyncingCalendar ? 'animate-spin' : ''}`} />
-                    {isSyncingCalendar ? 'Syncing…' : 'Sync now'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void disconnectCalendar()}
-                    disabled={isDisconnectingCalendar}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[#fda29b] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#912018] shadow-xs transition hover:bg-[#fff1f0] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isDisconnectingCalendar ? 'Disconnecting…' : 'Disconnect'}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={connectCalendar}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#2563eb] px-3 py-1.5 text-[12px] font-semibold text-white shadow-xs transition hover:bg-[#1d4ed8]"
-                >
-                  Connect
-                </button>
-              )}
             </div>
           </div>
         </SettingsSection>

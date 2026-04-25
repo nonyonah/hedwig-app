@@ -12,7 +12,9 @@ export const runtime = 'nodejs';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const asPositiveNumber = (value: unknown): number | null => {
-  const n = Number(value);
+  // Strip currency symbols, commas, and spaces so Gemini strings like "$5,000.00" parse correctly
+  const cleaned = typeof value === 'string' ? value.replace(/[$€£₦,\s]/g, '') : value;
+  const n = Number(cleaned);
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
@@ -80,6 +82,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   const extracted = body.extractedInvoiceData;
   const decisions = Array.isArray(body.decisions) ? body.decisions : [];
 
+  console.log('[import-document] decisions received:', decisions.map(d => `${d.entity_type}:${d.decision}`));
+  console.log('[import-document] extracted amount_total:', extracted.amount_total, 'currency:', extracted.currency);
+
   const execution: ImportReviewResult = {
     created_entities: [],
     linked_entities: [],
@@ -144,7 +149,9 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const items = buildInvoiceItems(extracted.line_items);
   const amount = resolveInvoiceAmount(extracted, items);
+  console.log('[import-document] resolved amount:', amount, '| clientName:', clientDecision?.decision === 'approve_creation' || clientDecision?.decision === 'edit_then_approve' ? clientDecision?.edited_value || extracted.issuer_name : '(not creating)');
   if (!amount) {
+    console.error('[import-document] amount is null — amount_total:', extracted.amount_total, '| line_items:', JSON.stringify(extracted.line_items));
     return NextResponse.json(
       { success: false, error: 'Could not detect a valid amount from this invoice. Please edit and try again.' },
       { status: 422 },
@@ -198,6 +205,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   }).catch(() => null);
 
   if (!resp) {
+    console.error('[import-document] backend unreachable');
     return NextResponse.json({ success: false, error: 'Could not reach backend' }, { status: 502 });
   }
 
@@ -207,9 +215,11 @@ export async function POST(req: NextRequest): Promise<Response> {
     data?: { document?: Record<string, unknown> };
   };
 
+  console.log('[import-document] backend resp status:', resp.status, '| success:', payload?.success, '| doc id:', payload?.data?.document?.['id']);
   if (!resp.ok || !payload?.success || !payload.data?.document) {
     const errorMessage =
       typeof payload?.error === 'string' ? payload.error : payload?.error?.message || 'Failed to import invoice.';
+    console.error('[import-document] backend error:', errorMessage);
     return NextResponse.json({ success: false, error: errorMessage }, { status: resp.status || 500 });
   }
 

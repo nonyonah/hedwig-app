@@ -525,14 +525,15 @@ const mapBackendMilestone = (milestone: any, projectId: string): Milestone => {
     name: String(milestone.title || 'Milestone'),
     dueAt: String(milestone.dueDate || milestone.due_date || new Date().toISOString()),
     status:
-      status === 'paid' || status === 'done'
+      status === 'paid' || status === 'done' || status === 'invoiced'
         ? 'done'
         : status === 'late'
           ? 'late'
           : status === 'due_soon'
             ? 'due_soon'
             : 'upcoming',
-    amountUsd: Number(milestone.amount || 0)
+    amountUsd: Number(milestone.amount || 0),
+    invoiceId: milestone.invoiceId || milestone.invoice_id || undefined,
   };
 };
 

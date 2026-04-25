@@ -213,9 +213,15 @@
       "Bash(curl -s --max-time 5 -o /dev/null -w \"%{http_code}\" https://api.polar.sh/v1/checkouts/)",
       "Bash(node -e \"require\\('undici'\\); console.log\\('undici available'\\)\")",
       "Bash(grep -E \"\\\\.ts$\")",
-      "Bash(grep \"\\\\.ts$\")"
+      "Bash(grep \"\\\\.ts$\")",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.devDependencies, null, 2\\)\\)\")",
+      "Bash(node -e \"const n = require\\('/Users/macintoshhd/Work/hedwig-app/hedwig-backend/web-app/node_modules/next/package.json'\\); console.log\\(n.version\\)\")",
+      "Bash(echo \"exit: $?\")"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "/Users/macintoshhd/Work/hedwig-app/hedwig-backend/web-app/app/api/integrations/callback/google"
+    ]
   }
 }

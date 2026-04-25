@@ -227,9 +227,13 @@ export default function SignInPage() {
                 onClick={() => handleOAuth('apple')}
                 className="flex w-full items-center justify-center gap-2.5 rounded-full border border-[#e9eaeb] bg-white px-4 py-2.5 text-[14px] font-medium text-[#181d27] transition hover:bg-[#fafafa]"
               >
-                <svg width="16" height="18" viewBox="0 0 814 1000" fill="currentColor">
-                  <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 600.3-.3 490.3-.3 385.5c0-170.2 112.4-260.3 224.2-260.3 60.4 0 110.6 39.5 149 39.5 36.5 0 94.1-41.6 166.3-41.6 27.9 0 131.7 2.6 198.3 101.3zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z"/>
-                </svg>
+                <Image
+                  src="/icons/apple-logo.svg"
+                  alt=""
+                  width={15}
+                  height={18}
+                  aria-hidden
+                />
                 Continue with Apple
               </button>
             </div>
