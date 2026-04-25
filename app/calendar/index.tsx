@@ -537,13 +537,7 @@ export default function CalendarScreen() {
                             icon={<CaretLeft size={26} color={themeColors.textPrimary} strokeWidth={3.5} />}
                         />
                         <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Calendar</Text>
-                        <IOSGlassIconButton
-                            onPress={syncCalendar}
-                            systemImage="arrow.clockwise"
-                            containerStyle={styles.headerButton}
-                            circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface, opacity: isSyncing ? 0.5 : 1 }]}
-                            icon={<RefreshCw size={18} color={themeColors.textPrimary} strokeWidth={2.8} />}
-                        />
+                        <View style={styles.headerButton} />
                     </View>
                 </View>
 

@@ -528,9 +528,7 @@ router.post('/:id/invoice', authenticate, async (req: Request, res: Response, ne
                     .eq('id', user.id)
                     .single();
 
-                const senderName = userData?.first_name && userData?.last_name
-                    ? `${userData.first_name} ${userData.last_name}`
-                    : 'Freelancer';
+                const senderName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim() || 'Freelancer';
 
                 emailSent = await EmailService.sendInvoiceEmail({
                     to: client.email,

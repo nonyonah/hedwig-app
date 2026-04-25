@@ -3,6 +3,7 @@ import { authenticate, getPrivyAuthClient } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { AppError } from '../middleware/errorHandler';
 import AlchemyAddressService from '../services/alchemyAddress';
+import { EmailService } from '../services/email';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Auth');
@@ -77,8 +78,16 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                 ethereumWallet: newUser.ethereum_wallet_address || 'none',
                 solanaWallet: newUser.solana_wallet_address || 'none'
             });
-            
+
             user = newUser;
+
+            // Send app download email to new users (fire-and-forget)
+            if (email) {
+                void EmailService.sendAppDownloadEmail({
+                    to: email,
+                    firstName: firstName || '',
+                }).catch(() => {})
+            }
         } else {
             // Update last login and wallet addresses if changed
             logger.debug('Updating existing user', { 

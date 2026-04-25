@@ -620,13 +620,6 @@ export default function SettingsScreen() {
 
                     <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
-                    <TouchableOpacity style={styles.settingRow} onPress={openCalendarSheet}>
-                        <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Connect calendar</Text>
-                        <CaretRight size={20} color={themeColors.textSecondary} />
-                    </TouchableOpacity>
-
-                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-
                     <View style={styles.settingRow}>
                         <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Client reminders</Text>
                         <Switch
@@ -1230,115 +1223,6 @@ export default function SettingsScreen() {
                 }}
             />
 
-            {shouldUseSwiftUIBottomSheet ? (
-                <SwiftUIBottomSheet
-                    isPresented={isCalendarSheetPresented}
-                    onIsPresentedChange={setIsCalendarSheetPresented}
-                    fitToContents
-                >
-                    <SwiftUIGroup
-                        modifiers={[
-                            ...(presentationDetentsModifier ? [presentationDetentsModifier([{ height: 460 }])] : []),
-                            ...(presentationDragIndicatorModifier ? [presentationDragIndicatorModifier('visible')] : []),
-                        ]}
-                    >
-                        <View style={{ padding: 24, paddingTop: 34, paddingBottom: 40, backgroundColor: themeColors.background }}>
-                            <View style={styles.shieldIconContainer}>
-                                <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
-                                    <CalendarIcon size={32} color={themeColors.textPrimary} />
-                                </View>
-                            </View>
-                            <Text style={[styles.recoveryTitle, styles.calendarSheetTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
-
-                            <View style={styles.calendarOptionsContainer}>
-                                    <TouchableOpacity
-                                        style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
-                                        onPress={connectGoogleCalendar}
-                                        activeOpacity={0.75}
-                                    >
-                                        <View style={styles.calendarLogoBox}>
-                                            <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
-                                        </View>
-                                        <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
-                                    </TouchableOpacity>
-                                </View>
-                        </View>
-                    </SwiftUIGroup>
-                </SwiftUIBottomSheet>
-            ) : TrueSheetComponent ? (
-                <TrueSheetComponent
-                    ref={calendarSheetRef}
-                    detents={['auto']}
-                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
-                    backgroundColor={Platform.OS === 'ios' ? undefined : themeColors.background}
-                >
-                    <View style={{ padding: 24, paddingTop: Platform.OS === 'ios' ? 34 : 24, paddingBottom: 40 }}>
-                        <View style={styles.shieldIconContainer}>
-                            <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
-                                <CalendarIcon size={32} color={themeColors.textPrimary} />
-                            </View>
-                        </View>
-                        <Text style={[styles.recoveryTitle, styles.calendarSheetTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
-
-                        <View style={styles.calendarOptionsContainer}>
-                            <TouchableOpacity
-                                style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
-                                onPress={connectGoogleCalendar}
-                                activeOpacity={0.75}
-                            >
-                                <View style={styles.calendarLogoBox}>
-                                    <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
-                                </View>
-                                <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
-                            </TouchableOpacity>
-                        </View>
-                        <Text style={[styles.calendarSheetSubtitle, { color: themeColors.textSecondary }]}>
-                            Connect Google Calendar to sync your Hedwig invoices, milestones, and reminders to your calendar.
-                        </Text>
-                    </View>
-                </TrueSheetComponent>
-            ) : (
-                <BottomSheetModal
-                    ref={calendarFallbackSheetRef}
-                    index={0}
-                    enableDynamicSizing={true}
-                    enablePanDownToClose={true}
-                    backdropComponent={(props) => (
-                        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-                    )}
-                    backgroundStyle={{
-                        backgroundColor: themeColors.background,
-                        borderTopLeftRadius: Platform.OS === 'ios' ? 50 : 24,
-                        borderTopRightRadius: Platform.OS === 'ios' ? 50 : 24,
-                    }}
-                    handleIndicatorStyle={{ backgroundColor: themeColors.textSecondary }}
-                >
-                    <BottomSheetView style={{ padding: 24, paddingBottom: 40 }}>
-                    <View style={styles.shieldIconContainer}>
-                        <View style={[styles.shieldIconBackground, { backgroundColor: themeColors.border }]}>
-                            <CalendarIcon size={32} color={themeColors.textPrimary} />
-                        </View>
-                    </View>
-                    <Text style={[styles.recoveryTitle, styles.calendarSheetTitle, { color: themeColors.textPrimary }]}>Connect Calendar</Text>
-
-                    <View style={styles.calendarOptionsContainer}>
-                        <TouchableOpacity
-                            style={[styles.calendarOptionBtn, { backgroundColor: themeColors.surface }]}
-                            onPress={connectGoogleCalendar}
-                            activeOpacity={0.75}
-                        >
-                            <View style={styles.calendarLogoBox}>
-                                <SvgXml xml={GOOGLE_CALENDAR_SVG} width={28} height={28} />
-                            </View>
-                            <Text style={[styles.calendarOptionTitle, { color: themeColors.textPrimary }]}>Connect Google Calendar</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <Text style={[styles.calendarSheetSubtitle, { color: themeColors.textSecondary }]}>
-                        Connect Google Calendar to sync your Hedwig invoices, milestones, and reminders to your calendar.
-                    </Text>
-                    </BottomSheetView>
-                </BottomSheetModal>
-            )}
 
         </View>
     );

@@ -893,6 +893,75 @@ export const EmailService = {
         }
     },
 
+    async sendAppDownloadEmail(data: {
+        to: string;
+        firstName: string;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping app download email.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const name = data.firstName || 'there';
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Get the Hedwig app</title>
+            ${EMAIL_FONT_HEAD}
+            <style>
+                ${SHARED_STYLES}
+                .store-btn { display:inline-block; background-color:#000000; color:#ffffff !important; font-weight:600; padding:11px 24px; border-radius:12px; text-decoration:none; font-size:14px; letter-spacing:-0.01em; }
+                .store-row { text-align:center; margin-top:28px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+                .store-label { font-size:10px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; opacity:0.7; display:block; margin-bottom:2px; }
+                .store-name { font-size:17px; font-weight:700; display:block; letter-spacing:-0.01em; }
+            </style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Mobile App</p>
+                    <h1 class="heading">Hedwig is better on mobile</h1>
+                    <p class="description">Hi ${name}, get the full Hedwig experience on your phone — send invoices, track payments, and manage clients from anywhere.</p>
+                    <div class="store-row">
+                        <a href="https://testflight.apple.com/join/aKXnyjP4n" class="store-btn" style="text-decoration:none;">
+                            <span class="store-label">Download on</span>
+                            <span class="store-name">TestFlight</span>
+                        </a>
+                        <a href="https://play.google.com/store/apps/details?id=com.hedwig.app" class="store-btn" style="text-decoration:none;">
+                            <span class="store-label">Get it on</span>
+                            <span class="store-name">Google Play</span>
+                        </a>
+                    </div>
+                    <hr class="divider" />
+                    <p style="font-size:13px;color:#a4a7ae;line-height:1.6;">You're receiving this because you recently created a Hedwig account.</p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: 'Get the Hedwig mobile app',
+                html,
+            });
+            logger.info('App download email sent', { to: data.to });
+            return true;
+        } catch (error) {
+            logger.error('App download email failed', { error: error instanceof Error ? error.message : 'Unknown' });
+            return false;
+        }
+    },
+
     async sendOnboardingIncompleteEmail(data: {
         to: string;
         firstName: string;
