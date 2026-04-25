@@ -22,7 +22,6 @@ const CLIENTS_ICON = (HugeiconsCore as any).UserGroup03Icon;
 const PROJECTS_ICON = (HugeiconsCore as any).Folder01Icon;
 const CONTRACTS_ICON = (HugeiconsCore as any).File02Icon;
 const ANALYTICS_ICON = (HugeiconsCore as any).Analytics01Icon;
-const CALENDAR_ICON = (HugeiconsCore as any).Calendar01Icon;
 const CHAT_ICON = (HugeiconsCore as any).AiChat01Icon;
 const SETTINGS_ICON = (HugeiconsCore as any).Settings01Icon;
 const FEEDBACK_ICON = (HugeiconsCore as any).SentIcon || (HugeiconsCore as any).MessageCircle || SETTINGS_ICON;
@@ -173,7 +172,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { type: 'menu', id: '/', title: 'Home', subtitle: 'Go to home screen' },
                 { type: 'menu', id: '/invoices', title: 'Invoices', subtitle: 'View all invoices' },
                 { type: 'menu', id: '/payment-links', title: 'Payment Links', subtitle: 'View payment links' },
-                { type: 'menu', id: '/calendar', title: 'Calendar', subtitle: 'View calendar events' },
                 { type: 'menu', id: '/feedback', title: 'Give Feedback', subtitle: 'Send product feedback' },
                 { type: 'menu', id: '/settings', title: 'Settings', subtitle: 'App settings' },
             ];
@@ -396,12 +394,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     'Insights',
                                     pathname === '/insights',
                                     () => handleNavigation('/insights')
-                                )}
-                                {renderMenuItem(
-                                    CALENDAR_ICON,
-                                    'Calendar',
-                                    pathname === '/calendar',
-                                    () => handleNavigation('/calendar')
                                 )}
                             </View>
 

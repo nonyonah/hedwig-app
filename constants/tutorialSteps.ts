@@ -3,7 +3,7 @@ export type AnchorPosition = 'top' | 'center' | 'bottom';
 export interface TutorialStep {
     id: string;
     /** Which screen this step is shown on.  */
-    screenId: 'home' | 'invoices' | 'links' | 'wallet' | 'insights' | 'transactions' | 'withdrawals' | 'calendar' | 'projects' | 'clients' | 'settings';
+    screenId: 'home' | 'invoices' | 'links' | 'wallet' | 'insights' | 'transactions' | 'withdrawals' | 'projects' | 'clients' | 'settings';
     title: string;
     body: string;
     anchorPosition: AnchorPosition;
@@ -65,13 +65,6 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
         title: 'Follow every withdrawal status',
         body: 'Withdrawals shows each off-ramp order from pending to completed so you can confirm settlement at a glance.',
         anchorPosition: 'center',
-    },
-    {
-        id: 'calendar_intro',
-        screenId: 'calendar',
-        title: 'Never miss a due date',
-        body: 'Your calendar keeps upcoming invoices, reminders, and milestone deadlines in one timeline for quick planning.',
-        anchorPosition: 'top',
     },
     {
         id: 'projects_intro',

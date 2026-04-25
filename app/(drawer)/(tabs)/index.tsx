@@ -438,7 +438,7 @@ export default function HomeDashboard() {
         {
             key: 'due-soon',
             title: 'Due Soon',
-            viewAllRoute: '/(tabs)/calendar',
+            viewAllRoute: '/projects',
             rows: [
                 { label: 'Invoices due soon', count: counts.dueSoon.invoices, badge: getBadgeText('INVOICE', 'dueSoon'), onPress: () => router.push('/(tabs)/invoices?filter=due_soon') },
                 {

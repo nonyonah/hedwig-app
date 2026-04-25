@@ -27,7 +27,6 @@ function CustomDrawerContent(props: any) {
     const mainMenuItems: { name: string; icon: any; route: string }[] = [
         { name: 'Insights', icon: resolveHugeIcon('Analytics01Icon', 'BarChartIcon', 'BarChart'), route: '/insights' },
         { name: 'Contracts', icon: resolveHugeIcon('File02Icon', 'DocumentAttachmentIcon', 'Briefcase'), route: '/contracts' },
-        { name: 'Calendar', icon: resolveHugeIcon('Calendar01Icon', 'Calendar'), route: '/calendar' },
         { name: 'Projects', icon: resolveHugeIcon('Folder01Icon', 'FolderOpen', 'Folder'), route: '/projects' },
         { name: 'Clients', icon: resolveHugeIcon('UserGroupIcon', 'UsersIcon', 'CircleUser'), route: '/clients' },
     ];
@@ -126,7 +125,6 @@ const SCREEN_ROUTES: Record<string, string> = {
     insights: '/insights',
     transactions: '/transactions',
     withdrawals: '/offramp-history',
-    calendar: '/calendar',
     projects: '/projects',
     clients: '/clients',
     settings: '/settings',
