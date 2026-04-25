@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   CheckCircle,
@@ -147,9 +148,11 @@ function ProcessingState({
 function ResultState({
   result,
   onClose,
+  invoiceId,
 }: {
   result: ImportReviewResult;
   onClose?: () => void;
+  invoiceId?: string;
 }) {
   return (
     <div className="rounded-[32px] border border-[#e9eaeb] bg-white p-8 shadow-sm">
@@ -158,9 +161,9 @@ function ResultState({
           <CheckCircle className="h-7 w-7 text-[#12b76a]" />
         </span>
         <div>
-          <h3 className="text-[24px] font-semibold tracking-[-0.03em] text-[#181d27]">Review complete</h3>
+          <h3 className="text-[24px] font-semibold tracking-[-0.03em] text-[#181d27]">Import complete</h3>
           <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#667085]">
-            Approved actions were executed against live data where backend support exists, rejected suggestions were ignored, and deferred items were left for later review.
+            Approved actions were executed. Redirecting you to Payments…
           </p>
         </div>
       </div>
@@ -172,11 +175,14 @@ function ResultState({
         <ResultBucket title="Deferred" items={result.deferred_entities.map((item) => `${item.entity_type}: ${item.label}`)} tone="amber" />
       </div>
 
-      {onClose ? (
-        <div className="mt-6 flex justify-end">
-          <Button onClick={onClose}>Close review</Button>
-        </div>
-      ) : null}
+      <div className="mt-6 flex justify-end gap-2">
+        {invoiceId ? (
+          <Button asChild variant="outline">
+            <a href={invoiceId ? `/payments?invoice=${invoiceId}` : '/payments'}>View in Payments</a>
+          </Button>
+        ) : null}
+        {onClose ? <Button onClick={onClose}>Close review</Button> : null}
+      </div>
     </div>
   );
 }
@@ -231,6 +237,7 @@ export function ImportDocumentReviewFlow({
   onClose?: () => void;
   onImported?: (document: ExternalDocument) => void;
 }) {
+  const router = useRouter();
   const [step, setStep] = useState<'upload' | 'processing' | 'review' | 'confirm' | 'result' | 'error'>('upload');
   const [fileMeta, setFileMeta] = useState<{ filename: string; mimeType: string; sizeBytes: number } | null>(null);
   const [fileToProcess, setFileToProcess] = useState<File | null>(null);
@@ -241,6 +248,7 @@ export function ImportDocumentReviewFlow({
   const [decisionTarget, setDecisionTarget] = useState<{ suggestion: SuggestedEntity; decision: 'reject' | 'skip' } | null>(null);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdInvoiceId, setCreatedInvoiceId] = useState<string | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -423,12 +431,20 @@ export function ImportDocumentReviewFlow({
         reviewedAt: new Date().toISOString(),
       };
 
-      setResult(importPayload.data?.execution || executeDecisionSummary(nextSession));
-
+      const executionResult = importPayload.data?.execution || executeDecisionSummary(nextSession);
+      const invoiceId = importPayload.data?.document?.id as string | undefined;
+      setResult(executionResult);
+      setCreatedInvoiceId(invoiceId);
       setSession(nextSession);
       setCompletedDocument(resolvedDocument);
       setConfirmationOpen(false);
       setStep('result');
+
+      if (mode === 'page') {
+        setTimeout(() => {
+          router.push(invoiceId ? `/payments?invoice=${invoiceId}` : '/payments');
+        }, 3000);
+      }
     } catch (error: any) {
       setErrorMessage(error?.message || 'Unable to execute approved actions.');
       setStep('error');
@@ -549,7 +565,7 @@ export function ImportDocumentReviewFlow({
           </div>
         ) : null}
 
-        {step === 'result' && result ? <ResultState result={result} onClose={closeAndEmit} /> : null}
+        {step === 'result' && result ? <ResultState result={result} onClose={closeAndEmit} invoiceId={createdInvoiceId} /> : null}
 
         {step === 'error' ? (
           <div className="rounded-[32px] border border-[#fecdca] bg-[#fef3f2] p-8">

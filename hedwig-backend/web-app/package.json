@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack --port 3001",
-    "build": "next build --webpack",
+    "dev": "next dev --turbopack --port 3001",
+    "build": "next build",
     "start": "next start --port 3001",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -23,6 +23,7 @@
     "@radix-ui/react-separator": "^1.1.1",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tabs": "^1.1.2",
+    "@radix-ui/react-toast": "^1.2.15",
     "@solana-program/memo": "^0.10.0",
     "@solana/spl-token": "^0.4.14",
     "@supabase/supabase-js": "^2.47.10",
@@ -42,6 +43,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",

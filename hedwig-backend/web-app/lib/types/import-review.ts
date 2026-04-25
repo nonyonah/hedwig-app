@@ -140,6 +140,7 @@ export interface ExtractedInvoiceData {
   line_items: ExtractedLineItem[];
   payment_terms?: string;
   notes?: string;
+  payment_status?: 'paid' | 'unpaid';
 }
 
 export interface ExtractedContractData {

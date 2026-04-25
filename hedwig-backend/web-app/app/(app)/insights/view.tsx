@@ -156,6 +156,19 @@ function formatTimeAgo(iso: string | null): string {
   return `Updated ${Math.floor(hrs / 24)}d ago`;
 }
 
+/* ─── earnings tooltip ─── */
+function EarningsTooltip({ active, payload, label, currency: cur }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-[#e9eaeb] bg-white px-3 py-2 shadow-lg">
+      <p className="text-[11px] text-[#a4a7ae]">{label}</p>
+      <p className="text-[14px] font-bold text-[#181d27]">
+        {formatCompactCurrency(payload[0].value as number, cur)}
+      </p>
+    </div>
+  );
+}
+
 /* ─── ring chart ─── */
 function RingChart({ value, total, size = 132, strokeWidth = 10 }: {
   value: number; total: number; size?: number; strokeWidth?: number;
@@ -537,40 +550,34 @@ export function InsightsClient({
                 <p className="text-[13px] text-[#a4a7ae]">Not enough data to show a trend yet.</p>
               </div>
             ) : (
-              <div className="px-2 py-4">
-                <ResponsiveContainer width="100%" height={160}>
-                  <AreaChart data={series.earnings} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+              <div className="px-2 pb-4 pt-2">
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={series.earnings} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                     <defs>
                       <linearGradient id="earningsGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1} />
+                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.22} />
                         <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f2f4f7" vertical={false} />
+                    <CartesianGrid vertical={false} stroke="#f2f4f7" />
                     <XAxis
                       dataKey="key"
-                      tick={{ fontSize: 11, fill: '#a4a7ae' }}
+                      tick={{ fontSize: 10, fill: '#a4a7ae' }}
                       axisLine={false}
                       tickLine={false}
                       tickMargin={8}
                       interval="preserveStartEnd"
                     />
                     <YAxis
-                      tick={{ fontSize: 11, fill: '#a4a7ae' }}
+                      tick={{ fontSize: 10, fill: '#a4a7ae' }}
                       axisLine={false}
                       tickLine={false}
-                      width={48}
-                      tickFormatter={(v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`}
+                      width={46}
+                      tickFormatter={(v: number) => formatCompactCurrency(v, currency)}
                     />
                     <Tooltip
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: '1px solid #e9eaeb',
-                        fontSize: 12,
-                        boxShadow: '0px 4px 6px -1px rgba(10,13,18,0.1)',
-                      }}
-                      formatter={(value: any) => formatCompactCurrency(value as number, currency)}
-                      labelStyle={{ color: '#414651', fontWeight: 600, marginBottom: 4 }}
+                      content={<EarningsTooltip currency={currency} />}
+                      cursor={{ stroke: '#2563eb', strokeWidth: 1.5, strokeDasharray: '4 2' }}
                     />
                     <Area
                       type="monotone"
@@ -579,7 +586,7 @@ export function InsightsClient({
                       strokeWidth={2}
                       fill="url(#earningsGrad)"
                       dot={false}
-                      activeDot={{ r: 4, strokeWidth: 0, fill: '#2563eb' }}
+                      activeDot={{ r: 4, fill: '#2563eb', stroke: 'white', strokeWidth: 2 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>

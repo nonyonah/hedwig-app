@@ -5,6 +5,22 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.hedwigbot.xy
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, '..', '..'),
+  experimental: {
+    browserDebugInfoInTerminal: false,
+    optimizePackageImports: [
+      'recharts',
+      'posthog-js',
+      '@hugeicons/react',
+      '@hugeicons/core-free-icons',
+      '@radix-ui/react-avatar',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-scroll-area',
+      '@radix-ui/react-separator',
+      '@radix-ui/react-slot',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-toast',
+    ],
+  },
   async headers() {
     return [
       {

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { HedwigPrivyProvider } from '@/components/providers/privy-provider';
 import { AuthGate } from '@/components/providers/auth-gate';
@@ -21,6 +22,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,300..700&display=swap"
+        />
+      </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <HedwigPrivyProvider>
           <HedwigPostHogProvider>
@@ -32,6 +41,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <AuthGate>{children}</AuthGate>
               </ToastProvider>
             </CurrencyProvider>
+            <Analytics />
           </HedwigPostHogProvider>
         </HedwigPrivyProvider>
       </body>

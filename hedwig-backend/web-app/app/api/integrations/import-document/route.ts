@@ -151,10 +151,6 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
-  const recipientEmail = EMAIL_REGEX.test(String(extracted.recipient_email || '').trim().toLowerCase())
-    ? String(extracted.recipient_email).trim().toLowerCase()
-    : undefined;
-
   const dueDate = normalizeDate(extracted.due_date) || normalizeDate(extracted.issue_date) || fallbackDueDate();
   const descriptionFromItems = items.slice(0, 3).map((item) => item.description).join(', ');
   const description = extracted.notes || descriptionFromItems || `Imported invoice${extracted.invoice_number ? ` ${extracted.invoice_number}` : ''}`;
@@ -170,6 +166,15 @@ export async function POST(req: NextRequest): Promise<Response> {
   const projectId =
     projectDecision?.decision === 'link_existing' ? projectDecision.selected_existing_match_id || undefined : undefined;
 
+  // Use the issuer's email (sender_email) for client creation — not recipient_email,
+  // which is the invoice recipient (often the user themselves).
+  const clientEmail =
+    clientDecision?.decision === 'approve_creation' || clientDecision?.decision === 'edit_then_approve'
+      ? (EMAIL_REGEX.test(String(extracted.sender_email || '').trim()) ? String(extracted.sender_email).trim().toLowerCase() : undefined)
+      : undefined;
+
+  const isPaid = extracted.payment_status === 'paid';
+
   const resp = await fetch(`${backendConfig.apiBaseUrl}/api/documents/invoice`, {
     method: 'POST',
     headers: {
@@ -184,9 +189,11 @@ export async function POST(req: NextRequest): Promise<Response> {
       description,
       clientId,
       clientName,
-      recipientEmail,
+      recipientEmail: clientEmail,
       items,
       projectId,
+      isPaid,
+      noEmail: true,
     }),
   }).catch(() => null);
 

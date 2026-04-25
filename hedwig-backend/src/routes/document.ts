@@ -58,7 +58,7 @@ const attachUsdAccountDetails = async (doc: any) => {
  */
 router.post('/invoice', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { amount, description, title: providedTitle, recipientEmail, items, dueDate, clientName, clientId: clientIdParam, remindersEnabled, projectId, chain } = req.body;
+        const { amount, description, title: providedTitle, recipientEmail, items, dueDate, clientName, clientId: clientIdParam, remindersEnabled, projectId, chain, isPaid, noEmail } = req.body;
         const privyId = req.user!.id;
 
         // Validate required fields
@@ -112,7 +112,7 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
                 title: providedTitle || `Invoice for ${clientName || 'Services'}`,
                 amount: parseFloat(amount),
                 description: description,
-                status: 'DRAFT',
+                status: isPaid ? 'PAID' : 'DRAFT',
                 chain: String(chain || 'BASE').toUpperCase(),
                 content: {
                     recipient_email: resolvedEmail,
@@ -151,8 +151,8 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
             })
             .eq('id', doc.id);
 
-        // Send email if recipient provided
-        if (doc && resolvedEmail) {
+        // Send email if recipient provided (skip for imported invoices via noEmail flag)
+        if (doc && resolvedEmail && !noEmail) {
             // Fetch user name for email sender
             const { data: senderProfile } = await supabase
                 .from('users')

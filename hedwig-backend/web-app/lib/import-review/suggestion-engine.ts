@@ -45,6 +45,7 @@ export interface ParsedAnalysisDocument {
   paymentTerms?: string;
   notes?: string;
   confidence?: number;
+  paymentStatus?: 'paid' | 'unpaid';
 }
 
 const normalize = (value?: string | null) =>
@@ -155,6 +156,7 @@ const toInvoiceExtraction = (parsed: ParsedAnalysisDocument): ExtractedInvoiceDa
   })),
   payment_terms: parsed.paymentTerms,
   notes: parsed.notes,
+  payment_status: parsed.paymentStatus,
 });
 
 const rankCandidates = <T extends ExistingMatchCandidate>(candidates: T[]) =>

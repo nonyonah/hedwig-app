@@ -386,6 +386,7 @@ Use this exact JSON shape and omit any field you cannot confidently extract:
   "projectReference": "project name, scope label, or workstream reference",
   "lineItems": [{"description": "string", "quantity": number, "unitPrice": number, "total": number}],
   "paymentTerms": "string",
+  "paymentStatus": "paid" | "unpaid",
   "notes": "short notes about missing fields or ambiguity",
   "confidence": number between 0 and 1
 }
@@ -394,7 +395,8 @@ Rules:
 - If it is clearly an invoice, populate as many invoice fields as possible.
 - If it is not clearly an invoice, set "documentType" to "unknown".
 - Normalize dates to YYYY-MM-DD when possible.
-- Keep lineItems as an array.`;
+- Keep lineItems as an array.
+- Set "paymentStatus" to "paid" if the invoice shows a payment stamp, receipt confirmation, "PAID" watermark, or zero balance due. Otherwise set it to "unpaid".`;
 
   try {
     const gemResp = await fetch(
@@ -441,6 +443,9 @@ Rules:
     parsed.projectReference = typeof parsed.projectReference === 'string' ? parsed.projectReference.trim() : parsed.projectReference;
     parsed.paymentTerms = typeof parsed.paymentTerms === 'string' ? parsed.paymentTerms.trim() : parsed.paymentTerms;
     parsed.notes = typeof parsed.notes === 'string' ? parsed.notes.trim() : parsed.notes;
+    parsed.paymentStatus = ['paid', 'unpaid'].includes(String(parsed.paymentStatus || '').toLowerCase())
+      ? String(parsed.paymentStatus).toLowerCase()
+      : 'unpaid';
 
     // Load user's clients to build match suggestions
     const { data: clients } = await supabase

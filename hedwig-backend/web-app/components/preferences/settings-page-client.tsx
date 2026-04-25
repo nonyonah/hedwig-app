@@ -2,11 +2,13 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ArrowsClockwise,
   CalendarBlank,
   CaretRight,
+  CheckCircle,
   SignOut,
   Trash,
   WarningCircle
@@ -108,6 +110,7 @@ function SettingsRow({
 
 export function SettingsClient({ accessToken, initialUser }: SettingsClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { resetTutorial } = useTutorial();
 
@@ -134,6 +137,12 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
 
   const [clientRemindersEnabled, setClientRemindersEnabled] = useState(true);
   const [isSavingReminders, setIsSavingReminders] = useState(false);
+
+  type IntegrationStatus = { status: 'connected' | 'error' | 'token_expired'; provider_email: string | null; last_synced_at: string | null } | null;
+  const [calendarIntegration, setCalendarIntegration] = useState<IntegrationStatus>(null);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
+  const [isDisconnectingCalendar, setIsDisconnectingCalendar] = useState(false);
 
   const fullName = useMemo(() => `${firstName} ${lastName}`.trim() || email || 'User', [email, firstName, lastName]);
   const isProUser = isProPlan(billingStatus);
@@ -166,7 +175,22 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     void loadBillingStatus();
     void handleConnectionDiagnostics();
     void loadPreferences();
+    void loadCalendarIntegration();
   }, [accessToken]);
+
+  useEffect(() => {
+    const connected = searchParams.get('integration_connected');
+    const error = searchParams.get('integration_error');
+    if (connected === 'google_calendar') {
+      toast({ type: 'success', title: 'Google Calendar connected' });
+      void loadCalendarIntegration();
+      router.replace('/settings');
+    } else if (error) {
+      toast({ type: 'error', title: 'Integration error', message: decodeURIComponent(error) });
+      router.replace('/settings');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   const loadUserProfile = async () => {
@@ -326,6 +350,65 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
       toast({ type: 'error', title: 'Could not save preference', message: 'Please try again.' });
     } finally {
       setIsSavingReminders(false);
+    }
+  };
+
+  const loadCalendarIntegration = async () => {
+    if (!accessToken) return;
+    setIsLoadingCalendar(true);
+    try {
+      const resp = await fetch('/api/integrations/status', { headers: { Authorization: `Bearer ${accessToken}` } });
+      const data = await resp.json() as { success: boolean; data: Array<{ provider: string; status: string; provider_email: string | null; last_synced_at: string | null }> };
+      if (data.success) {
+        const cal = data.data.find((i) => i.provider === 'google_calendar');
+        setCalendarIntegration(cal ? { status: cal.status as any, provider_email: cal.provider_email, last_synced_at: cal.last_synced_at } : null);
+      }
+    } catch {
+      // leave as null
+    } finally {
+      setIsLoadingCalendar(false);
+    }
+  };
+
+  const connectCalendar = () => {
+    window.location.assign('/api/integrations/connect?provider=google_calendar');
+  };
+
+  const syncCalendar = async () => {
+    if (!accessToken) return;
+    setIsSyncingCalendar(true);
+    try {
+      const resp = await fetch('/api/integrations/sync', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'google_calendar' }),
+      });
+      if (!resp.ok) throw new Error('Sync failed');
+      toast({ type: 'success', title: 'Calendar synced' });
+      void loadCalendarIntegration();
+    } catch (error: any) {
+      toast({ type: 'error', title: 'Sync failed', message: error?.message || 'Please try again.' });
+    } finally {
+      setIsSyncingCalendar(false);
+    }
+  };
+
+  const disconnectCalendar = async () => {
+    if (!accessToken) return;
+    setIsDisconnectingCalendar(true);
+    try {
+      const resp = await fetch('/api/integrations/disconnect', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'google_calendar' }),
+      });
+      if (!resp.ok) throw new Error('Disconnect failed');
+      setCalendarIntegration(null);
+      toast({ type: 'success', title: 'Google Calendar disconnected' });
+    } catch (error: any) {
+      toast({ type: 'error', title: 'Disconnect failed', message: error?.message || 'Please try again.' });
+    } finally {
+      setIsDisconnectingCalendar(false);
     }
   };
 
@@ -502,6 +585,62 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
               />
             </button>
           </SettingsRow>
+        </SettingsSection>
+
+        <SettingsSection title="Connected Accounts" description="Manage third-party integrations that power your workspace.">
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e9eaeb] bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/google-calendar.svg" alt="Google Calendar" className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[14px] font-semibold text-[#181d27]">Google Calendar</p>
+                <p className="mt-0.5 text-[12px] text-[#717680]">
+                  {isLoadingCalendar
+                    ? 'Checking…'
+                    : calendarIntegration
+                      ? `Connected as ${calendarIntegration.provider_email ?? 'unknown'}`
+                      : 'Push deadlines and milestones to Google Calendar'}
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {isLoadingCalendar ? null : calendarIntegration ? (
+                <>
+                  <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#079455]">
+                    <CheckCircle className="h-3.5 w-3.5" weight="fill" />
+                    Connected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void syncCalendar()}
+                    disabled={isSyncingCalendar}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <ArrowsClockwise className={`h-3.5 w-3.5 ${isSyncingCalendar ? 'animate-spin' : ''}`} />
+                    {isSyncingCalendar ? 'Syncing…' : 'Sync now'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void disconnectCalendar()}
+                    disabled={isDisconnectingCalendar}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#fda29b] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#912018] shadow-xs transition hover:bg-[#fff1f0] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isDisconnectingCalendar ? 'Disconnecting…' : 'Disconnect'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={connectCalendar}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#2563eb] px-3 py-1.5 text-[12px] font-semibold text-white shadow-xs transition hover:bg-[#1d4ed8]"
+                >
+                  Connect
+                </button>
+              )}
+            </div>
+          </div>
         </SettingsSection>
 
         <SettingsSection title="Billing" description="Manage your Hedwig Pro plan across web and mobile.">

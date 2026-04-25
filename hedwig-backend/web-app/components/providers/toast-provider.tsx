@@ -1,5 +1,6 @@
 'use client';
 
+import * as ToastPrimitive from '@radix-ui/react-toast';
 import { createContext, useCallback, useContext, useState } from 'react';
 import { CheckCircle, Info, Warning, XCircle, X } from '@/components/ui/lucide-icons';
 import { cn } from '@/lib/utils';
@@ -19,34 +20,11 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue>({ toast: () => {} });
 
-const toastConfig: Record<
-  ToastType,
-  { icon: typeof CheckCircle; iconClass: string; borderClass: string; bgClass: string }
-> = {
-  success: {
-    icon: CheckCircle,
-    iconClass: 'text-[#717680]',
-    borderClass: 'border-l-[#17b26a]',
-    bgClass: 'bg-white'
-  },
-  error: {
-    icon: XCircle,
-    iconClass: 'text-[#717680]',
-    borderClass: 'border-l-[#f04438]',
-    bgClass: 'bg-white'
-  },
-  warning: {
-    icon: Warning,
-    iconClass: 'text-[#717680]',
-    borderClass: 'border-l-[#f79009]',
-    bgClass: 'bg-white'
-  },
-  info: {
-    icon: Info,
-    iconClass: 'text-[#717680]',
-    borderClass: 'border-l-[#2563eb]',
-    bgClass: 'bg-white'
-  }
+const typeConfig: Record<ToastType, { icon: typeof CheckCircle; bar: string; iconClass: string }> = {
+  success: { icon: CheckCircle, bar: 'bg-[#17b26a]', iconClass: 'text-[#17b26a]' },
+  error:   { icon: XCircle,     bar: 'bg-[#f04438]', iconClass: 'text-[#f04438]' },
+  warning: { icon: Warning,     bar: 'bg-[#f79009]', iconClass: 'text-[#f79009]' },
+  info:    { icon: Info,        bar: 'bg-[#2563eb]', iconClass: 'text-[#2563eb]' },
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -55,50 +33,64 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const toast = useCallback((opts: Omit<Toast, 'id'>) => {
     const id = Math.random().toString(36).slice(2);
     setToasts((prev) => [...prev, { ...opts, id }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4500);
   }, []);
 
-  const dismiss = (id: string) => setToasts((prev) => prev.filter((t) => t.id !== id));
+  const dismiss = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   return (
     <ToastContext.Provider value={{ toast }}>
-      {children}
+      <ToastPrimitive.Provider swipeDirection="right" duration={4500}>
+        {children}
 
-      {/* UUI Toast stack — bottom-right, max 4 visible */}
-      <div
-        className="fixed bottom-5 right-5 z-[100] flex flex-col gap-2.5"
-        aria-live="polite"
-        aria-label="Notifications"
-      >
-        {toasts.slice(-4).map((t) => {
-          const { icon: Icon, iconClass, borderClass } = toastConfig[t.type];
+        {toasts.map((t) => {
+          const { icon: Icon, bar, iconClass } = typeConfig[t.type];
           return (
-            <div
+            <ToastPrimitive.Root
               key={t.id}
+              open
+              onOpenChange={(open) => { if (!open) dismiss(t.id); }}
               className={cn(
-                'flex w-[360px] items-start gap-3 rounded-xl border border-[#e9eaeb] border-l-4 bg-white px-4 py-3.5 shadow-lg',
-                borderClass,
-                'animate-in slide-in-from-right-5 fade-in-0 duration-200'
+                'group pointer-events-auto relative flex w-full items-start gap-3 overflow-hidden',
+                'rounded-xl border border-[#e9eaeb] bg-white px-4 py-3.5 shadow-lg',
+                'data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=open]:fade-in-0',
+                'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=closed]:fade-out-0',
+                'data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]',
+                'data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:transition-[transform_200ms_ease-out]',
+                'data-[swipe=end]:animate-out data-[swipe=end]:slide-out-to-right-full',
+                'duration-300 ease-out'
               )}
             >
-              <Icon className={cn('mt-0.5 h-5 w-5 shrink-0', iconClass)} weight="fill" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-[#181d27]">{t.title}</p>
-                {t.message ? <p className="mt-0.5 text-[13px] leading-5 text-[#717680]">{t.message}</p> : null}
+              {/* colored accent bar */}
+              <span className={cn('absolute left-0 top-0 h-full w-1 rounded-l-xl', bar)} />
+
+              <Icon className={cn('mt-0.5 h-[18px] w-[18px] shrink-0', iconClass)} weight="fill" />
+
+              <div className="min-w-0 flex-1 pl-1">
+                <ToastPrimitive.Title className="text-[13px] font-semibold text-[#181d27]">
+                  {t.title}
+                </ToastPrimitive.Title>
+                {t.message ? (
+                  <ToastPrimitive.Description className="mt-0.5 text-[12px] leading-5 text-[#717680]">
+                    {t.message}
+                  </ToastPrimitive.Description>
+                ) : null}
               </div>
-              <button
+
+              <ToastPrimitive.Close
                 onClick={() => dismiss(t.id)}
-                className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[#a4a7ae] transition duration-100 hover:bg-[#f5f5f5] hover:text-[#717680]"
+                className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[#a4a7ae] transition-colors hover:bg-[#f5f5f5] hover:text-[#717680]"
                 aria-label="Dismiss"
               >
                 <X className="h-3.5 w-3.5" weight="bold" />
-              </button>
-            </div>
+              </ToastPrimitive.Close>
+            </ToastPrimitive.Root>
           );
         })}
-      </div>
+
+        <ToastPrimitive.Viewport className="fixed bottom-5 right-5 z-[100] flex max-h-screen w-[360px] flex-col gap-2 outline-none" />
+      </ToastPrimitive.Provider>
     </ToastContext.Provider>
   );
 }
