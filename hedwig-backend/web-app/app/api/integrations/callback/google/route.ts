@@ -28,6 +28,15 @@ async function resolveTokenFromState(
 export const runtime = 'nodejs';
 
 const WEB_BASE_URL = (process.env.NEXT_PUBLIC_WEB_URL || 'https://hedwigbot.xyz').replace(/\/$/, '');
+const PRODUCTION_GOOGLE_REDIRECT_URI = 'https://hedwigbot.xyz/api/integrations/callback/google';
+const LOCAL_GOOGLE_REDIRECT_URI = 'http://localhost:3001/api/integrations/callback/google';
+
+function googleRedirectUri(req: NextRequest): string {
+  const origin = req.nextUrl.origin.replace(/\/$/, '');
+  return origin === 'http://localhost:3001'
+    ? LOCAL_GOOGLE_REDIRECT_URI
+    : PRODUCTION_GOOGLE_REDIRECT_URI;
+}
 
 export async function GET(req: NextRequest): Promise<Response> {
   const code  = req.nextUrl.searchParams.get('code');
@@ -80,6 +89,8 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (!accessToken) {
     return NextResponse.redirect(`${WEB_BASE_URL}/sign-in`);
   }
+
+  const redirectUri = googleRedirectUri(req);
 
   // Forward the code to backend to exchange + store tokens
   const resp = await fetch(`${backendConfig.apiBaseUrl}/api/integrations/oauth/google/callback`, {
