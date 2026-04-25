@@ -144,7 +144,7 @@ export function ProjectDetailClient({
     try {
       const resp = await fetch(`/api/backend/api/milestones/${milestoneId}/invoice`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       });
       const data = await resp.json().catch(() => ({ success: false })) as {
         success?: boolean;
