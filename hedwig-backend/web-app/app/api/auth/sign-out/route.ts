@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server';
-
-const CLEAR_COOKIE_OPTS = {
-  expires: new Date(0),
-  path: '/',
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const
-};
+import { AUTH_CHECK_COOKIE, clearAuthCookieOptions } from '@/lib/auth/cookies';
 
 export async function POST() {
   const response = NextResponse.json({ ok: true });
 
-  response.cookies.set('hedwig_access_token', '', CLEAR_COOKIE_OPTS);
-  response.cookies.set('hedwig_user', '', CLEAR_COOKIE_OPTS);
-  response.cookies.set('hedwig_demo', '', CLEAR_COOKIE_OPTS);
+  response.cookies.set('hedwig_access_token', '', clearAuthCookieOptions);
+  response.cookies.set('hedwig_user', '', clearAuthCookieOptions);
+  response.cookies.set(AUTH_CHECK_COOKIE, '', clearAuthCookieOptions);
+  response.cookies.set('hedwig_demo', '', clearAuthCookieOptions);
 
   return response;
 }

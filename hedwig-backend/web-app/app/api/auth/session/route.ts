@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { AUTH_CHECK_COOKIE, authCheckCookieOptions, authCookieOptions } from '@/lib/auth/cookies';
 import { verifyAccessToken } from '@/lib/auth/verify';
 
 export async function POST(request: Request) {
@@ -11,22 +12,21 @@ export async function POST(request: Request) {
 
   const verifiedUser = await verifyAccessToken(token);
 
+  if (verifiedUser === 'network_error') {
+    return NextResponse.json(
+      { error: 'Auth service is temporarily unavailable. Please try again.' },
+      { status: 503 }
+    );
+  }
+
   if (!verifiedUser) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  const isProduction = process.env.NODE_ENV === 'production';
-  const cookieOptions = {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax' as const,
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    path: '/'
-  };
-
   const response = NextResponse.json({ ok: true, user: verifiedUser });
-  response.cookies.set('hedwig_access_token', token, cookieOptions);
-  response.cookies.set('hedwig_user', JSON.stringify(verifiedUser), cookieOptions);
+  response.cookies.set('hedwig_access_token', token, authCookieOptions);
+  response.cookies.set('hedwig_user', JSON.stringify(verifiedUser), authCookieOptions);
+  response.cookies.set(AUTH_CHECK_COOKIE, Date.now().toString(), authCheckCookieOptions);
 
   return response;
 }

@@ -313,6 +313,7 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 const authLimiter     = createLimiter('auth',     180, 'Too many authentication requests. Please try again shortly.');
+const authSessionLimiter = createUserAwareLimiter('auth-session', 600, 'Too many session validation requests. Please try again shortly.');
 const aiLimiter       = createUserAwareLimiter('ai',       40,  'Too many AI requests. Please slow down and try again.');
 const documentLimiter = createUserAwareLimiter('docs',    180,  'Too many document requests. Please try again later.');
 const financialLimiter = createUserAwareLimiter('finance', 120, 'Too many financial requests. Please try again later.');
@@ -393,6 +394,7 @@ schedulerRouter.post('/onboarding-nudges', async (_req, res) => {
 app.use('/internal/scheduler', schedulerRouter);
 
 // API Routes
+app.use('/api/auth/me', authSessionLimiter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 

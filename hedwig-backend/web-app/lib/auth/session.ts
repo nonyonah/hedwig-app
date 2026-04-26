@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
+import { AUTH_CHECK_COOKIE, isRecentAuthCheck, parseStoredUser } from '@/lib/auth/cookies';
 import { backendConfig } from '@/lib/auth/config';
 import type { User } from '@/lib/models/entities';
 import { currentUser } from '@/lib/mock/data';
@@ -15,6 +16,8 @@ export interface HedwigSession {
 export const getCurrentSession = cache(async (): Promise<HedwigSession> => {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('hedwig_access_token')?.value ?? null;
+  const storedUser = parseStoredUser(cookieStore.get('hedwig_user')?.value ?? null);
+  const recentAuthCheck = isRecentAuthCheck(cookieStore.get(AUTH_CHECK_COOKIE)?.value ?? null);
   const isDemo = cookieStore.get('hedwig_demo')?.value === 'true';
 
   if (isDemo || backendConfig.useMockAuth) {
@@ -35,14 +38,23 @@ export const getCurrentSession = cache(async (): Promise<HedwigSession> => {
     };
   }
 
+  if (storedUser && recentAuthCheck) {
+    return {
+      user: storedUser,
+      workspaceId: storedUser.workspaceId ?? null,
+      accessToken,
+      isMockSession: false
+    };
+  }
+
   const verifiedUser = await verifyAccessToken(accessToken);
 
   // Backend unreachable — keep the token alive so the user isn't kicked out
   // during transient outages or right after a deployment restart.
   if (verifiedUser === 'network_error') {
     return {
-      user: null,
-      workspaceId: null,
+      user: storedUser,
+      workspaceId: storedUser?.workspaceId ?? null,
       accessToken,
       isMockSession: false
     };

@@ -8,6 +8,7 @@ import { CaretLeft, Minus, Plus, SpinnerGap } from '@/components/ui/lucide-icons
 import { backendConfig } from '@/lib/auth/config';
 
 type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'goal' | 'error';
+const RESEND_COOLDOWN_SECONDS = 30;
 
 const PRESETS = [
   { label: 'Starter', value: 1000 },
@@ -20,6 +21,19 @@ function getIdentityDetails(user: any) {
   const firstName = user?.google?.name?.split?.(' ')?.[0] || user?.apple?.firstName || user?.firstName || '';
   const lastName = user?.google?.name?.split?.(' ')?.slice(1).join(' ') || user?.apple?.lastName || user?.lastName || '';
   return { email, firstName, lastName };
+}
+
+function getAuthErrorMessage(error: unknown, fallback: string) {
+  const message =
+    typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
+      ? error.message
+      : fallback;
+
+  if (/too many|rate limit|429/i.test(message)) {
+    return 'Too many auth attempts. Please wait a moment and try again.';
+  }
+
+  return message || fallback;
 }
 
 export default function SignInPage() {
@@ -41,6 +55,8 @@ export default function SignInPage() {
   // OTP form
   const [otp, setOtp] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(null);
+  const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
 
   // Profile
   const [token, setToken] = useState<string | null>(null);
@@ -108,17 +124,40 @@ export default function SignInPage() {
     })();
   }, [authenticated, ready]);
 
+  useEffect(() => {
+    if (!resendAvailableAt) {
+      setResendSecondsLeft(0);
+      return;
+    }
+
+    const tick = () => {
+      const remainingSeconds = Math.max(0, Math.ceil((resendAvailableAt - Date.now()) / 1000));
+      setResendSecondsLeft(remainingSeconds);
+    };
+
+    tick();
+
+    if (resendAvailableAt <= Date.now()) {
+      setResendAvailableAt(null);
+      return;
+    }
+
+    const intervalId = window.setInterval(tick, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [resendAvailableAt]);
+
   /* ── handlers ── */
   const handleSendCode = async () => {
     const trimmed = emailInput.trim().toLowerCase();
-    if (!trimmed || !trimmed.includes('@')) return;
+    if (!trimmed || !trimmed.includes('@') || resendSecondsLeft > 0) return;
     setIsSendingCode(true);
     setErrorMessage('');
     try {
       await sendCode({ email: trimmed });
+      setResendAvailableAt(Date.now() + RESEND_COOLDOWN_SECONDS * 1000);
       setStage('otp');
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Could not send code. Please try again.');
+    } catch (error) {
+      setErrorMessage(getAuthErrorMessage(error, 'Could not send code. Please try again.'));
     } finally {
       setIsSendingCode(false);
     }
@@ -131,8 +170,8 @@ export default function SignInPage() {
     try {
       await loginWithCode({ code: otp.trim() });
       // authenticated useEffect will fire and run bootstrapUser
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Invalid code. Please try again.');
+    } catch (error) {
+      setErrorMessage(getAuthErrorMessage(error, 'Invalid code. Please try again.'));
       setIsVerifying(false);
     }
   };
@@ -338,10 +377,14 @@ export default function SignInPage() {
               <button
                 type="button"
                 onClick={handleSendCode}
-                disabled={isSendingCode}
+                disabled={isSendingCode || resendSecondsLeft > 0}
                 className="flex h-10 w-full items-center justify-center rounded-full border border-[#e9eaeb] text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa] disabled:opacity-50"
               >
-                {isSendingCode ? 'Sending…' : 'Resend code'}
+                {isSendingCode
+                  ? 'Sending…'
+                  : resendSecondsLeft > 0
+                    ? `Resend code in ${resendSecondsLeft}s`
+                    : 'Resend code'}
               </button>
             </div>
           </div>

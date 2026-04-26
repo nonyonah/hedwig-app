@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { AUTH_CHECK_COOKIE, authCheckCookieOptions, clearAuthCookieOptions, isRecentAuthCheck } from '@/lib/auth/cookies';
 
 const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.hedwigbot.xyz';
 
@@ -33,17 +34,10 @@ const isPublicPath = (pathname: string) =>
   pathname === '/' ||
   PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 
-const CLEAR_COOKIE_OPTS = {
-  expires: new Date(0),
-  path: '/',
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const
-};
-
 const clearAuthCookies = (response: NextResponse) => {
-  response.cookies.set('hedwig_access_token', '', CLEAR_COOKIE_OPTS);
-  response.cookies.set('hedwig_user', '', CLEAR_COOKIE_OPTS);
+  response.cookies.set('hedwig_access_token', '', clearAuthCookieOptions);
+  response.cookies.set('hedwig_user', '', clearAuthCookieOptions);
+  response.cookies.set(AUTH_CHECK_COOKIE, '', clearAuthCookieOptions);
   return response;
 };
 
@@ -81,6 +75,7 @@ async function isValidAccessToken(token: string): Promise<boolean | null> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('hedwig_access_token')?.value;
+  const recentAuthCheck = isRecentAuthCheck(request.cookies.get(AUTH_CHECK_COOKIE)?.value);
   const isDemo = request.cookies.get('hedwig_demo')?.value === 'true';
 
   // Serve a static, crawler-friendly legal page for OAuth verifiers.
@@ -115,6 +110,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (recentAuthCheck) {
+    if (pathname === '/sign-in') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    return NextResponse.next();
+  }
+
   const validToken = await isValidAccessToken(token);
 
   // Only clear the session and sign the user out on a definitive rejection (false).
@@ -128,10 +130,18 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === '/sign-in') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    const response = NextResponse.redirect(new URL('/dashboard', request.url));
+    if (validToken === true) {
+      response.cookies.set(AUTH_CHECK_COOKIE, Date.now().toString(), authCheckCookieOptions);
+    }
+    return response;
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  if (validToken === true) {
+    response.cookies.set(AUTH_CHECK_COOKIE, Date.now().toString(), authCheckCookieOptions);
+  }
+  return response;
 }
 
 export const config = {
