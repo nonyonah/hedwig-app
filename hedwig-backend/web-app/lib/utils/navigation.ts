@@ -32,7 +32,7 @@ export const navigationGroups = [
     label: 'Money',
     items: [
       { title: 'Revenue', href: '/revenue', icon: ChartBar, count: null, muted: false },
-      { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false }
+      { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false },
     ]
   },
   {
