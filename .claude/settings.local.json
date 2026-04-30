@@ -219,7 +219,13 @@
       "Bash(echo \"exit: $?\")",
       "Bash(grep -nE \"class Files \\\\{|class Files$|async upload\\\\\\(\" /Users/macintoshhd/Work/hedwig-app/hedwig-backend/node_modules/@composio/core/dist/index.mjs)",
       "Bash(awk '/^class Files /{print NR\": \"$0}' /Users/macintoshhd/Work/hedwig-app/hedwig-backend/node_modules/@composio/core/dist/index.mjs)",
-      "Bash(awk '/Files\\\\s*\\\\{$|var Files\\\\s*=|Files\\\\s*=\\\\s*class/{print NR\": \"$0}' /Users/macintoshhd/Work/hedwig-app/hedwig-backend/node_modules/@composio/core/dist/index.mjs)"
+      "Bash(awk '/Files\\\\s*\\\\{$|var Files\\\\s*=|Files\\\\s*=\\\\s*class/{print NR\": \"$0}' /Users/macintoshhd/Work/hedwig-app/hedwig-backend/node_modules/@composio/core/dist/index.mjs)",
+      "Bash(xargs grep *)",
+      "Bash(gcloud auth *)",
+      "Bash(gcloud config *)",
+      "Bash(bash deploy.sh)",
+      "Bash(gcloud run *)",
+      "Bash(gcloud builds *)"
     ],
     "deny": [],
     "ask": [],

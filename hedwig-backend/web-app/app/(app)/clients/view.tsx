@@ -116,7 +116,7 @@ export function ClientsClient({
               ? (
                   <>
                     <span>{meta.sub}</span>
-                    <span className="mt-1 block text-[#717680]">{formatAmount(segmentRevenue[seg], { compact: true })} billed</span>
+                    <span className="mt-1 block text-[#717680]">{formatAmount(segmentRevenue[seg], { compact: true })} earned</span>
                   </>
                 )
               : meta.sub,
@@ -174,7 +174,7 @@ export function ClientsClient({
           <ColHead>Segment</ColHead>
           <ColHead>Status</ColHead>
           <ColHead right>Outstanding</ColHead>
-          <ColHead right>Lifetime billed</ColHead>
+          <ColHead right>Earnings</ColHead>
           <ColHead right>Last activity</ColHead>
           <span />
         </div>

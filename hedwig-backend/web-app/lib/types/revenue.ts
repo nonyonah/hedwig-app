@@ -82,7 +82,9 @@ export interface ActivityEvent {
     | 'invoice_sent'
     | 'expense_added'
     | 'payment_received'
-    | 'invoice_created';
+    | 'invoice_created'
+    | 'payment_link_paid'
+    | 'payment_link_active';
   title: string;
   description: string;
   amount?: number;

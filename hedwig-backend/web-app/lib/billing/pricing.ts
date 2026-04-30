@@ -18,7 +18,6 @@ export const PRO_PLAN_FEATURES = [
   'Recurring invoice automation',
   'Automatic milestone invoice creation',
   'Advanced insights, assistant summaries, and tax planning views',
-  'USD account access where available',
   'Priority product updates',
 ];
 
@@ -34,5 +33,4 @@ export const PLAN_COMPARISON_ROWS: Array<{ feature: string; free: string; pro: s
   { feature: 'Milestone invoice automation', free: '—', pro: 'Included' },
   { feature: 'Advanced insights and summaries', free: '—', pro: 'Included' },
   { feature: 'Tax planning views', free: '—', pro: 'Included' },
-  { feature: 'USD account', free: '—', pro: 'Eligible markets' },
 ];

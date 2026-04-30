@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentSession } from '@/lib/auth/session';
 import {
   resolvePolarCheckoutReturnUrl,
   resolvePolarCheckoutSuccessUrl,
+  resolvePolarProductId,
   resolvePolarServer
 } from '@/lib/billing/polar';
 
@@ -30,6 +32,12 @@ const parseJsonParam = (value: string | null): Record<string, string | number | 
 };
 
 export async function GET(req: NextRequest): Promise<Response> {
+  const session = await getCurrentSession();
+
+  if (!session.accessToken || !session.user?.id) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   if (!polarAccessToken) {
     return NextResponse.json(
       { success: false, error: 'POLAR_ACCESS_TOKEN is not configured.' },
@@ -45,6 +53,16 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (!products.length) {
     return NextResponse.json(
       { success: false, error: 'Missing products in query params.' },
+      { status: 400 }
+    );
+  }
+
+  const allowedProductIds = new Set(
+    [resolvePolarProductId('monthly'), resolvePolarProductId('annual')].filter(Boolean)
+  );
+  if (products.some((product) => !allowedProductIds.has(product))) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid product for this workspace.' },
       { status: 400 }
     );
   }
@@ -65,10 +83,25 @@ export async function GET(req: NextRequest): Promise<Response> {
     success_url: successUrl.toString(),
     return_url: resolvePolarCheckoutReturnUrl(),
   };
-  if (externalCustomerId) body.external_customer_id = externalCustomerId;
-  if (customerEmail) body.customer_email = customerEmail;
+  body.external_customer_id = session.user.id;
+  if (customerEmail && customerEmail !== session.user.email) {
+    return NextResponse.json(
+      { success: false, error: 'Customer email does not match the current session.' },
+      { status: 400 }
+    );
+  }
+  if (externalCustomerId && externalCustomerId !== session.user.id) {
+    return NextResponse.json(
+      { success: false, error: 'Customer id does not match the current session.' },
+      { status: 400 }
+    );
+  }
+  if (session.user.email) body.customer_email = session.user.email;
   if (customerName) body.customer_name = customerName;
-  if (metadata) body.metadata = metadata;
+  body.metadata = {
+    ...(metadata || {}),
+    userId: session.user.id,
+  };
   if (discountId) body.discount_id = discountId;
   if (trialDays > 0) body.subscription_trial_period_days = trialDays;
 

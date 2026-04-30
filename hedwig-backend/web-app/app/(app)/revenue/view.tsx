@@ -86,11 +86,14 @@ const CATEGORY_COLORS: Record<ExpenseCategory, { bg: string; text: string }> = {
 const ACTIVITY_COLORS: Record<ActivityEvent['type'], { dot: string; bg: string }> = {
   invoice_paid:    { dot: 'bg-[#12b76a]', bg: 'bg-[#ecfdf3]' },
   payment_received:{ dot: 'bg-[#12b76a]', bg: 'bg-[#ecfdf3]' },
+  payment_link_paid:{ dot: 'bg-[#12b76a]', bg: 'bg-[#ecfdf3]' },
   invoice_sent:    { dot: 'bg-[#2563eb]', bg: 'bg-[#eff4ff]' },
   invoice_created: { dot: 'bg-[#2563eb]', bg: 'bg-[#eff4ff]' },
+  payment_link_active:{ dot: 'bg-[#2563eb]', bg: 'bg-[#eff4ff]' },
   invoice_overdue: { dot: 'bg-[#f04438]', bg: 'bg-[#fff1f0]' },
   expense_added:   { dot: 'bg-[#f79009]', bg: 'bg-[#fffaeb]' },
 };
+const DEFAULT_ACTIVITY_COLORS = { dot: 'bg-[#a4a7ae]', bg: 'bg-[#f2f4f7]' };
 
 const INV_STATUS = {
   draft:   { dot: 'bg-[#a4a7ae]', label: 'Draft',   bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
@@ -112,10 +115,11 @@ function StatusPill({ status }: { status: keyof typeof INV_STATUS }) {
 }
 
 function CategoryPill({ category }: { category: ExpenseCategory }) {
-  const c = CATEGORY_COLORS[category];
+  const c = CATEGORY_COLORS[category] ?? CATEGORY_COLORS.other;
+  const label = CATEGORY_LABELS[category] ?? CATEGORY_LABELS.other;
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${c.bg} ${c.text}`}>
-      {CATEGORY_LABELS[category]}
+      {label}
     </span>
   );
 }
@@ -1091,7 +1095,7 @@ export function RevenueClient({
           ) : (
             <div className="min-h-0 flex-1 divide-y divide-[#f9fafb] overflow-y-auto">
               {activityItems.map((evt) => {
-                const colors = ACTIVITY_COLORS[evt.type];
+                const colors = ACTIVITY_COLORS[evt.type] ?? DEFAULT_ACTIVITY_COLORS;
                 return (
                   <div key={evt.id} className="flex items-start gap-3 px-5 py-3 hover:bg-[#fafafa]">
                     <div className={`mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${colors.bg}`}>

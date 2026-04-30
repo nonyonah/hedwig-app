@@ -5,6 +5,77 @@ import { getOrCreateUser } from '../utils/userHelper';
 
 const router = Router();
 
+type ClientStats = {
+    totalEarnings: number;
+    outstandingBalance: number;
+};
+
+const toNumber = (value: unknown): number => {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeStatus = (value: unknown): string => String(value || '').trim().toUpperCase();
+const normalizeType = (value: unknown): string => String(value || '').trim().toUpperCase();
+
+function accumulateClientStats(documents: any[] | null | undefined): Map<string, ClientStats> {
+    const stats = new Map<string, ClientStats>();
+
+    for (const doc of documents || []) {
+        const clientId = doc?.client_id ? String(doc.client_id) : '';
+        if (!clientId) continue;
+
+        const current = stats.get(clientId) ?? { totalEarnings: 0, outstandingBalance: 0 };
+        const amount = toNumber(doc.amount);
+        const status = normalizeStatus(doc.status);
+        const type = normalizeType(doc.type);
+
+        if (status === 'PAID') {
+            current.totalEarnings += amount;
+        } else if (type === 'INVOICE' && ['SENT', 'VIEWED', 'OVERDUE'].includes(status)) {
+            current.outstandingBalance += amount;
+        }
+
+        stats.set(clientId, current);
+    }
+
+    return stats;
+}
+
+async function fetchClientStats(userId: string, clientIds: string[]): Promise<Map<string, ClientStats>> {
+    if (clientIds.length === 0) return new Map();
+
+    const { data, error } = await supabase
+        .from('documents')
+        .select('client_id, amount, status, type')
+        .eq('user_id', userId)
+        .in('client_id', clientIds);
+
+    if (error) {
+        throw new Error(`Failed to fetch client document stats: ${error.message}`);
+    }
+
+    return accumulateClientStats(data || []);
+}
+
+function formatClient(client: any, stats?: ClientStats) {
+    return {
+        id: client.id,
+        userId: client.user_id,
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        company: client.company,
+        address: client.address,
+        walletAddress: client.wallet_address,
+        totalEarnings: Number(((stats?.totalEarnings ?? parseFloat(client.total_earnings ?? '0')) || 0).toFixed(2)),
+        outstandingBalance: Number(((stats?.outstandingBalance ?? parseFloat(client.outstanding_balance ?? '0')) || 0).toFixed(2)),
+        notes: client.notes ?? null,
+        createdAt: client.created_at,
+        updatedAt: client.updated_at,
+    };
+}
+
 /**
  * GET /api/clients
  * Get all clients for the authenticated user
@@ -30,22 +101,8 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
             throw new Error(`Failed to fetch clients: ${error.message}`);
         }
 
-        // Map to camelCase (with safe fallbacks for columns that may not exist)
-        const formattedClients = clients.map(client => ({
-            id: client.id,
-            userId: client.user_id,
-            name: client.name,
-            email: client.email,
-            phone: client.phone,
-            company: client.company,
-            address: client.address,
-            walletAddress: client.wallet_address,
-            totalEarnings: parseFloat(client.total_earnings ?? '0') || 0,
-            outstandingBalance: parseFloat(client.outstanding_balance ?? '0') || 0,
-            notes: client.notes ?? null,
-            createdAt: client.created_at,
-            updatedAt: client.updated_at,
-        }));
+        const stats = await fetchClientStats(user.id, (clients || []).map((client) => String(client.id)));
+        const formattedClients = clients.map((client) => formatClient(client, stats.get(String(client.id))));
 
         res.json({
             success: true,
@@ -87,21 +144,8 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
-        const formattedClient = {
-            id: client.id,
-            userId: client.user_id,
-            name: client.name,
-            email: client.email,
-            phone: client.phone,
-            company: client.company,
-            address: client.address,
-            walletAddress: client.wallet_address,
-            totalEarnings: parseFloat(client.total_earnings ?? '0') || 0,
-            outstandingBalance: parseFloat(client.outstanding_balance ?? '0') || 0,
-            notes: client.notes ?? null,
-            createdAt: client.created_at,
-            updatedAt: client.updated_at,
-        };
+        const stats = await fetchClientStats(user.id, [String(client.id)]);
+        const formattedClient = formatClient(client, stats.get(String(client.id)));
 
         res.json({
             success: true,
@@ -152,21 +196,8 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             throw new Error(`Failed to create client: ${error.message}`);
         }
 
-        const formattedClient = {
-            id: client.id,
-            userId: client.user_id,
-            name: client.name,
-            email: client.email,
-            phone: client.phone,
-            company: client.company,
-            address: client.address,
-            walletAddress: client.wallet_address,
-            totalEarnings: parseFloat(client.total_earnings ?? '0') || 0,
-            outstandingBalance: parseFloat(client.outstanding_balance ?? '0') || 0,
-            notes: client.notes ?? null,
-            createdAt: client.created_at,
-            updatedAt: client.updated_at,
-        };
+        const stats = await fetchClientStats(user.id, [String(client.id)]);
+        const formattedClient = formatClient(client, stats.get(String(client.id)));
 
         res.json({
             success: true,
