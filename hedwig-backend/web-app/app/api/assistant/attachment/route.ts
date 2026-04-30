@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth/session';
 import { backendConfig } from '@/lib/auth/config';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest): Promise<Response> {
+  const limit = checkRateLimit(req, { name: 'assistant_attachment', limit: 20, windowMs: 60_000 });
+  if (!limit.ok) return rateLimitResponse(limit.retryAfter);
+
   const session = await getCurrentSession();
   if (!session.accessToken) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

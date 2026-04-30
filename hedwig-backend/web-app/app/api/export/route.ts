@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { backendConfig } from '@/lib/auth/config';
 import { verifyAccessToken } from '@/lib/auth/verify';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 interface ExportRequest {
   type: 'invoices' | 'transactions' | 'summary';
@@ -42,6 +43,10 @@ async function fetchBackend(path: string, accessToken: string) {
 }
 
 export async function POST(req: NextRequest) {
+  // Exports build CSV from full datasets; cap to deter scraping.
+  const limit = checkRateLimit(req, { name: 'export', limit: 10, windowMs: 60_000 });
+  if (!limit.ok) return rateLimitResponse(limit.retryAfter);
+
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('hedwig_access_token')?.value ?? null;
 

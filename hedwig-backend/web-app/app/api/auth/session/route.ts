@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { AUTH_CHECK_COOKIE, authCheckCookieOptions, authCookieOptions } from '@/lib/auth/cookies';
 import { verifyAccessToken } from '@/lib/auth/verify';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Rate limit auth session creation — main lever against credential stuffing.
+  const limit = checkRateLimit(request, { name: 'auth_session', limit: 10, windowMs: 60_000 });
+  if (!limit.ok) return rateLimitResponse(limit.retryAfter);
+
   const body = await request.json().catch(() => null);
   const { token } = (body ?? {}) as { token?: string };
 
