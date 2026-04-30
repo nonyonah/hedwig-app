@@ -405,6 +405,75 @@ export function getHedwigNativeTools(): AgentToolDefinition[] {
         };
       },
     },
+    {
+      name: 'record_revenue_credit',
+      description: 'Stage a paid revenue credit for the user to approve. Use when the user asks to record a bank credit, deposit, income, revenue received, or other paid bookkeeping credit. Does NOT execute — creates an approval suggestion.',
+      parameters: {
+        type: 'object',
+        properties: {
+          amount: { type: 'number', description: 'Original credit amount in the stated currency.' },
+          currency: { type: 'string', description: 'ISO 4217 currency code, e.g. USD, NGN, EUR, GBP.' },
+          title: { type: 'string', description: 'Short credit title.' },
+          note: { type: 'string', description: 'Optional bookkeeping note.' },
+          clientName: { type: 'string', description: 'Optional client name if known.' },
+          clientId: { type: 'string', description: 'Optional Hedwig client id if known.' },
+          date: { type: 'string', description: 'ISO date (YYYY-MM-DD) when the credit was received.' },
+        },
+        required: ['amount', 'currency'],
+      },
+      execute: async (args, context) => {
+        const draftKey = 'record_revenue_credit';
+        const amount = typeof args.amount === 'number' ? args.amount : Number(args.amount);
+        if (!Number.isFinite(amount) || amount <= 0) {
+          throw new Error('Credit amount is required');
+        }
+        const currency = String(args.currency || 'USD').toUpperCase();
+        const title = String(args.title || args.note || 'Manual credit').trim();
+
+        const editedData = {
+          default_action: draftKey,
+          drafts: {
+            [draftKey]: {
+              amount,
+              currency,
+              title,
+              note: args.note ?? null,
+              client_name: args.clientName ?? null,
+              client_id: args.clientId ?? null,
+              date: args.date ?? null,
+            },
+          },
+        };
+
+        const { data, error } = await supabase
+          .from('assistant_suggestions')
+          .insert({
+            user_id: context.userId,
+            type: 'import_match',
+            title: `${title} [Credit]`,
+            description: `Approving will record ${amount} ${currency} as paid revenue for bookkeeping.`,
+            priority: 'medium',
+            confidence_score: 0.88,
+            status: 'active',
+            reason: 'Hedwig agent drafted a revenue credit from your message — pending your approval.',
+            surface: 'assistant_panel',
+            actions: [{ label: 'Record credit', type: draftKey, requires_approval: true }],
+            related_entities: { source: 'agent_chat' },
+            edited_data: editedData,
+          })
+          .select('id')
+          .single();
+
+        if (error || !data) {
+          throw new Error(error?.message || 'Could not stage revenue credit');
+        }
+        return {
+          staged: true,
+          suggestionId: data.id,
+          message: `Drafted credit "${title}" — awaiting your approval in the assistant panel.`,
+        };
+      },
+    },
   ];
 }
 

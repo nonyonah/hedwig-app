@@ -25,7 +25,7 @@ RUN npm ci --include=dev --legacy-peer-deps
 ENV VITE_REOWN_PROJECT_ID=e2fead0a05813697717820eaed0f18ea
 ENV VITE_API_URL=https://pay.hedwigbot.xyz
 ENV VITE_PRIVY_APP_ID=cmby98gd300hxl40mrdr3mkoh
-RUN npm run build
+RUN npm run build && mkdir -p dist
 
 
 FROM node:22-slim

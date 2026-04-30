@@ -5,6 +5,9 @@
 
 echo "🚀 Deploying Hedwig Backend to Cloud Run..."
 
+SERVICE_NAME="${CLOUD_RUN_SERVICE:-hedwig}"
+REGION="${CLOUD_RUN_REGION:-europe-west1}"
+
 # Check if .env file exists
 if [ ! -f .env ]; then
     echo "❌ Error: .env file not found!"
@@ -21,9 +24,9 @@ fi
 
 echo "📦 Building and deploying..."
 
-gcloud run deploy hedwig-backend \
+gcloud run deploy "$SERVICE_NAME" \
     --source . \
-    --region us-central1 \
+    --region "$REGION" \
     --allow-unauthenticated \
     --set-env-vars="$ENV_VARS"
 

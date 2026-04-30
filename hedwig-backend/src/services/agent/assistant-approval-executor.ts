@@ -12,6 +12,7 @@ import {
 import { executeComposioWrite, stageFileForComposio } from './composio-tools';
 import { deleteFromR2 } from '../../lib/r2';
 import { createLogger } from '../../utils/logger';
+import { convertToUsd } from '../currency';
 
 const logger = createLogger('AssistantApprovalExecutor');
 
@@ -556,6 +557,80 @@ async function executeCreateInvoice(userId: string, draft: JsonRecord): Promise<
   };
 }
 
+async function executeRecordRevenueCredit(userId: string, draft: JsonRecord): Promise<AssistantApprovalExecutionResult> {
+  const originalAmount = numberValue(draft.amount);
+  if (originalAmount === null || originalAmount <= 0) {
+    throw new Error('Credit draft is missing a valid amount');
+  }
+
+  const originalCurrency = (stringValue(draft.currency) || 'USD').toUpperCase();
+  const title = stringValue(draft.title) || stringValue(draft.note) || 'Manual credit';
+  const note = stringValue(draft.note);
+  const date = stringValue(draft.date);
+  let clientId = stringValue(draft.client_id);
+  const clientName = stringValue(draft.client_name);
+
+  if (!clientId && clientName) {
+    const created = await ClientService.getOrCreateClient(
+      userId,
+      clientName,
+      null,
+      { createdFrom: 'assistant_revenue_credit' }
+    );
+    clientId = created.id;
+  }
+
+  const amountUsd = originalCurrency === 'USD'
+    ? originalAmount
+    : await convertToUsd(originalAmount, originalCurrency);
+  const recordDate = date ? new Date(date).toISOString() : new Date().toISOString();
+
+  const { data: document, error } = await supabase
+    .from('documents')
+    .insert({
+      user_id: userId,
+      client_id: clientId,
+      type: 'INVOICE',
+      title: `${title} [Credit]`,
+      amount: Number(amountUsd.toFixed(6)),
+      currency: 'USD',
+      description: note || 'Assistant-recorded revenue credit',
+      status: 'PAID',
+      chain: 'BASE',
+      created_at: recordDate,
+      content: {
+        client_name: clientName,
+        created_from: 'assistant_revenue_credit',
+        bookkeeping_only: true,
+        payment_status: 'paid',
+        original_amount: originalAmount,
+        original_currency: originalCurrency,
+        recorded_at: recordDate,
+        note: note || null,
+        reminders_enabled: false,
+      },
+    })
+    .select('id')
+    .single();
+
+  if (error || !document?.id) {
+    throw new Error(error?.message || 'Failed to record revenue credit');
+  }
+
+  return {
+    status: 'completed',
+    action: 'record_revenue_credit',
+    message: 'Revenue credit recorded from assistant suggestion.',
+    entity_type: 'invoice',
+    entity_id: document.id,
+    metadata: {
+      original_amount: originalAmount,
+      original_currency: originalCurrency,
+      amount_usd: amountUsd,
+    },
+  };
+}
+
 async function executeSendContract(userId: string, draft: JsonRecord): Promise<AssistantApprovalExecutionResult> {
   const contractId = stringValue(draft.contract_id);
   if (!contractId) {
@@ -811,6 +886,8 @@ async function executeAction(
       return executeCalendarEvent(userId, draft);
     case 'create_invoice':
       return executeCreateInvoice(userId, draft);
+    case 'record_revenue_credit':
+      return executeRecordRevenueCredit(userId, draft);
     case 'create_project_from_brief':
       return executeCreateProjectFromBrief(userId, draft);
     case 'send_contract':

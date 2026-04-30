@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
-import Userback, { getUserback, type UserbackWidget } from '@userback/widget';
+import Userback, { getUserback, type UserbackOptions, type UserbackWidget } from '@userback/widget';
 
 type UserbackIdentity = {
   id: string;
@@ -59,13 +59,20 @@ export function UserbackProvider() {
     if (!token || didInitRef.current) return;
 
     let cancelled = false;
-    const options = identity ? { user_data: identity } : undefined;
+    const options: UserbackOptions = {
+      ...(identity ? { user_data: identity } : {}),
+      autohide: true,
+      widget_settings: {
+        trigger_type: 'api'
+      }
+    };
 
     Userback(token, options)
       .then((instance) => {
         if (cancelled) return;
         widgetRef.current = instance;
         didInitRef.current = true;
+        instance.hideLauncher?.();
       })
       .catch(() => {
         didInitRef.current = false;

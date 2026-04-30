@@ -176,7 +176,6 @@ export function PaymentsClient({
 
   const filteredInvoices = useMemo(() => {
     if (invoiceFilter === 'all') return allInvoiceItems;
-    if (invoiceFilter === 'imported') return allInvoiceItems.filter((i) => !!i.source);
     return allInvoiceItems.filter((i) => i.status === invoiceFilter);
   }, [allInvoiceItems, invoiceFilter]);
   const filteredLinks = useMemo(
@@ -433,9 +432,9 @@ export function PaymentsClient({
         {/* Filter chips */}
         <div className="flex items-center gap-1 border-b border-[#f2f4f7] px-5 py-2">
           {activeTab === 'invoices'
-            ? (['all', 'draft', 'sent', 'viewed', 'paid', 'overdue', 'imported'] as const).map((s) => (
+            ? (['all', 'draft', 'sent', 'viewed', 'paid', 'overdue'] as const).map((s) => (
                 <FilterChip key={s} active={invoiceFilter === s} onClick={() => setInvoiceFilter(s)}>
-                  {s === 'all' ? 'All' : s === 'imported' ? 'Imported' : INV_STATUS[s as keyof typeof INV_STATUS]?.label ?? s}
+                  {s === 'all' ? 'All' : INV_STATUS[s as keyof typeof INV_STATUS]?.label ?? s}
                 </FilterChip>
               ))
             : activeTab === 'payment-links'
