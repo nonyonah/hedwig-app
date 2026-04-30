@@ -7,9 +7,10 @@ import type { Client, Project } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { Button } from '@/components/ui/button';
+import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { useToast } from '@/components/providers/toast-provider';
-import { formatCompactCurrency, formatShortDate } from '@/lib/utils';
+import { formatShortDate } from '@/lib/utils';
 
 const PROJECT_STATUS = {
   active:    { dot: 'bg-[#12b76a]', label: 'Active',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
@@ -34,7 +35,7 @@ export function ProjectsClient({
   availableClients: Client[];
   accessToken: string | null;
 }) {
-  const { currency } = useCurrency();
+  const { formatAmount } = useCurrency();
   const { toast } = useToast();
 
   const [projects, setProjects] = useState(initialProjects);
@@ -99,24 +100,14 @@ export function ProjectsClient({
         <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Track deliverables, milestones, and project progress.</p>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-        <div className="bg-white px-5 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Active</p>
-          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{activeCount}</p>
-          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">in progress</p>
-        </div>
-        <div className="bg-white px-5 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Completed</p>
-          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{completedCount}</p>
-          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">delivered</p>
-        </div>
-        <div className="bg-white px-5 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Total budget</p>
-          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCompactCurrency(totalBudget, currency)}</p>
-          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">across all projects</p>
-        </div>
-      </div>
+      <AttachedStatGrid
+        items={[
+          { id: 'active', title: 'Active', value: String(activeCount), helper: 'In progress' },
+          { id: 'completed', title: 'Completed', value: String(completedCount), helper: 'Delivered' },
+          { id: 'total-budget', title: 'Total budget', value: formatAmount(totalBudget, { compact: true }), helper: 'Across all projects' },
+        ]}
+        className="grid-cols-1 md:grid-cols-3"
+      />
 
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
         {/* Unified header */}
@@ -127,7 +118,7 @@ export function ProjectsClient({
               <>
                 <span className="h-3 w-px shrink-0 bg-[#f2f4f7]" />
                 <span className="truncate text-[12px] text-[#a4a7ae]">
-                  {activeCount} active · {formatCompactCurrency(totalBudget, currency)} total budget
+                  {activeCount} active · {formatAmount(totalBudget, { compact: true })} total budget
                 </span>
               </>
             )}
@@ -216,7 +207,7 @@ export function ProjectsClient({
                     </span>
                   </div>
                   <p className="text-right text-[13px] tabular-nums text-[#8d9096]">
-                    {formatCompactCurrency(project.budgetUsd, currency)}
+                    {formatAmount(project.budgetUsd, { compact: true })}
                   </p>
                   <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(project.nextDeadlineAt)}</p>
                   <div className="flex justify-end">

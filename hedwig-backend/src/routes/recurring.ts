@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
 import { addDays, addMonths, addYears, format, isAfter, parseISO } from 'date-fns';
+import { requireProFeatureAccess } from '../services/billingRules';
 
 const logger = createLogger('Recurring');
 const router = Router();
@@ -57,13 +58,30 @@ function mapRow(row: any) {
     };
 }
 
+async function ensureRecurringAccess(req: Request, res: Response) {
+    const user = await getOrCreateUser(req.user!.id);
+    if (!user) {
+        res.status(404).json({ success: false, error: 'User not found' });
+        return { user: null, allowed: false };
+    }
+
+    const access = await requireProFeatureAccess(user, 'recurring_automation');
+    if (!access.allowed) {
+        res.status(403).json({ success: false, error: access.message || 'Recurring invoice automation is a Pro feature.' });
+        return { user, allowed: false };
+    }
+
+    return { user, allowed: true };
+}
+
 /**
  * GET /api/recurring-invoices
  */
 router.get('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const user = await getOrCreateUser(req.user!.id);
-        if (!user) { res.status(404).json({ success: false, error: 'User not found' }); return; }
+        const access = await ensureRecurringAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const user = access.user;
 
         const { data, error } = await supabase
             .from('recurring_invoices')
@@ -83,8 +101,9 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
  */
 router.post('/', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const user = await getOrCreateUser(req.user!.id);
-        if (!user) { res.status(404).json({ success: false, error: 'User not found' }); return; }
+        const access = await ensureRecurringAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const user = access.user;
 
         const {
             clientId, clientName, clientEmail, projectId,
@@ -196,8 +215,9 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
  */
 router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const user = await getOrCreateUser(req.user!.id);
-        if (!user) { res.status(404).json({ success: false, error: 'User not found' }); return; }
+        const access = await ensureRecurringAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const user = access.user;
 
         const { data, error } = await supabase
             .from('recurring_invoices')
@@ -218,8 +238,9 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
  */
 router.patch('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const user = await getOrCreateUser(req.user!.id);
-        if (!user) { res.status(404).json({ success: false, error: 'User not found' }); return; }
+        const access = await ensureRecurringAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const user = access.user;
 
         const { title, amount, memo, items, endDate, autoSend, frequency } = req.body;
         const updates: any = {};
@@ -262,8 +283,9 @@ router.patch('/:id', authenticate, async (req: Request, res: Response, next) => 
  */
 router.patch('/:id/status', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const user = await getOrCreateUser(req.user!.id);
-        if (!user) { res.status(404).json({ success: false, error: 'User not found' }); return; }
+        const access = await ensureRecurringAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const user = access.user;
 
         const { status } = req.body;
         if (!['active', 'paused', 'cancelled'].includes(status)) {
@@ -291,8 +313,9 @@ router.patch('/:id/status', authenticate, async (req: Request, res: Response, ne
  */
 router.post('/:id/trigger', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const user = await getOrCreateUser(req.user!.id);
-        if (!user) { res.status(404).json({ success: false, error: 'User not found' }); return; }
+        const access = await ensureRecurringAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const user = access.user;
 
         const { data: template, error: fetchErr } = await supabase
             .from('recurring_invoices')

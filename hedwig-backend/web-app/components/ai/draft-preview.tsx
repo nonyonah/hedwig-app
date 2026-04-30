@@ -2,7 +2,8 @@ import type { InvoiceDraft, PaymentLinkDraft } from '@/lib/models/entities';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatShortDate } from '@/lib/utils';
+import { useCurrency } from '@/components/providers/currency-provider';
+import { formatShortDate } from '@/lib/utils';
 
 interface DraftPreviewProps {
   invoiceDraft?: InvoiceDraft | null;
@@ -10,6 +11,8 @@ interface DraftPreviewProps {
 }
 
 export function DraftPreview({ invoiceDraft, paymentLinkDraft }: DraftPreviewProps) {
+  const { formatAmount } = useCurrency();
+
   if (!invoiceDraft && !paymentLinkDraft) {
     return (
       <Card>
@@ -42,14 +45,14 @@ export function DraftPreview({ invoiceDraft, paymentLinkDraft }: DraftPreviewPro
           <>
             <div className="grid gap-4 md:grid-cols-3">
               <Stat label="Client" value={invoiceDraft.clientName} />
-              <Stat label="Amount" value={formatCurrency(invoiceDraft.amountUsd)} />
+              <Stat label="Amount" value={formatAmount(invoiceDraft.amountUsd)} />
               <Stat label="Due" value={formatShortDate(invoiceDraft.dueAt)} />
             </div>
             <div className="space-y-3 rounded-[15px] border border-[#e9eaeb] bg-[#fcfcfd] p-4">
               {invoiceDraft.lineItems.map((item) => (
                 <div key={item.label} className="flex items-center justify-between gap-4 text-sm">
                   <span className="text-muted-foreground">{item.label}</span>
-                  <span className="font-semibold text-foreground">{formatCurrency(item.amountUsd)}</span>
+                  <span className="font-semibold text-foreground">{formatAmount(item.amountUsd)}</span>
                 </div>
               ))}
             </div>
@@ -59,7 +62,7 @@ export function DraftPreview({ invoiceDraft, paymentLinkDraft }: DraftPreviewPro
         {paymentLinkDraft ? (
           <div className="grid gap-4 md:grid-cols-4">
             <Stat label="Title" value={paymentLinkDraft.title} />
-            <Stat label="Amount" value={formatCurrency(paymentLinkDraft.amountUsd)} />
+            <Stat label="Amount" value={formatAmount(paymentLinkDraft.amountUsd)} />
             <Stat label="Asset" value={paymentLinkDraft.asset} />
             <Stat label="Chain" value={paymentLinkDraft.chain} />
           </div>

@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { createLogger } from '../utils/logger';
 import { AsyncLimiter } from '../utils/asyncLimiter';
 
@@ -23,6 +23,10 @@ export interface GenerateTextOptions {
   useFallbacks?: boolean;
   forceProvider?: LLMProvider;
   files?: LLMFilePart[];
+}
+
+export interface GenerateObjectOptions extends GenerateTextOptions {
+  schema: Record<string, unknown>;
 }
 
 function normalizeProvider(value?: string | null): LLMProvider | null {
@@ -57,10 +61,8 @@ export class LLMService {
     : null;
 
   private readonly genAI = process.env.GEMINI_API_KEY
-    ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+    ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
     : null;
-
-  private readonly geminiModelCache = new Map<string, ReturnType<GoogleGenerativeAI['getGenerativeModel']>>();
 
   constructor() {
     if (!this.isAnyProviderConfigured()) {
@@ -120,19 +122,21 @@ export class LLMService {
     return process.env.LLM_GEMINI_MODEL || 'gemini-2.5-flash-lite';
   }
 
-  private getGeminiModel(modelName: string) {
+  private getGeminiClient(): GoogleGenAI {
     if (!this.genAI) {
       throw new Error('Gemini provider is not configured');
     }
+    return this.genAI;
+  }
 
-    const cached = this.geminiModelCache.get(modelName);
-    if (cached) {
-      return cached;
+  private extractGeminiText(response: { text?: string | (() => string) }): string {
+    if (typeof response.text === 'function') {
+      return response.text();
     }
-
-    const model = this.genAI.getGenerativeModel({ model: modelName });
-    this.geminiModelCache.set(modelName, model);
-    return model;
+    if (typeof response.text === 'string') {
+      return response.text;
+    }
+    return '';
   }
 
   private async generateWithOpenAI(prompt: string, options: GenerateTextOptions): Promise<string> {
@@ -171,27 +175,34 @@ export class LLMService {
   }
 
   private async generateWithGemini(prompt: string, options: GenerateTextOptions): Promise<string> {
-    const model = this.getGeminiModel(this.getGeminiModelName(options.purpose || 'general'));
+    const client = this.getGeminiClient();
     const combinedPrompt = options.systemPrompt
-      ? `${options.systemPrompt}\n\n---\n\n${prompt}`
+      ? prompt
       : prompt;
 
+    const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
+      { text: combinedPrompt },
+      ...((options.files ?? []).map((file) => ({
+        inlineData: {
+          mimeType: file.mimeType,
+          data: file.data,
+        },
+      }))),
+    ];
+
     const result = await this.outboundLimiter.run(() =>
-      options.files && options.files.length > 0
-        ? model.generateContent([
-            { text: combinedPrompt },
-            ...options.files.map((file) => ({
-              inlineData: {
-                mimeType: file.mimeType,
-                data: file.data,
-              },
-            })),
-          ])
-        : model.generateContent(combinedPrompt)
+      client.models.generateContent({
+        model: this.getGeminiModelName(options.purpose || 'general'),
+        contents: [{ role: 'user', parts }],
+        config: {
+          systemInstruction: options.systemPrompt,
+          temperature: options.temperature,
+          maxOutputTokens: options.maxOutputTokens,
+        },
+      })
     );
 
-    const response = await result.response;
-    const text = response.text();
+    const text = this.extractGeminiText(result);
     if (!text.trim()) {
       throw new Error('Gemini returned an empty response');
     }
@@ -229,6 +240,30 @@ export class LLMService {
     }
 
     throw new Error('No configured LLM provider available');
+  }
+
+  async generateObject<T>(prompt: string, options: GenerateObjectOptions): Promise<T> {
+    const client = this.getGeminiClient();
+    const response = await this.outboundLimiter.run(() =>
+      client.models.generateContent({
+        model: this.getGeminiModelName(options.purpose || 'general'),
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          systemInstruction: options.systemPrompt,
+          temperature: options.temperature,
+          maxOutputTokens: options.maxOutputTokens,
+          responseMimeType: 'application/json',
+          responseJsonSchema: options.schema,
+        },
+      })
+    );
+
+    const text = this.extractGeminiText(response).trim();
+    if (!text) {
+      throw new Error('Gemini returned an empty structured response');
+    }
+
+    return JSON.parse(text) as T;
   }
 }
 

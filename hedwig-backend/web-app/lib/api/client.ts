@@ -1,4 +1,5 @@
 import { backendConfig } from '@/lib/auth/config';
+import { extractApiErrorMessage } from '@/lib/api/errors';
 import {
   accountTransactions as mockAccountTransactions,
   activities as mockActivities,
@@ -106,6 +107,7 @@ export interface BillingStatusSummary {
     isActive: boolean;
     expiresAt: string | null;
     productId: string | null;
+    billingInterval?: 'monthly' | 'annual' | null;
     store: string | null;
     environment: string | null;
     willRenew: boolean | null;
@@ -650,7 +652,8 @@ const mapBackendOfframp = (order: any): OfframpTransaction => ({
   errorMessage: order.errorMessage || order.error_message || undefined
 });
 
-const shouldUseMockFallback = (options?: ApiOptions) => options?.accessToken === 'demo';
+const shouldUseMockFallback = (options?: ApiOptions) =>
+  options?.accessToken === 'demo' && !options?.disableMockFallback;
 
 const authHeaders = (accessToken: string) => ({
   Authorization: `Bearer ${accessToken}`,
@@ -685,8 +688,7 @@ async function request<T>(path: string, options?: ApiOptions, init?: RequestInit
       }
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown network error';
-    throw new Error(`Network error calling ${backendConfig.apiBaseUrl}${path}: ${message}`);
+    throw new Error('Could not reach the Hedwig backend. Please check your connection and try again.');
   }
 
   const contentType = response.headers.get('content-type') || '';
@@ -710,8 +712,7 @@ async function request<T>(path: string, options?: ApiOptions, init?: RequestInit
   }
 
   if (!response.ok || !payload?.success) {
-    const message = typeof payload?.error === 'string' ? payload.error : payload?.error?.message;
-    throw new Error(message ? `${message} (${path})` : `Request failed for ${backendConfig.apiBaseUrl}${path}`);
+    throw new Error(extractApiErrorMessage(payload, 'Request failed. Please try again.'));
   }
 
   return payload.data;
@@ -758,9 +759,10 @@ export const hedwigApi = {
   async dashboard(options?: ApiOptions) {
     return withFallback(
       async () => {
-        const [clientsData, projectsData, contractsData, walletData, accountsData, notificationsData, shellData, paymentsData, calendarData, assistantSummaryData, recurringData] = await Promise.all([
+        const [clientsData, projectsData, rawProjectsData, contractsData, walletData, accountsData, notificationsData, shellData, paymentsData, calendarData, assistantSummaryData, recurringData] = await Promise.all([
           this.clients(options),
           this.projects(options),
+          request<{ projects: any[] }>('/api/projects', options),
           this.contracts(options),
           this.wallet(options),
           this.accounts(options),
@@ -776,7 +778,7 @@ export const hedwigApi = {
         const inflowUsd = paymentsData.invoices
           .filter((invoice) => invoice.status !== 'paid')
           .reduce((sum, invoice) => sum + invoice.amountUsd, 0);
-        const milestones = projectsData.flatMap((project: any) =>
+        const milestones = (rawProjectsData.projects || []).flatMap((project: any) =>
           Array.isArray(project.milestones)
             ? project.milestones.map((milestone: any) => mapBackendMilestone(milestone, project.id))
             : []
@@ -962,7 +964,14 @@ export const hedwigApi = {
   async createProjectFlow(
     input: CreateProjectFlowInput,
     options?: ApiOptions
-  ): Promise<{ project: Project; contractId: string | null; createdInvoiceCount: number; contractEmailSent: boolean }> {
+  ): Promise<{
+    project: Project;
+    contractId: string | null;
+    createdInvoiceCount: number;
+    contractEmailSent: boolean;
+    contractLimitReached?: boolean;
+    milestoneAutomationLocked?: boolean;
+  }> {
     return withFallback(
       async () => {
         const projectPayload = {
@@ -1004,7 +1013,9 @@ export const hedwigApi = {
           project: mapCreatedProject(createdProject, createdProject.clientId || input.clientId || ''),
           contractId: createdProject.contract?.id ? String(createdProject.contract.id) : null,
           createdInvoiceCount: Number(createdProject.createdInvoiceCount || 0),
-          contractEmailSent: Boolean(createdProject.contractEmailSent)
+          contractEmailSent: Boolean(createdProject.contractEmailSent),
+          contractLimitReached: Boolean(createdProject.contractLimitReached),
+          milestoneAutomationLocked: Boolean(createdProject.milestoneAutomationLocked),
         };
       },
       async () => {
@@ -1024,7 +1035,9 @@ export const hedwigApi = {
           ),
           contractId: `contract_${Date.now()}`,
           createdInvoiceCount: input.milestones.length,
-          contractEmailSent: false
+          contractEmailSent: false,
+          contractLimitReached: false,
+          milestoneAutomationLocked: false,
         };
       },
       options
@@ -1972,6 +1985,33 @@ export const hedwigApi = {
     return withFallback(
       () => request<any[]>('/api/revenue/activity', options),
       () => mockActivityFeed,
+      options,
+    );
+  },
+
+  async createRevenueCredit(payload: {
+    amount: number;
+    currency: string;
+    convertedAmountUsd?: number;
+    title?: string;
+    note?: string;
+    clientId?: string;
+    date?: string;
+  }, options?: ApiOptions) {
+    return withFallback(
+      () => request<any>('/api/revenue/credits', options, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }),
+      () => ({
+        id: `credit_${Date.now()}`,
+        title: `${payload.title || payload.note || 'Manual credit'} [Credit]`,
+        amount: payload.convertedAmountUsd ?? payload.amount,
+        currency: 'USD',
+        status: 'PAID',
+        created_at: payload.date ?? new Date().toISOString(),
+      }),
       options,
     );
   },

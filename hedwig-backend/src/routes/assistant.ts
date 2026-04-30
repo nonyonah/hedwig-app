@@ -1,309 +1,476 @@
+/**
+ * Assistant routes for workspace summaries, rules-based suggestions, and limited notifications.
+ * No action is ever executed automatically. Suggestions always require explicit user approval.
+ */
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
-import { llmService } from '../services/llm';
+import { processAttachment } from '../services/agent/attachment-handler';
+import {
+    buildNotificationSuggestions,
+    getAssistantSuggestionById,
+    markAssistantSuggestionShown,
+    type AssistantSuggestionRecord,
+    type AssistantSuggestionStatus,
+    type AssistantSuggestionType,
+    type SuggestionFilters,
+} from '../services/assistantSuggestions';
+import {
+    approveRuntimeAssistantSuggestion,
+    generateAssistantSuggestions,
+    generateDailyBrief,
+    generateWeeklySummary,
+    listAssistantSuggestions,
+    runAgentChat,
+    updateAssistantSuggestion,
+    type AgentChatMessage,
+} from '../services/agent/assistant-runtime';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Assistant');
 const router = Router();
+const attachmentUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
-const toNum = (v: unknown) => Number(v) || 0;
+const ensureAssistantAccess = async (req: Request, res: Response) => {
+    const user = await getOrCreateUser(req.user!.id);
+    if (!user) {
+        res.status(404).json({ success: false, error: 'User not found' });
+        return { user: null, allowed: false };
+    }
 
-const safeJson = (text: string): Record<string, unknown> | null => {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    try { return JSON.parse(match[0]); } catch { return null; }
+    // Pro gate temporarily disabled — assistant is open to all users during testing.
+    return { user, allowed: true };
 };
 
-const formatUsd = (n: number) =>
-    n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(2)}`;
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-// GET /api/assistant/brief
+const parseBooleanQuery = (value: unknown): boolean | undefined => {
+    if (typeof value !== 'string') return undefined;
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return undefined;
+};
+
+const parseSuggestionTypes = (value: unknown): AssistantSuggestionType[] | undefined => {
+    if (typeof value !== 'string' || !value.trim()) return undefined;
+    const allowed = new Set<AssistantSuggestionType>([
+        'invoice_reminder',
+        'import_match',
+        'expense_categorization',
+        'calendar_event',
+        'project_action',
+        'tax_review',
+    ]);
+
+    const parsed = value
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item): item is AssistantSuggestionType => allowed.has(item as AssistantSuggestionType));
+
+    return parsed.length > 0 ? parsed : undefined;
+};
+
+const toApiSuggestion = (suggestion: AssistantSuggestionRecord) => ({
+    id: suggestion.id,
+    userId: suggestion.user_id,
+    type: suggestion.type,
+    title: suggestion.title,
+    description: suggestion.description,
+    priority: suggestion.priority,
+    confidenceScore: suggestion.confidence_score,
+    status: suggestion.status,
+    relatedEntities: suggestion.related_entities ?? {},
+    editedData: suggestion.edited_data ?? null,
+    actions: suggestion.actions ?? [],
+    reason: suggestion.reason,
+    surface: suggestion.surface,
+    createdAt: suggestion.created_at,
+    updatedAt: suggestion.updated_at,
+    lastShownAt: suggestion.last_shown_at,
+});
+
+// ── GET /api/assistant/brief ─────────────────────────────────────────────────
+
 router.get('/brief', authenticate, async (req: Request, res: Response) => {
     try {
-        const user = await getOrCreateUser(req.user!.id);
-        if (!user) { res.status(404).json({ success: false, error: 'User not found' }); return; }
-
-        const now = new Date();
-        const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
-        const nowIso = now.toISOString();
-
-        const [unpaidRes, overdueRes, paymentLinksRes, deadlinesRes, reviewRes] = await Promise.all([
-            // Unpaid invoices (sent/viewed, not yet overdue)
-            supabase
-                .from('documents')
-                .select('id, amount, content')
-                .eq('user_id', user.id)
-                .eq('type', 'INVOICE')
-                .in('status', ['SENT', 'VIEWED']),
-            // Overdue invoices
-            supabase
-                .from('documents')
-                .select('id, amount, content')
-                .eq('user_id', user.id)
-                .eq('type', 'INVOICE')
-                .eq('status', 'OVERDUE'),
-            // Active payment links
-            supabase
-                .from('documents')
-                .select('id, amount, content')
-                .eq('user_id', user.id)
-                .eq('type', 'PAYMENT_LINK')
-                .in('status', ['SENT', 'VIEWED', 'DRAFT']),
-            // Project deadlines in next 14 days
-            supabase
-                .from('projects')
-                .select('id, title, next_deadline_at, status')
-                .eq('user_id', user.id)
-                .in('status', ['ACTIVE', 'ONGOING', 'IN_PROGRESS'])
-                .lte('next_deadline_at', in14Days)
-                .gte('next_deadline_at', nowIso),
-            // Contracts needing review
-            supabase
-                .from('documents')
-                .select('id, content')
-                .eq('user_id', user.id)
-                .eq('type', 'CONTRACT')
-                .in('status', ['DRAFT', 'REVIEW']),
-        ]);
-
-        const unpaidDocs = unpaidRes.data ?? [];
-        const overdueDocs = overdueRes.data ?? [];
-        const paymentLinks = paymentLinksRes.data ?? [];
-        const deadlines = deadlinesRes.data ?? [];
-        const reviewDocs = reviewRes.data ?? [];
-
-        const unpaidAmountUsd = unpaidDocs.reduce((s, d) => s + toNum(d.amount), 0);
-        const overdueAmountUsd = overdueDocs.reduce((s, d) => s + toNum(d.amount), 0);
-
-        // Build events
-        type EventInput = {
-            id: string; type: string; severity: string; title: string; body?: string;
-            entityId?: string; href?: string;
-        };
-        const events: EventInput[] = [];
-
-        if (overdueDocs.length > 0) {
-            events.push({
-                id: 'overdue-invoices',
-                type: 'overdue_invoice',
-                severity: 'urgent',
-                title: `${overdueDocs.length} overdue invoice${overdueDocs.length > 1 ? 's' : ''}`,
-                body: `${formatUsd(overdueAmountUsd)} past due — follow up with clients`,
-                href: '/payments',
-            });
-        }
-
-        if (unpaidDocs.length > 0) {
-            events.push({
-                id: 'unpaid-invoices',
-                type: 'unpaid_invoice',
-                severity: 'warning',
-                title: `${unpaidDocs.length} unpaid invoice${unpaidDocs.length > 1 ? 's' : ''}`,
-                body: `${formatUsd(unpaidAmountUsd)} outstanding`,
-                href: '/payments',
-            });
-        }
-
-        for (const p of deadlines) {
-            const daysLeft = Math.ceil(
-                (new Date(p.next_deadline_at).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-            );
-            events.push({
-                id: `deadline-${p.id}`,
-                type: 'project_deadline',
-                severity: daysLeft <= 3 ? 'urgent' : 'warning',
-                title: `${p.title || 'Project'} deadline`,
-                body: daysLeft === 0 ? 'Due today' : daysLeft === 1 ? 'Due tomorrow' : `Due in ${daysLeft} days`,
-                entityId: p.id,
-                href: `/projects/${p.id}`,
-            });
-        }
-
-        if (paymentLinks.length > 0) {
-            events.push({
-                id: 'payment-links',
-                type: 'pending_payment_link',
-                severity: 'info',
-                title: `${paymentLinks.length} active payment link${paymentLinks.length > 1 ? 's' : ''}`,
-                body: 'Awaiting client payment',
-                href: '/payments',
-            });
-        }
-
-        if (reviewDocs.length > 0) {
-            events.push({
-                id: 'review-docs',
-                type: 'document_review',
-                severity: 'info',
-                title: `${reviewDocs.length} contract${reviewDocs.length > 1 ? 's' : ''} need${reviewDocs.length === 1 ? 's' : ''} review`,
-                href: '/contracts',
-            });
-        }
-
-        // Generate Gemini summary
-        const dataContext = [
-            unpaidDocs.length > 0 ? `${unpaidDocs.length} unpaid invoices (${formatUsd(unpaidAmountUsd)} outstanding)` : null,
-            overdueDocs.length > 0 ? `${overdueDocs.length} overdue invoices (${formatUsd(overdueAmountUsd)} past due)` : null,
-            paymentLinks.length > 0 ? `${paymentLinks.length} active payment links` : null,
-            deadlines.length > 0 ? `${deadlines.length} project deadline${deadlines.length > 1 ? 's' : ''} in the next 14 days` : null,
-            reviewDocs.length > 0 ? `${reviewDocs.length} contract${reviewDocs.length > 1 ? 's' : ''} awaiting review` : null,
-        ].filter(Boolean).join(', ');
-
-        const allClear = events.length === 0;
-
-        let summary = 'Everything looks good — no outstanding items today.';
-        let highlights: string[] = [];
-
-        if (!allClear) {
-            try {
-                const prompt = `You are Hedwig, a concise AI assistant for freelancers. Today's workspace data: ${dataContext}.
-
-Return ONLY valid JSON:
-{
-  "summary": "1-2 sentence plain-English overview of the financial situation",
-  "highlights": ["short actionable point", "short actionable point"]
-}
-
-Rules: be direct, no filler words, no emojis, max 2 highlights.`;
-
-                const text = await llmService.generateText(prompt, { purpose: 'general', useFallbacks: true });
-                const parsed = safeJson(text);
-                if (parsed?.summary) summary = String(parsed.summary);
-                if (Array.isArray(parsed?.highlights)) {
-                    highlights = (parsed.highlights as unknown[]).slice(0, 3).map(String);
-                }
-            } catch (err) {
-                logger.warn('Gemini brief generation failed', { error: err });
-                summary = `You have ${events.length} item${events.length > 1 ? 's' : ''} needing attention.`;
-            }
-        }
-
-        res.json({
-            success: true,
-            data: {
-                generatedAt: nowIso,
-                summary,
-                highlights,
-                events,
-                metrics: {
-                    unpaidCount: unpaidDocs.length,
-                    unpaidAmountUsd,
-                    overdueCount: overdueDocs.length,
-                    overdueAmountUsd,
-                    upcomingDeadlines: deadlines.length,
-                    activePaymentLinks: paymentLinks.length,
-                    reviewDocuments: reviewDocs.length,
-                },
-            },
-        });
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const brief = await generateDailyBrief(access.user.id);
+        res.json({ success: true, data: brief });
     } catch (err: any) {
-        logger.error('Brief generation failed', { error: err.message });
+        logger.error('Brief failed', { error: err.message });
         res.status(500).json({ success: false, error: 'Failed to generate brief' });
     }
 });
 
-// GET /api/assistant/weekly
+// ── GET /api/assistant/weekly ────────────────────────────────────────────────
+
 router.get('/weekly', authenticate, async (req: Request, res: Response) => {
     try {
-        const user = await getOrCreateUser(req.user!.id);
-        if (!user) { res.status(404).json({ success: false, error: 'User not found' }); return; }
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const weeklySummary = await generateWeeklySummary(access.user.id);
+        res.json({ success: true, data: weeklySummary });
+    } catch (err: any) {
+        logger.error('Weekly failed', { error: err.message });
+        res.status(500).json({ success: false, error: 'Failed to generate weekly summary' });
+    }
+});
 
-        const now = new Date();
-        const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const weekStartIso = weekStart.toISOString();
-        const nowIso = now.toISOString();
+// ── GET /api/assistant/suggestions ──────────────────────────────────────────
 
-        const [paidRes, newRes, overdueRes] = await Promise.all([
-            // Invoices paid this week
-            supabase
-                .from('documents')
-                .select('id, amount, content')
-                .eq('user_id', user.id)
-                .eq('type', 'INVOICE')
-                .eq('status', 'PAID')
-                .gte('updated_at', weekStartIso),
-            // Invoices created this week
-            supabase
-                .from('documents')
-                .select('id, amount, content')
-                .eq('user_id', user.id)
-                .eq('type', 'INVOICE')
-                .gte('created_at', weekStartIso),
-            // Currently overdue
-            supabase
-                .from('documents')
-                .select('id, amount, content')
-                .eq('user_id', user.id)
-                .eq('type', 'INVOICE')
-                .eq('status', 'OVERDUE'),
-        ]);
+router.get('/suggestions', authenticate, async (req: Request, res: Response) => {
+    try {
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const user = access.user;
 
-        const paidDocs = paidRes.data ?? [];
-        const newDocs = newRes.data ?? [];
-        const overdueDocs = overdueRes.data ?? [];
+        const filters: SuggestionFilters = {
+            surface: typeof req.query.surface === 'string' ? req.query.surface as SuggestionFilters['surface'] : undefined,
+            projectId: typeof req.query.projectId === 'string' ? req.query.projectId : undefined,
+            invoiceId: typeof req.query.invoiceId === 'string' ? req.query.invoiceId : undefined,
+            clientId: typeof req.query.clientId === 'string' ? req.query.clientId : undefined,
+            contractId: typeof req.query.contractId === 'string' ? req.query.contractId : undefined,
+            types: parseSuggestionTypes(req.query.types),
+            expensePage: parseBooleanQuery(req.query.expensePage),
+            taxPage: parseBooleanQuery(req.query.taxPage),
+            importsPage: parseBooleanQuery(req.query.importsPage),
+            insightsPage: parseBooleanQuery(req.query.insightsPage),
+            limit: typeof req.query.limit === 'string' ? Number(req.query.limit) || undefined : undefined,
+        };
 
-        const revenueUsd = paidDocs.reduce((s, d) => s + toNum(d.amount), 0);
-        const overdueAmountUsd = overdueDocs.reduce((s, d) => s + toNum(d.amount), 0);
-
-        // Top clients from paid invoices
-        const clientTotals: Record<string, number> = {};
-        for (const doc of paidDocs) {
-            const name: string = (doc.content as any)?.client_name || (doc.content as any)?.clientName || 'Unknown client';
-            clientTotals[name] = (clientTotals[name] ?? 0) + toNum(doc.amount);
-        }
-        const topClients = Object.entries(clientTotals)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([name, amountUsd]) => ({ name, amountUsd }));
-
-        // Gemini weekly insight
-        let aiInsight = 'No invoices were paid this week yet.';
-        try {
-            const ctx = [
-                `Revenue this week: ${formatUsd(revenueUsd)} from ${paidDocs.length} paid invoice${paidDocs.length !== 1 ? 's' : ''}`,
-                newDocs.length > 0 ? `${newDocs.length} new invoice${newDocs.length !== 1 ? 's' : ''} created` : null,
-                overdueDocs.length > 0 ? `${overdueDocs.length} overdue (${formatUsd(overdueAmountUsd)})` : 'No overdue invoices',
-                topClients.length > 0 ? `Top client: ${topClients[0].name} (${formatUsd(topClients[0].amountUsd)})` : null,
-            ].filter(Boolean).join('. ');
-
-            const prompt = `You are Hedwig, a concise AI assistant for freelancers. Weekly workspace summary: ${ctx}.
-
-Return ONLY valid JSON:
-{
-  "insight": "1 sentence summarising this week's financial performance and one key observation"
-}
-
-Rules: be specific, use the numbers, no fluff, no emojis.`;
-
-            const text = await llmService.generateText(prompt, { purpose: 'general', useFallbacks: true });
-            const parsed = safeJson(text);
-            if (parsed?.insight) aiInsight = String(parsed.insight);
-        } catch (err) {
-            logger.warn('Gemini weekly insight failed', { error: err });
-        }
-
-        const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const suggestions = await listAssistantSuggestions(user.id, filters);
 
         res.json({
             success: true,
             data: {
-                weekLabel: `${fmt(weekStart)} – ${fmt(now)}`,
-                startDate: weekStartIso,
-                endDate: nowIso,
-                revenueUsd,
-                newInvoiceCount: newDocs.length,
-                paidInvoiceCount: paidDocs.length,
-                overdueCount: overdueDocs.length,
-                overdueAmountUsd,
-                topClients,
-                aiInsight,
+                suggestions: suggestions.map(toApiSuggestion),
             },
         });
     } catch (err: any) {
-        logger.error('Weekly summary failed', { error: err.message });
-        res.status(500).json({ success: false, error: 'Failed to generate weekly summary' });
+        logger.error('Get suggestions failed', { error: err.message });
+        res.status(500).json({ success: false, error: 'Failed to fetch suggestions' });
+    }
+});
+
+// ── GET /api/assistant/suggestions/:id ──────────────────────────────────────
+
+router.get('/suggestions/:id', authenticate, async (req: Request, res: Response) => {
+    try {
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed || !access.user) return;
+
+        const suggestionId = typeof req.params.id === 'string'
+            ? req.params.id
+            : Array.isArray(req.params.id)
+                ? req.params.id[0] || ''
+                : '';
+
+        if (!suggestionId) {
+            res.status(400).json({ success: false, error: 'Suggestion id is required' });
+            return;
+        }
+
+        const suggestion = await getAssistantSuggestionById(access.user.id, suggestionId);
+        if (!suggestion) {
+            res.status(404).json({ success: false, error: 'Suggestion not found' });
+            return;
+        }
+
+        res.json({ success: true, data: { suggestion: toApiSuggestion(suggestion) } });
+    } catch (err: any) {
+        logger.error('Get suggestion failed', { error: err.message });
+        res.status(500).json({ success: false, error: 'Failed to fetch suggestion' });
+    }
+});
+
+// ── POST /api/assistant/suggestions/generate ─────────────────────────────────
+// Refreshes rules-based suggestions from live workspace data.
+
+router.post('/suggestions/generate', authenticate, async (req: Request, res: Response) => {
+    try {
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const user = access.user;
+
+        const suggestions = await generateAssistantSuggestions(user.id);
+
+        res.json({
+            success: true,
+            data: {
+                generated: suggestions.length,
+                suggestions: suggestions.map(toApiSuggestion),
+            },
+        });
+    } catch (err: any) {
+        logger.error('Suggestion generate failed', { error: err.message });
+        res.status(500).json({ success: false, error: 'Failed to generate suggestions' });
+    }
+});
+
+// ── PATCH /api/assistant/suggestions/:id ────────────────────────────────────
+
+router.patch('/suggestions/:id', authenticate, async (req: Request, res: Response) => {
+    try {
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const user = access.user;
+
+        const suggestionId = typeof req.params.id === 'string'
+            ? req.params.id
+            : Array.isArray(req.params.id)
+                ? req.params.id[0] || ''
+                : '';
+        const status = typeof req.body?.status === 'string' ? req.body.status : '';
+        const actionType = typeof req.body?.actionType === 'string' ? req.body.actionType : null;
+
+        if (!suggestionId) {
+            res.status(400).json({ success: false, error: 'Suggestion id is required' });
+            return;
+        }
+
+        if (!['approved', 'rejected', 'dismissed'].includes(status)) {
+            res.status(400).json({ success: false, error: 'status must be approved, dismissed, or rejected' });
+            return;
+        }
+
+        const updated = status === 'approved'
+            ? await approveRuntimeAssistantSuggestion(user.id, suggestionId, actionType)
+            : await updateAssistantSuggestion(user.id, suggestionId, status as AssistantSuggestionStatus, actionType);
+
+        if (!updated) {
+            res.status(404).json({ success: false, error: 'Suggestion not found' });
+            return;
+        }
+
+        res.json({ success: true, data: { suggestion: toApiSuggestion(updated) } });
+    } catch (err: any) {
+        logger.error('Suggestion update failed', { error: err.message });
+        res.status(500).json({ success: false, error: 'Failed to update suggestion' });
+    }
+});
+
+// ── GET /api/assistant/preferences ──────────────────────────────────────────
+
+router.get('/preferences', authenticate, async (req: Request, res: Response) => {
+    try {
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed) return;
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('asst_daily_brief_email, asst_weekly_summary_email, asst_invoice_alerts, asst_deadline_alerts')
+            .eq('privy_id', req.user!.id)
+            .single();
+
+        if (error || !user) { res.status(404).json({ success: false }); return; }
+
+        res.json({
+            success: true,
+            data: {
+                dailyBriefEmail: user.asst_daily_brief_email ?? false,
+                weeklySummaryEmail: user.asst_weekly_summary_email ?? false,
+                invoiceAlerts: user.asst_invoice_alerts ?? true,
+                deadlineAlerts: user.asst_deadline_alerts ?? true,
+            },
+        });
+    } catch (err: any) {
+        logger.error('Get prefs failed', { error: err.message });
+        res.status(500).json({ success: false, error: 'Failed to fetch preferences' });
+    }
+});
+
+// ── PATCH /api/assistant/preferences ────────────────────────────────────────
+
+router.patch('/preferences', authenticate, async (req: Request, res: Response) => {
+    try {
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed) return;
+        const { data: user, error: findErr } = await supabase
+            .from('users').select('id').eq('privy_id', req.user!.id).single();
+        if (findErr || !user) { res.status(404).json({ success: false }); return; }
+
+        const allowed = ['dailyBriefEmail', 'weeklySummaryEmail', 'invoiceAlerts', 'deadlineAlerts'] as const;
+        const colMap: Record<string, string> = {
+            dailyBriefEmail: 'asst_daily_brief_email',
+            weeklySummaryEmail: 'asst_weekly_summary_email',
+            invoiceAlerts: 'asst_invoice_alerts',
+            deadlineAlerts: 'asst_deadline_alerts',
+        };
+
+        const updates: Record<string, boolean> = {};
+        for (const key of allowed) {
+            if (key in req.body) updates[colMap[key]] = Boolean(req.body[key]);
+        }
+
+        if (Object.keys(updates).length === 0) {
+            res.status(400).json({ success: false, error: 'No valid fields provided' }); return;
+        }
+
+        await supabase.from('users').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', user.id);
+        res.json({ success: true });
+    } catch (err: any) {
+        logger.error('Patch prefs failed', { error: err.message });
+        res.status(500).json({ success: false, error: 'Failed to update preferences' });
+    }
+});
+
+// ── POST /api/assistant/notify ───────────────────────────────────────────────
+// Notification engine: creates in-app notifications and optionally sends email.
+// Called by scheduler — no user auth needed (uses user_id from body).
+
+router.post('/notify', authenticate, async (req: Request, res: Response) => {
+    try {
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed || !access.user) return;
+        const user = access.user;
+
+        // Get preferences
+        const { data: prefs } = await supabase
+            .from('users')
+            .select('asst_daily_brief_email, asst_weekly_summary_email, asst_invoice_alerts, asst_deadline_alerts, email, first_name')
+            .eq('id', user.id).single();
+
+        if (!prefs) { res.json({ success: true, data: { sent: 0 } }); return; }
+
+        const today = new Date().toISOString().slice(0, 10);
+        const sent: string[] = [];
+
+        // Check for already-sent notifications today to avoid duplicates
+        const { data: todayNotes } = await supabase
+            .from('notifications')
+            .select('metadata')
+            .eq('user_id', user.id)
+            .gte('created_at', `${today}T00:00:00Z`);
+
+        const todayTypes = new Set(
+            (todayNotes ?? []).map((n) => (n.metadata as any)?.assistant_type).filter(Boolean)
+        );
+
+        if (prefs.asst_invoice_alerts) {
+            const notificationSuggestions = await buildNotificationSuggestions(user.id);
+            for (const suggestion of notificationSuggestions) {
+                const notificationKey = suggestion.suggestion_key || suggestion.id;
+                if (todayTypes.has(notificationKey)) continue;
+
+                await supabase.from('notifications').insert({
+                    user_id: user.id,
+                    type: 'assistant',
+                    title: suggestion.title,
+                    message: suggestion.description,
+                    metadata: {
+                        assistant_type: notificationKey,
+                        suggestion_id: suggestion.id,
+                        suggestion_type: suggestion.type,
+                    },
+                    is_read: false,
+                });
+                await markAssistantSuggestionShown(suggestion.id);
+                sent.push(notificationKey);
+            }
+        }
+
+        // Deadline alerts
+        if (prefs.asst_deadline_alerts && !todayTypes.has('deadline_alert')) {
+            const in3Days = new Date(Date.now() + 3 * 86_400_000).toISOString();
+            const { data: deadlines } = await supabase.from('projects')
+                .select('id, name').eq('user_id', user.id)
+                .in('status', ['ACTIVE', 'ONGOING', 'IN_PROGRESS', 'ON_HOLD'])
+                .lte('deadline', in3Days).gte('deadline', new Date().toISOString());
+            if (deadlines && deadlines.length > 0) {
+                await supabase.from('notifications').insert({
+                    user_id: user.id,
+                    type: 'assistant',
+                    title: `${deadlines.length} project deadline${deadlines.length > 1 ? 's' : ''} in the next 3 days`,
+                    message: deadlines.map((p: any) => p.name).join(', '),
+                    metadata: { assistant_type: 'deadline_alert' },
+                    is_read: false,
+                });
+                sent.push('deadline_alert');
+            }
+        }
+
+        res.json({ success: true, data: { sent } });
+    } catch (err: any) {
+        logger.error('Notify failed', { error: err.message });
+        res.status(500).json({ success: false, error: 'Failed to send notifications' });
+    }
+});
+
+// ─── Chat (agent) ────────────────────────────────────────────────────────────
+
+router.post('/chat', authenticate, async (req: Request, res: Response) => {
+    try {
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed || !access.user) return;
+
+        const { message, history } = (req.body ?? {}) as {
+            message?: string;
+            history?: Array<{ role: string; content: string }>;
+        };
+
+        if (!message || typeof message !== 'string' || !message.trim()) {
+            res.status(400).json({ success: false, error: 'message is required' });
+            return;
+        }
+
+        const sanitisedHistory: AgentChatMessage[] = Array.isArray(history)
+            ? history
+                .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+                .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+                .slice(-10)
+            : [];
+
+        const result = await runAgentChat({
+            userId: access.user.id,
+            history: sanitisedHistory,
+            userMessage: message.trim(),
+        });
+
+        res.json({ success: true, data: result });
+    } catch (err: any) {
+        logger.error('Agent chat failed', { error: err?.message });
+        res.status(500).json({ success: false, error: 'Chat failed' });
+    }
+});
+
+// ─── Attachment (agent-driven document import) ───────────────────────────────
+
+router.post('/attachment', authenticate, attachmentUpload.single('file'), async (req: Request, res: Response) => {
+    try {
+        const access = await ensureAssistantAccess(req, res);
+        if (!access.allowed || !access.user) return;
+
+        if (!req.file) {
+            res.status(400).json({ success: false, error: 'A file is required' });
+            return;
+        }
+
+        const instruction = typeof req.body?.message === 'string' ? req.body.message.trim() : undefined;
+
+        const result = await processAttachment({
+            userId: access.user.id,
+            fileName: req.file.originalname,
+            mimeType: req.file.mimetype,
+            buffer: req.file.buffer,
+            instruction: instruction || undefined,
+        });
+
+        res.json({
+            success: true,
+            data: {
+                reply: result.reply,
+                classification: result.classification,
+                stagedSuggestionIds: result.stagedSuggestionIds,
+                createdEntities: result.createdEntities,
+                fileName: req.file.originalname,
+                toolsCalled: [`attachment_${result.classification}`],
+            },
+        });
+    } catch (err: any) {
+        logger.error('Attachment processing failed', { error: err?.message });
+        res.status(500).json({ success: false, error: 'Could not process attachment' });
     }
 });
 

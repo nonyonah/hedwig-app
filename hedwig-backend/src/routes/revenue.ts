@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
+import { convertToUsd } from '../services/currency';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Revenue');
@@ -421,7 +422,7 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
             Promise.resolve(
                 supabase
                     .from('expenses')
-                    .select('id,amount,currency,category,note,created_at')
+                    .select('id,amount,currency,converted_amount_usd,category,note,created_at')
                     .eq('user_id', user.id)
                     .gte('created_at', thirtyDaysAgo)
                     .order('created_at', { ascending: false })
@@ -475,7 +476,9 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
                 type: 'expense_added',
                 title: exp.note || `${exp.category} expense`,
                 description: `${exp.category} expense recorded`,
-                amount: toNumber(exp.amount),
+                amount: toNumber(exp.converted_amount_usd),
+                nativeAmount: toNumber(exp.amount),
+                currency: exp.currency || 'USD',
                 createdAt: exp.created_at,
             });
         }
@@ -515,6 +518,80 @@ router.get('/expenses', authenticate, async (req: Request, res: Response, next) 
     }
 });
 
+// POST /api/revenue/credits
+router.post('/credits', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const privyId = req.user!.id;
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const { amount, currency = 'USD', convertedAmountUsd, title, note = '', clientId, date } = req.body;
+        if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+            res.status(400).json({ success: false, error: { message: 'Invalid amount' } });
+            return;
+        }
+
+        const currencyCode = String(currency || 'USD').toUpperCase();
+        const numericAmount = Number(amount);
+        let usdAmount: number;
+        if (convertedAmountUsd !== undefined && convertedAmountUsd !== null) {
+            usdAmount = Number(convertedAmountUsd);
+        } else if (currencyCode === 'USD') {
+            usdAmount = numericAmount;
+        } else {
+            try {
+                usdAmount = await convertToUsd(numericAmount, currencyCode);
+            } catch (err) {
+                logger.warn('Credit currency conversion failed; falling back to raw amount', {
+                    currency: currencyCode,
+                    error: err instanceof Error ? err.message : 'Unknown',
+                });
+                usdAmount = numericAmount;
+            }
+        }
+
+        const recordDate = date ? new Date(date).toISOString() : new Date().toISOString();
+        const cleanTitle = String(title || note || 'Manual credit').trim().slice(0, 120) || 'Manual credit';
+
+        const { data, error } = await supabase
+            .from('documents')
+            .insert({
+                user_id: user.id,
+                client_id: clientId || null,
+                type: 'INVOICE',
+                title: `${cleanTitle} [Credit]`,
+                description: note || 'Manual revenue credit',
+                amount: Number(usdAmount.toFixed(6)),
+                currency: 'USD',
+                status: 'PAID',
+                chain: 'BASE',
+                created_at: recordDate,
+                content: {
+                    created_from: 'manual_credit',
+                    bookkeeping_only: true,
+                    payment_status: 'paid',
+                    original_amount: numericAmount,
+                    original_currency: currencyCode,
+                    recorded_at: recordDate,
+                    note: note || null,
+                    reminders_enabled: false,
+                },
+            })
+            .select()
+            .single();
+
+        if (error) throw new Error(`credit insert failed: ${summarizeError(error)}`);
+
+        res.json({ success: true, data });
+    } catch (error) {
+        logger.error('Failed to create revenue credit', { error: error instanceof Error ? error.message : 'Unknown' });
+        next(error);
+    }
+});
+
 // POST /api/revenue/expenses
 router.post('/expenses', authenticate, async (req: Request, res: Response, next) => {
     try {
@@ -532,13 +609,32 @@ router.post('/expenses', authenticate, async (req: Request, res: Response, next)
             return;
         }
 
+        const currencyCode = String(currency).toUpperCase();
+        const numericAmount = Number(amount);
+        let usdAmount: number;
+        if (convertedAmountUsd !== undefined && convertedAmountUsd !== null) {
+            usdAmount = Number(convertedAmountUsd);
+        } else if (currencyCode === 'USD') {
+            usdAmount = numericAmount;
+        } else {
+            try {
+                usdAmount = await convertToUsd(numericAmount, currencyCode);
+            } catch (err) {
+                logger.warn('Currency conversion failed; falling back to raw amount', {
+                    currency: currencyCode,
+                    error: err instanceof Error ? err.message : 'Unknown',
+                });
+                usdAmount = numericAmount;
+            }
+        }
+
         const { data, error } = await supabase
             .from('expenses')
             .insert({
                 user_id: user.id,
-                amount: Number(amount),
-                currency: String(currency).toUpperCase(),
-                converted_amount_usd: Number(convertedAmountUsd ?? amount),
+                amount: numericAmount,
+                currency: currencyCode,
+                converted_amount_usd: usdAmount,
                 category: String(category),
                 project_id: projectId || null,
                 client_id: clientId || null,
@@ -574,8 +670,36 @@ router.patch('/expenses/:id', authenticate, async (req: Request, res: Response, 
         const updates: Record<string, any> = {};
         if (amount !== undefined) updates.amount = Number(amount);
         if (currency !== undefined) updates.currency = String(currency).toUpperCase();
-        if (convertedAmountUsd !== undefined) updates.converted_amount_usd = Number(convertedAmountUsd);
-        if (amount !== undefined && convertedAmountUsd === undefined) updates.converted_amount_usd = Number(amount);
+        if (convertedAmountUsd !== undefined) {
+            updates.converted_amount_usd = Number(convertedAmountUsd);
+        } else if (amount !== undefined || currency !== undefined) {
+            // Recompute USD when amount changes — use the (possibly updated) currency.
+            let effectiveAmount = Number(amount);
+            if (amount === undefined) {
+                const { data: existing, error: existingError } = await supabase
+                    .from('expenses')
+                    .select('amount')
+                    .eq('id', id)
+                    .eq('user_id', user.id)
+                    .single();
+                if (existingError) throw new Error(`expense lookup failed: ${summarizeError(existingError)}`);
+                effectiveAmount = Number(existing?.amount);
+            }
+            const effectiveCurrency = updates.currency || String(currency || 'USD').toUpperCase();
+            if (effectiveCurrency === 'USD') {
+                updates.converted_amount_usd = effectiveAmount;
+            } else {
+                try {
+                    updates.converted_amount_usd = await convertToUsd(effectiveAmount, effectiveCurrency);
+                } catch (err) {
+                    logger.warn('Currency conversion on update failed; falling back to raw amount', {
+                        currency: effectiveCurrency,
+                        error: err instanceof Error ? err.message : 'Unknown',
+                    });
+                    updates.converted_amount_usd = effectiveAmount;
+                }
+            }
+        }
         if (category !== undefined) updates.category = String(category);
         if (projectId !== undefined) updates.project_id = projectId || null;
         if (clientId !== undefined) updates.client_id = clientId || null;

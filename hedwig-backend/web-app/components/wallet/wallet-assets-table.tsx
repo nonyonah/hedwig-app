@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { CaretRight } from '@/components/ui/lucide-icons';
 import { TokenDetailPanel } from '@/components/wallet/token-detail-panel';
 import type { WalletAsset } from '@/lib/models/entities';
-import { formatCurrency } from '@/lib/utils';
+import { useCurrency } from '@/components/providers/currency-provider';
 
 const chainIconByName: Record<string, string> = {
   Base:     '/icons/networks/base.png',
@@ -47,6 +47,7 @@ export function WalletAssetsTable({
   totalCrypto: number;
 }) {
   const [selected, setSelected] = useState<WalletAsset | null>(null);
+  const { formatAmount } = useCurrency();
 
   return (
     <>
@@ -57,7 +58,7 @@ export function WalletAssetsTable({
             <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Settled USDC across supported chains · click any row for details</p>
           </div>
           <p className="text-[14px] font-semibold text-[#181d27]">
-            {formatCurrency(totalCrypto)}{' '}
+            {formatAmount(totalCrypto, { compact: true })}{' '}
             <span className="text-[#a4a7ae] font-normal text-[12px]">total</span>
           </p>
         </div>
@@ -79,7 +80,7 @@ export function WalletAssetsTable({
               <ChainIcon chain={chain as WalletAsset['chain']} size={16} />
               <span className="text-[12px] font-semibold text-[#535862]">{chain}</span>
               <span className="text-[11px] text-[#a4a7ae]">
-                — {formatCurrency(assets.reduce((s, a) => s + a.valueUsd, 0))}
+                — {formatAmount(assets.reduce((s, a) => s + a.valueUsd, 0), { compact: true })}
               </span>
             </div>
             <div className="divide-y divide-[#f9fafb]">
@@ -119,7 +120,7 @@ export function WalletAssetsTable({
                     </div>
                     <div className="text-right">
                       <p className="text-[13px] font-bold tabular-nums text-[#181d27]">
-                        {asset.valueUsd > 0 ? formatCurrency(asset.valueUsd) : <span className="text-[#d0d5dd]">$0.00</span>}
+                        {asset.valueUsd > 0 ? formatAmount(asset.valueUsd, { compact: true }) : <span className="text-[#d0d5dd]">{formatAmount(0)}</span>}
                       </p>
                       <p className="mt-0.5 text-[11px] text-[#a4a7ae]">USD value</p>
                     </div>

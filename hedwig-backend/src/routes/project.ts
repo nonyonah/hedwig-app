@@ -6,6 +6,7 @@ import { getOrCreateUser } from '../utils/userHelper';
 import { EmailService } from '../services/email';
 import { createLogger } from '../utils/logger';
 import { upsertCalendarEventFromSource, updateCalendarEventStatusBySource } from './calendar';
+import { checkDocumentCreationLimit, requireProFeatureAccess } from '../services/billingRules';
 
 const logger = createLogger('Projects');
 
@@ -389,6 +390,8 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
         let createdInvoiceCount = 0;
         let createdContract: { id: string; title: string; status: string } | null = null;
         let contractEmailSent = false;
+        let contractLimitReached = false;
+        let milestoneAutomationLocked = false;
         if (milestones && Array.isArray(milestones) && milestones.length > 0) {
             logger.info('Creating milestones', { count: milestones.length, projectId: project.id });
             
@@ -433,6 +436,10 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             : fallbackProjectAmount;
         const approvalToken = crypto.randomBytes(32).toString('hex');
 
+        const contractLimit = await checkDocumentCreationLimit({ user, type: 'CONTRACT' });
+        if (!contractLimit.allowed) {
+            contractLimitReached = true;
+        } else {
             let generatedContent = '';
             try {
                 const { GeminiService } = await import('../services/gemini');
@@ -559,38 +566,44 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
                     }
                 }
             }
+        }
 
-        for (const milestone of milestoneItems) {
-            const { error: invoiceError } = await supabase
-                .from('documents')
-                .insert({
-                    user_id: user.id,
-                    client_id: clientId,
-                    project_id: project.id,
-                    type: 'INVOICE',
-                    title: `Invoice: ${milestone.title}`,
-                    amount: milestone.amount,
-                    description: `Milestone for ${project.name}`,
-                    status: 'DRAFT',
-                    content: {
-                        recipient_email: client.email || req.body.clientEmail || null,
-                        client_name: client.name,
-                        due_date: milestone.dueDate || project.deadline,
-                        items: [{ description: milestone.title, amount: milestone.amount }],
-                        reminders_enabled: true,
-                    },
-                });
+        const milestoneAutomationAccess = await requireProFeatureAccess(user, 'milestone_invoice_automation');
+        if (!milestoneAutomationAccess.allowed) {
+            milestoneAutomationLocked = milestoneItems.length > 0;
+        } else {
+            for (const milestone of milestoneItems) {
+                const { error: invoiceError } = await supabase
+                    .from('documents')
+                    .insert({
+                        user_id: user.id,
+                        client_id: clientId,
+                        project_id: project.id,
+                        type: 'INVOICE',
+                        title: `Invoice: ${milestone.title}`,
+                        amount: milestone.amount,
+                        description: `Milestone for ${project.name}`,
+                        status: 'DRAFT',
+                        content: {
+                            recipient_email: client.email || req.body.clientEmail || null,
+                            client_name: client.name,
+                            due_date: milestone.dueDate || project.deadline,
+                            items: [{ description: milestone.title, amount: milestone.amount }],
+                            reminders_enabled: true,
+                        },
+                    });
 
-            if (invoiceError) {
-                logger.error('Failed to auto-create milestone invoice', {
-                    error: invoiceError.message,
-                    projectId: project.id,
-                    milestoneTitle: milestone.title,
-                });
-                continue;
+                if (invoiceError) {
+                    logger.error('Failed to auto-create milestone invoice', {
+                        error: invoiceError.message,
+                        projectId: project.id,
+                        milestoneTitle: milestone.title,
+                    });
+                    continue;
+                }
+
+                createdInvoiceCount += 1;
             }
-
-            createdInvoiceCount += 1;
         }
 
         logger.info('Project created successfully', { 
@@ -628,6 +641,8 @@ GENERATE THE CONTRACT NOW, starting with the title.`;
                     contract: createdContract,
                     contractEmailSent,
                     createdInvoiceCount,
+                    contractLimitReached,
+                    milestoneAutomationLocked,
                     milestones: createdMilestones.map((m: any) => ({
                         id: m.id,
                         title: m.title,

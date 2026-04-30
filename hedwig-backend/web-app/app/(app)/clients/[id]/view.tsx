@@ -17,8 +17,9 @@ import {
 } from '@/components/ui/dialog';
 import { hedwigApi } from '@/lib/api/client';
 import type { Client, Contract, Invoice, PaymentLink, Project } from '@/lib/models/entities';
-import { cn, formatCompactCurrency, formatShortDate } from '@/lib/utils';
+import { cn, formatShortDate } from '@/lib/utils';
 import { useToast } from '@/components/providers/toast-provider';
+import { useCurrency } from '@/components/providers/currency-provider';
 
 function initials(name: string) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -98,6 +99,7 @@ export function ClientDetailClient({
   accessToken: string | null;
 }) {
   const { toast } = useToast();
+  const { formatAmount } = useCurrency();
   const [client, setClient] = useState(initialClient);
   const [editOpen, setEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -167,8 +169,8 @@ export function ClientDetailClient({
               </div>
               <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
                 {client.company ? `${client.company} · ` : ''}
-                {formatCompactCurrency(client.totalBilledUsd)} billed
-                {client.outstandingUsd > 0 ? ` · ${formatCompactCurrency(client.outstandingUsd)} outstanding` : ''}
+                {formatAmount(client.totalBilledUsd, { compact: true })} billed
+                {client.outstandingUsd > 0 ? ` · ${formatAmount(client.outstandingUsd, { compact: true })} outstanding` : ''}
               </p>
             </div>
           </div>
@@ -239,7 +241,7 @@ export function ClientDetailClient({
                             <span className="text-[12px] tabular-nums text-[#8d9096]">{p.progress}%</span>
                           </div>
                         </td>
-                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[#8d9096]">{formatCompactCurrency(p.budgetUsd)}</td>
+                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[#8d9096]">{formatAmount(p.budgetUsd, { compact: true })}</td>
                         <td className="px-5 py-2.5 text-[12px] text-[#a4a7ae]">{formatShortDate(p.nextDeadlineAt)}</td>
                       </tr>
                     );
@@ -274,7 +276,7 @@ export function ClientDetailClient({
                           </Link>
                         </td>
                         <td className="px-5 py-2.5"><Pill bg={is.bg} text={is.text} label={is.label} /></td>
-                        <td className="px-5 py-2.5 text-[13px] font-semibold tabular-nums text-[#252b37]">{formatCompactCurrency(inv.amountUsd)}</td>
+                        <td className="px-5 py-2.5 text-[13px] font-semibold tabular-nums text-[#252b37]">{formatAmount(inv.amountUsd, { compact: true })}</td>
                         <td className="px-5 py-2.5 text-[12px] text-[#a4a7ae]">{formatShortDate(inv.dueAt)}</td>
                       </tr>
                     );
@@ -331,7 +333,7 @@ export function ClientDetailClient({
                         <Pill bg={ps.bg} text={ps.text} label={pl.status} />
                       </div>
                       <p className="mt-0.5 text-[11px] text-[#a4a7ae]">
-                        {formatCompactCurrency(pl.amountUsd)} · {pl.asset} on {pl.chain}
+                        {formatAmount(pl.amountUsd, { compact: true })} · {pl.asset} on {pl.chain}
                       </p>
                     </div>
                   );

@@ -13,11 +13,15 @@ export async function POST(req: NextRequest): Promise<Response> {
   const body = await req.json().catch(() => null) as any;
   const provider = body?.provider;
 
-  if (!provider || !['gmail', 'google_calendar', 'slack'].includes(provider)) {
+  if (!provider || !['gmail', 'google_calendar'].includes(provider)) {
     return NextResponse.json({ success: false, error: 'Invalid provider' }, { status: 400 });
   }
 
-  const resp = await fetch(`${backendConfig.apiBaseUrl}/api/integrations/${provider}`, {
+  const target = provider === 'google_calendar'
+    ? `${backendConfig.apiBaseUrl}/api/integrations/composio/connect/google_calendar`
+    : `${backendConfig.apiBaseUrl}/api/integrations/${provider}`;
+
+  const resp = await fetch(target, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${session.accessToken}` },
   });

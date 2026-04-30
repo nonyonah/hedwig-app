@@ -16,26 +16,26 @@ import {
   LinkSimple,
   Repeat,
   Trash,
-  UploadSimple,
   X,
   Info
 } from '@/components/ui/lucide-icons';
 import type { Invoice, PaymentLink, RecurringInvoice, Client } from '@/lib/models/entities';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { RecurringInvoicesSection } from '@/components/payments/recurring-invoices-section';
-import { ImportInvoiceModal } from '@/components/email/import-invoice-modal';
 import { hedwigApi } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { ClientPortal } from '@/components/ui/client-portal';
+import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import type { RowActionItem } from '@/components/data/row-actions-menu';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
-import { formatCompactCurrency, formatShortDate } from '@/lib/utils';
+import { formatShortDate } from '@/lib/utils';
 import { backendConfig } from '@/lib/auth/config';
 import { canUseFeature } from '@/lib/billing/feature-gates';
 import { ProLockCard } from '@/components/billing/pro-lock-card';
+import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
 
 /* ─── status helpers ─── */
 const INV_STATUS: Record<Invoice['status'], { dot: string; label: string; bg: string; text: string }> = {
@@ -115,13 +115,12 @@ export function PaymentsClient({
   clients?: Client[];
   billing: BillingStatusSummary | null;
 }) {
-  const { currency } = useCurrency();
+  const { formatAmount } = useCurrency();
   const { toast } = useToast();
   const canUseRecurringAutomation = canUseFeature('recurring_invoice_automation', billing);
 
   const [invoiceItems, setInvoiceItems] = useState(invoices);
   const [paymentLinkItems, setPaymentLinkItems] = useState(paymentLinks);
-  const [showImportModal, setShowImportModal] = useState(false);
 
   // Map active/paused recurring templates into invoice rows (prefixed IDs so we know they're templates)
   const recurringTemplateRows = useMemo((): Invoice[] =>
@@ -340,47 +339,39 @@ export function PaymentsClient({
           <h1 className="text-[15px] font-semibold text-[#181d27]">Payments</h1>
           <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Invoice clients and collect payments in one workflow.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowImportModal(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#f9fafb]"
-        >
-          <UploadSimple className="h-3.5 w-3.5" />
-          Import invoice
-        </button>
       </div>
-      {/* Stats bar */}
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-        <div className="flex flex-col bg-white px-5 py-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[12px] font-medium text-[#717680]">Outstanding</p>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-              <CurrencyDollar className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-            </div>
-          </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{formatCompactCurrency(stats.outstanding, currency)}</p>
-          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">Awaiting payment</p>
-        </div>
-        <div className="flex flex-col bg-white px-5 py-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[12px] font-medium text-[#717680]">Collected</p>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-              <CheckCircle className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-            </div>
-          </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{formatCompactCurrency(stats.paid, currency)}</p>
-          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">From paid invoices</p>
-        </div>
-        <div className="flex flex-col bg-white px-5 py-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[12px] font-medium text-[#717680]">Active links</p>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-              <LinkSimple className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-            </div>
-          </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{stats.activeLinks}</p>
-          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">Ready to share</p>
-        </div>
+      <AttachedStatGrid
+        items={[
+          {
+            id: 'outstanding',
+            title: 'Outstanding',
+            value: formatAmount(stats.outstanding, { compact: true }),
+            helper: 'Awaiting payment',
+            icon: CurrencyDollar,
+          },
+          {
+            id: 'collected',
+            title: 'Collected',
+            value: formatAmount(stats.paid, { compact: true }),
+            helper: 'From paid invoices',
+            icon: CheckCircle,
+          },
+          {
+            id: 'active-links',
+            title: 'Active links',
+            value: String(stats.activeLinks),
+            helper: 'Ready to share',
+            icon: LinkSimple,
+          },
+        ]}
+        className="grid-cols-1 md:grid-cols-3"
+      />
+
+      <div className="flex items-start gap-3 rounded-2xl border border-[#e9eaeb] bg-white px-4 py-3 text-[#414651] shadow-xs">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#717680]" weight="bold" />
+        <p className="text-[13px] text-[#717680]">
+          Need to move funds out? You can access and manage your available balance from the Hedwig mobile app.
+        </p>
       </div>
 
       {/* Highlighted invoice banner */}
@@ -395,6 +386,12 @@ export function PaymentsClient({
         </div>
       )}
 
+      <ContextualSuggestions
+        title="Payments to review"
+        description="Hedwig surfaces invoice follow-up suggestions here only when action is clear."
+        query={{ types: ['invoice_reminder'], limit: 2 }}
+      />
+
       {/* Main card */}
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
         {/* Unified header */}
@@ -404,7 +401,7 @@ export function PaymentsClient({
             <>
               <span className="h-3 w-px shrink-0 bg-[#f2f4f7]" />
               <span className="truncate text-[12px] text-[#a4a7ae]">
-                {formatCompactCurrency(stats.outstanding, currency)} outstanding · {formatCompactCurrency(stats.paid, currency)} collected
+                {formatAmount(stats.outstanding, { compact: true })} outstanding · {formatAmount(stats.paid, { compact: true })} collected
                 {stats.activeLinks > 0 ? ` · ${stats.activeLinks} active link${stats.activeLinks > 1 ? 's' : ''}` : ''}
               </span>
             </>
@@ -533,7 +530,7 @@ export function PaymentsClient({
                     </div>
                     <StatusPill {...s} />
                     <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">
-                      {formatCompactCurrency(inv.amountUsd, currency)}
+                      {formatAmount(inv.amountUsd, { compact: true })}
                     </p>
                     <p className="text-right text-[12px] text-[#717680]">{formatShortDate(inv.dueAt)}</p>
                     <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
@@ -566,7 +563,7 @@ export function PaymentsClient({
                   </div>
                   <StatusPill {...s} />
                   <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">
-                    {formatCompactCurrency(link.amountUsd, currency)}
+                    {formatAmount(link.amountUsd, { compact: true })}
                   </p>
                   <div className="flex justify-end">
                     <MultiChainStack size={16} />
@@ -595,14 +592,12 @@ export function PaymentsClient({
             {selectedRecurring ? (
               <RecurringPanel
                 item={selectedRecurring}
-                currency={currency}
                 onClose={() => setSelectedRecurring(null)}
               />
             ) : selectedInvoice ? (
               <InvoicePanel
                 invoice={selectedInvoice}
                 publicUrl={publicInvoiceUrl}
-                currency={currency}
                 isLoading={isActionLoading}
                 onClose={() => setSelectedInvoice(null)}
                 onMarkPaid={() => markAsPaid(selectedInvoice, 'invoice')}
@@ -615,7 +610,6 @@ export function PaymentsClient({
               <PaymentLinkPanel
                 link={selectedPaymentLink}
                 publicUrl={publicLinkUrl}
-                currency={currency}
                 isLoading={isActionLoading}
                 onClose={() => setSelectedPaymentLink(null)}
                 onMarkPaid={() => markAsPaid(selectedPaymentLink, 'payment-link')}
@@ -689,36 +683,34 @@ export function PaymentsClient({
         </div>
       )}
 
-      {showImportModal && (
-        <ImportInvoiceModal
-          onClose={() => setShowImportModal(false)}
-          onImported={(doc) => {
-            toast({ type: 'success', title: 'Invoice imported', message: `${doc.filename} has been extracted and is ready for review.` });
-            setShowImportModal(false);
-          }}
-        />
-      )}
-
     </div>
   );
 }
 
 /* ─── Invoice detail panel ─── */
 function InvoicePanel({
-  invoice, publicUrl, currency, isLoading,
+  invoice, publicUrl, isLoading,
   onClose, onMarkPaid, onReminder, onToggleReminders, onCopyLink, onDelete
 }: {
-  invoice: Invoice; publicUrl: string; currency: any; isLoading: boolean;
+  invoice: Invoice; publicUrl: string; isLoading: boolean;
   onClose: () => void; onMarkPaid: () => void; onReminder: () => void;
   onToggleReminders: (v: boolean) => void; onCopyLink: () => void; onDelete: () => void;
 }) {
+  const { formatAmount } = useCurrency();
   const s = INV_STATUS[invoice.status];
   return (
     <>
       <PanelHeader label={invoice.title || 'Invoice'} id={invoice.number} onClose={onClose} />
-      <PanelHero amount={formatCompactCurrency(invoice.amountUsd, currency)} status={<StatusPill {...s} />} />
+      <PanelHero amount={formatAmount(invoice.amountUsd, { compact: true })} status={<StatusPill {...s} />} />
       <div className="flex-1 overflow-y-auto">
-        <div className="divide-y divide-[#f2f4f7] px-6 py-2">
+        <div className="space-y-4 px-6 py-4">
+          <ContextualSuggestions
+            title="For this invoice"
+            description="Only high-confidence invoice suggestions appear here."
+            query={{ invoiceId: invoice.id, types: ['invoice_reminder', 'calendar_event'], limit: 2 }}
+          />
+
+          <div className="divide-y divide-[#f2f4f7]">
           <PanelRow label="Invoice number" value={invoice.number} />
           <PanelRow label="Due date" value={formatShortDate(invoice.dueAt)} />
           {invoice.viewedAt ? <PanelRow label="First viewed" value={formatShortDate(invoice.viewedAt)} /> : null}
@@ -738,6 +730,7 @@ function InvoicePanel({
           />
           <PanelRow label="Auto-reminders" value={invoice.remindersEnabled === false ? 'Off' : 'On'} />
           <PanelRow label="Public page" value={publicUrl} mono />
+          </div>
         </div>
       </div>
       <div className="border-t border-[#e9eaeb] px-6 py-5 space-y-2">
@@ -786,18 +779,19 @@ function InvoicePanel({
 
 /* ─── Payment link detail panel ─── */
 function PaymentLinkPanel({
-  link, publicUrl, currency, isLoading,
+  link, publicUrl, isLoading,
   onClose, onMarkPaid, onReminder, onToggleReminders, onCopyLink, onDelete
 }: {
-  link: PaymentLink; publicUrl: string; currency: any; isLoading: boolean;
+  link: PaymentLink; publicUrl: string; isLoading: boolean;
   onClose: () => void; onMarkPaid: () => void; onReminder: () => void;
   onToggleReminders: (v: boolean) => void; onCopyLink: () => void; onDelete: () => void;
 }) {
+  const { formatAmount } = useCurrency();
   const s = LINK_STATUS[link.status];
   return (
     <>
       <PanelHeader label="Payment link" id={link.title} onClose={onClose} />
-      <PanelHero amount={formatCompactCurrency(link.amountUsd, currency)} status={<StatusPill {...s} />} />
+      <PanelHero amount={formatAmount(link.amountUsd, { compact: true })} status={<StatusPill {...s} />} />
       <div className="flex-1 overflow-y-auto">
         <div className="divide-y divide-[#f2f4f7] px-6 py-2">
           <PanelRow label="Title" value={link.title} />
@@ -860,17 +854,18 @@ const FREQ_LABELS: Record<string, string> = {
 };
 
 function RecurringPanel({
-  item, currency, onClose
+  item, onClose
 }: {
-  item: RecurringInvoice; currency: any; onClose: () => void;
+  item: RecurringInvoice; onClose: () => void;
 }) {
+  const { formatAmount } = useCurrency();
   return (
     <>
       <PanelHeader label="Recurring template" id={item.title || 'Recurring invoice'} onClose={onClose} />
       <div className="border-b border-[#e9eaeb] bg-[#f8f9fc] px-6 py-5">
         <p className="text-[11px] font-medium text-[#a4a7ae] mb-1">Amount per cycle</p>
         <p className="text-[32px] font-bold tracking-[-0.03em] text-[#181d27] leading-none mb-3">
-          {formatCompactCurrency(item.amountUsd, currency)}
+          {formatAmount(item.amountUsd, { compact: true })}
         </p>
         <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold bg-[#fdf4ff] text-[#717680]">
           <Repeat className="h-3 w-3" /> {FREQ_LABELS[item.frequency] || item.frequency}

@@ -13,11 +13,14 @@ import {
   IdentificationCard,
   Link as LinkIcon,
   Repeat,
+  Sparkle
 } from '@/components/ui/lucide-icons';
 import { useCurrency } from '@/components/providers/currency-provider';
-import { formatCurrency, formatShortDate } from '@/lib/utils';
+import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
+import { formatShortDate } from '@/lib/utils';
 import type { BillingStatusSummary } from '@/lib/api/client';
-import { AssistantPanel } from '@/components/assistant/assistant-panel';
+import { canUseFeature } from '@/lib/billing/feature-gates';
+import { ProLockCard } from '@/components/billing/pro-lock-card';
 import type { Contract, Invoice, Milestone, PaymentLink } from '@/lib/models/entities';
 
 type DashboardData = {
@@ -72,8 +75,9 @@ export function DashboardClient({
   data: DashboardData;
   billing: BillingStatusSummary | null;
 }) {
-  const { currency } = useCurrency();
+  const { currency, formatAmount } = useCurrency();
   const [hour, setHour] = useState(() => new Date().getHours());
+  const canUseAssistantSummary = canUseFeature('assistant_summary_advanced', billing);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -145,7 +149,7 @@ export function DashboardClient({
       {
         id: 'earnings',
         title: 'Earnings',
-        value: formatCurrency(data.totals.inflowUsd, currency),
+        value: formatAmount(data.totals.inflowUsd),
         helper: 'Paid invoices and payment links',
         href: '/insights',
         icon: CurrencyDollar
@@ -204,7 +208,7 @@ export function DashboardClient({
       {
         id: 'Outstanding',
         title: 'Outstanding',
-        value: formatCurrency(data.totals.outstandingUsd, currency),
+        value: formatAmount(data.totals.outstandingUsd),
         helper: 'Expected across unpaid work',
         href: '/payments',
         icon: ChartBar
@@ -304,66 +308,69 @@ export function DashboardClient({
         </article>
 
         {/* Right: workstream stat mini-cards */}
-        <div className="grid grid-cols-2 gap-4">
-          {dashboardState.workstreamCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <Link
-                key={card.id}
-                href={card.href}
-                className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-xs ring-1 ring-[#e9eaeb] transition duration-100 ease-linear hover:bg-[#fafafa]"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f5f5f5]">
-                  <Icon className="h-[16px] w-[16px] text-[#717680]" weight="regular" />
-                </div>
-                <div>
-                  <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{card.value}</p>
-                  <p className="mt-1 text-[13px] font-semibold text-[#535862]">{card.title}</p>
-                  <p className="mt-0.5 text-[12px] text-[#a4a7ae]">{card.helper}</p>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        <AttachedStatGrid
+          items={dashboardState.workstreamCards.map((card) => ({
+            id: card.id,
+            title: card.title,
+            value: card.value,
+            helper: card.helper,
+            icon: card.icon,
+            href: card.href,
+          }))}
+          className="grid-cols-2"
+        />
       </div>
 
-      {/* Assistant panel + next reminder */}
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
-        <AssistantPanel />
-
-        <div className="space-y-4">
+      {/* Bottom row: assistant summary + next reminder */}
+      <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+        {canUseAssistantSummary ? (
           <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-[16px] font-semibold text-[#181d27]">Next reminder</p>
-              <CalendarDots className="h-4 w-4 text-[#a4a7ae]" weight="regular" />
+            <div className="mb-3 flex items-center gap-2.5">
+              {/* UUI featured icon: brand color */}
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eff4ff]">
+                <Sparkle className="h-4 w-4 text-[#717680]" weight="fill" />
+              </div>
+              <p className="text-[16px] font-semibold text-[#181d27]">Assistant summary</p>
             </div>
-            {dashboardState.latestReminder ? (
-              <>
-                <p className="text-[14px] font-semibold text-[#181d27]">{dashboardState.latestReminder.title}</p>
-                <p className="mt-1 text-[13px] text-[#717680]">Due {formatShortDate(dashboardState.latestReminder.dueAt)}</p>
-              </>
-            ) : (
-              <>
-                <p className="text-[14px] font-semibold text-[#414651]">No pending reminders</p>
-                <p className="mt-1 text-[13px] text-[#a4a7ae]">You are caught up for now.</p>
-              </>
-            )}
-            <Link
-              className="mt-4 inline-flex h-8 select-none items-center rounded-lg border border-[#d5d7da] bg-white px-3 text-[13px] font-semibold text-[#414651] shadow-xs transition duration-100 ease-linear hover:bg-[#fafafa]"
-              href="/calendar"
-            >
-              View calendar
-            </Link>
+            <p className="text-[14px] leading-relaxed text-[#535862]">
+              {data.assistantSummary ||
+                dashboardState.latestNotification?.body ||
+                dashboardState.latestActivity?.summary ||
+                'Payment activity, reminders, contracts, and project updates are summarized here.'}
+            </p>
           </article>
+        ) : (
+          <ProLockCard
+            title="Assistant summary is on Pro"
+            description="Unlock proactive summaries for payments, reminders, and project updates."
+            compact
+          />
+        )}
 
-          {dashboardState.latestActivity && (
-            <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
-              <p className="mb-2 text-[13px] font-semibold text-[#181d27]">Recent activity</p>
-              <p className="text-[13px] text-[#717680]">{dashboardState.latestActivity.summary}</p>
-              <p className="mt-1 text-[11px] text-[#c1c5cd]">{dashboardState.latestActivity.actor}</p>
-            </article>
+        <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[16px] font-semibold text-[#181d27]">Next reminder</p>
+            <CalendarDots className="h-4 w-4 text-[#a4a7ae]" weight="regular" />
+          </div>
+          {dashboardState.latestReminder ? (
+            <>
+              <p className="text-[14px] font-semibold text-[#181d27]">{dashboardState.latestReminder.title}</p>
+              <p className="mt-1 text-[13px] text-[#717680]">Due {formatShortDate(dashboardState.latestReminder.dueAt)}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-[14px] font-semibold text-[#414651]">No pending reminders</p>
+              <p className="mt-1 text-[13px] text-[#a4a7ae]">You are caught up for now.</p>
+            </>
           )}
-        </div>
+          {/* UUI secondary button */}
+          <Link
+            className="mt-4 inline-flex h-8 select-none items-center rounded-lg border border-[#d5d7da] bg-white px-3 text-[13px] font-semibold text-[#414651] shadow-xs transition duration-100 ease-linear hover:bg-[#fafafa]"
+            href="/calendar"
+          >
+            View calendar
+          </Link>
+        </article>
       </div>
     </div>
   );

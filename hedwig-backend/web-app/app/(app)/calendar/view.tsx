@@ -370,7 +370,7 @@ export function CalendarClient({
               </>
             ) : (
               <a
-                href="/integrations"
+                href="/api/integrations/composio/connect/google_calendar"
                 className="inline-flex h-8 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-3 text-[13px] font-medium text-[#414651] shadow-xs transition hover:bg-[#fafafa]"
               >
                 Connect Google Calendar

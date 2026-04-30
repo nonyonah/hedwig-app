@@ -13,6 +13,16 @@ import {
   type Provider,
 } from '../services/integrations';
 import { syncGmailThreads, matchThreadsToWorkspace, syncGoogleCalendar, pushHedwigEventsToGoogleCalendar } from '../services/emailSync';
+import { syncComposioGoogleCalendar } from '../services/composioCalendar';
+import {
+  isComposioConfigured,
+  isValidProvider as isValidComposioProvider,
+  listConnectionsForUser as listComposioConnections,
+  refreshConnectionsForUser as refreshComposioConnections,
+  initiateConnection as initiateComposioConnection,
+  refreshConnectionStatus as refreshComposioStatus,
+  revokeConnection as revokeComposioConnection,
+} from '../services/composio';
 import { createLogger } from '../utils/logger';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -119,6 +129,28 @@ router.get('/', async (req: Request, res: Response) => {
 
   try {
     const integrations = await getIntegrations(userId);
+    if (isComposioConfigured()) {
+      await refreshComposioStatus(userId, 'google_calendar').catch(() => null);
+      const composioConnections = await listComposioConnections(userId).catch(() => []);
+      const composioCalendar = composioConnections.find((connection) => connection.provider === 'google_calendar' && connection.connected);
+      if (composioCalendar) {
+        const legacyWithoutCalendar = integrations.filter((integration) => integration.provider !== 'google_calendar');
+        legacyWithoutCalendar.push({
+          id: `composio:${composioCalendar.provider}`,
+          user_id: userId,
+          provider: 'google_calendar',
+          status: 'connected',
+          provider_email: composioCalendar.accountLabel,
+          provider_user_id: null,
+          scope: null,
+          last_synced_at: composioCalendar.lastSyncedAt,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any);
+        res.json({ success: true, data: legacyWithoutCalendar });
+        return;
+      }
+    }
     res.json({ success: true, data: integrations });
   } catch (err: any) {
     logger.error('list integrations', { userId, err });
@@ -132,7 +164,7 @@ router.delete('/:provider', async (req: Request, res: Response) => {
   if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
 
   const provider = req.params.provider as Provider;
-  const valid: Provider[] = ['gmail', 'google_calendar', 'slack'];
+  const valid: Provider[] = ['gmail', 'google_calendar'];
   if (!valid.includes(provider)) {
     res.status(400).json({ success: false, error: 'Unknown provider' });
     return;
@@ -169,6 +201,15 @@ router.post('/oauth/google/callback', async (req: Request, res: Response) => {
     await upsertIntegration(userId, provider, tokens, userInfo.id, userInfo.email);
 
     // Kick off initial sync in background
+    if (provider === 'google_calendar' && isComposioConfigured()) {
+      const row = await refreshComposioStatus(userId, 'google_calendar');
+      if (row?.status === 'active') {
+        res.json({ success: true, message: 'Sync started' });
+        await syncComposioGoogleCalendar(userId);
+        return;
+      }
+    }
+
     const { data: integration } = await supabase
       .from('user_integrations')
       .select('id')
@@ -527,16 +568,142 @@ router.get('/calendar-events', async (req: Request, res: Response) => {
   const userId = await getUserId(req);
   if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
 
-  const { data, error } = await supabase
-    .from('external_calendar_events')
-    .select('id, title, start_at, end_at, all_day, attendees, matched_client_id, matched_project_id')
-    .eq('user_id', userId)
-    .gte('start_at', new Date().toISOString())
-    .order('start_at', { ascending: true })
-    .limit(20);
+  const nowIso = new Date().toISOString();
+  const [externalRes, hedwigRes] = await Promise.all([
+    supabase
+      .from('external_calendar_events')
+      .select('id, title, start_at, end_at, all_day, attendees, matched_client_id, matched_project_id')
+      .eq('user_id', userId)
+      .gte('start_at', nowIso)
+      .order('start_at', { ascending: true })
+      .limit(30),
+    supabase
+      .from('calendar_events')
+      .select('id, title, description, event_date, event_type, status, source_type, source_id')
+      .eq('user_id', userId)
+      .eq('status', 'upcoming')
+      .gte('event_date', nowIso)
+      .order('event_date', { ascending: true })
+      .limit(30),
+  ]);
+
+  const error = externalRes.error || hedwigRes.error;
 
   if (error) { res.status(500).json({ success: false, error: error.message }); return; }
-  res.json({ success: true, data: data ?? [] });
+
+  const data = [
+    ...(externalRes.data ?? []).map((event: any) => ({ ...event, source: 'google_calendar' })),
+    ...(hedwigRes.data ?? []).map((event: any) => ({
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      start_at: event.event_date,
+      end_at: event.event_date,
+      all_day: true,
+      attendees: [],
+      matched_client_id: null,
+      matched_project_id: event.source_type === 'project' ? event.source_id : null,
+      event_type: event.event_type,
+      source_type: event.source_type,
+      source_id: event.source_id,
+      source: 'hedwig',
+    })),
+  ].sort((a, b) => String(a.start_at || '').localeCompare(String(b.start_at || ''))).slice(0, 50);
+
+  res.json({ success: true, data });
+});
+
+// ─── Composio ────────────────────────────────────────────────────────────────
+
+const COMPOSIO_REDIRECT_BASE = (
+  process.env.COMPOSIO_REDIRECT_BASE_URL
+  || process.env.PUBLIC_APP_URL
+  || process.env.WEB_CLIENT_URL
+  || 'http://localhost:3001'
+).replace(/\/+$/, '');
+
+router.get('/composio/status', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  if (!isComposioConfigured()) {
+    res.json({ success: true, data: { configured: false, connections: [] } });
+    return;
+  }
+
+  try {
+    await refreshComposioConnections(userId);
+    const connections = await listComposioConnections(userId);
+    res.json({ success: true, data: { configured: true, connections } });
+  } catch (error: any) {
+    logger.error('Composio status failed', { userId, error: error?.message });
+    res.status(500).json({ success: false, error: 'Could not load integration status' });
+  }
+});
+
+router.post('/composio/connect/:provider', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  if (!isComposioConfigured()) {
+    res.status(503).json({ success: false, error: 'Composio is not configured on this environment' });
+    return;
+  }
+
+  const provider = String(req.params.provider || "");
+  if (!isValidComposioProvider(provider)) {
+    res.status(400).json({ success: false, error: 'Unsupported provider' });
+    return;
+  }
+
+  try {
+    const redirectUri = `${COMPOSIO_REDIRECT_BASE}/settings?integration_connected=${encodeURIComponent(provider)}`;
+    const { redirectUrl } = await initiateComposioConnection({ userId, provider, redirectUri });
+    res.json({ success: true, data: { redirectUrl } });
+  } catch (error: any) {
+    logger.error('Composio connect failed', { userId, provider, error: error?.message });
+    res.status(500).json({ success: false, error: error?.message || 'Could not start connection' });
+  }
+});
+
+router.post('/composio/refresh/:provider', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  const provider = String(req.params.provider || "");
+  if (!isValidComposioProvider(provider)) {
+    res.status(400).json({ success: false, error: 'Unsupported provider' });
+    return;
+  }
+
+  try {
+    await refreshComposioStatus(userId, provider);
+    const connections = await listComposioConnections(userId);
+    res.json({ success: true, data: { connections } });
+  } catch (error: any) {
+    logger.error('Composio refresh failed', { userId, provider, error: error?.message });
+    res.status(500).json({ success: false, error: 'Could not refresh status' });
+  }
+});
+
+router.delete('/composio/connect/:provider', async (req: Request, res: Response) => {
+  const userId = await getUserId(req);
+  if (!userId) { res.status(401).json({ success: false, error: 'Unauthorized' }); return; }
+
+  const provider = String(req.params.provider || "");
+  if (!isValidComposioProvider(provider)) {
+    res.status(400).json({ success: false, error: 'Unsupported provider' });
+    return;
+  }
+
+  try {
+    await revokeComposioConnection(userId, provider);
+    const connections = await listComposioConnections(userId);
+    res.json({ success: true, data: { connections } });
+  } catch (error: any) {
+    logger.error('Composio disconnect failed', { userId, provider, error: error?.message });
+    res.status(500).json({ success: false, error: 'Could not disconnect' });
+  }
 });
 
 export default router;

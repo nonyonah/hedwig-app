@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
 import { pushHedwigEventsToGoogleCalendar } from '../services/emailSync';
+import { hasActiveComposioCalendar, pushHedwigEventsToComposioGoogleCalendar } from '../services/composioCalendar';
 
 const ICS_SECRET = process.env.ICS_SECRET || 'hedwig-ics-secret-change-in-production';
 
@@ -33,6 +34,14 @@ function toIcsDatetime(d: Date): string {
 const logger = createLogger('Calendar');
 
 const router = Router();
+
+async function pushToConnectedGoogleCalendar(userId: string): Promise<void> {
+    if (await hasActiveComposioCalendar(userId)) {
+        await pushHedwigEventsToComposioGoogleCalendar(userId);
+        return;
+    }
+    await pushHedwigEventsToGoogleCalendar(userId);
+}
 
 /**
  * GET /api/calendar
@@ -386,7 +395,7 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
         logger.info('Event created');
 
         // Push to Google Calendar in background (non-blocking)
-        pushHedwigEventsToGoogleCalendar(user.id).catch(() => {});
+        pushToConnectedGoogleCalendar(user.id).catch(() => {});
 
         res.status(201).json({
             success: true,
@@ -452,7 +461,7 @@ router.patch('/:id', authenticate, async (req: Request, res: Response, next) => 
         logger.info('Event updated');
 
         // Push updated event to Google Calendar in background (non-blocking)
-        pushHedwigEventsToGoogleCalendar(user.id).catch(() => {});
+        pushToConnectedGoogleCalendar(user.id).catch(() => {});
 
         res.json({
             success: true,
@@ -548,7 +557,7 @@ export async function createCalendarEventFromSource(
 
         logger.debug('Auto-created event from source');
         // Push to Google Calendar in background (non-blocking)
-        pushHedwigEventsToGoogleCalendar(userId).catch(() => {});
+        pushToConnectedGoogleCalendar(userId).catch(() => {});
         return event;
     } catch (error) {
         logger.error('Error creating event from source');

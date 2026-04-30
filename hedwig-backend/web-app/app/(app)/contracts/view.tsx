@@ -8,6 +8,7 @@ import { hedwigApi } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import type { RowActionItem } from '@/components/data/row-actions-menu';
+import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { useToast } from '@/components/providers/toast-provider';
 import { backendConfig } from '@/lib/auth/config';
 
@@ -135,24 +136,14 @@ export function ContractsClient({
         <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Create, send, and manage signed agreements with your clients.</p>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-        <div className="bg-white px-5 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Total</p>
-          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{contracts.length}</p>
-          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">contracts</p>
-        </div>
-        <div className="bg-white px-5 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Signed</p>
-          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{signedCount}</p>
-          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">fully executed</p>
-        </div>
-        <div className="bg-white px-5 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">In review</p>
-          <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{reviewCount}</p>
-          <p className="mt-0.5 text-[11px] text-[#a4a7ae]">awaiting signature</p>
-        </div>
-      </div>
+      <AttachedStatGrid
+        items={[
+          { id: 'total', title: 'Total', value: String(contracts.length), helper: 'Contracts' },
+          { id: 'signed', title: 'Signed', value: String(signedCount), helper: 'Fully executed' },
+          { id: 'review', title: 'In review', value: String(reviewCount), helper: 'Awaiting signature' },
+        ]}
+        className="grid-cols-1 md:grid-cols-3"
+      />
 
       {/* Table card */}
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">

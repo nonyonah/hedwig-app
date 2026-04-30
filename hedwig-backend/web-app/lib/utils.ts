@@ -5,18 +5,27 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function normalizeDisplayCurrency(currency = 'USD'): string {
+  const normalized = String(currency || 'USD').trim().toUpperCase();
+  if (normalized === 'USDC' || normalized === 'USDT') return 'USD';
+  if (normalized === '₦' || normalized === 'NAIRA') return 'NGN';
+  return /^[A-Z]{3}$/.test(normalized) ? normalized : 'USD';
+}
+
 export function formatCurrency(value: number, currency = 'USD') {
+  const displayCurrency = normalizeDisplayCurrency(currency);
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency,
-    maximumFractionDigits: currency === 'USD' ? 2 : 0
+    currency: displayCurrency,
+    maximumFractionDigits: displayCurrency === 'USD' ? 2 : 0
   }).format(value);
 }
 
 export function formatCompactCurrency(value: number, currency = 'USD') {
+  const displayCurrency = normalizeDisplayCurrency(currency);
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency,
+    currency: displayCurrency,
     notation: 'compact',
     maximumFractionDigits: 1
   }).format(value);

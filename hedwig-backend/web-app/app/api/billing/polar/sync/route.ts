@@ -82,6 +82,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     // Pull subscription data if available
     let expiry: string | null = null;
     const subscriptionId = checkout?.subscription_id || checkout?.data?.subscription_id;
+    let productId: string | null =
+      checkout?.product_id ||
+      checkout?.product?.id ||
+      checkout?.products?.[0]?.id ||
+      checkout?.data?.product_id ||
+      null;
     if (subscriptionId) {
       const sub = await fetchPolarSubscription(subscriptionId).catch(() => null);
       const rawExpiry =
@@ -91,6 +97,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         sub?.expires_at ||
         null;
       if (rawExpiry) expiry = new Date(rawExpiry).toISOString();
+      productId = sub?.product_id || productId;
     }
 
     // Forward to backend to update DB — backend resolves user via external_customer_id or email
@@ -106,6 +113,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         status: 'active',
         expiry,
         subscriptionId: subscriptionId || null,
+        productId,
       }),
     });
 

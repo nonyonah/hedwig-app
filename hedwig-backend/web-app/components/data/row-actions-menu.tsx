@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { DotsThreeOutline } from '@/components/ui/lucide-icons';
 import { cn } from '@/lib/utils';
 
@@ -18,13 +20,15 @@ export function RowActionsMenu({
   align?: 'left' | 'right';
 }) {
   const [open, setOpen] = useState(false);
-  const [dropUp, setDropUp] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!ref.current?.contains(target) && !menuRef.current?.contains(target)) {
         setOpen(false);
       }
     };
@@ -41,6 +45,31 @@ export function RowActionsMenu({
     };
   }, []);
 
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+
+    const position = () => {
+      const rect = btnRef.current!.getBoundingClientRect();
+      const menuWidth = 200;
+      const menuHeight = Math.min(56 + items.length * 42, 220);
+      const dropUp = window.innerHeight - rect.bottom < menuHeight + 12;
+      const top = dropUp ? Math.max(8, rect.top - menuHeight - 6) : rect.bottom + 6;
+      const left = align === 'right'
+        ? Math.min(window.innerWidth - menuWidth - 8, Math.max(8, rect.right - menuWidth))
+        : Math.min(window.innerWidth - menuWidth - 8, Math.max(8, rect.left));
+
+      setMenuStyle({ position: 'fixed', top, left, width: menuWidth, zIndex: 9999 });
+    };
+
+    position();
+    window.addEventListener('scroll', position, true);
+    window.addEventListener('resize', position);
+    return () => {
+      window.removeEventListener('scroll', position, true);
+      window.removeEventListener('resize', position);
+    };
+  }, [align, items.length, open]);
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -49,10 +78,6 @@ export function RowActionsMenu({
         aria-expanded={open}
         ref={btnRef}
         onClick={() => {
-          if (!open && btnRef.current) {
-            const rect = btnRef.current.getBoundingClientRect();
-            setDropUp(window.innerHeight - rect.bottom < 220);
-          }
           setOpen((current) => !current);
         }}
         className="flex h-8 w-8 items-center justify-center rounded-md text-[#a4a7ae] transition duration-100 hover:bg-[#f5f5f5] hover:text-[#717680]"
@@ -60,12 +85,11 @@ export function RowActionsMenu({
         <DotsThreeOutline className="h-4 w-4" weight="fill" />
       </button>
 
-      {open ? (
+      {open && menuStyle ? createPortal(
         <div
-          className={cn(
-            `absolute z-[9999] min-w-[200px] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[#e9eaeb] ${dropUp ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'}`,
-            align === 'right' ? 'right-0' : 'left-0'
-          )}
+          ref={menuRef}
+          className="overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-[#e9eaeb]"
+          style={menuStyle}
         >
           <div className="flex flex-col gap-0.5 p-1.5">
             {items.map((item) => (
@@ -86,7 +110,7 @@ export function RowActionsMenu({
             ))}
           </div>
         </div>
-      ) : null}
+      , document.body) : null}
     </div>
   );
 }

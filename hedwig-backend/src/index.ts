@@ -48,6 +48,7 @@ import feedbackRoutes from './routes/feedback';
 import paymentWebhooksRoutes from './routes/paymentWebhooks';
 import integrationsRoutes from './routes/integrations';
 import revenueRoutes from './routes/revenue';
+import currencyRoutes from './routes/currency';
 import assistantRoutes from './routes/assistant';
 
 // Import middleware
@@ -461,6 +462,7 @@ app.use('/api/usd-accounts', financialLimiter, usdAccountRoutes);
 app.use('/api/webhooks/bridge-usd', bridgeUsdWebhookRoutes);
 app.use('/api/integrations', integrationsLimiter, integrationsRoutes);
 app.use('/api/revenue', insightsLimiter, revenueRoutes);
+app.use('/api/currency', currencyRoutes);
 app.use('/api/assistant', insightsLimiter, assistantRoutes);
 
 // Serve static files from legacy public folder (for assets)

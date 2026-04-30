@@ -8,7 +8,7 @@ export type ExpenseCategory =
   | 'subscriptions'
   | 'other';
 
-export type ExpenseSourceType = 'manual' | 'email_import' | 'transaction_import';
+export type ExpenseSourceType = 'manual' | 'email_import' | 'transaction_import' | 'attachment_import';
 
 export type FinancialRecordType = 'revenue' | 'expense';
 
@@ -86,6 +86,8 @@ export interface ActivityEvent {
   title: string;
   description: string;
   amount?: number;
+  nativeAmount?: number;
+  currency?: string;
   createdAt: string;
 }
 

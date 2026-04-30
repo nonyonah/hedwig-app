@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
+import { getCurrentSession } from '@/lib/auth/session';
+import { backendConfig } from '@/lib/auth/config';
 
 export const runtime = 'nodejs';
 
@@ -47,6 +49,30 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   if (!provider || !['gmail', 'google_calendar'].includes(provider)) {
     return NextResponse.json({ error: 'Invalid provider' }, { status: 400 });
+  }
+
+  if (provider === 'google_calendar') {
+    const session = await getCurrentSession();
+    if (!session.accessToken) {
+      return NextResponse.redirect(new URL('/sign-in', req.url));
+    }
+
+    const resp = await fetch(`${backendConfig.apiBaseUrl}/api/integrations/composio/connect/google_calendar`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+      cache: 'no-store',
+    }).catch(() => null);
+
+    if (!resp) {
+      return NextResponse.redirect(new URL('/settings?integration_error=backend_unreachable', req.url));
+    }
+
+    const payload = await resp.json().catch(() => null) as any;
+    if (resp.ok && payload?.success && payload?.data?.redirectUrl) {
+      return NextResponse.redirect(payload.data.redirectUrl);
+    }
+
+    return NextResponse.redirect(new URL(`/settings?integration_error=${encodeURIComponent(payload?.error || 'connect_failed')}`, req.url));
   }
 
   // Generate a cryptographically random state tied to this session

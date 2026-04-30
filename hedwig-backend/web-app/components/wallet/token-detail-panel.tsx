@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { ArrowDown, ArrowSquareOut, ArrowUp, Check, Copy, Globe, XLogo, X } from '@/components/ui/lucide-icons';
 import { ClientPortal } from '@/components/ui/client-portal';
+import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import type { WalletAsset } from '@/lib/models/entities';
 
 const TIMEFRAMES = ['1D', '7D', '1M', '3M', '1Y'] as const;
@@ -120,23 +121,6 @@ function LinkPill({ href, icon, label }: { href: string; icon: React.ReactNode; 
       {icon}
       {label}
     </a>
-  );
-}
-
-function StatCell({ label, value, loading, colSpan }: {
-  label: string;
-  value: string | null;
-  loading?: boolean;
-  colSpan?: boolean;
-}) {
-  return (
-    <div className={`bg-white px-4 py-3.5 ${colSpan ? 'col-span-2' : ''}`}>
-      <p className="text-[11px] text-[#a4a7ae]">{label}</p>
-      {loading
-        ? <div className="mt-1.5 h-4 w-20 animate-pulse rounded-lg bg-[#f2f4f7]" />
-        : <p className="mt-0.5 text-[14px] font-semibold text-[#181d27]">{value ?? '—'}</p>
-      }
-    </div>
   );
 }
 
@@ -316,14 +300,16 @@ export function TokenDetailPanel({ asset, onClose }: { asset: WalletAsset; onClo
             )}
           </div>
 
-          {/* Stats grid: 2×3 */}
-          <div className="mx-5 mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-            <StatCell label="24h high"             value={fmtUsd(market?.high24h)}    loading={loading} />
-            <StatCell label="24h low"              value={fmtUsd(market?.low24h)}     loading={loading} />
-            <StatCell label="Market cap"           value={fmtUsd(market?.marketCap)}  loading={loading} />
-            <StatCell label="Rank"                 value={market?.rank ? `#${market.rank}` : null} loading={loading} />
-            <StatCell label="Circulating supply"   value={fmtSupply(market?.circulatingSupply ?? null, asset.symbol)} loading={loading} colSpan />
-          </div>
+          <AttachedStatGrid
+            items={[
+              { id: '24h-high', title: '24h high', value: fmtUsd(market?.high24h), loading },
+              { id: '24h-low', title: '24h low', value: fmtUsd(market?.low24h), loading },
+              { id: 'market-cap', title: 'Market cap', value: fmtUsd(market?.marketCap), loading },
+              { id: 'rank', title: 'Rank', value: market?.rank ? `#${market.rank}` : '—', loading },
+              { id: 'circulating-supply', title: 'Circulating supply', value: fmtSupply(market?.circulatingSupply ?? null, asset.symbol), loading, className: 'col-span-2' },
+            ]}
+            className="mx-5 mt-5 grid-cols-2"
+          />
 
           {/* Links: website + X */}
           {(!loading && (market?.website || market?.twitter)) && (

@@ -9,6 +9,7 @@ import { createCalendarEventFromSource, markCalendarEventCompleted } from './cal
 import { createLogger } from '../utils/logger';
 import { buildIncomingPaymentCopy } from '../utils/notificationCopy';
 import { anchorDocumentPaidProof } from '../services/celoProofRegistry';
+import { checkDocumentCreationLimit } from '../services/billingRules';
 // import BlockradarService from '../services/blockradar'; // REMOVED: Reverting to direct wallet-to-wallet payments
 
 const logger = createLogger('Documents');
@@ -75,6 +76,15 @@ router.post('/invoice', authenticate, async (req: Request, res: Response, next) 
 
         if (!user) {
             res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const invoiceLimit = await checkDocumentCreationLimit({ user, type: 'INVOICE' });
+        if (!invoiceLimit.allowed) {
+            res.status(403).json({
+                success: false,
+                error: { message: invoiceLimit.message || 'Invoice limit reached for the free plan.' }
+            });
             return;
         }
 
@@ -215,6 +225,15 @@ router.post('/payment-link', authenticate, async (req: Request, res: Response, n
 
         if (!user) {
             res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const paymentLinkLimit = await checkDocumentCreationLimit({ user, type: 'PAYMENT_LINK' });
+        if (!paymentLinkLimit.allowed) {
+            res.status(403).json({
+                success: false,
+                error: { message: paymentLinkLimit.message || 'Payment link limit reached for the free plan.' }
+            });
             return;
         }
 
@@ -365,6 +384,15 @@ router.post('/', authenticate, async (req: Request, res: Response, next) => {
             const user = await getOrCreateUser(privyId);
             if (!user) {
                 res.status(404).json({ success: false, error: { message: 'User not found' } });
+                return;
+            }
+
+            const contractLimit = await checkDocumentCreationLimit({ user, type: 'CONTRACT' });
+            if (!contractLimit.allowed) {
+                res.status(403).json({
+                    success: false,
+                    error: { message: contractLimit.message || 'Contract limit reached for the free plan.' }
+                });
                 return;
             }
 

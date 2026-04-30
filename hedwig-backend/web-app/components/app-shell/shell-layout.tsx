@@ -8,7 +8,7 @@ import { TokenRefresher } from '@/components/app-shell/token-refresher';
 import { TutorialProvider } from '@/components/tutorial/tutorial-provider';
 import { TutorialCard } from '@/components/tutorial/tutorial-card';
 import { CreateMenu } from '@/components/app-shell/create-menu';
-import { AppDownloadNudge } from '@/components/app-shell/app-download-nudge';
+import { AssistantChatLauncher } from '@/components/assistant/assistant-chat-launcher';
 
 const STORAGE_KEY = 'hedwig-web-sidebar-collapsed';
 
@@ -55,7 +55,6 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
             </Link>
           </div>
         )}
-        {!isDemo && <AppDownloadNudge />}
         <TokenRefresher />
         <div className="flex min-h-screen">
           <AppSidebar collapsed={collapsed} onToggle={toggleSidebar} lockedRoutes={lockedRoutes} />
@@ -72,6 +71,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
         </div>
         <TutorialCard />
         <CreateMenu accessToken={accessToken ?? null} />
+        {!isDemo && <AssistantChatLauncher />}
       </div>
     </TutorialProvider>
   );

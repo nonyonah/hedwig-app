@@ -54,6 +54,20 @@ const resolveUnifiedExpiry = (user: any): string | null => (
     normalizeString(user?.subscription_expiry ?? user?.subscriptionExpiry)
 );
 
+const resolveBillingInterval = (productId: string | null): BillingInterval | null => {
+    if (!productId) return null;
+    const normalized = productId.trim();
+    const polarMonthly = normalizeString(process.env.POLAR_PRODUCT_ID_MONTHLY);
+    const polarAnnual = normalizeString(process.env.POLAR_PRODUCT_ID_ANNUAL);
+    if (polarMonthly && normalized === polarMonthly) return 'monthly';
+    if (polarAnnual && normalized === polarAnnual) return 'annual';
+
+    const lower = normalized.toLowerCase();
+    if (lower.includes('annual') || lower.includes('yearly') || lower.includes('year')) return 'annual';
+    if (lower.includes('monthly') || lower.includes('month')) return 'monthly';
+    return null;
+};
+
 const isNotExpired = (isoDate: string | null): boolean => {
     if (!isoDate) return true;
     const parsed = Date.parse(isoDate);
@@ -132,6 +146,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
 
         const isActive = unifiedIsActive ?? Boolean(state?.is_active);
         const plan = isActive ? 'pro' : 'free';
+        const productId = state?.product_id || null;
         const expiresAt = unifiedExpiry || state?.expires_at || null;
         const updatedAt = normalizeString(user?.updated_at ?? user?.updatedAt) || state?.updated_at || null;
         const featureFlags = {
@@ -148,7 +163,8 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
                     id: REVENUECAT_PRIMARY_ENTITLEMENT,
                     isActive,
                     expiresAt,
-                    productId: state?.product_id || null,
+                    productId,
+                    billingInterval: resolveBillingInterval(productId),
                     store: state?.store || (subscriptionProvider === 'polar' ? 'POLAR' : subscriptionProvider === 'revenue_cat' ? 'REVENUE_CAT' : null),
                     environment: state?.environment || null,
                     willRenew: state?.will_renew ?? null,
@@ -269,12 +285,13 @@ router.post('/checkout-link', authenticate, async (req: Request, res: Response, 
 // Directly writes subscription_status so we don't depend solely on webhook timing.
 router.post('/polar-sync', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { externalCustomerId, customerEmail, status, expiry, subscriptionId } = req.body as {
+        const { externalCustomerId, customerEmail, status, expiry, subscriptionId, productId } = req.body as {
             externalCustomerId?: string | null;
             customerEmail?: string | null;
             status: 'active' | 'inactive';
             expiry?: string | null;
             subscriptionId?: string | null;
+            productId?: string | null;
         };
 
         const privyId = req.user!.id;
@@ -323,7 +340,40 @@ router.post('/polar-sync', authenticate, async (req: Request, res: Response, nex
 
         if (error) throw new Error(error.message);
 
-        logger.info('Polar subscription synced via checkout', { userId, status, subscriptionId });
+        const appUserId = externalCustomerId || callerUser?.id || userId;
+        if (appUserId) {
+            const { error: stateError } = await supabase
+                .from('billing_subscription_states')
+                .upsert({
+                    app_user_id: String(appUserId),
+                    user_id: userId,
+                    entitlement_id: REVENUECAT_PRIMARY_ENTITLEMENT,
+                    entitlement_ids: [REVENUECAT_PRIMARY_ENTITLEMENT],
+                    is_active: status === 'active',
+                    product_id: productId || null,
+                    store: 'POLAR',
+                    environment: process.env.POLAR_SERVER === 'sandbox' ? 'SANDBOX' : 'PRODUCTION',
+                    will_renew: status === 'active',
+                    is_trial: false,
+                    billing_issue_detected: false,
+                    latest_event_type: subscriptionId ? 'POLAR_SYNC' : 'POLAR_CHECKOUT_SYNC',
+                    latest_event_id: subscriptionId || null,
+                    event_timestamp_ms: Date.now(),
+                    expires_at: expiry ?? null,
+                    raw_event: {
+                        provider: 'polar',
+                        subscriptionId: subscriptionId || null,
+                        productId: productId || null,
+                        status,
+                    },
+                }, { onConflict: 'app_user_id' });
+
+            if (stateError) {
+                logger.warn('Failed to upsert Polar billing state', { userId, error: stateError.message });
+            }
+        }
+
+        logger.info('Polar subscription synced via checkout', { userId, status, subscriptionId, productId });
 
         res.json({ success: true, data: { synced: true, userId, status } });
     } catch (err) {

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
-import { formatCompactCurrency, formatShortDate } from '@/lib/utils';
+import { formatShortDate } from '@/lib/utils';
 import { CreateRecurringInvoiceDialog } from './create-recurring-invoice-dialog';
 
 const FREQ_LABELS: Record<string, { label: string; short: string; color: string }> = {
@@ -59,7 +59,7 @@ type Props = {
 };
 
 export function RecurringInvoicesSection({ initialItems, clients, accessToken, asTabContent, statusFilter = 'all', onRowClick }: Props) {
-  const { currency } = useCurrency();
+  const { formatAmount } = useCurrency();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -218,7 +218,7 @@ export function RecurringInvoicesSection({ initialItems, clients, accessToken, a
 
               {/* Amount */}
               <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">
-                {formatCompactCurrency(r.amountUsd, currency)}
+                {formatAmount(r.amountUsd, { compact: true })}
               </p>
 
               {/* Next due date */}

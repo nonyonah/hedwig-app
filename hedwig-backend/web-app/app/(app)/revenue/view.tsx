@@ -20,6 +20,7 @@ import {
   Warning,
 } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
+import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import {
   Dialog,
   DialogContent,
@@ -34,8 +35,10 @@ import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
-import { formatCompactCurrency, formatShortDate } from '@/lib/utils';
+import { formatShortDate } from '@/lib/utils';
 import { hedwigApi } from '@/lib/api/client';
+import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
+import { normalizeExpenseRecord } from '@/lib/revenue-analytics';
 import type { Invoice, Client } from '@/lib/models/entities';
 import type {
   RevenueSummary,
@@ -137,6 +140,15 @@ interface ExpenseFormState {
   clientId: string;
 }
 
+interface CreditFormState {
+  amount: string;
+  currency: string;
+  date: string;
+  title: string;
+  note: string;
+  clientId: string;
+}
+
 const EMPTY_FORM: ExpenseFormState = {
   amount: '',
   currency: 'USD',
@@ -147,10 +159,21 @@ const EMPTY_FORM: ExpenseFormState = {
   clientId: '',
 };
 
+const EMPTY_CREDIT_FORM: CreditFormState = {
+  amount: '',
+  currency: 'USD',
+  date: new Date().toISOString().slice(0, 10),
+  title: '',
+  note: '',
+  clientId: '',
+};
+
 function ExpenseDialog({
   open,
   editing,
   clients,
+  currencyOptions,
+  defaultCurrency,
   onSave,
   onClose,
   isSaving,
@@ -158,6 +181,8 @@ function ExpenseDialog({
   open: boolean;
   editing: ExpenseRecord | null;
   clients: Pick<Client, 'id' | 'name'>[];
+  currencyOptions: Array<{ code: string; label: string; symbol: string; flag?: string }>;
+  defaultCurrency: string;
   onSave: (form: ExpenseFormState) => void;
   onClose: () => void;
   isSaving: boolean;
@@ -177,10 +202,10 @@ function ExpenseDialog({
               projectId: editing.projectId ?? '',
               clientId: editing.clientId ?? '',
             }
-          : EMPTY_FORM,
+          : { ...EMPTY_FORM, currency: defaultCurrency },
       );
     }
-  }, [open, editing]);
+  }, [defaultCurrency, open, editing]);
 
   const set = (field: keyof ExpenseFormState, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -194,6 +219,11 @@ function ExpenseDialog({
   const inputCls =
     'w-full rounded-xl border border-[#e9eaeb] px-3 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]';
   const labelCls = 'mb-1.5 block text-[12px] font-semibold text-[#414651]';
+  const selectedCurrency = currencyOptions.find((option) => option.code === form.currency)
+    ?? { code: form.currency, label: form.currency, symbol: form.currency };
+  const currencyChoices = currencyOptions.some((option) => option.code === form.currency)
+    ? currencyOptions
+    : [{ code: form.currency, label: form.currency, symbol: form.currency }, ...currencyOptions];
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -207,12 +237,12 @@ function ExpenseDialog({
 
         <DialogBody className="space-y-4">
           {/* Amount + Currency */}
-          <div className="grid grid-cols-[1fr_100px] gap-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-3">
             <div>
               <label className={labelCls}>Amount</label>
               <div className="flex items-center overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-xs transition focus-within:border-[#2563eb] focus-within:ring-2 focus-within:ring-[#eff4ff]">
                 <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[13px] font-semibold text-[#a4a7ae]">
-                  $
+                  {selectedCurrency.symbol}
                 </span>
                 <input
                   type="number"
@@ -228,10 +258,11 @@ function ExpenseDialog({
             <div>
               <label className={labelCls}>Currency</label>
               <select value={form.currency} onChange={(e) => set('currency', e.target.value)} className={inputCls}>
-                <option value="USD">USD</option>
-                <option value="USDC">USDC</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
+                {currencyChoices.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.code} - {option.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -301,6 +332,148 @@ function ExpenseDialog({
   );
 }
 
+function CreditDialog({
+  open,
+  clients,
+  currencyOptions,
+  defaultCurrency,
+  onSave,
+  onClose,
+  isSaving,
+}: {
+  open: boolean;
+  clients: Pick<Client, 'id' | 'name'>[];
+  currencyOptions: Array<{ code: string; label: string; symbol: string; flag?: string }>;
+  defaultCurrency: string;
+  onSave: (form: CreditFormState) => void;
+  onClose: () => void;
+  isSaving: boolean;
+}) {
+  const [form, setForm] = useState<CreditFormState>(EMPTY_CREDIT_FORM);
+
+  useEffect(() => {
+    if (open) setForm({ ...EMPTY_CREDIT_FORM, currency: defaultCurrency });
+  }, [defaultCurrency, open]);
+
+  const set = (field: keyof CreditFormState, value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSave = () => {
+    const amount = parseFloat(form.amount.replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    onSave(form);
+  };
+
+  const inputCls =
+    'w-full rounded-xl border border-[#e9eaeb] px-3 py-2.5 text-[13px] text-[#181d27] outline-none transition focus:border-[#2563eb] focus:ring-2 focus:ring-[#eff4ff]';
+  const labelCls = 'mb-1.5 block text-[12px] font-semibold text-[#414651]';
+  const selectedCurrency = currencyOptions.find((option) => option.code === form.currency)
+    ?? { code: form.currency, label: form.currency, symbol: form.currency };
+  const currencyChoices = currencyOptions.some((option) => option.code === form.currency)
+    ? currencyOptions
+    : [{ code: form.currency, label: form.currency, symbol: form.currency }, ...currencyOptions];
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Record credit</DialogTitle>
+          <DialogDescription>
+            Add money received as paid revenue for bookkeeping.
+          </DialogDescription>
+        </DialogHeader>
+
+        <DialogBody className="space-y-4">
+          <div className="grid grid-cols-[minmax(0,1fr)_132px] gap-3">
+            <div>
+              <label className={labelCls}>Amount</label>
+              <div className="flex items-center overflow-hidden rounded-xl border border-[#e9eaeb] bg-white shadow-xs transition focus-within:border-[#2563eb] focus-within:ring-2 focus-within:ring-[#eff4ff]">
+                <span className="flex h-full items-center border-r border-[#e9eaeb] bg-[#f9fafb] px-3 py-2.5 text-[13px] font-semibold text-[#a4a7ae]">
+                  {selectedCurrency.symbol}
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={(e) => set('amount', e.target.value)}
+                  placeholder="0.00"
+                  className="flex-1 bg-transparent px-3 py-2.5 text-[13px] font-semibold text-[#181d27] placeholder:text-[#a4a7ae] focus:outline-none"
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Currency</label>
+              <select value={form.currency} onChange={(e) => set('currency', e.target.value)} className={inputCls}>
+                {currencyChoices.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.code} - {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Title</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => set('title', e.target.value)}
+                placeholder="Client transfer"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Date</label>
+              <input
+                type="date"
+                value={form.date}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => set('date', e.target.value)}
+                className={inputCls}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Note <span className="font-normal text-[#a4a7ae]">(optional)</span></label>
+            <input
+              type="text"
+              value={form.note}
+              onChange={(e) => set('note', e.target.value)}
+              placeholder="Where did this credit come from?"
+              className={inputCls}
+            />
+          </div>
+
+          {clients.length > 0 && (
+            <div>
+              <label className={labelCls}>Link to client <span className="font-normal text-[#a4a7ae]">(optional)</span></label>
+              <select value={form.clientId} onChange={(e) => set('clientId', e.target.value)} className={inputCls}>
+                <option value="">No client</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </DialogBody>
+
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving || !form.amount}>
+            {isSaving ? 'Saving…' : 'Record credit'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ─── main component ─── */
 export function RevenueClient({
   accessToken,
@@ -323,7 +496,7 @@ export function RevenueClient({
   invoices: Invoice[];
   clients: Client[];
 }) {
-  const { currency } = useCurrency();
+  const { currency, options: currencyOptions, formatAmount, convertToUsd, formatNative } = useCurrency();
   const { toast } = useToast();
 
   const [range, setRange] = useState<RevenueRange>('30d');
@@ -332,11 +505,15 @@ export function RevenueClient({
   const [clientsByRevenue, setClientsByRevenue] = useState<ClientRevenueBreakdown[]>(clientBreakdown);
   const [projectsByRevenue, setProjectsByRevenue] = useState<ProjectRevenueBreakdown[]>(projectBreakdown);
   const [sourceBreakdown, setSourceBreakdown] = useState<PaymentSourceBreakdown[]>(paymentSources);
+  const [activityItems, setActivityItems] = useState<ActivityEvent[]>(activityFeed);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
+  const [showCreditDialog, setShowCreditDialog] = useState(false);
   const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(null);
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
   const [isSavingExpense, setIsSavingExpense] = useState(false);
+  const [isSavingCredit, setIsSavingCredit] = useState(false);
+  const [isDeletingExpense, setIsDeletingExpense] = useState(false);
   const [isRefreshingRange, setIsRefreshingRange] = useState(false);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -377,14 +554,34 @@ export function RevenueClient({
     }
   }, [accessToken, toast]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const refreshRevenueData = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const [nextSummary, nextBreakdown, nextPaymentSources, nextActivity] = await Promise.all([
+        hedwigApi.revenueSummary(range, apiOpts),
+        hedwigApi.revenueBreakdown(range, apiOpts),
+        hedwigApi.revenuePaymentSources(range, apiOpts),
+        hedwigApi.revenueActivity(apiOpts),
+      ]);
+      if (!mounted.current) return;
+      setSummary(nextSummary);
+      setClientsByRevenue(Array.isArray((nextBreakdown as any)?.clients) ? (nextBreakdown as any).clients : []);
+      setProjectsByRevenue(Array.isArray((nextBreakdown as any)?.projects) ? (nextBreakdown as any).projects : []);
+      setSourceBreakdown(Array.isArray(nextPaymentSources) ? nextPaymentSources : []);
+      setActivityItems(Array.isArray(nextActivity) ? nextActivity : []);
+    } catch {
+      // The create/update operation already reports user-facing errors.
+    }
+  }, [accessToken, range]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSaveExpense = useCallback(async (form: ExpenseFormState) => {
     setIsSavingExpense(true);
     try {
-      const amt = parseFloat(form.amount);
+      const amt = parseFloat(form.amount.replace(/[^0-9.]/g, ''));
+      const fallbackConvertedAmountUsd = convertToUsd(amt, form.currency);
       const payload = {
         amount: amt,
         currency: form.currency,
-        convertedAmountUsd: amt,
         category: form.category,
         note: form.note,
         projectId: form.projectId || undefined,
@@ -396,48 +593,51 @@ export function RevenueClient({
         const updated = await hedwigApi.updateExpense(editingExpense.id, payload, apiOpts);
         if (!mounted.current) return;
         const raw = (updated as any)?.data ?? updated;
+        const normalized = normalizeExpenseRecord({
+          ...editingExpense,
+          ...raw,
+          amount: raw?.amount ?? amt,
+          currency: raw?.currency ?? form.currency,
+          convertedAmountUsd: raw?.convertedAmountUsd ?? raw?.converted_amount_usd ?? fallbackConvertedAmountUsd,
+          category: raw?.category ?? form.category,
+          date: raw?.date ?? new Date(form.date).toISOString(),
+          note: raw?.note ?? form.note,
+          clientId: raw?.clientId ?? raw?.client_id ?? form.clientId ?? null,
+          projectId: raw?.projectId ?? raw?.project_id ?? form.projectId ?? null,
+        });
         setExpenses((prev) =>
           prev.map((e) =>
             e.id === editingExpense.id
-              ? {
-                  ...e,
-                  amount: amt,
-                  currency: form.currency,
-                  convertedAmountUsd: amt,
-                  category: form.category,
-                  date: new Date(form.date).toISOString(),
-                  note: form.note,
-                  clientId: form.clientId || null,
-                  updatedAt: raw?.updated_at ?? new Date().toISOString(),
-                }
+              ? normalized
               : e,
           ),
         );
-        toast({ type: 'success', title: 'Expense updated', message: 'The expense has been saved.' });
+        toast({ type: 'success', title: 'Expense updated', message: `${formatNative(normalized.amount, normalized.currency)} saved.` });
       } else {
         const created = await hedwigApi.createExpense(payload, apiOpts);
         if (!mounted.current) return;
         const raw = (created as any)?.data ?? created;
-        const newExpense: ExpenseRecord = {
+        const newExpense = normalizeExpenseRecord({
+          ...raw,
           id: raw?.id ?? `exp_${Date.now()}`,
           amount: amt,
-          currency: form.currency,
-          convertedAmountUsd: amt,
-          category: form.category as ExpenseCategory,
+          currency: raw?.currency ?? form.currency,
+          convertedAmountUsd: raw?.convertedAmountUsd ?? raw?.converted_amount_usd ?? fallbackConvertedAmountUsd,
+          category: raw?.category ?? form.category,
           date: raw?.date ?? new Date(form.date).toISOString(),
-          note: form.note,
+          note: raw?.note ?? form.note,
           clientId: raw?.client_id ?? form.clientId ?? null,
           projectId: raw?.project_id ?? form.projectId ?? null,
-          sourceType: 'manual',
+          sourceType: raw?.source_type ?? 'manual',
           createdAt: raw?.created_at ?? new Date().toISOString(),
           updatedAt: raw?.updated_at ?? new Date().toISOString(),
-        };
+        });
         setExpenses((prev) => [newExpense, ...prev]);
-        toast({ type: 'success', title: 'Expense added', message: `$${amt.toLocaleString()} recorded.` });
+        toast({ type: 'success', title: 'Expense added', message: `${formatNative(newExpense.amount, newExpense.currency)} recorded.` });
       }
-    } catch {
+    } catch (error: any) {
       if (!mounted.current) return;
-      toast({ type: 'error', title: 'Failed to save expense', message: 'Please try again.' });
+      toast({ type: 'error', title: 'Failed to save expense', message: error?.message || 'Please try again.' });
     } finally {
       if (mounted.current) {
         setIsSavingExpense(false);
@@ -445,24 +645,57 @@ export function RevenueClient({
         setEditingExpense(null);
       }
     }
-  }, [editingExpense, toast, accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [editingExpense, toast, accessToken, convertToUsd, formatNative]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSaveCredit = useCallback(async (form: CreditFormState) => {
+    setIsSavingCredit(true);
+    try {
+      const amt = parseFloat(form.amount.replace(/[^0-9.]/g, ''));
+      const convertedAmountUsd = convertToUsd(amt, form.currency);
+      await hedwigApi.createRevenueCredit({
+        amount: amt,
+        currency: form.currency,
+        convertedAmountUsd,
+        title: form.title || form.note || 'Manual credit',
+        note: form.note,
+        clientId: form.clientId || undefined,
+        date: form.date ? new Date(form.date).toISOString() : undefined,
+      }, apiOpts);
+      if (!mounted.current) return;
+      toast({ type: 'success', title: 'Credit recorded', message: `${formatNative(amt, form.currency)} added as paid revenue.` });
+      await refreshRevenueData();
+    } catch (error: any) {
+      if (!mounted.current) return;
+      toast({ type: 'error', title: 'Failed to record credit', message: error?.message || 'Please try again.' });
+    } finally {
+      if (mounted.current) {
+        setIsSavingCredit(false);
+        setShowCreditDialog(false);
+      }
+    }
+  }, [toast, accessToken, convertToUsd, formatNative, refreshRevenueData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDeleteExpense = useCallback(async () => {
     if (!deletingExpenseId) return;
+    setIsDeletingExpense(true);
     try {
       await hedwigApi.deleteExpense(deletingExpenseId, apiOpts);
       if (!mounted.current) return;
       setExpenses((prev) => prev.filter((e) => e.id !== deletingExpenseId));
       toast({ type: 'success', title: 'Expense deleted', message: 'The expense has been removed.' });
-    } catch {
+    } catch (error: any) {
       if (!mounted.current) return;
-      toast({ type: 'error', title: 'Failed to delete expense', message: 'Please try again.' });
+      toast({ type: 'error', title: 'Failed to delete expense', message: error?.message || 'Please try again.' });
     } finally {
-      if (mounted.current) setDeletingExpenseId(null);
+      if (mounted.current) {
+        setDeletingExpenseId(null);
+        setIsDeletingExpense(false);
+      }
     }
   }, [deletingExpenseId, toast, accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openAddExpense = () => { setEditingExpense(null); setShowExpenseDialog(true); };
+  const openAddCredit = () => setShowCreditDialog(true);
   const openEditExpense = (exp: ExpenseRecord) => { setEditingExpense(exp); setShowExpenseDialog(true); };
 
   /* derived */
@@ -480,7 +713,6 @@ export function RevenueClient({
 
   return (
     <div className="flex flex-col gap-6">
-
       {/* ── Page header ── */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -488,6 +720,10 @@ export function RevenueClient({
           <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Operational financial dashboard — what is happening with your money right now.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 mt-0.5">
+          <Button variant="secondary" onClick={openAddCredit}>
+            <Plus className="h-4 w-4" weight="bold" />
+            Add credit
+          </Button>
           <Button variant="secondary" onClick={() => setShowExportDialog(true)}>
             <DownloadSimple className="h-4 w-4" weight="bold" />
             Export
@@ -495,6 +731,12 @@ export function RevenueClient({
         </div>
         <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} clients={clients} />
       </div>
+
+      <ContextualSuggestions
+        title="Expense review"
+        description="Grouped expense suggestions stay beside your revenue data so cleanup happens in context."
+        query={{ expensePage: true, limit: 1 }}
+      />
 
       {/* ── Range filter ── */}
       <div className="flex items-center gap-1.5">
@@ -515,103 +757,68 @@ export function RevenueClient({
         ))}
       </div>
 
-      {/* ── Stats bar ── */}
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb] sm:grid-cols-6">
-        {/* Total Revenue */}
-        <div className="flex flex-col bg-white px-5 py-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[12px] font-medium text-[#717680]">Total revenue</p>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-              <CurrencyDollar className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-            </div>
-          </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">
-            {formatCompactCurrency(summary.totalRevenue, currency)}
-          </p>
-          <div className="mt-1.5 flex items-center gap-1">
-            {netTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#12b76a]" weight="bold" />}
-            {netTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[#f04438]" weight="bold" />}
-            <p className="text-[11px] text-[#a4a7ae]">
-              {summary.revenueDeltaPct >= 0 ? '+' : ''}{summary.revenueDeltaPct.toFixed(0)}% vs prev period
-            </p>
-          </div>
-        </div>
-
-        {/* Paid */}
-        <Link href="/payments" className="flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[12px] font-medium text-[#717680]">Paid</p>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-              <CheckCircle className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-            </div>
-          </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">
-            {formatCompactCurrency(summary.paidRevenue, currency)}
-          </p>
-          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">Collected</p>
-        </Link>
-
-        {/* Pending */}
-        <Link href="/payments" className="flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[12px] font-medium text-[#717680]">Pending</p>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-              <Receipt className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-            </div>
-          </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">
-            {formatCompactCurrency(summary.pendingRevenue, currency)}
-          </p>
-          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">Awaiting payment</p>
-        </Link>
-
-        {/* Overdue */}
-        <Link href="/payments" className="flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[12px] font-medium text-[#717680]">Overdue</p>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#fff1f0]">
-              <Warning className="h-3.5 w-3.5 text-[#f04438]" weight="regular" />
-            </div>
-          </div>
-          <p className={`text-[22px] font-bold tracking-[-0.03em] leading-none ${summary.overdueRevenue > 0 ? 'text-[#b42318]' : 'text-[#181d27]'}`}>
-            {formatCompactCurrency(summary.overdueRevenue, currency)}
-          </p>
-          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">
-            {overdueInvoices.length} invoice{overdueInvoices.length !== 1 ? 's' : ''}
-          </p>
-        </Link>
-
-        {/* Expenses */}
-        <div className="flex flex-col bg-white px-5 py-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[12px] font-medium text-[#717680]">Expenses</p>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-              <FileText className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-            </div>
-          </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">
-            {formatCompactCurrency(totalExpensesDisplay, currency)}
-          </p>
-          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">{expenses.length} recorded</p>
-        </div>
-
-        {/* Net Revenue */}
-        <div className="flex flex-col bg-white px-5 py-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[12px] font-medium text-[#717680]">Net revenue</p>
-            <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${netRevenueDisplay >= 0 ? 'bg-[#ecfdf3]' : 'bg-[#fff1f0]'}`}>
-              {netRevenueDisplay >= 0
-                ? <ArrowUpRight className="h-3.5 w-3.5 text-[#12b76a]" weight="bold" />
-                : <ArrowDownRight className="h-3.5 w-3.5 text-[#f04438]" weight="bold" />
-              }
-            </div>
-          </div>
-          <p className={`text-[22px] font-bold tracking-[-0.03em] leading-none ${netRevenueDisplay >= 0 ? 'text-[#181d27]' : 'text-[#b42318]'}`}>
-            {formatCompactCurrency(netRevenueDisplay, currency)}
-          </p>
-          <p className="mt-1.5 text-[11px] text-[#a4a7ae]">Paid minus expenses</p>
-        </div>
-      </div>
+      <AttachedStatGrid
+        items={[
+          {
+            id: 'total-revenue',
+            title: 'Total revenue',
+            value: formatAmount(summary.totalRevenue, { compact: true }),
+            helper: (
+              <span className="flex items-center gap-1">
+                {netTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#12b76a]" weight="bold" />}
+                {netTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[#f04438]" weight="bold" />}
+                <span>{summary.revenueDeltaPct >= 0 ? '+' : ''}{summary.revenueDeltaPct.toFixed(0)}% vs prev period</span>
+              </span>
+            ),
+            icon: CurrencyDollar,
+          },
+          {
+            id: 'paid',
+            title: 'Paid',
+            value: formatAmount(summary.paidRevenue, { compact: true }),
+            helper: 'Collected',
+            icon: CheckCircle,
+            href: '/payments',
+          },
+          {
+            id: 'pending',
+            title: 'Pending',
+            value: formatAmount(summary.pendingRevenue, { compact: true }),
+            helper: 'Awaiting payment',
+            icon: Receipt,
+            href: '/payments',
+          },
+          {
+            id: 'overdue',
+            title: 'Overdue',
+            value: formatAmount(summary.overdueRevenue, { compact: true }),
+            helper: `${overdueInvoices.length} invoice${overdueInvoices.length !== 1 ? 's' : ''}`,
+            icon: Warning,
+            href: '/payments',
+            valueClassName: summary.overdueRevenue > 0 ? 'text-[#b42318]' : undefined,
+            iconWrapClassName: summary.overdueRevenue > 0 ? 'bg-[#fff1f0]' : undefined,
+            iconClassName: summary.overdueRevenue > 0 ? 'text-[#f04438]' : undefined,
+          },
+          {
+            id: 'expenses',
+            title: 'Expenses',
+            value: formatAmount(totalExpensesDisplay, { compact: true }),
+            helper: `${expenses.length} recorded`,
+            icon: FileText,
+          },
+          {
+            id: 'net-revenue',
+            title: 'Net revenue',
+            value: formatAmount(netRevenueDisplay, { compact: true }),
+            helper: 'Paid minus expenses',
+            icon: netRevenueDisplay >= 0 ? ArrowUpRight : ArrowDownRight,
+            valueClassName: netRevenueDisplay >= 0 ? undefined : 'text-[#b42318]',
+            iconWrapClassName: netRevenueDisplay >= 0 ? 'bg-[#ecfdf3]' : 'bg-[#fff1f0]',
+            iconClassName: netRevenueDisplay >= 0 ? 'text-[#12b76a]' : 'text-[#f04438]',
+          },
+        ]}
+        className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+      />
 
       {/* ── Invoice Status + Revenue Breakdown ── */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -642,7 +849,7 @@ export function RevenueClient({
                     </div>
                     <div className="ml-3 flex items-center gap-2 shrink-0">
                       <span className="text-[13px] font-semibold text-[#181d27]">
-                        {formatCompactCurrency(inv.amountUsd, currency)}
+                        {formatAmount(inv.amountUsd, { compact: true })}
                       </span>
                       <StatusPill status={inv.status} />
                       <ArrowRight className="h-3.5 w-3.5 text-[#d5d7da]" weight="bold" />
@@ -670,7 +877,7 @@ export function RevenueClient({
                     </div>
                     <div className="ml-3 flex items-center gap-2 shrink-0">
                       <span className="text-[13px] font-semibold text-[#b42318]">
-                        {formatCompactCurrency(inv.amountUsd, currency)}
+                        {formatAmount(inv.amountUsd, { compact: true })}
                       </span>
                       <StatusPill status="overdue" />
                       <ArrowRight className="h-3.5 w-3.5 text-[#d5d7da]" weight="bold" />
@@ -698,7 +905,7 @@ export function RevenueClient({
                     </div>
                     <div className="ml-3 flex items-center gap-2 shrink-0">
                       <span className="text-[13px] font-semibold text-[#027a48]">
-                        {formatCompactCurrency(inv.amountUsd, currency)}
+                        {formatAmount(inv.amountUsd, { compact: true })}
                       </span>
                       <StatusPill status="paid" />
                       <ArrowRight className="h-3.5 w-3.5 text-[#d5d7da]" weight="bold" />
@@ -731,7 +938,7 @@ export function RevenueClient({
                     </div>
                     <div className="ml-3 flex items-center gap-2 shrink-0">
                       <span className="text-[13px] font-semibold text-[#181d27]">
-                        {formatCompactCurrency(c.totalRevenue, currency)}
+                        {formatAmount(c.totalRevenue, { compact: true })}
                       </span>
                       <span className="w-9 text-right text-[11px] text-[#a4a7ae]">{c.shareOfTotal.toFixed(0)}%</span>
                     </div>
@@ -762,7 +969,7 @@ export function RevenueClient({
                     <p className="text-[11px] text-[#a4a7ae]">{p.clientName}</p>
                   </div>
                   <span className="shrink-0 text-[13px] font-semibold text-[#181d27]">
-                    {formatCompactCurrency(p.totalRevenue, currency)}
+                    {formatAmount(p.totalRevenue, { compact: true })}
                   </span>
                 </div>
               ))}
@@ -778,7 +985,7 @@ export function RevenueClient({
             <h2 className="text-[15px] font-semibold text-[#181d27]">Expenses</h2>
             <p className="mt-0.5 text-[13px] text-[#717680]">
               {expenses.length > 0
-                ? `${expenses.length} expense${expenses.length !== 1 ? 's' : ''} · ${formatCompactCurrency(totalExpensesDisplay, currency)} total`
+                ? `${expenses.length} expense${expenses.length !== 1 ? 's' : ''} · ${formatAmount(totalExpensesDisplay, { compact: true })} total`
                 : 'No expenses recorded yet'}
             </p>
           </div>
@@ -843,9 +1050,16 @@ export function RevenueClient({
                     <div>
                       <CategoryPill category={exp.category} />
                     </div>
-                    <p className="text-right text-[13px] font-semibold text-[#181d27]">
-                      {formatCompactCurrency(exp.convertedAmountUsd, currency)}
-                    </p>
+                    <div className="text-right">
+                      <p className="text-[13px] font-semibold text-[#181d27]">
+                        {formatAmount(exp.convertedAmountUsd, { compact: true })}
+                      </p>
+                      {exp.currency && exp.currency !== 'USD' ? (
+                        <p className="mt-0.5 text-[10px] font-medium text-[#a4a7ae]">
+                          {formatNative(exp.amount, exp.currency, { compact: true })}
+                        </p>
+                      ) : null}
+                    </div>
                     <p className="text-right text-[12px] text-[#717680]">
                       {formatShortDate(exp.date)}
                     </p>
@@ -861,25 +1075,25 @@ export function RevenueClient({
       </article>
 
       {/* ── Activity Feed + Payment Sources ── */}
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
 
         {/* Recent Activity */}
-        <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="border-b border-[#f5f5f5] px-5 py-4">
+        <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+          <div className="shrink-0 border-b border-[#f5f5f5] px-5 py-3.5">
             <h2 className="text-[15px] font-semibold text-[#181d27]">Recent activity</h2>
             <p className="mt-0.5 text-[13px] text-[#717680]">Latest financial events from your account.</p>
           </div>
-          {activityFeed.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+          {activityItems.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-8 text-center">
               <p className="text-[13px] font-semibold text-[#414651]">No recent activity</p>
               <p className="text-[12px] text-[#a4a7ae]">Activity appears here as invoices are paid and expenses are added.</p>
             </div>
           ) : (
-            <div className="divide-y divide-[#f9fafb]">
-              {activityFeed.map((evt) => {
+            <div className="min-h-0 flex-1 divide-y divide-[#f9fafb] overflow-y-auto">
+              {activityItems.map((evt) => {
                 const colors = ACTIVITY_COLORS[evt.type];
                 return (
-                  <div key={evt.id} className="flex items-start gap-3 px-5 py-4 hover:bg-[#fafafa]">
+                  <div key={evt.id} className="flex items-start gap-3 px-5 py-3 hover:bg-[#fafafa]">
                     <div className={`mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${colors.bg}`}>
                       <span className={`h-2 w-2 rounded-full ${colors.dot}`} />
                     </div>
@@ -890,7 +1104,12 @@ export function RevenueClient({
                     <div className="shrink-0 text-right">
                       {evt.amount !== undefined && (
                         <p className="text-[13px] font-semibold text-[#181d27]">
-                          {formatCompactCurrency(evt.amount, currency)}
+                          {formatAmount(evt.amount, { compact: true })}
+                        </p>
+                      )}
+                      {evt.nativeAmount !== undefined && evt.currency && evt.currency !== 'USD' && (
+                        <p className="mt-0.5 text-[11px] text-[#a4a7ae]">
+                          {formatNative(evt.nativeAmount, evt.currency, { compact: true })}
                         </p>
                       )}
                       <p className="mt-0.5 text-[11px] text-[#a4a7ae]">{formatTimeAgo(evt.createdAt)}</p>
@@ -903,49 +1122,51 @@ export function RevenueClient({
         </article>
 
         {/* Payment Sources */}
-        <article className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-          <div className="border-b border-[#f5f5f5] px-5 py-4">
+        <article className="flex h-[300px] flex-col overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
+          <div className="shrink-0 border-b border-[#f5f5f5] px-4 py-3.5">
             <h2 className="text-[15px] font-semibold text-[#181d27]">Payment sources</h2>
             <p className="mt-0.5 text-[13px] text-[#717680]">Where your revenue comes from.</p>
           </div>
           {sourceBreakdown.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-8 text-center">
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-5 py-8 text-center">
               <p className="text-[13px] font-semibold text-[#414651]">No payment sources yet</p>
               <p className="text-[12px] text-[#a4a7ae]">Revenue sources appear as invoices and payment links are collected.</p>
             </div>
           ) : (
-          <div className="flex flex-1 flex-col justify-center px-5 py-5 gap-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <div className="space-y-3">
             {sourceBreakdown.map((src) => (
               <div key={src.source}>
-                <div className="mb-1.5 flex items-center justify-between">
+                <div className="mb-1 flex items-center justify-between gap-3">
                   <p className="text-[13px] font-semibold text-[#181d27]">{src.label}</p>
                   <div className="flex items-center gap-2">
                     <span className="text-[13px] font-semibold text-[#181d27]">
-                      {formatCompactCurrency(src.amount, currency)}
+                      {formatAmount(src.amount, { compact: true })}
                     </span>
                     <span className="w-8 text-right text-[11px] font-semibold text-[#a4a7ae]">
                       {src.shareOfTotal.toFixed(0)}%
                     </span>
                   </div>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f2f4f7]">
+                <div className="h-1 w-full overflow-hidden rounded-full bg-[#f2f4f7]">
                   <div
                     className="h-full rounded-full bg-[#2563eb] transition-all"
                     style={{ width: `${src.shareOfTotal}%` }}
                   />
                 </div>
-                <p className="mt-1 text-[11px] text-[#a4a7ae]">{src.count} transaction{src.count !== 1 ? 's' : ''}</p>
+                <p className="mt-0.5 text-[11px] text-[#a4a7ae]">{src.count} transaction{src.count !== 1 ? 's' : ''}</p>
               </div>
             ))}
+            </div>
           </div>
           )}
 
           {/* Footer: net revenue callout */}
-          <div className="border-t border-[#f5f5f5] px-5 py-4">
+          <div className="shrink-0 border-t border-[#f5f5f5] px-4 py-3">
             <div className="flex items-center justify-between">
               <p className="text-[12px] font-semibold text-[#717680]">Net revenue this period</p>
               <p className={`text-[16px] font-bold tracking-[-0.02em] ${netRevenueDisplay >= 0 ? 'text-[#027a48]' : 'text-[#b42318]'}`}>
-                {formatCompactCurrency(netRevenueDisplay, currency)}
+                {formatAmount(netRevenueDisplay, { compact: true })}
               </p>
             </div>
           </div>
@@ -957,17 +1178,31 @@ export function RevenueClient({
         open={showExpenseDialog}
         editing={editingExpense}
         clients={clients}
+        currencyOptions={currencyOptions}
+        defaultCurrency={currency}
         onSave={handleSaveExpense}
         onClose={() => { setShowExpenseDialog(false); setEditingExpense(null); }}
         isSaving={isSavingExpense}
+      />
+
+      <CreditDialog
+        open={showCreditDialog}
+        clients={clients}
+        currencyOptions={currencyOptions}
+        defaultCurrency={currency}
+        onSave={handleSaveCredit}
+        onClose={() => setShowCreditDialog(false)}
+        isSaving={isSavingCredit}
       />
 
       <DeleteDialog
         open={!!deletingExpenseId}
         title="Delete expense"
         description="This expense will be permanently removed. This cannot be undone."
+        itemLabel={expenses.find((expense) => expense.id === deletingExpenseId)?.note || 'Expense'}
+        isDeleting={isDeletingExpense}
         onConfirm={handleDeleteExpense}
-        onOpenChange={(o) => { if (!o) setDeletingExpenseId(null); }}
+        onOpenChange={(o) => { if (!o && !isDeletingExpense) setDeletingExpenseId(null); }}
       />
     </div>
   );

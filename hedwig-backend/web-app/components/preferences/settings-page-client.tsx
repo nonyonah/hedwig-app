@@ -1,14 +1,10 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowsClockwise,
-  CalendarBlank,
   CaretRight,
-  CheckCircle,
   SignOut,
   Trash,
   WarningCircle
@@ -17,6 +13,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { useToast } from '@/components/providers/toast-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ProLockCard } from '@/components/billing/pro-lock-card';
 import {
   Dialog,
   DialogBody,
@@ -28,9 +25,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useTutorial } from '@/components/tutorial/tutorial-provider';
+import { ComposioIntegrations } from '@/components/preferences/composio-integrations';
+import { useCurrency } from '@/components/providers/currency-provider';
 import { hedwigApi, type BillingStatusSummary } from '@/lib/api/client';
 import { backendConfig } from '@/lib/auth/config';
 import { isProPlan } from '@/lib/billing/feature-gates';
+import { billingSwitchErrorMessage, friendlyErrorMessage } from '@/lib/api/errors';
 import {
   applyThemePreference,
   getStoredThemePreference,
@@ -113,6 +113,7 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { resetTutorial } = useTutorial();
+  const { currency: displayCurrency, setCurrency: setDisplayCurrency, options: currencyOptions } = useCurrency();
 
   const [firstName, setFirstName] = useState(initialUser.firstName);
   const [lastName, setLastName] = useState(initialUser.lastName);
@@ -124,29 +125,29 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
 
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [calendarSubscribeUrl, setCalendarSubscribeUrl] = useState<string | null>(null);
-  const [isFetchingCalendarLink, setIsFetchingCalendarLink] = useState(false);
-
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteStep, setDeleteStep] = useState<'warn' | 'confirm'>('warn');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [billingStatus, setBillingStatus] = useState<BillingStatusSummary | null>(null);
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
   const [isOpeningSubscriptionManagement, setIsOpeningSubscriptionManagement] = useState(false);
+  const [switchingBillingInterval, setSwitchingBillingInterval] = useState<'monthly' | 'annual' | null>(null);
 
   const [clientRemindersEnabled, setClientRemindersEnabled] = useState(true);
   const [isSavingReminders, setIsSavingReminders] = useState(false);
 
-  type IntegrationStatus = { status: 'connected' | 'error' | 'token_expired'; provider_email: string | null; last_synced_at: string | null } | null;
-  const [calendarIntegration, setCalendarIntegration] = useState<IntegrationStatus>(null);
-  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
-  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
-  const [isDisconnectingCalendar, setIsDisconnectingCalendar] = useState(false);
+  const [asstPrefs, setAsstPrefs] = useState({
+    dailyBriefEmail: false,
+    weeklySummaryEmail: false,
+    invoiceAlerts: true,
+    deadlineAlerts: true,
+  });
+  const [isSavingAsstPref, setIsSavingAsstPref] = useState<string | null>(null);
 
   const fullName = useMemo(() => `${firstName} ${lastName}`.trim() || email || 'User', [email, firstName, lastName]);
   const isProUser = isProPlan(billingStatus);
   const subscriptionProvider = useMemo(() => resolveSubscriptionProvider(billingStatus), [billingStatus]);
+  const billingInterval = billingStatus?.entitlement.billingInterval ?? null;
 
   useEffect(() => {
     const storedTheme = getStoredThemePreference();
@@ -175,15 +176,22 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     void loadBillingStatus();
     void handleConnectionDiagnostics();
     void loadPreferences();
-    void loadCalendarIntegration();
   }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken || !isProUser) return;
+    void loadAsstPrefs();
+  }, [accessToken, isProUser]);
 
   useEffect(() => {
     const connected = searchParams.get('integration_connected');
     const error = searchParams.get('integration_error');
-    if (connected === 'google_calendar') {
-      toast({ type: 'success', title: 'Google Calendar connected' });
-      void loadCalendarIntegration();
+    if (connected) {
+      const label = connected
+        .split('_')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+      toast({ type: 'success', title: `${label} connected` });
       router.replace('/settings');
     } else if (error) {
       toast({ type: 'error', title: 'Integration error', message: decodeURIComponent(error) });
@@ -249,6 +257,51 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     }
   };
 
+  const switchBillingInterval = async (interval: 'monthly' | 'annual') => {
+    if (!accessToken) {
+      router.push('/sign-in');
+      return;
+    }
+
+    if (subscriptionProvider === 'revenue_cat') {
+      toast({
+        type: 'info',
+        title: 'Subscription managed on mobile',
+        message: 'Plan interval changes for this subscription need to be made from the mobile app store.',
+      });
+      return;
+    }
+
+    setSwitchingBillingInterval(interval);
+    try {
+      const response = await fetch('/api/billing/polar/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interval }),
+      });
+      const data = await response.json().catch(() => null) as { success?: boolean; error?: string; code?: string; data?: { changed?: boolean } } | null;
+      if (!response.ok || !data?.success) {
+        throw new Error(billingSwitchErrorMessage(data));
+      }
+      toast({
+        type: 'success',
+        title: data.data?.changed === false ? 'Plan already active' : 'Billing plan updated',
+        message: interval === 'annual'
+          ? 'Your subscription is now set to yearly billing.'
+          : 'Your subscription is now set to monthly billing.',
+      });
+      await loadBillingStatus();
+    } catch (error: any) {
+      toast({
+        type: 'error',
+        title: 'Could not switch billing',
+        message: friendlyErrorMessage(error, 'Please open subscription management and try again.'),
+      });
+    } finally {
+      setSwitchingBillingInterval(null);
+    }
+  };
+
   const handleThemeChange = (nextTheme: WebThemePreference) => {
     setThemePreference(nextTheme);
     applyThemePreference(nextTheme);
@@ -309,19 +362,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     toast({ type: 'info', title: 'Tutorial restarted' });
   };
 
-  const fetchCalendarSubscribeUrl = async () => {
-    if (!accessToken) return;
-    setIsFetchingCalendarLink(true);
-    try {
-      const data = await hedwigApi.calendarIcsToken({ accessToken, disableMockFallback: true });
-      setCalendarSubscribeUrl(data.subscribeUrl);
-    } catch (error: any) {
-      toast({ type: 'error', title: 'Could not fetch calendar link', message: error?.message || 'Please try again.' });
-    } finally {
-      setIsFetchingCalendarLink(false);
-    }
-  };
-
   const loadPreferences = async () => {
     if (!accessToken) return;
     try {
@@ -353,83 +393,30 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     }
   };
 
-  const loadCalendarIntegration = async () => {
-    if (!accessToken) return;
-    setIsLoadingCalendar(true);
+  const loadAsstPrefs = async () => {
+    if (!isProUser) return;
     try {
-      const resp = await fetch('/api/integrations/status', { headers: { Authorization: `Bearer ${accessToken}` } });
-      const data = await resp.json() as { success: boolean; data: Array<{ provider: string; status: string; provider_email: string | null; last_synced_at: string | null }> };
-      if (data.success) {
-        const cal = data.data.find((i) => i.provider === 'google_calendar');
-        setCalendarIntegration(cal ? { status: cal.status as any, provider_email: cal.provider_email, last_synced_at: cal.last_synced_at } : null);
-      }
+      const resp = await fetch('/api/assistant/preferences');
+      const data = await resp.json() as { success: boolean; data: typeof asstPrefs };
+      if (data.success) setAsstPrefs(data.data);
+    } catch { /* keep defaults */ }
+  };
+
+  const handleAsstPrefToggle = async (key: keyof typeof asstPrefs, value: boolean) => {
+    setAsstPrefs((prev) => ({ ...prev, [key]: value }));
+    setIsSavingAsstPref(key);
+    try {
+      await fetch('/api/assistant/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      });
     } catch {
-      // leave as null
+      setAsstPrefs((prev) => ({ ...prev, [key]: !value }));
+      toast({ type: 'error', title: 'Could not save preference', message: 'Please try again.' });
     } finally {
-      setIsLoadingCalendar(false);
+      setIsSavingAsstPref(null);
     }
-  };
-
-  const connectCalendar = () => {
-    window.location.assign('/api/integrations/connect?provider=google_calendar');
-  };
-
-  const syncCalendar = async () => {
-    if (!accessToken) return;
-    setIsSyncingCalendar(true);
-    try {
-      const resp = await fetch('/api/integrations/sync', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: 'google_calendar' }),
-      });
-      if (!resp.ok) throw new Error('Sync failed');
-      toast({ type: 'success', title: 'Calendar synced' });
-      void loadCalendarIntegration();
-    } catch (error: any) {
-      toast({ type: 'error', title: 'Sync failed', message: error?.message || 'Please try again.' });
-    } finally {
-      setIsSyncingCalendar(false);
-    }
-  };
-
-  const disconnectCalendar = async () => {
-    if (!accessToken) return;
-    setIsDisconnectingCalendar(true);
-    try {
-      const resp = await fetch('/api/integrations/disconnect', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: 'google_calendar' }),
-      });
-      if (!resp.ok) throw new Error('Disconnect failed');
-      setCalendarIntegration(null);
-      toast({ type: 'success', title: 'Google Calendar disconnected' });
-    } catch (error: any) {
-      toast({ type: 'error', title: 'Disconnect failed', message: error?.message || 'Please try again.' });
-    } finally {
-      setIsDisconnectingCalendar(false);
-    }
-  };
-
-  const openCalendarDialog = () => {
-    setCalendarOpen(true);
-    if (!calendarSubscribeUrl && !isFetchingCalendarLink) {
-      void fetchCalendarSubscribeUrl();
-    }
-  };
-
-  const openGoogleCalendar = () => {
-    if (!calendarSubscribeUrl) return;
-    const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//i, 'webcal://');
-    const googleUrl = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcalUrl)}`;
-    window.open(googleUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const openAppleCalendar = () => {
-    if (!calendarSubscribeUrl) return;
-    const webcalUrl = calendarSubscribeUrl.replace(/^https?:\/\//i, 'webcal://');
-    window.open(webcalUrl, '_blank', 'noopener,noreferrer');
   };
 
   const openDeleteDialog = () => {
@@ -528,6 +515,23 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             </div>
           </SettingsRow>
 
+          <SettingsRow
+            label="Display currency"
+            description="USD-stored amounts (revenue, balances, expenses) are converted to this currency at current rates."
+          >
+            <select
+              value={displayCurrency}
+              onChange={(event) => setDisplayCurrency(event.target.value)}
+              className="rounded-full border border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#414651] shadow-xs transition hover:bg-[#fafafa] focus:border-[#2563eb] focus:outline-none"
+            >
+              {currencyOptions.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {option.flag} {option.code} · {option.label}
+                </option>
+              ))}
+            </select>
+          </SettingsRow>
+
           <SettingsRow label="Connection diagnostics" description="Run a quick API reachability check.">
             <button
               type="button"
@@ -556,17 +560,9 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             </button>
           </SettingsRow>
 
-          <SettingsRow label="Connect calendar" description="Subscribe to invoice reminders in your calendar app.">
-            <button
-              type="button"
-              onClick={openCalendarDialog}
-              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#414651] transition hover:text-[#181d27]"
-            >
-              Open
-              <CaretRight className="h-4 w-4 text-[#a4a7ae]" />
-            </button>
-          </SettingsRow>
+        </SettingsSection>
 
+        <SettingsSection title="Assistant Notifications" description="Choose how Hedwig keeps you informed about your workspace.">
           <SettingsRow label="Client reminders" description="Send automatic payment reminders to clients on due dates.">
             <button
               type="button"
@@ -585,31 +581,106 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
               />
             </button>
           </SettingsRow>
+
+          {isProUser ? (
+            ([{
+              key: 'dailyBriefEmail',
+              label: 'Daily brief email',
+              description: 'Morning summary of unpaid invoices, overdue items, and deadlines.'
+            }, {
+              key: 'weeklySummaryEmail',
+              label: 'Weekly summary email',
+              description: 'Revenue, top clients, and AI insights every Monday.'
+            }, {
+              key: 'invoiceAlerts',
+              label: 'Invoice alerts',
+              description: 'In-app alert when invoices become overdue.'
+            }, {
+              key: 'deadlineAlerts',
+              label: 'Deadline alerts',
+              description: 'In-app alert when a project deadline is within 3 days.'
+            }] as Array<{ key: keyof typeof asstPrefs; label: string; description: string }>).map(({ key, label, description }) => (
+              <SettingsRow key={key} label={label} description={description}>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={asstPrefs[key]}
+                  disabled={isSavingAsstPref === key}
+                  onClick={() => void handleAsstPrefToggle(key, !asstPrefs[key])}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                    asstPrefs[key] ? 'bg-[#2563eb]' : 'bg-[#d5d7da]'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition-transform ${
+                      asstPrefs[key] ? 'translate-x-4' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </SettingsRow>
+            ))
+          ) : (
+            <div className="p-5">
+              <ProLockCard
+                title="Assistant is on Pro"
+                description="Unlock daily briefs, suggestion reviews, and assistant notifications."
+                compact
+              />
+            </div>
+          )}
         </SettingsSection>
 
-        <SettingsSection title="Connected Accounts" description="Manage third-party integrations that power your workspace.">
-          <div className="flex items-center justify-between gap-4 px-5 py-4 opacity-50">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#e9eaeb] bg-white">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/icons/google-calendar.svg" alt="Google Calendar" className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[14px] font-semibold text-[#181d27]">Google Calendar</p>
-              </div>
-            </div>
-          </div>
-        </SettingsSection>
+        <ComposioIntegrations />
 
         <SettingsSection title="Billing" description="Manage your Hedwig Pro plan across web and mobile.">
           <SettingsRow
             label="Plan"
             description="Your current subscription status."
           >
-            <Badge variant={isProUser ? 'success' : 'neutral'}>
-              {isLoadingBilling ? 'Checking…' : isProUser ? 'Pro' : 'Free plan'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {billingInterval ? (
+                <span className="rounded-full bg-[#eff4ff] px-2.5 py-1 text-[11px] font-semibold text-[#2563eb]">
+                  {billingInterval === 'annual' ? 'Yearly' : 'Monthly'}
+                </span>
+              ) : null}
+              <Badge variant={isProUser ? 'success' : 'neutral'}>
+                {isLoadingBilling ? 'Checking…' : isProUser ? 'Pro' : 'Free plan'}
+              </Badge>
+            </div>
           </SettingsRow>
+
+          {isProUser && subscriptionProvider !== 'revenue_cat' ? (
+            <SettingsRow
+              label="Billing cadence"
+              description={
+                billingInterval === 'annual'
+                  ? 'Switch back to monthly billing if you prefer more flexibility.'
+                  : 'Upgrade to yearly billing to lock in the annual discount.'
+              }
+            >
+              <div className="flex items-center rounded-full border border-[#d5d7da] bg-white p-1">
+                {(['monthly', 'annual'] as const).map((interval) => {
+                  const active = billingInterval === interval;
+                  const busy = switchingBillingInterval === interval;
+                  return (
+                    <button
+                      key={interval}
+                      type="button"
+                      onClick={() => switchBillingInterval(interval)}
+                      disabled={active || switchingBillingInterval !== null}
+                      className={`rounded-full px-3 py-1 text-[12px] font-semibold transition disabled:cursor-not-allowed ${
+                        active
+                          ? 'bg-[#2563eb] text-white'
+                          : 'text-[#414651] hover:bg-[#eff4ff] hover:text-[#2563eb] disabled:opacity-60'
+                      }`}
+                    >
+                      {busy ? 'Opening…' : interval === 'annual' ? 'Yearly' : 'Monthly'}
+                    </button>
+                  );
+                })}
+              </div>
+            </SettingsRow>
+          ) : null}
 
           <SettingsRow
             label="Cancel or change plan"
@@ -654,58 +725,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
           </div>
         </section>
       </div>
-
-      <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
-        <DialogContent className="max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>Connect calendar</DialogTitle>
-            <DialogDescription>Subscribe to Hedwig reminders in Google Calendar or Apple Calendar.</DialogDescription>
-          </DialogHeader>
-          <DialogBody className="space-y-3">
-            {isFetchingCalendarLink ? (
-              <div className="rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] px-4 py-3 text-[13px] text-[#717680]">
-                Fetching your calendar link…
-              </div>
-            ) : null}
-
-            {!isFetchingCalendarLink && calendarSubscribeUrl ? (
-              <>
-                <button
-                  type="button"
-                  onClick={openGoogleCalendar}
-                  className="flex w-full items-center justify-between rounded-2xl border border-[#e9eaeb] bg-white px-4 py-3 text-left transition hover:bg-[#fafafa]"
-                >
-                  <span className="inline-flex items-center gap-2 text-[14px] font-semibold text-[#181d27]">
-                    <CalendarBlank className="h-4 w-4 text-[#717680]" weight="regular" />
-                    Connect Google Calendar
-                  </span>
-                  <CaretRight className="h-4 w-4 text-[#a4a7ae]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={openAppleCalendar}
-                  className="flex w-full items-center justify-between rounded-2xl border border-[#e9eaeb] bg-white px-4 py-3 text-left transition hover:bg-[#fafafa]"
-                >
-                  <span className="inline-flex items-center gap-2 text-[14px] font-semibold text-[#181d27]">
-                    <CalendarBlank className="h-4 w-4 text-[#717680]" weight="regular" />
-                    Connect Apple Calendar
-                  </span>
-                  <CaretRight className="h-4 w-4 text-[#a4a7ae]" />
-                </button>
-                <div className="rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] px-4 py-3">
-                  <p className="text-[12px] text-[#717680]">Raw subscribe URL</p>
-                  <p className="mt-1 break-all text-[12px] font-medium text-[#414651]">{calendarSubscribeUrl}</p>
-                </div>
-              </>
-            ) : null}
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setCalendarOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Account deletion — 2-step dialog */}
       <Dialog open={deleteOpen} onOpenChange={(open) => { if (!isDeletingAccount) setDeleteOpen(open); }}>

@@ -13,6 +13,7 @@ import {
   X,
 } from '@/components/ui/lucide-icons';
 import { hedwigApi } from '@/lib/api/client';
+import { useCurrency } from '@/components/providers/currency-provider';
 import type { Invoice, PaymentLink, Client, Contract, RecurringInvoice } from '@/lib/models/entities';
 
 type SearchResult =
@@ -91,16 +92,17 @@ const KIND_META = {
 function ResultRow({ result, onClick }: { result: SearchResult; onClick: () => void }) {
   const meta = KIND_META[result.kind];
   const Icon = meta.Icon;
+  const { formatAmount } = useCurrency();
 
   let title = '';
   let subtitle = '';
 
   if (result.kind === 'invoice') {
     title = result.data.title || result.data.number;
-    subtitle = `${result.data.number} · ${result.data.status} · $${result.data.amountUsd.toLocaleString()}`;
+    subtitle = `${result.data.number} · ${result.data.status} · ${formatAmount(result.data.amountUsd, { compact: true })}`;
   } else if (result.kind === 'payment-link') {
     title = result.data.title;
-    subtitle = `${result.data.status} · $${result.data.amountUsd.toLocaleString()}`;
+    subtitle = `${result.data.status} · ${formatAmount(result.data.amountUsd, { compact: true })}`;
   } else if (result.kind === 'client') {
     title = result.data.name;
     subtitle = result.data.email + (result.data.company ? ` · ${result.data.company}` : '');
@@ -109,7 +111,7 @@ function ResultRow({ result, onClick }: { result: SearchResult; onClick: () => v
     subtitle = result.data.status;
   } else if (result.kind === 'recurring') {
     title = result.data.title || 'Recurring invoice';
-    subtitle = `${result.data.frequency} · ${result.data.status} · $${result.data.amountUsd.toLocaleString()}`;
+    subtitle = `${result.data.frequency} · ${result.data.status} · ${formatAmount(result.data.amountUsd, { compact: true })}`;
   }
 
   return (

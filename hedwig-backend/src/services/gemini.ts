@@ -1240,7 +1240,7 @@ If certain fields are not mentioned, set them to null or empty array.
       pushBody: 'Send invoices directly from your Gmail inbox. Stay tuned.',
       emailSubject: 'Gmail integration is coming to Hedwig',
       emailHeading: 'Invoicing from Gmail — coming soon',
-      emailBody: 'We\'re building Gmail and Slack integrations so Hedwig fits right into your existing workflow.',
+      emailBody: 'We\'re building Gmail integrations so Hedwig fits right into your existing workflow.',
       ctaText: 'Learn More',
     };
 
@@ -1283,7 +1283,7 @@ If certain fields are not mentioned, set them to null or empty array.
       invoice_followup: 'Nudge freelancer to follow up after client viewed but didn\'t pay their invoice',
       client_reactivation: 'Remind freelancer they haven\'t invoiced a client in 30+ days',
       payment_link_boost: 'Remind freelancer to share their unviewed payment link',
-      integration_teaser: 'Tease upcoming Gmail or Slack integration',
+      integration_teaser: 'Tease upcoming Gmail integration',
       recurring_setup: 'Encourage freelancer with 3+ invoices to set up recurring billing',
       project_milestone: 'Remind freelancer about upcoming project milestone',
     };
@@ -1372,35 +1372,36 @@ Return ONLY valid JSON with this exact shape:
     latestNotificationMessage?: string | null;
     pendingWithdrawals: number;
   }): Promise<string> {
-    const fallbackParts: string[] = [];
+    const formattedOutstanding = `$${Math.round(input.outstandingUsd).toLocaleString()}`;
+    const fallbackSummary = (() => {
+      if (input.overdueInvoices > 0) {
+        const invoiceLabel = `${input.overdueInvoices} overdue invoice${input.overdueInvoices === 1 ? '' : 's'}`;
+        const next = input.upcomingEventTitle
+          ? `After that, ${input.upcomingEventTitle} is the next calendar item.`
+          : input.activeProjects > 0
+            ? `${input.activeProjects} active project${input.activeProjects === 1 ? '' : 's'} can wait until payment follow-up is handled.`
+            : 'Start with collection before opening new work.';
+        return `${invoiceLabel} should be the first move today, with ${formattedOutstanding} still outstanding. ${next}`;
+      }
 
-    if (input.overdueInvoices > 0) {
-      fallbackParts.push(`${input.overdueInvoices} overdue invoice${input.overdueInvoices === 1 ? '' : 's'} need attention`);
-    } else if (input.outstandingUsd > 0) {
-      fallbackParts.push(`$${input.outstandingUsd.toLocaleString()} is still outstanding`);
-    }
+      if (input.pendingWithdrawals > 0) {
+        return `${input.pendingWithdrawals} withdrawal${input.pendingWithdrawals === 1 ? ' is' : 's are'} still processing. ${input.outstandingUsd > 0 ? `${formattedOutstanding} remains outstanding, so watch collections while settlement completes.` : 'Payments are otherwise quiet, so check settlement before taking action.'}`;
+      }
 
-    if (input.upcomingEventTitle) {
-      fallbackParts.push(`Next up is ${input.upcomingEventTitle}`);
-    } else if (input.activeProjects > 0) {
-      fallbackParts.push(`${input.activeProjects} project${input.activeProjects === 1 ? '' : 's'} are currently active`);
-    }
+      if (input.upcomingEventTitle) {
+        return `${input.upcomingEventTitle} is the next scheduled item${input.upcomingEventDate ? ` on ${input.upcomingEventDate.slice(0, 10)}` : ''}. ${input.outstandingUsd > 0 ? `${formattedOutstanding} is still outstanding, so pair planning with a payment check.` : 'No urgent payment blockers stand out right now.'}`;
+      }
 
-    if (input.pendingWithdrawals > 0) {
-      fallbackParts.push(
-        input.pendingWithdrawals === 1
-          ? '1 withdrawal is processing'
-          : `${input.pendingWithdrawals} withdrawals are processing`
-      );
-    } else if (input.activePaymentLinks > 0) {
-      fallbackParts.push(`${input.activePaymentLinks} payment link${input.activePaymentLinks === 1 ? '' : 's'} are still live`);
-    }
+      if (input.outstandingUsd > 0) {
+        return `${formattedOutstanding} is outstanding across current invoices. ${input.activePaymentLinks > 0 ? `${input.activePaymentLinks} payment link${input.activePaymentLinks === 1 ? ' is' : 's are'} still live, so review which one is most likely to convert.` : 'Review invoice status before starting new follow-up.'}`;
+      }
 
-    const fallbackSummary =
-      fallbackParts.join('. ').trim() ||
-      input.latestNotificationMessage ||
-      input.latestNotificationTitle ||
-      `You’re set up for the day. Keep an eye on payments, project deadlines, and incoming activity.`;
+      if (input.activeProjects > 0) {
+        return `${input.activeProjects} active project${input.activeProjects === 1 ? ' is' : 's are'} moving without an obvious billing blocker. Use today to close the next deliverable or prepare the next invoice.`;
+      }
+
+      return input.latestNotificationMessage || input.latestNotificationTitle || 'No urgent money or deadline issues stand out right now. Use the assistant to import documents, review expenses, or plan the next client action.';
+    })();
 
     try {
       const prompt = `
@@ -1410,11 +1411,14 @@ Write one short dashboard summary for the user. It should sound like a calm oper
 
 Rules:
 - Maximum 2 sentences
-- Maximum 45 words
+- Maximum 55 words
 - No markdown
 - No bullet points
-- Mention only the most important priorities
-- Be specific when useful
+- Do not repeat generic phrases like "keep an eye on payments"
+- Choose a clear angle: collection risk, calendar pressure, project momentum, settlement, or all-clear
+- Include one concrete next move when there is enough context
+- Do not mention fields with zero or "none" values
+- Make it feel different from a static template
 
 Context:
 - User first name: ${input.firstName || 'there'}

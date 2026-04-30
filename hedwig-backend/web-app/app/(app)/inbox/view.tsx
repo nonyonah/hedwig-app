@@ -30,6 +30,7 @@ import {
   X,
   XCircle,
 } from '@/components/ui/lucide-icons';
+import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { useToast } from '@/components/providers/toast-provider';
 import type {
   EmailThread,
@@ -476,18 +477,14 @@ export function MagicInboxClient({ accessToken }: { accessToken: string | null }
 
           {/* Stats bar (top-level only) */}
           {activeTab === 'all' && !search && (
-            <div className="mx-4 mb-3 grid grid-cols-3 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-              {[
-                { label: 'Needs Review', value: counts.needs_review, color: 'text-[#92400e]' },
-                { label: 'Matched', value: counts.matched, color: 'text-[#027a48]' },
-                { label: 'Attachments', value: counts.attachments, color: 'text-[#2563eb]' },
-              ].map(({ label, value, color }) => (
-                <div key={label} className="bg-white px-4 py-3 text-center">
-                  <p className={`text-[18px] font-bold tracking-[-0.03em] ${color}`}>{value}</p>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">{label}</p>
-                </div>
-              ))}
-            </div>
+            <AttachedStatGrid
+              items={[
+                { id: 'needs-review', title: 'Needs review', value: String(counts.needs_review), valueClassName: 'text-[#92400e]', helper: undefined },
+                { id: 'matched', title: 'Matched', value: String(counts.matched), valueClassName: 'text-[#027a48]', helper: undefined },
+                { id: 'attachments', title: 'Attachments', value: String(counts.attachments), valueClassName: 'text-[#2563eb]', helper: undefined },
+              ]}
+              className="mx-4 mb-3 grid-cols-1 md:grid-cols-3"
+            />
           )}
 
           {/* Thread cards */}

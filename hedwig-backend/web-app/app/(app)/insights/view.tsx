@@ -30,6 +30,7 @@ import {
 } from 'recharts';
 import { ExportDialog } from '@/components/export/export-dialog';
 import { Button } from '@/components/ui/button';
+import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import {
   Dialog,
   DialogContent,
@@ -41,12 +42,12 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
-import { formatCompactCurrency } from '@/lib/utils';
 import { backendConfig } from '@/lib/auth/config';
 import { hedwigApi } from '@/lib/api/client';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { canUseFeature } from '@/lib/billing/feature-gates';
 import { ProLockCard } from '@/components/billing/pro-lock-card';
+import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
 import { buildExpenseAnalysis, buildInsightRisks } from '@/lib/revenue-analytics';
 import type { AnalyticsRange } from '@/lib/revenue-analytics';
 import type { ExpenseRecord, ClientRevenueBreakdown } from '@/lib/types/revenue';
@@ -92,33 +93,6 @@ interface InsightsData {
   insights: InsightItem[];
 }
 
-interface TaxSummaryMonthlyBucket {
-  month: string;
-  incomeUsd: number;
-  estimatedFeesUsd: number;
-  withdrawalsUsd: number;
-  netEstimateUsd: number;
-}
-
-interface TaxSummaryData {
-  year: number;
-  generatedAt: string;
-  feeMethod: string;
-  totals: {
-    incomeUsd: number;
-    estimatedFeesUsd: number;
-    withdrawalsUsd: number;
-    netEstimateUsd: number;
-  };
-  monthly: TaxSummaryMonthlyBucket[];
-  topClients: Array<{
-    clientId: string;
-    name: string;
-    incomeUsd: number;
-    invoiceCount: number;
-  }>;
-}
-
 /* ─── constants ─── */
 const RANGE_LABELS: Record<InsightsRange, string> = {
   '7d': '7D',
@@ -157,13 +131,13 @@ function formatTimeAgo(iso: string | null): string {
 }
 
 /* ─── earnings tooltip ─── */
-function EarningsTooltip({ active, payload, label, currency: cur }: any) {
+function EarningsTooltip({ active, payload, label, formatAmount }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-[#e9eaeb] bg-white px-3 py-2 shadow-lg">
       <p className="text-[11px] text-[#a4a7ae]">{label}</p>
       <p className="text-[14px] font-bold text-[#181d27]">
-        {formatCompactCurrency(payload[0].value as number, cur)}
+        {formatAmount(payload[0].value as number, { compact: true })}
       </p>
     </div>
   );
@@ -273,10 +247,9 @@ export function InsightsClient({
   clientBreakdown: ClientRevenueBreakdown[];
   invoices: Invoice[];
 }) {
-  const { currency } = useCurrency();
+  const { formatAmount, formatUsdText } = useCurrency();
   const { toast } = useToast();
   const canViewAdvancedInsights = canUseFeature('assistant_summary_advanced', billing);
-  const canViewTaxSummary = canUseFeature('tax_summary', billing);
 
   const [range, setRange] = useState<InsightsRange>('30d');
   const [data, setData] = useState<InsightsData | null>(initialData);
@@ -286,10 +259,6 @@ export function InsightsClient({
   const [showTargetDialog, setShowTargetDialog] = useState(false);
   const [isSavingTarget, setIsSavingTarget] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [taxYear, setTaxYear] = useState<number>(new Date().getUTCFullYear());
-  const [taxSummary, setTaxSummary] = useState<TaxSummaryData | null>(null);
-  const [taxLoading, setTaxLoading] = useState(false);
-  const [taxError, setTaxError] = useState<string | null>(null);
   const [clientsByRevenue, setClientsByRevenue] = useState<ClientRevenueBreakdown[]>(clientBreakdown);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -331,7 +300,7 @@ export function InsightsClient({
         body: JSON.stringify({ monthlyTarget: newTarget }),
       });
       setMonthlyTarget(newTarget);
-      toast({ type: 'success', title: 'Target updated', message: `Monthly target set to $${newTarget.toLocaleString()}` });
+      toast({ type: 'success', title: 'Target updated', message: `Monthly target set to ${formatAmount(newTarget)}` });
     } catch {
       setMonthlyTarget(newTarget);
     } finally {
@@ -339,29 +308,6 @@ export function InsightsClient({
       setShowTargetDialog(false);
     }
   };
-
-  const fetchTaxSummary = useCallback(async (year: number) => {
-    if (!accessToken) return;
-    setTaxLoading(true); setTaxError(null);
-    try {
-      const response = await fetch(`${backendConfig.apiBaseUrl}/api/insights/tax-summary?year=${year}`, {
-        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload?.success) throw new Error(payload?.error?.message || 'Failed to load tax summary');
-      if (mounted.current) setTaxSummary(payload.data as TaxSummaryData);
-    } catch (taxErr: any) {
-      if (mounted.current) setTaxError(taxErr?.message || 'Could not load tax summary');
-    } finally {
-      if (mounted.current) setTaxLoading(false);
-    }
-  }, [accessToken]);
-
-  useEffect(() => {
-    if (!canViewTaxSummary) return;
-    void fetchTaxSummary(taxYear);
-  }, [canViewTaxSummary, fetchTaxSummary, taxYear]);
 
   /* ─── derived ─── */
   const summary = data?.summary ?? null;
@@ -416,6 +362,12 @@ export function InsightsClient({
         <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
       </div>
 
+      <ContextualSuggestions
+        title="Tax and risk review"
+        description="Only actionable cross-cutting suggestions appear here, without creating another inbox."
+        query={{ insightsPage: true, limit: 1 }}
+      />
+
       {/* ── Range filter + timestamp ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
@@ -448,80 +400,53 @@ export function InsightsClient({
 
       {!error && (
         <>
-          {/* ── Stats bar ── */}
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb] sm:grid-cols-4">
-            <Link href="/payments" className="group flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[12px] font-medium text-[#717680]">Monthly earnings</p>
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-                  <CurrencyDollar className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-                </div>
-              </div>
-              {loading ? <div className="h-6 w-24 animate-pulse rounded bg-[#f2f4f7]" /> : (
-                <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">
-                  {formatCompactCurrency(monthlyEarnings, currency)}
-                </p>
-              )}
-              <div className="mt-1.5 flex items-center gap-1">
-                {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#12b76a]" weight="bold" />}
-                {earningsTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[#f04438]" weight="bold" />}
-                <p className={`text-[11px] ${earningsTrend === 'up' ? 'text-[#12b76a]' : earningsTrend === 'down' ? 'text-[#f04438]' : 'text-[#a4a7ae]'}`}>
-                  {earningsDeltaPct >= 0 ? '+' : ''}{earningsDeltaPct.toFixed(0)}% vs previous
-                </p>
-              </div>
-            </Link>
-
-            <Link href="/payments" className="group flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[12px] font-medium text-[#717680]">Payment rate</p>
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-                  <CheckCircle className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-                </div>
-              </div>
-              {loading ? <div className="h-6 w-16 animate-pulse rounded bg-[#f2f4f7]" /> : (
-                <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">
-                  {summary?.paymentRate ?? 0}%
-                </p>
-              )}
-              <p className="mt-1.5 text-[11px] text-[#a4a7ae]">
-                {summary ? `${summary.paidDocuments}/${summary.totalDocuments} paid` : '—'}
-              </p>
-            </Link>
-
-            <Link href="/payments" className="group flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[12px] font-medium text-[#717680]">Pending invoices</p>
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-                  <Warning className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-                </div>
-              </div>
-              {loading ? <div className="h-6 w-12 animate-pulse rounded bg-[#f2f4f7]" /> : (
-                <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">
-                  {summary?.pendingInvoicesCount ?? 0}
-                </p>
-              )}
-              <p className="mt-1.5 text-[11px] text-[#a4a7ae]">
-                {summary ? `${formatCompactCurrency(summary.pendingInvoicesTotal, currency)} outstanding` : '—'}
-              </p>
-            </Link>
-
-            <Link href="/clients" className="group flex flex-col bg-white px-5 py-4 transition duration-100 ease-linear hover:bg-[#fafafa]">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[12px] font-medium text-[#717680]">Active clients</p>
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f5f5f5]">
-                  <UsersThree className="h-3.5 w-3.5 text-[#717680]" weight="regular" />
-                </div>
-              </div>
-              {loading ? <div className="h-6 w-8 animate-pulse rounded bg-[#f2f4f7]" /> : (
-                <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">
-                  {summary?.clientsCount ?? 0}
-                </p>
-              )}
-              <p className="mt-1.5 text-[11px] text-[#a4a7ae]">
-                {summary?.topClient?.name ? `Top: ${summary.topClient.name}` : 'No top client yet'}
-              </p>
-            </Link>
-          </div>
+          <AttachedStatGrid
+            items={[
+              {
+                id: 'monthly-earnings',
+                title: 'Monthly earnings',
+                value: loading ? '...' : formatAmount(monthlyEarnings, { compact: true }),
+                helper: (
+                  <span className={`flex items-center gap-1 ${earningsTrend === 'up' ? 'text-[#12b76a]' : earningsTrend === 'down' ? 'text-[#f04438]' : 'text-[#a4a7ae]'}`}>
+                    {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#12b76a]" weight="bold" />}
+                    {earningsTrend === 'down' && <ArrowDownRight className="h-3 w-3 text-[#f04438]" weight="bold" />}
+                    <span>{earningsDeltaPct >= 0 ? '+' : ''}{earningsDeltaPct.toFixed(0)}% vs previous</span>
+                  </span>
+                ),
+                icon: CurrencyDollar,
+                href: '/payments',
+                loading,
+              },
+              {
+                id: 'payment-rate',
+                title: 'Payment rate',
+                value: loading ? '...' : `${summary?.paymentRate ?? 0}%`,
+                helper: summary ? `${summary.paidDocuments}/${summary.totalDocuments} paid` : '—',
+                icon: CheckCircle,
+                href: '/payments',
+                loading,
+              },
+              {
+                id: 'pending-invoices',
+                title: 'Pending invoices',
+                value: loading ? '...' : String(summary?.pendingInvoicesCount ?? 0),
+                helper: summary ? `${formatAmount(summary.pendingInvoicesTotal, { compact: true })} outstanding` : '—',
+                icon: Warning,
+                href: '/payments',
+                loading,
+              },
+              {
+                id: 'active-clients',
+                title: 'Active clients',
+                value: loading ? '...' : String(summary?.clientsCount ?? 0),
+                helper: summary?.topClient?.name ? `Top: ${summary.topClient.name}` : 'No top client yet',
+                icon: UsersThree,
+                href: '/clients',
+                loading,
+              },
+            ]}
+            className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
+          />
 
           {/* ── Revenue trend chart ── */}
           <article className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
@@ -573,10 +498,10 @@ export function InsightsClient({
                       axisLine={false}
                       tickLine={false}
                       width={46}
-                      tickFormatter={(v: number) => formatCompactCurrency(v, currency)}
+                      tickFormatter={(v: number) => formatAmount(v, { compact: true })}
                     />
                     <Tooltip
-                      content={<EarningsTooltip currency={currency} />}
+                      content={<EarningsTooltip formatAmount={formatAmount} />}
                       cursor={{ stroke: '#2563eb', strokeWidth: 1.5, strokeDasharray: '4 2' }}
                     />
                     <Area
@@ -614,7 +539,7 @@ export function InsightsClient({
                       </div>
                       <div>
                         <p className="text-[13px] font-semibold text-[#181d27]">{risk.title}</p>
-                        <p className="mt-1 text-[12px] leading-relaxed text-[#717680]">{risk.description}</p>
+                        <p className="mt-1 text-[12px] leading-relaxed text-[#717680]">{formatUsdText(risk.description)}</p>
                       </div>
                       {risk.actionLabel && (
                         <p className="text-[12px] font-semibold text-[#2563eb]">{risk.actionLabel} →</p>
@@ -648,7 +573,7 @@ export function InsightsClient({
                   <RingChart value={monthlyEarnings} total={monthlyTarget} />
                   <div className="absolute flex flex-col items-center">
                     <p className="text-[20px] font-bold tracking-[-0.03em] text-[#181d27] leading-none">
-                      ${monthlyEarnings.toLocaleString()}
+                      {formatAmount(monthlyEarnings, { compact: true })}
                     </p>
                     <p className="mt-1 text-[11px] text-[#a4a7ae]">Earned</p>
                   </div>
@@ -659,14 +584,14 @@ export function InsightsClient({
                     <p className="text-[11px] text-[#a4a7ae]">{hasExceededTarget ? 'Exceeded by' : 'Remaining'}</p>
                     <p className={`mt-0.5 text-[16px] font-bold tracking-[-0.03em] ${hasExceededTarget ? 'text-[#027a48]' : 'text-[#181d27]'}`}>
                       {hasExceededTarget
-                        ? `+$${(monthlyEarnings - monthlyTarget).toLocaleString()}`
-                        : `$${remainingAmount.toLocaleString()}`}
+                        ? `+${formatAmount(monthlyEarnings - monthlyTarget, { compact: true })}`
+                        : formatAmount(remainingAmount, { compact: true })}
                     </p>
                   </div>
                   <div className="flex flex-col items-center bg-white px-4 py-3">
                     <p className="text-[11px] text-[#a4a7ae]">Target</p>
                     <p className="mt-0.5 text-[16px] font-bold tracking-[-0.03em] text-[#181d27]">
-                      ${monthlyTarget.toLocaleString()}
+                      {formatAmount(monthlyTarget, { compact: true })}
                     </p>
                   </div>
                 </div>
@@ -737,7 +662,7 @@ export function InsightsClient({
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-[14px] font-semibold text-[#181d27]">{insight.title}</p>
-                            <p className="mt-0.5 text-[13px] text-[#717680]">{insight.description}</p>
+                            <p className="mt-0.5 text-[13px] text-[#717680]">{formatUsdText(insight.description)}</p>
                             {insight.actionLabel && (
                               <p className="mt-1.5 text-[12px] font-semibold text-[#2563eb]">{insight.actionLabel}</p>
                             )}
@@ -790,7 +715,7 @@ export function InsightsClient({
                           <p className="text-[13px] font-semibold text-[#181d27]">{item.label}</p>
                           <div className="flex items-center gap-2">
                             <span className="text-[13px] font-semibold text-[#181d27]">
-                              {formatCompactCurrency(item.value, currency)}
+                              {formatAmount(item.value, { compact: true })}
                             </span>
                             <span className="w-8 text-right text-[11px] font-semibold text-[#a4a7ae]">
                               {item.pct.toFixed(0)}%
@@ -834,7 +759,7 @@ export function InsightsClient({
                         </div>
                         <div className="ml-3 flex items-center gap-2 shrink-0">
                           <span className="text-[13px] font-semibold text-[#181d27]">
-                            {formatCompactCurrency(c.totalRevenue, currency)}
+                            {formatAmount(c.totalRevenue, { compact: true })}
                           </span>
                           <span className="w-9 text-right text-[11px] font-semibold text-[#a4a7ae]">
                             {c.shareOfTotal.toFixed(0)}%
@@ -856,146 +781,6 @@ export function InsightsClient({
             </article>
           </div>
 
-          {/* ── Overview mini-cards ── */}
-          <div>
-            <h2 className="mb-3 text-[16px] font-semibold text-[#181d27]">Overview</h2>
-            {loading ? (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-xs ring-1 ring-[#e9eaeb] animate-pulse">
-                    <div className="h-8 w-8 rounded-lg bg-[#f2f4f7]" />
-                    <div className="space-y-1.5">
-                      <div className="h-5 w-12 rounded bg-[#f2f4f7]" />
-                      <div className="h-3 w-20 rounded bg-[#f2f4f7]" />
-                      <div className="h-3 w-16 rounded bg-[#f2f4f7]" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                {([
-                  { value: String(summary?.paymentLinksCount ?? 0), title: 'Payment links', helper: 'Total created', href: '/payments', Icon: LinkSimple },
-                  { value: String(summary?.activeProjects ?? 0), title: 'Active projects', helper: 'In progress', href: '/projects', Icon: FolderSimple },
-                  { value: formatCompactCurrency(summary?.receivedAmount ?? 0, currency), title: 'Received', helper: 'In this period', href: '/payments', Icon: CurrencyDollar },
-                  { value: String(summary?.pendingInvoicesCount ?? 0), title: 'Pending invoices', helper: 'Awaiting payment', href: '/payments', Icon: Warning },
-                  { value: `${summary?.paidDocuments ?? 0}/${summary?.totalDocuments ?? 0}`, title: 'Paid docs', helper: 'Paid vs total', href: '/payments', Icon: CheckCircle },
-                ] as const).map((card) => (
-                  <Link
-                    key={card.title}
-                    href={card.href}
-                    className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-xs ring-1 ring-[#e9eaeb] transition duration-100 ease-linear hover:bg-[#fafafa]"
-                  >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f5f5f5]">
-                      <card.Icon className="h-[16px] w-[16px] text-[#717680]" weight="regular" />
-                    </div>
-                    <div>
-                      <p className="text-[22px] font-bold tracking-[-0.03em] leading-none text-[#181d27]">{card.value}</p>
-                      <p className="mt-1 text-[13px] font-semibold text-[#535862]">{card.title}</p>
-                      <p className="mt-0.5 text-[12px] text-[#a4a7ae]">{card.helper}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ── Tax summary ── */}
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[16px] font-semibold text-[#181d27]">Tax summary</h2>
-              {canViewTaxSummary ? (
-                <div className="inline-flex items-center gap-2">
-                  <select
-                    value={taxYear}
-                    onChange={(event) => setTaxYear(Number(event.target.value))}
-                    className="rounded-lg border border-[#d5d7da] bg-white px-2.5 py-1.5 text-[12px] font-semibold text-[#414651] outline-none"
-                  >
-                    {Array.from({ length: 6 }).map((_, index) => {
-                      const year = new Date().getUTCFullYear() - index;
-                      return <option key={year} value={year}>{year}</option>;
-                    })}
-                  </select>
-                  <Button variant="secondary" onClick={() => fetchTaxSummary(taxYear)} disabled={taxLoading}>
-                    Refresh
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-
-            {!canViewTaxSummary ? (
-              <ProLockCard
-                title="Tax summaries are on Pro"
-                description="Get monthly income, fee estimates, withdrawals, and net totals with yearly rollups."
-                compact
-              />
-            ) : taxError ? (
-              <div className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
-                <p className="text-[14px] font-semibold text-[#181d27]">Could not load tax summary</p>
-                <p className="mt-1 text-[13px] text-[#717680]">{taxError}</p>
-              </div>
-            ) : (
-              <div className="overflow-hidden rounded-2xl bg-white shadow-xs ring-1 ring-[#e9eaeb]">
-                <div className="grid grid-cols-4 gap-px bg-[#e9eaeb]">
-                  {[
-                    { title: 'Income', value: taxSummary?.totals.incomeUsd || 0 },
-                    { title: 'Estimated fees', value: taxSummary?.totals.estimatedFeesUsd || 0 },
-                    { title: 'Withdrawals', value: taxSummary?.totals.withdrawalsUsd || 0 },
-                    { title: 'Net estimate', value: taxSummary?.totals.netEstimateUsd || 0 },
-                  ].map((card) => (
-                    <div key={card.title} className="bg-white px-4 py-3.5">
-                      <p className="text-[11px] text-[#717680]">{card.title}</p>
-                      <p className="mt-1 text-[18px] font-bold tracking-[-0.02em] text-[#181d27]">
-                        {formatCompactCurrency(card.value, currency)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="border-t border-[#f2f4f7] px-5 py-3">
-                  <p className="text-[12px] text-[#717680]">
-                    {taxSummary
-                      ? `Generated ${formatTimeAgo(taxSummary.generatedAt).replace('Updated ', '')}. Method: ${taxSummary.feeMethod === 'transactions' ? 'transaction fees' : '1% estimated fee model'}.`
-                      : taxLoading
-                        ? 'Loading tax summary…'
-                        : 'No tax summary available yet.'}
-                  </p>
-                </div>
-
-                <div className="overflow-x-auto border-t border-[#f2f4f7]">
-                  <table className="min-w-full">
-                    <thead>
-                      <tr className="border-b border-[#f2f4f7] bg-[#fafafa]">
-                        <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Month</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Income</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Fees</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Withdrawals</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-[#a4a7ae]">Net</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#f9fafb]">
-                      {(taxSummary?.monthly || []).map((bucket) => (
-                        <tr key={bucket.month} className="hover:bg-[#fafafa]">
-                          <td className="px-4 py-2.5 text-[12px] font-semibold text-[#414651]">{bucket.month}</td>
-                          <td className="px-4 py-2.5 text-right text-[12px] text-[#181d27]">{formatCompactCurrency(bucket.incomeUsd, currency)}</td>
-                          <td className="px-4 py-2.5 text-right text-[12px] text-[#717680]">{formatCompactCurrency(bucket.estimatedFeesUsd, currency)}</td>
-                          <td className="px-4 py-2.5 text-right text-[12px] text-[#717680]">{formatCompactCurrency(bucket.withdrawalsUsd, currency)}</td>
-                          <td className="px-4 py-2.5 text-right text-[12px] font-semibold text-[#181d27]">{formatCompactCurrency(bucket.netEstimateUsd, currency)}</td>
-                        </tr>
-                      ))}
-                      {!taxLoading && (taxSummary?.monthly || []).length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-4 py-8 text-center text-[13px] text-[#a4a7ae]">
-                            No tax activity found for {taxYear}.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
         </>
       )}
 

@@ -7,9 +7,10 @@ import type { Client } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { Button } from '@/components/ui/button';
+import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { useToast } from '@/components/providers/toast-provider';
-import { formatCompactCurrency, formatShortDate } from '@/lib/utils';
+import { formatShortDate } from '@/lib/utils';
 
 const CLIENT_STATUS = {
   active:   { dot: 'bg-[#12b76a]', label: 'Active',   bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]' },
@@ -52,7 +53,7 @@ export function ClientsClient({
   initialClients: Client[];
   accessToken: string | null;
 }) {
-  const { currency } = useCurrency();
+  const { formatAmount } = useCurrency();
   const { toast } = useToast();
 
   const [clients, setClients] = useState(initialClients);
@@ -104,28 +105,27 @@ export function ClientsClient({
         <p className="mt-0.5 text-[13px] text-[#a4a7ae]">Manage your client relationships and track outstanding work.</p>
       </div>
 
-      {/* Segment cards */}
-      <div className="grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
-        {(['new', 'active', 'recurring', 'inactive'] as ClientSegment[]).map((seg) => {
+      <AttachedStatGrid
+        items={(['new', 'active', 'recurring', 'inactive'] as ClientSegment[]).map((seg) => {
           const meta = SEGMENT_META[seg];
-          const isSelected = filter === seg;
-          return (
-            <button
-              key={seg}
-              type="button"
-              onClick={() => setFilter(filter === seg ? 'all' : seg)}
-              className={`px-5 py-4 text-left transition-colors ${isSelected ? 'bg-[#f8fbff]' : 'bg-white hover:bg-[#fafafa]'}`}
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">{meta.label}</p>
-              <p className="mt-1.5 text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{segmentCounts[seg]}</p>
-              <p className="mt-0.5 text-[11px] text-[#a4a7ae]">{meta.sub}</p>
-              {segmentRevenue[seg] > 0 && (
-                <p className="mt-1 text-[11px] text-[#717680]">{formatCompactCurrency(segmentRevenue[seg], currency)} billed</p>
-              )}
-            </button>
-          );
+          return {
+            id: seg,
+            title: meta.label,
+            value: String(segmentCounts[seg]),
+            helper: segmentRevenue[seg] > 0
+              ? (
+                  <>
+                    <span>{meta.sub}</span>
+                    <span className="mt-1 block text-[#717680]">{formatAmount(segmentRevenue[seg], { compact: true })} billed</span>
+                  </>
+                )
+              : meta.sub,
+            active: filter === seg,
+            onClick: () => setFilter(filter === seg ? 'all' : seg),
+          };
         })}
-      </div>
+        className="grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
+      />
 
       {/* Table */}
       <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#e9eaeb] shadow-xs">
@@ -137,7 +137,7 @@ export function ClientsClient({
               <>
                 <span className="h-3 w-px shrink-0 bg-[#f2f4f7]" />
                 <span className="truncate text-[12px] text-[#a4a7ae]">
-                  {formatCompactCurrency(totalOutstanding, currency)} outstanding
+                  {formatAmount(totalOutstanding, { compact: true })} outstanding
                 </span>
               </>
             )}
@@ -214,10 +214,10 @@ export function ClientsClient({
                     {s.label}
                   </span>
                   <p className="text-right text-[13px] font-semibold tabular-nums text-[#252b37]">
-                    {formatCompactCurrency(client.outstandingUsd, currency)}
+                    {formatAmount(client.outstandingUsd, { compact: true })}
                   </p>
                   <p className="text-right text-[13px] tabular-nums text-[#8d9096]">
-                    {formatCompactCurrency(client.totalBilledUsd, currency)}
+                    {formatAmount(client.totalBilledUsd, { compact: true })}
                   </p>
                   <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(client.lastActivityAt)}</p>
                   <div className="flex justify-end">

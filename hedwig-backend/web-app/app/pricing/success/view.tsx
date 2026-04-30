@@ -8,13 +8,7 @@ import { Check, Sparkle } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { isProPlan } from '@/lib/billing/feature-gates';
-
-const PRO_FEATURES = [
-  'Assistant summary and priority feed',
-  'Recurring invoice automation',
-  'Tax summaries (monthly and yearly)',
-  'Subscription sync across web and mobile',
-];
+import { PRO_PLAN_FEATURES } from '@/lib/billing/pricing';
 
 export function SuccessPageClient({
   accessToken,
@@ -138,7 +132,7 @@ export function SuccessPageClient({
               <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">What you get with Pro</p>
             </div>
             <div className="divide-y divide-[#f9fafb]">
-              {PRO_FEATURES.map((feat) => (
+              {PRO_PLAN_FEATURES.map((feat) => (
                 <div key={feat} className="flex items-center gap-3 px-5 py-3.5">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#eff4ff]">
                     <Check className="h-3 w-3 text-[#2563eb]" weight="bold" />

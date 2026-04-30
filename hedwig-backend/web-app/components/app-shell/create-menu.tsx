@@ -523,8 +523,22 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
 
     setIsSubmitting(true);
     try {
-      await hedwigApi.createProjectFlow(payload, { accessToken: token, disableMockFallback: true });
+      const result = await hedwigApi.createProjectFlow(payload, { accessToken: token, disableMockFallback: true });
       toast({ type: 'success', ...formatCreatedMessage('project') });
+      if (result.contractLimitReached) {
+        toast({
+          type: 'warning',
+          title: 'Contract limit reached',
+          message: 'The project was created, but the free plan contract limit was reached this month.'
+        });
+      }
+      if (result.milestoneAutomationLocked) {
+        toast({
+          type: 'info',
+          title: 'Milestone automation is on Pro',
+          message: 'The project was created. Upgrade to Pro to auto-create milestone invoices.'
+        });
+      }
       closeAndReset();
       router.refresh();
     } catch (error: any) {
@@ -550,7 +564,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
     invoice: 'Line items and notes are optional.',
     'payment-link': 'Expiry defaults to 30 days if left blank.',
     client: 'You can add more details from the client page later.',
-    project: 'A contract is generated automatically on creation.',
+    project: 'Set scope, deadline, and milestones. Hedwig can generate the contract for you.',
   };
 
   return (
@@ -612,7 +626,7 @@ export function CreateMenu({ accessToken }: { accessToken?: string | null }) {
               <CreateActionCard
                 icon={<FolderSimple className="h-4 w-4" weight="bold" />}
                 title="Project"
-                description="Set scope, deadline, and milestones. Contract is auto-generated."
+                description="Set scope, deadline, and milestones. Hedwig can generate the contract for you."
                 onClick={() => setFlow('project')}
               />
             </div>

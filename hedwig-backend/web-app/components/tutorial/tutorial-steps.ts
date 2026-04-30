@@ -4,8 +4,10 @@ export type WebScreenId =
   | 'projects'
   | 'contracts'
   | 'payments'
+  | 'revenue'
   | 'insights'
   | 'calendar'
+  | 'assistant'
   | 'settings';
 
 export interface WebTutorialStep {
@@ -23,8 +25,16 @@ export const WEB_TUTORIAL_STEPS: WebTutorialStep[] = [
     screenId: 'dashboard',
     route: '/dashboard',
     title: 'Your workspace at a glance',
-    body: 'Dashboard surfaces your earnings, outstanding invoices, and active projects — everything you need to stay on top of your work.',
+    body: 'Dashboard brings together earnings, outstanding invoices, active projects, reminders, and your assistant summary so you can see what needs attention first.',
     position: 'center',
+  },
+  {
+    id: 'assistant_intro',
+    screenId: 'assistant',
+    route: '/dashboard',
+    title: 'Ask the Hedwig agent',
+    body: 'Use the assistant to ask about clients, projects, paid and unpaid invoices, expenses, and documents. You can upload attachments, then approve any action before Hedwig creates, files, or syncs anything.',
+    position: 'bottom',
   },
   {
     id: 'clients_intro',
@@ -47,7 +57,7 @@ export const WEB_TUTORIAL_STEPS: WebTutorialStep[] = [
     screenId: 'contracts',
     route: '/contracts',
     title: 'Generate and send contracts',
-    body: 'Create professional contracts for your projects and send them to clients for review and approval — no separate tool needed.',
+    body: 'Create professional contracts for your projects, track review status, and keep client agreements attached to the workspace.',
     position: 'top',
   },
   {
@@ -55,15 +65,23 @@ export const WEB_TUTORIAL_STEPS: WebTutorialStep[] = [
     screenId: 'payments',
     route: '/payments',
     title: 'Invoices and payment links',
-    body: 'Send invoices or create a payment link for quick one-off requests. Track payment status from sent to paid in real time.',
+    body: 'Send invoices, create payment links, manage recurring invoices, and use native reminders for client follow-up. Imported paid invoices are kept for revenue bookkeeping.',
     position: 'top',
+  },
+  {
+    id: 'revenue_intro',
+    screenId: 'revenue',
+    route: '/revenue',
+    title: 'Revenue and expenses',
+    body: 'Revenue tracks paid invoices, payment sources, expenses, transaction fees, and client or project breakdowns so the agent can answer everyday finance questions with live data.',
+    position: 'center',
   },
   {
     id: 'insights_intro',
     screenId: 'insights',
     route: '/insights',
     title: 'Track your performance',
-    body: 'Insights summarises earnings trends, invoice performance, and top clients so you can spot what needs attention fast.',
+    body: 'Insights summarises earnings trends, invoice performance, top clients, tax hints, and assistant suggestions so you can spot what needs attention fast.',
     position: 'center',
   },
   {
@@ -71,15 +89,15 @@ export const WEB_TUTORIAL_STEPS: WebTutorialStep[] = [
     screenId: 'calendar',
     route: '/calendar',
     title: 'Never miss a due date',
-    body: 'Your calendar keeps upcoming invoices, reminders, and project milestones in one timeline for quick planning.',
+    body: 'Your calendar keeps invoices, reminders, milestones, project deadlines, and synced Google Calendar events in one planning timeline.',
     position: 'top',
   },
   {
     id: 'settings_intro',
     screenId: 'settings',
     route: '/settings',
-    title: "You're all set",
-    body: "Head to Settings anytime to update your profile or replay this walkthrough.",
+    title: 'Connect tools and manage billing',
+    body: 'Settings is where you update profile details, replay this walkthrough, connect Gmail, Calendar, Drive, and Docs, manage assistant notifications, and switch billing cadence.',
     position: 'bottom',
   },
 ];

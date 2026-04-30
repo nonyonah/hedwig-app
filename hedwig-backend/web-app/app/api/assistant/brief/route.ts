@@ -4,6 +4,32 @@ import { backendConfig } from '@/lib/auth/config';
 
 export const runtime = 'nodejs';
 
+function emptyBrief() {
+  return {
+    success: true,
+    data: {
+      generatedAt: new Date().toISOString(),
+      summary: 'Hedwig Assistant is ready. Your daily brief will appear here as live billing, project, and reminder activity builds up.',
+      highlights: [],
+      events: [],
+      metrics: {
+        unpaidCount: 0,
+        unpaidAmountUsd: 0,
+        overdueCount: 0,
+        overdueAmountUsd: 0,
+        upcomingDeadlines: 0,
+        activePaymentLinks: 0,
+        reviewDocuments: 0,
+        expensesLast30DaysUsd: 0,
+        transactionFeesLast30DaysUsd: 0,
+      },
+      expenseBreakdown: [],
+      taxHint: null,
+      projectAlerts: [],
+    },
+  };
+}
+
 export async function GET(_req: NextRequest): Promise<Response> {
   const session = await getCurrentSession();
   if (!session.accessToken) {
@@ -16,6 +42,7 @@ export async function GET(_req: NextRequest): Promise<Response> {
   }).catch(() => null);
 
   if (!resp) return NextResponse.json({ success: false, error: 'Backend unreachable' }, { status: 502 });
+  if (resp.status === 404) return NextResponse.json(emptyBrief());
 
   const data = await resp.json().catch(() => ({ success: false }));
   return NextResponse.json(data, { status: resp.status });

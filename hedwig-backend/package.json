@@ -33,6 +33,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@composio/core": "^0.8.0",
+    "@composio/google": "^0.8.0",
+    "@google/genai": "^1.50.1",
     "@google/generative-ai": "^0.21.0",
     "@hirosystems/chainhooks-client": "^1.0.0",
     "@privy-io/node": "^0.6.2",

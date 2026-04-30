@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 import { CreateRecurringInvoiceDialog } from '@/components/payments/create-recurring-invoice-dialog';
+import { useCurrency } from '@/components/providers/currency-provider';
 import { useToast } from '@/components/providers/toast-provider';
 import { usePostHog } from 'posthog-js/react';
 
@@ -85,6 +86,7 @@ function ActionCard({
 }) {
   const meta = INTENT_META[parsed.intent] ?? INTENT_META.invoice;
   const { Icon } = meta;
+  const { formatAmount } = useCurrency();
 
   return (
     <div className="w-full rounded-xl border border-[#e9eaeb] bg-white p-3 shadow-xs">
@@ -97,7 +99,7 @@ function ActionCard({
 
       <div className="mb-3 space-y-1.5">
         {parsed.amount != null && (
-          <Row label="Amount" value={`$${parsed.amount.toLocaleString()}`} />
+          <Row label="Amount" value={formatAmount(parsed.amount)} />
         )}
         {parsed.clientName && <Row label="Client" value={parsed.clientName} />}
         {parsed.clientEmail && <Row label="Email" value={parsed.clientEmail} truncate />}
@@ -149,6 +151,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
   const { toast } = useToast();
+  const { formatUsdText } = useCurrency();
   const posthog = usePostHog();
 
   const capturePostHog = useCallback((event: string, properties: Record<string, unknown>) => {
@@ -442,7 +445,7 @@ export function HedwigChatBubble({ accessToken }: { accessToken: string | null }
                       ? 'rounded-tr-sm bg-[#2563eb] text-white'
                       : 'rounded-tl-sm bg-[#f9fafb] text-[#181d27]'
                   }`}>
-                    {msg.content}
+                    {msg.role === 'assistant' ? formatUsdText(msg.content) : msg.content}
                   </div>
 
                   {/* Action card */}

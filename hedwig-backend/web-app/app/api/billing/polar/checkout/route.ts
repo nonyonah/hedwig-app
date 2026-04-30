@@ -17,6 +17,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   const interval = normalizeInterval(req.nextUrl.searchParams.get('interval'));
+  const mode = req.nextUrl.searchParams.get('mode') === 'switch' ? 'switch' : 'checkout';
   const productId = resolvePolarProductId(interval);
 
   if (!productId) {
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     JSON.stringify({
       source: 'hedwig-web',
       interval,
+      mode,
       userId: session.user.id,
     })
   );
@@ -54,7 +56,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (interval === 'annual' && discountIdAnnual) {
     redirectUrl.searchParams.set('discountId', discountIdAnnual);
   }
-  if (trialDays > 0) {
+  if (trialDays > 0 && mode !== 'switch') {
     redirectUrl.searchParams.set('trialDays', String(trialDays));
   }
 

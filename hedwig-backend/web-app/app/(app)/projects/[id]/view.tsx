@@ -17,8 +17,10 @@ import {
 } from '@/components/ui/dialog';
 import { hedwigApi } from '@/lib/api/client';
 import type { Contract, Invoice, Milestone, Project } from '@/lib/models/entities';
-import { cn, formatCompactCurrency, formatShortDate } from '@/lib/utils';
+import { cn, formatShortDate } from '@/lib/utils';
 import { useToast } from '@/components/providers/toast-provider';
+import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
+import { useCurrency } from '@/components/providers/currency-provider';
 
 const PROJ_STATUS = {
   active:    { label: 'Active',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]', dot: 'bg-[#12b76a]' },
@@ -95,6 +97,7 @@ export function ProjectDetailClient({
   accessToken: string | null;
 }) {
   const { toast } = useToast();
+  const { formatAmount } = useCurrency();
   const [project, setProject] = useState(initialProject);
   const [milestoneList, setMilestoneList] = useState(milestones);
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
@@ -216,7 +219,7 @@ export function ProjectDetailClient({
                 </span>
               </div>
               <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
-                {project.ownerName} · {completedMilestones}/{milestoneList.length} milestones · {formatCompactCurrency(project.budgetUsd)} budget
+                {project.ownerName} · {completedMilestones}/{milestoneList.length} milestones · {formatAmount(project.budgetUsd, { compact: true })} budget
               </p>
             </div>
           </div>
@@ -241,7 +244,7 @@ export function ProjectDetailClient({
         <div className="divide-y divide-[#f9fafb] px-5">
           {[
             { label: 'Deadline', value: formatShortDate(project.nextDeadlineAt), icon: <CalendarBlank className="h-3.5 w-3.5" /> },
-            { label: 'Budget',   value: formatCompactCurrency(project.budgetUsd), icon: <CurrencyDollar className="h-3.5 w-3.5" /> },
+            { label: 'Budget',   value: formatAmount(project.budgetUsd), icon: <CurrencyDollar className="h-3.5 w-3.5" /> },
             { label: 'Owner',    value: project.ownerName, icon: <Target className="h-3.5 w-3.5" /> },
             { label: 'Contract', value: project.contract?.title ?? null, icon: <Info className="h-3.5 w-3.5" /> },
           ].map(({ label, value, icon }) => (
@@ -257,6 +260,12 @@ export function ProjectDetailClient({
           ))}
         </div>
       </div>
+
+      <ContextualSuggestions
+        title="Project suggestions"
+        description="Hedwig keeps project recommendations tied to this workspace instead of sending them to a queue."
+        query={{ projectId: project.id, types: ['project_action', 'calendar_event'], limit: 2 }}
+      />
 
       {/* Two-column: related records */}
       <div className="grid gap-4 xl:grid-cols-[1fr_300px]">
@@ -294,7 +303,7 @@ export function ProjectDetailClient({
                         </td>
                         <td className="px-5 py-2.5"><Pill bg={ms.bg} text={ms.text} label={ms.label} /></td>
                         <td className="px-5 py-2.5 text-[12px] text-[#a4a7ae]">{formatShortDate(m.dueAt)}</td>
-                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[#8d9096]">{m.amountUsd ? formatCompactCurrency(m.amountUsd) : '—'}</td>
+                        <td className="px-5 py-2.5 text-[13px] tabular-nums text-[#8d9096]">{m.amountUsd ? formatAmount(m.amountUsd, { compact: true }) : '—'}</td>
                         <td className="px-5 py-2.5 text-right">
                           {canComplete && (
                             <button
@@ -376,7 +385,7 @@ export function ProjectDetailClient({
                         <p className="text-[11px] text-[#a4a7ae]">Due {formatShortDate(inv.dueAt)}</p>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <span className="text-[13px] font-semibold tabular-nums text-[#252b37]">{formatCompactCurrency(inv.amountUsd)}</span>
+                        <span className="text-[13px] font-semibold tabular-nums text-[#252b37]">{formatAmount(inv.amountUsd, { compact: true })}</span>
                         <Pill bg={is.bg} text={is.text} label={is.label} />
                       </div>
                     </Link>

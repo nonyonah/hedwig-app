@@ -4,10 +4,16 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Check, Sparkle, X } from '@/components/ui/lucide-icons';
+import { Check, Sparkle } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import type { BillingStatusSummary } from '@/lib/api/client';
 import { isProPlan } from '@/lib/billing/feature-gates';
+import {
+  FREE_PLAN_FEATURES,
+  PLAN_COMPARISON_ROWS,
+  PRO_PLAN_FEATURES,
+} from '@/lib/billing/pricing';
+import { billingSwitchErrorMessage, friendlyErrorMessage } from '@/lib/api/errors';
 
 type Interval = 'monthly' | 'annual';
 type SubscriptionProvider = 'polar' | 'revenue_cat';
@@ -20,29 +26,6 @@ const resolveSubscriptionProvider = (billing: BillingStatusSummary | null): Subs
   if (store === 'POLAR') return 'polar';
   return 'revenue_cat';
 };
-
-const FREE_FEATURES = [
-  'Invoices and payment links',
-  'Clients, projects, and contracts',
-  'Earnings dashboard and reporting',
-  'Assistant summary and priority feed',
-];
-
-const PRO_FEATURES = [
-  'Recurring invoice automation',
-  'Tax summaries (monthly and yearly)',
-  'Priority product updates',
-  'Subscription sync across web and mobile',
-];
-
-const FEATURE_ROWS: Array<{ feature: string; free: boolean; pro: boolean }> = [
-  { feature: 'Create invoices and payment links', free: true, pro: true },
-  { feature: 'Manage clients and projects', free: true, pro: true },
-  { feature: 'Assistant summary feed', free: true, pro: true },
-  { feature: 'Recurring invoice automation', free: false, pro: true },
-  { feature: 'Tax summary reports', free: false, pro: true },
-  { feature: 'Priority product updates', free: false, pro: true },
-];
 
 export function PricingPageClient({
   accessToken,
@@ -61,6 +44,9 @@ export function PricingPageClient({
 
   const isPro = isProPlan(billing);
   const subscriptionProvider = useMemo(() => resolveSubscriptionProvider(billing), [billing]);
+  const billingInterval = billing?.entitlement?.billingInterval ?? null;
+  const canSwitchOnWeb = Boolean(accessToken && isPro && subscriptionProvider !== 'revenue_cat');
+  const targetSwitchInterval: Interval = billingInterval === 'annual' ? 'monthly' : 'annual';
 
   const price = useMemo(() => {
     if (interval === 'annual') {
@@ -80,21 +66,44 @@ export function PricingPageClient({
     };
   }, [interval]);
 
+  const switchPlanInterval = async (targetInterval: Interval) => {
+    const response = await fetch('/api/billing/polar/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ interval: targetInterval }),
+    });
+    const data = await response.json().catch(() => null) as { success?: boolean; error?: string; code?: string; data?: { changed?: boolean } } | null;
+    if (!response.ok || !data?.success) {
+      throw new Error(billingSwitchErrorMessage(data));
+    }
+    setInfo(
+      data.data?.changed === false
+        ? 'That billing interval is already active.'
+        : `Your plan has been switched to ${targetInterval === 'annual' ? 'yearly' : 'monthly'} billing.`
+    );
+  };
+
   const startCheckout = async () => {
     if (!accessToken) {
       router.push('/sign-in');
       return;
     }
-    if (isPro) return;
+    if (isPro && interval === billingInterval) return;
 
     setIsRedirecting(true);
     setError(null);
-    setInfo('Opening secure checkout…');
+    setInfo(isPro ? 'Opening plan switch…' : 'Opening secure checkout…');
 
     try {
+      if (isPro) {
+        await switchPlanInterval(interval);
+        setIsRedirecting(false);
+        return;
+      }
+
       window.location.assign(`/api/billing/polar/checkout?interval=${interval}`);
     } catch (checkoutError: any) {
-      setError(checkoutError?.message || 'Could not start checkout right now.');
+      setError(friendlyErrorMessage(checkoutError, 'Could not start checkout right now.'));
       setIsRedirecting(false);
     } finally {
       // no-op: browser navigates away on success
@@ -147,7 +156,7 @@ export function PricingPageClient({
             Simple pricing. No surprises.
           </h1>
           <p className="mt-3 text-[15px] text-[#667085] max-w-[480px] mx-auto leading-relaxed">
-            Start free. Upgrade when you need recurring invoices, tax summaries, and assistant workflows.
+            Start free. Upgrade when you need the assistant, recurring automation, and more creation headroom.
           </p>
 
           {/* Toggle */}
@@ -196,7 +205,7 @@ export function PricingPageClient({
               <p className="mt-1.5 text-[13px] text-[#667085]">Core tools to manage clients, invoices, and payments.</p>
             </div>
             <div className="space-y-3 mb-6">
-              {FREE_FEATURES.map((item) => (
+              {FREE_PLAN_FEATURES.map((item) => (
                 <div key={item} className="flex items-center gap-2.5">
                   <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f2f4f7]">
                     <Check className="h-2.5 w-2.5 text-[#717680]" weight="bold" />
@@ -232,22 +241,49 @@ export function PricingPageClient({
               )}
             </div>
             <div className="space-y-3 mb-6">
-              {[...FREE_FEATURES, ...PRO_FEATURES].map((item, i) => (
+              {[...FREE_PLAN_FEATURES, ...PRO_PLAN_FEATURES].map((item, i) => (
                 <div key={item} className="flex items-center gap-2.5">
-                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${i < FREE_FEATURES.length ? 'bg-[#f2f4f7]' : 'bg-[#eff4ff]'}`}>
-                    <Check className={`h-2.5 w-2.5 font-bold ${i < FREE_FEATURES.length ? 'text-[#717680]' : 'text-[#2563eb]'}`} weight="bold" />
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${i < FREE_PLAN_FEATURES.length ? 'bg-[#f2f4f7]' : 'bg-[#eff4ff]'}`}>
+                    <Check className={`h-2.5 w-2.5 font-bold ${i < FREE_PLAN_FEATURES.length ? 'text-[#717680]' : 'text-[#2563eb]'}`} weight="bold" />
                   </span>
                   <span className="text-[13px] text-[#414651]">{item}</span>
-                  {i >= FREE_FEATURES.length && (
+                  {i >= FREE_PLAN_FEATURES.length && (
                     <span className="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wider text-[#2563eb]">Pro</span>
                   )}
                 </div>
               ))}
             </div>
             <div className="space-y-2">
-              <Button onClick={startCheckout} disabled={isRedirecting || isPro} className="w-full">
-                {isPro ? 'You are on Pro' : isRedirecting ? 'Opening checkout…' : 'Start free trial'}
+              <Button onClick={startCheckout} disabled={isRedirecting || (isPro && interval === billingInterval)} className="w-full">
+                {isRedirecting
+                  ? 'Opening checkout…'
+                  : isPro && interval === billingInterval
+                    ? `Current ${billingInterval === 'annual' ? 'yearly' : 'monthly'} plan`
+                    : isPro
+                      ? `Switch to ${interval === 'annual' ? 'yearly' : 'monthly'}`
+                      : 'Start free trial'}
               </Button>
+              {canSwitchOnWeb ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setInterval(targetSwitchInterval);
+                    setIsRedirecting(true);
+                    setError(null);
+                    setInfo('Opening plan switch…');
+                    try {
+                      await switchPlanInterval(targetSwitchInterval);
+                    } catch (checkoutError: any) {
+                      setError(friendlyErrorMessage(checkoutError, 'Could not switch your plan right now.'));
+                    } finally {
+                      setIsRedirecting(false);
+                    }
+                  }}
+                  className="block w-full text-center text-[12px] font-semibold text-[#2563eb] hover:text-[#1d4ed8] transition-colors"
+                >
+                  {targetSwitchInterval === 'annual' ? 'Switch to yearly billing' : 'Switch back to monthly billing'}
+                </button>
+              ) : null}
               {!isPro && (
                 <p className="text-center text-[11px] text-[#717680]">7 days free · then {price.value}{price.suffix} · cancel anytime</p>
               )}
@@ -274,25 +310,17 @@ export function PricingPageClient({
       {/* Comparison table */}
       <section className="mx-auto max-w-[1100px] px-6 pb-16">
         <div className="overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white">
-          <div className="grid grid-cols-[1fr_100px_100px] border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-3">
+          <div className="grid grid-cols-[1fr_120px_120px] border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Feature</p>
             <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Free</p>
             <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">Pro</p>
           </div>
           <div className="divide-y divide-[#f9fafb]">
-            {FEATURE_ROWS.map((row) => (
-              <div key={row.feature} className="grid grid-cols-[1fr_100px_100px] items-center px-5 py-3.5">
+            {PLAN_COMPARISON_ROWS.map((row) => (
+              <div key={row.feature} className="grid grid-cols-[1fr_120px_120px] items-center px-5 py-3.5">
                 <p className="text-[13px] text-[#414651]">{row.feature}</p>
-                <div className="flex items-center justify-center">
-                  {row.free
-                    ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f2f4f7]"><Check className="h-3 w-3 text-[#717680]" weight="bold" /></span>
-                    : <X className="h-4 w-4 text-[#e4e7ec]" />}
-                </div>
-                <div className="flex items-center justify-center">
-                  {row.pro
-                    ? <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#eff4ff]"><Check className="h-3 w-3 text-[#2563eb]" weight="bold" /></span>
-                    : <X className="h-4 w-4 text-[#e4e7ec]" />}
-                </div>
+                <p className="text-center text-[12px] font-medium text-[#717680]">{row.free}</p>
+                <p className="text-center text-[12px] font-semibold text-[#2563eb]">{row.pro}</p>
               </div>
             ))}
           </div>

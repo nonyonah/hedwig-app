@@ -111,7 +111,7 @@ export const SchedulerService = {
                 .catch((e) => logger.error('recurring-upsell-nudges lock error', { error: e?.message }));
         });
 
-        // Integration teaser (Gmail/Slack) — every Monday at 3am
+        // Integration teaser (Gmail) — every Monday at 3am
         cron.schedule('0 3 * * 1', () => {
             withLock('integration-teaser-nudges', 6 * 24 * 60 * 60, () => this.sendIntegrationTeaserNudges())
                 .catch((e) => logger.error('integration-teaser-nudges lock error', { error: e?.message }));
@@ -1194,8 +1194,7 @@ export const SchedulerService = {
     },
 
     /**
-     * Weekly teaser for upcoming Gmail and Slack integrations.
-     * Alternates between integrations based on the current week.
+     * Weekly teaser for upcoming Gmail integrations.
      */
     async sendIntegrationTeaserNudges() {
         try {
@@ -1227,19 +1226,13 @@ export const SchedulerService = {
                 return;
             }
 
-            // Alternate between Gmail and Slack by week number
-            const weekNumber = Math.floor(Date.now() / (7 * DAY_MS));
             const integrations = [
                 {
                     name: 'Gmail',
                     context: { integration: 'Gmail', description: 'send invoices directly from Gmail' },
                 },
-                {
-                    name: 'Slack',
-                    context: { integration: 'Slack', description: 'get paid notifications in Slack' },
-                },
             ];
-            const integration = integrations[weekNumber % integrations.length];
+            const integration = integrations[0];
 
             logger.info('Sending integration teaser nudges', { count: candidates.length, integration: integration.name });
 

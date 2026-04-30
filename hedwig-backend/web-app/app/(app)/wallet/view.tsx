@@ -9,9 +9,11 @@ import { useToast } from '@/components/providers/toast-provider';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { ChangeSettlementDialog } from '@/components/wallet/change-settlement-dialog';
 import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
+import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
+import { useCurrency } from '@/components/providers/currency-provider';
 import { hedwigApi } from '@/lib/api/client';
 import type { AccountTransaction, UsdAccount, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
-import { formatCurrency, formatShortDate } from '@/lib/utils';
+import { formatShortDate } from '@/lib/utils';
 
 const chainIconByName: Record<string, string> = {
   Base:     '/icons/networks/base.png',
@@ -80,6 +82,7 @@ export function WalletView({
   regionCountryCode?: string | null;
 }) {
   const { toast } = useToast();
+  const { formatAmount } = useCurrency();
   const { getAccessToken } = usePrivy();
   const [usdAccount, setUsdAccount] = useState(initialAccountsData.usdAccount);
   const [accountTransactions, setAccountTransactions] = useState(initialAccountsData.accountTransactions);
@@ -365,47 +368,44 @@ export function WalletView({
         </div>
       </div>
 
-      <div className={`grid gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb] ${usdAccountsEnabled ? 'grid-cols-4' : 'grid-cols-2'}`}>
-        <div className="bg-white px-5 py-4">
-          <div className="mb-2 flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-[#717680]" weight="bold" />
-            <span className="text-[12px] font-medium text-[#717680]">Balance</span>
-          </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCurrency(totalCrypto)}</p>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">USDC across all chains</p>
-        </div>
-        {usdAccountsEnabled ? (
-          <div className="bg-white px-5 py-4">
-            <div className="mb-2 flex items-center gap-2">
-              <Bank className="h-4 w-4 text-[#717680]" weight="bold" />
-              <span className="text-[12px] font-medium text-[#717680]">USD account</span>
-            </div>
-            <p className="text-[22px] font-bold tracking-[-0.03em] text-[#717680]">{formatCurrency(usdAccount.balanceUsd)}</p>
-            <p className="mt-1 text-[11px] text-[#a4a7ae]">{usdStatusLabel}</p>
-          </div>
-        ) : null}
-        <div className="bg-white px-5 py-4">
-          <div className="mb-2 flex items-center gap-2">
-            <ArrowDown className="h-4 w-4 text-[#717680]" weight="regular" />
-            <span className="text-[12px] font-medium text-[#717680]">Total received</span>
-          </div>
-          <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{formatCurrency(totalReceived)}</p>
-          <p className="mt-1 text-[11px] text-[#a4a7ae]">Payments & settlements</p>
-        </div>
-        {usdAccountsEnabled ? (
-          <div className="bg-white px-5 py-4">
-            <div className="mb-2 flex items-center gap-2">
-              <ArrowsLeftRight className="h-4 w-4 text-[#717680]" weight="bold" />
-              <span className="text-[12px] font-medium text-[#717680]">Auto-settlement</span>
-            </div>
-            <div className="mt-1 flex items-center gap-2">
-              <ChainIcon chain={usdAccount.settlementChain} size={20} />
-              <p className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{usdAccount.settlementChain}</p>
-            </div>
-            <p className="mt-1 text-[11px] text-[#a4a7ae]">USD deposits settle here</p>
-          </div>
-        ) : null}
-      </div>
+      <AttachedStatGrid
+        items={[
+          {
+            id: 'balance',
+            title: 'Balance',
+            value: formatAmount(totalCrypto, { compact: true }),
+            helper: 'USDC across all chains',
+            icon: Wallet,
+            iconClassName: 'text-[#717680]',
+          },
+          ...(usdAccountsEnabled ? [{
+            id: 'usd-account',
+            title: 'USD account',
+            value: formatAmount(usdAccount.balanceUsd, { compact: true }),
+            helper: usdStatusLabel,
+            icon: Bank,
+            valueClassName: 'text-[#717680]',
+            iconClassName: 'text-[#717680]',
+          }] : []),
+          {
+            id: 'total-received',
+            title: 'Total received',
+            value: formatAmount(totalReceived, { compact: true }),
+            helper: 'Payments & settlements',
+            icon: ArrowDown,
+            iconClassName: 'text-[#717680]',
+          },
+          ...(usdAccountsEnabled ? [{
+            id: 'auto-settlement',
+            title: 'Auto-settlement',
+            value: usdAccount.settlementChain,
+            helper: 'USD deposits settle here',
+            icon: ArrowsLeftRight,
+            iconClassName: 'text-[#717680]',
+          }] : []),
+        ]}
+        className={usdAccountsEnabled ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2'}
+      />
 
       <WalletAssetsTable assetsByChain={assetsByChain} totalCrypto={totalCrypto} />
 
@@ -424,7 +424,7 @@ export function WalletView({
 
           <div className="border-b border-[#e9eaeb] bg-[#f8f9fc] px-5 py-5">
             <p className="mb-1 text-[11px] font-medium text-[#a4a7ae]">Available balance</p>
-            <p className="text-[32px] font-bold leading-none tracking-[-0.04em] text-[#181d27]">{formatCurrency(usdAccount.balanceUsd)}</p>
+            <p className="text-[32px] font-bold leading-none tracking-[-0.04em] text-[#181d27]">{formatAmount(usdAccount.balanceUsd)}</p>
           </div>
 
           <UsdSetupPanel
@@ -537,7 +537,7 @@ export function WalletView({
                       <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
                       {status.label}
                     </span>
-                    <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">{formatCurrency(tx.amountUsd)}</p>
+                    <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">{formatAmount(tx.amountUsd)}</p>
                     <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(tx.createdAt)}</p>
                   </div>
                 );

@@ -216,12 +216,16 @@
       "Bash(grep \"\\\\.ts$\")",
       "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.devDependencies, null, 2\\)\\)\")",
       "Bash(node -e \"const n = require\\('/Users/macintoshhd/Work/hedwig-app/hedwig-backend/web-app/node_modules/next/package.json'\\); console.log\\(n.version\\)\")",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(grep -nE \"class Files \\\\{|class Files$|async upload\\\\\\(\" /Users/macintoshhd/Work/hedwig-app/hedwig-backend/node_modules/@composio/core/dist/index.mjs)",
+      "Bash(awk '/^class Files /{print NR\": \"$0}' /Users/macintoshhd/Work/hedwig-app/hedwig-backend/node_modules/@composio/core/dist/index.mjs)",
+      "Bash(awk '/Files\\\\s*\\\\{$|var Files\\\\s*=|Files\\\\s*=\\\\s*class/{print NR\": \"$0}' /Users/macintoshhd/Work/hedwig-app/hedwig-backend/node_modules/@composio/core/dist/index.mjs)"
     ],
     "deny": [],
     "ask": [],
     "additionalDirectories": [
-      "/Users/macintoshhd/Work/hedwig-app/hedwig-backend/web-app/app/api/integrations/callback/google"
+      "/Users/macintoshhd/Work/hedwig-app/hedwig-backend/web-app/app/api/integrations/callback/google",
+      "/Users/macintoshhd/Work/hedwig-app/hedwig-backend/web-app/app/api/assistant/suggestions"
     ]
   }
 }
