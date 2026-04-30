@@ -31,7 +31,10 @@ import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Assistant');
 const router = Router();
-const attachmentUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+const attachmentUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 15 * 1024 * 1024, files: 6 },
+});
 
 const ensureAssistantAccess = async (req: Request, res: Response) => {
     const user = await getOrCreateUser(req.user!.id);
@@ -437,41 +440,93 @@ router.post('/chat', authenticate, async (req: Request, res: Response) => {
 
 // ─── Attachment (agent-driven document import) ───────────────────────────────
 
-router.post('/attachment', authenticate, attachmentUpload.single('file'), async (req: Request, res: Response) => {
-    try {
-        const access = await ensureAssistantAccess(req, res);
-        if (!access.allowed || !access.user) return;
+router.post(
+    '/attachment',
+    authenticate,
+    attachmentUpload.fields([
+        { name: 'files', maxCount: 6 },
+        { name: 'file', maxCount: 1 },
+    ]),
+    async (req: Request, res: Response) => {
+        try {
+            const access = await ensureAssistantAccess(req, res);
+            if (!access.allowed || !access.user) return;
 
-        if (!req.file) {
-            res.status(400).json({ success: false, error: 'A file is required' });
-            return;
+            const filesField = req.files as { files?: Express.Multer.File[]; file?: Express.Multer.File[] } | undefined;
+            const uploaded: Express.Multer.File[] = [
+                ...(filesField?.files ?? []),
+                ...(filesField?.file ?? []),
+            ];
+
+            if (uploaded.length === 0) {
+                res.status(400).json({ success: false, error: 'At least one file is required' });
+                return;
+            }
+
+            const instruction = typeof req.body?.message === 'string' ? req.body.message.trim() : undefined;
+
+            const perFile = await Promise.all(uploaded.map(async (file) => {
+                try {
+                    const result = await processAttachment({
+                        userId: access.user!.id,
+                        fileName: file.originalname,
+                        mimeType: file.mimetype,
+                        buffer: file.buffer,
+                        instruction: instruction || undefined,
+                    });
+                    return {
+                        ok: true as const,
+                        fileName: file.originalname,
+                        reply: result.reply,
+                        classification: result.classification,
+                        stagedSuggestionIds: result.stagedSuggestionIds,
+                        createdEntities: result.createdEntities,
+                    };
+                } catch (error) {
+                    logger.warn('Attachment item processing failed', {
+                        fileName: file.originalname,
+                        error: error instanceof Error ? error.message : 'Unknown',
+                    });
+                    return {
+                        ok: false as const,
+                        fileName: file.originalname,
+                        reply: `I could not process ${file.originalname} — ${error instanceof Error ? error.message : 'unknown error'}.`,
+                        classification: 'other' as const,
+                        stagedSuggestionIds: [] as string[],
+                        createdEntities: [] as Array<{ entityType: string; id: string; label: string }>,
+                    };
+                }
+            }));
+
+            const aggregatedReply = perFile.length === 1
+                ? perFile[0].reply
+                : perFile.map((item) => `• ${item.fileName}: ${item.reply}`).join('\n');
+
+            const stagedSuggestionIds = perFile.flatMap((item) => item.stagedSuggestionIds);
+            const createdEntities = perFile.flatMap((item) => item.createdEntities);
+            const toolsCalled = Array.from(new Set(perFile.map((item) => `attachment_${item.classification}`)));
+            const classification = perFile.length === 1
+                ? perFile[0].classification
+                : (perFile.find((item) => item.classification !== 'other')?.classification ?? 'other');
+
+            res.json({
+                success: true,
+                data: {
+                    reply: aggregatedReply,
+                    classification,
+                    stagedSuggestionIds,
+                    createdEntities,
+                    fileNames: perFile.map((item) => item.fileName),
+                    fileName: perFile[0].fileName,
+                    toolsCalled,
+                    items: perFile,
+                },
+            });
+        } catch (err: any) {
+            logger.error('Attachment processing failed', { error: err?.message });
+            res.status(500).json({ success: false, error: 'Could not process attachments' });
         }
-
-        const instruction = typeof req.body?.message === 'string' ? req.body.message.trim() : undefined;
-
-        const result = await processAttachment({
-            userId: access.user.id,
-            fileName: req.file.originalname,
-            mimeType: req.file.mimetype,
-            buffer: req.file.buffer,
-            instruction: instruction || undefined,
-        });
-
-        res.json({
-            success: true,
-            data: {
-                reply: result.reply,
-                classification: result.classification,
-                stagedSuggestionIds: result.stagedSuggestionIds,
-                createdEntities: result.createdEntities,
-                fileName: req.file.originalname,
-                toolsCalled: [`attachment_${result.classification}`],
-            },
-        });
-    } catch (err: any) {
-        logger.error('Attachment processing failed', { error: err?.message });
-        res.status(500).json({ success: false, error: 'Could not process attachment' });
-    }
-});
+    },
+);
 
 export default router;

@@ -95,7 +95,8 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
   const [sending, setSending] = useState(false);
   const [suggestionsById, setSuggestionsById] = useState<Record<string, AssistantSuggestion>>({});
   const [savingSuggestionId, setSavingSuggestionId] = useState<string | null>(null);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const MAX_FILES = 6;
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -161,30 +162,32 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
   const send = async () => {
     const text = input.trim();
     if (sending) return;
-    if (!text && !pendingFile) return;
+    if (!text && pendingFiles.length === 0) return;
 
-    const file = pendingFile;
-    const userText = text || (file ? `Uploaded ${file.name}` : '');
+    const files = pendingFiles;
+    const userText = text || (files.length > 0
+      ? `Uploaded ${files.length === 1 ? files[0].name : `${files.length} files`}`
+      : '');
     const userMessage: ChatMessage = { id: newId(), role: 'user', content: userText };
     const pendingMessage: ChatMessage = {
       id: newId(),
       role: 'assistant',
       content: '',
       pending: true,
-      pendingProviders: inferPendingProviders(text, file),
+      pendingProviders: inferPendingProviders(text, files[0] ?? null),
     };
     const next = [...messages, userMessage, pendingMessage];
     setMessages(next);
     setInput('');
-    setPendingFile(null);
+    setPendingFiles([]);
     setSending(true);
 
     try {
       let payload: any;
 
-      if (file) {
+      if (files.length > 0) {
         const form = new FormData();
-        form.append('file', file);
+        for (const f of files) form.append('files', f);
         if (text) form.append('message', text);
 
         const resp = await fetch('/api/assistant/attachment', {
@@ -237,9 +240,26 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
   };
 
   const handleFilePick = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) setPendingFile(file);
+    const picked = Array.from(event.target.files ?? []);
+    if (picked.length > 0) {
+      setPendingFiles((current) => {
+        const seen = new Set(current.map((f) => `${f.name}:${f.size}`));
+        const merged = [...current];
+        for (const file of picked) {
+          const key = `${file.name}:${file.size}`;
+          if (!seen.has(key)) {
+            merged.push(file);
+            seen.add(key);
+          }
+        }
+        return merged.slice(0, MAX_FILES);
+      });
+    }
     event.target.value = '';
+  };
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles((current) => current.filter((_, i) => i !== index));
   };
 
   const clearHistory = () => {
@@ -343,18 +363,25 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
 
         {/* Composer */}
         <div className="border-t border-[#e9eaeb] bg-[#fcfcfd] px-4 py-3">
-          {pendingFile && (
-            <div className="mb-2 flex items-center gap-2 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px]">
-              <Paperclip className="h-3.5 w-3.5 shrink-0 text-[#717680]" weight="bold" />
-              <span className="min-w-0 flex-1 truncate font-medium text-[#414651]">{pendingFile.name}</span>
-              <span className="shrink-0 text-[11px] text-[#a4a7ae]">{Math.round(pendingFile.size / 1024)} KB</span>
-              <button
-                type="button"
-                onClick={() => setPendingFile(null)}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#a4a7ae] transition hover:bg-[#f5f5f5] hover:text-[#414651]"
-              >
-                <X className="h-3 w-3" weight="bold" />
-              </button>
+          {pendingFiles.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {pendingFiles.map((file, index) => (
+                <div
+                  key={`${file.name}-${file.size}-${index}`}
+                  className="flex max-w-full items-center gap-2 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5 text-[12px]"
+                >
+                  <Paperclip className="h-3.5 w-3.5 shrink-0 text-[#717680]" weight="bold" />
+                  <span className="min-w-0 max-w-[160px] truncate font-medium text-[#414651]">{file.name}</span>
+                  <span className="shrink-0 text-[11px] text-[#a4a7ae]">{Math.round(file.size / 1024)} KB</span>
+                  <button
+                    type="button"
+                    onClick={() => removePendingFile(index)}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#a4a7ae] transition hover:bg-[#f5f5f5] hover:text-[#414651]"
+                  >
+                    <X className="h-3 w-3" weight="bold" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
@@ -362,6 +389,7 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               accept="application/pdf,image/png,image/jpeg,image/jpg,image/webp"
               className="hidden"
               onChange={handleFilePick}
@@ -369,8 +397,8 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={sending}
-              title="Attach a document"
+              disabled={sending || pendingFiles.length >= MAX_FILES}
+              title={pendingFiles.length >= MAX_FILES ? `Up to ${MAX_FILES} files at a time` : 'Attach documents'}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#717680] transition hover:bg-[#f5f5f5] hover:text-[#414651] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Paperclip className="h-4 w-4" weight="bold" />
@@ -381,13 +409,13 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKey}
               rows={1}
-              placeholder={pendingFile ? 'Add a note (optional)…' : 'Ask anything…'}
+              placeholder={pendingFiles.length > 0 ? 'Add a note (optional)…' : 'Ask anything…'}
               className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent text-[14px] text-[#181d27] placeholder:text-[#c1c5cd] focus:outline-none"
             />
             <button
               type="button"
               onClick={send}
-              disabled={sending || (!input.trim() && !pendingFile)}
+              disabled={sending || (!input.trim() && pendingFiles.length === 0)}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2563eb] text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <PaperPlaneRight className="h-3.5 w-3.5" weight="fill" />
