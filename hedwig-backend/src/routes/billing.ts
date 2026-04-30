@@ -9,6 +9,7 @@ import {
     REVENUECAT_PRIMARY_ENTITLEMENT,
     syncRevenueCatStateForUser,
 } from '../services/revenuecat';
+import { hasProTestAccess } from '../services/billingRules';
 
 const logger = createLogger('Billing');
 const router = Router();
@@ -143,16 +144,19 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
         const subscriptionProvider = unifiedProvider ?? providerFromStore;
         const unifiedExpiry = resolveUnifiedExpiry(user);
         const unifiedIsActive = unifiedStatus ? (unifiedStatus === 'active' && isNotExpired(unifiedExpiry)) : null;
+        const hasTestProAccess = hasProTestAccess(user as any);
 
-        const isActive = unifiedIsActive ?? Boolean(state?.is_active);
+        const paidIsActive = unifiedIsActive ?? Boolean(state?.is_active);
+        const isActive = hasTestProAccess || paidIsActive;
         const plan = isActive ? 'pro' : 'free';
-        const productId = state?.product_id || null;
+        const productId = hasTestProAccess ? 'test-pro-access' : state?.product_id || null;
         const expiresAt = unifiedExpiry || state?.expires_at || null;
         const updatedAt = normalizeString(user?.updated_at ?? user?.updatedAt) || state?.updated_at || null;
         const featureFlags = {
             webCheckoutEnabled: process.env.BILLING_WEB_CHECKOUT_ENABLED !== 'false',
             mobilePaywallEnabled: process.env.BILLING_MOBILE_PAYWALL_ENABLED === 'true',
             enforcementEnabled: process.env.BILLING_ENFORCEMENT_ENABLED === 'true',
+            testProAccessEnabled: hasTestProAccess,
         };
 
         res.json({
@@ -165,12 +169,12 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
                     expiresAt,
                     productId,
                     billingInterval: resolveBillingInterval(productId),
-                    store: state?.store || (subscriptionProvider === 'polar' ? 'POLAR' : subscriptionProvider === 'revenue_cat' ? 'REVENUE_CAT' : null),
-                    environment: state?.environment || null,
+                    store: hasTestProAccess ? 'TEST' : state?.store || (subscriptionProvider === 'polar' ? 'POLAR' : subscriptionProvider === 'revenue_cat' ? 'REVENUE_CAT' : null),
+                    environment: hasTestProAccess ? 'test_access' : state?.environment || null,
                     willRenew: state?.will_renew ?? null,
-                    isTrial: Boolean(state?.is_trial),
+                    isTrial: hasTestProAccess ? false : Boolean(state?.is_trial),
                     billingIssueDetected: Boolean(state?.billing_issue_detected),
-                    latestEventType: state?.latest_event_type || null,
+                    latestEventType: hasTestProAccess ? 'test_pro_access' : state?.latest_event_type || null,
                     latestEventAt: state?.event_timestamp_ms
                         ? new Date(Number(state.event_timestamp_ms)).toISOString()
                         : null,
@@ -203,8 +207,9 @@ router.get('/checkout-config', authenticate, async (req: Request, res: Response,
         const unifiedStatus = resolveUnifiedStatus(user);
         const unifiedExpiry = resolveUnifiedExpiry(user);
         const unifiedIsActive = unifiedStatus ? (unifiedStatus === 'active' && isNotExpired(unifiedExpiry)) : null;
+        const hasTestProAccess = hasProTestAccess(user as any);
 
-        const isActive = unifiedIsActive ?? Boolean(state?.is_active);
+        const isActive = hasTestProAccess || (unifiedIsActive ?? Boolean(state?.is_active));
         const appUserId = String(state?.app_user_id || user.id);
 
         res.json({

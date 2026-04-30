@@ -121,6 +121,7 @@ export interface BillingStatusSummary {
     webCheckoutEnabled: boolean;
     mobilePaywallEnabled: boolean;
     enforcementEnabled: boolean;
+    testProAccessEnabled?: boolean;
   };
 }
 

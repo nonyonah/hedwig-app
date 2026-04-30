@@ -5,7 +5,8 @@ import {
   FileText,
   FolderSimple,
   LinkSimple,
-  PencilSimple,
+  CaretDown,
+  Plus,
   SidebarSimple,
   User,
 } from '@/components/ui/lucide-icons';
@@ -73,13 +74,15 @@ export function AppTopbar({ collapsed, onToggleSidebar, unreadCount, accessToken
             aria-label="Create"
             onClick={() => setCreateOpen((p) => !p)}
             className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-full border border-[#eef0f3] text-[13px] font-semibold transition',
+              'flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold shadow-sm transition',
               createOpen
-                ? 'bg-[#f4f5f7] text-[#414651]'
-                : 'bg-white text-[#8d9096] hover:bg-[#f8f9fb] hover:text-[#414651]'
+                ? 'border-[#1d4ed8] bg-[#1d4ed8] text-white shadow-[#2563eb]/20'
+                : 'border-[#2563eb] bg-[#2563eb] text-white shadow-[#2563eb]/20 hover:border-[#1d4ed8] hover:bg-[#1d4ed8]'
             )}
           >
-            <PencilSimple className="h-4 w-4" weight="bold" />
+            <Plus className="h-4 w-4" weight="bold" />
+            <span className="hidden sm:inline">Create</span>
+            <CaretDown className={cn('hidden h-3.5 w-3.5 transition sm:block', createOpen && 'rotate-180')} weight="bold" />
           </button>
 
           {createOpen && (

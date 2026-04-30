@@ -37,6 +37,42 @@ const isNotExpired = (isoDate: string | null): boolean => {
     return parsed > Date.now();
 };
 
+const normalizeAccessKey = (value: unknown): string | null => (
+    normalizeString(value)?.toLowerCase() || null
+);
+
+const getProTestAllowlist = (): Set<string> => new Set(
+    String(process.env.HEDWIG_PRO_TEST_USERS || '')
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean)
+);
+
+export function hasProTestAccess(user: {
+    id?: string | null;
+    email?: string | null;
+    privy_id?: string | null;
+    privyId?: string | null;
+} | null | undefined): boolean {
+    if (!user) return false;
+
+    if (String(process.env.HEDWIG_PRO_TEST_ACCESS_ALL || '').trim().toLowerCase() === 'true') {
+        return true;
+    }
+
+    const allowlist = getProTestAllowlist();
+    if (allowlist.size === 0) return false;
+
+    const candidates = [
+        normalizeAccessKey(user.id),
+        normalizeAccessKey(user.email),
+        normalizeAccessKey(user.privy_id),
+        normalizeAccessKey(user.privyId),
+    ].filter(Boolean) as string[];
+
+    return candidates.some((candidate) => allowlist.has(candidate));
+}
+
 function getFreePlanLimit(type: LimitedDocumentType): number {
     switch (type) {
         case 'INVOICE':
@@ -77,6 +113,8 @@ export async function getUserPlan(user: {
     subscription_status?: string | null;
     subscription_expiry?: string | null;
 }): Promise<HedwigPlan> {
+    if (hasProTestAccess(user)) return 'pro';
+
     const unifiedStatus = resolveUnifiedStatus(user);
     const unifiedExpiry = resolveUnifiedExpiry(user);
     const unifiedIsActive = unifiedStatus ? (unifiedStatus === 'active' && isNotExpired(unifiedExpiry)) : null;
