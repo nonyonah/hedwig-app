@@ -79,9 +79,9 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             fetchPaged<any>('invoices_summary', (from, to) =>
                 supabase
                     .from('documents')
-                    .select('id,status,amount,created_at,content')
+                    .select('id,type,status,amount,created_at,content')
                     .eq('user_id', user.id)
-                    .eq('type', 'INVOICE')
+                    .in('type', ['INVOICE', 'PAYMENT_LINK'])
                     .gte('created_at', prevStart.toISOString())
                     .order('created_at', { ascending: false })
                     .range(from, to)
@@ -105,16 +105,27 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
 
         const isPaid = (d: any) => normalizeStatus(d.status) === 'PAID';
         const isOverdue = (d: any) => {
+            // Only invoice-style docs go overdue. Payment links don't have due dates.
+            if (normalizeStatus(d.type) !== 'INVOICE') return false;
             const s = normalizeStatus(d.status);
             if (!['SENT', 'VIEWED'].includes(s)) return false;
             const dueDate = d.content?.due_date;
             return dueDate ? dueDate < nowIso : false;
         };
+        const isPending = (d: any) => {
+            const s = normalizeStatus(d.status);
+            const t = normalizeStatus(d.type);
+            // Invoices: sent/viewed/draft and not overdue.
+            if (t === 'INVOICE') return ['SENT', 'VIEWED', 'DRAFT'].includes(s) && !isOverdue(d);
+            // Payment links: active links are collecting payment.
+            if (t === 'PAYMENT_LINK') return ['ACTIVE', 'SENT', 'VIEWED', 'DRAFT'].includes(s);
+            return false;
+        };
 
         const paidRevenue = inRange.filter(isPaid).reduce((s: number, d: any) => s + toNumber(d.amount), 0);
         const prevRevenue = inPrevRange.filter(isPaid).reduce((s: number, d: any) => s + toNumber(d.amount), 0);
         const pendingRevenue = inRange
-            .filter((d: any) => ['SENT', 'VIEWED', 'DRAFT'].includes(normalizeStatus(d.status)) && !isOverdue(d))
+            .filter(isPending)
             .reduce((s: number, d: any) => s + toNumber(d.amount), 0);
         const overdueRevenue = inRange.filter(isOverdue).reduce((s: number, d: any) => s + toNumber(d.amount), 0);
         const totalRevenue = paidRevenue + pendingRevenue + overdueRevenue;
@@ -162,9 +173,9 @@ router.get('/trend', authenticate, async (req: Request, res: Response, next) => 
             fetchPaged<any>('trend_invoices', (from, to) =>
                 supabase
                     .from('documents')
-                    .select('status,amount,created_at')
+                    .select('type,status,amount,created_at')
                     .eq('user_id', user.id)
-                    .eq('type', 'INVOICE')
+                    .in('type', ['INVOICE', 'PAYMENT_LINK'])
                     .eq('status', 'PAID')
                     .gte('created_at', sixMonthsAgo.toISOString())
                     .order('created_at', { ascending: false })
@@ -230,9 +241,9 @@ router.get('/breakdown', authenticate, async (req: Request, res: Response, next)
         const invoices = await fetchPaged<any>('breakdown_invoices', (from, to) =>
             supabase
                 .from('documents')
-                .select('status,amount,client_id,project_id')
+                .select('type,status,amount,client_id,project_id')
                 .eq('user_id', user.id)
-                .eq('type', 'INVOICE')
+                .in('type', ['INVOICE', 'PAYMENT_LINK'])
                 .eq('status', 'PAID')
                 .gte('created_at', start.toISOString())
                 .order('created_at', { ascending: false })
@@ -413,9 +424,9 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
         const [invoices, expensesRes] = await Promise.all([
             supabase
                 .from('documents')
-                .select('id,status,amount,title,created_at,content')
+                .select('id,type,status,amount,title,created_at,content')
                 .eq('user_id', user.id)
-                .eq('type', 'INVOICE')
+                .in('type', ['INVOICE', 'PAYMENT_LINK'])
                 .gte('created_at', thirtyDaysAgo)
                 .order('created_at', { ascending: false })
                 .limit(50),
@@ -437,19 +448,23 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
 
         for (const doc of invoices.data || []) {
             const s = normalizeStatus(doc.status);
+            const t = normalizeStatus(doc.type);
+            const isPaymentLink = t === 'PAYMENT_LINK';
             const amount = toNumber(doc.amount);
-            const title = doc.title || 'Invoice';
+            const fallbackLabel = isPaymentLink ? 'Payment link' : 'Invoice';
+            const title = doc.title || fallbackLabel;
+            const idPrefix = isPaymentLink ? 'link' : 'inv';
 
             if (s === 'PAID') {
                 events.push({
-                    id: `inv_paid_${doc.id}`,
-                    type: 'invoice_paid',
+                    id: `${idPrefix}_paid_${doc.id}`,
+                    type: isPaymentLink ? 'payment_link_paid' : 'invoice_paid',
                     title: `${title} paid`,
                     description: `Payment received for ${title}`,
                     amount,
                     createdAt: doc.created_at,
                 });
-            } else if (['SENT', 'VIEWED'].includes(s) && doc.content?.due_date && doc.content.due_date < nowIso) {
+            } else if (!isPaymentLink && ['SENT', 'VIEWED'].includes(s) && doc.content?.due_date && doc.content.due_date < nowIso) {
                 events.push({
                     id: `inv_overdue_${doc.id}`,
                     type: 'invoice_overdue',
@@ -458,12 +473,21 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
                     amount,
                     createdAt: doc.created_at,
                 });
-            } else if (s === 'SENT') {
+            } else if (!isPaymentLink && s === 'SENT') {
                 events.push({
                     id: `inv_sent_${doc.id}`,
                     type: 'invoice_sent',
                     title: `${title} sent`,
                     description: `${title} was sent to client`,
+                    amount,
+                    createdAt: doc.created_at,
+                });
+            } else if (isPaymentLink && s === 'ACTIVE') {
+                events.push({
+                    id: `link_active_${doc.id}`,
+                    type: 'payment_link_active',
+                    title: `${title} created`,
+                    description: `${title} is collecting payments`,
                     amount,
                     createdAt: doc.created_at,
                 });
