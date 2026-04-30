@@ -443,20 +443,15 @@ router.post('/chat', authenticate, async (req: Request, res: Response) => {
 router.post(
     '/attachment',
     authenticate,
-    attachmentUpload.fields([
-        { name: 'files', maxCount: 6 },
-        { name: 'file', maxCount: 1 },
-    ]),
+    attachmentUpload.any(),
     async (req: Request, res: Response) => {
         try {
             const access = await ensureAssistantAccess(req, res);
             if (!access.allowed || !access.user) return;
 
-            const filesField = req.files as { files?: Express.Multer.File[]; file?: Express.Multer.File[] } | undefined;
-            const uploaded: Express.Multer.File[] = [
-                ...(filesField?.files ?? []),
-                ...(filesField?.file ?? []),
-            ];
+            const uploaded: Express.Multer.File[] = Array.isArray(req.files)
+                ? (req.files as Express.Multer.File[])
+                : [];
 
             if (uploaded.length === 0) {
                 res.status(400).json({ success: false, error: 'At least one file is required' });
