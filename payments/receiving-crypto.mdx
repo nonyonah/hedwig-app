@@ -1,0 +1,80 @@
+---
+title: "Receive USDC payments on multiple chains"
+description: "Understand how Hedwig's embedded wallet works, which chains and tokens are supported, and how incoming payments appear in your transaction history."
+---
+
+When you sign up for Hedwig, an embedded wallet is created for you automatically — no seed phrases to manage, no external wallet app required. Clients pay directly to your Hedwig wallet addresses across multiple chains. Every incoming payment is recorded in your transaction history and triggers a push notification.
+
+## Your Hedwig wallet addresses
+
+Hedwig provisions two wallet addresses for you at sign-up:
+
+- **Ethereum / Base address** — a standard EVM address (0x...) that works across Ethereum, Base, and Celo. Clients paying on any of these chains send to this address.
+- **Solana address** — a separate Solana wallet address for clients paying on the Solana network.
+  You can view your wallet addresses from your profile. The payment pages shown to your clients automatically display the correct address for the chain they select.
+
+<Note>
+  Your wallet is managed by [Privy](https://privy.io), a non-custodial embedded wallet provider. Hedwig never has access to your private keys. You can export your wallet at any time from your account settings.
+</Note>
+
+## Supported chains and tokens
+
+<CardGroup cols={2}>
+  <Card title="Base (USDC)" icon="circle-dollar-sign">
+    USDC on Base (Coinbase's Ethereum L2). Low fees and fast finality make this the most commonly used chain for payments through Hedwig.
+  </Card>
+
+  <Card title="Solana (USDC)" icon="bolt">
+    USDC on Solana. Near-instant transactions and minimal fees. Your Solana wallet address is separate from your EVM address.
+  </Card>
+
+  <Card title="Celo (USDC)" icon="leaf">
+    USDC on Celo, an EVM-compatible chain built for mobile payments. Shares the same EVM address as Base payments.
+  </Card>
+</CardGroup>
+
+## How incoming payments work
+
+When a client pays an invoice or payment link through Hedwig:
+
+1. They connect their wallet on the payment page and initiate a USDC transfer to your address on the selected chain.
+2. The blockchain confirms the transaction (typically within seconds on Base and Solana).
+3. Hedwig detects the on-chain transfer and marks the invoice or payment link as **Paid**.
+4. You receive a **push notification** with the amount, client name, and chain.
+5. The payment appears in your **transaction history** and is counted in your earnings dashboard.
+
+<Info>
+  For Base and Solana, Hedwig fetches your full transaction history — not just payments made through Hedwig. This means any USDC you receive from outside the app will also appear in your transaction history.
+</Info>
+
+## Transaction history
+
+Your transaction history is available from the **Earnings** tab. Each entry shows:
+
+- **Direction** — incoming (IN) or outgoing (OUT)
+- **Amount and token** — e.g. _150 USDC_
+- **Network** — Base or Solana (indicated by the chain icon)
+- **Date and time**
+- **Transaction hash** — a link to the block explorer so you can verify the payment on-chain
+- **Status** — completed, pending, or failed
+
+Transactions are sourced from two places:
+
+- **On-chain data** pulled directly from Base and Solana — including transfers not made through Hedwig
+- **Your Hedwig records**, which include offramp withdrawals and any payments made through the app
+
+If the same transaction appears in both sources, Hedwig deduplicates it so you see it only once.
+
+## Push notifications for incoming payments
+
+When a payment is confirmed, Hedwig sends you a push notification that includes:
+
+- The payer's name (from the client record) or their wallet address if unknown
+- The amount received in USDC
+- The name of the invoice or payment link that was paid
+
+You also receive an email confirmation to the address on your Hedwig account.
+
+<Tip>
+  Enable push notifications on your device to make sure you never miss a payment. You can manage notification preferences in your device settings under the Hedwig app.
+</Tip>
