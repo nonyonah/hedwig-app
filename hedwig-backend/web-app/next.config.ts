@@ -20,6 +20,10 @@ const CSP_SCRIPT_SOURCES = [
   'https://*.polar.sh',
   'https://*.sentry.io',
   'https://browser.sentry-cdn.com',
+  // Mintlify-hosted help docs (proxied at /docs)
+  'https://*.mintlify.dev',
+  'https://*.mintlify.com',
+  'https://leaves.mintlify.com',
 ];
 
 const CSP_STYLE_SOURCES = [
@@ -28,6 +32,8 @@ const CSP_STYLE_SOURCES = [
   'https://*.privy.io',
   'https://*.userback.io',
   'https://fonts.googleapis.com',
+  'https://*.mintlify.dev',
+  'https://*.mintlify.com',
 ];
 
 const CSP_FONT_SOURCES = [
@@ -36,6 +42,8 @@ const CSP_FONT_SOURCES = [
   'https://fonts.gstatic.com',
   'https://*.privy.io',
   'https://*.userback.io',
+  'https://*.mintlify.dev',
+  'https://*.mintlify.com',
 ];
 
 const CSP_IMG_SOURCES = [
@@ -86,6 +94,9 @@ const CSP_CONNECT_SOURCES = [
   'https://*.composio.dev',
   // Supabase storage / API used by some web flows
   'https://*.supabase.co',
+  // Mintlify help docs (proxied at /docs)
+  'https://*.mintlify.dev',
+  'https://*.mintlify.com',
 ];
 
 const CSP_FRAME_SOURCES = [
@@ -167,11 +178,23 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
+    // Mintlify-hosted help docs proxied under /docs so the URL stays
+    // hedwigbot.xyz/docs (no separate help.hedwigbot.xyz needed).
+    const MINTLIFY_PROJECT = 'https://hedwig-94348504.mintlify.dev';
+
     return [
       {
         // Proxy /api/backend/* → backend server (browser stays same-origin, no CORS)
         source: '/api/backend/:path*',
         destination: `${BACKEND_URL}/:path*`
+      },
+      {
+        source: '/docs',
+        destination: `${MINTLIFY_PROJECT}/docs`,
+      },
+      {
+        source: '/docs/:path*',
+        destination: `${MINTLIFY_PROJECT}/docs/:path*`,
       }
     ];
   }
