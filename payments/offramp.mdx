@@ -1,0 +1,92 @@
+---
+title: "Withdraw crypto earnings to your bank account"
+description: "Convert your USDC earnings to Nigerian naira or Ghanaian cedis and send them directly to your local bank account using Hedwig's built-in offramp."
+---
+
+The offramp feature lets you convert USDC from your Hedwig wallet into local currency — Nigerian naira (NGN) or Ghanaian cedis (GHS) — and withdraw directly to your bank account. The conversion and transfer are handled by [Paycrest](https://paycrest.io), a regulated payment infrastructure provider.
+
+## Before you start
+
+You need to complete **KYC (identity verification)** before you can initiate a withdrawal. If your KYC status is not yet approved, the offramp screen will prompt you to complete verification first.
+
+<Info>
+  Hedwig charges a **1% platform fee** on every withdrawal. This fee is deducted from the amount you enter before calculating the exchange rate. The confirmation screen shows the exact amount your bank will receive before you confirm.
+</Info>
+
+## Initiate a withdrawal
+
+<Steps>
+  <Step title="Open the offramp screen">
+    From the **Earnings** tab or the **Wallet** section, tap **Withdraw** or **Convert to local currency**. The offramp screen shows your current exchange rate for USDC to NGN or GHS.
+  </Step>
+
+  <Step title="Enter the amount">
+    Type the amount of USDC you want to withdraw. Hedwig displays:
+
+    - The **gross amount** you entered
+    - The **platform fee** (1%)
+    - The **net amount** after the fee that will be converted
+    - The **estimated fiat amount** your bank will receive, calculated at the current rate
+  </Step>
+
+  <Step title="Select your currency">
+    Choose **NGN** (Nigerian naira) or **GHS** (Ghanaian cedis) as your destination currency. The exchange rate updates based on your selection.
+  </Step>
+
+  <Step title="Select your bank">
+    Choose your bank from the list of supported institutions. Hedwig supports all major Nigerian and Ghanaian banks. If you have previously saved a bank account (beneficiary), it will appear at the top for quick selection.
+  </Step>
+
+  <Step title="Enter your bank account details">
+    Provide your **account number** and **account name**. Hedwig verifies the account details against the bank's records before proceeding — this prevents transfers to the wrong account.
+
+    To save this account for future withdrawals, enable the **Save this account** toggle.
+  </Step>
+
+  <Step title="Confirm and submit">
+    Review the withdrawal summary — amount, fee, destination bank, and estimated payout. Tap **Confirm withdrawal** to submit.
+
+    Hedwig sends the USDC to Paycrest's settlement address and the order is created. Your withdrawal appears in the **Withdrawal history** with a status of **Pending**.
+  </Step>
+</Steps>
+
+## Order statuses
+
+After submitting a withdrawal, you can track its status in the withdrawal history screen.
+
+| Status | What it means |
+|--------|---------------|
+| **Pending** | The order has been submitted and Hedwig is waiting for Paycrest to begin processing. |
+| **Processing** | Paycrest is converting the USDC and initiating the bank transfer. |
+| **Completed** | The funds have been sent to your bank. Processing is done. |
+| **Failed** | The withdrawal could not be completed. Common reasons include an unverified bank account or an expired order. |
+
+<Note>
+  When an order reaches **Completed**, you receive a push notification confirming the bank and amount. If an order **fails**, the USDC may be returned to your wallet depending on the failure reason. Contact support if a failed order is not refunded within 24 hours.
+</Note>
+
+## Processing times
+
+Most withdrawals complete within **5 to 30 minutes** once the order moves to **Processing**. Processing times depend on:
+
+- **Bank interoperability** — transfers between banks on the same payment scheme are typically faster.
+- **Time of day** — transfers initiated late at night or on weekends may take longer to reflect in your account, even if Paycrest has completed the settlement.
+- **Network congestion** — during peak periods, bank transfers across Africa can take up to a few hours.
+
+<Tip>
+  If your withdrawal has been in **Processing** for more than 2 hours without completing, check your bank statement first — the funds may have arrived before the status updates in Hedwig. If nothing has arrived after 4 hours, reach out to support.
+</Tip>
+
+## Saved bank accounts (beneficiaries)
+
+To avoid entering your bank details every time, you can save an account during the withdrawal flow. Saved accounts appear at the top of the bank list on future withdrawals.
+
+You can manage your saved accounts from **Settings → Bank accounts**. From there you can view, add, or remove saved beneficiaries.
+
+## Exchange rates
+
+Hedwig fetches live exchange rates from Paycrest before each withdrawal. The rate shown during the flow is the rate that will be applied to your order — it is locked in at the time you confirm.
+
+<Warning>
+  Exchange rates fluctuate continuously. The rate shown on the confirmation screen is the rate applied to your order. If you wait before confirming, the rate may change slightly.
+</Warning>

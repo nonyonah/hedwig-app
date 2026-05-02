@@ -1,0 +1,103 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "almond",
+  "name": "Hedwig",
+  "description": "Payments and business management platform for African freelancers. Invoicing, crypto payments, and AI tools in one place.",
+  "colors": {
+    "primary": "#3e72fa",
+    "light": "#9cbcf4",
+    "dark": "#3e72fa"
+  },
+  "favicon": "https://media.brand.dev/e3c32137-8d09-4a55-b5bb-4d7ec599e57a.png",
+  "icons": {
+    "library": "lucide"
+  },
+  "styling": {
+    "eyebrows": "breadcrumbs"
+  },
+  "contextual": {
+    "options": ["copy", "view", "assistant"]
+  },
+  "navigation": {
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Home",
+          "icon": "house",
+          "href": "/"
+        }
+      ]
+    },
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "account-setup"
+            ]
+          },
+          {
+            "group": "Payments",
+            "pages": [
+              "payments/invoices",
+              "payments/payment-links",
+              "payments/recurring-invoices",
+              "payments/receiving-crypto",
+              "payments/bank-payouts",
+              "payments/mark-as-paid",
+              "payments/offramp"
+            ]
+          },
+          {
+            "group": "Workspace",
+            "pages": [
+              "workspace/clients",
+              "workspace/projects",
+              "workspace/contracts",
+              "workspace/proposals"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/gmail",
+              "integrations/google-calendar",
+              "integrations/slack"
+            ]
+          },
+          {
+            "group": "AI Assistant",
+            "pages": [
+              "ai/overview",
+              "ai/email-intelligence"
+            ]
+          },
+          {
+            "group": "Account & Billing",
+            "pages": [
+              "account/wallet",
+              "account/earnings-dashboard",
+              "account/plans",
+              "account/settings"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [],
+    "primary": {
+      "type": "button",
+      "label": "Sign in",
+      "href": "https://hedwigbot.xyz/sign-in"
+    }
+  },
+  "footer": {
+    "socials": {}
+  }
+}

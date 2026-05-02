@@ -1,0 +1,106 @@
+---
+title: "Create and send invoices with Hedwig"
+description: "Learn how to create professional invoices manually or with AI, add line items, attach clients and projects, and track payment status from draft to paid."
+---
+
+Invoices are the primary way you get paid through Hedwig. You can create an invoice in seconds — fill out the form manually, or ask the AI assistant to generate one for you from a conversation. Once sent, your client receives a payment page where they can pay directly in USDC on the chain of their choice.
+
+## Create an invoice
+
+<Steps>
+  <Step title="Open the invoice form">
+    Navigate to the **Invoices** tab and tap the **+** button, or tap **Create Invoice** from the home screen. The form opens with fields for client, amount, due date, and optional line items.
+  </Step>
+
+  <Step title="Select or add a client">
+    If you have saved clients, tap **Select existing client** to pick one from the list. Hedwig will pre-fill the client's name and email automatically.
+
+    If this is a new client, type the client name directly into the **Client name** field. Add their email address if you want Hedwig to send them the invoice automatically — this is optional but recommended.
+  </Step>
+
+  <Step title="Set the amount">
+    Enter the invoice total in the **Amount** field. All invoices are denominated in USDC.
+
+    If your invoice has multiple billable items, tap **Add line item** to break the total into individual descriptions and amounts. The line item amounts are summed to calculate the invoice total automatically.
+  </Step>
+
+  <Step title="Set a due date">
+    Tap the **Due date** field and select a date from the calendar. A due date is required for every invoice. Hedwig creates a calendar reminder for the due date and, if you have Google Calendar connected, adds it there too.
+  </Step>
+
+  <Step title="Link a project (optional)">
+    If the invoice is for work tied to a specific project, select it from the **Linked project** dropdown. Projects are filtered by the selected client. Linking keeps your billing and project history aligned.
+  </Step>
+
+  <Step title="Configure reminders">
+    The **Payment reminders** toggle is on by default. When enabled, Hedwig sends your client reminder emails as the due date approaches. You can disable this per invoice if you prefer to manage follow-ups yourself.
+  </Step>
+
+  <Step title="Add notes (optional)">
+    Use the **Notes** field for any message you want to appear on the invoice — payment instructions, a thank-you, or project context for your client.
+  </Step>
+
+  <Step title="Create and send">
+    Tap **Create Invoice**. If you provided a client email, the invoice is sent immediately and its status moves to **Sent**. If no email was provided, the invoice is saved as a **Draft** and you can share the link manually.
+  </Step>
+</Steps>
+
+## Create an invoice with the AI assistant
+
+You can skip the form entirely by telling Hedwig's AI assistant what you need.
+
+<Note>
+  Try prompts like: *"Create a $500 invoice for Amaka due next Friday"* or *"Invoice TechCorp $1200 for the design project."* The assistant fills in the details and asks for confirmation before saving.
+</Note>
+
+The AI can also surface invoices you may have missed — just ask *"What invoices are still unpaid?"* and it will list them with due dates.
+
+## Invoice statuses
+
+Each invoice moves through a lifecycle as you and your client interact with it.
+
+<CardGroup cols={2}>
+  <Card title="Draft" icon="pencil">
+    The invoice has been created but not yet sent. No client email was provided, or sending was skipped. You can share the payment link manually.
+  </Card>
+  <Card title="Sent" icon="paper-plane">
+    The invoice email has been delivered to your client. Hedwig is tracking whether they open it.
+  </Card>
+  <Card title="Viewed" icon="eye">
+    Your client has opened the invoice payment page. You receive a push notification when this happens.
+  </Card>
+  <Card title="Paid" icon="check-circle">
+    Payment has been confirmed on-chain. The invoice is settled and appears in your earnings dashboard.
+  </Card>
+</CardGroup>
+
+<Info>
+  An invoice becomes **Overdue** once the due date passes without payment. Hedwig continues sending reminders if the reminders toggle is on.
+</Info>
+
+## Share an invoice
+
+Every invoice gets a unique shareable URL (e.g. `hedwigbot.xyz/invoice/...`). You can:
+
+- **Share the link** by opening the invoice and tapping the share icon — this lets you send it via WhatsApp, email, or any other channel.
+- **Copy the link** to clipboard from the invoice detail view.
+- **Let Hedwig send it** by providing a client email at creation time.
+
+Your client does not need a Hedwig account to pay. They open the link in any browser, connect their wallet, and pay in USDC on their preferred chain.
+
+## Download as PDF
+
+Hedwig generates a PDF version of every invoice. Tap **Download PDF** from the invoice detail screen to save or share a formatted document for your records or your client's accounting.
+
+## Manage existing invoices
+
+From the **Invoices** list you can:
+
+- **Filter** by status: All, Paid, Pending, Due Soon, or Recurring.
+- **Send a reminder** by opening an invoice and selecting **Send Reminder** from the actions menu. You can also manually enter an email address if one wasn't saved originally.
+- **Mark as paid** manually if your client settled outside of Hedwig (e.g. via bank transfer).
+- **Delete** an invoice by long-pressing it in the list or selecting **Delete** from the detail actions menu.
+
+<Warning>
+  Deleting an invoice is permanent and cannot be undone. Any payment link associated with the invoice will stop working.
+</Warning>

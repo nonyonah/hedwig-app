@@ -1,0 +1,88 @@
+---
+title: "See project deadlines in Google Calendar"
+description: "Connect Google Calendar to sync invoice due dates and project milestones into your calendar, and see upcoming meetings alongside your Hedwig workspace."
+---
+
+The Google Calendar integration creates a live connection between your Hedwig workspace and your Google Calendar. Invoice due dates, project milestones, and other Hedwig events appear directly in your calendar so you never miss a deadline. At the same time, upcoming meetings from your Google Calendar are pulled into Hedwig so your AI assistant can show you a complete picture of your day.
+
+## What the integration does
+
+Once connected, Hedwig sets up a two-way sync between your workspace and your Google Calendar primary calendar:
+
+- **Hedwig events → Google Calendar** — Invoice due dates, project milestones, and deadline reminders created in Hedwig are pushed to your Google Calendar as all-day events. When you update a milestone date in Hedwig, the corresponding calendar event is updated automatically.
+- **Google Calendar → Hedwig** — Hedwig imports your upcoming meetings and events from Google Calendar for the next 30 days. These appear in your workspace calendar view and are accessible to the AI assistant when summarizing your schedule.
+- **Assistant awareness** — The AI assistant uses your synced calendar data to surface relevant upcoming meetings, warn you about colliding deadlines, and include schedule context in your daily workspace summary.
+
+<Note>
+Hedwig syncs only your primary Google Calendar. Events are read from and written to the primary calendar associated with the Google account you authorize.
+</Note>
+
+## How to connect Google Calendar
+
+<Steps>
+  <Step title="Open Settings">
+    Navigate to **Settings** from the Hedwig sidebar or main menu.
+  </Step>
+  <Step title="Go to Workspace integrations">
+    Scroll to the **Workspace integrations** section. Google Calendar is listed with a "Not connected" status.
+  </Step>
+  <Step title="Connect Google Calendar">
+    Click **Connect** next to Google Calendar. You will be taken to Google's sign-in and authorization page.
+  </Step>
+  <Step title="Authorize Hedwig">
+    Sign in with your Google account and grant Hedwig permission to read and create calendar events. Hedwig requires calendar event access to both read your upcoming meetings and write your project deadlines back to your calendar.
+  </Step>
+  <Step title="Initial sync begins">
+    Once authorized, Hedwig immediately pulls your upcoming Google Calendar events and pushes your existing Hedwig milestones and due dates to Google Calendar. Both directions complete within a few minutes.
+  </Step>
+</Steps>
+
+<Tip>
+On mobile, you can connect Google Calendar directly from the Settings screen in the Hedwig app. Tap **Calendar** under integrations and follow the same Google sign-in flow.
+</Tip>
+
+## What appears in Google Calendar
+
+Every Hedwig event that is synced to Google Calendar appears as an **all-day event** on the relevant date. Event types that sync include:
+
+- Invoice due dates
+- Project milestones
+- Custom deadline reminders created in your workspace
+
+Each event is tagged with a Hedwig identifier so updates made in Hedwig (date changes, title edits) are reflected in Google Calendar on the next sync.
+
+<Info>
+If you delete a Hedwig event from within Google Calendar, Hedwig will detect the deletion on the next sync and re-create the event if it still exists in your workspace. To permanently remove a deadline from your calendar, delete or close the corresponding item in Hedwig.
+</Info>
+
+## What appears in Hedwig from Google Calendar
+
+Hedwig imports up to 50 upcoming events from your Google Calendar, covering the next 30 days. For each event, Hedwig stores:
+
+- Title and description
+- Start and end times (or all-day flag)
+- Attendee email addresses
+
+If an attendee's email matches one of your Hedwig clients, the event is automatically linked to that client in your workspace. This lets the AI assistant connect your meeting schedule to your active projects.
+
+## Manually refreshing
+
+Google Calendar syncs automatically. To force a sync at any time, go to **Settings → Workspace integrations** and click **Refresh**.
+
+## How to disconnect Google Calendar
+
+<Steps>
+  <Step title="Open Settings">
+    Navigate to **Settings** in your Hedwig workspace.
+  </Step>
+  <Step title="Find Google Calendar">
+    Scroll to **Workspace integrations** and locate the Google Calendar row.
+  </Step>
+  <Step title="Disconnect">
+    Click **Disconnect**. Hedwig will revoke its access to your Google Calendar. Hedwig events that were previously pushed to your Google Calendar will remain there until you manually delete them from Google Calendar.
+  </Step>
+</Steps>
+
+<Warning>
+After disconnecting, Hedwig stops syncing in both directions. Milestones and due dates you create in Hedwig will no longer appear in Google Calendar, and your upcoming meetings will no longer be available to the Hedwig assistant — until you reconnect.
+</Warning>

@@ -1,0 +1,101 @@
+---
+title: "Organize work with projects and milestones"
+description: "Create projects, break them into milestones with due dates and amounts, and track progress from first deliverable to final payment."
+---
+
+Projects give structure to your freelance work. Each project belongs to a client, has a deadline, and can be broken into milestones — discrete deliverables with their own due dates and payment amounts. As milestones are completed and invoiced, Hedwig tracks your progress automatically.
+
+## Create a project
+
+<Steps>
+  <Step title="Open the new project form">
+    Go to **Workspace → Projects** and tap **Create Project**, or navigate to **Projects** from the main menu.
+  </Step>
+  <Step title="Set the project details">
+    Fill in the core project information:
+
+    | Field | Required | Notes |
+    |---|---|---|
+    | Title | Yes | A clear name for the project |
+    | Client | Yes | Select an existing client, or enter a name to create one on the spot |
+    | Deadline | Yes | The project's final due date — this appears in your calendar |
+    | Start date | No | When work begins |
+    | Budget | No | Total project value in your chosen currency |
+    | Description | No | Scope of work — used in the auto-generated contract |
+  </Step>
+  <Step title="Add milestones (optional)">
+    You can add milestones right from the project creation screen. Each milestone needs a title, an amount, and a due date. Add as many as the project requires.
+  </Step>
+  <Step title="Create the project">
+    Tap **Create**. Hedwig creates the project, generates a draft contract, and — if you're on the Pro plan — automatically creates a draft invoice for each milestone.
+  </Step>
+</Steps>
+
+<Tip>
+When you create a project with a deadline, Hedwig adds a "Project ending" event to your calendar automatically. If you connect Google Calendar, this event syncs there too.
+</Tip>
+
+## Milestones
+
+Milestones break a project into stages. Each milestone tracks its own due date, payment amount, and completion status.
+
+### Milestone statuses
+
+| Status | What it means |
+|---|---|
+| **Pending** | Work not yet invoiced |
+| **Invoiced** | An invoice has been generated for this milestone |
+| **Paid** | The milestone invoice has been paid |
+
+### Add a milestone to an existing project
+
+Open the project and tap **Add Milestone**. You'll need to provide:
+
+- **Title** — what you're delivering (e.g. "Design mockups", "Final delivery")
+- **Amount** — the payment due for this milestone
+- **Due date** — when this milestone is due
+
+When you save a milestone with a due date, a "Milestone due" event is added to your calendar.
+
+### Generate an invoice for a milestone
+
+Once you're ready to bill for a milestone, open the milestone and tap **Generate Invoice**. Hedwig creates a draft invoice pre-filled with the milestone title, amount, and client details. From there you can choose which blockchain network to receive payment on and send the invoice directly to your client.
+
+<Note>
+You can only generate one invoice per milestone. If a milestone already has an invoice, the option is disabled.
+</Note>
+
+## Project status tracking
+
+Each project has one of four statuses:
+
+| Status | Description |
+|---|---|
+| **Ongoing** | Active — work is in progress |
+| **Completed** | All work is done |
+| **Cancelled** | Project was called off |
+| **On hold** | Temporarily paused |
+
+When you mark a project as **Completed**, Hedwig automatically invoices any milestones that are still in Pending status and emails your client a project completion summary. The calendar deadline event is also updated.
+
+## Progress tracking
+
+Inside each project you'll see a progress summary:
+
+- **Milestones completed** — count of milestones with an Invoiced or Paid status
+- **Completion percentage** — calculated from total vs. completed milestones
+- **Total amount** — sum of all milestone amounts
+- **Amount paid** — sum of milestones with a Paid status
+
+## How projects connect to invoices and contracts
+
+When you create a project, Hedwig automatically:
+
+1. **Generates a draft contract** using AI, pre-filled with the client's name, your name, the scope of work, and all milestone details. The contract is linked to the project and client.
+2. **Creates draft invoices** for each milestone (Pro plan only). These invoices are ready to send when you reach each milestone.
+
+You can view linked invoices and the project contract directly from the project detail screen.
+
+<Info>
+On the free plan, milestone invoice automation is not available. You can still generate invoices manually from each milestone after you create the project.
+</Info>

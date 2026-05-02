@@ -1,0 +1,141 @@
+---
+title: "AI email intelligence for your inbox"
+description: "Connect Gmail to automatically scan financial emails, match them to your clients and projects, generate summaries, and flag threads that need your attention."
+---
+
+When you connect Gmail to Hedwig, the assistant scans your inbox for emails related to invoices, contracts, and payments. It summarizes each thread, matches it to the relevant client or project in your workspace, and surfaces threads that require action—so you have a clear view of incoming financial activity without reading every message yourself.
+
+<Note>
+  Email intelligence requires a connected Gmail account. Go to **Settings → Integrations** and connect Gmail to enable this feature.
+</Note>
+
+---
+
+## What Hedwig scans for
+
+Hedwig does not read every email in your inbox. It runs a targeted search for threads that contain financial document attachments: PDFs and Word documents with filenames or subjects containing words like "invoice", "contract", "agreement", "retainer", "statement", or "proposal".
+
+For each matching thread, the assistant extracts:
+
+- **Document type** — whether the email is about an invoice, contract, receipt, or proposal
+- **Amount** — the monetary value mentioned in the subject or email body
+- **Currency** — the currency of the detected amount
+- **Due date** — any payment due date mentioned in the thread
+
+Threads classified as invoices or contracts are stored in Hedwig. Receipts, general correspondence, and unrecognized thread types are not imported.
+
+---
+
+## Thread summaries
+
+For every imported thread, Hedwig generates a 1–2 sentence summary written from a business perspective. The summary focuses on what (if anything) you need to do.
+
+For example:
+
+> "Adaeze from Lagos Creative Studio has sent an invoice for $1,200 due on June 15 for branding work. No action has been taken yet."
+
+Summaries appear in the **Imports** section of your dashboard alongside the thread details.
+
+---
+
+## How Hedwig determines which emails need action
+
+Imported threads are flagged for review based on their status:
+
+| Status | Meaning |
+|---|---|
+| `NEEDS_REVIEW` | The thread has been imported but not yet matched to a client or project |
+| `IMPORTED` | Thread is stored but waiting for you to link it to your workspace |
+| `MATCHED` | Hedwig linked the thread to a client or project automatically |
+
+When one or more threads have a `NEEDS_REVIEW` or `IMPORTED` status and contain detected invoice data, the AI assistant surfaces a suggestion in your workspace prompting you to review and match the import. This suggestion appears in the assistant panel and on the Imports page.
+
+---
+
+## Thread matching — how Hedwig links emails to clients
+
+After importing a thread, Hedwig attempts to match it to an existing client in your workspace using the email addresses of everyone in the conversation.
+
+**Exact match:** If any participant's email address exactly matches a client email in your workspace, the thread is linked to that client with full confidence.
+
+**Domain match:** If no exact match is found, Hedwig checks whether any participant shares the same email domain as a saved client. For example, if your client is `alice@designstudio.com` and an email comes from `billing@designstudio.com`, Hedwig links them.
+
+If neither match succeeds, the thread remains unmatched and the assistant suggests either creating a new client from the sender's details or linking the thread to an existing one manually.
+
+---
+
+## Attachment analysis
+
+When a matched thread contains PDF or image attachments, Hedwig reads the attachment content to extract structured data. For invoices and contracts, it attempts to identify:
+
+- Invoice number
+- Issuing company name
+- Line items with amounts
+- Issue date and due date
+- Total amount and currency
+
+This data is stored alongside the thread and used to populate the detected amount and due date fields. If the attachment analysis produces clearer data than what was found in the subject or snippet, the thread record is updated with the attachment's values.
+
+Supported attachment types: PDF, PNG, JPEG, WEBP.
+
+---
+
+## Viewing email summaries in Hedwig
+
+<Steps>
+  <Step title="Open Imports">
+    On the web dashboard, go to **Imports** in the sidebar. On mobile, this section is accessible from the main menu.
+  </Step>
+  <Step title="Review imported threads">
+    Each thread shows the sender, subject, AI-generated summary, detected amount, and detected due date (where available). Threads that need your attention are highlighted.
+  </Step>
+  <Step title="Match to a client or project">
+    If the thread is not automatically matched, you can link it to an existing client, create a new client from the sender's details, or link it to an active project. The assistant pre-fills the suggested client name and email based on the sender.
+  </Step>
+  <Step title="Dismiss or store">
+    Once reviewed, you can mark a thread as reviewed or dismiss it. Dismissed threads no longer appear in the needs-attention list.
+  </Step>
+</Steps>
+
+---
+
+## How the sync works
+
+Gmail is synced on a schedule. Each sync fetches up to 50 threads matching the financial document search query. New threads are added to your Imports; threads already stored are updated if their content has changed.
+
+The last sync time is recorded and visible in your integration settings. You can also trigger a manual sync by going to **Settings → Integrations → Gmail** and tapping **Sync now**.
+
+<Tip>
+  If you have a large volume of financial emails, the most recent 50 matching threads are imported on each sync. Older threads may not appear immediately but will be picked up in subsequent syncs.
+</Tip>
+
+---
+
+## Privacy and data handling
+
+- Hedwig only reads threads that match its financial document search query. General emails, personal messages, and newsletters are not read or stored.
+- Attachment content is stored in your private Hedwig file storage and is not shared with third parties.
+- Thread summaries and extracted data are associated only with your account.
+- You can disconnect Gmail at any time from **Settings → Integrations**. Disconnecting stops future syncs; previously imported threads remain in your workspace until you delete them.
+
+---
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="Does Hedwig read all my emails?">
+    No. Hedwig runs a targeted search for threads that contain financial document attachments with keywords like "invoice", "contract", or "agreement". Only threads matching that search are read and stored. Your general inbox is not scanned.
+  </Accordion>
+  <Accordion title="What if a thread is matched to the wrong client?">
+    You can manually reassign a thread to the correct client from the Imports page. Tap the thread, then use the client selector to update the match.
+  </Accordion>
+  <Accordion title="Can Hedwig reply to emails?">
+    No. Email intelligence is read-only. Hedwig imports and analyzes threads but does not send, reply to, or modify any emails in your Gmail account.
+  </Accordion>
+  <Accordion title="What happens if I disconnect Gmail?">
+    Disconnecting Gmail stops any future email syncs. Threads already imported into your workspace remain available and are not deleted. To remove them, delete the individual thread records from the Imports page.
+  </Accordion>
+  <Accordion title="My email contains an invoice but it didn't appear in Imports. Why?">
+    Hedwig looks for threads with attachments where the filename or subject contains specific financial keywords. If the attachment has a generic filename (like `document.pdf`) and the subject doesn't mention an invoice, the thread may not match the search query. You can import such documents manually by uploading them through the AI assistant chat.
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,108 @@
+---
+title: "Automate billing with recurring invoices"
+description: "Set up recurring invoice schedules that generate and send automatically — weekly, monthly, quarterly, or annually — so you never miss a billing cycle."
+---
+
+Recurring invoices let you automate billing for clients you work with on a regular basis. Once you configure a recurring schedule, Hedwig generates a fresh invoice on each billing date and, if auto-send is on, emails it to your client without any action from you.
+
+<Note>
+  Recurring invoice automation is a **Pro** feature. You need an active Pro subscription to create and manage recurring schedules. Existing one-off invoices are not affected.
+</Note>
+
+## Billing frequencies
+
+You can set any of the following schedules for a recurring invoice:
+
+| Frequency | Interval |
+|-----------|----------|
+| **Weekly** | Every 7 days |
+| **Bi-weekly** | Every 14 days |
+| **Monthly** | Same date each month (last day if the month is shorter) |
+| **Quarterly** | Every 3 months |
+| **Annual** | Once a year |
+
+## Set up a recurring invoice
+
+<Steps>
+  <Step title="Open the invoice form and enable recurring">
+    Go to the **Invoices** tab and tap **Create Invoice**. In the form, find the **Recurring invoice** toggle and switch it on. The form fields update to reflect a recurring schedule — the due date field becomes **Start date**.
+  </Step>
+
+  <Step title="Select a client">
+    Choose an existing client from the dropdown or enter a client name manually. If you want Hedwig to auto-send invoices, include a client email address. Without an email, invoices are generated as drafts for you to send manually.
+  </Step>
+
+  <Step title="Set the amount">
+    Enter the recurring invoice amount in USDC. You can also add line items to break down the billing — these will appear on every generated invoice in the series.
+  </Step>
+
+  <Step title="Choose a frequency">
+    Tap the **Frequency** selector and choose how often to bill: Weekly, Bi-weekly, Monthly, Quarterly, or Annual.
+  </Step>
+
+  <Step title="Set a start date">
+    Choose the date for the first invoice. If you set today's date or a past date, Hedwig generates the first invoice immediately. Future dates schedule the first generation accordingly.
+  </Step>
+
+  <Step title="Enable auto-send">
+    Turn on **Auto-send** to have each generated invoice emailed to your client automatically on the billing date. Leave it off if you want to review invoices before sending.
+  </Step>
+
+  <Step title="Create the schedule">
+    Tap **Set up recurring invoice**. Hedwig saves the template and schedules future invoices. If the start date is today or earlier, the first invoice is created right away.
+  </Step>
+</Steps>
+
+<Tip>
+  When you create a recurring schedule, Hedwig sends your client a one-time setup notification so they know what to expect and can plan accordingly.
+</Tip>
+
+## How auto-send works
+
+When auto-send is enabled on a recurring schedule, Hedwig does the following on each billing date:
+
+1. Generates a new invoice from your template with the correct due date calculated from the frequency.
+2. Sends the invoice email to your client's address.
+3. Updates the invoice status to **Sent**.
+4. Advances the next billing date on the schedule.
+
+If auto-send is off, the invoice is created as a **Draft**. You will see it in your Invoices list and can send or share it manually.
+
+## View your recurring schedules
+
+In the **Invoices** tab, tap the **Recurring** filter chip to see all your active recurring schedules. Each card shows:
+
+- The schedule title and client
+- The billing amount and frequency (e.g. *$500 per month*)
+- The next billing date
+- Current status: **Active**, **Paused**, or **Cancelled**
+
+Tap any recurring schedule to open its detail sheet, where you can manage it.
+
+## Pause or cancel a schedule
+
+Open a recurring schedule from the Invoices list (**Recurring** filter) and use the actions menu to change its status.
+
+<Tabs>
+  <Tab title="Pause">
+    Pausing a schedule stops new invoices from being generated on the next billing date. No invoices are deleted. When you resume, billing continues from the next scheduled date — Hedwig does not backfill missed cycles.
+
+    To pause: open the recurring schedule detail and tap **Pause**.
+  </Tab>
+  <Tab title="Resume">
+    A paused schedule can be resumed at any time. Tap **Resume** from the schedule detail. The next invoice will generate on the next scheduled date after resumption.
+  </Tab>
+  <Tab title="Cancel">
+    Cancelling a schedule stops billing permanently. Invoices that have already been generated are not affected — they remain in your Invoices list.
+
+    To cancel: open the recurring schedule detail and tap **Cancel schedule**. Cancelled schedules are removed from the Recurring view but the generated invoices remain in your history.
+  </Tab>
+</Tabs>
+
+<Warning>
+  Cancelling a recurring schedule cannot be undone. If you think you may want to resume billing later, use **Pause** instead.
+</Warning>
+
+## Manually trigger an invoice
+
+If you need to generate the next invoice immediately — for example, to send ahead of schedule — open the recurring schedule detail and tap **Generate invoice now**. This creates a fresh invoice from the template and advances the next due date as if the scheduled cycle had run normally.

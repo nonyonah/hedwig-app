@@ -1,0 +1,149 @@
+---
+title: "Configure your Hedwig account settings"
+description: "Update your profile, set a monthly revenue target, manage notification preferences, connect integrations, and delete your account if needed."
+---
+
+The Settings page is where you control everything about how your Hedwig account looks, behaves, and connects to other tools. Changes you make here apply immediately — there is no separate save step unless the field is a text input.
+
+## Profile settings
+
+Your profile holds the information Hedwig uses to personalise your experience and pre-fill documents like invoices and proposals.
+
+### Updating your name, email, and avatar
+
+**On web:** Click your avatar in the top navigation → **Profile** (or navigate to **Settings** on the sidebar). Edit your first name, last name, and email address in the form fields and click **Save changes**.
+
+**On mobile:** Go to **Settings** and tap your profile card at the top of the screen. This opens the profile edit screen where you can update your name, email, and profile photo.
+
+<Steps>
+  <Step title="Open your profile">
+    On web, go to **Settings → Profile**. On mobile, tap your profile card in Settings.
+  </Step>
+  <Step title="Edit your details">
+    Update your **First name**, **Last name**, and **Email** as needed. To change your avatar, tap or click your current photo and select a new one from your device.
+  </Step>
+  <Step title="Save">
+    Click **Save changes** on web. On mobile, the changes are saved when you tap **Done** or navigate away.
+  </Step>
+</Steps>
+
+<Note>
+Your email address is the one associated with your Hedwig account and used for billing receipts and system notifications. It does not need to match your Gmail integration address.
+</Note>
+
+### Setting a monthly revenue target
+
+You can set a monthly revenue target that the earnings dashboard uses as a benchmark. When a target is set, the dashboard shows a progress indicator for the current month.
+
+To set or update your target:
+
+1. Open **Profile** settings (web) or tap your profile card (mobile).
+2. Find the **Monthly revenue target** field.
+3. Enter the amount in USD.
+4. Save.
+
+Your progress toward the target resets on the first of each month.
+
+## Notification preferences
+
+### Client reminders
+
+Client reminders are automated nudges that Hedwig sends to your clients when an invoice is approaching or past its due date. You can toggle this on or off without affecting any other notifications.
+
+**On web:** Go to **Settings** and look for the **Client reminders** toggle in the Notifications section. Flip it to enable or disable automatic reminders.
+
+**On mobile:** Go to **Settings → General Settings → Client reminders** and use the toggle switch.
+
+<Tip>
+Keeping client reminders enabled is recommended. Automated follow-ups sent at the right time recover a significant number of late payments without requiring you to send a manual message.
+</Tip>
+
+## Connected integrations
+
+Hedwig can connect to Gmail, Google Calendar, and Slack to bring your freelance communication and scheduling into the same workspace as your invoices and projects.
+
+<CardGroup cols={3}>
+  <Card title="Gmail" icon="mail">
+    Automatically match incoming emails to clients, projects, and invoices. Detect external invoices and contracts sent as attachments.
+  </Card>
+  <Card title="Google Calendar" icon="calendar">
+    Sync invoice due dates and project milestones into your Google Calendar. See upcoming meetings alongside your work.
+  </Card>
+  <Card title="Slack" icon="slack">
+    Receive payment and invoice notifications directly in your Slack workspace.
+  </Card>
+</CardGroup>
+
+To connect an integration:
+
+**On web:** Go to **Settings → Integrations** and click **Connect** next to the service you want. You will be redirected to that service's OAuth authorisation screen. After granting permission, you are returned to Hedwig and the integration becomes active.
+
+**On mobile:** Go to **Settings** and look for the integrations section. Tap **Connect Google Calendar** to start the authorisation flow directly from the app.
+
+For step-by-step setup guides, see the [Integrations documentation](/integrations).
+
+<Info>
+Revoking an integration does not delete any data that was already synced. Emails already matched to clients stay matched; calendar events already created stay in your calendar. Only future sync activity stops.
+</Info>
+
+## Security
+
+### Biometric lock (mobile)
+
+On mobile, you can require biometric authentication (Face ID, Touch ID, or fingerprint) whenever you open the app. Go to **Settings → Security → Biometrics** and toggle it on. You will need to authenticate once to confirm the change.
+
+The **Lock Screen** toggle adds a second layer: the app locks automatically when it moves to the background, requiring biometrics to return.
+
+### Recovery phrase
+
+Your wallet recovery phrase is the master key to your embedded wallet. Hedwig stores it securely and you can access it only after biometric authentication.
+
+To view your recovery phrase on mobile:
+
+1. Go to **Settings → Security → Recovery Phrase**.
+2. Read the warning and check the acknowledgement box.
+3. Tap **Continue** and authenticate with biometrics.
+4. A browser sheet opens where you can view and copy the phrase.
+
+<Warning>
+Your recovery phrase gives complete control over your wallet funds. Never share it with any app, website, or person. Hedwig will never ask you for your recovery phrase.
+</Warning>
+
+### Identity verification
+
+Some features — including the USD bank account — require identity verification. Go to **Settings → Security → Identity Verification** to check your verification status or start the process if it shows as **Unverified**.
+
+## Deleting your account
+
+Account deletion permanently removes your profile and all associated data, including clients, projects, invoices, and transaction history.
+
+<Warning>
+Deleting your account is a permanent action. All your data will be scheduled for deletion. You have a **90-day grace period** after deletion during which you can log back in to restore your account. After 90 days, the deletion is irreversible.
+</Warning>
+
+### How to delete your account
+
+<Steps>
+  <Step title="Open Settings">
+    On web, go to **Settings**. On mobile, go to **Settings** and scroll to the bottom.
+  </Step>
+  <Step title="Tap Delete Account">
+    Scroll to the bottom of the Settings page and tap or click **Delete Account** (shown in red).
+  </Step>
+  <Step title="Confirm deletion">
+    A confirmation dialog will appear explaining that your data will be scheduled for permanent deletion. Confirm to proceed.
+  </Step>
+  <Step title="You are signed out">
+    After confirmation, you are signed out and your account enters the 90-day deletion window.
+  </Step>
+</Steps>
+
+### Restoring your account
+
+If you change your mind within the 90-day window, you can restore your account by signing back in with the same credentials. Hedwig will cancel the deletion and restore your account to full access.
+
+After the 90-day period ends, data deletion is permanent and cannot be undone.
+
+<Info>
+A confirmation email is sent to your registered email address when your account is scheduled for deletion. Keep an eye on that inbox — the email confirms the deletion date and explains how to restore your account if you want to cancel.
+</Info>

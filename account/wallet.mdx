@@ -1,0 +1,91 @@
+---
+title: "Your Hedwig wallet: multi-chain crypto balance"
+description: "View your wallet addresses, check USDC and token balances across Base, Solana, and Stacks, and browse your full transaction history."
+---
+
+When you sign up for Hedwig, an embedded crypto wallet is automatically created for you — no seed phrases to copy, no browser extension to install. Your wallet holds your payment addresses and balances across multiple chains so clients can pay you in crypto and you can track everything from one place.
+
+## Your wallet addresses
+
+Hedwig creates three wallet addresses for you at signup, one for each supported chain:
+
+<CardGroup cols={3}>
+  <Card title="Base (EVM)" icon="ethereum">
+    Your EVM-compatible address (also works on Ethereum and other EVM chains). Clients send USDC on Base here. Starts with `0x`.
+  </Card>
+  <Card title="Solana" icon="circle">
+    A native Solana wallet address for receiving SOL and USDC on Solana. Starts with a short alphanumeric string.
+  </Card>
+  <Card title="Stacks" icon="layers">
+    A Stacks address for receiving STX and accepting Bitcoin L2 payments. Starts with `SP` or `SM`.
+  </Card>
+</CardGroup>
+
+### Viewing and copying your address
+
+**On web:** Open the **Wallet** page from the sidebar. Your Base and Solana wallet addresses are displayed at the top. Click **Share wallet** to open a dialog with both addresses and QR codes you can share directly with a client.
+
+**On mobile:** Tap the **Wallet** tab at the bottom of the screen. Your primary address appears near the top of the screen. Tap the address to copy it to your clipboard.
+
+<Tip>
+When sharing a payment address with a client, always confirm which chain and token you want them to send on. Most clients paying via Hedwig payment links will be directed automatically — sharing your raw address is useful for direct wallet-to-wallet transfers.
+</Tip>
+
+## Checking your balances
+
+Your wallet displays balances for every asset Hedwig tracks:
+
+| Chain | Assets tracked |
+|-------|---------------|
+| Base  | USDC, ETH |
+| Solana | USDC, SOL |
+
+**On web:** The Wallet page shows a **Balance** summary card at the top with your total USDC value across all chains, followed by a per-chain assets table that lists each token individually with its current balance and USD equivalent.
+
+**On mobile:** Open the Wallet tab to see your balances for each asset. Tap a token row to see its token detail screen with more information.
+
+<Note>
+Balances are fetched in real time from the Privy embedded wallet infrastructure and on-chain data sources. If a balance appears as zero immediately after a payment, wait a few seconds and pull to refresh — on-chain confirmations can take a moment.
+</Note>
+
+## Transaction history
+
+Every incoming and outgoing transfer is recorded in your transaction history. Hedwig pulls data from two sources and merges them into a single list:
+
+- **On-chain activity** — transfers detected on Base and Solana are picked up automatically, even if they were not initiated through Hedwig.
+- **App-recorded transactions** — payments received from invoices and payment links, offramp settlements, and sends initiated inside the app are logged directly.
+
+Each transaction entry shows:
+
+| Field | Description |
+|-------|-------------|
+| Type | **IN** (received) or **OUT** (sent) |
+| Amount | Token amount and symbol |
+| Network | `base` or `solana` |
+| Status | `completed`, `pending`, or `failed` |
+| Date | Timestamp of the block or event |
+| From / To | Counterparty wallet addresses |
+
+**On web:** Scroll down the Wallet page to the **Recent activity** table. It shows up to six recent transactions. For the full history, use the transaction list view.
+
+**On mobile:** Tap any transaction row to see its details, including the on-chain hash.
+
+<AccordionGroup>
+  <Accordion title="Why is a transaction showing as pending?">
+    A transaction enters pending status when it has been broadcast to the network but has not yet received enough block confirmations. This is normal for fresh on-chain transfers. Most Base transactions confirm within seconds; Solana is typically faster. If a transaction remains pending for more than a few minutes, check the on-chain hash using a block explorer.
+  </Accordion>
+  <Accordion title="I received a payment but it's not showing up">
+    First, pull to refresh or reload the Wallet page. If the payment was sent to your correct address on the right chain, it will appear once the on-chain transaction is confirmed. If you believe a payment was sent but it still does not appear after several minutes, verify the sender used the correct address and chain.
+  </Accordion>
+  <Accordion title="Can I send crypto from my Hedwig wallet?">
+    Yes. On mobile, tap the **Send** button in the Wallet tab and enter a recipient address. Hedwig detects the chain from the address format, lets you choose the token, and confirms the transaction before broadcasting it. You can enter an amount in crypto or toggle to enter the USD equivalent.
+  </Accordion>
+</AccordionGroup>
+
+## Wallet security
+
+Your Hedwig wallet is powered by **Privy's embedded wallet infrastructure**. Your private keys are protected using Privy's secure key management system — they are never stored in plain text, and Hedwig never has direct access to them.
+
+<Warning>
+Your wallet recovery phrase grants full access to your funds. Never share it with anyone, including apps that claim to be Hedwig. On mobile, you can view your recovery phrase under **Settings → Security → Recovery Phrase** after biometric authentication. Store it somewhere safe and offline if you export it.
+</Warning>

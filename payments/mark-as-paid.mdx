@@ -1,0 +1,79 @@
+---
+title: "Mark as paid: log off-platform payments"
+description: "Capture payment method and reference when an invoice or payment link settles outside Hedwig — bank transfer, cash, Stripe, Paystack — so revenue tracking stays accurate."
+icon: "check"
+---
+
+When a client pays you outside the crypto checkout flow — bank transfer, cash, or another platform — use **Mark as paid** to record the payment so it appears in your revenue analytics, client lifetime earnings, and activity feed.
+
+## When to use it
+
+- A client sent funds to your [bank payout](/payments/bank-payouts) and you saw the deposit in your bank app
+- You received cash in person
+- A Stripe or Paystack charge cleared (until webhook auto-marking ships)
+- Any off-platform settlement you want reflected in Hedwig
+
+Crypto payments through the public checkout flip an invoice to **Paid** automatically — you do not need to mark them.
+
+## Recording the payment
+
+<Steps>
+  <Step title="Open the unpaid document">
+    Go to **Payments**, switch between the **Invoices** or **Payment Links** tabs, and click the row to open its detail panel.
+  </Step>
+  <Step title="Tap Mark as paid">
+    A confirmation dialog opens. The button is disabled if the document is already paid.
+  </Step>
+  <Step title="Choose the payment method">
+    Pick one of:
+    - **Bank transfer** — most common for the new bank payout flow
+    - **Crypto** — for off-platform crypto settlements
+    - **Cash**
+    - **Other** — for Stripe, Paystack, PayPal, etc.
+  </Step>
+  <Step title="Add a reference (optional)">
+    Up to 200 characters. Useful values:
+    - The bank transaction reference / SWIFT code
+    - The Stripe `pi_*` charge id
+    - A short internal note
+    The reference is saved on the document and shows up in the revenue activity feed.
+  </Step>
+  <Step title="Confirm">
+    The status flips to **Paid**. Hedwig stamps `paid_at` server-side, sets the `manual_mark_paid` flag, and the database trigger recomputes the client's `total_earnings`, `outstanding_balance`, `last_activity_at`, and engagement segment.
+  </Step>
+</Steps>
+
+## What changes after marking as paid
+
+- The document moves to the **Paid** filter on the Payments page
+- The amount adds to your **paid revenue** for the period
+- The client's lifetime earnings on the [Clients](/workspace/clients) detail page increment
+- The client's outstanding balance drops accordingly
+- The activity feed on the Revenue page gets an entry with the payment method label
+- Any associated calendar event for the invoice due date is marked complete
+
+## Where the data shows up
+
+| Surface | Display |
+|---|---|
+| Payments → Invoices | Status flips to **Paid**; the row moves into the Paid filter |
+| Revenue → Activity | "Invoice paid" or "Payment link paid" event with the method, reference, and amount |
+| Clients → detail page | Total earnings increases; outstanding balance decreases; last activity timestamp updates |
+| Dashboard | Paid revenue card and trend chart pick up the change on the next load |
+| AI assistant chat | The next chat answer reflects the new totals |
+
+## Reverting
+
+The status flip is one-way through the UI. If a payment was marked in error, edit the row in Supabase or contact support; the trigger will re-aggregate automatically once the row is updated.
+
+## Coming soon
+
+- **Stripe webhook** — automatically marks an invoice paid when a matching `payment_intent.succeeded` arrives with the invoice id in metadata
+- **Paystack webhook** — same, for Naira / Cedi accounts
+- **Plaid match** — proposes a Mark as paid suggestion when an inbound bank transaction matches an outstanding invoice amount and client
+
+Until those ship, **Mark as paid** is the canonical way to log off-platform settlements.
+
+<Note>
+  The mark-as-paid action is also available to the AI assistant. Tell the chat agent: "Mark INV-2026-031 as paid via bank transfer with reference WT-998" and it will stage the action for your approval.
+</Note>

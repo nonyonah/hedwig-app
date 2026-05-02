@@ -1,0 +1,97 @@
+---
+title: "Share payment links for crypto payments"
+description: "Create shareable payment links your clients can use to pay you in USDC across Base, Solana, Celo, and Stacks — no invoice required."
+---
+
+Payment links are the fastest way to request a specific amount from a client. Unlike invoices, they do not require line items or a formal document structure — you set an amount, optionally add a description and a client, and share the link. Your client opens it in any browser and pays directly in USDC.
+
+Payment links are ideal for quick requests, deposits, retainers, or any situation where you need to get paid without creating a full invoice.
+
+## Supported chains
+
+Your client can pay from any of the following networks. Hedwig detects which chain they are paying from automatically.
+
+<CardGroup cols={2}>
+  <Card title="Base" icon="circle-dollar-sign">
+    Ethereum L2 by Coinbase. Low fees, fast confirmations. USDC is natively supported.
+  </Card>
+  <Card title="Solana" icon="bolt">
+    High-throughput network with near-instant finality. USDC on Solana is widely held.
+  </Card>
+  <Card title="Celo" icon="leaf">
+    Mobile-first EVM chain optimized for payments across Africa. Supports USDC.
+  </Card>
+  <Card title="Stacks (Bitcoin L2)" icon="bitcoin-sign">
+    A Bitcoin Layer 2 that brings programmability to BTC. Clients can pay using STX.
+  </Card>
+</CardGroup>
+
+## Create a payment link
+
+<Steps>
+  <Step title="Open the payment link form">
+    Go to **Payments** and tap **Create Payment Link**, or tap **+** from the payment links section on the home screen.
+  </Step>
+
+  <Step title="Select or add a client (optional)">
+    You can attach the link to a saved client by selecting them from the dropdown. This keeps your payment history organized by client.
+
+    If this is a one-off request, you can skip client selection or type a name directly. Providing a client email lets Hedwig send them the link automatically.
+  </Step>
+
+  <Step title="Enter an amount">
+    Type the payment amount. All amounts are in USDC. There is no minimum amount, but the payment page will display the exact USDC value your client needs to send.
+  </Step>
+
+  <Step title="Add a description (optional)">
+    Use the **Description** field to explain what the payment is for — *"50% deposit for brand identity project"* or *"Monthly retainer — June."* This appears on the payment page your client sees.
+  </Step>
+
+  <Step title="Configure reminders">
+    Leave **Payment reminders** on to have Hedwig notify your client by email as the due date approaches. Toggle it off if you prefer to follow up yourself.
+  </Step>
+
+  <Step title="Add notes (optional)">
+    Any text you add to **Notes** will appear on the payment page. Use this for bank-equivalent details, a thank-you message, or any context your client needs.
+  </Step>
+
+  <Step title="Create the link">
+    Tap **Create Payment Link**. Your link is generated at `hedwigbot.xyz/pay/...` and, if a client email was provided, sent to them immediately.
+  </Step>
+</Steps>
+
+## Share your payment link
+
+Once created, you can distribute the link in any way that works for you:
+
+- **Copy the URL** from the payment links list and paste it into an email, WhatsApp message, or proposal.
+- **Share via the share sheet** by tapping the share icon on the link detail screen.
+- **Use the QR code** — each payment link has a QR code your client can scan with their phone's camera to open the payment page directly.
+
+<Tip>
+  Add your payment link to email signatures, proposals, or your website so clients can pay you without any back-and-forth.
+</Tip>
+
+## How your client pays
+
+Your client does not need a Hedwig account. When they open the link:
+
+1. The payment page shows the amount, description, and your name.
+2. They connect their crypto wallet (MetaMask, Phantom, Coinbase Wallet, or any WalletConnect-compatible wallet).
+3. They select their preferred chain and confirm the USDC transaction.
+4. The payment page confirms once the transaction is detected on-chain.
+
+You receive a push notification and email as soon as payment is confirmed.
+
+## Payment link statuses
+
+| Status | Meaning |
+|--------|---------|
+| **Draft** | Created but not yet sent. Share the URL manually. |
+| **Sent** | Email delivered to your client. |
+| **Viewed** | Client has opened the payment page. |
+| **Paid** | Payment confirmed on-chain. |
+
+<Note>
+  When your client opens the payment page for the first time, Hedwig marks the link as **Viewed** and sends you a push notification. This lets you know your client has seen the request without you needing to follow up.
+</Note>

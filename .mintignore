@@ -1,0 +1,78 @@
+# .mintignore — paths Mintlify should NOT crawl when building docs.
+# Hedwig keeps the Mintlify project at the repo root alongside the
+# Expo mobile app, the Express backend, and the Next.js web app.
+#
+# Mintlify already auto-ignores: .git, .github, .claude, .agents,
+# .idea, node_modules, README.md, LICENSE.md, CHANGELOG.md,
+# CONTRIBUTING.md.
+
+# Code roots
+app/
+android/
+ios/
+assets/
+components/
+constants/
+context/
+hooks/
+lib/
+scripts/
+contracts/
+out/
+artifacts/
+cache/
+deployments/
+hedwig-backend/
+web-client/
+
+# Build / tooling
+dist/
+.expo/
+.next/
+.tmp/
+.cache/
+.windsurf/
+.cursor/
+.gemini/
+.vscode/
+
+# Internal planning markdown — keep these private
+docs/
+DEPLOYMENT.md
+
+# Generated / lockfiles / configs that aren't documentation
+*.tsbuildinfo
+*.log
+*.lock
+*.zip
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Native + tooling configs
+Podfile*
+Gemfile*
+foundry.*
+hardhat.config.*
+remappings.txt
+Clarinet.toml
+fly.toml
+eas.json
+app.json
+app.config.js
+babel.config.js
+crypto-shim.js
+google-services.json
+deploy.sh
+deploy_with_secrets.sh
+deploy-contract.js
+deploy-evm.js
+generate-wallet.js
+check_assets.ts
+
+# Drafts
+drafts/
+*.draft.mdx
+
+# OS
+.DS_Store

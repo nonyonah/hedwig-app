@@ -1,0 +1,114 @@
+---
+title: "Bank payouts: receive fiat alongside crypto"
+description: "Add payout bank accounts in Nigeria, Ghana, the US, and the UK so clients can pay you by bank transfer in addition to crypto. Auto-verified for NG and GH via Paystack."
+icon: "landmark"
+---
+
+Add an external bank account so your clients can pay invoices and payment links by direct transfer in their local currency, alongside crypto checkout. Hedwig auto-verifies Nigerian and Ghanaian accounts and (when configured) UK accounts. The bank details appear on every invoice and payment link with copy buttons for each field.
+
+<Tip>
+  The free plan includes one bank account. Pro accounts can save unlimited payouts across NG, GH, US, and UK and let clients switch currency on the public page.
+</Tip>
+
+## Supported countries
+
+| Country | Currency | Required fields | Auto-verification |
+|---|---|---|---|
+| Nigeria | NGN | Bank, 10-digit account number, account holder | Paystack `/bank/resolve` |
+| Ghana | GHS | Bank, 10-digit account number, account holder | Paystack `/bank/resolve` |
+| United States | USD | Bank name, 9-digit routing, 4–17-digit account, account holder, type | Manual (Plaid coming later) |
+| United Kingdom | GBP | Bank name, 6-digit sort code, 8-digit account, account holder; IBAN optional | GoCardless modulus check (when token configured) |
+
+## Add a bank account
+
+<Steps>
+  <Step title="Open Settings">
+    Web: **Settings → Payout banks**. Mobile: **Profile → Payouts**.
+  </Step>
+  <Step title="Choose a country">
+    Pick from the country dropdown. The form swaps fields based on what the country requires (sort code for UK, routing number for US, etc.).
+  </Step>
+  <Step title="Enter bank details">
+    For NG and GH, select your bank from the searchable list (sourced from Paystack). For US and UK, type the bank name freely.
+  </Step>
+  <Step title="Hedwig verifies the account">
+    For NG and GH, the account holder name resolves automatically once you enter a 10-digit account number. The form pre-fills the holder from the verification response.
+    For UK, modulus check runs at save time when GoCardless is configured. US accounts save unverified.
+  </Step>
+  <Step title="Save">
+    The first account you add becomes the default. Toggle **Show on invoices** if you want to keep an account but hide it from public pages.
+  </Step>
+</Steps>
+
+## Default account
+
+Exactly one bank account per user is the default. The default is preselected for clients on every public invoice and payment link. To change it:
+
+- Find the account in **Settings → Payout banks**
+- Click **Set default**
+
+Deleting the default automatically promotes the most recently added remaining account.
+
+## How clients see your bank details
+
+On every public invoice and payment link page, the **Pay by bank transfer** card shows:
+
+- Country flag and currency label
+- Bank name
+- Account holder name
+- Full account number (with a Copy button)
+- Routing / sort code / IBAN / SWIFT as applicable
+- Account type
+- A **Verified** pill if the account passed automatic verification
+
+When you have more than one bank saved, clients see a **Choose currency** dropdown above the card and can switch between your accounts. The default account is preselected.
+
+<Note>
+  Account numbers are intentionally shown in full so clients can complete the transfer. Access is gated by the document URL, which only the issuer shares.
+</Note>
+
+## Mark as paid after a transfer
+
+Bank transfers settle off-platform, so Hedwig cannot detect them automatically. After the funds land in your account:
+
+<Steps>
+  <Step title="Open the invoice or payment link">
+    Go to **Payments**, find the unpaid record, and open the detail panel.
+  </Step>
+  <Step title="Tap Mark as paid">
+    A dialog appears asking how you were paid.
+  </Step>
+  <Step title="Pick the payment method and add a reference">
+    Choose **Bank transfer** (or crypto, cash, other). Optionally type the bank reference, transaction id, or note. Both fields persist on the document and appear in your revenue activity feed.
+  </Step>
+  <Step title="Confirm">
+    The status flips to **Paid**, your client lifetime earnings update via the database trigger, and the activity feed gets a new entry.
+  </Step>
+</Steps>
+
+<Tip>
+  See [Mark as paid](/payments/mark-as-paid) for the full reference, including how the entry shows up in revenue analytics.
+</Tip>
+
+## Privacy and security
+
+- Bank details are stored only in the `user_bank_accounts` table tied to your user id
+- Cloudflare R2 and the public document endpoint never expose bank details unless the issuer has the row saved with `show_on_invoice = true`
+- You can remove an account at any time. The data is hard-deleted; it cannot be recovered.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="My account number was not auto-verified">
+    Auto-verification calls Paystack (NG / GH) or GoCardless (UK). If your environment lacks those API keys the account saves unverified. Verification can still happen later — re-save the same details once keys are configured. The account works on invoices either way.
+  </Accordion>
+  <Accordion title="Clients see only one account in the dropdown">
+    The dropdown only appears with two or more saved accounts that have `Show on invoices` enabled. Add another account in Settings or toggle visibility on existing ones.
+  </Accordion>
+  <Accordion title="Free plan blocks me from adding a second account">
+    The free plan includes one bank account. Upgrade to Pro from **Settings → Billing** to add accounts in additional countries.
+  </Accordion>
+  <Accordion title="The Verified pill never appears">
+    NG and GH require `PAYSTACK_SECRET_KEY` to be configured; UK requires `GOCARDLESS_TOKEN`. US accounts are not auto-verified in v1.
+  </Accordion>
+</AccordionGroup>

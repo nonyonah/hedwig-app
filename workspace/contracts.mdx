@@ -1,0 +1,88 @@
+---
+title: "Create and manage client contracts"
+description: "Generate AI-drafted contracts automatically when you create a project, send them to clients for approval, and track their status from Draft to Approved."
+---
+
+Contracts in Hedwig are binding agreements between you and a client. They capture the scope of work, milestone breakdown, and payment terms for a project. Every contract is drafted by AI using your project details — you review it, then send it to your client for approval directly from the app.
+
+## How contracts are created
+
+Hedwig creates contracts in two ways:
+
+**Automatically with a project** — when you create a project, Hedwig generates a draft contract and attaches it to that project. The AI fills in your name and email, the client's name, today's date as the agreement date, the scope of work, and a milestone-by-milestone payment schedule.
+
+**Manually from the Contracts screen** — you can create a standalone contract by going to **Workspace → Contracts** and using the create flow. Provide a title, client name, scope of work, and milestone items, and Hedwig's AI will generate the full contract text.
+
+<Note>
+Contracts use Google Gemini to generate the document text. The AI uses the actual date of creation, your real name and email, and the client details you provide — it does not insert placeholder text like "[Date]" or "[Address]".
+</Note>
+
+## AI-assisted contract creation
+
+When Hedwig has enough information — a client name, a scope of work, and at least one milestone — it generates a complete contract in Markdown format. The contract includes:
+
+- The date of agreement
+- Parties (you as the freelancer, your client)
+- Scope of work
+- Milestone schedule with amounts
+- Total contract value
+- Payment terms (milestone-based or lump-sum)
+
+You can view the full contract text at any time by opening the contract and tapping **View Contract**.
+
+<Tip>
+The more detail you add to your project's description and milestone titles, the more precise the AI-generated contract will be. A description like "Mobile app design — 3 screens, light and dark mode" produces a much better contract than "Design work".
+</Tip>
+
+## Attach a contract to a client or project
+
+When a contract is created through the project flow, it is automatically linked to both the project and the client. You can see the linked contract on the project detail screen under the contract section.
+
+For manually created contracts, you can link them to an existing client by selecting the client when filling in the contract form.
+
+## Contract statuses
+
+Contracts move through a clear lifecycle:
+
+| Status | What it means |
+|---|---|
+| **Draft** | Created but not yet sent to the client |
+| **Sent** | Emailed to the client — awaiting their response |
+| **Viewed** | The client has opened the contract |
+| **Approved / Signed** | The client has approved the contract |
+| **Rejected** | The client declined |
+| **Completed / Paid** | The project is done and paid |
+
+Use the filter chips at the top of the Contracts screen to view contracts by status group: All, Draft, Sent, or Approved.
+
+## Send a contract to your client
+
+When a contract is in Draft status, you'll see a **Send to Client** button in the contract detail sheet.
+
+<Steps>
+  <Step title="Open the contract">
+    Go to **Workspace → Contracts** and tap the contract you want to send.
+  </Step>
+  <Step title="Review the contract">
+    Tap **View Contract** to read the full document before sending. Confirm the details look correct.
+  </Step>
+  <Step title="Send to client">
+    Tap **Send to Client**. Hedwig emails the contract to the client's email address and updates the status to Sent. The email includes a link the client can use to review and approve the contract.
+  </Step>
+</Steps>
+
+<Info>
+The client receives an email with a secure approval link. When they approve, the contract status updates to Approved automatically — you'll receive a notification in the app.
+</Info>
+
+If the contract was auto-created when you set up a project and the client had an email address on file, Hedwig sends the contract immediately — without you needing to do anything extra. The status will already show as **Sent** when you open the Contracts screen.
+
+## View and delete contracts
+
+You can filter contracts by status using the chips at the top of the list: **All**, **Draft**, **Sent**, and **Approved**.
+
+To delete a contract in Draft status, open the contract detail sheet, tap the three-dot menu in the top-right corner, and select **Delete**. You can also long-press a contract card in the list to delete it directly.
+
+<Note>
+Only Draft contracts can be deleted. Once a contract has been sent or approved, it cannot be removed from the app.
+</Note>

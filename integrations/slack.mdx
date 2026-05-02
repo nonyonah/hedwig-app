@@ -1,0 +1,68 @@
+---
+title: "Get Hedwig notifications in Slack"
+description: "Connect Slack to receive payment and invoice notifications from Hedwig in a channel of your choice — stay informed without checking the app."
+---
+
+The Slack integration delivers Hedwig payment and invoice notifications straight to your Slack workspace. Instead of checking Hedwig for updates, you get a message in Slack the moment a client pays, an invoice is marked paid, or an invoice becomes overdue. This is useful if Slack is already where you spend your day and you want payment activity to appear alongside the rest of your work.
+
+<Warning>
+The Slack integration is currently in beta and temporarily disabled while we finalize the notification pipeline. This page describes the intended behavior when the integration becomes available. Check back soon.
+</Warning>
+
+## What Slack notifications cover
+
+When connected, Hedwig sends a message to your configured Slack channel for the following events:
+
+- **Payment received** — A client has completed a payment on one of your payment links. The notification includes the amount, currency, and the client name.
+- **Invoice paid** — One of your invoices has been marked as paid (either automatically on payment receipt or manually by you). The notification includes the invoice reference and the amount.
+- **Invoice overdue** — An invoice has passed its due date without payment. The notification includes the invoice number, the client name, and the number of days overdue.
+
+<Info>
+Notifications are sent to the channel you select during the Slack authorization flow. You can change the channel at any time by disconnecting and reconnecting the integration.
+</Info>
+
+## How to connect Slack
+
+<Steps>
+  <Step title="Open Settings">
+    Navigate to **Settings** from the Hedwig sidebar or main menu.
+  </Step>
+  <Step title="Go to Workspace integrations">
+    Scroll down to the **Workspace integrations** section. Slack is listed with a "Not connected" status.
+  </Step>
+  <Step title="Connect Slack">
+    Click **Connect** next to Slack. You will be taken to Slack's authorization page.
+  </Step>
+  <Step title="Authorize Hedwig">
+    Sign in to the Slack workspace where you want to receive notifications. Select a channel for Hedwig to post to, then approve the permissions. Hedwig only requests permission to post messages — it cannot read your Slack messages or access other channels.
+  </Step>
+  <Step title="Confirm connection">
+    Once authorized, you will be returned to Hedwig Settings and the Slack row will show "Connected". Hedwig will send a brief confirmation message to your selected channel.
+  </Step>
+</Steps>
+
+<Tip>
+Create a dedicated private channel like `#hedwig-payments` to keep payment notifications organized and separate from your team conversations.
+</Tip>
+
+## Notification format
+
+Each Slack notification includes the key details you need at a glance: the event type, the client or invoice it relates to, and the relevant amount. Notifications are sent as formatted Slack messages, not raw text, so they render cleanly in the Slack app on any device.
+
+## How to disconnect Slack
+
+<Steps>
+  <Step title="Open Settings">
+    Navigate to **Settings** in your Hedwig workspace.
+  </Step>
+  <Step title="Find the Slack integration">
+    Scroll to **Workspace integrations** and locate the Slack row.
+  </Step>
+  <Step title="Disconnect">
+    Click **Disconnect**. Hedwig will immediately stop sending notifications to your Slack workspace. No further messages will be sent until you reconnect.
+  </Step>
+</Steps>
+
+<Note>
+Disconnecting Hedwig from Slack does not remove the Hedwig app from your Slack workspace entirely. To fully uninstall the app, go to your Slack workspace settings under **Installed apps** and remove Hedwig from there.
+</Note>
