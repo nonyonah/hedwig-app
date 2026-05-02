@@ -1,0 +1,39 @@
+---
+title: "Changelog"
+description: "What's new in Hedwig — product updates, improvements, and fixes."
+---
+
+<Update label="May 2, 2026" tags={["web", "mobile"]}>
+
+## New features
+
+**Hedwig AI assistant.** A new assistant panel on the dashboard summarizes your day, surfaces unpaid invoices and upcoming deadlines, and gives you a one-sentence weekly insight. Switch between **Today**, **This Week**, and **Needs Attention** tabs to see what matters most. [Learn more](https://help.hedwigbot.xyz/introduction)
+
+**Floating chat with attachments.** Drop bank statements, invoices, contracts, or receipts straight into the chat panel and let the assistant import them for you. You can attach up to six files in a single message. Bank statements automatically record both expenses and incoming payments.
+
+**Composio integrations.** Connect Gmail, Google Calendar, Google Drive, Google Docs, and QuickBooks through a single OAuth flow. Documents from your connected apps can be staged into Hedwig directly from chat.
+
+**Multi-currency display.** Pick your preferred display currency from settings. Dashboards, insights, and payment views now convert and format amounts in your chosen currency, with live FX rates refreshed hourly.
+
+**Project creation from a brief.** Send the assistant a project brief (text or attached document) and it'll stage a project with milestones, client, deadline, and budget — ready for you to review and confirm.
+
+## Updates
+
+**Smarter expense tracking.** Non-USD expenses are now converted to USD using live FX rates at import time, so your totals stay accurate no matter what currency the receipt was in.
+
+**Revenue includes payment links.** Paid payment links now show up in the revenue summary, monthly trend, client and project breakdowns, and recent activity feed — alongside paid invoices. Your monthly target ring reflects the full picture.
+
+**App download nudge.** New users get a friendly banner with TestFlight and Play Store links so they can grab the mobile app, plus a follow-up email with the same links.
+
+**Clearer rate-limit messaging.** When you hit a rate limit (for example, on resending an email), Hedwig now explains what happened and how long to wait. Sign-in is faster too thanks to short-lived auth caching.
+
+**Tax page removed from the sidebar.** Tax features now live inside the assistant and reports — visiting the old `/tax` URL redirects to your dashboard.
+
+## Bug fixes
+
+- **Milestone invoice emails** no longer show only a first name when the client's last name is missing — full names render correctly.
+- **Calendar sync** has been removed from the mobile app while we rework the experience. The web calendar continues to work as before.
+- **Expense category pills** render with the correct background colors and missing activity types now appear in the activity feed.
+- **Slack integration** authentication and connection lifecycle have been hardened.
+
+</Update>
