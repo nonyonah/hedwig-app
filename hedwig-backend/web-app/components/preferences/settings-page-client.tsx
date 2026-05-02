@@ -13,7 +13,6 @@ import { Avatar } from '@/components/ui/avatar';
 import { useToast } from '@/components/providers/toast-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ProLockCard } from '@/components/billing/pro-lock-card';
 import {
   Dialog,
   DialogBody,
@@ -26,6 +25,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useTutorial } from '@/components/tutorial/tutorial-provider';
 import { ComposioIntegrations } from '@/components/preferences/composio-integrations';
+import { PayoutBankSection } from '@/components/preferences/payout-bank-section';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { hedwigApi, type BillingStatusSummary } from '@/lib/api/client';
 import { backendConfig } from '@/lib/auth/config';
@@ -179,9 +179,9 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   }, [accessToken]);
 
   useEffect(() => {
-    if (!accessToken || !isProUser) return;
+    if (!accessToken) return;
     void loadAsstPrefs();
-  }, [accessToken, isProUser]);
+  }, [accessToken]);
 
   useEffect(() => {
     const connected = searchParams.get('integration_connected');
@@ -394,7 +394,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   };
 
   const loadAsstPrefs = async () => {
-    if (!isProUser) return;
     try {
       const resp = await fetch('/api/assistant/preferences');
       const data = await resp.json() as { success: boolean; data: typeof asstPrefs };
@@ -406,11 +405,12 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     setAsstPrefs((prev) => ({ ...prev, [key]: value }));
     setIsSavingAsstPref(key);
     try {
-      await fetch('/api/assistant/preferences', {
+      const resp = await fetch('/api/assistant/preferences', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [key]: value }),
       });
+      if (!resp.ok) throw new Error('Preference update failed');
     } catch {
       setAsstPrefs((prev) => ({ ...prev, [key]: !value }));
       toast({ type: 'error', title: 'Could not save preference', message: 'Please try again.' });
@@ -582,15 +582,14 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
             </button>
           </SettingsRow>
 
-          {isProUser ? (
-            ([{
+          {([{
               key: 'dailyBriefEmail',
-              label: 'Daily brief email',
-              description: 'Morning summary of unpaid invoices, overdue items, and deadlines.'
+              label: 'Daily brief',
+              description: 'Morning email and in-app summary of unpaid invoices, overdue items, and deadlines.'
             }, {
               key: 'weeklySummaryEmail',
-              label: 'Weekly summary email',
-              description: 'Revenue, top clients, and AI insights every Monday.'
+              label: 'Weekly summary',
+              description: 'Monday email and in-app summary of revenue, top clients, and AI insights.'
             }, {
               key: 'invoiceAlerts',
               label: 'Invoice alerts',
@@ -618,17 +617,10 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
                   />
                 </button>
               </SettingsRow>
-            ))
-          ) : (
-            <div className="p-5">
-              <ProLockCard
-                title="Assistant is on Pro"
-                description="Unlock daily briefs, suggestion reviews, and assistant notifications."
-                compact
-              />
-            </div>
-          )}
+            ))}
         </SettingsSection>
+
+        <PayoutBankSection accessToken={accessToken} />
 
         <ComposioIntegrations />
 

@@ -21,6 +21,7 @@ import { cn, formatShortDate } from '@/lib/utils';
 import { useToast } from '@/components/providers/toast-provider';
 import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { openPaymentDetail } from '@/lib/payments/open-detail';
 
 const PROJ_STATUS = {
   active:    { label: 'Active',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]', dot: 'bg-[#12b76a]' },
@@ -316,12 +317,13 @@ export function ProjectDetailClient({
                             </button>
                           )}
                           {m.status === 'done' && m.invoiceId && (
-                            <Link
-                              href={`/invoices/${m.invoiceId}`}
+                            <button
+                              type="button"
+                              onClick={() => openPaymentDetail('invoice', m.invoiceId!)}
                               className="inline-flex items-center gap-1 text-[11px] font-medium text-[#2563eb] hover:underline"
                             >
                               View invoice
-                            </Link>
+                            </button>
                           )}
                         </td>
                       </tr>
@@ -379,7 +381,12 @@ export function ProjectDetailClient({
                 {invoices.slice(0, 5).map((inv) => {
                   const is = INV_STATUS[inv.status] ?? INV_STATUS.draft;
                   return (
-                    <Link key={inv.id} href={`/payments?invoice=${inv.id}`} className="flex items-center justify-between px-5 py-2.5 transition-colors hover:bg-[#fafafa]">
+                    <button
+                      key={inv.id}
+                      type="button"
+                      onClick={() => openPaymentDetail('invoice', inv.id)}
+                      className="flex w-full items-center justify-between px-5 py-2.5 text-left transition-colors hover:bg-[#fafafa]"
+                    >
                       <div>
                         <p className="text-[13px] font-medium text-[#252b37]">{inv.number}</p>
                         <p className="text-[11px] text-[#a4a7ae]">Due {formatShortDate(inv.dueAt)}</p>
@@ -388,7 +395,7 @@ export function ProjectDetailClient({
                         <span className="text-[13px] font-semibold tabular-nums text-[#252b37]">{formatAmount(inv.amountUsd, { compact: true })}</span>
                         <Pill bg={is.bg} text={is.text} label={is.label} />
                       </div>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>

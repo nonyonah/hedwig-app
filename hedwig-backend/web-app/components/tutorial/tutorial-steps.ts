@@ -93,6 +93,14 @@ export const WEB_TUTORIAL_STEPS: WebTutorialStep[] = [
     position: 'top',
   },
   {
+    id: 'payout_bank_intro',
+    screenId: 'settings',
+    route: '/onboarding/bank-account',
+    title: 'Add your payout bank',
+    body: 'Add a Nigerian, US, UK, or Ghanaian bank account so clients can pay you by transfer in addition to crypto. We try to verify it automatically. You can edit it in Settings later.',
+    position: 'center',
+  },
+  {
     id: 'settings_intro',
     screenId: 'settings',
     route: '/settings',

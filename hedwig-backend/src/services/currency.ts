@@ -5,6 +5,8 @@ const logger = createLogger('CurrencyService');
 const FRANKFURTER_BASE = 'https://api.frankfurter.app';
 const FALLBACK_BASE = 'https://open.er-api.com/v6/latest/USD';
 const RATE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const STALE_RATE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const RATE_FETCH_TIMEOUT_MS = Number(process.env.FX_RATE_FETCH_TIMEOUT_MS || 2500);
 
 // Frankfurter follows ECB and does not include NGN. We supplement with
 // open.er-api.com so users in Nigeria get sensible conversions.
@@ -78,23 +80,33 @@ export interface RateSnapshot {
   base: 'USD';
   fetchedAt: string;
   rates: Record<string, number>; // code → units of that currency per 1 USD
-  source: 'cache' | 'frankfurter+fallback' | 'fallback' | 'frankfurter';
+  source: 'cache' | 'stale-cache' | 'frankfurter+fallback' | 'fallback' | 'frankfurter' | 'env';
 }
 
 let cache: { data: RateSnapshot; expiresAt: number } | null = null;
+let staleCache: { data: RateSnapshot; expiresAt: number } | null = null;
+let inFlightSnapshot: Promise<RateSnapshot> | null = null;
+
+async function fetchJson<T>(url: string, timeoutMs: number): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    if (!resp.ok) throw new Error(`${resp.status}`);
+    return await resp.json() as T;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function fetchFrankfurter(): Promise<Record<string, number>> {
   const url = `${FRANKFURTER_BASE}/latest?from=USD&to=${FRANKFURTER_CURRENCIES.filter(c => c !== 'USD').join(',')}`;
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`Frankfurter ${resp.status}`);
-  const json = await resp.json() as { rates?: Record<string, number> };
+  const json = await fetchJson<{ rates?: Record<string, number> }>(url, RATE_FETCH_TIMEOUT_MS);
   return { USD: 1, ...(json.rates || {}) };
 }
 
 async function fetchFallback(): Promise<Record<string, number>> {
-  const resp = await fetch(FALLBACK_BASE);
-  if (!resp.ok) throw new Error(`Fallback ${resp.status}`);
-  const json = await resp.json() as { rates?: Record<string, number> };
+  const json = await fetchJson<{ rates?: Record<string, number> }>(FALLBACK_BASE, RATE_FETCH_TIMEOUT_MS);
   return json.rates || {};
 }
 
@@ -110,34 +122,56 @@ export async function getRateSnapshot(): Promise<RateSnapshot> {
     return { ...cache.data, source: 'cache' };
   }
 
-  let rates: Record<string, number> = { USD: 1 };
-  let source: RateSnapshot['source'] = 'fallback';
+  if (staleCache && staleCache.expiresAt > Date.now()) {
+    if (!inFlightSnapshot) {
+      inFlightSnapshot = refreshRateSnapshot().finally(() => {
+        inFlightSnapshot = null;
+      });
+    }
+    return { ...staleCache.data, source: 'stale-cache' };
+  }
 
-  // Try Frankfurter first.
-  try {
-    const frankfurterRates = await fetchFrankfurter();
+  if (inFlightSnapshot) {
+    return inFlightSnapshot;
+  }
+
+  inFlightSnapshot = refreshRateSnapshot().finally(() => {
+    inFlightSnapshot = null;
+  });
+  return inFlightSnapshot;
+}
+
+async function refreshRateSnapshot(): Promise<RateSnapshot> {
+  let rates: Record<string, number> = { USD: 1 };
+  let source: RateSnapshot['source'] = 'env';
+
+  const [frankfurterResult, fallbackResult] = await Promise.allSettled([
+    fetchFrankfurter(),
+    fetchFallback(),
+  ]);
+
+  if (frankfurterResult.status === 'fulfilled') {
+    const frankfurterRates = frankfurterResult.value;
     rates = { ...rates, ...frankfurterRates };
     source = 'frankfurter';
-  } catch (error) {
+  } else {
     logger.warn('Frankfurter fetch failed', {
-      message: error instanceof Error ? error.message : String(error),
+      message: frankfurterResult.reason instanceof Error ? frankfurterResult.reason.message : String(frankfurterResult.reason),
     });
   }
 
   // Supplement with fallback for currencies Frankfurter doesn't cover (NGN, etc.).
   const missing = SUPPORTED_CURRENCIES.filter((code) => rates[code] === undefined);
-  if (missing.length > 0) {
-    try {
-      const fallbackRates = await fetchFallback();
-      for (const code of missing) {
-        if (typeof fallbackRates[code] === 'number') rates[code] = fallbackRates[code];
-      }
-      source = source === 'frankfurter' ? 'frankfurter+fallback' : 'fallback';
-    } catch (error) {
-      logger.warn('Fallback fetch failed', {
-        message: error instanceof Error ? error.message : String(error),
-      });
+  if (fallbackResult.status === 'fulfilled') {
+    const fallbackRates = fallbackResult.value;
+    for (const code of missing) {
+      if (typeof fallbackRates[code] === 'number') rates[code] = fallbackRates[code];
     }
+    source = source === 'frankfurter' ? 'frankfurter+fallback' : 'fallback';
+  } else if (missing.length > 0) {
+    logger.warn('Fallback fetch failed', {
+      message: fallbackResult.reason instanceof Error ? fallbackResult.reason.message : String(fallbackResult.reason),
+    });
   }
 
   // Apply env overrides last so admins can pin a rate (e.g., FX_RATE_NGN_PER_USD=1550).
@@ -152,8 +186,23 @@ export async function getRateSnapshot(): Promise<RateSnapshot> {
     rates,
     source,
   };
+
+  if (Object.keys(rates).length <= 1 && staleCache && staleCache.expiresAt > Date.now()) {
+    logger.warn('Returning stale FX rates because live providers were unavailable');
+    return { ...staleCache.data, source: 'stale-cache' };
+  }
+
   cache = { data: snapshot, expiresAt: Date.now() + RATE_CACHE_TTL_MS };
+  staleCache = { data: snapshot, expiresAt: Date.now() + STALE_RATE_CACHE_TTL_MS };
   return snapshot;
+}
+
+export function warmRateSnapshot(): void {
+  void getRateSnapshot().catch((error) => {
+    logger.warn('FX rate warmup failed', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
 
 export async function getRate(from: string, to: string): Promise<number> {

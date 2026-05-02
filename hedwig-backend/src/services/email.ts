@@ -37,6 +37,14 @@ const resolvePublicUrl = (candidate: string | undefined, fallbackPath: string): 
     return canonicalizePublicUrl(value);
 };
 
+const escapeHtml = (value: unknown): string =>
+    String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
 const EMAIL_FONT_FAMILY = `'Google Sans Flex', 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
 const EMAIL_FONT_HEAD = `
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -115,6 +123,82 @@ const FREQ_DESCRIPTIONS: Record<string, string> = {
 };
 
 export const EmailService = {
+    async sendAssistantBriefEmail(data: {
+        to: string;
+        subject: string;
+        heading: string;
+        eyebrow: string;
+        summary: string;
+        highlights?: string[];
+        stats?: Array<{ label: string; value: string }>;
+        ctaPath?: string;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping assistant brief email.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const dashboardUrl = resolvePublicUrl(data.ctaPath || '/dashboard', '/dashboard');
+        const stats = (data.stats || []).slice(0, 4);
+        const highlights = (data.highlights || []).filter(Boolean).slice(0, 3);
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${escapeHtml(data.subject)}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">${escapeHtml(data.eyebrow)}</p>
+                    <h1 class="heading">${escapeHtml(data.heading)}</h1>
+                    <p class="description">${escapeHtml(data.summary)}</p>
+                    ${stats.length > 0 ? `
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:20px 0;">
+                        ${stats.map((stat) => `
+                        <div style="background:#f9fafb;border:1px solid #e9eaeb;border-radius:12px;padding:14px;">
+                            <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a4a7ae;">${escapeHtml(stat.label)}</p>
+                            <p style="margin:0;font-size:18px;font-weight:700;color:#181d27;">${escapeHtml(stat.value)}</p>
+                        </div>`).join('')}
+                    </div>` : ''}
+                    ${highlights.length > 0 ? `
+                    <div style="margin:20px 0;">
+                        <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a4a7ae;">Highlights</p>
+                        ${highlights.map((highlight) => `
+                        <p style="margin:0 0 8px;color:#535862;font-size:14px;line-height:1.5;">• ${escapeHtml(highlight)}</p>`).join('')}
+                    </div>` : ''}
+                    <div class="btn-container">
+                        <a href="${dashboardUrl}" class="btn">Open Hedwig</a>
+                    </div>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: data.subject,
+                html,
+            });
+            logger.info('Assistant brief email sent', { to: data.to, subject: data.subject });
+            return true;
+        } catch (error) {
+            logger.error('Assistant brief email failed', { error: error instanceof Error ? error.message : 'Unknown', to: data.to });
+            return false;
+        }
+    },
+
     async sendRecurringSetupEmail(data: {
         to: string;
         senderName: string;

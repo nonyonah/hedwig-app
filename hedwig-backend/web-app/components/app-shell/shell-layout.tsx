@@ -9,6 +9,7 @@ import { TutorialProvider } from '@/components/tutorial/tutorial-provider';
 import { TutorialCard } from '@/components/tutorial/tutorial-card';
 import { CreateMenu } from '@/components/app-shell/create-menu';
 import { AssistantChatLauncher } from '@/components/assistant/assistant-chat-launcher';
+import { GlobalPaymentDetailPanel } from '@/components/payments/global-payment-detail-panel';
 
 const STORAGE_KEY = 'hedwig-web-sidebar-collapsed';
 
@@ -71,6 +72,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
         </div>
         <TutorialCard />
         <CreateMenu accessToken={accessToken ?? null} />
+        <GlobalPaymentDetailPanel accessToken={accessToken ?? null} />
         {!isDemo && <AssistantChatLauncher />}
       </div>
     </TutorialProvider>

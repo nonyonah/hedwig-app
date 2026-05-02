@@ -8,6 +8,7 @@ const logger = createLogger('CurrencyRoute');
 router.get('/rates', async (_req: Request, res: Response) => {
   try {
     const snapshot = await getRateSnapshot();
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=3600');
     res.json({
       success: true,
       data: {

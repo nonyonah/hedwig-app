@@ -28,6 +28,7 @@ import {
 } from '../services/agent/assistant-runtime';
 import { getOrCreateUser } from '../utils/userHelper';
 import { createLogger } from '../utils/logger';
+import { requireProFeatureAccess, type ProFeature } from '../services/billingRules';
 
 const logger = createLogger('Assistant');
 const router = Router();
@@ -36,14 +37,42 @@ const attachmentUpload = multer({
     limits: { fileSize: 15 * 1024 * 1024, files: 6 },
 });
 
-const ensureAssistantAccess = async (req: Request, res: Response) => {
+// Grandfather window: users created before HEDWIG_AI_GATE_ENABLED_AT keep
+// free access to AI features. Set to a recent ISO date when flipping the gate.
+const GATE_ENABLED_AT = process.env.HEDWIG_AI_GATE_ENABLED_AT || '';
+
+function isGrandfathered(user: { created_at?: string | null } | null | undefined): boolean {
+    if (!GATE_ENABLED_AT || !user?.created_at) return false;
+    const cutoff = Date.parse(GATE_ENABLED_AT);
+    const userCreated = Date.parse(user.created_at);
+    if (!Number.isFinite(cutoff) || !Number.isFinite(userCreated)) return false;
+    return userCreated < cutoff;
+}
+
+const ensureAssistantAccess = async (
+    req: Request,
+    res: Response,
+    feature: ProFeature = 'assistant_chat',
+) => {
     const user = await getOrCreateUser(req.user!.id);
     if (!user) {
         res.status(404).json({ success: false, error: 'User not found' });
         return { user: null, allowed: false };
     }
 
-    // Pro gate temporarily disabled — assistant is open to all users during testing.
+    if (isGrandfathered(user as any)) {
+        return { user, allowed: true };
+    }
+
+    const access = await requireProFeatureAccess(user as any, feature);
+    if (!access.allowed) {
+        res.status(402).json({
+            success: false,
+            error: { code: 'requires_pro', message: access.message || 'Upgrade to Pro to use this feature.' },
+        });
+        return { user: null, allowed: false };
+    }
+
     return { user, allowed: true };
 };
 
@@ -446,7 +475,7 @@ router.post(
     attachmentUpload.any(),
     async (req: Request, res: Response) => {
         try {
-            const access = await ensureAssistantAccess(req, res);
+            const access = await ensureAssistantAccess(req, res, 'attachment_ai');
             if (!access.allowed || !access.user) return;
 
             const uploaded: Express.Multer.File[] = Array.isArray(req.files)

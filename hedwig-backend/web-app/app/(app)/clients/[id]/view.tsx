@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ArrowLeft, Buildings, Envelope, MapPin, NotePencil, Phone, Wallet } from '@/components/ui/lucide-icons';
+import { ArrowLeft, Buildings, ClockCountdown, Envelope, MapPin, NotePencil, Phone, Trash, Wallet } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DeleteDialog } from '@/components/data/delete-dialog';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +22,7 @@ import type { Client, Contract, Invoice, PaymentLink, Project } from '@/lib/mode
 import { cn, formatShortDate } from '@/lib/utils';
 import { useToast } from '@/components/providers/toast-provider';
 import { useCurrency } from '@/components/providers/currency-provider';
+import { openPaymentDetail } from '@/lib/payments/open-detail';
 
 function initials(name: string) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -29,6 +32,13 @@ const CLIENT_STATUS = {
   active:   { label: 'Active',   bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]', dot: 'bg-[#12b76a]' },
   at_risk:  { label: 'At risk',  bg: 'bg-[#fffaeb]', text: 'text-[#92400e]', dot: 'bg-[#f59e0b]' },
   inactive: { label: 'Inactive', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]', dot: 'bg-[#a4a7ae]' },
+} as const;
+
+const SEGMENT_PILL = {
+  new:     { label: 'New',     bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]', dot: 'bg-[#2563eb]' },
+  active:  { label: 'Active',  bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]', dot: 'bg-[#12b76a]' },
+  lapsing: { label: 'Lapsing', bg: 'bg-[#fffaeb]', text: 'text-[#92400e]', dot: 'bg-[#f59e0b]' },
+  dormant: { label: 'Dormant', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]', dot: 'bg-[#a4a7ae]' },
 } as const;
 
 const INV_STATUS = {
@@ -98,11 +108,14 @@ export function ClientDetailClient({
   contracts: Contract[];
   accessToken: string | null;
 }) {
+  const router = useRouter();
   const { toast } = useToast();
   const { formatAmount } = useCurrency();
   const [client, setClient] = useState(initialClient);
   const [editOpen, setEditOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [form, setForm] = useState({
     name: initialClient.name,
     email: initialClient.email,
@@ -138,7 +151,25 @@ export function ClientDetailClient({
     }
   };
 
+  const deleteClient = async () => {
+    if (!accessToken) {
+      toast({ type: 'error', title: 'Session expired' });
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await hedwigApi.deleteClient(client.id, { accessToken, disableMockFallback: true });
+      toast({ type: 'success', title: 'Client deleted', message: `${client.name} was removed.` });
+      router.replace('/clients');
+    } catch (err: any) {
+      toast({ type: 'error', title: 'Failed to delete client', message: err?.message || 'Please try again.' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const s = CLIENT_STATUS[client.status] ?? CLIENT_STATUS.inactive;
+  const seg = SEGMENT_PILL[client.segment] ?? SEGMENT_PILL.new;
 
   return (
     <div className="space-y-4">
@@ -166,6 +197,10 @@ export function ClientDetailClient({
                   <span className={cn('h-1.5 w-1.5 rounded-full', s.dot)} />
                   {s.label}
                 </span>
+                <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', seg.bg, seg.text)}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', seg.dot)} />
+                  {seg.label}
+                </span>
               </div>
               <p className="mt-0.5 text-[12px] text-[#a4a7ae]">
                 {client.company ? `${client.company} · ` : ''}
@@ -174,20 +209,32 @@ export function ClientDetailClient({
               </p>
             </div>
           </div>
-          <Button size="sm" variant="secondary" onClick={openEdit}>
-            <NotePencil className="h-3.5 w-3.5" weight="bold" />
-            Edit
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setDeleteOpen(true)}
+              className="text-[#b42318] hover:bg-[#fef3f2] hover:text-[#b42318]"
+            >
+              <Trash className="h-3.5 w-3.5" weight="bold" />
+              Delete
+            </Button>
+            <Button size="sm" variant="secondary" onClick={openEdit}>
+              <NotePencil className="h-3.5 w-3.5" weight="bold" />
+              Edit
+            </Button>
+          </div>
         </div>
 
         {/* Details rows */}
         <div className="divide-y divide-[#f9fafb] px-5">
           {[
-            { label: 'Email',   value: client.email,   icon: <Envelope className="h-3.5 w-3.5" weight="regular" /> },
-            { label: 'Company', value: client.company,  icon: <Buildings className="h-3.5 w-3.5" weight="regular" /> },
-            { label: 'Phone',   value: client.phone,    icon: <Phone className="h-3.5 w-3.5" weight="regular" /> },
-            { label: 'Address', value: client.address,  icon: <MapPin className="h-3.5 w-3.5" weight="regular" /> },
-            { label: 'Wallet',  value: client.walletAddress ? `${client.walletAddress.slice(0, 8)}…${client.walletAddress.slice(-6)}` : null, icon: <Wallet className="h-3.5 w-3.5" weight="regular" /> },
+            { label: 'Email',         value: client.email,   icon: <Envelope className="h-3.5 w-3.5" weight="regular" /> },
+            { label: 'Company',       value: client.company,  icon: <Buildings className="h-3.5 w-3.5" weight="regular" /> },
+            { label: 'Phone',         value: client.phone,    icon: <Phone className="h-3.5 w-3.5" weight="regular" /> },
+            { label: 'Address',       value: client.address,  icon: <MapPin className="h-3.5 w-3.5" weight="regular" /> },
+            { label: 'Wallet',        value: client.walletAddress ? `${client.walletAddress.slice(0, 8)}…${client.walletAddress.slice(-6)}` : null, icon: <Wallet className="h-3.5 w-3.5" weight="regular" /> },
+            { label: 'Last activity', value: client.lastActivityAt ? formatShortDate(client.lastActivityAt) : null, icon: <ClockCountdown className="h-3.5 w-3.5" weight="regular" /> },
           ].map(({ label, value, icon }) => (
             <div key={label} className="flex items-center gap-3 py-2.5">
               <div className="flex w-[120px] shrink-0 items-center gap-2 text-[#c1c5cd]">
@@ -271,9 +318,13 @@ export function ClientDetailClient({
                     return (
                       <tr key={inv.id} className="transition-colors hover:bg-[#fafafa]">
                         <td className="px-5 py-2.5">
-                          <Link href={`/payments?invoice=${inv.id}`} className="text-[13px] font-medium text-[#252b37] transition-colors hover:text-[#2563eb]">
+                          <button
+                            type="button"
+                            onClick={() => openPaymentDetail('invoice', inv.id)}
+                            className="text-[13px] font-medium text-[#252b37] transition-colors hover:text-[#2563eb]"
+                          >
                             {inv.number}
-                          </Link>
+                          </button>
                         </td>
                         <td className="px-5 py-2.5"><Pill bg={is.bg} text={is.text} label={is.label} /></td>
                         <td className="px-5 py-2.5 text-[13px] font-semibold tabular-nums text-[#252b37]">{formatAmount(inv.amountUsd, { compact: true })}</td>
@@ -327,7 +378,12 @@ export function ClientDetailClient({
                     ? { bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]' }
                     : { bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' };
                   return (
-                    <div key={pl.id} className="px-5 py-3">
+                    <button
+                      key={pl.id}
+                      type="button"
+                      onClick={() => openPaymentDetail('payment-link', pl.id)}
+                      className="w-full px-5 py-3 text-left transition-colors hover:bg-[#fafafa]"
+                    >
                       <div className="flex items-center justify-between">
                         <p className="text-[13px] font-medium text-[#252b37]">{pl.title}</p>
                         <Pill bg={ps.bg} text={ps.text} label={pl.status} />
@@ -335,7 +391,7 @@ export function ClientDetailClient({
                       <p className="mt-0.5 text-[11px] text-[#a4a7ae]">
                         {formatAmount(pl.amountUsd, { compact: true })} · {pl.asset} on {pl.chain}
                       </p>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -375,6 +431,18 @@ export function ClientDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DeleteDialog
+        open={deleteOpen}
+        title="Delete client"
+        description="This permanently removes the client from your roster."
+        itemLabel={client.name}
+        isDeleting={isDeleting}
+        onConfirm={deleteClient}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setDeleteOpen(false);
+        }}
+      />
     </div>
   );
 }

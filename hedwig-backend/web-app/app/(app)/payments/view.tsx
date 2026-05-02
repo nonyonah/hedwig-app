@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowSquareOut,
   BellSimple,
@@ -25,6 +25,17 @@ import { RecurringInvoicesSection } from '@/components/payments/recurring-invoic
 import { hedwigApi } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { ClientPortal } from '@/components/ui/client-portal';
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import { RowActionsMenu } from '@/components/data/row-actions-menu';
@@ -36,6 +47,7 @@ import { backendConfig } from '@/lib/auth/config';
 import { canUseFeature } from '@/lib/billing/feature-gates';
 import { ProLockCard } from '@/components/billing/pro-lock-card';
 import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
+import { openPaymentDetail } from '@/lib/payments/open-detail';
 
 /* ─── status helpers ─── */
 const INV_STATUS: Record<Invoice['status'], { dot: string; label: string; bg: string; text: string }> = {
@@ -103,6 +115,8 @@ export function PaymentsClient({
   invoices,
   paymentLinks,
   highlightedInvoiceId,
+  highlightedPaymentLinkId,
+  highlightedRecurringId,
   recurringInvoices = [],
   clients = [],
   billing,
@@ -111,6 +125,8 @@ export function PaymentsClient({
   invoices: Invoice[];
   paymentLinks: PaymentLink[];
   highlightedInvoiceId?: string | null;
+  highlightedPaymentLinkId?: string | null;
+  highlightedRecurringId?: string | null;
   recurringInvoices?: RecurringInvoice[];
   clients?: Client[];
   billing: BillingStatusSummary | null;
@@ -161,11 +177,51 @@ export function PaymentsClient({
   const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [markPaidTarget, setMarkPaidTarget] = useState<{ doc: Invoice | PaymentLink; kind: 'invoice' | 'payment-link' } | null>(null);
+  const [markPaidVia, setMarkPaidVia] = useState<'crypto' | 'bank_transfer' | 'cash' | 'other'>('bank_transfer');
+  const [markPaidReference, setMarkPaidReference] = useState('');
 
   const highlightedInvoice = useMemo(
     () => invoiceItems.find((inv) => inv.id === highlightedInvoiceId) ?? null,
     [highlightedInvoiceId, invoiceItems]
   );
+
+  useEffect(() => {
+    if (highlightedInvoiceId) {
+      const invoice = invoiceItems.find((inv) => inv.id === highlightedInvoiceId) ?? null;
+      if (invoice) {
+        setActiveTab('invoices');
+        setSelectedRecurring(null);
+        setSelectedPaymentLink(null);
+        setSelectedInvoice(null);
+        openPaymentDetail('invoice', invoice.id);
+      }
+      return;
+    }
+
+    if (highlightedPaymentLinkId) {
+      const paymentLink = paymentLinkItems.find((link) => link.id === highlightedPaymentLinkId) ?? null;
+      if (paymentLink) {
+        setActiveTab('payment-links');
+        setSelectedRecurring(null);
+        setSelectedInvoice(null);
+        setSelectedPaymentLink(null);
+        openPaymentDetail('payment-link', paymentLink.id);
+      }
+      return;
+    }
+
+    if (highlightedRecurringId) {
+      const recurring = recurringInvoices.find((item) => item.id === highlightedRecurringId) ?? null;
+      if (recurring) {
+        setActiveTab('recurring');
+        setSelectedInvoice(null);
+        setSelectedPaymentLink(null);
+        setSelectedRecurring(null);
+        openPaymentDetail('recurring', recurring.id);
+      }
+    }
+  }, [highlightedInvoiceId, highlightedPaymentLinkId, highlightedRecurringId, invoiceItems, paymentLinkItems, recurringInvoices]);
 
   const stats = useMemo(() => {
     const paid = allInvoiceItems.filter((i) => i.status === 'paid').reduce((s, i) => s + i.amountUsd, 0);
@@ -217,11 +273,23 @@ export function PaymentsClient({
     }
   };
 
-  const markAsPaid = async (doc: Invoice | PaymentLink, kind: 'invoice' | 'payment-link') => {
-    if (!accessToken) return;
+  const markAsPaid = (doc: Invoice | PaymentLink, kind: 'invoice' | 'payment-link') => {
+    setMarkPaidTarget({ doc, kind });
+    setMarkPaidVia('bank_transfer');
+    setMarkPaidReference('');
+  };
+
+  const confirmMarkAsPaid = async () => {
+    if (!markPaidTarget || !accessToken) return;
+    const { doc, kind } = markPaidTarget;
     setIsActionLoading(true);
     try {
-      await hedwigApi.updateDocumentStatus(doc.id, 'PAID', { accessToken, disableMockFallback: true });
+      await hedwigApi.updateDocumentStatus(doc.id, 'PAID', {
+        accessToken,
+        disableMockFallback: true,
+        paidVia: markPaidVia,
+        reference: markPaidReference.trim() || null,
+      });
       if (kind === 'invoice') {
         setInvoiceItems((cur) => cur.map((i) => (i.id === doc.id ? { ...i, status: 'paid' } : i)));
         if (selectedInvoice?.id === doc.id) setSelectedInvoice((c) => (c ? { ...c, status: 'paid' } : c));
@@ -230,6 +298,7 @@ export function PaymentsClient({
         if (selectedPaymentLink?.id === doc.id) setSelectedPaymentLink((c) => (c ? { ...c, status: 'paid' } : c));
       }
       toast({ type: 'success', title: 'Marked as paid' });
+      setMarkPaidTarget(null);
     } catch (e: any) {
       toast({ type: 'error', title: 'Failed', message: e?.message });
     } finally {
@@ -474,7 +543,7 @@ export function PaymentsClient({
               accessToken={accessToken}
               asTabContent
               statusFilter={recurringFilter}
-              onRowClick={(r) => setSelectedRecurring(r)}
+              onRowClick={(r) => openPaymentDetail('recurring', r.id)}
             />
           ) : (
             <div className="p-5">
@@ -502,10 +571,18 @@ export function PaymentsClient({
                     onClick={() => {
                       if (inv.id.startsWith(RECURRING_TEMPLATE_PREFIX)) {
                         const r = recurringInvoices.find((ri) => ri.id === inv.recurringInvoiceId);
-                        if (r) { setSelectedRecurring(r); setSelectedInvoice(null); setSelectedPaymentLink(null); }
+                        if (r) {
+                          setSelectedRecurring(null);
+                          setSelectedInvoice(null);
+                          setSelectedPaymentLink(null);
+                          openPaymentDetail('recurring', r.id);
+                        }
                         return;
                       }
-                      setSelectedRecurring(null); setSelectedPaymentLink(null); setSelectedInvoice(inv);
+                      setSelectedRecurring(null);
+                      setSelectedPaymentLink(null);
+                      setSelectedInvoice(null);
+                      openPaymentDetail('invoice', inv.id);
                     }}
                     className={`group grid cursor-pointer grid-cols-[1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa] ${selectedInvoice?.id === inv.id ? 'bg-[#f5f8ff]' : ''}`}
                   >
@@ -549,7 +626,11 @@ export function PaymentsClient({
               return (
                 <div
                   key={link.id}
-                  onClick={() => { setSelectedInvoice(null); setSelectedPaymentLink(link); }}
+                  onClick={() => {
+                    setSelectedInvoice(null);
+                    setSelectedPaymentLink(null);
+                    openPaymentDetail('payment-link', link.id);
+                  }}
                   className={`group grid cursor-pointer grid-cols-[1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa] ${selectedPaymentLink?.id === link.id ? 'bg-[#f5f8ff]' : ''}`}
                 >
                   <div className="min-w-0">
@@ -631,6 +712,64 @@ export function PaymentsClient({
         onConfirm={handleDelete}
         onOpenChange={(open) => { if (!open && !isDeleting && !isActionLoading) setDeleteTarget(null); }}
       />
+
+      {/* Mark-as-paid dialog */}
+      <Dialog open={!!markPaidTarget} onOpenChange={(v) => !isActionLoading && (v || setMarkPaidTarget(null))}>
+        <DialogContent className="max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Mark as paid</DialogTitle>
+            <DialogDescription>
+              Tell us how this {markPaidTarget?.kind === 'invoice' ? 'invoice' : 'payment link'} was paid.
+              The reference appears on your revenue activity feed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="space-y-4">
+            <div>
+              <p className="mb-2 text-[12px] font-semibold text-[#525866]">Payment method</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { code: 'bank_transfer', label: 'Bank transfer' },
+                  { code: 'crypto',        label: 'Crypto' },
+                  { code: 'cash',          label: 'Cash' },
+                  { code: 'other',         label: 'Other' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => setMarkPaidVia(opt.code)}
+                    className={`rounded-xl border px-3 py-2 text-left text-[12px] transition-colors ${
+                      markPaidVia === opt.code
+                        ? 'border-[#2563eb] bg-[#eff4ff] text-[#2563eb] font-semibold'
+                        : 'border-[#e9eaeb] bg-white text-[#414651] hover:border-[#d0d5dd]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">
+                Reference (optional)
+              </label>
+              <Input
+                placeholder="Bank reference, txn id, or note"
+                value={markPaidReference}
+                onChange={(e) => setMarkPaidReference(e.target.value.slice(0, 200))}
+              />
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary" disabled={isActionLoading}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={confirmMarkAsPaid} disabled={isActionLoading}>
+              {isActionLoading ? 'Saving…' : 'Confirm payment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Recipient email dialog */}
       {emailTarget && (
@@ -734,9 +873,14 @@ function InvoicePanel({
       </div>
       <div className="border-t border-[#e9eaeb] px-6 py-5 space-y-2">
         {invoice.status !== 'paid' && (
-          <Button className="w-full" disabled={isLoading} onClick={onMarkPaid}>
-            <CheckCircle className="h-4 w-4" weight="bold" /> Mark as paid
-          </Button>
+          <>
+            <p className="rounded-xl bg-[#eff4ff] px-3 py-2 text-[11px] leading-relaxed text-[#414651]">
+              Got paid by bank transfer or off-platform? Tap <span className="font-semibold">Mark as paid</span> once the funds land so this invoice shows up in your revenue tracking.
+            </p>
+            <Button className="w-full" disabled={isLoading} onClick={onMarkPaid}>
+              <CheckCircle className="h-4 w-4" weight="bold" /> Mark as paid
+            </Button>
+          </>
         )}
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={onCopyLink}>
@@ -805,9 +949,14 @@ function PaymentLinkPanel({
       </div>
       <div className="border-t border-[#e9eaeb] px-6 py-5 space-y-2">
         {link.status === 'active' && (
-          <Button className="w-full" disabled={isLoading} onClick={onMarkPaid}>
-            <CheckCircle className="h-4 w-4" weight="bold" /> Mark as paid
-          </Button>
+          <>
+            <p className="rounded-xl bg-[#eff4ff] px-3 py-2 text-[11px] leading-relaxed text-[#414651]">
+              Got paid by bank transfer or off-platform? Tap <span className="font-semibold">Mark as paid</span> once the funds land so this link shows up in your revenue tracking.
+            </p>
+            <Button className="w-full" disabled={isLoading} onClick={onMarkPaid}>
+              <CheckCircle className="h-4 w-4" weight="bold" /> Mark as paid
+            </Button>
+          </>
         )}
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={onCopyLink}>

@@ -40,6 +40,7 @@ import { hedwigApi } from '@/lib/api/client';
 import { ContextualSuggestions } from '@/components/assistant/contextual-suggestions';
 import { normalizeExpenseRecord } from '@/lib/revenue-analytics';
 import type { Invoice, Client } from '@/lib/models/entities';
+import { openPaymentDetail } from '@/lib/payments/open-detail';
 import type {
   RevenueSummary,
   ExpenseRecord,
@@ -846,7 +847,12 @@ export function RevenueClient({
             ) : (
               <div className="space-y-1">
                 {unpaidInvoices.slice(0, 3).map((inv) => (
-                  <Link key={inv.id} href="/payments" className="flex items-center justify-between rounded-xl px-3 py-2 transition-colors hover:bg-[#fafafa]">
+                  <button
+                    key={inv.id}
+                    type="button"
+                    onClick={() => openPaymentDetail('invoice', inv.id)}
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[#fafafa]"
+                  >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-semibold text-[#181d27]">{inv.number}</p>
                       <p className="text-[11px] text-[#a4a7ae]">Due {formatShortDate(inv.dueAt)}</p>
@@ -858,7 +864,7 @@ export function RevenueClient({
                       <StatusPill status={inv.status} />
                       <ArrowRight className="h-3.5 w-3.5 text-[#d5d7da]" weight="bold" />
                     </div>
-                  </Link>
+                  </button>
                 ))}
               </div>
             )}
@@ -874,7 +880,12 @@ export function RevenueClient({
             ) : (
               <div className="space-y-1">
                 {overdueInvoices.slice(0, 3).map((inv) => (
-                  <Link key={inv.id} href="/payments" className="flex items-center justify-between rounded-xl px-3 py-2 transition-colors hover:bg-[#fafafa]">
+                  <button
+                    key={inv.id}
+                    type="button"
+                    onClick={() => openPaymentDetail('invoice', inv.id)}
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[#fafafa]"
+                  >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-semibold text-[#181d27]">{inv.number}</p>
                       <p className="text-[11px] text-[#f04438]">Was due {formatShortDate(inv.dueAt)}</p>
@@ -886,7 +897,7 @@ export function RevenueClient({
                       <StatusPill status="overdue" />
                       <ArrowRight className="h-3.5 w-3.5 text-[#d5d7da]" weight="bold" />
                     </div>
-                  </Link>
+                  </button>
                 ))}
               </div>
             )}
@@ -902,7 +913,12 @@ export function RevenueClient({
             ) : (
               <div className="space-y-1">
                 {paidInvoices.map((inv) => (
-                  <Link key={inv.id} href="/payments" className="flex items-center justify-between rounded-xl px-3 py-2 transition-colors hover:bg-[#fafafa]">
+                  <button
+                    key={inv.id}
+                    type="button"
+                    onClick={() => openPaymentDetail('invoice', inv.id)}
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-[#fafafa]"
+                  >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-semibold text-[#181d27]">{inv.number}</p>
                       <p className="text-[11px] text-[#a4a7ae]">Paid {formatShortDate(inv.dueAt)}</p>
@@ -914,7 +930,7 @@ export function RevenueClient({
                       <StatusPill status="paid" />
                       <ArrowRight className="h-3.5 w-3.5 text-[#d5d7da]" weight="bold" />
                     </div>
-                  </Link>
+                  </button>
                 ))}
               </div>
             )}

@@ -452,7 +452,7 @@ function normalizeInvoiceItems(value: unknown): Array<{ description: string; amo
 async function executeCreateInvoice(userId: string, draft: JsonRecord): Promise<AssistantApprovalExecutionResult> {
   const title = stringValue(draft.title) || 'Invoice draft';
   const description = stringValue(draft.description);
-  const clientId = stringValue(draft.client_id);
+  let clientId = stringValue(draft.client_id);
   const projectId = stringValue(draft.project_id);
   const milestoneId = stringValue(draft.milestone_id);
   const dueDate = stringValue(draft.due_date);
@@ -467,6 +467,7 @@ async function executeCreateInvoice(userId: string, draft: JsonRecord): Promise<
   }
 
   let clientName = stringValue(draft.client_name);
+  const draftClientEmail = stringValue(draft.client_email) || stringValue(draft.recipient_email);
   let recipientEmail: string | null = null;
 
   if (clientId) {
@@ -484,14 +485,28 @@ async function executeCreateInvoice(userId: string, draft: JsonRecord): Promise<
     if (client) {
       clientName = client.company || client.name || clientName;
       recipientEmail = client.email || null;
+    } else {
+      // Stale draft.client_id — fall through to resolve fresh below
+      clientId = null as unknown as string;
     }
+  }
+
+  // No matching clients row yet but we have a name or email — resolve to a real
+  // client_id so trigger-based stats and assistant queries can find this doc.
+  if (!clientId && (clientName || draftClientEmail)) {
+    const resolved = await ClientService.getOrCreateClient(userId, clientName, draftClientEmail, {
+      createdFrom: 'assistant_suggestion',
+    });
+    clientId = resolved.id;
+    if (!recipientEmail) recipientEmail = resolved.client?.email || draftClientEmail || null;
+    if (!clientName) clientName = resolved.client?.name || clientName;
   }
 
   const { data: document, error } = await supabase
     .from('documents')
     .insert({
       user_id: userId,
-      client_id: clientId,
+      client_id: clientId || null,
       project_id: projectId,
       type: 'INVOICE',
       title,

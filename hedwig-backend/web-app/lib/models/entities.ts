@@ -29,6 +29,54 @@ export interface WorkspaceMember {
   role: 'owner' | 'finance' | 'ops';
 }
 
+export type ClientSegment = 'new' | 'active' | 'lapsing' | 'dormant';
+
+export type BankCountry = 'NG' | 'US' | 'UK' | 'GH';
+
+export interface BankInfo {
+  code: string;
+  name: string;
+  slug?: string;
+}
+
+export interface BankAccountInput {
+  country: BankCountry;
+  accountHolderName: string;
+  bankName: string;
+  bankCode?: string | null;
+  accountNumber?: string | null;
+  routingNumber?: string | null;
+  sortCode?: string | null;
+  iban?: string | null;
+  swiftBic?: string | null;
+  accountType?: 'checking' | 'savings' | null;
+  showOnInvoice?: boolean;
+  isDefault?: boolean;
+}
+
+export interface BankAccountRecord {
+  id: string;
+  userId: string;
+  country: BankCountry;
+  currency: string;
+  accountHolderName: string;
+  bankName: string;
+  bankCode: string | null;
+  accountNumber: string | null;
+  routingNumber: string | null;
+  sortCode: string | null;
+  iban: string | null;
+  swiftBic: string | null;
+  accountType: 'checking' | 'savings' | null;
+  isVerified: boolean;
+  verifiedAt: string | null;
+  verificationMethod: string | null;
+  showOnInvoice: boolean;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Client {
   id: EntityId;
   workspaceId: EntityId;
@@ -40,6 +88,7 @@ export interface Client {
   notes?: string;
   walletAddress?: string;
   status: 'active' | 'at_risk' | 'inactive';
+  segment: ClientSegment;
   totalBilledUsd: number;
   outstandingUsd: number;
   lastActivityAt: string;

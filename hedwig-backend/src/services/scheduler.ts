@@ -8,6 +8,7 @@ import { PaycrestService } from './paycrest';
 import { differenceInDays, parseISO, addDays, isSameDay, format } from 'date-fns';
 import { createLogger } from '../utils/logger';
 import { withLock } from '../utils/distributedLock';
+import { generateDailyBrief, generateWeeklySummary } from './agent/assistant-runtime';
 
 const logger = createLogger('Scheduler');
 
@@ -30,6 +31,23 @@ async function processInBatches<T>(
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+function formatUsdBrief(value: number): string {
+    if (!Number.isFinite(value)) return '$0.00';
+    return value >= 1000 ? `$${(value / 1000).toFixed(1)}k` : `$${value.toFixed(2)}`;
+}
+
+function currentUtcDateKey(): string {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function currentUtcWeekKey(): string {
+    const now = new Date();
+    const day = now.getUTCDay();
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - diffToMonday));
+    return monday.toISOString().slice(0, 10);
+}
 
 export const SchedulerService = {
     initScheduler() {
@@ -65,6 +83,16 @@ export const SchedulerService = {
         cron.schedule('0 8 * * *', () => {
             withLock('recurring-invoices', dailyLockTtl, () => this.checkRecurringInvoices())
                 .catch((e) => logger.error('recurring-invoices lock error', { error: e?.message }));
+        });
+
+        cron.schedule('30 8 * * *', () => {
+            withLock('assistant-daily-briefs', dailyLockTtl, () => this.sendAssistantDailyBriefs())
+                .catch((e) => logger.error('assistant-daily-briefs lock error', { error: e?.message }));
+        });
+
+        cron.schedule('0 9 * * 1', () => {
+            withLock('assistant-weekly-summaries', 6 * 24 * 60 * 60, () => this.sendAssistantWeeklySummaries())
+                .catch((e) => logger.error('assistant-weekly-summaries lock error', { error: e?.message }));
         });
 
         cron.schedule('15 * * * *', () => {
@@ -180,6 +208,188 @@ export const SchedulerService = {
             user?.last_login || null,
             oneSignalLastSeenMap[user?.id] || null,
         ]);
+    },
+
+    async hasAssistantNotification(userId: string, assistantType: string, periodKey: string): Promise<boolean> {
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('type', 'assistant')
+            .eq('metadata->>assistant_type', assistantType)
+            .eq('metadata->>period_key', periodKey)
+            .limit(1);
+
+        if (error) {
+            logger.warn('Failed to check assistant notification duplicate', {
+                userId,
+                assistantType,
+                periodKey,
+                error: error.message,
+            });
+            return false;
+        }
+
+        return Boolean(data && data.length > 0);
+    },
+
+    async sendAssistantDailyBriefs() {
+        try {
+            const periodKey = currentUtcDateKey();
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, email, first_name, asst_daily_brief_email')
+                .eq('asst_daily_brief_email', true)
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch users for assistant daily briefs', { error: error.message });
+                return;
+            }
+
+            const candidates = users || [];
+            if (candidates.length === 0) {
+                logger.debug('No users opted in for assistant daily briefs');
+                return;
+            }
+
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user: any) => {
+                const userId = String(user.id || '');
+                if (!userId) return;
+                if (await this.hasAssistantNotification(userId, 'daily_brief', periodKey)) return;
+
+                try {
+                    const brief = await generateDailyBrief(userId);
+                    const title = 'Your daily Hedwig brief';
+                    const message = brief.summary || 'Your workspace brief is ready.';
+
+                    await supabase.from('notifications').insert({
+                        user_id: userId,
+                        type: 'assistant',
+                        title,
+                        message,
+                        metadata: {
+                            assistant_type: 'daily_brief',
+                            period_key: periodKey,
+                            generated_at: brief.generatedAt,
+                            metrics: brief.metrics,
+                            highlights: brief.highlights,
+                        },
+                        is_read: false,
+                    });
+
+                    await NotificationService.notifyUser(userId, {
+                        title,
+                        body: message,
+                        data: { type: 'assistant_daily_brief', periodKey },
+                    }).catch((err) => logger.warn('Daily brief push failed', { userId, error: err?.message }));
+
+                    if (user.email) {
+                        await EmailService.sendAssistantBriefEmail({
+                            to: user.email,
+                            subject: 'Your daily Hedwig brief',
+                            eyebrow: 'Daily brief',
+                            heading: user.first_name ? `Good morning, ${user.first_name}` : 'Good morning',
+                            summary: message,
+                            highlights: brief.highlights,
+                            stats: [
+                                { label: 'Unpaid', value: `${brief.metrics.unpaidCount}` },
+                                { label: 'Overdue', value: `${brief.metrics.overdueCount}` },
+                                { label: 'Outstanding', value: formatUsdBrief(brief.metrics.unpaidAmountUsd) },
+                                { label: 'Deadlines', value: `${brief.metrics.upcomingDeadlines}` },
+                            ],
+                            ctaPath: '/dashboard',
+                        });
+                    }
+                } catch (err: any) {
+                    logger.error('Failed to send assistant daily brief', { userId, error: err?.message });
+                }
+            });
+
+            logger.info('Assistant daily briefs processed', { count: candidates.length });
+        } catch (error: any) {
+            logger.error('Assistant daily briefs job failed', { error: error?.message });
+        }
+    },
+
+    async sendAssistantWeeklySummaries() {
+        try {
+            const periodKey = currentUtcWeekKey();
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, email, first_name, asst_weekly_summary_email')
+                .eq('asst_weekly_summary_email', true)
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch users for assistant weekly summaries', { error: error.message });
+                return;
+            }
+
+            const candidates = users || [];
+            if (candidates.length === 0) {
+                logger.debug('No users opted in for assistant weekly summaries');
+                return;
+            }
+
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user: any) => {
+                const userId = String(user.id || '');
+                if (!userId) return;
+                if (await this.hasAssistantNotification(userId, 'weekly_summary', periodKey)) return;
+
+                try {
+                    const summary = await generateWeeklySummary(userId);
+                    const title = 'Your weekly Hedwig summary';
+                    const topClient = summary.topClients?.[0];
+                    const message = summary.aiInsight || `${formatUsdBrief(summary.revenueUsd)} collected this week${topClient ? `, led by ${topClient.name}` : ''}.`;
+
+                    await supabase.from('notifications').insert({
+                        user_id: userId,
+                        type: 'assistant',
+                        title,
+                        message,
+                        metadata: {
+                            assistant_type: 'weekly_summary',
+                            period_key: periodKey,
+                            week_label: summary.weekLabel,
+                            revenue_usd: summary.revenueUsd,
+                            top_clients: summary.topClients,
+                        },
+                        is_read: false,
+                    });
+
+                    await NotificationService.notifyUser(userId, {
+                        title,
+                        body: message,
+                        data: { type: 'assistant_weekly_summary', periodKey },
+                    }).catch((err) => logger.warn('Weekly summary push failed', { userId, error: err?.message }));
+
+                    if (user.email) {
+                        await EmailService.sendAssistantBriefEmail({
+                            to: user.email,
+                            subject: 'Your weekly Hedwig summary',
+                            eyebrow: 'Weekly summary',
+                            heading: summary.weekLabel || 'Your week in Hedwig',
+                            summary: message,
+                            highlights: topClient ? [`Top client: ${topClient.name} (${formatUsdBrief(topClient.amountUsd)})`] : [],
+                            stats: [
+                                { label: 'Revenue', value: formatUsdBrief(summary.revenueUsd) },
+                                { label: 'Paid invoices', value: `${summary.paidInvoiceCount}` },
+                                { label: 'New invoices', value: `${summary.newInvoiceCount}` },
+                                { label: 'Overdue', value: `${summary.overdueCount}` },
+                            ],
+                            ctaPath: '/dashboard',
+                        });
+                    }
+                } catch (err: any) {
+                    logger.error('Failed to send assistant weekly summary', { userId, error: err?.message });
+                }
+            });
+
+            logger.info('Assistant weekly summaries processed', { count: candidates.length });
+        } catch (error: any) {
+            logger.error('Assistant weekly summaries job failed', { error: error?.message });
+        }
     },
 
     async backfillLastAppOpenedAt(users: any[], oneSignalLastSeenMap: Record<string, string>) {

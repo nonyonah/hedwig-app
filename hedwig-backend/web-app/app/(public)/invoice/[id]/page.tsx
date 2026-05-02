@@ -5,6 +5,7 @@ import { PrintTrigger } from '@/components/public/print-trigger';
 import { PublicResultCard } from '@/components/public/public-result-card';
 import { PublicInvoiceRightPanel } from '@/components/public/public-invoice-right-panel';
 import { DocumentViewTracker } from '@/components/public/document-view-tracker';
+import { PublicBankPayout, type PublicBankAccountPayout } from '@/components/public/public-bank-payout';
 import { fetchPublicDocument } from '@/lib/api/public-documents';
 import { getSolanaExplorerUrl, getExplorerUrl, resolvePublicSettlementChain } from '@/lib/payments/public-constants';
 
@@ -176,6 +177,16 @@ export default async function PublicInvoicePage({
                 <span className="text-[16px] font-bold tracking-[-0.02em] text-[#181d27]">{formatCurrency(Number(document.amount || subtotal))}</span>
               </div>
             </div>
+
+            {Array.isArray((document.user as any)?.bank_accounts) && (document.user as any).bank_accounts.length > 0 ? (
+              <div className="mt-4">
+                <PublicBankPayout banks={(document.user as any).bank_accounts as PublicBankAccountPayout[]} />
+              </div>
+            ) : (document.user as any)?.bank_account ? (
+              <div className="mt-4">
+                <PublicBankPayout bank={(document.user as any).bank_account as PublicBankAccountPayout} />
+              </div>
+            ) : null}
 
             {document.content?.notes ? (
               <div className="mt-4 rounded-2xl border border-[#e9eaeb] bg-[#fafafa] px-4 py-4">

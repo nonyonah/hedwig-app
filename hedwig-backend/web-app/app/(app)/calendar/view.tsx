@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { hedwigApi } from '@/lib/api/client';
 import { cn, formatShortDate } from '@/lib/utils';
 import type { Invoice, Milestone, Project, Reminder } from '@/lib/models/entities';
+import { openPaymentDetail } from '@/lib/payments/open-detail';
 
 type CalendarView = 'day' | 'week' | 'month';
 type FilterValue = 'all' | 'reminder' | 'milestone' | 'invoice' | 'project';
@@ -506,7 +507,16 @@ export function CalendarClient({
             editableReminders={editableReminders}
             setEditableReminders={setEditableReminders}
             accessToken={accessToken}
-            onNavigate={(href) => { setActiveItem(null); router.push(href); }}
+            onNavigate={(href) => {
+              const invoiceMatch = href.match(/^\/payments\?invoice=([^&]+)/);
+              if (invoiceMatch?.[1]) {
+                setActiveItem(null);
+                openPaymentDetail('invoice', decodeURIComponent(invoiceMatch[1]));
+                return;
+              }
+              setActiveItem(null);
+              router.push(href);
+            }}
             onClose={() => setActiveItem(null)}
           />
         )}

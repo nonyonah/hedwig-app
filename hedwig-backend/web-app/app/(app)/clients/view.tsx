@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowRight, Plus } from '@/components/ui/lucide-icons';
+import { ArrowRight, Plus, Trash } from '@/components/ui/lucide-icons';
 import type { Client } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
@@ -18,32 +18,25 @@ const CLIENT_STATUS = {
   inactive: { dot: 'bg-[#a4a7ae]', label: 'Inactive', bg: 'bg-[#f2f4f7]', text: 'text-[#717680]' },
 } as const;
 
-type ClientSegment = 'new' | 'active' | 'recurring' | 'inactive';
+type ClientSegment = Client['segment'];
 
-function getClientSegment(client: Client): ClientSegment {
-  if (client.totalBilledUsd === 0) return 'new';
-  if (client.status === 'active' && client.outstandingUsd > 0) return 'recurring';
-  if (client.status === 'active') return 'active';
-  return 'inactive';
-}
-
-const SEGMENT_META: Record<ClientSegment, { label: string; sub: string }> = {
-  new:       { label: 'New',       sub: 'never invoiced' },
-  active:    { label: 'Active',    sub: 'no outstanding' },
-  recurring: { label: 'Recurring', sub: 'outstanding work' },
-  inactive:  { label: 'Inactive',  sub: 'no recent activity' },
+const SEGMENT_META: Record<ClientSegment, { label: string; sub: string; bg: string; text: string; dot: string }> = {
+  new:     { label: 'New',     sub: 'recently added',         bg: 'bg-[#eff4ff]', text: 'text-[#2563eb]', dot: 'bg-[#2563eb]' },
+  active:  { label: 'Active',  sub: 'engaged in last 30d',    bg: 'bg-[#ecfdf3]', text: 'text-[#027a48]', dot: 'bg-[#12b76a]' },
+  lapsing: { label: 'Lapsing', sub: '30–90d since activity',  bg: 'bg-[#fffaeb]', text: 'text-[#92400e]', dot: 'bg-[#f59e0b]' },
+  dormant: { label: 'Dormant', sub: '90d+ inactive',          bg: 'bg-[#f2f4f7]', text: 'text-[#717680]', dot: 'bg-[#a4a7ae]' },
 };
 
-const ALL_FILTERS = ['all', 'new', 'active', 'recurring', 'inactive', 'at_risk'] as const;
+const ALL_FILTERS = ['all', 'new', 'active', 'lapsing', 'dormant', 'at_risk'] as const;
 type FilterKey = typeof ALL_FILTERS[number];
 
 const FILTER_LABELS: Record<FilterKey, string> = {
-  all:       'All',
-  new:       'New',
-  active:    'Active',
-  recurring: 'Recurring',
-  inactive:  'Inactive',
-  at_risk:   'At risk',
+  all:     'All',
+  new:     'New',
+  active:  'Active',
+  lapsing: 'Lapsing',
+  dormant: 'Dormant',
+  at_risk: 'At risk',
 };
 
 export function ClientsClient({
@@ -62,14 +55,14 @@ export function ClientsClient({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const segmentCounts = useMemo(() => {
-    const counts = { new: 0, active: 0, recurring: 0, inactive: 0 };
-    for (const c of clients) counts[getClientSegment(c)]++;
+    const counts: Record<ClientSegment, number> = { new: 0, active: 0, lapsing: 0, dormant: 0 };
+    for (const c of clients) counts[c.segment]++;
     return counts;
   }, [clients]);
 
   const segmentRevenue = useMemo(() => {
-    const totals = { new: 0, active: 0, recurring: 0, inactive: 0 };
-    for (const c of clients) totals[getClientSegment(c)] += c.totalBilledUsd;
+    const totals: Record<ClientSegment, number> = { new: 0, active: 0, lapsing: 0, dormant: 0 };
+    for (const c of clients) totals[c.segment] += c.totalBilledUsd;
     return totals;
   }, [clients]);
 
@@ -77,8 +70,8 @@ export function ClientsClient({
 
   const filtered = useMemo(() => {
     if (filter === 'all') return clients;
-    if (filter === 'new' || filter === 'active' || filter === 'recurring' || filter === 'inactive') {
-      return clients.filter((c) => getClientSegment(c) === filter);
+    if (filter === 'new' || filter === 'active' || filter === 'lapsing' || filter === 'dormant') {
+      return clients.filter((c) => c.segment === filter);
     }
     return clients.filter((c) => c.status === filter);
   }, [clients, filter]);
@@ -106,7 +99,7 @@ export function ClientsClient({
       </div>
 
       <AttachedStatGrid
-        items={(['new', 'active', 'recurring', 'inactive'] as ClientSegment[]).map((seg) => {
+        items={(['new', 'active', 'lapsing', 'dormant'] as ClientSegment[]).map((seg) => {
           const meta = SEGMENT_META[seg];
           return {
             id: seg,
@@ -186,8 +179,7 @@ export function ClientsClient({
           <div className="divide-y divide-[#f9fafb]">
             {filtered.map((client) => {
               const s = CLIENT_STATUS[client.status] ?? CLIENT_STATUS.inactive;
-              const seg = getClientSegment(client);
-              const segMeta = SEGMENT_META[seg];
+              const segMeta = SEGMENT_META[client.segment];
               return (
                 <div
                   key={client.id}
@@ -206,7 +198,8 @@ export function ClientsClient({
                       )}
                     </div>
                   </Link>
-                  <span className="inline-flex w-fit items-center rounded-full bg-[#f2f4f7] px-2 py-0.5 text-[11px] font-semibold text-[#717680]">
+                  <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${segMeta.bg} ${segMeta.text}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${segMeta.dot}`} />
                     {segMeta.label}
                   </span>
                   <span className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.bg} ${s.text}`}>
@@ -221,12 +214,23 @@ export function ClientsClient({
                   </p>
                   <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(client.lastActivityAt)}</p>
                   <div className="flex justify-end">
-                    <Link
-                      href={`/clients/${client.id}`}
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-[#d0d5dd] opacity-0 transition-all hover:bg-[#f5f5f5] hover:text-[#717680] group-hover:opacity-100"
-                    >
-                      <ArrowRight className="h-3.5 w-3.5" weight="bold" />
-                    </Link>
+                    <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => setClientToDelete(client)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-[#d0d5dd] transition-all hover:bg-[#fef3f2] hover:text-[#b42318]"
+                        aria-label={`Delete ${client.name}`}
+                        title="Delete client"
+                      >
+                        <Trash className="h-3.5 w-3.5" weight="bold" />
+                      </button>
+                      <Link
+                        href={`/clients/${client.id}`}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-[#d0d5dd] transition-all hover:bg-[#f5f5f5] hover:text-[#717680]"
+                      >
+                        <ArrowRight className="h-3.5 w-3.5" weight="bold" />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               );

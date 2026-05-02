@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
 import { convertToUsd } from '../services/currency';
 import { createLogger } from '../utils/logger';
+import { FREE_PLAN_LIMITS, getUserPlan } from '../services/billingRules';
 
 const logger = createLogger('Revenue');
 const router = Router();
@@ -41,6 +42,24 @@ const getRangeStart = (range: RangeKey): Date => {
     return new Date(now.getFullYear(), 0, 1);
 };
 
+// Free plan: cap revenue history to FREE_PLAN_LIMITS.revenueHistoryDays (30d).
+// Pro: any range. Returns the effective range plus whether it was clamped.
+async function resolveRangeForUser(user: any, requested: RangeKey): Promise<{ range: RangeKey; gated: boolean }> {
+    const plan = await getUserPlan(user);
+    if (plan === 'pro') return { range: requested, gated: false };
+
+    const gateEnabledAt = process.env.HEDWIG_AI_GATE_ENABLED_AT || '';
+    if (gateEnabledAt && user?.created_at && Date.parse(user.created_at) < Date.parse(gateEnabledAt)) {
+        return { range: requested, gated: false };
+    }
+
+    const wide = requested === '90d' || requested === '1y' || requested === 'ytd';
+    if (wide && FREE_PLAN_LIMITS.revenueHistoryDays === 30) {
+        return { range: '30d', gated: true };
+    }
+    return { range: requested, gated: false };
+}
+
 async function fetchPaged<T>(
     label: string,
     fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
@@ -61,12 +80,7 @@ async function fetchPaged<T>(
 router.get('/summary', authenticate, async (req: Request, res: Response, next) => {
     try {
         const rangeRaw = String(req.query.range || '30d').toLowerCase();
-        const range: RangeKey = ['7d', '30d', '90d', '1y', 'ytd'].includes(rangeRaw) ? (rangeRaw as RangeKey) : '30d';
-        const start = getRangeStart(range);
-        const now = new Date();
-        const nowIso = now.toISOString();
-        const rangeMs = now.getTime() - start.getTime();
-        const prevStart = new Date(start.getTime() - rangeMs);
+        const requestedRange: RangeKey = ['7d', '30d', '90d', '1y', 'ytd'].includes(rangeRaw) ? (rangeRaw as RangeKey) : '30d';
 
         const privyId = req.user!.id;
         const user = await getOrCreateUser(privyId);
@@ -74,6 +88,13 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }
+
+        const { range, gated: revenueHistoryGated } = await resolveRangeForUser(user, requestedRange);
+        const start = getRangeStart(range);
+        const now = new Date();
+        const nowIso = now.toISOString();
+        const rangeMs = now.getTime() - start.getTime();
+        const prevStart = new Date(start.getTime() - rangeMs);
 
         const [invoices, expenses] = await Promise.all([
             fetchPaged<any>('invoices_summary', (from, to) =>
@@ -146,6 +167,8 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                 netRevenue: Number(netRevenue.toFixed(2)),
                 currency: 'USD',
                 range,
+                requestedRange,
+                gatedToFreeHistory: revenueHistoryGated,
                 previousPeriodRevenue: Number(prevRevenue.toFixed(2)),
                 revenueDeltaPct: Number(revenueDeltaPct.toFixed(1)),
             },
@@ -167,7 +190,11 @@ router.get('/trend', authenticate, async (req: Request, res: Response, next) => 
         }
 
         const now = new Date();
-        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+        // Free plan: cap trend to last 30 days. Pro: full 6 months.
+        const { gated: trendGated } = await resolveRangeForUser(user, '1y');
+        const sixMonthsAgo = trendGated
+            ? new Date(now.getTime() - FREE_PLAN_LIMITS.revenueHistoryDays * 24 * 60 * 60 * 1000)
+            : new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
         const [invoices, expenses] = await Promise.all([
             fetchPaged<any>('trend_invoices', (from, to) =>
@@ -217,7 +244,7 @@ router.get('/trend', authenticate, async (req: Request, res: Response, next) => 
             net: Number((revMap[key] - expMap[key]).toFixed(2)),
         }));
 
-        res.json({ success: true, data: trend });
+        res.json({ success: true, data: trend, meta: { gatedToFreeHistory: trendGated } });
     } catch (error) {
         logger.error('Failed to build revenue trend', { error: error instanceof Error ? error.message : 'Unknown' });
         next(error);
@@ -228,8 +255,7 @@ router.get('/trend', authenticate, async (req: Request, res: Response, next) => 
 router.get('/breakdown', authenticate, async (req: Request, res: Response, next) => {
     try {
         const rangeRaw = String(req.query.range || '30d').toLowerCase();
-        const range: RangeKey = ['7d', '30d', '90d', '1y', 'ytd'].includes(rangeRaw) ? (rangeRaw as RangeKey) : '30d';
-        const start = getRangeStart(range);
+        const requestedRange: RangeKey = ['7d', '30d', '90d', '1y', 'ytd'].includes(rangeRaw) ? (rangeRaw as RangeKey) : '30d';
 
         const privyId = req.user!.id;
         const user = await getOrCreateUser(privyId);
@@ -237,6 +263,9 @@ router.get('/breakdown', authenticate, async (req: Request, res: Response, next)
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }
+
+        const { range } = await resolveRangeForUser(user, requestedRange);
+        const start = getRangeStart(range);
 
         const invoices = await fetchPaged<any>('breakdown_invoices', (from, to) =>
             supabase
@@ -333,8 +362,7 @@ router.get('/breakdown', authenticate, async (req: Request, res: Response, next)
 router.get('/payment-sources', authenticate, async (req: Request, res: Response, next) => {
     try {
         const rangeRaw = String(req.query.range || '30d').toLowerCase();
-        const range: RangeKey = ['7d', '30d', '90d', '1y', 'ytd'].includes(rangeRaw) ? (rangeRaw as RangeKey) : '30d';
-        const start = getRangeStart(range);
+        const requestedRange: RangeKey = ['7d', '30d', '90d', '1y', 'ytd'].includes(rangeRaw) ? (rangeRaw as RangeKey) : '30d';
 
         const privyId = req.user!.id;
         const user = await getOrCreateUser(privyId);
@@ -342,6 +370,9 @@ router.get('/payment-sources', authenticate, async (req: Request, res: Response,
             res.status(404).json({ success: false, error: { message: 'User not found' } });
             return;
         }
+
+        const { range } = await resolveRangeForUser(user, requestedRange);
+        const start = getRangeStart(range);
 
         const [documents, transactions] = await Promise.all([
             fetchPaged<any>('payment_sources_documents', (from, to) =>

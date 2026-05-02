@@ -11,6 +11,7 @@ import {
   X,
 } from '@/components/ui/lucide-icons';
 import { hedwigApi } from '@/lib/api/client';
+import { openPaymentDetail } from '@/lib/payments/open-detail';
 import type { ExternalDocument } from '@/lib/types/email-intelligence';
 import type {
   ImportReviewResult,
@@ -177,8 +178,14 @@ function ResultState({
 
       <div className="mt-6 flex justify-end gap-2">
         {invoiceId ? (
-          <Button asChild variant="outline">
-            <a href={invoiceId ? `/payments?invoice=${invoiceId}` : '/payments'}>View in Payments</a>
+          <Button
+            variant="outline"
+            onClick={() => {
+              openPaymentDetail('invoice', invoiceId);
+              onClose?.();
+            }}
+          >
+            View invoice
           </Button>
         ) : null}
         {onClose ? <Button onClick={onClose}>Close review</Button> : null}
@@ -442,7 +449,11 @@ export function ImportDocumentReviewFlow({
 
       if (mode === 'page') {
         setTimeout(() => {
-          router.push(invoiceId ? `/payments?invoice=${invoiceId}` : '/payments');
+          if (invoiceId) {
+            openPaymentDetail('invoice', invoiceId);
+          } else {
+            router.push('/payments');
+          }
         }, 3000);
       }
     } catch (error: any) {

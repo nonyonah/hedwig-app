@@ -15,6 +15,8 @@ import {
 import { hedwigApi } from '@/lib/api/client';
 import { useCurrency } from '@/components/providers/currency-provider';
 import type { Invoice, PaymentLink, Client, Contract, RecurringInvoice } from '@/lib/models/entities';
+import { openPaymentDetail } from '@/lib/payments/open-detail';
+import { ClientPortal } from '@/components/ui/client-portal';
 
 type SearchResult =
   | { kind: 'invoice'; data: Invoice }
@@ -82,12 +84,20 @@ function searchData(data: CachedData, query: string): SearchResult[] {
 }
 
 const KIND_META = {
-  invoice: { label: 'Invoice', Icon: FileText, href: '/payments', color: 'text-[#717680]', bg: 'bg-[#eff4ff]' },
-  'payment-link': { label: 'Payment link', Icon: LinkSimple, href: '/payments', color: 'text-[#717680]', bg: 'bg-[#f0fdf4]' },
-  client: { label: 'Client', Icon: User, href: '/clients', color: 'text-[#717680]', bg: 'bg-[#f2f4f7]' },
-  contract: { label: 'Contract', Icon: IdentificationCard, href: '/contracts', color: 'text-[#717680]', bg: 'bg-[#fdf4ff]' },
-  recurring: { label: 'Recurring', Icon: Repeat, href: '/payments', color: 'text-[#717680]', bg: 'bg-[#fff7ed]' },
+  invoice: { label: 'Invoice', Icon: FileText, color: 'text-[#717680]', bg: 'bg-[#eff4ff]' },
+  'payment-link': { label: 'Payment link', Icon: LinkSimple, color: 'text-[#717680]', bg: 'bg-[#f0fdf4]' },
+  client: { label: 'Client', Icon: User, color: 'text-[#717680]', bg: 'bg-[#f2f4f7]' },
+  contract: { label: 'Contract', Icon: IdentificationCard, color: 'text-[#717680]', bg: 'bg-[#fdf4ff]' },
+  recurring: { label: 'Recurring', Icon: Repeat, color: 'text-[#717680]', bg: 'bg-[#fff7ed]' },
 };
+
+function getResultHref(result: SearchResult): string {
+  if (result.kind === 'invoice') return `/payments?invoice=${result.data.id}`;
+  if (result.kind === 'payment-link') return `/payments?paymentLink=${result.data.id}`;
+  if (result.kind === 'client') return `/clients/${result.data.id}`;
+  if (result.kind === 'contract') return `/contracts?contract=${result.data.id}`;
+  return `/payments?recurring=${result.data.id}`;
+}
 
 function ResultRow({ result, onClick }: { result: SearchResult; onClick: () => void }) {
   const meta = KIND_META[result.kind];
@@ -192,7 +202,14 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
     setResults(searchData(cachedData, query));
   }, [query, cachedData]);
 
-  const handleNav = (href: string) => {
+  const handleResultClick = (result: SearchResult) => {
+    if (result.kind === 'invoice' || result.kind === 'payment-link' || result.kind === 'recurring') {
+      openPaymentDetail(result.kind, result.data.id);
+      setOpen(false);
+      return;
+    }
+
+    const href = getResultHref(result);
     router.push(href);
     setOpen(false);
   };
@@ -217,12 +234,13 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
 
       {/* Palette overlay */}
       {open && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[15vh]">
+        <ClientPortal>
+          <div className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[15vh]">
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setOpen(false)} />
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setOpen(false)} />
 
           {/* Dialog */}
-          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-[#eef0f3]">
+            <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-[#eef0f3]">
             {/* Search input */}
             <div className="flex items-center gap-3 border-b border-[#f3f4f6] px-4 py-3.5">
               <MagnifyingGlass className="h-4 w-4 shrink-0 text-[#a4a7ae]" />
@@ -235,7 +253,7 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && query.trim()) {
                     if (results.length > 0) {
-                      handleNav(KIND_META[results[0].kind].href);
+                      handleResultClick(results[0]);
                       return;
                     }
                     handleOpenCreate();
@@ -270,7 +288,7 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
                 <ResultRow
                   key={`${result.kind}-${i}`}
                   result={result}
-                  onClick={() => handleNav(KIND_META[result.kind].href)}
+                  onClick={() => handleResultClick(result)}
                 />
               ))}
             </div>
@@ -293,8 +311,9 @@ export function GlobalSearch({ accessToken }: { accessToken?: string | null }) {
                 </div>
               </button>
             </div>
+            </div>
           </div>
-        </div>
+        </ClientPortal>
       )}
     </>
   );

@@ -225,13 +225,18 @@
       "Bash(gcloud config *)",
       "Bash(bash deploy.sh)",
       "Bash(gcloud run *)",
-      "Bash(gcloud builds *)"
+      "Bash(gcloud builds *)",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(curl -s \"https://api.github.com/users/nonyonah/repos?per_page=100&sort=updated\")"
     ],
     "deny": [],
     "ask": [],
     "additionalDirectories": [
       "/Users/macintoshhd/Work/hedwig-app/hedwig-backend/web-app/app/api/integrations/callback/google",
-      "/Users/macintoshhd/Work/hedwig-app/hedwig-backend/web-app/app/api/assistant/suggestions"
+      "/Users/macintoshhd/Work/hedwig-app/hedwig-backend/web-app/app/api/assistant/suggestions",
+      "/Users/macintoshhd/Work/_docs_clone/docs"
     ]
   }
 }

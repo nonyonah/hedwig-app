@@ -70,13 +70,13 @@ export function getSuggestionHref(suggestion: AssistantSuggestion): string {
 
   if (entities.project_id) return `/projects/${entities.project_id}`;
   if (entities.contract_id) return '/contracts';
-  if (entities.invoice_id) return '/payments';
+  if (entities.invoice_id) return `/payments?invoice=${entities.invoice_id}`;
   if (Array.isArray(entities.expense_ids) && entities.expense_ids.length > 0) return '/revenue';
   if (Array.isArray(entities.thread_ids) && entities.thread_ids.length > 0) return '/payments';
 
   switch (suggestion.type) {
     case 'invoice_reminder':
-      return '/payments';
+      return entities.invoice_id ? `/payments?invoice=${entities.invoice_id}` : '/payments';
     case 'import_match':
       return '/payments';
     case 'expense_categorization':

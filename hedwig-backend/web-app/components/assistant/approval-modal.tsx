@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { AssistantSuggestion } from '@/lib/types/assistant';
+import { openPaymentDetail } from '@/lib/payments/open-detail';
 import { SUGGESTION_META, getConfidenceBadge, getEntityBadges, getPriorityBadge, getSuggestionHref } from './suggestion-meta';
 
 interface ApprovalModalProps {
@@ -44,6 +45,7 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
   const priority = getPriorityBadge(suggestion.priority);
   const badges = getEntityBadges(suggestion);
   const contextHref = getSuggestionHref(suggestion);
+  const contextInvoiceId = typeof suggestion.relatedEntities?.invoice_id === 'string' ? suggestion.relatedEntities.invoice_id : null;
   const selectedAction = actions.find((action) => action.type === selectedActionType) ?? actions[0] ?? null;
 
   const handleApprove = async () => {
@@ -171,12 +173,21 @@ export function ApprovalModal({ suggestion, onClose, onApprove, onReject }: Appr
           >
             Cancel
           </Button>
-          <Button
-            asChild
-            variant="secondary"
-          >
-            <Link href={contextHref}>Open context</Link>
-          </Button>
+          {contextInvoiceId ? (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                openPaymentDetail('invoice', contextInvoiceId);
+                onClose();
+              }}
+            >
+              Open context
+            </Button>
+          ) : (
+            <Button asChild variant="secondary">
+              <Link href={contextHref}>Open context</Link>
+            </Button>
+          )}
           <Button
             variant="destructive"
             onClick={handleReject}

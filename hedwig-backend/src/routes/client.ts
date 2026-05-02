@@ -70,6 +70,8 @@ function formatClient(client: any, stats?: ClientStats) {
         walletAddress: client.wallet_address,
         totalEarnings: Number(((stats?.totalEarnings ?? parseFloat(client.total_earnings ?? '0')) || 0).toFixed(2)),
         outstandingBalance: Number(((stats?.outstandingBalance ?? parseFloat(client.outstanding_balance ?? '0')) || 0).toFixed(2)),
+        segment: (client.segment as string) || 'new',
+        lastActivityAt: client.last_activity_at ?? null,
         notes: client.notes ?? null,
         createdAt: client.created_at,
         updatedAt: client.updated_at,
@@ -147,9 +149,31 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
         const stats = await fetchClientStats(user.id, [String(client.id)]);
         const formattedClient = formatClient(client, stats.get(String(client.id)));
 
+        // Recent documents (last 50) — invoices, payment links, proposals.
+        const { data: recentDocs } = await supabase
+            .from('documents')
+            .select('id, type, title, amount, status, created_at, updated_at, content')
+            .eq('user_id', user.id)
+            .eq('client_id', client.id)
+            .order('updated_at', { ascending: false })
+            .limit(50);
+
+        const documents = (recentDocs || []).map((doc: any) => ({
+            id: doc.id,
+            type: doc.type,
+            title: doc.title,
+            amount: toNumber(doc.amount),
+            status: doc.status,
+            createdAt: doc.created_at,
+            updatedAt: doc.updated_at,
+            paidAt: doc.content?.paid_at ?? null,
+            paidVia: doc.content?.paid_via ?? null,
+            dueDate: doc.content?.due_date ?? null,
+        }));
+
         res.json({
             success: true,
-            data: { client: formattedClient },
+            data: { client: formattedClient, documents },
         });
     } catch (error) {
         next(error);
@@ -260,21 +284,7 @@ router.put('/:id', authenticate, async (req: Request, res: Response, next) => {
             return;
         }
 
-        const formattedClient = {
-            id: client.id,
-            userId: client.user_id,
-            name: client.name,
-            email: client.email,
-            phone: client.phone,
-            company: client.company,
-            address: client.address,
-            walletAddress: client.wallet_address,
-            totalEarnings: parseFloat(client.total_earnings ?? '0') || 0,
-            outstandingBalance: parseFloat(client.outstanding_balance ?? '0') || 0,
-            notes: client.notes ?? null,
-            createdAt: client.created_at,
-            updatedAt: client.updated_at,
-        };
+        const formattedClient = formatClient(client);
 
         res.json({
             success: true,

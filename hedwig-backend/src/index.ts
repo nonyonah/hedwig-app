@@ -50,6 +50,8 @@ import integrationsRoutes from './routes/integrations';
 import revenueRoutes from './routes/revenue';
 import currencyRoutes from './routes/currency';
 import assistantRoutes from './routes/assistant';
+import bankAccountRoutes from './routes/bankAccount';
+import { warmRateSnapshot } from './services/currency';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -368,6 +370,14 @@ schedulerRouter.post('/recurring-invoices', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.checkRecurringInvoices();
 });
+schedulerRouter.post('/assistant-daily-briefs', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendAssistantDailyBriefs();
+});
+schedulerRouter.post('/assistant-weekly-summaries', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendAssistantWeeklySummaries();
+});
 schedulerRouter.post('/dormant-nudges', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.sendDormantUserNudges();
@@ -464,6 +474,7 @@ app.use('/api/integrations', integrationsLimiter, integrationsRoutes);
 app.use('/api/revenue', insightsLimiter, revenueRoutes);
 app.use('/api/currency', currencyRoutes);
 app.use('/api/assistant', insightsLimiter, assistantRoutes);
+app.use('/api/bank-account', financialLimiter, bankAccountRoutes);
 
 // Serve static files from legacy public folder (for assets)
 app.use(express.static(path.join(__dirname, '../public')));
@@ -518,6 +529,7 @@ const server = app.listen(Number(PORT), HOST, () => {
     logger.info('Proxy trust configured', { trustProxy: app.get('trust proxy') });
     logger.info('Redis rate limiting', { enabled: !!getRedis(), failClosed: isRedisFailClosed() });
     logger.info('Scheduler mode', { mode: process.env.SCHEDULER_MODE || 'in-process' });
+    warmRateSnapshot();
 });
 
 // Cloud Run sends SIGTERM when it wants to stop the container.

@@ -33,6 +33,10 @@ import type { ExpenseRecord, RevenueSummary } from '@/lib/types/revenue';
 import type {
   AccountTransaction,
   Activity,
+  BankAccountInput,
+  BankAccountRecord,
+  BankCountry,
+  BankInfo,
   Client,
   Contract,
   Invoice,
@@ -350,6 +354,14 @@ const mapBackendUser = (user: any): User => ({
       : undefined
 });
 
+const normalizeClientSegment = (value?: string | null): Client['segment'] => {
+  const seg = String(value || 'new').toLowerCase();
+  if (seg === 'active') return 'active';
+  if (seg === 'lapsing') return 'lapsing';
+  if (seg === 'dormant') return 'dormant';
+  return 'new';
+};
+
 const mapBackendClient = (client: any): Client => ({
   id: String(client.id),
   workspaceId: workspace.id,
@@ -361,9 +373,10 @@ const mapBackendClient = (client: any): Client => ({
   notes: client.notes || undefined,
   walletAddress: client.walletAddress || client.wallet_address || undefined,
   status: normalizeClientStatus(client.status),
+  segment: normalizeClientSegment(client.segment),
   totalBilledUsd: Number(client.totalBilledUsd ?? client.totalEarnings ?? 0),
   outstandingUsd: Number(client.outstandingUsd ?? client.outstandingBalance ?? 0),
-  lastActivityAt: String(client.updatedAt ?? client.createdAt ?? new Date().toISOString())
+  lastActivityAt: String(client.lastActivityAt ?? client.last_activity_at ?? client.updatedAt ?? client.createdAt ?? new Date().toISOString())
 });
 
 const mapCreatedClient = (client: any): Client => ({
@@ -377,9 +390,10 @@ const mapCreatedClient = (client: any): Client => ({
   notes: client.notes || undefined,
   walletAddress: client.walletAddress || client.wallet_address || undefined,
   status: 'active',
+  segment: normalizeClientSegment(client.segment),
   totalBilledUsd: Number(client.totalBilledUsd ?? client.totalEarnings ?? 0),
   outstandingUsd: Number(client.outstandingUsd ?? client.outstandingBalance ?? 0),
-  lastActivityAt: String(client.updatedAt ?? client.createdAt ?? new Date().toISOString())
+  lastActivityAt: String(client.lastActivityAt ?? client.last_activity_at ?? client.updatedAt ?? client.createdAt ?? new Date().toISOString())
 });
 
 const mapBackendProject = (project: any): Project => ({
@@ -836,80 +850,46 @@ export const hedwigApi = {
   },
 
   async clients(options?: ApiOptions): Promise<Client[]> {
-    return withFallback(
-      async () => {
-        const data = await request<{ clients: any[] }>('/api/clients', options);
-        return (data.clients || []).map(mapBackendClient);
-      },
-      () => mockClients,
-      options
-    );
+    const data = await request<{ clients: any[] }>('/api/clients', options);
+    return (data.clients || []).map(mapBackendClient);
   },
 
   async createClient(input: CreateClientInput, options?: ApiOptions): Promise<Client> {
-    return withFallback(
-      async () => {
-        const data = await request<{ client: any }>('/api/clients', options, {
-          method: 'POST',
-          body: JSON.stringify(input)
-        });
-        capturePostHogEvent('client_created', {
-          client_id: data?.client?.id,
-          client_name: data?.client?.name,
-        });
-        return mapCreatedClient(data.client);
-      },
-      async () => {
-        await wait();
-        return mapCreatedClient({
-          id: `client_${Date.now()}`,
-          ...input,
-          totalEarnings: 0,
-          outstandingBalance: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-      },
-      options
-    );
+    const data = await request<{ client: any }>('/api/clients', options, {
+      method: 'POST',
+      body: JSON.stringify(input)
+    });
+    capturePostHogEvent('client_created', {
+      client_id: data?.client?.id,
+      client_name: data?.client?.name,
+    });
+    return mapCreatedClient(data.client);
   },
 
   async client(id: string, options?: ApiOptions) {
-    return withFallback(
-      async () => {
-        const [clientData, projectsData, documents] = await Promise.all([
-          request<{ client: any }>(`/api/clients/${id}`, options),
-          this.projects(options),
-          fetchDocuments(options)
-        ]);
-        const client = mapBackendClient(clientData.client);
-        const invoices = documents
-          .filter((document) => String(document.type || '').toUpperCase() === 'INVOICE' && documentMatchesClient(document, client))
-          .map(mapBackendInvoice);
-        const paymentLinks = documents
-          .filter((document) => String(document.type || '').toUpperCase() === 'PAYMENT_LINK' && documentMatchesClient(document, client))
-          .map(mapBackendPaymentLink);
-        const contracts = documents
-          .filter((document) => String(document.type || '').toUpperCase() === 'CONTRACT' && documentMatchesClient(document, client))
-          .map(mapBackendContract);
+    const [clientData, projectsData, documents] = await Promise.all([
+      request<{ client: any }>(`/api/clients/${id}`, options),
+      this.projects(options),
+      fetchDocuments(options)
+    ]);
+    const client = mapBackendClient(clientData.client);
+    const invoices = documents
+      .filter((document) => String(document.type || '').toUpperCase() === 'INVOICE' && documentMatchesClient(document, client))
+      .map(mapBackendInvoice);
+    const paymentLinks = documents
+      .filter((document) => String(document.type || '').toUpperCase() === 'PAYMENT_LINK' && documentMatchesClient(document, client))
+      .map(mapBackendPaymentLink);
+    const contracts = documents
+      .filter((document) => String(document.type || '').toUpperCase() === 'CONTRACT' && documentMatchesClient(document, client))
+      .map(mapBackendContract);
 
-        return {
-          client,
-          projects: projectsData.filter((project) => project.clientId === id),
-          invoices,
-          paymentLinks,
-          contracts
-        };
-      },
-      () => ({
-        client: mockClients.find((item) => item.id === id) ?? null,
-        projects: mockProjects.filter((item) => item.clientId === id),
-        invoices: mockInvoices.filter((item) => item.clientId === id),
-        paymentLinks: mockPaymentLinks.filter((item) => item.clientId === id),
-        contracts: mockContracts.filter((item) => item.clientId === id)
-      }),
-      options
-    );
+    return {
+      client,
+      projects: projectsData.filter((project) => project.clientId === id),
+      invoices,
+      paymentLinks,
+      contracts
+    };
   },
 
   async projects(options?: ApiOptions): Promise<Project[]> {
@@ -924,42 +904,17 @@ export const hedwigApi = {
   },
 
   async updateClient(id: string, input: UpdateClientInput, options?: ApiOptions): Promise<Client> {
-    return withFallback(
-      async () => {
-        const data = await request<{ client: any }>(`/api/clients/${id}`, options, {
-          method: 'PUT',
-          body: JSON.stringify(input)
-        });
-        return mapCreatedClient(data.client);
-      },
-      async () => {
-        await wait();
-        return mapCreatedClient({
-          id,
-          ...input,
-          name: input.name || 'Updated client',
-          email: input.email || 'unknown@client.com',
-          totalEarnings: 0,
-          outstandingBalance: 0,
-          updatedAt: new Date().toISOString()
-        });
-      },
-      options
-    );
+    const data = await request<{ client: any }>(`/api/clients/${id}`, options, {
+      method: 'PUT',
+      body: JSON.stringify(input)
+    });
+    return mapCreatedClient(data.client);
   },
 
   async deleteClient(id: string, options?: ApiOptions): Promise<void> {
-    return withFallback(
-      async () => {
-        await request<{ message?: string }>(`/api/clients/${id}`, options, {
-          method: 'DELETE'
-        });
-      },
-      async () => {
-        await wait();
-      },
-      options
-    );
+    await request<{ message?: string }>(`/api/clients/${id}`, options, {
+      method: 'DELETE'
+    });
   },
 
   async createProjectFlow(
@@ -1232,12 +1187,19 @@ export const hedwigApi = {
     });
   },
 
-  async updateDocumentStatus(id: string, status: string, options?: ApiOptions): Promise<void> {
+  async updateDocumentStatus(
+    id: string,
+    status: string,
+    options?: ApiOptions & { paidVia?: string | null; reference?: string | null }
+  ): Promise<void> {
     return withFallback(
       async () => {
+        const payload: Record<string, unknown> = { status };
+        if (options?.paidVia) payload.paid_via = options.paidVia;
+        if (options?.reference) payload.reference = options.reference;
         await request<{ document?: any }>(`/api/documents/${id}/status`, options, {
           method: 'PATCH',
-          body: JSON.stringify({ status })
+          body: JSON.stringify(payload)
         });
       },
       async () => {
@@ -1535,6 +1497,53 @@ export const hedwigApi = {
       url: String(data?.url || ''),
       expiresAt: data?.expiresAt ?? null
     };
+  },
+
+  async listBankAccounts(options?: ApiOptions): Promise<BankAccountRecord[]> {
+    const data = await request<{ bankAccounts: BankAccountRecord[] }>('/api/bank-account', options);
+    return data?.bankAccounts ?? [];
+  },
+
+  async listBanksForCountry(country: BankCountry, options?: ApiOptions): Promise<BankInfo[]> {
+    const data = await request<{ country: string; banks: BankInfo[] }>(`/api/bank-account/banks?country=${country}`, options);
+    return data?.banks ?? [];
+  },
+
+  async verifyBankAccount(
+    payload: { country: BankCountry; bankCode: string; accountNumber: string },
+    options?: ApiOptions
+  ): Promise<{ verified: boolean; accountName: string | null; method: string | null; reason?: string }> {
+    return request('/api/bank-account/verify', options, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async createBankAccount(payload: BankAccountInput, options?: ApiOptions): Promise<BankAccountRecord> {
+    const data = await request<{ bankAccount: BankAccountRecord }>('/api/bank-account', options, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return data.bankAccount;
+  },
+
+  async updateBankAccount(id: string, payload: BankAccountInput, options?: ApiOptions): Promise<BankAccountRecord> {
+    const data = await request<{ bankAccount: BankAccountRecord }>(`/api/bank-account/${id}`, options, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    return data.bankAccount;
+  },
+
+  async setDefaultBankAccount(id: string, options?: ApiOptions): Promise<BankAccountRecord> {
+    const data = await request<{ bankAccount: BankAccountRecord }>(`/api/bank-account/${id}/default`, options, {
+      method: 'POST',
+    });
+    return data.bankAccount;
+  },
+
+  async deleteBankAccount(id: string, options?: ApiOptions): Promise<void> {
+    await request(`/api/bank-account/${id}`, options, { method: 'DELETE' });
   },
 
   async offramp(options?: ApiOptions): Promise<OfframpTransaction[]> {

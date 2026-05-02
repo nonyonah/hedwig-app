@@ -8,6 +8,9 @@ const PUBLIC_PATHS = [
   '/sign-in',
   '/sign-out',
   '/pricing',
+  // Backend proxy routes authenticate with bearer tokens; keep them reachable
+  // during pre-session flows like initial sign-in bootstrap.
+  '/api/backend',
   '/api/auth/session',
   '/api/auth/sign-out',
   '/api/auth/demo',

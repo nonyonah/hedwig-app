@@ -4,6 +4,7 @@ import { GeminiService } from '../services/gemini';
 import { createLogger } from '../utils/logger';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
+import { requireProFeatureAccess } from '../services/billingRules';
 
 const logger = createLogger('CreationBox');
 const router = Router();
@@ -106,7 +107,8 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
             return;
         }
 
-        // Use provided currentDate or fallback to server time
+        // Pro gate — Creation Box uses Gemini per call. Greetings short-circuit
+        // below before the gate so basic UX still works on the free plan.
         const referenceDate = currentDate ? new Date(currentDate) : new Date();
 
         // Short-circuit for simple greetings — don't call the AI so it can't hallucinate
@@ -129,13 +131,34 @@ router.post('/parse', authenticate, async (req: Request, res: Response, next: Ne
 
         logger.debug('[CreationBox] Parsing input', { textLength: text.length, text, referenceDate: referenceDate.toISOString(), mode });
 
+        // Pro gate — block before LLM call, after greeting short-circuit.
+        const gateUser = await getOrCreateUser(req.user!.id);
+        if (!gateUser) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+        const gateEnabledAt = process.env.HEDWIG_AI_GATE_ENABLED_AT || '';
+        const grandfathered = gateEnabledAt
+            && gateUser.created_at
+            && Date.parse(gateUser.created_at) < Date.parse(gateEnabledAt);
+        if (!grandfathered) {
+            const access = await requireProFeatureAccess(gateUser as any, 'creation_box');
+            if (!access.allowed) {
+                res.status(402).json({
+                    success: false,
+                    error: { code: 'requires_pro', message: access.message || 'Upgrade to Pro to use this feature.' },
+                });
+                return;
+            }
+        }
+
         // Build prompt with date context for accurate relative date parsing
         const dateContext = `Today is ${referenceDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Current time: ${referenceDate.toLocaleTimeString('en-US')}.`;
 
         // Load user's existing clients so Gemini can match names intelligently
         let clientsContext: { id: string; name: string; email: string | null; phone: string | null; company: string | null }[] = [];
         try {
-            const user = await getOrCreateUser(req.user!.id);
+            const user = gateUser;
             if (user?.id) {
                 const { data: clients } = await supabase
                     .from('clients')

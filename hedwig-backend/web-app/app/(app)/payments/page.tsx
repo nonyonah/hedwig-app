@@ -6,7 +6,7 @@ import { PaymentsClient } from './view';
 export default async function PaymentsPage({
   searchParams
 }: {
-  searchParams?: Promise<{ invoice?: string }>;
+  searchParams?: Promise<{ invoice?: string; paymentLink?: string; recurring?: string }>;
 }) {
   const session = await getCurrentSession();
   let data = { invoices: mockInvoices, paymentLinks: mockPaymentLinks, invoiceDrafts, paymentLinkDrafts };
@@ -28,6 +28,8 @@ export default async function PaymentsPage({
     <PaymentsClient
       accessToken={session.accessToken}
       highlightedInvoiceId={params.invoice ?? null}
+      highlightedPaymentLinkId={params.paymentLink ?? null}
+      highlightedRecurringId={params.recurring ?? null}
       invoices={data.invoices}
       paymentLinks={data.paymentLinks}
       recurringInvoices={recurringInvoices}

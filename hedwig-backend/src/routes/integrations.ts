@@ -24,6 +24,7 @@ import {
   revokeConnection as revokeComposioConnection,
 } from '../services/composio';
 import { createLogger } from '../utils/logger';
+import { requireProFeatureAccess } from '../services/billingRules';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -648,6 +649,29 @@ router.post('/composio/connect/:provider', async (req: Request, res: Response) =
   if (!isComposioConfigured()) {
     res.status(503).json({ success: false, error: 'Composio is not configured on this environment' });
     return;
+  }
+
+  // Pro gate — Gmail/Calendar/Drive/Docs sync is a paid feature.
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('id, email, privy_id, subscription_status, subscription_expiry, created_at')
+    .eq('id', userId)
+    .maybeSingle();
+  if (userRow) {
+    const gateEnabledAt = process.env.HEDWIG_AI_GATE_ENABLED_AT || '';
+    const grandfathered = gateEnabledAt
+      && userRow.created_at
+      && Date.parse(userRow.created_at as string) < Date.parse(gateEnabledAt);
+    if (!grandfathered) {
+      const access = await requireProFeatureAccess(userRow as any, 'composio_integrations');
+      if (!access.allowed) {
+        res.status(402).json({
+          success: false,
+          error: { code: 'requires_pro', message: access.message || 'Upgrade to Pro to connect external integrations.' },
+        });
+        return;
+      }
+    }
   }
 
   const provider = String(req.params.provider || "");

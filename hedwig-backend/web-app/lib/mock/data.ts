@@ -51,6 +51,7 @@ export const clients: Client[] = [
     company: 'Northstar Labs',
     email: 'aisha@northstarlabs.co',
     status: 'active',
+    segment: 'active',
     totalBilledUsd: 18450,
     outstandingUsd: 2100,
     lastActivityAt: '2026-03-12T10:00:00.000Z'
@@ -62,6 +63,7 @@ export const clients: Client[] = [
     company: 'Atlas Commerce',
     email: 'marcus@atlascommerce.com',
     status: 'at_risk',
+    segment: 'lapsing',
     totalBilledUsd: 9200,
     outstandingUsd: 3800,
     lastActivityAt: '2026-03-10T15:20:00.000Z'
@@ -73,6 +75,7 @@ export const clients: Client[] = [
     company: 'Zuri Capital',
     email: 'ops@zuricapital.com',
     status: 'active',
+    segment: 'active',
     totalBilledUsd: 32100,
     outstandingUsd: 0,
     lastActivityAt: '2026-03-11T08:40:00.000Z'

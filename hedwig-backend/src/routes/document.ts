@@ -6,6 +6,7 @@ import { AppError } from '../middleware/errorHandler';
 import { getOrCreateUser } from '../utils/userHelper';
 import NotificationService from '../services/notifications';
 import { createCalendarEventFromSource, markCalendarEventCompleted } from './calendar';
+import { ClientService } from '../services/clientService';
 import { createLogger } from '../utils/logger';
 import { buildIncomingPaymentCopy } from '../utils/notificationCopy';
 import { anchorDocumentPaidProof } from '../services/celoProofRegistry';
@@ -49,6 +50,56 @@ const attachUsdAccountDetails = async (doc: any) => {
                 rail: 'ACH',
                 currency: 'USD',
             },
+        },
+    };
+};
+
+const attachExternalBankAccount = async (doc: any) => {
+    const userId = doc?.user?.id;
+    if (!userId) return doc;
+
+    // Honour per-document opt-out via content.hide_bank_details = true
+    const hideOnDoc = Boolean(doc?.content?.hide_bank_details);
+    if (hideOnDoc) return doc;
+
+    const { data: rows } = await supabase
+        .from('user_bank_accounts')
+        .select('id, country, currency, account_holder_name, bank_name, account_number, routing_number, sort_code, iban, swift_bic, account_type, is_verified, is_default, show_on_invoice')
+        .eq('user_id', userId)
+        .eq('show_on_invoice', true)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: true });
+
+    if (!rows || rows.length === 0) {
+        return doc;
+    }
+
+    // Bank details are deliberately exposed in full on invoice/payment-link
+    // documents — payers need the complete account info to send a transfer.
+    // Access is gated by knowing the document URL, which the issuer controls.
+    const bankAccounts = rows.map((bank: any) => ({
+        id: bank.id,
+        country: bank.country,
+        currency: bank.currency,
+        account_holder_name: bank.account_holder_name,
+        bank_name: bank.bank_name,
+        account_number: bank.account_number || null,
+        routing_number: bank.routing_number || null,
+        sort_code: bank.sort_code || null,
+        iban: bank.iban || null,
+        swift_bic: bank.swift_bic || null,
+        account_type: bank.account_type || null,
+        is_verified: Boolean(bank.is_verified),
+        is_default: Boolean(bank.is_default),
+    }));
+
+    return {
+        ...doc,
+        user: {
+            ...doc.user,
+            // Keep bank_account (singular) for backward compat — first/default entry.
+            bank_account: bankAccounts[0],
+            bank_accounts: bankAccounts,
         },
     };
 };
@@ -1047,11 +1098,12 @@ router.get('/:id/public', async (req: Request, res: Response, next) => {
             return;
         }
 
-        const documentWithUsdAccount = await attachUsdAccountDetails(doc);
-        logger.debug('Returning public document', { type: documentWithUsdAccount.type });
+        const docWithUsd = await attachUsdAccountDetails(doc);
+        const documentWithBank = await attachExternalBankAccount(docWithUsd);
+        logger.debug('Returning public document', { type: documentWithBank.type });
         res.json({
             success: true,
-            data: { document: documentWithUsdAccount }
+            data: { document: documentWithBank }
         });
     } catch (error) {
         logger.error('Unexpected error fetching public document', { error: error instanceof Error ? error.message : 'Unknown' });
@@ -1094,11 +1146,12 @@ router.get('/:id', async (req: Request, res: Response, next) => {
             return;
         }
 
-        const documentWithUsdAccount = await attachUsdAccountDetails(doc);
-        logger.debug('Returning document', { type: documentWithUsdAccount.type });
+        const docWithUsd = await attachUsdAccountDetails(doc);
+        const documentWithBank = await attachExternalBankAccount(docWithUsd);
+        logger.debug('Returning document', { type: documentWithBank.type });
         res.json({
             success: true,
-            data: { document: documentWithUsdAccount }
+            data: { document: documentWithBank }
         });
     } catch (error) {
         console.error('[Documents] Unexpected error:', error);
@@ -1301,11 +1354,17 @@ router.post('/:id/pay', async (req: Request, res: Response, next) => {
 router.patch('/:id/status', authenticate, async (req: Request, res: Response, next) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status, reference, paid_via } = req.body || {};
         const privyId = req.user!.id;
 
         if (!status) {
             res.status(400).json({ success: false, error: { message: 'Status is required' } });
+            return;
+        }
+
+        const ALLOWED_PAID_VIA = ['crypto', 'bank_transfer', 'cash', 'stripe', 'paystack', 'other'];
+        if (paid_via && !ALLOWED_PAID_VIA.includes(String(paid_via))) {
+            res.status(400).json({ success: false, error: { message: 'Invalid paid_via value' } });
             return;
         }
 
@@ -1339,15 +1398,45 @@ router.patch('/:id/status', authenticate, async (req: Request, res: Response, ne
             return;
         }
 
+        // Resolve client_id if missing so the trigger updates the right client.
+        // (Legacy assistant drafts and imports sometimes leave client_id null.)
+        let resolvedClientId: string | null = doc.client_id || null;
+        if (!resolvedClientId && doc.content) {
+            const c = doc.content as Record<string, unknown>;
+            const candidateEmail = (c.client_email || c.clientEmail || c.recipient_email || c.recipientEmail) as string | undefined;
+            const candidateName = (c.client_name || c.clientName || c.recipient_name || c.recipientName) as string | undefined;
+            if (candidateEmail || candidateName) {
+                try {
+                    const resolved = await ClientService.getOrCreateClient(
+                        userData.id,
+                        candidateName || null,
+                        candidateEmail || null,
+                        { createdFrom: 'mark_paid_resolve' }
+                    );
+                    resolvedClientId = resolved.id;
+                } catch (resolveErr) {
+                    logger.warn('Could not resolve client during mark-as-paid', {
+                        documentId: id,
+                        error: resolveErr instanceof Error ? resolveErr.message : 'unknown',
+                    });
+                }
+            }
+        }
+
         // Update status
         const updateData: any = { status };
-        
-        // If marking as paid, add timestamp if not present
+        if (resolvedClientId && resolvedClientId !== doc.client_id) {
+            updateData.client_id = resolvedClientId;
+        }
+
+        // If marking as paid, capture timestamp + payment metadata
         if (status === 'PAID' && doc.status !== 'PAID') {
             updateData.content = {
                 ...doc.content,
                 paid_at: new Date().toISOString(),
-                manual_mark_paid: true
+                manual_mark_paid: true,
+                ...(paid_via ? { paid_via } : {}),
+                ...(reference ? { payment_reference: String(reference).slice(0, 200) } : {}),
             };
         }
 

@@ -51,16 +51,30 @@ export interface WeeklySummarySnapshot {
   contextSummary: string;
 }
 
-type WorkspacePeriod = 'week' | 'month' | 'quarter' | 'year' | 'all';
+type WorkspacePeriod = 'week' | 'month' | 'quarter' | 'half_year' | 'year' | 'all';
 
-function periodStart(period: WorkspacePeriod): string | null {
+function normalizeWorkspacePeriod(value: unknown): WorkspacePeriod {
+  const raw = String(value || 'all').trim().toLowerCase();
+  if (['week', '7', '7d', '7 days', 'last 7 days', 'last_7_days'].includes(raw)) return 'week';
+  if (['month', '30', '30d', '30 days', 'last 30 days', 'last_30_days'].includes(raw)) return 'month';
+  if (['quarter', '90', '90d', '90 days', 'last 90 days', 'last_90_days'].includes(raw)) return 'quarter';
+  if (['half_year', 'half-year', '180', '180d', '180 days', 'last 180 days', '6m', '6 months', 'last 6 months', 'last_180_days'].includes(raw)) return 'half_year';
+  if (['year', '1y', '1 year', '365', '365d', '365 days', '12m', '12 months', 'one year', 'last year', 'last 1 year', 'last_year'].includes(raw)) return 'year';
+  return 'all';
+}
+
+function getLookbackDays(period: WorkspacePeriod): number | null {
   if (period === 'all') return null;
-  const now = new Date();
-  const days =
-    period === 'week' ? 7
-    : period === 'month' ? 30
-    : period === 'quarter' ? 90
-    : 365;
+  if (period === 'week') return 7;
+  if (period === 'month') return 30;
+  if (period === 'quarter') return 90;
+  if (period === 'half_year') return 180;
+  return 365;
+}
+
+function periodStart(period: WorkspacePeriod, now = new Date()): string | null {
+  const days = getLookbackDays(period);
+  if (!days) return null;
   return new Date(now.getTime() - days * 86_400_000).toISOString();
 }
 
@@ -477,29 +491,37 @@ export function createInvoiceDetailsTool(): AgentToolDefinition {
 export function createClientInsightsTool(): AgentToolDefinition {
   return {
     name: 'workspace_get_client_insights',
-    description: 'Fetch client details and revenue rankings, including highest paying clients, outstanding invoice balances, and recent activity.',
+    description: 'Fetch client details and paid revenue rankings for an exact lookback period, including highest paying clients, outstanding balances, and recent activity. Use lookbackDays for requests like last 90 days, last 180 days, or last year.',
     parameters: {
       type: 'object',
       properties: {
-        period: { type: 'string', enum: ['week', 'month', 'quarter', 'year', 'all'], description: 'Revenue lookback period. Default all.' },
+        period: { type: 'string', enum: ['week', 'month', 'quarter', 'half_year', 'year', 'all', '7d', '30d', '90d', '180d', '1y'], description: 'Revenue lookback period. Default all.' },
+        lookbackDays: { type: 'integer', description: 'Exact number of days to look back. Overrides period when provided. Use 90 for last 90 days, 180 for last 180 days, 365 for last year.' },
         limit: { type: 'integer', description: 'Maximum clients to return. Default 10, max 30.' },
       },
       required: [],
     },
     execute: async (args, context) => {
-      const period = (String(args.period || 'all').toLowerCase() as WorkspacePeriod);
+      const requestedLookbackDays = Number(args.lookbackDays);
+      const lookbackDays = Number.isFinite(requestedLookbackDays)
+        ? Math.min(Math.max(Math.floor(requestedLookbackDays), 1), 3650)
+        : null;
+      const period = normalizeWorkspacePeriod(args.period);
       const limit = Math.min(Math.max(Number(args.limit || 10), 1), 30);
-      const start = periodStart(period);
+      const start = lookbackDays
+        ? new Date(context.now.getTime() - lookbackDays * 86_400_000).toISOString()
+        : periodStart(period, context.now);
+      const appliedPeriod = lookbackDays ? `${lookbackDays}d` : period;
 
       const [clientsRes, invoicesRes] = await Promise.all([
         supabase.from('clients').select('id, name, email, company, created_at, updated_at').eq('user_id', context.userId).limit(200),
         (() => {
           let q = supabase
             .from('documents')
-            .select('id, client_id, amount, status, updated_at, content')
+            .select('id, client_id, amount, type, status, created_at, updated_at, content')
             .eq('user_id', context.userId)
-            .eq('type', 'INVOICE');
-          if (start) q = q.gte('updated_at', start);
+            .in('type', ['INVOICE', 'PAYMENT_LINK']);
+          if (start) q = q.gte('created_at', start);
           return q.limit(500);
         })(),
       ]);
@@ -528,17 +550,19 @@ export function createClientInsightsTool(): AgentToolDefinition {
         stats.set(clientId, current);
       }
 
-      const clients = (clientsRes.data ?? [])
+      const rankedClients = (clientsRes.data ?? [])
         .map((client: any) => ({ ...client, ...(stats.get(client.id) ?? { paidUsd: 0, outstandingUsd: 0, invoiceCount: 0, paidInvoiceCount: 0 }) }))
-        .sort((a, b) => b.paidUsd - a.paidUsd)
-        .slice(0, limit);
+        .sort((a, b) => b.paidUsd - a.paidUsd);
+      const clients = rankedClients.slice(0, limit);
 
       return {
-        period,
+        period: appliedPeriod,
+        rangeStart: start,
+        rangeEnd: context.now.toISOString(),
         highestPayingClient: clients[0] ?? null,
         totalClients: clientsRes.data?.length ?? 0,
-        totalPaidUsd: clients.reduce((sum, client) => sum + client.paidUsd, 0),
-        totalOutstandingUsd: clients.reduce((sum, client) => sum + client.outstandingUsd, 0),
+        totalPaidUsd: rankedClients.reduce((sum, client) => sum + client.paidUsd, 0),
+        totalOutstandingUsd: rankedClients.reduce((sum, client) => sum + client.outstandingUsd, 0),
         clients,
       };
     },

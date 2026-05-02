@@ -11,15 +11,22 @@
 - Share **payment links** that clients pay via crypto (Base, Solana, Celo, Stacks/Bitcoin L2)
 - Receive payments in USDC across multiple chains — Hedwig handles the wallet, you handle the work
 - Set up **recurring invoices** that auto-send on your schedule (Pro)
+- Add an **external payout bank account** (NG, US, UK, GH) so clients can also pay by bank transfer
+  - Auto-verified for Nigerian and Ghanaian accounts via Paystack `/bank/resolve`
+  - Modulus-checked for UK accounts via GoCardless when configured
+  - Bank details appear on every public invoice and payment link, with one-tap copy buttons
+- **Mark-as-paid** dialog captures the payment method (bank transfer, crypto, cash, or other) plus a reference, so off-platform payments stay in revenue tracking
 
 ### Stay on top of your money
 - **Earnings dashboard** with real-time revenue tracking, conversion rates, and payment history
+- **Per-client lifetime earnings, outstanding balances, last activity, and engagement segment** (new / active / lapsing / dormant) — kept consistent by a Postgres trigger that recomputes whenever a document changes, so cached and live values never drift
 - **Tax summaries** — monthly and yearly breakdowns ready for your accountant (Pro)
 - Convert crypto earnings to local currency (NGN, GHS) via integrated offramp
 
 ### Manage your workspace
 - Organize **clients, projects, and milestones** in one place
-- Get an **AI assistant** that summarizes your day, surfaces unpaid invoices, and prompts follow-ups
+- Get an **AI assistant** with explicit intent routing: it knows when to draft an invoice, when to create a payment link, when to surface an overdue reminder, and when to stage a calendar event
+- Assistant always resolves clients via the live database — never from chat history or uploaded attachments — eliminating the wrong-client problem
 - **Calendar sync** — invoice due dates and reminders appear in Google Calendar or Apple Calendar
 
 ### Email and calendar intelligence (new)
@@ -129,6 +136,8 @@ npm run dev          # starts on port 3001
 | `ONESIGNAL_APP_ID` / `ONESIGNAL_REST_API_KEY` | Push notifications |
 | `POLAR_WEBHOOK_SECRET` | Polar billing webhook verification |
 | `REVENUECAT_WEBHOOK_AUTH` | RevenueCat billing webhook auth |
+| `PAYSTACK_SECRET_KEY` | NG / GH bank list + auto-verify (`/bank` and `/bank/resolve`) |
+| `GOCARDLESS_TOKEN` | UK modulus check (optional; UK accounts save unverified without it) |
 
 ### Web app (`hedwig-backend/web-app/.env.local`)
 

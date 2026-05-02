@@ -6,7 +6,9 @@ import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   // Rate limit auth session creation — main lever against credential stuffing.
-  const limit = checkRateLimit(request, { name: 'auth_session', limit: 10, windowMs: 60_000 });
+  // Allow normal UX retries (OAuth callback reloads, flaky networks) while still
+  // constraining abuse bursts on a per-minute basis.
+  const limit = checkRateLimit(request, { name: 'auth_session', limit: 30, windowMs: 60_000 });
   if (!limit.ok) return rateLimitResponse(limit.retryAfter);
 
   const body = await request.json().catch(() => null);

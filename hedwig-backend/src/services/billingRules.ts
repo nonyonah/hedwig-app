@@ -3,12 +3,23 @@ import { getRevenueCatStateForUser } from './revenuecat';
 
 export type HedwigPlan = 'free' | 'pro';
 export type LimitedDocumentType = 'INVOICE' | 'PAYMENT_LINK' | 'CONTRACT';
-export type ProFeature = 'assistant' | 'recurring_automation' | 'milestone_invoice_automation';
+export type ProFeature =
+    | 'assistant'
+    | 'assistant_chat'
+    | 'attachment_ai'
+    | 'creation_box'
+    | 'recurring_automation'
+    | 'milestone_invoice_automation'
+    | 'composio_integrations'
+    | 'multi_bank_accounts'
+    | 'revenue_history';
 
 export const FREE_PLAN_LIMITS = {
     invoicesPerMonth: 10,
     paymentLinksPerMonth: 10,
     contractsPerMonth: 3,
+    bankAccounts: 1,
+    revenueHistoryDays: 30,
 } as const;
 
 const normalizeString = (value: unknown): string | null => {
@@ -98,11 +109,22 @@ function getDocumentLimitMessage(type: LimitedDocumentType, limit: number): stri
 function getFeatureMessage(feature: ProFeature): string {
     switch (feature) {
         case 'assistant':
+        case 'assistant_chat':
             return 'Hedwig Assistant is a Pro feature.';
+        case 'attachment_ai':
+            return 'AI document import (OCR + classification) is a Pro feature.';
+        case 'creation_box':
+            return 'Natural-language invoice and payment link creation is a Pro feature.';
         case 'recurring_automation':
             return 'Recurring invoice automation is a Pro feature.';
         case 'milestone_invoice_automation':
             return 'Automatic milestone invoice creation is a Pro feature.';
+        case 'composio_integrations':
+            return 'Connecting Gmail, Calendar, Drive, and Docs is a Pro feature.';
+        case 'multi_bank_accounts':
+            return `The free plan includes ${FREE_PLAN_LIMITS.bankAccounts} payout bank account. Upgrade to Pro to add more.`;
+        case 'revenue_history':
+            return `Free plan revenue history covers the last ${FREE_PLAN_LIMITS.revenueHistoryDays} days. Upgrade to Pro for full history.`;
     }
 }
 

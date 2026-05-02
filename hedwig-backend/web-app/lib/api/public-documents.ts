@@ -8,6 +8,22 @@ export interface PublicUsdAccount {
   currency?: string;
 }
 
+export interface PublicBankAccountPayload {
+  id?: string;
+  country: 'NG' | 'US' | 'UK' | 'GH';
+  currency: string;
+  account_holder_name: string;
+  bank_name: string;
+  account_number: string | null;
+  routing_number: string | null;
+  sort_code: string | null;
+  iban: string | null;
+  swift_bic: string | null;
+  account_type: 'checking' | 'savings' | null;
+  is_verified: boolean;
+  is_default?: boolean;
+}
+
 export interface PublicInvoiceItem {
   description?: string;
   quantity?: number;
@@ -49,6 +65,8 @@ export interface PublicDocument {
     ethereum_wallet_address?: string;
     solana_wallet_address?: string;
     usd_account?: PublicUsdAccount;
+    bank_account?: PublicBankAccountPayload;
+    bank_accounts?: PublicBankAccountPayload[];
   };
 }
 
@@ -112,7 +130,9 @@ export async function fetchPublicDocument(id: string): Promise<PublicDocument | 
     user: {
       ...publicDocument.user,
       ...fallbackDocument.user,
-      usd_account: publicDocument.user?.usd_account || fallbackDocument.user?.usd_account
+      usd_account: publicDocument.user?.usd_account || fallbackDocument.user?.usd_account,
+      bank_account: publicDocument.user?.bank_account || fallbackDocument.user?.bank_account,
+      bank_accounts: publicDocument.user?.bank_accounts || fallbackDocument.user?.bank_accounts,
     }
   };
 }
