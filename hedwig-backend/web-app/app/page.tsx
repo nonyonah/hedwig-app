@@ -103,6 +103,28 @@ function LandingPage() {
                 Try demo
               </a>
             </div>
+
+            {/* Product Hunt badge */}
+            <div
+              className="animate-fade-up mt-7 flex justify-center"
+              style={{ animationDelay: '320ms' }}
+            >
+              <a
+                href="https://www.producthunt.com/products/hedwig-3?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-hedwig-3"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Hedwig on Product Hunt"
+                className="inline-flex transition-transform duration-200 hover:scale-[1.02]"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1138206&theme=neutral&t=1777895408783"
+                  alt="Hedwig - The fastest way for freelancers to get paid. | Product Hunt"
+                  width={250}
+                  height={54}
+                />
+              </a>
+            </div>
           </div>
 
           {/* App mockup */}
