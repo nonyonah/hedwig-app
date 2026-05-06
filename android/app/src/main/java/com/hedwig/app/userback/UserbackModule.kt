@@ -29,7 +29,7 @@ class UserbackModule(private val reactContext: ReactApplicationContext) : ReactC
 
     Handler(Looper.getMainLooper()).post {
       try {
-        val context = currentActivity ?: reactContext
+        val context = getCurrentActivity() ?: reactContext
         if (!initialized) {
           Userback.init(context, accessToken, userDataMap)
           initialized = true
@@ -77,45 +77,39 @@ class UserbackModule(private val reactContext: ReactApplicationContext) : ReactC
     promise.resolve(true)
   }
 
-  private fun readableMapToMap(readableMap: ReadableMap): Map<String, Any?> {
-    val map = mutableMapOf<String, Any?>()
+  private fun readableMapToMap(readableMap: ReadableMap): Map<String, Any> {
+    val map = mutableMapOf<String, Any>()
     val iterator = readableMap.keySetIterator()
     while (iterator.hasNextKey()) {
       val key = iterator.nextKey()
-      when (readableMap.getType(key)) {
-        ReadableType.Null -> map[key] = null
-        ReadableType.Boolean -> map[key] = readableMap.getBoolean(key)
-        ReadableType.Number -> map[key] = readableMap.getDouble(key)
-        ReadableType.String -> map[key] = readableMap.getString(key)
-        ReadableType.Map -> {
-          val child = readableMap.getMap(key)
-          map[key] = if (child != null) readableMapToMap(child) else null
-        }
-        ReadableType.Array -> {
-          val child = readableMap.getArray(key)
-          map[key] = if (child != null) readableArrayToList(child) else null
-        }
+      val value: Any? = when (readableMap.getType(key)) {
+        ReadableType.Null -> null
+        ReadableType.Boolean -> readableMap.getBoolean(key)
+        ReadableType.Number -> readableMap.getDouble(key)
+        ReadableType.String -> readableMap.getString(key)
+        ReadableType.Map -> readableMap.getMap(key)?.let { readableMapToMap(it) }
+        ReadableType.Array -> readableMap.getArray(key)?.let { readableArrayToList(it) }
+      }
+      if (value != null) {
+        map[key] = value
       }
     }
     return map
   }
 
-  private fun readableArrayToList(readableArray: ReadableArray): List<Any?> {
-    val list = mutableListOf<Any?>()
+  private fun readableArrayToList(readableArray: ReadableArray): List<Any> {
+    val list = mutableListOf<Any>()
     for (index in 0 until readableArray.size()) {
-      when (readableArray.getType(index)) {
-        ReadableType.Null -> list.add(null)
-        ReadableType.Boolean -> list.add(readableArray.getBoolean(index))
-        ReadableType.Number -> list.add(readableArray.getDouble(index))
-        ReadableType.String -> list.add(readableArray.getString(index))
-        ReadableType.Map -> {
-          val child = readableArray.getMap(index)
-          list.add(if (child != null) readableMapToMap(child) else null)
-        }
-        ReadableType.Array -> {
-          val child = readableArray.getArray(index)
-          list.add(if (child != null) readableArrayToList(child) else null)
-        }
+      val value: Any? = when (readableArray.getType(index)) {
+        ReadableType.Null -> null
+        ReadableType.Boolean -> readableArray.getBoolean(index)
+        ReadableType.Number -> readableArray.getDouble(index)
+        ReadableType.String -> readableArray.getString(index)
+        ReadableType.Map -> readableArray.getMap(index)?.let { readableMapToMap(it) }
+        ReadableType.Array -> readableArray.getArray(index)?.let { readableArrayToList(it) }
+      }
+      if (value != null) {
+        list.add(value)
       }
     }
     return list
