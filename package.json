@@ -13,6 +13,7 @@
     "contract:celo:verify": "npx hardhat run --config hedwig-backend/hardhat.config.cjs --network celo hedwig-backend/scripts/verify-proof-registry.js",
     "contract:celo:deploy:sepolia": "npx hardhat run --config hedwig-backend/hardhat.config.cjs --network celoSepolia hedwig-backend/scripts/deploy-proof-registry.js",
     "contract:celo:verify:sepolia": "npx hardhat run --config hedwig-backend/hardhat.config.cjs --network celoSepolia hedwig-backend/scripts/verify-proof-registry.js",
+    "eas-build-pre-install": "bash scripts/ensure-cocoapods.sh",
     "postinstall": "node scripts/patch-freeport-async.js"
   },
   "dependencies": {
