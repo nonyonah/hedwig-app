@@ -123,6 +123,95 @@ const FREQ_DESCRIPTIONS: Record<string, string> = {
 };
 
 export const EmailService = {
+    async sendConversionResearchEmail(data: {
+        to: string;
+        firstName?: string | null;
+        segment: 'inactive' | 'no_invoice' | 'new_never_used';
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping conversion research email.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const name = String(data.firstName || '').trim();
+        const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi there,';
+        const dashboardUrl = `${APP_URL}/dashboard`;
+
+        const segmentCopy = {
+            inactive: {
+                subject: 'Quick question about Hedwig',
+                eyebrow: 'A quick check-in',
+                heading: 'Can I ask what got in the way?',
+                body: 'I noticed you have not been back in a while. Was Hedwig missing something you needed, confusing to use, or just not useful right now?',
+            },
+            no_invoice: {
+                subject: 'What stopped you from sending an invoice?',
+                eyebrow: 'A quick check-in',
+                heading: 'What blocked your first invoice?',
+                body: 'I noticed you signed up but have not created an invoice or payment link yet. Was anything unclear, missing, or not worth the effort?',
+            },
+            new_never_used: {
+                subject: 'Did Hedwig miss the mark for you?',
+                eyebrow: 'A quick check-in',
+                heading: 'Did Hedwig miss the mark?',
+                body: 'I noticed you created an account but did not really get started. I would love to know what you expected and what got in the way.',
+            },
+        }[data.segment];
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${escapeHtml(segmentCopy.subject)}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">${escapeHtml(segmentCopy.eyebrow)}</p>
+                    <h1 class="heading">${escapeHtml(segmentCopy.heading)}</h1>
+                    <p class="description">${greeting}</p>
+                    <p class="description">${escapeHtml(segmentCopy.body)}</p>
+                    <div style="border:1px solid #e9eaeb;background:#f9fafb;border-radius:14px;padding:16px;margin:22px 0;">
+                        <p style="margin:0;color:#414651;font-size:14px;line-height:1.6;">You can just reply to this email with one sentence. I read these personally and use them to decide what we fix next.</p>
+                    </div>
+                    <div class="btn-container">
+                        <a href="${dashboardUrl}" class="btn">Open Hedwig</a>
+                    </div>
+                    <hr class="divider" />
+                    <p style="font-size:13px;color:#717680;line-height:1.6;">Nonso<br />Founder, Hedwig</p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Nonso from Hedwig <nonso@hedwigbot.xyz>',
+                to: [data.to],
+                subject: segmentCopy.subject,
+                html,
+                replyTo: 'nonso@hedwigbot.xyz',
+            });
+            logger.info('Conversion research email sent', { to: data.to, segment: data.segment });
+            return true;
+        } catch (error) {
+            logger.error('Conversion research email failed', {
+                error: error instanceof Error ? error.message : 'Unknown',
+                to: data.to,
+                segment: data.segment,
+            });
+            return false;
+        }
+    },
+
     async sendAssistantBriefEmail(data: {
         to: string;
         subject: string;
@@ -142,6 +231,10 @@ export const EmailService = {
         const dashboardUrl = resolvePublicUrl(data.ctaPath || '/dashboard', '/dashboard');
         const stats = (data.stats || []).slice(0, 4);
         const highlights = (data.highlights || []).filter(Boolean).slice(0, 3);
+        const statRows = [];
+        for (let i = 0; i < stats.length; i += 2) {
+            statRows.push(stats.slice(i, i + 2));
+        }
 
         const html = `
         <!DOCTYPE html>
@@ -158,21 +251,27 @@ export const EmailService = {
                 <div class="header">${LOGO_HTML}</div>
                 <div class="content">
                     <p class="eyebrow">${escapeHtml(data.eyebrow)}</p>
-                    <h1 class="heading">${escapeHtml(data.heading)}</h1>
-                    <p class="description">${escapeHtml(data.summary)}</p>
+                    <h1 class="heading" style="margin-bottom:12px;">${escapeHtml(data.heading)}</h1>
+                    <p class="description" style="margin-bottom:18px;">${escapeHtml(data.summary)}</p>
                     ${stats.length > 0 ? `
-                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:20px 0;">
-                        ${stats.map((stat) => `
-                        <div style="background:#f9fafb;border:1px solid #e9eaeb;border-radius:12px;padding:14px;">
-                            <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a4a7ae;">${escapeHtml(stat.label)}</p>
-                            <p style="margin:0;font-size:18px;font-weight:700;color:#181d27;">${escapeHtml(stat.value)}</p>
-                        </div>`).join('')}
-                    </div>` : ''}
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0 10px;margin:18px 0 8px;">
+                        ${statRows.map((row) => `
+                        <tr>
+                            ${row.map((stat) => `
+                            <td width="50%" style="background:#f9fafb;border:1px solid #e9eaeb;border-radius:12px;padding:14px;vertical-align:top;">
+                                <p style="margin:0 0 5px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a4a7ae;">${escapeHtml(stat.label)}</p>
+                                <p style="margin:0;font-size:19px;line-height:1.2;font-weight:700;color:#181d27;">${escapeHtml(stat.value)}</p>
+                            </td>`).join('<td width="10" style="font-size:0;line-height:0;">&nbsp;</td>')}
+                            ${row.length === 1 ? '<td width="10" style="font-size:0;line-height:0;">&nbsp;</td><td width="50%" style="font-size:0;line-height:0;">&nbsp;</td>' : ''}
+                        </tr>`).join('')}
+                    </table>` : ''}
                     ${highlights.length > 0 ? `
-                    <div style="margin:20px 0;">
-                        <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a4a7ae;">Highlights</p>
+                    <div style="margin:22px 0 8px;">
+                        <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a4a7ae;">What matters</p>
                         ${highlights.map((highlight) => `
-                        <p style="margin:0 0 8px;color:#535862;font-size:14px;line-height:1.5;">• ${escapeHtml(highlight)}</p>`).join('')}
+                        <div style="border-left:3px solid #2563eb;background:#f9fafb;border-radius:0 10px 10px 0;padding:10px 12px;margin-bottom:8px;">
+                            <p style="margin:0;color:#414651;font-size:14px;line-height:1.5;">${escapeHtml(highlight)}</p>
+                        </div>`).join('')}
                     </div>` : ''}
                     <div class="btn-container">
                         <a href="${dashboardUrl}" class="btn">Open Hedwig</a>

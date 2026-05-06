@@ -37,6 +37,13 @@ function formatUsdBrief(value: number): string {
     return value >= 1000 ? `$${(value / 1000).toFixed(1)}k` : `$${value.toFixed(2)}`;
 }
 
+function compactList(items: Array<string | null | undefined>, limit = 3): string[] {
+    return items
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, limit);
+}
+
 function currentUtcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
 }
@@ -119,6 +126,12 @@ export const SchedulerService = {
         cron.schedule('45 * * * *', () => {
             withLock('onboarding-nudges', hourlyLockTtl, () => this.sendOnboardingIncompleteNudges())
                 .catch((e) => logger.error('onboarding-nudges lock error', { error: e?.message }));
+        });
+
+        // Founder conversion research — daily at noon.
+        cron.schedule('0 12 * * *', () => {
+            withLock('conversion-research-nudges', dailyLockTtl, () => this.sendConversionResearchNudges())
+                .catch((e) => logger.error('conversion-research-nudges lock error', { error: e?.message }));
         });
 
         // Invoice viewed but unpaid — hourly follow-up nudge to freelancer
@@ -210,10 +223,14 @@ export const SchedulerService = {
         ]);
     },
 
-    async hasAssistantNotification(userId: string, assistantType: string, periodKey: string): Promise<boolean> {
+    async getAssistantNotification(userId: string, assistantType: string, periodKey: string): Promise<{
+        id: string;
+        metadata: Record<string, unknown>;
+        emailSent: boolean;
+    } | null> {
         const { data, error } = await supabase
             .from('notifications')
-            .select('id')
+            .select('id, metadata')
             .eq('user_id', userId)
             .eq('type', 'assistant')
             .eq('metadata->>assistant_type', assistantType)
@@ -227,10 +244,17 @@ export const SchedulerService = {
                 periodKey,
                 error: error.message,
             });
-            return false;
+            return null;
         }
 
-        return Boolean(data && data.length > 0);
+        const row = data?.[0] as any;
+        if (!row) return null;
+        const metadata = ((row.metadata || {}) as Record<string, unknown>);
+        return {
+            id: String(row.id),
+            metadata,
+            emailSent: metadata.email_sent === true || metadata.email_sent === 'true',
+        };
     },
 
     async sendAssistantDailyBriefs() {
@@ -256,50 +280,72 @@ export const SchedulerService = {
             await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user: any) => {
                 const userId = String(user.id || '');
                 if (!userId) return;
-                if (await this.hasAssistantNotification(userId, 'daily_brief', periodKey)) return;
+                const existingNotification = await this.getAssistantNotification(userId, 'daily_brief', periodKey);
+                if (existingNotification?.emailSent) return;
 
                 try {
                     const brief = await generateDailyBrief(userId);
                     const title = 'Your daily Hedwig brief';
                     const message = brief.summary || 'Your workspace brief is ready.';
-
-                    await supabase.from('notifications').insert({
-                        user_id: userId,
-                        type: 'assistant',
-                        title,
-                        message,
-                        metadata: {
-                            assistant_type: 'daily_brief',
-                            period_key: periodKey,
-                            generated_at: brief.generatedAt,
-                            metrics: brief.metrics,
-                            highlights: brief.highlights,
-                        },
-                        is_read: false,
-                    });
-
-                    await NotificationService.notifyUser(userId, {
-                        title,
-                        body: message,
-                        data: { type: 'assistant_daily_brief', periodKey },
-                    }).catch((err) => logger.warn('Daily brief push failed', { userId, error: err?.message }));
+                    const outstandingUsd = (brief.metrics.unpaidAmountUsd || 0) + (brief.metrics.overdueAmountUsd || 0);
+                    const actionHighlights = compactList([
+                        ...((brief.events || []).slice(0, 2).map((event: any) => event.body ? `${event.title}: ${event.body}` : event.title)),
+                        ...(brief.highlights || []),
+                        brief.financialTrend?.description,
+                        ...(brief.projectAlerts || []),
+                    ], 3);
+                    let emailSent = false;
 
                     if (user.email) {
-                        await EmailService.sendAssistantBriefEmail({
+                        emailSent = await EmailService.sendAssistantBriefEmail({
                             to: user.email,
                             subject: 'Your daily Hedwig brief',
                             eyebrow: 'Daily brief',
                             heading: user.first_name ? `Good morning, ${user.first_name}` : 'Good morning',
                             summary: message,
-                            highlights: brief.highlights,
+                            highlights: actionHighlights,
                             stats: [
                                 { label: 'Unpaid', value: `${brief.metrics.unpaidCount}` },
                                 { label: 'Overdue', value: `${brief.metrics.overdueCount}` },
-                                { label: 'Outstanding', value: formatUsdBrief(brief.metrics.unpaidAmountUsd) },
+                                { label: 'Outstanding', value: formatUsdBrief(outstandingUsd) },
                                 { label: 'Deadlines', value: `${brief.metrics.upcomingDeadlines}` },
                             ],
                             ctaPath: '/dashboard',
                         });
+                    }
+
+                    const metadata = {
+                        ...(existingNotification?.metadata || {}),
+                        assistant_type: 'daily_brief',
+                        period_key: periodKey,
+                        generated_at: brief.generatedAt,
+                        metrics: {
+                            ...brief.metrics,
+                            outstandingAmountUsd: outstandingUsd,
+                        },
+                        highlights: actionHighlights,
+                        email_sent: emailSent,
+                    };
+
+                    if (existingNotification) {
+                        await supabase.from('notifications')
+                            .update({ title, message, metadata })
+                            .eq('id', existingNotification.id);
+                    } else {
+                        await supabase.from('notifications').insert({
+                            user_id: userId,
+                            type: 'assistant',
+                            title,
+                            message,
+                            metadata,
+                            is_read: false,
+                        });
+
+                        await NotificationService.notifyUser(userId, {
+                            title,
+                            body: message,
+                            data: { type: 'assistant_daily_brief', periodKey },
+                        }).catch((err) => logger.warn('Daily brief push failed', { userId, error: err?.message }));
                     }
                 } catch (err: any) {
                     logger.error('Failed to send assistant daily brief', { userId, error: err?.message });
@@ -335,43 +381,33 @@ export const SchedulerService = {
             await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user: any) => {
                 const userId = String(user.id || '');
                 if (!userId) return;
-                if (await this.hasAssistantNotification(userId, 'weekly_summary', periodKey)) return;
+                const existingNotification = await this.getAssistantNotification(userId, 'weekly_summary', periodKey);
+                if (existingNotification?.emailSent) return;
 
                 try {
                     const summary = await generateWeeklySummary(userId);
                     const title = 'Your weekly Hedwig summary';
                     const topClient = summary.topClients?.[0];
                     const message = summary.aiInsight || `${formatUsdBrief(summary.revenueUsd)} collected this week${topClient ? `, led by ${topClient.name}` : ''}.`;
-
-                    await supabase.from('notifications').insert({
-                        user_id: userId,
-                        type: 'assistant',
-                        title,
-                        message,
-                        metadata: {
-                            assistant_type: 'weekly_summary',
-                            period_key: periodKey,
-                            week_label: summary.weekLabel,
-                            revenue_usd: summary.revenueUsd,
-                            top_clients: summary.topClients,
-                        },
-                        is_read: false,
-                    });
-
-                    await NotificationService.notifyUser(userId, {
-                        title,
-                        body: message,
-                        data: { type: 'assistant_weekly_summary', periodKey },
-                    }).catch((err) => logger.warn('Weekly summary push failed', { userId, error: err?.message }));
+                    const weeklyHighlights = compactList([
+                        topClient ? `Top client: ${topClient.name} (${formatUsdBrief(topClient.amountUsd)})` : null,
+                        summary.revenueChangePct !== 0
+                            ? `Revenue ${summary.revenueChangePct > 0 ? 'up' : 'down'} ${Math.abs(summary.revenueChangePct)}% vs last week`
+                            : 'Revenue was flat against last week',
+                        summary.overdueCount > 0
+                            ? `${summary.overdueCount} overdue invoice${summary.overdueCount === 1 ? '' : 's'} worth ${formatUsdBrief(summary.overdueAmountUsd)}`
+                            : 'No overdue invoices at week end',
+                    ], 3);
+                    let emailSent = false;
 
                     if (user.email) {
-                        await EmailService.sendAssistantBriefEmail({
+                        emailSent = await EmailService.sendAssistantBriefEmail({
                             to: user.email,
                             subject: 'Your weekly Hedwig summary',
                             eyebrow: 'Weekly summary',
                             heading: summary.weekLabel || 'Your week in Hedwig',
                             summary: message,
-                            highlights: topClient ? [`Top client: ${topClient.name} (${formatUsdBrief(topClient.amountUsd)})`] : [],
+                            highlights: weeklyHighlights,
                             stats: [
                                 { label: 'Revenue', value: formatUsdBrief(summary.revenueUsd) },
                                 { label: 'Paid invoices', value: `${summary.paidInvoiceCount}` },
@@ -380,6 +416,41 @@ export const SchedulerService = {
                             ],
                             ctaPath: '/dashboard',
                         });
+                    }
+
+                    const metadata = {
+                        ...(existingNotification?.metadata || {}),
+                        assistant_type: 'weekly_summary',
+                        period_key: periodKey,
+                        week_label: summary.weekLabel,
+                        revenue_usd: summary.revenueUsd,
+                        previous_week_revenue_usd: summary.previousWeekRevenueUsd,
+                        revenue_change_pct: summary.revenueChangePct,
+                        overdue_amount_usd: summary.overdueAmountUsd,
+                        top_clients: summary.topClients,
+                        highlights: weeklyHighlights,
+                        email_sent: emailSent,
+                    };
+
+                    if (existingNotification) {
+                        await supabase.from('notifications')
+                            .update({ title, message, metadata })
+                            .eq('id', existingNotification.id);
+                    } else {
+                        await supabase.from('notifications').insert({
+                            user_id: userId,
+                            type: 'assistant',
+                            title,
+                            message,
+                            metadata,
+                            is_read: false,
+                        });
+
+                        await NotificationService.notifyUser(userId, {
+                            title,
+                            body: message,
+                            data: { type: 'assistant_weekly_summary', periodKey },
+                        }).catch((err) => logger.warn('Weekly summary push failed', { userId, error: err?.message }));
                     }
                 } catch (err: any) {
                     logger.error('Failed to send assistant weekly summary', { userId, error: err?.message });
@@ -1066,6 +1137,200 @@ export const SchedulerService = {
             });
         } catch (error: any) {
             logger.error('Error in sendOnboardingIncompleteNudges', { error: error?.message });
+        }
+    },
+
+    async hasRecentConversionResearchNudge(userId: string): Promise<boolean> {
+        const thirtyDaysAgo = new Date(Date.now() - (30 * DAY_MS)).toISOString();
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('metadata->>nudge_type', 'conversion_research')
+            .gte('created_at', thirtyDaysAgo)
+            .limit(1);
+
+        if (error) {
+            logger.warn('Failed to check conversion research duplicate', {
+                userId,
+                error: error.message,
+            });
+            return false;
+        }
+
+        return Boolean(data && data.length > 0);
+    },
+
+    async getUserConversionCounts(userId: string): Promise<{
+        clientCount: number;
+        documentCount: number;
+        invoiceOrPaymentLinkCount: number;
+        projectCount: number;
+    }> {
+        const [clients, documents, invoiceOrPaymentLinks, projects] = await Promise.all([
+            supabase.from('clients').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+            supabase.from('documents').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+            supabase.from('documents').select('*', { count: 'exact', head: true }).eq('user_id', userId).in('type', ['INVOICE', 'PAYMENT_LINK']),
+            supabase.from('projects').select('*', { count: 'exact', head: true }).eq('user_id', userId),
+        ]);
+
+        for (const result of [clients, documents, invoiceOrPaymentLinks, projects]) {
+            if (result.error) {
+                logger.warn('Failed to fetch user conversion count', {
+                    userId,
+                    error: result.error.message,
+                });
+            }
+        }
+
+        return {
+            clientCount: clients.count ?? 0,
+            documentCount: documents.count ?? 0,
+            invoiceOrPaymentLinkCount: invoiceOrPaymentLinks.count ?? 0,
+            projectCount: projects.count ?? 0,
+        };
+    },
+
+    classifyConversionResearchSegment(user: any, counts: {
+        clientCount: number;
+        documentCount: number;
+        invoiceOrPaymentLinkCount: number;
+        projectCount: number;
+    }, oneSignalLastSeenMap: Record<string, string>): 'inactive' | 'no_invoice' | 'new_never_used' | null {
+        const createdMs = this.timestampMs(user?.created_at);
+        if (createdMs === null) return null;
+
+        const ageMs = Date.now() - createdMs;
+        const hasWorkspaceActivity = counts.clientCount > 0 || counts.documentCount > 0 || counts.projectCount > 0;
+
+        if (!hasWorkspaceActivity && ageMs >= DAY_MS) {
+            return 'new_never_used';
+        }
+
+        // No upper age bound: this should include existing signups, not only recent cohorts.
+        if (counts.invoiceOrPaymentLinkCount === 0 && ageMs >= (3 * DAY_MS)) {
+            return 'no_invoice';
+        }
+
+        if (!hasWorkspaceActivity) return null;
+
+        const effectiveActivityMs = this.timestampMs(this.getEffectiveLastActivityAt(user, oneSignalLastSeenMap));
+        if (effectiveActivityMs === null) return null;
+
+        // No upper age bound: older users who went quiet are still research candidates.
+        if (effectiveActivityMs <= Date.now() - (21 * DAY_MS)) {
+            return 'inactive';
+        }
+
+        return null;
+    },
+
+    /**
+     * Ask non-converting users why they did not activate, sent as a founder email
+     * so replies go directly to Nonso. One touch per user every 30 days.
+     */
+    async sendConversionResearchNudges() {
+        try {
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('id, privy_id, email, first_name, created_at, last_app_opened_at, last_login')
+                .not('email', 'is', null)
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch users for conversion research nudges', { error: error.message });
+                return;
+            }
+
+            const candidates = (users || []).filter((user: any) => {
+                const email = String(user.email || '').trim();
+                return email.includes('@');
+            });
+
+            if (candidates.length === 0) {
+                logger.debug('No users with email eligible for conversion research nudges');
+                return;
+            }
+
+            const oneSignalLastSeenMap = await this.getOneSignalLastSeenMap();
+            await this.backfillLastAppOpenedAt(candidates, oneSignalLastSeenMap);
+
+            const eligible: Array<{
+                user: any;
+                segment: 'inactive' | 'no_invoice' | 'new_never_used';
+            }> = [];
+
+            await processInBatches(candidates, SCHEDULER_CONCURRENCY, async (user: any) => {
+                const userId = String(user.id || '');
+                if (!userId) return;
+                if (await this.hasRecentConversionResearchNudge(userId)) return;
+
+                const counts = await this.getUserConversionCounts(userId);
+                const segment = this.classifyConversionResearchSegment(user, counts, oneSignalLastSeenMap);
+                if (segment) eligible.push({ user, segment });
+            });
+
+            if (eligible.length === 0) {
+                logger.debug('No users eligible for conversion research nudges after segmentation');
+                return;
+            }
+
+            logger.info('Sending conversion research nudges', { count: eligible.length });
+
+            const notificationCopy: Record<'inactive' | 'no_invoice' | 'new_never_used', { title: string; message: string }> = {
+                inactive: {
+                    title: 'Quick question about Hedwig',
+                    message: 'Nonso asked what got in the way. Reply to the email with one sentence.',
+                },
+                no_invoice: {
+                    title: 'What blocked your first invoice?',
+                    message: 'Nonso asked what stopped you from sending an invoice or payment link.',
+                },
+                new_never_used: {
+                    title: 'Did Hedwig miss the mark?',
+                    message: 'Nonso asked what you expected and what got in the way.',
+                },
+            };
+
+            await processInBatches(eligible, SCHEDULER_CONCURRENCY, async ({ user, segment }) => {
+                try {
+                    const userId = String(user.id || '');
+                    const firstName = String(user.first_name || '').trim();
+                    const copy = notificationCopy[segment];
+                    const emailSent = await EmailService.sendConversionResearchEmail({
+                        to: String(user.email).trim(),
+                        firstName,
+                        segment,
+                    });
+
+                    await supabase.from('notifications').insert({
+                        user_id: userId,
+                        type: 'announcement',
+                        title: copy.title,
+                        message: copy.message,
+                        metadata: {
+                            nudge_type: 'conversion_research',
+                            segment,
+                            email_sent: emailSent,
+                        },
+                        is_read: false,
+                    });
+
+                    await BackendAnalytics.capture(String(user.privy_id || userId), 'conversion_research_nudge_sent', {
+                        user_id: userId,
+                        segment,
+                        channels: emailSent ? ['email', 'in_app'] : ['in_app'],
+                    });
+                } catch (err: any) {
+                    logger.error('Failed to send conversion research nudge', {
+                        userId: user?.id,
+                        segment,
+                        error: err?.message,
+                    });
+                }
+            });
+        } catch (error: any) {
+            logger.error('Error in sendConversionResearchNudges', { error: error?.message });
         }
     },
 

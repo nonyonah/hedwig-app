@@ -402,6 +402,10 @@ schedulerRouter.post('/onboarding-nudges', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.sendOnboardingIncompleteNudges();
 });
+schedulerRouter.post('/conversion-research-nudges', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.sendConversionResearchNudges();
+});
 
 app.use('/internal/scheduler', schedulerRouter);
 

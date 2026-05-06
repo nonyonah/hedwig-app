@@ -1310,6 +1310,8 @@ Rules:
 - No hype words (amazing, incredible, transform), no emojis, no markdown.
 - Write like a sharp colleague, not a marketer.
 - Never mention KYC unless kind is kyc_24h.
+- Do not invent or use personal names in any generated field. If a user's real name is needed, the scheduler will add it from the database.
+- Do not use example names such as Sarah, Alex, Jane, John, or Michael.
 
 Return ONLY valid JSON with this exact shape:
 {
@@ -1340,6 +1342,16 @@ Return ONLY valid JSON with this exact shape:
       };
 
       if (!output.pushTitle || !output.pushBody || !output.emailSubject || !output.emailHeading || !output.emailBody) {
+        return fallback;
+      }
+
+      const generatedText = Object.values(output).join(' ').toLowerCase();
+      const forbiddenExampleNames = ['sarah', 'alex', 'jane', 'john', 'michael'];
+      if (forbiddenExampleNames.some((name) => generatedText.includes(name))) {
+        logger.warn('Re-engagement nudge copy contained an invented example name; using fallback', {
+          kind: input.kind,
+          variant: input.variant,
+        });
         return fallback;
       }
 
