@@ -11,12 +11,15 @@ The Hedwig AI assistant is built into every part of your workspace. It reads you
   <Card title="Daily brief" icon="sun">
     Every day, the assistant generates a summary of overdue invoices, active projects, pending payment links, upcoming calendar events, and outstanding balances. Open the dashboard to see it.
   </Card>
+
   <Card title="Creation Box" icon="sparkles">
     Type a plain-language request and the assistant drafts an invoice, payment link, or recurring invoice—pre-filled with amounts, client details, and due dates it extracts from your message.
   </Card>
+
   <Card title="Chat interface" icon="message-square">
     Ask questions about your business in plain English. The assistant looks up your live workspace data to answer accurately.
   </Card>
+
   <Card title="AI insights" icon="chart-line">
     The Insights screen shows earnings trends, payment rates, pending invoice totals, and your top client—calculated from your actual payment history.
   </Card>
@@ -30,12 +33,13 @@ The Creation Box is the fastest way to create a document. Instead of filling out
 
 <Steps>
   <Step title="Open the Creation Box">
-    On mobile, tap the **+** button on the home screen. On the web dashboard, find the Creation Box in the sidebar or at the top of the Documents page.
+    On the web dashboard, find the floating icon that has the Hedwig logo in the bottom right of the screen.
   </Step>
   <Step title="Type your request">
     Describe the document you need in natural language. You don't need to follow a specific format.
 
     Examples:
+
     - `Invoice for Tunde $1500 due next Friday`
     - `Payment link for Amara, $200 for logo design`
     - `Monthly invoice for Chidi, $800, recurring from Jan 1`
@@ -63,8 +67,7 @@ The chat interface lets you ask questions about your business and get answers ba
 
 ### How to access it
 
-- **Mobile:** tap the **Chats** tab at the bottom of the screen
-- **Web dashboard:** open the assistant panel from the sidebar
+- **Web dashboard:** open the assistant panel from the floating icon
 
 ### What you can ask
 
@@ -92,7 +95,7 @@ The **Insights** screen gives you an analytical view of your business performanc
 The following metrics are available, filterable by 7 days, 30 days, 90 days, or 1 year:
 
 | Metric | What it shows |
-|---|---|
+| --- | --- |
 | Monthly earnings | Total from paid invoices and payment links in the period |
 | Earnings trend | Percentage change versus the previous equivalent period |
 | Pending invoices | Count and total outstanding amount |
@@ -127,22 +130,27 @@ The assistant generates suggestions for:
 
 Here are some prompts to get started in the chat interface:
 
-```
+```text
 How much did I earn last month?
 ```
-```
+
+```text
 Which invoices are overdue?
 ```
-```
+
+```text
 Show me all active projects
 ```
-```
+
+```text
 Create an invoice for Kofi, $2000, due in 2 weeks
 ```
-```
+
+```text
 What's my payment rate this year?
 ```
-```
+
+```text
 List all unpaid invoices from the last 90 days
 ```
 
@@ -165,15 +173,19 @@ You can control which notifications the assistant sends. Go to **Settings → As
   <Accordion title="Can the AI send emails?">
     Not automatically. When the assistant suggests sending a payment reminder, it prepares the email draft and shows it to you first. You review the content and choose to approve or dismiss it. The email only sends after your explicit approval.
   </Accordion>
+
   <Accordion title="What data does the AI see?">
     The assistant has access to your workspace data: invoices, payment links, contracts, clients, projects, milestones, transactions, calendar events, and notifications. It does not access your email unless you have connected Gmail through Integrations, and even then it only reads threads relevant to your business (see [Email intelligence](/ai/email-intelligence)).
   </Accordion>
+
   <Accordion title="How accurate are AI-generated invoices?">
     The Creation Box is accurate when your request includes an amount and a recognizable client name. It matches client names against your saved clients list, so partial names and first-name-only mentions usually resolve correctly. Due dates are parsed from natural language ("next Friday", "end of month", "Feb 25") and converted to exact calendar dates. Always review the pre-filled details before confirming.
   </Accordion>
+
   <Accordion title="Does the assistant work offline?">
     No. The assistant requires a connection to fetch your live workspace data and generate responses.
   </Accordion>
+
   <Accordion title="Can I delete chat conversations?">
     Yes. In the Chats tab on mobile, long-press any conversation to enter selection mode, then delete the selected chats. Individual conversations can also be deleted by opening them.
   </Accordion>
