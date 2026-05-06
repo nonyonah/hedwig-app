@@ -49,9 +49,7 @@ yarn-error.*
 
 credentials.json
 credentials/
-google-services.json
 hedwig-backend/google-services.json
-GoogleService-Info.plist
 hedwig-backend/artifacts/
 hedwig-backend/cache/
 *.der
