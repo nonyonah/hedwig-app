@@ -154,5 +154,13 @@
   "engines": {
     "node": ">=20"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["react-native-randombytes"],
+        "listUnknownPackages": false
+      }
+    }
+  }
 }
