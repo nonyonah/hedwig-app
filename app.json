@@ -12,7 +12,6 @@
     },
     "userInterfaceStyle": "automatic",
     "scheme": "hedwig",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "buildNumber": "45",
