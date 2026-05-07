@@ -48,6 +48,8 @@ import AndroidDropdownMenu from '../../../components/ui/AndroidDropdownMenu';
 import IOSGlassIconButton from '../../../components/ui/IOSGlassIconButton';
 import TokenDetailSheet, { SelectedToken } from '../../../components/TokenDetailSheet';
 import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, updateUsdSettlement, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
+import { joinApiUrl } from '../../../utils/apiBaseUrl';
+import type { OnrampOrder } from '../../../hooks/useOnramp';
 
 // ─── Settlement chains ───────────────────────────────────────────────────────
 const SETTLEMENT_CHAINS = [
@@ -142,7 +144,8 @@ interface OfframpOrder {
 
 type ActivityItem =
     | { kind: 'tx';         data: Transaction  }
-    | { kind: 'withdrawal'; data: OfframpOrder };
+    | { kind: 'withdrawal'; data: OfframpOrder }
+    | { kind: 'onramp';     data: OnrampOrder  };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const toNumber = (value: unknown): number => {
@@ -308,6 +311,7 @@ export default function WalletScreen() {
     const tokenDetailSheetRef     = useRef<TrueSheet>(null);
     const txDetailSheetRef        = useRef<TrueSheet>(null);
     const withdrawalDetailSheetRef = useRef<TrueSheet>(null);
+    const onrampDetailSheetRef    = useRef<TrueSheet>(null);
 
     const [selectedToken,          setSelectedToken]          = useState<SelectedToken | null>(null);
     const sheetInteractionLockedRef = useRef(false);
@@ -332,10 +336,12 @@ export default function WalletScreen() {
     const [activeTab,       setActiveTab]       = useState<'coins' | 'activity'>('coins');
     const [transactions,    setTransactions]    = useState<Transaction[]>([]);
     const [offrampOrders,   setOfframpOrders]   = useState<OfframpOrder[]>([]);
+    const [onrampOrders,    setOnrampOrders]    = useState<OnrampOrder[]>([]);
     const [activityLoading, setActivityLoading] = useState(false);
-    const [activityFilter,  setActivityFilter]  = useState<'all' | 'in' | 'out' | 'withdrawals' | 'failed'>('all');
+    const [activityFilter,  setActivityFilter]  = useState<'all' | 'in' | 'out' | 'withdrawals' | 'onramps' | 'failed'>('all');
     const [selectedTx,       setSelectedTx]      = useState<Transaction | null>(null);
     const [selectedOrder,    setSelectedOrder]   = useState<OfframpOrder | null>(null);
+    const [selectedOnrampOrder, setSelectedOnrampOrder] = useState<OnrampOrder | null>(null);
 
     // ── Sheet helpers ──
     const lockSheetInteractions = useCallback((durationMs = 220) => {
@@ -350,7 +356,7 @@ export default function WalletScreen() {
         const refs = [
             receiveChooserSheetRef, receiveSheetRef, sendSheetRef, autoSettlementSheetRef,
             bridgeKycInfoSheetRef, tokenDetailSheetRef,
-            txDetailSheetRef, withdrawalDetailSheetRef,
+            txDetailSheetRef, withdrawalDetailSheetRef, onrampDetailSheetRef,
         ];
         refs.forEach(ref => { if (ref !== except) ref.current?.dismiss(); });
     }, []);
@@ -478,11 +484,26 @@ export default function WalletScreen() {
         } catch { /* non-fatal */ }
     }, [getAccessToken]);
 
+    const fetchOnrampOrders = useCallback(async () => {
+        try {
+            const token = await getAccessToken();
+            if (!token) return;
+            const res = await fetch(joinApiUrl('/api/onramp/orders'), {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const raw: any[] = Array.isArray(data?.data?.orders) ? data.data.orders : [];
+                setOnrampOrders(raw);
+            }
+        } catch { /* non-fatal */ }
+    }, [getAccessToken]);
+
     const onRefresh = async () => {
         setRefreshing(true);
         await Promise.all([
             fetchUserData(), fetchBaseBalances(), fetchUsdData(),
-            fetchTokenPrices(), fetchTransactions(), fetchOfframpOrders(),
+            fetchTokenPrices(), fetchTransactions(), fetchOfframpOrders(), fetchOnrampOrders(),
         ]);
         setLastUpdatedAt(new Date());
         setRefreshing(false);
@@ -496,6 +517,7 @@ export default function WalletScreen() {
             fetchTokenPrices();
             fetchTransactions();
             fetchOfframpOrders();
+            fetchOnrampOrders();
             setLastUpdatedAt(new Date());
 
             const balanceInterval = setInterval(() => {
@@ -509,6 +531,7 @@ export default function WalletScreen() {
             // Keep withdrawal statuses live while screen is open
             const ordersInterval = setInterval(() => {
                 fetchOfframpOrders();
+                fetchOnrampOrders();
             }, 10000);
 
             return () => {
@@ -516,7 +539,7 @@ export default function WalletScreen() {
                 clearInterval(priceInterval);
                 clearInterval(ordersInterval);
             };
-        }, [fetchBaseBalances, fetchUserData, fetchUsdData, fetchTokenPrices, fetchTransactions, fetchOfframpOrders])
+        }, [fetchBaseBalances, fetchUserData, fetchUsdData, fetchTokenPrices, fetchTransactions, fetchOfframpOrders, fetchOnrampOrders])
     );
 
     // Update selected order when orders refresh
@@ -525,6 +548,12 @@ export default function WalletScreen() {
         const updated = offrampOrders.find(o => o.id === selectedOrder.id);
         if (updated) setSelectedOrder(updated);
     }, [offrampOrders, selectedOrder]);
+
+    useEffect(() => {
+        if (!selectedOnrampOrder) return;
+        const updated = onrampOrders.find(o => o.id === selectedOnrampOrder.id);
+        if (updated) setSelectedOnrampOrder(updated);
+    }, [onrampOrders, selectedOnrampOrder]);
 
     // ── Derived values ──
     const selectedAddress     = selectedChain === 'solana' ? (solanaAddress || '') : (baseAddress || '');
@@ -583,21 +612,24 @@ export default function WalletScreen() {
             .filter(tx => tx.token.toUpperCase() === 'USDC')
             .map(tx => ({ kind: 'tx' as const, data: tx }));
         const wdItems = offrampOrders.map(o => ({ kind: 'withdrawal' as const, data: o }));
-        return [...txItems, ...wdItems].sort((a, b) => {
+        const onrampItems = onrampOrders.map(o => ({ kind: 'onramp' as const, data: o }));
+        return [...txItems, ...wdItems, ...onrampItems].sort((a, b) => {
             const dateA = a.kind === 'tx' ? new Date(a.data.date).getTime() : new Date(a.data.createdAt).getTime();
             const dateB = b.kind === 'tx' ? new Date(b.data.date).getTime() : new Date(b.data.createdAt).getTime();
             return dateB - dateA;
         });
-    }, [transactions, offrampOrders]);
+    }, [transactions, offrampOrders, onrampOrders]);
 
     const filteredActivity = useMemo(() => allActivity.filter(item => {
         if (activityFilter === 'all')         return true;
-        if (activityFilter === 'in')          return item.kind === 'tx' && item.data.type === 'IN';
+        if (activityFilter === 'in')          return (item.kind === 'tx' && item.data.type === 'IN') || item.kind === 'onramp';
         if (activityFilter === 'out')         return item.kind === 'tx' && item.data.type === 'OUT';
         if (activityFilter === 'withdrawals') return item.kind === 'withdrawal';
+        if (activityFilter === 'onramps')     return item.kind === 'onramp';
         if (activityFilter === 'failed')      return (
             (item.kind === 'tx' && item.data.status === 'failed') ||
-            (item.kind === 'withdrawal' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED'))
+            (item.kind === 'withdrawal' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED')) ||
+            (item.kind === 'onramp' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED'))
         );
         return true;
     }), [allActivity, activityFilter]);
@@ -702,6 +734,12 @@ export default function WalletScreen() {
         presentSheet(withdrawalDetailSheetRef);
     };
 
+    const openOnrampDetail = (order: OnrampOrder) => {
+        setSelectedOnrampOrder(order);
+        Haptics.selectionAsync();
+        presentSheet(onrampDetailSheetRef);
+    };
+
     const openExplorer = async (tx: Transaction) => {
         if (!tx.hash) { Alert.alert('Error', 'Transaction hash not available'); return; }
         let url = tx.network === 'base'
@@ -760,6 +798,46 @@ export default function WalletScreen() {
                         <Text style={[styles.activityFiat, { color: themeColors.textSecondary }]}>
                             ≈ {formatCurrency(tx.amount || '0', currency)}
                         </Text>
+                    </View>
+                </TouchableOpacity>
+            );
+        }
+
+        if (item.kind === 'onramp') {
+            const order = item.data;
+            const statusCfg = WITHDRAWAL_STATUS_CONFIG[order.status] || WITHDRAWAL_STATUS_CONFIG.PENDING;
+            const chainInfo = ACTIVITY_CHAINS[order.chain] || ACTIVITY_CHAINS.BASE;
+            const StatusIcon = statusCfg.Icon;
+            const providerLabel = order.providerInstitution
+                ? `${order.providerInstitution}${order.providerAccountNumber ? ` • ****${order.providerAccountNumber.slice(-4)}` : ''}`
+                : `${order.fiatCurrency} deposit`;
+            return (
+                <TouchableOpacity
+                    key={`onramp-${order.id}`}
+                    style={[styles.activityItem, { borderBottomColor: themeColors.border }]}
+                    onPress={() => openOnrampDetail(order)}
+                    activeOpacity={0.7}
+                >
+                    <View style={styles.activityIconContainer}>
+                        <Image source={ACTIVITY_ICONS.usdc} style={styles.activityTokenIcon} />
+                        <View style={[styles.activityChainBadge, { backgroundColor: themeColors.background, borderColor: themeColors.background }]}>
+                            <Image source={chainInfo.icon} style={styles.activityChainBadgeIcon} />
+                        </View>
+                    </View>
+                    <View style={styles.activityContent}>
+                        <Text style={[styles.activityTitle, { color: themeColors.textPrimary }]}>Buy USDC</Text>
+                        <Text style={[styles.activitySubtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                            {providerLabel}
+                        </Text>
+                    </View>
+                    <View style={styles.activityRight}>
+                        <Text style={[styles.activityAmount, { color: Colors.success }]}>
+                            +{Number(order.cryptoAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 4 })} {order.token}
+                        </Text>
+                        <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + '20' }]}>
+                            <StatusIcon size={11} color={statusCfg.color} strokeWidth={3} />
+                            <Text style={[styles.statusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+                        </View>
                     </View>
                 </TouchableOpacity>
             );
@@ -996,7 +1074,8 @@ export default function WalletScreen() {
                                                             {activityFilter === 'all' ? 'All' :
                                                              activityFilter === 'in' ? 'Received' :
                                                              activityFilter === 'out' ? 'Sent' :
-                                                             activityFilter === 'withdrawals' ? 'Withdrawals' : 'Failed'}
+                                                             activityFilter === 'withdrawals' ? 'Withdrawals' :
+                                                             activityFilter === 'onramps' ? 'Buy USDC' : 'Failed'}
                                                         </Text>
                                                         <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
                                                     </View>
@@ -1006,6 +1085,7 @@ export default function WalletScreen() {
                                                 <ExpoButton label="Received"    onPress={() => setActivityFilter('in')} />
                                                 <ExpoButton label="Sent"        onPress={() => setActivityFilter('out')} />
                                                 <ExpoButton label="Withdrawals" onPress={() => setActivityFilter('withdrawals')} />
+                                                <ExpoButton label="Buy USDC"    onPress={() => setActivityFilter('onramps')} />
                                                 <ExpoButton label="Failed"      onPress={() => setActivityFilter('failed')} />
                                             </Menu>
                                         </Host>
@@ -1016,6 +1096,7 @@ export default function WalletScreen() {
                                                 { label: 'Received',    onPress: () => setActivityFilter('in') },
                                                 { label: 'Sent',        onPress: () => setActivityFilter('out') },
                                                 { label: 'Withdrawals', onPress: () => setActivityFilter('withdrawals') },
+                                                { label: 'Buy USDC',    onPress: () => setActivityFilter('onramps') },
                                                 { label: 'Failed',      onPress: () => setActivityFilter('failed') },
                                             ]}
                                             trigger={
@@ -1024,7 +1105,8 @@ export default function WalletScreen() {
                                                         {activityFilter === 'all' ? 'All' :
                                                          activityFilter === 'in' ? 'Received' :
                                                          activityFilter === 'out' ? 'Sent' :
-                                                         activityFilter === 'withdrawals' ? 'Withdrawals' : 'Failed'}
+                                                         activityFilter === 'withdrawals' ? 'Withdrawals' :
+                                                         activityFilter === 'onramps' ? 'Buy USDC' : 'Failed'}
                                                     </Text>
                                                     <CaretDown size={14} color={themeColors.textSecondary} strokeWidth={3} />
                                                 </View>
@@ -1128,7 +1210,7 @@ export default function WalletScreen() {
                     cornerRadius={Platform.OS === 'ios' ? 50 : 24}
                     backgroundBlur="regular"
                     grabber={true}
-                    onDismiss={handleSheetDismiss}
+                    onDidDismiss={handleSheetDismiss}
                 >
                     <View style={styles.sendSheetContent}>
                         <Text style={[styles.sendSheetTitle, { color: themeColors.textPrimary }]}>Receive</Text>
@@ -1142,8 +1224,8 @@ export default function WalletScreen() {
                                     <LandmarkIcon size={20} color={themeColors.textPrimary} />
                                 </View>
                                 <View>
-                                    <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary }]}>Buy with bank transfer</Text>
-                                    <Text style={[styles.sendOptionSubtitle, { color: themeColors.textSecondary }]}>Onramp NGN or GHS to USDC</Text>
+                                    <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary }]}>Buy USDC</Text>
+                                    <Text style={[styles.sendOptionSubtitle, { color: themeColors.textSecondary }]}>Pay with local currency</Text>
                                 </View>
                             </View>
                             <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
@@ -1173,7 +1255,7 @@ export default function WalletScreen() {
                     cornerRadius={Platform.OS === 'ios' ? 50 : 24}
                     backgroundBlur="regular"
                     grabber={true}
-                    onDismiss={handleSheetDismiss}
+                    onDidDismiss={handleSheetDismiss}
                 >
                     <View style={styles.bottomSheetContent}>
                         <View style={styles.receiveHeader}>
@@ -1260,7 +1342,7 @@ export default function WalletScreen() {
                     cornerRadius={Platform.OS === 'ios' ? 50 : 24}
                     backgroundBlur="regular"
                     grabber={true}
-                    onDismiss={handleSheetDismiss}
+                    onDidDismiss={handleSheetDismiss}
                 >
                     <View style={styles.sendSheetContent}>
                         <Text style={[styles.sendSheetTitle,    { color: themeColors.textPrimary }]}>Send</Text>
@@ -1295,7 +1377,7 @@ export default function WalletScreen() {
                     cornerRadius={Platform.OS === 'ios' ? 50 : 24}
                     backgroundBlur="regular"
                     grabber={true}
-                    onDismiss={handleSheetDismiss}
+                    onDidDismiss={handleSheetDismiss}
                 >
                     <View style={styles.sendSheetContent}>
                         <Text style={[styles.sendSheetTitle,    { color: themeColors.textPrimary }]}>Auto-settlement</Text>
@@ -1338,7 +1420,7 @@ export default function WalletScreen() {
                     cornerRadius={Platform.OS === 'ios' ? 50 : 24}
                     backgroundBlur="regular"
                     grabber={true}
-                    onDismiss={handleSheetDismiss}
+                    onDidDismiss={handleSheetDismiss}
                 >
                     <View style={{ paddingTop: 28, paddingBottom: 26, paddingHorizontal: 20 }}>
                         <View style={styles.bridgeKycSheetContent}>
@@ -1401,7 +1483,7 @@ export default function WalletScreen() {
                     cornerRadius={Platform.OS === 'ios' ? 50 : 24}
                     backgroundBlur="regular"
                     grabber={true}
-                    onDismiss={handleSheetDismiss}
+                    onDidDismiss={handleSheetDismiss}
                 >
                     <View style={{ paddingTop: 28, paddingBottom: 26, paddingHorizontal: 24 }}>
                         <View style={styles.modalHeader}>
@@ -1495,7 +1577,7 @@ export default function WalletScreen() {
                     cornerRadius={Platform.OS === 'ios' ? 50 : 24}
                     backgroundBlur="regular"
                     grabber={true}
-                    onDismiss={handleSheetDismiss}
+                    onDidDismiss={handleSheetDismiss}
                 >
                     <View style={{ paddingTop: 28, paddingBottom: 26, paddingHorizontal: 20 }}>
                         <View style={styles.modalHeader}>
@@ -1547,6 +1629,95 @@ export default function WalletScreen() {
                                         { label: 'Bank',     value: selectedOrder.bankName,     sub: selectedOrder.accountNumber },
                                         { label: 'Chain',    value: ACTIVITY_CHAINS[selectedOrder.chain]?.name || 'Base', chainIcon: ACTIVITY_CHAINS[selectedOrder.chain]?.icon },
                                         { label: 'Rate',     value: `1 ${selectedOrder.token} = ${selectedOrder.fiatCurrency} ${Number(selectedOrder.exchangeRate || 0).toLocaleString()}` },
+                                    ].map((row, i, arr) => (
+                                        <View key={row.label}>
+                                            <View style={styles.detailRow}>
+                                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{row.label}</Text>
+                                                {row.copy ? (
+                                                    <TouchableOpacity onPress={() => copyToClipboard(row.copy!)} style={styles.detailValueRow}>
+                                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{row.value}</Text>
+                                                        <Copy size={14} color={themeColors.textSecondary} strokeWidth={2.5} style={{ marginLeft: 6 }} />
+                                                    </TouchableOpacity>
+                                                ) : row.chainIcon ? (
+                                                    <View style={styles.chainValueRow}>
+                                                        <Image source={row.chainIcon} style={styles.smallIcon} />
+                                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{row.value}</Text>
+                                                    </View>
+                                                ) : (
+                                                    <View style={{ alignItems: 'flex-end' }}>
+                                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{row.value}</Text>
+                                                        {row.sub && <Text style={[styles.detailLabel, { color: themeColors.textSecondary, fontSize: 12 }]}>{row.sub}</Text>}
+                                                    </View>
+                                                )}
+                                            </View>
+                                            {i < arr.length - 1 && <View style={[styles.detailDivider, { backgroundColor: themeColors.border }]} />}
+                                        </View>
+                                    ))}
+                                </View>
+                            </ScrollView>
+                        )}
+                    </View>
+                </TrueSheet>
+
+                {/* Onramp detail sheet */}
+                <TrueSheet
+                    ref={onrampDetailSheetRef}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
+                    onDidDismiss={handleSheetDismiss}
+                >
+                    <View style={{ paddingTop: 28, paddingBottom: 26, paddingHorizontal: 20 }}>
+                        <View style={styles.modalHeader}>
+                            <View style={styles.modalHeaderLeft}>
+                                <View style={styles.modalIconContainer}>
+                                    <Image source={ACTIVITY_ICONS.usdc} style={styles.modalTokenIcon} />
+                                </View>
+                                <View>
+                                    <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>
+                                        {selectedOnrampOrder?.status
+                                            ? selectedOnrampOrder.status.charAt(0).toUpperCase() + selectedOnrampOrder.status.slice(1).toLowerCase()
+                                            : 'Buy USDC'}
+                                    </Text>
+                                    <Text style={[styles.modalSubtitle, { color: themeColors.textSecondary }]}>
+                                        {selectedOnrampOrder?.createdAt ? format(new Date(selectedOnrampOrder.createdAt), 'MMM d, h:mm a') : ''}
+                                    </Text>
+                                </View>
+                            </View>
+                            <IOSGlassIconButton
+                                onPress={() => onrampDetailSheetRef.current?.dismiss()}
+                                systemImage="xmark"
+                                circleStyle={[styles.closeButton, { backgroundColor: themeColors.surface }]}
+                                icon={<X size={22} color={themeColors.textSecondary} strokeWidth={3.5} />}
+                            />
+                        </View>
+
+                        {selectedOnrampOrder && (
+                            <ScrollView showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
+                                <View style={[styles.progressSection, { backgroundColor: themeColors.surface }]}>
+                                    <ProgressSteps status={selectedOnrampOrder.status} themeColors={themeColors} />
+                                </View>
+
+                                <View style={[styles.amountCard, { backgroundColor: themeColors.surface }]}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary, marginBottom: 6 }]}>Amount to pay</Text>
+                                    <Text style={[styles.amountCardValue, { color: themeColors.textPrimary }]}>
+                                        {selectedOnrampOrder.fiatCurrency} {Number(selectedOnrampOrder.providerAmountToTransfer || selectedOnrampOrder.fiatAmount || 0).toLocaleString()}
+                                    </Text>
+                                    <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary, marginTop: 4 }]}>
+                                        {Number(selectedOnrampOrder.cryptoAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 4 })} {selectedOnrampOrder.token}
+                                    </Text>
+                                </View>
+
+                                <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
+                                    {[
+                                        { label: 'Order ID', value: (selectedOnrampOrder.paycrestOrderId || selectedOnrampOrder.id).slice(0, 18) + '…', copy: selectedOnrampOrder.paycrestOrderId || selectedOnrampOrder.id },
+                                        { label: 'Deposit bank', value: selectedOnrampOrder.providerInstitution || 'Pending', sub: selectedOnrampOrder.providerAccountNumber || undefined },
+                                        { label: 'Account name', value: selectedOnrampOrder.providerAccountName || 'Pending' },
+                                        { label: 'Refund bank', value: selectedOnrampOrder.refundInstitution || 'Not set', sub: selectedOnrampOrder.refundAccountNumber || undefined },
+                                        { label: 'Chain', value: ACTIVITY_CHAINS[selectedOnrampOrder.chain]?.name || 'Base', chainIcon: ACTIVITY_CHAINS[selectedOnrampOrder.chain]?.icon },
+                                        { label: 'Rate', value: `1 ${selectedOnrampOrder.token} = ${selectedOnrampOrder.fiatCurrency} ${Number(selectedOnrampOrder.exchangeRate || 0).toLocaleString()}` },
+                                        ...(selectedOnrampOrder.validUntil ? [{ label: 'Deposit window', value: format(new Date(selectedOnrampOrder.validUntil), 'MMM d, h:mm a') }] : []),
                                     ].map((row, i, arr) => (
                                         <View key={row.label}>
                                             <View style={styles.detailRow}>

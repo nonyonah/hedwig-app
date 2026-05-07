@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowSquareOut,
   CalendarBlank,
@@ -26,6 +27,13 @@ import {
   X,
 } from '@/components/ui/lucide-icons';
 import type { EmailThread, DocumentType } from '@/lib/types/email-intelligence';
+import { hedwigApi } from '@/lib/api/client';
+
+type ClientOption = {
+  id: string;
+  name: string;
+  email?: string | null;
+};
 
 function formatEmailTime(iso: string) {
   const ts = Date.parse(iso);
@@ -50,6 +58,14 @@ function formatEmailTime(iso: string) {
 function formatAmount(amount?: number, currency = 'USD') {
   if (!amount) return null;
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+}
+
+function formatFileSize(sizeBytes?: number) {
+  const size = Number(sizeBytes || 0);
+  if (!Number.isFinite(size) || size <= 0) return 'Unknown size';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function ConfidenceMeter({ score }: { score: number }) {
@@ -149,12 +165,14 @@ const MOCK_CALENDAR_SUGGESTION = {
 
 export function ThreadDetailPanel({
   thread,
+  accessToken,
   onClose,
   onConfirm,
   onIgnore,
   onUpdate,
 }: {
   thread: EmailThread;
+  accessToken: string | null;
   onClose: () => void;
   onConfirm: () => void;
   onIgnore: () => void;
@@ -162,6 +180,82 @@ export function ThreadDetailPanel({
 }) {
   const amount = formatAmount(thread.detectedAmount, thread.detectedCurrency);
   const isMatched = thread.status === 'matched';
+  const [showClientPicker, setShowClientPicker] = useState(false);
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [isLinking, setIsLinking] = useState(false);
+
+  const suggestedClientName = useMemo(() => {
+    if (thread.fromName?.trim()) return thread.fromName.trim();
+    const local = thread.fromEmail.split('@')[0] || 'Imported client';
+    return local
+      .split(/[._-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ') || 'Imported client';
+  }, [thread.fromEmail, thread.fromName]);
+
+  useEffect(() => {
+    if (!showClientPicker || !accessToken) return;
+    hedwigApi.clients({ accessToken })
+      .then((items) => {
+        setClients(items.map((client) => ({
+          id: client.id,
+          name: client.name,
+          email: client.email,
+        })));
+      })
+      .catch(() => setClients([]));
+  }, [accessToken, showClientPicker]);
+
+  const patchCurrentThread = async (body: Record<string, unknown>, update: Partial<EmailThread>) => {
+    setIsLinking(true);
+    try {
+      const resp = await fetch(`/api/integrations/threads?id=${thread.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) throw new Error('Could not update import');
+      onUpdate({ ...thread, ...update });
+      setShowClientPicker(false);
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
+  const handleLinkClient = async (client: ClientOption) => {
+    await patchCurrentThread(
+      { matchedClientId: client.id, status: 'matched' },
+      {
+        matchedClientId: client.id,
+        matchedClientName: client.name,
+        status: 'matched',
+        confidenceScore: thread.confidenceScore ?? 1,
+      },
+    );
+  };
+
+  const handleCreateClient = async () => {
+    if (!accessToken) return;
+    setIsLinking(true);
+    try {
+      const client = await hedwigApi.createClient({
+        name: suggestedClientName,
+        email: thread.fromEmail,
+      }, { accessToken });
+      await patchCurrentThread(
+        { matchedClientId: client.id, status: 'matched' },
+        {
+          matchedClientId: client.id,
+          matchedClientName: client.name,
+          status: 'matched',
+          confidenceScore: 1,
+        },
+      );
+    } finally {
+      setIsLinking(false);
+    }
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-l border-[#f2f4f7] bg-white">
@@ -239,7 +333,11 @@ export function ThreadDetailPanel({
         <div className="border-b border-[#f2f4f7] px-5 py-4 space-y-2">
           <div className="flex items-center justify-between mb-2">
             <SectionLabel>Linked to</SectionLabel>
-            <button type="button" className="text-[11px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]">
+            <button
+              type="button"
+              onClick={() => setShowClientPicker((value) => !value)}
+              className="text-[11px] font-semibold text-[#2563eb] hover:text-[#1d4ed8]"
+            >
               + Assign
             </button>
           </div>
@@ -251,7 +349,49 @@ export function ThreadDetailPanel({
                 <User className="h-3.5 w-3.5" />
                 <span className="text-[12px]">No client linked</span>
               </div>
-              <button type="button" className="text-[11px] font-semibold text-[#2563eb]">Link</button>
+              <button
+                type="button"
+                onClick={() => setShowClientPicker(true)}
+                className="text-[11px] font-semibold text-[#2563eb]"
+              >
+                Link
+              </button>
+            </div>
+          )}
+          {showClientPicker && (
+            <div className="space-y-2 rounded-xl border border-[#e9eaeb] bg-white p-2 shadow-xs">
+              <button
+                type="button"
+                disabled={isLinking || !accessToken}
+                onClick={() => void handleCreateClient()}
+                className="flex w-full items-center justify-between rounded-lg bg-[#eff4ff] px-3 py-2.5 text-left transition hover:bg-[#dbeafe] disabled:opacity-60"
+              >
+                <span>
+                  <span className="block text-[12px] font-semibold text-[#181d27]">Create {suggestedClientName}</span>
+                  <span className="block text-[11px] text-[#717680]">{thread.fromEmail}</span>
+                </span>
+                <UserPlus className="h-3.5 w-3.5 text-[#2563eb]" />
+              </button>
+              <div className="max-h-48 overflow-y-auto">
+                {clients.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    disabled={isLinking}
+                    onClick={() => void handleLinkClient(client)}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition hover:bg-[#f9fafb] disabled:opacity-60"
+                  >
+                    <span>
+                      <span className="block text-[12px] font-semibold text-[#181d27]">{client.name}</span>
+                      {client.email && <span className="block text-[11px] text-[#717680]">{client.email}</span>}
+                    </span>
+                    <LinkSimple className="h-3.5 w-3.5 text-[#a4a7ae]" />
+                  </button>
+                ))}
+                {!clients.length && (
+                  <p className="px-3 py-2 text-[11px] text-[#717680]">No existing clients found.</p>
+                )}
+              </div>
             </div>
           )}
           {thread.matchedProjectName ? (
@@ -271,9 +411,18 @@ export function ThreadDetailPanel({
         {thread.hasAttachments && (
           <div className="border-b border-[#f2f4f7] px-5 py-4 space-y-2">
             <SectionLabel>Attachments ({thread.attachmentCount})</SectionLabel>
-            <AttachmentRow name="invoice_acme_jan2024.pdf" size="248 KB" type={thread.detectedType} />
-            {thread.attachmentCount > 1 && (
-              <AttachmentRow name="payment_schedule.xlsx" size="34 KB" />
+            {(thread.attachments?.length ? thread.attachments : []).map((attachment) => (
+              <AttachmentRow
+                key={attachment.id}
+                name={attachment.filename}
+                size={formatFileSize(attachment.sizeBytes)}
+                type={attachment.attachmentType || thread.detectedType}
+              />
+            ))}
+            {!thread.attachments?.length && (
+              <p className="text-[12px] text-[#717680]">
+                Attachment metadata is still syncing.
+              </p>
             )}
           </div>
         )}

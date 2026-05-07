@@ -32,14 +32,6 @@ if (Platform.OS === 'ios') {
     } catch (e) { /* not available */ }
 }
 
-let JCModalBottomSheet: any = null;
-if (Platform.OS === 'android') {
-    try {
-        const JC = require('@expo/ui/jetpack-compose');
-        JCModalBottomSheet = JC.ModalBottomSheet;
-    } catch (e) { /* not available */ }
-}
-
 export type SelectorSheetOption = {
     id: string;
     label: string;
@@ -156,21 +148,21 @@ export function SelectorSheet({
         );
     }
 
-    if (JCModalBottomSheet && visible) {
-        return (
-            <JCModalBottomSheet onDismissRequest={onClose}>
-                <View style={{ backgroundColor: themeColors.background }}>
-                    {listContent}
-                </View>
-            </JCModalBottomSheet>
-        );
-    }
-
-    // RN Modal fallback (e.g. older devices / web).
+    // RN Modal fallback. Android uses this path deliberately because the
+    // Expo UI Jetpack Compose sheet can silently no-op in some dev builds.
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <Pressable style={styles.backdrop} onPress={onClose}>
-                <Pressable style={[styles.fallbackSheet, { backgroundColor: themeColors.background }]} onPress={(event) => event.stopPropagation()}>
+                <Pressable
+                    style={[
+                        styles.fallbackSheet,
+                        {
+                            backgroundColor: themeColors.background,
+                            height: `${Math.min(Math.max(detentFraction, 0.35), 0.9) * 100}%`,
+                        },
+                    ]}
+                    onPress={(event) => event.stopPropagation()}
+                >
                     {listContent}
                 </Pressable>
             </Pressable>

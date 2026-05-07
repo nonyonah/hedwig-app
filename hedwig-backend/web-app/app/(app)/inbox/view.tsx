@@ -301,12 +301,20 @@ function EmptyState({ tab }: { tab: InboxTab }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function MagicInboxClient({ accessToken }: { accessToken: string | null }) {
+export function MagicInboxClient({
+  accessToken,
+  initialTab,
+}: {
+  accessToken: string | null;
+  initialTab?: InboxTab;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<InboxTab>((searchParams.get('tab') as InboxTab) ?? 'all');
+  const [activeTab, setActiveTab] = useState<InboxTab>(
+    (searchParams.get('tab') as InboxTab) ?? initialTab ?? 'all'
+  );
   const [search, setSearch] = useState('');
   const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);
   const [threads, setThreads] = useState<EmailThread[]>([]);
@@ -362,6 +370,9 @@ export function MagicInboxClient({ accessToken }: { accessToken: string | null }
     setThreads((prev) =>
       prev.map((t) => (t.id === threadId ? { ...t, status: 'matched' as const } : t))
     );
+    setSelectedThread((current) => (
+      current?.id === threadId ? { ...current, status: 'matched' as const } : current
+    ));
     patchThread(threadId, { status: 'matched' }).catch(() => {});
     toast({ type: 'success', title: 'Match confirmed' });
   };
@@ -523,6 +534,7 @@ export function MagicInboxClient({ accessToken }: { accessToken: string | null }
         {selectedThread && (
           <ThreadDetailPanel
             thread={selectedThread}
+            accessToken={accessToken}
             onClose={() => setSelectedThread(null)}
             onConfirm={() => handleConfirm(selectedThread.id)}
             onIgnore={() => handleIgnore(selectedThread.id)}

@@ -151,7 +151,8 @@ export class PaycrestService {
         // Paycrest network identifiers (try most specific first, fall back to aliases)
         const candidates: Record<string, string[]> = {
             base:     ['base', 'ethereum'],
-            arbitrum: ['arbitrum', 'arbitrum-one'],
+            arbitrum: ['arbitrum-one', 'arbitrum'],
+            'arbitrum-one': ['arbitrum-one', 'arbitrum'],
             polygon:  ['polygon', 'matic'],
             celo:     ['celo'],
             lisk:     ['lisk'],
@@ -287,11 +288,11 @@ export class PaycrestService {
 
     /**
      * Get the buy-side exchange rate used for an onramp quote.
-     * GET /v2/rates/:network/:token/:amount/:fiat?side=buy
+     * GET /v2/rates/:network/:token/:amount/:fiat
      *
-     * Paycrest v2 returns both buy and sell rates; we ask for the buy side
-     * because an onramp converts fiat -> stablecoin (provider sells stable).
-     * Response shape: { status, data: { buy: { rate, provider }, sell: ... } }
+     * Paycrest v2 returns both buy and sell rates. Use data.buy.rate for
+     * onramp (fiat -> stablecoin) and data.sell.rate for offramp display.
+     * Response shape: { status, data: { buy: { rate, providerIds }, sell: ... } }
      * — fall back to a flat string for older response variants.
      */
     static async getOnrampBuyRate(
@@ -306,13 +307,13 @@ export class PaycrestService {
         for (const networkCandidate of networkCandidates) {
             try {
                 const response = await paycrestClientV2.get(
-                    `/rates/${encodeURIComponent(networkCandidate)}/${encodeURIComponent(token.toUpperCase())}/${encodeURIComponent(String(amount))}/${encodeURIComponent(fiatCurrency.toUpperCase())}`,
-                    { params: { side: 'buy' } }
+                    `/rates/${encodeURIComponent(networkCandidate)}/${encodeURIComponent(token.toUpperCase())}/${encodeURIComponent(String(amount))}/${encodeURIComponent(fiatCurrency.toUpperCase())}`
                 );
 
                 const payload = response.data?.data ?? response.data;
                 const buyRateRaw =
                     payload?.buy?.rate ??
+                    payload?.data?.buy?.rate ??
                     payload?.buy_rate ??
                     payload?.buyRate ??
                     payload?.rate ??
@@ -329,9 +330,12 @@ export class PaycrestService {
                 });
             } catch (error: any) {
                 lastError = error;
+                const status = error.response?.status || null;
+                const providerMessage = error.response?.data?.message || error.message;
                 logger.warn('Error fetching onramp buy rate', {
                     network: networkCandidate,
-                    error: error.response?.data?.message || error.message,
+                    status,
+                    error: providerMessage,
                 });
             }
         }
@@ -614,7 +618,7 @@ export class PaycrestService {
 
 export interface OnrampOrderRequest {
     fiatAmount: number;
-    fiatCurrency: 'NGN' | 'GHS';
+    fiatCurrency: 'NGN' | 'KES' | 'TZS' | 'MWK' | 'UGX' | 'BRL';
     token: 'USDC';
     network: 'base' | 'polygon' | 'celo' | 'arbitrum';
     recipientAddress: string;

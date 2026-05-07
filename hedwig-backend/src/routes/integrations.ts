@@ -12,7 +12,14 @@ import {
   buildGoogleAuthUrl,
   type Provider,
 } from '../services/integrations';
-import { syncGmailThreads, matchThreadsToWorkspace, syncGoogleCalendar, pushHedwigEventsToGoogleCalendar } from '../services/emailSync';
+import {
+  hasActiveComposioGmail,
+  syncComposioGmailThreads,
+  syncGmailThreads,
+  matchThreadsToWorkspace,
+  syncGoogleCalendar,
+  pushHedwigEventsToGoogleCalendar,
+} from '../services/emailSync';
 import { syncComposioGoogleCalendar } from '../services/composioCalendar';
 import {
   isComposioConfigured,
@@ -132,11 +139,28 @@ router.get('/', async (req: Request, res: Response) => {
     const integrations = await getIntegrations(userId);
     if (isComposioConfigured()) {
       await refreshComposioStatus(userId, 'google_calendar').catch(() => null);
+      await refreshComposioStatus(userId, 'gmail').catch(() => null);
       const composioConnections = await listComposioConnections(userId).catch(() => []);
+      const composioGmail = composioConnections.find((connection) => connection.provider === 'gmail' && connection.connected);
       const composioCalendar = composioConnections.find((connection) => connection.provider === 'google_calendar' && connection.connected);
-      if (composioCalendar) {
-        const legacyWithoutCalendar = integrations.filter((integration) => integration.provider !== 'google_calendar');
-        legacyWithoutCalendar.push({
+      if (composioGmail || composioCalendar) {
+        const merged = integrations.filter((integration) => (
+          integration.provider !== (composioGmail ? 'gmail' : '__none__')
+          && integration.provider !== (composioCalendar ? 'google_calendar' : '__none__')
+        ));
+        if (composioGmail) merged.push({
+          id: `composio:${composioGmail.provider}`,
+          user_id: userId,
+          provider: 'gmail',
+          status: 'connected',
+          provider_email: composioGmail.accountLabel,
+          provider_user_id: null,
+          scope: null,
+          last_synced_at: composioGmail.lastSyncedAt,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any);
+        if (composioCalendar) merged.push({
           id: `composio:${composioCalendar.provider}`,
           user_id: userId,
           provider: 'google_calendar',
@@ -148,7 +172,7 @@ router.get('/', async (req: Request, res: Response) => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         } as any);
-        res.json({ success: true, data: legacyWithoutCalendar });
+        res.json({ success: true, data: merged });
         return;
       }
     }
@@ -220,7 +244,9 @@ router.post('/oauth/google/callback', async (req: Request, res: Response) => {
 
     if (integration?.id) {
       if (provider === 'gmail') {
-        syncGmailThreads(userId, integration.id).catch(() => {});
+        const syncPromise = hasActiveComposioGmail(userId)
+          .then((active) => active ? syncComposioGmailThreads(userId) : syncGmailThreads(userId, integration.id));
+        syncPromise.then(() => matchThreadsToWorkspace(userId)).catch(() => {});
       } else if (provider === 'google_calendar') {
         syncGoogleCalendar(userId, integration.id)
           .then(() => pushHedwigEventsToGoogleCalendar(userId))
@@ -255,7 +281,9 @@ router.post('/sync', async (req: Request, res: Response) => {
       .eq('provider', provider)
       .maybeSingle();
 
-    if (!integration) {
+    const composioGmailActive = provider === 'gmail' ? await hasActiveComposioGmail(userId) : false;
+
+    if (!integration && !composioGmailActive) {
       res.status(404).json({ success: false, error: 'Integration not found' });
       return;
     }
@@ -264,9 +292,14 @@ router.post('/sync', async (req: Request, res: Response) => {
 
     // Run sync after responding
     if (provider === 'gmail') {
-      await syncGmailThreads(userId, integration.id);
+      if (composioGmailActive) {
+        await syncComposioGmailThreads(userId);
+      } else {
+        await syncGmailThreads(userId, integration!.id);
+      }
       await matchThreadsToWorkspace(userId);
     } else if (provider === 'google_calendar') {
+      if (!integration) return;
       await syncGoogleCalendar(userId, integration.id);
       await pushHedwigEventsToGoogleCalendar(userId);
     }
@@ -296,7 +329,10 @@ router.get('/threads', async (req: Request, res: Response) => {
       matched_client_id, matched_project_id, matched_document_id, matched_document_type,
       is_archived, detected_type, detected_amount, detected_currency, detected_due_date,
       clients:matched_client_id ( name ),
-      projects:matched_project_id ( name )
+      projects:matched_project_id ( name ),
+      email_attachments (
+        id, filename, content_type, size_bytes, r2_key, attachment_type, parsed_data, created_at
+      )
     `, { count: 'exact' })
     .eq('user_id', userId)
     .eq('is_archived', false)
@@ -317,6 +353,7 @@ router.get('/threads', async (req: Request, res: Response) => {
     .eq('user_id', userId)
     .eq('provider', 'gmail')
     .maybeSingle();
+  const composioGmailActive = await hasActiveComposioGmail(userId);
 
   const { data, error, count } = await query;
   if (error) { res.status(500).json({ success: false, error: error.message }); return; }
@@ -351,9 +388,21 @@ router.get('/threads', async (req: Request, res: Response) => {
     detectedAmount:      t.detected_amount ? Number(t.detected_amount) : undefined,
     detectedCurrency:    t.detected_currency,
     detectedDueDate:     t.detected_due_date,
+    attachments:         (t.email_attachments ?? []).map((attachment: any) => ({
+      id:             attachment.id,
+      threadId:       t.id,
+      filename:       attachment.filename,
+      contentType:    attachment.content_type,
+      sizeBytes:      Number(attachment.size_bytes ?? 0),
+      r2Key:          attachment.r2_key,
+      attachmentType: attachment.attachment_type,
+      status:         attachment.parsed_data ? 'extracted' : 'pending',
+      parsedData:     attachment.parsed_data,
+      createdAt:      attachment.created_at,
+    })),
   }));
 
-  res.json({ success: true, data: threads, total: count ?? 0, hasGmailConnected: !!gmailInt });
+  res.json({ success: true, data: threads, total: count ?? 0, hasGmailConnected: !!gmailInt || composioGmailActive });
 });
 
 // PATCH /api/integrations/threads/:id — update thread status (confirm/ignore)
@@ -368,7 +417,7 @@ router.patch('/threads/:id', async (req: Request, res: Response) => {
     matchedProjectId?: string;
   };
 
-  const validStatuses = ['needs_review', 'matched', 'ignored'];
+  const validStatuses = ['needs_review', 'imported', 'matched', 'ignored'];
   if (status && !validStatuses.includes(status)) {
     res.status(400).json({ success: false, error: 'Invalid status' });
     return;

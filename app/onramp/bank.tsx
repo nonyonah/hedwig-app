@@ -24,9 +24,13 @@ import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { SelectorSheet, SelectorSheetOption } from '../../components/SelectorSheet';
 import { useOnramp, OnrampFiat, OnrampInstitution, OnrampNetwork } from '../../hooks/useOnramp';
 
-const ACCOUNT_LENGTHS: Record<OnrampFiat, number> = {
-    NGN: 10,
-    GHS: 13,
+const ACCOUNT_NUMBER_RULES: Record<OnrampFiat, { min: number; max: number; placeholder: string }> = {
+    NGN: { min: 10, max: 10, placeholder: '0123456789' },
+    KES: { min: 5, max: 20, placeholder: 'Account number' },
+    TZS: { min: 5, max: 20, placeholder: 'Account number' },
+    MWK: { min: 5, max: 20, placeholder: 'Account number' },
+    UGX: { min: 5, max: 20, placeholder: 'Account number' },
+    BRL: { min: 5, max: 20, placeholder: 'Account number' },
 };
 
 export default function OnrampBankScreen() {
@@ -42,7 +46,7 @@ export default function OnrampBankScreen() {
     const fiatCurrency = (params.fiatCurrency || 'NGN') as OnrampFiat;
     const network = (params.network || 'base') as OnrampNetwork;
     const fiatAmount = parseFloat(params.fiatAmount || '0');
-    const expectedAccountLength = ACCOUNT_LENGTHS[fiatCurrency] ?? 10;
+    const accountNumberRule = ACCOUNT_NUMBER_RULES[fiatCurrency] ?? ACCOUNT_NUMBER_RULES.NGN;
 
     const [institutions, setInstitutions] = useState<OnrampInstitution[]>([]);
     const [institutionsLoading, setInstitutionsLoading] = useState(false);
@@ -52,6 +56,7 @@ export default function OnrampBankScreen() {
     const [accountName, setAccountName] = useState('');
     const [accountError, setAccountError] = useState('');
     const [verifying, setVerifying] = useState(false);
+    const isAccountNumberReady = accountNumber.length >= accountNumberRule.min;
 
     useEffect(() => {
         let cancelled = false;
@@ -74,16 +79,20 @@ export default function OnrampBankScreen() {
     }, [fiatCurrency]);
 
     useEffect(() => {
-        if (selectedBank && accountNumber.length === expectedAccountLength) {
-            void runVerify();
-        } else {
+        if (!selectedBank || !isAccountNumberReady) {
             setAccountName('');
             setAccountError('');
+            return;
         }
-    }, [selectedBank, accountNumber, expectedAccountLength]);
+
+        const timeout = setTimeout(() => {
+            void runVerify();
+        }, 500);
+        return () => clearTimeout(timeout);
+    }, [selectedBank, accountNumber, isAccountNumberReady]);
 
     const runVerify = async () => {
-        if (!selectedBank || accountNumber.length !== expectedAccountLength) return;
+        if (!selectedBank || accountNumber.length < accountNumberRule.min) return;
         setVerifying(true);
         setAccountError('');
         setAccountName('');
@@ -158,7 +167,7 @@ export default function OnrampBankScreen() {
 
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Bank Name</Text>
                         <TouchableOpacity
-                            style={[styles.authInputContainer, { backgroundColor: themeColors.surface }]}
+                            style={[styles.authInputContainer, styles.selectorContainer, { backgroundColor: themeColors.surface }]}
                             onPress={() => setBankPickerOpen(true)}
                             disabled={institutionsLoading}
                         >
@@ -182,17 +191,17 @@ export default function OnrampBankScreen() {
                                 style={[styles.authInput, { color: themeColors.textPrimary }]}
                                 value={accountNumber}
                                 onChangeText={(text) => {
-                                    if (/^\d*$/.test(text) && text.length <= expectedAccountLength) {
+                                    if (/^\d*$/.test(text) && text.length <= accountNumberRule.max) {
                                         setAccountNumber(text);
                                     }
                                 }}
-                                placeholder={'0'.repeat(expectedAccountLength)}
+                                placeholder={accountNumberRule.placeholder}
                                 placeholderTextColor={themeColors.textSecondary}
                                 keyboardType="number-pad"
                                 inputMode="numeric"
-                                maxLength={expectedAccountLength}
+                                maxLength={accountNumberRule.max}
                             />
-                            {accountNumber.length === expectedAccountLength ? (
+                            {isAccountNumberReady ? (
                                 <CheckCircle size={20} color={Colors.success} fill={Colors.success} />
                             ) : null}
                         </View>
@@ -309,6 +318,10 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         flexDirection: 'row',
         alignItems: 'center',
+    },
+    selectorContainer: {
+        minHeight: 56,
+        justifyContent: 'center',
     },
     authInput: {
         fontFamily: 'GoogleSansFlex_400Regular',

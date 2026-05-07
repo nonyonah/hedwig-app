@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { Composio } from '@composio/core';
 import { createLogger } from '../utils/logger';
 import { getValidAccessToken } from './integrations';
 import { uploadToR2 } from '../lib/r2';
@@ -11,12 +12,83 @@ const supabase = createClient(
 );
 
 const GMAIL_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me';
+const COMPOSIO_API_KEY = process.env.COMPOSIO_API_KEY;
+
+let cachedComposioSdk: Composio | null = null;
+function getComposioSdk(): Composio {
+  if (!COMPOSIO_API_KEY) throw new Error('COMPOSIO_API_KEY is not configured');
+  if (cachedComposioSdk) return cachedComposioSdk;
+  cachedComposioSdk = new Composio({ apiKey: COMPOSIO_API_KEY });
+  return cachedComposioSdk;
+}
+
+function composioUserIdFor(hedwigUserId: string): string {
+  return `hedwig_${hedwigUserId}`;
+}
 
 type GmailAttachmentPart = {
   attachmentId: string;
   filename: string;
   mimeType: string;
 };
+
+const IMPORTABLE_THREAD_TYPES = new Set(['invoice', 'contract']);
+const SKIPPED_THREAD_TYPES = new Set(['receipt', 'proposal', 'other']);
+const DOCUMENT_KEYWORDS = [
+  'invoice',
+  'contract',
+  'agreement',
+  'retainer',
+  'statement',
+  'proposal',
+];
+
+function normalizeDetectedType(value?: string | null): ThreadIntelligence['detectedType'] | undefined {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['invoice', 'contract', 'receipt', 'proposal', 'other'].includes(normalized)) {
+    return normalized as ThreadIntelligence['detectedType'];
+  }
+  return undefined;
+}
+
+function inferThreadTypeFromText(subject: string, snippet: string, attachments: GmailAttachmentPart[]): ThreadIntelligence['detectedType'] | undefined {
+  const haystack = [
+    subject,
+    snippet,
+    ...attachments.map((attachment) => attachment.filename),
+  ].join(' ').toLowerCase();
+
+  if (/\b(receipt|paid receipt|payment confirmation|payment received)\b/.test(haystack)) return 'receipt';
+  if (/\b(invoice|inv[_\s-]?\d+|statement)\b/.test(haystack)) return 'invoice';
+  if (/\b(contract|agreement|retainer|msa|sow)\b/.test(haystack)) return 'contract';
+  if (/\b(proposal|quote|estimate)\b/.test(haystack)) return 'proposal';
+  return undefined;
+}
+
+function hasFinancialDocumentSignal(subject: string, snippet: string, attachments: GmailAttachmentPart[]): boolean {
+  const haystack = [
+    subject,
+    snippet,
+    ...attachments.map((attachment) => attachment.filename),
+  ].join(' ').toLowerCase();
+
+  return DOCUMENT_KEYWORDS.some((keyword) => haystack.includes(keyword));
+}
+
+function isSupportedAttachment(filename: string, contentType: string): boolean {
+  const lower = filename.toLowerCase();
+  return (
+    lower.endsWith('.pdf') ||
+    lower.endsWith('.png') ||
+    lower.endsWith('.jpg') ||
+    lower.endsWith('.jpeg') ||
+    lower.endsWith('.webp') ||
+    lower.endsWith('.doc') ||
+    lower.endsWith('.docx') ||
+    contentType === 'application/pdf' ||
+    contentType.startsWith('image/')
+  );
+}
 
 function collectAttachmentPartsFromPayload(payload: any): GmailAttachmentPart[] {
   const collected: GmailAttachmentPart[] = [];
@@ -64,6 +136,114 @@ function parseEmailAddress(raw: string): { name: string; email: string } {
   return { name: '', email: raw.trim().toLowerCase() };
 }
 
+function asArray(value: unknown): any[] {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object') {
+    const objectValue = value as Record<string, unknown>;
+    for (const key of ['items', 'messages', 'emails', 'threads', 'data', 'results']) {
+      if (Array.isArray(objectValue[key])) return objectValue[key] as any[];
+    }
+  }
+  return [];
+}
+
+function pickString(source: any, keys: string[]): string {
+  for (const key of keys) {
+    const value = key.split('.').reduce((acc, part) => acc?.[part], source);
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return '';
+}
+
+function normalizeComposioAttachment(raw: any): GmailAttachmentPart | null {
+  const filename = pickString(raw, ['filename', 'name', 'fileName', 'attachment.filename']);
+  const mimeType = pickString(raw, ['mimeType', 'mime_type', 'contentType', 'content_type']) || 'application/octet-stream';
+  const attachmentId = pickString(raw, ['id', 'attachmentId', 'attachment_id', 'provider_attachment_id']) || filename;
+  if (!filename) return null;
+  return { filename, mimeType, attachmentId };
+}
+
+async function ensureComposioGmailIntegration(userId: string): Promise<string> {
+  const { data: existing } = await supabase
+    .from('user_integrations')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('provider', 'gmail')
+    .maybeSingle();
+
+  if (existing?.id) return existing.id as string;
+
+  const { data: composioConnection } = await supabase
+    .from('composio_connections')
+    .select('account_label, composio_connected_account_id')
+    .eq('user_id', userId)
+    .eq('provider', 'gmail')
+    .eq('status', 'active')
+    .maybeSingle();
+
+  const { data, error } = await supabase
+    .from('user_integrations')
+    .upsert({
+      user_id: userId,
+      provider: 'gmail',
+      status: 'connected',
+      provider_email: composioConnection?.account_label ?? null,
+      provider_user_id: composioConnection?.composio_connected_account_id ?? null,
+      metadata: { source: 'composio' },
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,provider' })
+    .select('id')
+    .single();
+
+  if (error || !data?.id) {
+    throw new Error(`Could not create Composio-backed Gmail integration: ${error?.message || 'insert failed'}`);
+  }
+
+  return data.id as string;
+}
+
+function normalizeComposioEmail(raw: any) {
+  const subject = pickString(raw, ['subject', 'payload.headers.subject']) || '(no subject)';
+  const snippet = pickString(raw, ['snippet', 'preview', 'bodyPreview', 'text', 'body', 'message.snippet']);
+  const fromRaw = pickString(raw, ['from', 'sender', 'from_email', 'fromEmail', 'sender.email', 'payload.headers.from']);
+  const from = parseEmailAddress(fromRaw);
+  if (!from.email && typeof raw?.sender === 'object') {
+    from.email = pickString(raw.sender, ['email', 'address']).toLowerCase();
+    from.name = pickString(raw.sender, ['name']);
+  }
+
+  const providerThreadId =
+    pickString(raw, ['threadId', 'thread_id', 'provider_thread_id', 'id', 'messageId', 'message_id'])
+    || `${from.email}:${subject}`;
+  const lastMessageAt =
+    pickString(raw, ['date', 'internalDate', 'receivedAt', 'received_at', 'timestamp', 'createdAt', 'created_at'])
+    || new Date().toISOString();
+  const parsedDateMs = /^\d+$/.test(lastMessageAt) ? Number(lastMessageAt) : Date.parse(lastMessageAt);
+  const attachments = asArray(raw?.attachments)
+    .map(normalizeComposioAttachment)
+    .filter((attachment): attachment is GmailAttachmentPart => Boolean(attachment));
+  const participants = new Set<string>();
+  for (const field of ['to', 'cc', 'recipients']) {
+    for (const entry of asArray(raw?.[field] ?? [])) {
+      const email = typeof entry === 'string' ? parseEmailAddress(entry).email : pickString(entry, ['email', 'address']).toLowerCase();
+      if (email) participants.add(email);
+    }
+  }
+  if (from.email) participants.add(from.email);
+
+  return {
+    providerThreadId,
+    subject,
+    snippet,
+    from,
+    participants: Array.from(participants),
+    lastMessageAt: Number.isFinite(parsedDateMs) ? new Date(parsedDateMs).toISOString() : new Date().toISOString(),
+    labels: asArray(raw?.labels ?? raw?.labelIds).map(String),
+    attachments,
+  };
+}
+
 // ─── Phase 2: Thread ingestion ────────────────────────────────────────────────
 
 export async function syncGmailThreads(userId: string, integrationId: string, maxResults = 50): Promise<void> {
@@ -75,7 +255,7 @@ export async function syncGmailThreads(userId: string, integrationId: string, ma
 
   // Fetch inbox threads with financial document attachments (invoices and contracts only).
   const financeAttachmentQuery =
-    'in:inbox has:attachment (invoice OR contract OR agreement OR retainer OR statement OR proposal) filename:(pdf OR doc OR docx)';
+    'in:inbox has:attachment (invoice OR contract OR agreement OR retainer OR statement OR proposal) filename:(pdf OR doc OR docx OR png OR jpg OR jpeg OR webp)';
   const listResp = await gmailGet(
     accessToken,
     `/threads?maxResults=${maxResults}&labelIds=INBOX&q=${encodeURIComponent(financeAttachmentQuery)}`
@@ -96,6 +276,144 @@ export async function syncGmailThreads(userId: string, integrationId: string, ma
     .eq('id', integrationId);
 
   logger.info('Gmail sync complete', { userId, count: threads.length });
+}
+
+export async function hasActiveComposioGmail(userId: string): Promise<boolean> {
+  if (!COMPOSIO_API_KEY) return false;
+  const { data } = await supabase
+    .from('composio_connections')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('provider', 'gmail')
+    .eq('status', 'active')
+    .maybeSingle();
+  return Boolean(data?.id);
+}
+
+export async function syncComposioGmailThreads(userId: string, maxResults = 50): Promise<void> {
+  if (!(await hasActiveComposioGmail(userId))) {
+    logger.warn('No active Composio Gmail connection', { userId });
+    return;
+  }
+
+  const sdk = getComposioSdk();
+  const integrationId = await ensureComposioGmailIntegration(userId);
+  const query = 'in:inbox has:attachment (invoice OR contract OR agreement OR retainer OR statement OR proposal) filename:(pdf OR doc OR docx OR png OR jpg OR jpeg OR webp)';
+
+  const result: any = await sdk.tools.execute('GMAIL_FETCH_EMAILS', {
+    userId: composioUserIdFor(userId),
+    arguments: {
+      query,
+      max_results: Math.min(maxResults, 50),
+    },
+    dangerouslySkipVersionCheck: true,
+  });
+
+  const emails = asArray(result?.data ?? result).slice(0, maxResults);
+  for (const email of emails) {
+    try {
+      await ingestComposioEmail(userId, integrationId, email);
+    } catch (err) {
+      logger.error('Composio Gmail email ingest failed', { userId, err });
+    }
+  }
+
+  await supabase
+    .from('user_integrations')
+    .update({ last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', integrationId);
+
+  await supabase
+    .from('composio_connections')
+    .update({ last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('provider', 'gmail');
+
+  logger.info('Composio Gmail sync complete', { userId, count: emails.length });
+}
+
+async function ingestComposioEmail(userId: string, integrationId: string, rawEmail: any): Promise<void> {
+  const email = normalizeComposioEmail(rawEmail);
+  const supportedAttachmentParts = email.attachments.filter((part) => isSupportedAttachment(part.filename, part.mimeType));
+  const hasAttachments = supportedAttachmentParts.length > 0 || Boolean(rawEmail?.hasAttachments ?? rawEmail?.has_attachments);
+
+  if (!hasAttachments || !hasFinancialDocumentSignal(email.subject, email.snippet, supportedAttachmentParts)) {
+    return;
+  }
+
+  const intel = await detectThreadIntelligence(email.subject, email.snippet, email.from.email);
+  intel.detectedType = normalizeDetectedType(intel.detectedType)
+    ?? inferThreadTypeFromText(email.subject, email.snippet, supportedAttachmentParts);
+
+  if (!intel.detectedType || SKIPPED_THREAD_TYPES.has(intel.detectedType)) return;
+  if (!IMPORTABLE_THREAD_TYPES.has(intel.detectedType)) return;
+
+  const { data: existingThread } = await supabase
+    .from('email_threads')
+    .select('id, status')
+    .eq('user_id', userId)
+    .eq('provider', 'gmail')
+    .eq('provider_thread_id', email.providerThreadId)
+    .maybeSingle();
+
+  if (existingThread?.status === 'ignored') return;
+
+  const { data: upserted, error } = await supabase
+    .from('email_threads')
+    .upsert({
+      user_id: userId,
+      integration_id: integrationId,
+      provider: 'gmail',
+      provider_thread_id: email.providerThreadId,
+      subject: email.subject,
+      snippet: email.snippet,
+      from_email: email.from.email,
+      from_name: email.from.name,
+      participants: email.participants,
+      message_count: Number(rawEmail?.message_count ?? rawEmail?.messageCount ?? 1),
+      has_attachments: hasAttachments,
+      attachment_count: supportedAttachmentParts.length,
+      last_message_at: email.lastMessageAt,
+      labels: email.labels.map((label) => label.toLowerCase()),
+      detected_type: intel.detectedType,
+      detected_amount: intel.detectedAmount ?? null,
+      detected_currency: intel.detectedCurrency ?? null,
+      detected_due_date: intel.detectedDueDate ?? null,
+      status: existingThread?.status === 'matched' ? 'matched' : 'imported',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,provider,provider_thread_id' })
+    .select('id')
+    .single();
+
+  if (error || !upserted?.id) {
+    logger.error('Composio thread upsert failed', { userId, providerThreadId: email.providerThreadId, error });
+    return;
+  }
+
+  for (const attachment of supportedAttachmentParts) {
+    const { data: existing } = await supabase
+      .from('email_attachments')
+      .select('id')
+      .eq('thread_id', upserted.id)
+      .eq('provider_attachment_id', attachment.attachmentId)
+      .maybeSingle();
+
+    if (existing) continue;
+
+    await supabase.from('email_attachments').insert({
+      thread_id: upserted.id,
+      user_id: userId,
+      provider_attachment_id: attachment.attachmentId,
+      provider_message_id: email.providerThreadId,
+      filename: attachment.filename,
+      content_type: attachment.mimeType,
+      size_bytes: null,
+      r2_key: null,
+      attachment_type: inferAttachmentType(attachment.filename, attachment.mimeType),
+    });
+  }
+
+  summarizeThread(userId, upserted.id).catch(() => {});
 }
 
 async function ingestThread(
@@ -134,8 +452,9 @@ async function ingestThread(
   }
 
   const labels: string[] = (firstMsg.labelIds ?? []).map((l: string) => l.toLowerCase());
-  const attachmentCounts = messages.map((m: any) => collectAttachmentPartsFromPayload(m.payload).length);
-  const attachmentCount = attachmentCounts.reduce((sum, n) => sum + n, 0);
+  const allAttachmentParts = messages.flatMap((m: any) => collectAttachmentPartsFromPayload(m.payload));
+  const supportedAttachmentParts = allAttachmentParts.filter((part) => isSupportedAttachment(part.filename, part.mimeType));
+  const attachmentCount = supportedAttachmentParts.length;
   const hasAttachments = attachmentCount > 0;
 
   const internalDateMs = Number(lastMsg?.internalDate ?? firstMsg?.internalDate ?? 0);
@@ -148,13 +467,33 @@ async function ingestThread(
         ? new Date(parsedHeaderMs).toISOString()
         : null;
 
-  // Run Gemini intelligence detection on subject + snippet
-  const intel = await detectThreadIntelligence(subject, snippet, from.email);
+  if (!hasAttachments || !hasFinancialDocumentSignal(subject, snippet, supportedAttachmentParts)) {
+    return;
+  }
 
-  // Only store threads classified as invoice or contract; skip receipts, other, unknown.
-  const isFinancialDoc = intel.detectedType === 'invoice' || intel.detectedType === 'contract';
-  if (!isFinancialDoc && !hasAttachments) return;
-  if (intel.detectedType && intel.detectedType !== 'invoice' && intel.detectedType !== 'contract') return;
+  // Run Gemini intelligence detection on subject + snippet, with deterministic
+  // filename/subject fallback so obvious invoice and contract threads still
+  // import when AI extraction is unavailable.
+  const intel = await detectThreadIntelligence(subject, snippet, from.email);
+  intel.detectedType = normalizeDetectedType(intel.detectedType)
+    ?? inferThreadTypeFromText(subject, snippet, supportedAttachmentParts);
+
+  // Only store invoice/contract imports. Receipts, proposals, general mail, and
+  // unknown threads are intentionally ignored so Gmail sync stays targeted.
+  if (!intel.detectedType || SKIPPED_THREAD_TYPES.has(intel.detectedType)) return;
+  if (!IMPORTABLE_THREAD_TYPES.has(intel.detectedType)) return;
+
+  const { data: existingThread } = await supabase
+    .from('email_threads')
+    .select('id, status')
+    .eq('user_id', userId)
+    .eq('provider', 'gmail')
+    .eq('provider_thread_id', providerThreadId)
+    .maybeSingle();
+
+  if (existingThread?.status === 'ignored') {
+    return;
+  }
 
   const { data: upserted, error } = await supabase
     .from('email_threads')
@@ -177,6 +516,7 @@ async function ingestThread(
       detected_amount:    intel.detectedAmount   ?? null,
       detected_currency:  intel.detectedCurrency ?? null,
       detected_due_date:  intel.detectedDueDate  ?? null,
+      status:             existingThread?.status === 'matched' ? 'matched' : 'imported',
       updated_at:         new Date().toISOString(),
     }, { onConflict: 'user_id,provider,provider_thread_id' })
     .select('id, has_attachments')
@@ -212,6 +552,8 @@ async function fetchAndStoreAttachments(
       if (!part.filename || !part.attachmentId) continue;
 
       try {
+        if (!isSupportedAttachment(part.filename, part.mimeType)) continue;
+
         const attData = await gmailGet(
           accessToken,
           `/messages/${msg.id}/attachments/${part.attachmentId}`
@@ -435,7 +777,8 @@ Return JSON with these fields (all optional, omit if not found):
     // Propagate detected fields up to the thread if we got useful data
     if (parsed.documentType || parsed.amount || parsed.dueDate) {
       const threadUpdate: Record<string, any> = {};
-      if (parsed.documentType) threadUpdate.detected_type = parsed.documentType;
+      const parsedType = normalizeDetectedType(parsed.documentType);
+      if (parsedType && IMPORTABLE_THREAD_TYPES.has(parsedType)) threadUpdate.detected_type = parsedType;
       if (parsed.amount && parsed.amount > 0) {
         threadUpdate.detected_amount   = parsed.amount;
         threadUpdate.detected_currency = parsed.currency ?? 'USD';
@@ -562,6 +905,7 @@ export async function matchThreadsToWorkspace(userId: string): Promise<void> {
         .update({
           matched_client_id: matchedClientId,
           match_confidence:  confidence,
+          status:            'matched',
           updated_at:        new Date().toISOString(),
         })
         .eq('id', thread.id);

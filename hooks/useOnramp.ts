@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import { useAuth } from './useAuth';
-import { getApiBaseUrl } from '../utils/apiBaseUrl';
+import { joinApiUrl } from '../utils/apiBaseUrl';
 
-export type OnrampFiat = 'NGN' | 'GHS';
+export type OnrampFiat = 'NGN' | 'KES' | 'TZS' | 'MWK' | 'UGX' | 'BRL';
 export type OnrampNetwork = 'base' | 'polygon' | 'celo' | 'arbitrum';
 export type OnrampToken = 'USDC';
 
@@ -65,7 +65,15 @@ interface CreateOrderInput {
 }
 
 const DEMO_QUOTE = (input: { fiatAmount: number; fiatCurrency: OnrampFiat; token: OnrampToken; network: OnrampNetwork }): OnrampQuote => {
-    const rate = input.fiatCurrency === 'GHS' ? 14 : 1650;
+    const rateByCurrency: Record<OnrampFiat, number> = {
+        NGN: 1650,
+        KES: 129,
+        TZS: 2588,
+        MWK: 1740,
+        UGX: 3731,
+        BRL: 5,
+    };
+    const rate = rateByCurrency[input.fiatCurrency] ?? rateByCurrency.NGN;
     const grossCrypto = input.fiatAmount / rate;
     const platformFee = grossCrypto * 0.01;
     return {
@@ -87,11 +95,29 @@ const DEMO_INSTITUTIONS_NGN: OnrampInstitution[] = [
     { code: 'KUDANGPC', name: 'Kuda Bank' },
 ];
 
-const DEMO_INSTITUTIONS_GHS: OnrampInstitution[] = [
-    { code: 'GHCBGHAC', name: 'GCB Bank' },
-    { code: 'ECOCGHAC', name: 'Ecobank Ghana' },
-    { code: 'STANGHAC', name: 'Standard Chartered Ghana' },
-];
+const DEMO_INSTITUTIONS_BY_CURRENCY: Record<OnrampFiat, OnrampInstitution[]> = {
+    NGN: DEMO_INSTITUTIONS_NGN,
+    KES: [
+        { code: 'EQBLKENA', name: 'Equity Bank Kenya' },
+        { code: 'KCBLKENX', name: 'KCB Bank Kenya' },
+    ],
+    TZS: [
+        { code: 'NLCBTZTX', name: 'NMB Bank' },
+        { code: 'CORUTZTZ', name: 'CRDB Bank' },
+    ],
+    MWK: [
+        { code: 'NBMAMWMW', name: 'National Bank of Malawi' },
+        { code: 'FDHFMWMW', name: 'FDH Bank' },
+    ],
+    UGX: [
+        { code: 'SBICUGKX', name: 'Stanbic Bank Uganda' },
+        { code: 'CENTUGKA', name: 'Centenary Bank' },
+    ],
+    BRL: [
+        { code: 'BCOBBRSP', name: 'Banco do Brasil' },
+        { code: 'ITAUBRSP', name: 'Itaú' },
+    ],
+};
 
 const buildDemoOrder = (input: CreateOrderInput): OnrampOrder => {
     const quote = DEMO_QUOTE(input);
@@ -130,12 +156,11 @@ const apiCall = async (
     init: RequestInit,
     token: string | null
 ): Promise<any> => {
-    const base = getApiBaseUrl();
     const headers = new Headers(init.headers || {});
     headers.set('Content-Type', 'application/json');
     if (token) headers.set('Authorization', `Bearer ${token}`);
 
-    const response = await fetch(`${base}${path}`, { ...init, headers });
+    const response = await fetch(joinApiUrl(path), { ...init, headers });
     let body: any = null;
     try {
         body = await response.json();
@@ -175,7 +200,7 @@ export const useOnramp = () => {
 
     const listInstitutions = useCallback(async (currency: OnrampFiat): Promise<OnrampInstitution[]> => {
         if (isDemo) {
-            return currency === 'GHS' ? DEMO_INSTITUTIONS_GHS : DEMO_INSTITUTIONS_NGN;
+            return DEMO_INSTITUTIONS_BY_CURRENCY[currency] ?? DEMO_INSTITUTIONS_NGN;
         }
         const token = await getAccessToken();
         const params = new URLSearchParams({ currency });

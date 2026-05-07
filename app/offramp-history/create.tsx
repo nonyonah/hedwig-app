@@ -11,17 +11,12 @@ import {
     Platform,
     Alert,
     Image,
-    Keyboard,
-    DeviceEventEmitter,
-    Modal,
-    TouchableWithoutFeedback,
     LayoutAnimation,
     UIManager,
 } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
-import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, Search as MagnifyingGlass, X, ChevronDown as CaretDown, Landmark as BankIcon, ArrowUpDown as ArrowsDownUp } from '../../components/ui/AppIcon';
+import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, X, ChevronDown as CaretDown, Landmark as BankIcon, ArrowUpDown as ArrowsDownUp } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
-import { Typography } from '../../styles/typography';
 import { useAuth } from '../../hooks/useAuth';
 import { TrueSheet } from '@hedwig/true-sheet';
 import { OfframpConfirmationModal } from '../../components/OfframpConfirmationModal';
@@ -32,7 +27,7 @@ import { useWallet } from '../../hooks/useWallet';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import Analytics from '../../services/analytics';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { SelectorSheet } from '../../components/SelectorSheet';
+import { SelectorSheet, SelectorSheetOption } from '../../components/SelectorSheet';
 
 // Network options
 const NETWORKS = [
@@ -55,7 +50,11 @@ const TOKENS_BY_NETWORK: Record<string, Array<{ id: string; name: string; icon: 
 // Country / fiat currency options
 const COUNTRIES = [
     { id: 'NG', name: 'Nigeria', currency: 'NGN', flag: '🇳🇬' },
-    { id: 'GH', name: 'Ghana', currency: 'GHS', flag: '🇬🇭' },
+    { id: 'KE', name: 'Kenya', currency: 'KES', flag: '🇰🇪' },
+    { id: 'TZ', name: 'Tanzania', currency: 'TZS', flag: '🇹🇿' },
+    { id: 'MW', name: 'Malawi', currency: 'MWK', flag: '🇲🇼' },
+    { id: 'UG', name: 'Uganda', currency: 'UGX', flag: '🇺🇬' },
+    { id: 'BR', name: 'Brazil', currency: 'BRL', flag: '🇧🇷' },
 ];
 
 interface Bank {
@@ -95,9 +94,9 @@ export default function CreateWithdrawalScreen() {
     const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
     const [fiatEquivalent, setFiatEquivalent] = useState('');
     const [isFetchingFiatEquivalent, setIsFetchingFiatEquivalent] = useState(false);
-
-    // Bank Selection State
-    // Removed local bank fetching state
+    const [banks, setBanks] = useState<Bank[]>([]);
+    const [banksLoading, setBanksLoading] = useState(false);
+    const [bankPickerOpen, setBankPickerOpen] = useState(false);
 
     // Bottom Sheet Refs
     // bankSheetRef removed
@@ -127,6 +126,10 @@ export default function CreateWithdrawalScreen() {
     // Snap points - fixed to be higher as requested
     const snapPoints = useMemo(() => ['90%'], []);
     const chainSnapPoints = useMemo(() => ['40%'], []);
+    const bankOptions = useMemo<SelectorSheetOption[]>(
+        () => banks.map((bank) => ({ id: bank.code || bank.name, label: bank.name })),
+        [banks]
+    );
 
     // Load supported banks
     useEffect(() => {
@@ -137,14 +140,7 @@ export default function CreateWithdrawalScreen() {
             fiat_currency: selectedCountry.currency,
         });
 
-        // Listen for bank selection
-        const subscription = DeviceEventEmitter.addListener('onBankSelected', (bank: Bank) => {
-            setSelectedBank(bank);
-        });
-
-        return () => {
-            subscription.remove();
-        };
+        return undefined;
     }, []);
 
     useEffect(() => {
@@ -206,6 +202,46 @@ export default function CreateWithdrawalScreen() {
     useEffect(() => {
         loadBeneficiaries();
     }, [loadBeneficiaries]);
+
+    const loadBanks = useCallback(async () => {
+        try {
+            setBanksLoading(true);
+            const token = await getAccessToken();
+            if (!token) {
+                setBanks([]);
+                return;
+            }
+
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/offramp/institutions?currency=${selectedCountry.currency}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+
+            if (response.ok && data?.success && Array.isArray(data?.data?.banks)) {
+                const bankList = data.data.banks
+                    .map((bank: any) => ({
+                        code: bank.code || bank.institutionCode || bank.id || bank.name || bank.institutionName,
+                        name: bank.name || bank.institutionName || 'Unknown Bank',
+                    }))
+                    .filter((bank: Bank) => bank.code && bank.name !== 'Unknown Bank')
+                    .sort((a: Bank, b: Bank) => a.name.localeCompare(b.name));
+                setBanks(bankList);
+                return;
+            }
+
+            setBanks([]);
+        } catch (error) {
+            console.log('[Banks] Failed to load:', error);
+            setBanks([]);
+        } finally {
+            setBanksLoading(false);
+        }
+    }, [getAccessToken, selectedCountry.currency]);
+
+    useEffect(() => {
+        loadBanks();
+    }, [loadBanks]);
 
     // Reset bank when country changes
     useEffect(() => {
@@ -544,8 +580,11 @@ export default function CreateWithdrawalScreen() {
         Analytics.withdrawalFlowStep('bank_selector_opened', {
             currency: selectedCountry.currency,
         });
-        router.push({ pathname: '/offramp-history/bank-selection', params: { currency: selectedCountry.currency } });
-    }, [selectedCountry]);
+        setBankPickerOpen(true);
+        if (!banks.length) {
+            void loadBanks();
+        }
+    }, [banks.length, loadBanks, selectedCountry.currency]);
 
     const handleOpenBeneficiariesSheet = useCallback(() => {
         if (!beneficiaries.length) {
@@ -663,7 +702,7 @@ export default function CreateWithdrawalScreen() {
 
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Beneficiaries</Text>
                         <TouchableOpacity
-                            style={[styles.authInputContainer, { backgroundColor: themeColors.surface }]}
+                            style={[styles.authInputContainer, styles.selectorContainer, { backgroundColor: themeColors.surface }]}
                             onPress={handleOpenBeneficiariesSheet}
                         >
                             <BankIcon size={18} color={themeColors.textSecondary} />
@@ -681,17 +720,21 @@ export default function CreateWithdrawalScreen() {
                         {/* Bank Selection */}
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Bank Name</Text>
                         <TouchableOpacity
-                            style={[styles.authInputContainer, { backgroundColor: themeColors.surface }]}
+                            style={[styles.authInputContainer, styles.selectorContainer, { backgroundColor: themeColors.surface }]}
                             onPress={handleOpenBankSheet}
+                            disabled={banksLoading}
                         >
-                            <TextInput
-                                style={[styles.authInput, { color: themeColors.textPrimary }]}
-                                value={selectedBank?.name || ''}
-                                placeholder="Select Bank"
-                                placeholderTextColor={themeColors.textSecondary}
-                                editable={false}
-                                pointerEvents="none"
-                            />
+                            <BankIcon size={18} color={themeColors.textSecondary} />
+                            <Text
+                                style={[
+                                    styles.authInput,
+                                    styles.beneficiaryInputText,
+                                    { color: selectedBank ? themeColors.textPrimary : themeColors.textSecondary },
+                                ]}
+                                numberOfLines={1}
+                            >
+                                {banksLoading ? 'Loading banks…' : selectedBank ? selectedBank.name : 'Select bank'}
+                            </Text>
                             <CaretDown size={20} color={themeColors.textSecondary} strokeWidth={3} />
                         </TouchableOpacity>
 
@@ -781,8 +824,6 @@ export default function CreateWithdrawalScreen() {
                 </KeyboardAvoidingView>
             </SafeAreaView>
 
-            {/* Bank Selection Sheet Removed (Using Native Modal) */}
-
             <OfframpConfirmationModal
                 ref={confirmModalRef}
                 visible={isConfirmModalVisible}
@@ -808,7 +849,15 @@ export default function CreateWithdrawalScreen() {
                 scrollable={true}
             >
                 <View style={styles.beneficiariesSheet}>
-                    <Text style={[styles.beneficiariesSheetTitle, { color: themeColors.textPrimary }]}>Beneficiaries</Text>
+                    <View style={styles.beneficiariesSheetHeader}>
+                        <Text style={[styles.beneficiariesSheetTitle, { color: themeColors.textPrimary }]}>Beneficiaries</Text>
+                        <IOSGlassIconButton
+                            onPress={() => beneficiariesSheetRef.current?.dismiss()}
+                            systemImage="xmark"
+                            circleStyle={[styles.beneficiariesCloseButton, { backgroundColor: themeColors.surface }]}
+                            icon={<X size={20} color={themeColors.textSecondary} strokeWidth={3} />}
+                        />
+                    </View>
                     <ScrollView
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.beneficiariesList}
@@ -832,7 +881,7 @@ export default function CreateWithdrawalScreen() {
                                         beneficiariesSheetRef.current?.dismiss();
                                     }}
                                 >
-                                    <View style={styles.beneficiaryItemIcon}>
+                                    <View style={[styles.beneficiaryItemIcon, { backgroundColor: themeColors.background }]}>
                                         <BankIcon size={16} color={themeColors.textSecondary} />
                                     </View>
                                     <View style={{ flex: 1 }}>
@@ -883,6 +932,18 @@ export default function CreateWithdrawalScreen() {
                     const country = COUNTRIES.find((c) => c.id === id);
                     if (country) setSelectedCountry(country);
                 }}
+            />
+            <SelectorSheet
+                visible={bankPickerOpen}
+                onClose={() => setBankPickerOpen(false)}
+                title="Bank"
+                options={bankOptions}
+                selectedId={selectedBank?.code || selectedBank?.name || ''}
+                onSelect={(id) => {
+                    const bank = banks.find((item) => item.code === id || item.name === id);
+                    if (bank) setSelectedBank(bank);
+                }}
+                detentFraction={0.7}
             />
 
             {/* Solana Bridge Modal */}
@@ -1171,27 +1232,41 @@ const styles = StyleSheet.create({
         paddingTop: 28,
         paddingBottom: 20,
     },
+    beneficiariesSheetHeader: {
+        minHeight: 40,
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
     beneficiariesSheetTitle: {
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 22,
-        marginBottom: 12,
+    },
+    beneficiariesCloseButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     beneficiariesList: {
-        gap: 10,
+        gap: 8,
         paddingBottom: 8,
     },
     beneficiaryItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
-        paddingHorizontal: 14,
+        gap: 12,
+        minHeight: 64,
+        paddingHorizontal: 16,
         paddingVertical: 12,
         borderRadius: 16,
     },
     beneficiaryItemIcon: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
     },

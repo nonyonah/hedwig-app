@@ -33,7 +33,11 @@ const TOKEN = {
 
 const COUNTRIES: { id: string; name: string; currency: OnrampFiat; flag: string }[] = [
     { id: 'NG', name: 'Nigeria', currency: 'NGN', flag: '🇳🇬' },
-    { id: 'GH', name: 'Ghana', currency: 'GHS', flag: '🇬🇭' },
+    { id: 'KE', name: 'Kenya', currency: 'KES', flag: '🇰🇪' },
+    { id: 'TZ', name: 'Tanzania', currency: 'TZS', flag: '🇹🇿' },
+    { id: 'MW', name: 'Malawi', currency: 'MWK', flag: '🇲🇼' },
+    { id: 'UG', name: 'Uganda', currency: 'UGX', flag: '🇺🇬' },
+    { id: 'BR', name: 'Brazil', currency: 'BRL', flag: '🇧🇷' },
 ];
 
 export default function OnrampAmountScreen() {
@@ -108,7 +112,7 @@ export default function OnrampAmountScreen() {
                         circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
                         icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
                     />
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Buy crypto</Text>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Buy USDC</Text>
                     <View style={styles.placeholder} />
                 </View>
 

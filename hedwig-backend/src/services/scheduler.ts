@@ -9,6 +9,7 @@ import { differenceInDays, parseISO, addDays, isSameDay, format } from 'date-fns
 import { createLogger } from '../utils/logger';
 import { withLock } from '../utils/distributedLock';
 import { generateDailyBrief, generateWeeklySummary } from './agent/assistant-runtime';
+import { matchThreadsToWorkspace, syncComposioGmailThreads, syncGmailThreads } from './emailSync';
 
 const logger = createLogger('Scheduler');
 
@@ -163,6 +164,11 @@ export const SchedulerService = {
             withLock('payment-link-boost-nudges', hourlyLockTtl, () => this.sendPaymentLinkBoostNudges())
                 .catch((e) => logger.error('payment-link-boost-nudges lock error', { error: e?.message }));
         });
+
+        cron.schedule('40 * * * *', () => {
+            withLock('gmail-import-sync', hourlyLockTtl, () => this.syncConnectedGmailInboxes())
+                .catch((e) => logger.error('gmail-import-sync lock error', { error: e?.message }));
+        });
     },
 
     timestampMs(value: string | null | undefined): number | null {
@@ -185,6 +191,71 @@ export const SchedulerService = {
         }
 
         return bestValue;
+    },
+
+    async syncConnectedGmailInboxes(): Promise<void> {
+        try {
+            const { data: composioRows, error: composioError } = await supabase
+                .from('composio_connections')
+                .select('id,user_id')
+                .eq('provider', 'gmail')
+                .eq('status', 'active')
+                .order('last_synced_at', { ascending: true, nullsFirst: true })
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (composioError) {
+                logger.error('Failed to fetch Composio Gmail connections for scheduled sync', { error: composioError.message });
+                return;
+            }
+
+            const { data, error } = await supabase
+                .from('user_integrations')
+                .select('id,user_id')
+                .eq('provider', 'gmail')
+                .eq('status', 'connected')
+                .order('last_synced_at', { ascending: true, nullsFirst: true })
+                .limit(SCHEDULER_MAX_USERS_PER_RUN);
+
+            if (error) {
+                logger.error('Failed to fetch Gmail integrations for scheduled sync', { error: error.message });
+                return;
+            }
+
+            const composioUserIds = new Set((composioRows || []).map((row: any) => String(row.user_id || '')).filter(Boolean));
+            const integrations = [
+                ...(composioRows || []).map((row: any) => ({ ...row, source: 'composio' })),
+                ...(data || [])
+                    .filter((row: any) => !composioUserIds.has(String(row.user_id || '')))
+                    .map((row: any) => ({ ...row, source: 'legacy' })),
+            ].slice(0, SCHEDULER_MAX_USERS_PER_RUN);
+            if (!integrations.length) return;
+
+            let synced = 0;
+            let failed = 0;
+
+            await processInBatches(integrations, SCHEDULER_CONCURRENCY, async (integration: any) => {
+                const userId = String(integration.user_id || '');
+                const integrationId = String(integration.id || '');
+                if (!userId || !integrationId) return;
+
+                try {
+                    if (integration.source === 'composio') {
+                        await syncComposioGmailThreads(userId, 50);
+                    } else {
+                        await syncGmailThreads(userId, integrationId, 50);
+                    }
+                    await matchThreadsToWorkspace(userId);
+                    synced++;
+                } catch (err: any) {
+                    failed++;
+                    logger.error('Scheduled Gmail sync failed', { userId, integrationId, error: err?.message });
+                }
+            });
+
+            logger.info('Scheduled Gmail inbox sync complete', { synced, failed });
+        } catch (error: any) {
+            logger.error('Scheduled Gmail inbox sync job failed', { error: error?.message });
+        }
     },
 
     async getOneSignalLastSeenMap(): Promise<Record<string, string>> {

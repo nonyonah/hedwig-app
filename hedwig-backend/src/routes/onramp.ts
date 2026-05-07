@@ -10,7 +10,9 @@ const router = Router();
 
 const ENABLE_PAYCREST_STATUS_POLLING = process.env.PAYCREST_STATUS_POLLING !== 'false';
 
-const SUPPORTED_FIATS = new Set(['NGN', 'GHS']);
+// Keep this in sync with the mobile onramp country picker. Paycrest may still
+// return a provider-specific error when a currency has no active onramp rail.
+const SUPPORTED_FIATS = new Set(['NGN', 'KES', 'TZS', 'MWK', 'UGX', 'BRL']);
 const SUPPORTED_NETWORKS = new Set(['base', 'polygon', 'celo', 'arbitrum']);
 const SUPPORTED_TOKENS = new Set(['USDC']);
 
@@ -104,7 +106,7 @@ router.get('/quote', authenticate, async (req: Request, res: Response, next) => 
         const fiatAmountRaw = String(req.query.fiatAmount ?? '0');
         const fiatCurrency = String(req.query.fiatCurrency ?? 'NGN').toUpperCase();
         const token = String(req.query.token ?? 'USDC').toUpperCase();
-        const network = String(req.query.network ?? 'base').toLowerCase();
+        const network = String(req.query.network ?? req.query.Network ?? 'base').toLowerCase();
 
         const fiatAmount = parseFloat(fiatAmountRaw);
         if (!Number.isFinite(fiatAmount) || fiatAmount <= 0) {
@@ -257,7 +259,7 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
 
         const order = await PaycrestService.createOnrampOrder({
             fiatAmount: fiatAmountNum,
-            fiatCurrency: fiat as 'NGN' | 'GHS',
+            fiatCurrency: fiat as 'NGN' | 'KES' | 'TZS' | 'MWK' | 'UGX' | 'BRL',
             token: tokenUpper as 'USDC',
             network: networkLower as 'base' | 'polygon' | 'celo' | 'arbitrum',
             recipientAddress,

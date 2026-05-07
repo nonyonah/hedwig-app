@@ -25,7 +25,11 @@ const NETWORK_META: Record<OnrampNetwork, { name: string; icon: any }> = {
 
 const COUNTRY_FLAG: Record<OnrampFiat, string> = {
     NGN: '🇳🇬',
-    GHS: '🇬🇭',
+    KES: '🇰🇪',
+    TZS: '🇹🇿',
+    MWK: '🇲🇼',
+    UGX: '🇺🇬',
+    BRL: '🇧🇷',
 };
 
 const USDC_ICON = require('../../assets/icons/tokens/usdc.png');
@@ -70,7 +74,7 @@ export default function OnrampReviewScreen() {
             });
             router.replace({ pathname: '/onramp/[id]' as any, params: { id: order.id } });
         } catch (err: any) {
-            Alert.alert('Could not start onramp', err?.message || 'Try again in a moment.');
+            Alert.alert('Could not start Buy USDC', err?.message || 'Try again in a moment.');
         } finally {
             setSubmitting(false);
         }
@@ -97,7 +101,7 @@ export default function OnrampReviewScreen() {
                     bounces={false}
                 >
                     <Text style={[styles.helperTextTop, { color: themeColors.textSecondary }]}>
-                        Confirm your onramp details before we generate a deposit account.
+                        Confirm your Buy USDC details before we generate a deposit account.
                     </Text>
 
                     <View style={[styles.summaryCard, { backgroundColor: themeColors.surface }]}>
@@ -136,7 +140,7 @@ export default function OnrampReviewScreen() {
                         onPress={handleConfirm}
                         disabled={!canSubmit}
                     >
-                        <Text style={styles.continueButtonText}>{submitting ? 'Creating order…' : 'Confirm onramp'}</Text>
+                        <Text style={styles.continueButtonText}>{submitting ? 'Creating order…' : 'Confirm Buy USDC'}</Text>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>

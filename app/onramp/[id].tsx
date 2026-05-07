@@ -33,7 +33,11 @@ const NETWORK_META: Record<string, { name: string; icon: any }> = {
 
 const COUNTRY_FLAG: Record<string, string> = {
     NGN: '🇳🇬',
-    GHS: '🇬🇭',
+    KES: '🇰🇪',
+    TZS: '🇹🇿',
+    MWK: '🇲🇼',
+    UGX: '🇺🇬',
+    BRL: '🇧🇷',
 };
 
 const USDC_ICON = require('../../assets/icons/tokens/usdc.png');
@@ -50,17 +54,17 @@ const STATUS_COPY: Record<OnrampStatus, { title: string; subtitle: string; tone:
         tone: 'progress',
     },
     COMPLETED: {
-        title: 'Onramp complete',
+        title: 'Buy USDC complete',
         subtitle: 'USDC delivered to your wallet.',
         tone: 'success',
     },
     FAILED: {
-        title: 'Onramp failed',
+        title: 'Buy USDC failed',
         subtitle: 'Funds will be refunded to the account on file.',
         tone: 'danger',
     },
     CANCELLED: {
-        title: 'Onramp cancelled',
+        title: 'Buy USDC cancelled',
         subtitle: 'No funds were moved.',
         tone: 'neutral',
     },
@@ -149,7 +153,7 @@ export default function OnrampOrderScreen() {
                         circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
                         icon={<CaretLeft size={20} color={themeColors.textPrimary} strokeWidth={3} />}
                     />
-                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Onramp order</Text>
+                    <Text style={[styles.headerTitle, { color: themeColors.textPrimary }]}>Buy USDC order</Text>
                     <View style={styles.placeholder} />
                 </View>
 

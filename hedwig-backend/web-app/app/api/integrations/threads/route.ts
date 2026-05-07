@@ -13,12 +13,15 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   const limit = req.nextUrl.searchParams.get('limit') ?? '20';
+  const status = req.nextUrl.searchParams.get('status');
   const base  = backendConfig.apiBaseUrl;
   const auth  = { Authorization: `Bearer ${session.accessToken}` };
+  const query = new URLSearchParams({ limit });
+  if (status) query.set('status', status);
 
   // ── Try new dedicated threads endpoint ──────────────────────────────────────
   const newResp = await fetch(
-    `${base}/api/integrations/threads?limit=${limit}`,
+    `${base}/api/integrations/threads?${query.toString()}`,
     { headers: auth, cache: 'no-store' }
   ).catch(() => null);
 

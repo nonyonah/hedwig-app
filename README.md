@@ -8,7 +8,7 @@
 
 ### Get paid faster
 - Create professional **invoices, proposals, and contracts** in seconds with AI assistance
-- Share **payment links** that clients pay via crypto (Base, Solana, Celo, Stacks/Bitcoin L2)
+- Share **payment links** that clients pay via crypto (Base, Solana, Celo)
 - Receive payments in USDC across multiple chains — Hedwig handles the wallet, you handle the work
 - Set up **recurring invoices** that auto-send on your schedule (Pro)
 - Add an **external payout bank account** (NG, US, UK, GH) so clients can also pay by bank transfer
@@ -51,7 +51,7 @@
 | File storage | Cloudflare R2 (documents, email attachments) |
 | Payments | Polar (web subscriptions), RevenueCat (mobile subscriptions) |
 | Notifications | OneSignal (push), Resend (email) |
-| Chains | Base, Solana, Celo, Stacks (Bitcoin L2) |
+| Chains | Base, Solana, Celo |
 
 ---
 
