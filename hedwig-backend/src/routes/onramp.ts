@@ -124,9 +124,10 @@ router.get('/quote', authenticate, async (req: Request, res: Response, next) => 
             return;
         }
 
-        // Paycrest /rates expects a crypto amount; for an onramp quote we ask for
-        // a 1-unit reference rate then derive the crypto estimate from fiat input.
-        const rateString = await PaycrestService.getExchangeRate(token, 1, fiatCurrency, network);
+        // Paycrest v2 /rates returns buy + sell quotes for the requested fiat
+        // amount. We ask for the buy-side rate at 1 unit so the response stays
+        // small; the actual crypto estimate is derived locally from fiatAmount.
+        const rateString = await PaycrestService.getOnrampBuyRate(token, 1, fiatCurrency, network);
         const rate = parseFloat(rateString);
         if (!Number.isFinite(rate) || rate <= 0) {
             res.status(502).json({ success: false, error: 'Invalid rate from provider' });

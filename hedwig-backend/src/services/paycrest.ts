@@ -286,6 +286,60 @@ export class PaycrestService {
     }
 
     /**
+     * Get the buy-side exchange rate used for an onramp quote.
+     * GET /v2/rates/:network/:token/:amount/:fiat?side=buy
+     *
+     * Paycrest v2 returns both buy and sell rates; we ask for the buy side
+     * because an onramp converts fiat -> stablecoin (provider sells stable).
+     * Response shape: { status, data: { buy: { rate, provider }, sell: ... } }
+     * — fall back to a flat string for older response variants.
+     */
+    static async getOnrampBuyRate(
+        token: string,
+        amount: number,
+        fiatCurrency: string,
+        network: string
+    ): Promise<string> {
+        const networkCandidates = this.getNetworkCandidates(network);
+        let lastError: any = null;
+
+        for (const networkCandidate of networkCandidates) {
+            try {
+                const response = await paycrestClientV2.get(
+                    `/rates/${encodeURIComponent(networkCandidate)}/${encodeURIComponent(token.toUpperCase())}/${encodeURIComponent(String(amount))}/${encodeURIComponent(fiatCurrency.toUpperCase())}`,
+                    { params: { side: 'buy' } }
+                );
+
+                const payload = response.data?.data ?? response.data;
+                const buyRateRaw =
+                    payload?.buy?.rate ??
+                    payload?.buy_rate ??
+                    payload?.buyRate ??
+                    payload?.rate ??
+                    payload;
+
+                const rateString = typeof buyRateRaw === 'string' ? buyRateRaw : String(buyRateRaw ?? '');
+                if (rateString && Number.isFinite(parseFloat(rateString))) {
+                    return rateString;
+                }
+                lastError = new Error('Paycrest /v2/rates response missing buy rate');
+                logger.warn('Onramp rate response missing usable buy rate', {
+                    network: networkCandidate,
+                    payload,
+                });
+            } catch (error: any) {
+                lastError = error;
+                logger.warn('Error fetching onramp buy rate', {
+                    network: networkCandidate,
+                    error: error.response?.data?.message || error.message,
+                });
+            }
+        }
+
+        throw new Error('Failed to fetch onramp rate from Paycrest: ' + (lastError?.response?.data?.message || lastError?.message || 'Unknown error'));
+    }
+
+    /**
      * Verify bank account details
      * POST /verify-account
      * Returns account name and verification status
