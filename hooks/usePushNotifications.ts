@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router as expoRouter } from 'expo-router';
 
 // Configure how notifications appear when app is in foreground
 Notifications.setNotificationHandler({
@@ -213,7 +214,17 @@ export function usePushNotifications() {
         // Listen for notification interactions (tap)
         responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
             console.log('[Push] Notification tapped:', response);
-            const data = response.notification.request.content.data;
+            const data = response.notification.request.content.data ?? {};
+
+            // Onramp status updates carry an explicit deep-link route.
+            if (data.type === 'onramp_status' && typeof data.orderId === 'string' && data.orderId) {
+                try {
+                    expoRouter.push(`/onramp/${encodeURIComponent(data.orderId)}` as any);
+                } catch (e) {
+                    console.warn('[Push] failed to navigate to onramp order', e);
+                }
+                return;
+            }
 
             // Handle navigation based on notification type
             if (data?.type === 'transaction' && data?.txHash) {

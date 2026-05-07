@@ -4,15 +4,26 @@ import { createLogger } from '../utils/logger';
 const logger = createLogger('Paycrest');
 
 const PAYCREST_API_URL = process.env.PAYCREST_API_URL || 'https://api.paycrest.io/v1';
+const PAYCREST_API_URL_V2 = process.env.PAYCREST_API_URL_V2 || 'https://api.paycrest.io/v2';
 const PAYCREST_API_KEY = process.env.PAYCREST_API_KEY;
 
 if (!PAYCREST_API_KEY) {
     logger.warn('PAYCREST_API_KEY is not defined. Offramp features will not work.');
 }
 
-// Paycrest API client
+// Paycrest v1 client (offramp + legacy endpoints)
 const paycrestClient: AxiosInstance = axios.create({
     baseURL: PAYCREST_API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+        'API-Key': PAYCREST_API_KEY || '',
+    },
+    timeout: 30000,
+});
+
+// Paycrest v2 client (onramp uses the unified source/destination order shape)
+const paycrestClientV2: AxiosInstance = axios.create({
+    baseURL: PAYCREST_API_URL_V2,
     headers: {
         'Content-Type': 'application/json',
         'API-Key': PAYCREST_API_KEY || '',
@@ -448,6 +459,134 @@ export class PaycrestService {
             throw new Error('Failed to get order status from Paycrest');
         }
     }
+
+    /**
+     * Create an onramp (fiat -> crypto) order using the v2 unified order shape.
+     * POST /v2/sender/orders
+     * The user deposits `providerAccount.amountToTransfer` of `fiatCurrency` to
+     * the returned virtual bank account; Paycrest then settles `token` to the
+     * recipient address on `network`.
+     */
+    static async createOnrampOrder(orderData: OnrampOrderRequest): Promise<OnrampOrderResponse> {
+        const refundInstitutionCode = await this.findInstitutionCode(
+            orderData.refundAccount.institution,
+            orderData.fiatCurrency
+        );
+
+        const networkCandidates = this.getNetworkCandidates(orderData.network);
+        const reference = orderData.reference || `onramp-${Date.now()}`;
+        let lastError: any = null;
+        let response: any = null;
+
+        for (const networkCandidate of networkCandidates) {
+            const payload: Record<string, any> = {
+                amount: String(orderData.fiatAmount),
+                amountIn: 'fiat',
+                source: {
+                    type: 'fiat',
+                    currency: orderData.fiatCurrency.toUpperCase(),
+                    refundAccount: {
+                        institution: refundInstitutionCode,
+                        accountIdentifier: orderData.refundAccount.accountIdentifier,
+                        accountName: orderData.refundAccount.accountName,
+                    },
+                },
+                destination: {
+                    type: 'crypto',
+                    currency: orderData.token.toUpperCase(),
+                    recipient: {
+                        address: orderData.recipientAddress,
+                        network: networkCandidate,
+                    },
+                },
+                reference,
+            };
+
+            if (orderData.rate) {
+                payload.rate = orderData.rate;
+            }
+
+            try {
+                response = await paycrestClientV2.post('/sender/orders', payload);
+                break;
+            } catch (error: any) {
+                lastError = error;
+                logger.warn('Paycrest onramp order creation failed for network candidate', {
+                    network: networkCandidate,
+                    error: error.response?.data?.message || error.message,
+                });
+            }
+        }
+
+        if (!response) {
+            throw lastError || new Error('Paycrest onramp order creation failed');
+        }
+
+        const apiData = response.data?.data || response.data;
+        if (!apiData?.id) {
+            logger.error('No onramp order id in response');
+            throw new Error('Paycrest did not return a valid onramp order ID');
+        }
+
+        const provider = apiData.providerAccount || apiData.provider_account || {};
+        const amountToTransfer = this.firstFiniteNumber(
+            provider.amountToTransfer,
+            provider.amount_to_transfer,
+            apiData.amount
+        );
+
+        return {
+            id: apiData.id,
+            status: String(apiData.status || 'initiated').toLowerCase(),
+            reference: apiData.reference || reference,
+            providerAccount: {
+                institution: provider.institution || null,
+                accountIdentifier: provider.accountIdentifier || provider.account_identifier || null,
+                accountName: provider.accountName || provider.account_name || null,
+                amountToTransfer: amountToTransfer ?? null,
+                currency: provider.currency || orderData.fiatCurrency.toUpperCase(),
+                validUntil: provider.validUntil || provider.valid_until || null,
+            },
+            exchangeRate: this.firstFiniteNumber(apiData.exchangeRate, apiData.exchange_rate, apiData.rate),
+            estimatedCryptoAmount: this.firstFiniteNumber(
+                apiData.cryptoAmount,
+                apiData.crypto_amount,
+                apiData.destinationAmount,
+                apiData.destination_amount
+            ),
+        };
+    }
+}
+
+export interface OnrampOrderRequest {
+    fiatAmount: number;
+    fiatCurrency: 'NGN' | 'GHS';
+    token: 'USDC';
+    network: 'base' | 'polygon' | 'celo' | 'arbitrum';
+    recipientAddress: string;
+    refundAccount: {
+        institution: string;
+        accountIdentifier: string;
+        accountName: string;
+    };
+    rate?: string;
+    reference?: string;
+}
+
+export interface OnrampOrderResponse {
+    id: string;
+    status: string;
+    reference: string | null;
+    providerAccount: {
+        institution: string | null;
+        accountIdentifier: string | null;
+        accountName: string | null;
+        amountToTransfer: number | null;
+        currency: string;
+        validUntil: string | null;
+    };
+    exchangeRate: number | null;
+    estimatedCryptoAmount: number | null;
 }
 
 export default PaycrestService;

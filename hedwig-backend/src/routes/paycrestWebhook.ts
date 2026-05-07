@@ -143,6 +143,187 @@ const verifyWebhookSignature = (payload: string, signature: string): boolean => 
     return crypto.timingSafeEqual(sigBuf, expectedBuf);
 };
 
+interface OnrampWebhookContext {
+    onrampOrder: any;
+    paycrestOrderId: string;
+    event: string;
+    newStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+    txHash: string | null;
+    payload: any;
+}
+
+const onrampNotificationCopy = (
+    status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED',
+    fiatAmount: number,
+    fiatCurrency: string,
+    cryptoAmount: number | null,
+    token: string
+): { title: string; body: string } => {
+    const fiatLabel = `${fiatAmount.toLocaleString()} ${fiatCurrency}`;
+    const cryptoLabel = cryptoAmount
+        ? `${cryptoAmount.toFixed(2)} ${token}`
+        : `${token}`;
+    switch (status) {
+        case 'PENDING':
+            return {
+                title: 'Onramp deposit pending',
+                body: `Awaiting your ${fiatLabel} deposit.`,
+            };
+        case 'PROCESSING':
+            return {
+                title: 'Onramp received',
+                body: `${fiatLabel} received. Settling ${cryptoLabel} to your wallet.`,
+            };
+        case 'COMPLETED':
+            return {
+                title: 'Onramp settled',
+                body: `${cryptoLabel} delivered to your wallet.`,
+            };
+        case 'FAILED':
+            return {
+                title: 'Onramp failed',
+                body: `${fiatLabel} onramp could not be completed.`,
+            };
+    }
+};
+
+const processOnrampWebhook = async ({
+    onrampOrder,
+    paycrestOrderId,
+    event,
+    newStatus,
+    txHash,
+    payload,
+}: OnrampWebhookContext): Promise<Record<string, any>> => {
+    let resolvedOrder = onrampOrder;
+
+    if (!resolvedOrder) {
+        const { data: byInternalId } = await supabase
+            .from('onramp_orders')
+            .select('*, users!inner(id, privy_id, email)')
+            .eq('id', paycrestOrderId)
+            .maybeSingle();
+        resolvedOrder = byInternalId || null;
+    }
+
+    if (!resolvedOrder) {
+        logger.warn('Onramp order not found for webhook', { paycrestOrderId });
+        return { received: true, direction: 'onramp', status: 'order_not_found' };
+    }
+
+    const previousStatus = String(resolvedOrder.status || '');
+    const terminalStatuses = new Set(['COMPLETED', 'FAILED']);
+    if (terminalStatuses.has(previousStatus) && previousStatus !== newStatus) {
+        return {
+            received: true,
+            direction: 'onramp',
+            orderId: resolvedOrder.id,
+            status: previousStatus,
+            ignored: true,
+        };
+    }
+
+    const updateData: Record<string, any> = {
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+    };
+    if (txHash) updateData.tx_hash = txHash;
+    if (newStatus === 'COMPLETED') updateData.completed_at = new Date().toISOString();
+    if (newStatus === 'FAILED') {
+        updateData.error_message =
+            payload?.reason ||
+            payload?.error ||
+            payload?.message ||
+            payload?.data?.reason ||
+            payload?.data?.error ||
+            `Order ${event.replace('payment_order.', '').replace('order.', '')}`;
+    }
+
+    const { error: updateError } = await supabase
+        .from('onramp_orders')
+        .update(updateData)
+        .eq('id', resolvedOrder.id);
+
+    if (updateError) {
+        logger.error('Failed to update onramp order status', { error: updateError.message });
+    }
+
+    const internalUserId = (resolvedOrder as any).users?.id;
+    const statusChanged = previousStatus !== newStatus;
+
+    if (internalUserId && statusChanged) {
+        const fiatAmount = Number(resolvedOrder.fiat_amount || 0);
+        const fiatCurrency = String(resolvedOrder.fiat_currency || '');
+        const cryptoAmount = resolvedOrder.crypto_amount != null ? Number(resolvedOrder.crypto_amount) : null;
+        const token = String(resolvedOrder.token || 'USDC');
+        const copy = onrampNotificationCopy(newStatus, fiatAmount, fiatCurrency, cryptoAmount, token);
+        const notificationType = newStatus === 'COMPLETED' ? 'onramp_success' : 'onramp';
+
+        const { data: existingNotif } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', internalUserId)
+            .eq('type', notificationType)
+            .eq('metadata->>orderId', String(resolvedOrder.id))
+            .eq('metadata->>status', newStatus)
+            .limit(1)
+            .maybeSingle();
+
+        if (!existingNotif) {
+            await supabase.from('notifications').insert({
+                user_id: internalUserId,
+                title: copy.title,
+                message: copy.body,
+                type: notificationType,
+                metadata: {
+                    orderId: resolvedOrder.id,
+                    paycrestOrderId,
+                    event,
+                    status: newStatus,
+                    fiatAmount,
+                    fiatCurrency,
+                    cryptoAmount,
+                    token,
+                    network: resolvedOrder.chain,
+                    txHash,
+                },
+                is_read: false,
+            });
+        }
+
+        try {
+            await NotificationService.notifyUser(internalUserId, {
+                title: copy.title,
+                body: copy.body,
+                data: {
+                    type: 'onramp_status',
+                    orderId: resolvedOrder.id,
+                    status: newStatus,
+                    fiatAmount,
+                    fiatCurrency,
+                    cryptoAmount,
+                    token,
+                    network: resolvedOrder.chain,
+                    paycrestOrderId,
+                    txHash,
+                    route: `/onramp/${resolvedOrder.id}`,
+                },
+            });
+        } catch (pushError) {
+            logger.error('Failed to send onramp push', {
+                error: pushError instanceof Error ? pushError.message : 'Unknown',
+            });
+        }
+    }
+
+    return {
+        received: true,
+        direction: 'onramp',
+        orderId: resolvedOrder.id,
+        status: newStatus,
+    };
+};
+
 /**
  * POST /api/webhooks/paycrest
  * Handle Paycrest order status webhooks
@@ -219,6 +400,35 @@ router.post('/', async (req: Request, res: Response) => {
         }
         const newStatus = mapPaycrestStatus(event, payload);
         const txHash = extractTxHash(req.body) || extractTxHash(payload);
+
+        // 0. Onramp branch: Paycrest sets `direction: "onramp"` on onramp events.
+        //    Also fall back to a table existence check so the routing works even
+        //    if the field is omitted in some webhook variants.
+        const directionRaw =
+            payload?.direction ??
+            payload?.data?.direction ??
+            payload?.order?.direction ??
+            payload?.data?.order?.direction;
+        const direction = typeof directionRaw === 'string' ? directionRaw.toLowerCase().trim() : '';
+
+        const { data: onrampOrder } = await supabase
+            .from('onramp_orders')
+            .select('*, users!inner(id, privy_id, email)')
+            .eq('paycrest_order_id', String(paycrestOrderId))
+            .maybeSingle();
+
+        if (direction === 'onramp' || onrampOrder) {
+            const handled = await processOnrampWebhook({
+                onrampOrder,
+                paycrestOrderId: String(paycrestOrderId),
+                event,
+                newStatus,
+                txHash,
+                payload,
+            });
+            res.status(200).json(handled);
+            return;
+        }
 
         // 1. Find the order in our database
         const { data: order, error: findError } = await supabase

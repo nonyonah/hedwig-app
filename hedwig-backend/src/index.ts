@@ -19,6 +19,7 @@ import chatRoutes from './routes/chat';
 import documentRoutes from './routes/document';
 import transactionRoutes from './routes/transaction';
 import offrampRoutes from './routes/offramp';
+import onrampRoutes from './routes/onramp';
 import bridgeRoutes from './routes/bridge';
 import clientRoutes from './routes/client';
 import projectRoutes from './routes/project';
@@ -406,6 +407,10 @@ schedulerRouter.post('/conversion-research-nudges', async (_req, res) => {
     res.json({ accepted: true });
     await SchedulerService.sendConversionResearchNudges();
 });
+schedulerRouter.post('/gmail-import-sync', async (_req, res) => {
+    res.json({ accepted: true });
+    await SchedulerService.syncConnectedGmailInboxes();
+});
 
 app.use('/internal/scheduler', schedulerRouter);
 
@@ -429,6 +434,7 @@ app.use('/api/documents', documentLimiter, documentRoutes);
 app.use('/api/transactions', transactionsLimiter, transactionRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/offramp', financialLimiter, offrampRoutes);
+app.use('/api/onramp', financialLimiter, onrampRoutes);
 app.use('/api/bridge', bridgeRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);

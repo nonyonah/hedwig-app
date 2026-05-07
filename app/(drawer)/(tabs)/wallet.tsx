@@ -300,6 +300,7 @@ export default function WalletScreen() {
     const [refreshing,  setRefreshing]  = useState(false);
 
     // Sheet refs
+    const receiveChooserSheetRef  = useRef<TrueSheet>(null);
     const receiveSheetRef         = useRef<TrueSheet>(null);
     const sendSheetRef            = useRef<TrueSheet>(null);
     const autoSettlementSheetRef  = useRef<TrueSheet>(null);
@@ -347,7 +348,7 @@ export default function WalletScreen() {
 
     const dismissAllSheets = useCallback((except?: React.RefObject<TrueSheet | null>) => {
         const refs = [
-            receiveSheetRef, sendSheetRef, autoSettlementSheetRef,
+            receiveChooserSheetRef, receiveSheetRef, sendSheetRef, autoSettlementSheetRef,
             bridgeKycInfoSheetRef, tokenDetailSheetRef,
             txDetailSheetRef, withdrawalDetailSheetRef,
         ];
@@ -633,6 +634,16 @@ export default function WalletScreen() {
         setTimeout(() => { router.push(path as any); }, 120);
     };
 
+    const handleReceiveOptionPress = (option: 'onramp' | 'crypto') => {
+        lockSheetInteractions(260);
+        receiveChooserSheetRef.current?.dismiss();
+        if (option === 'onramp') {
+            setTimeout(() => { router.push('/onramp/amount' as any); }, 120);
+        } else {
+            setTimeout(() => { receiveSheetRef.current?.present(); }, 240);
+        }
+    };
+
     const handleUsdKyc = async () => {
         try {
             const result = await createUsdKycLink(getAccessToken);
@@ -847,7 +858,7 @@ export default function WalletScreen() {
                             </View>
                             <Text style={[styles.actionButtonLabel, { color: themeColors.textPrimary }]}>Send</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton} onPress={() => presentSheet(receiveSheetRef)}>
+                        <TouchableOpacity style={styles.actionButton} onPress={() => presentSheet(receiveChooserSheetRef)}>
                             <View style={[styles.actionIconBox, { backgroundColor: themeColors.surface }]}>
                                 <QrCode size={24} color={themeColors.textPrimary} />
                             </View>
@@ -1109,6 +1120,51 @@ export default function WalletScreen() {
                 </ScrollView>
 
                 {/* ──────────────── Bottom sheets ──────────────── */}
+
+                {/* Receive chooser sheet */}
+                <TrueSheet
+                    ref={receiveChooserSheetRef}
+                    detents={['auto']}
+                    cornerRadius={Platform.OS === 'ios' ? 50 : 24}
+                    backgroundBlur="regular"
+                    grabber={true}
+                    onDismiss={handleSheetDismiss}
+                >
+                    <View style={styles.sendSheetContent}>
+                        <Text style={[styles.sendSheetTitle, { color: themeColors.textPrimary }]}>Receive</Text>
+                        <Text style={[styles.sendSheetSubtitle, { color: themeColors.textSecondary }]}>Choose how you want to receive funds</Text>
+                        <TouchableOpacity
+                            style={[styles.sendOptionCard, { backgroundColor: themeColors.surface }]}
+                            onPress={() => handleReceiveOptionPress('onramp')}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                <View style={[styles.actionIconBox, { backgroundColor: themeColors.background, width: 40, height: 40 }]}>
+                                    <LandmarkIcon size={20} color={themeColors.textPrimary} />
+                                </View>
+                                <View>
+                                    <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary }]}>Buy with bank transfer</Text>
+                                    <Text style={[styles.sendOptionSubtitle, { color: themeColors.textSecondary }]}>Onramp NGN or GHS to USDC</Text>
+                                </View>
+                            </View>
+                            <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.sendOptionCard, { backgroundColor: themeColors.surface }]}
+                            onPress={() => handleReceiveOptionPress('crypto')}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                <View style={[styles.actionIconBox, { backgroundColor: themeColors.background, width: 40, height: 40 }]}>
+                                    <QrCode size={20} color={themeColors.textPrimary} />
+                                </View>
+                                <View>
+                                    <Text style={[styles.sendOptionTitle, { color: themeColors.textPrimary }]}>Receive crypto</Text>
+                                    <Text style={[styles.sendOptionSubtitle, { color: themeColors.textSecondary }]}>Share your wallet address or QR</Text>
+                                </View>
+                            </View>
+                            <CaretLeft size={20} color={themeColors.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
+                        </TouchableOpacity>
+                    </View>
+                </TrueSheet>
 
                 {/* Receive sheet */}
                 <TrueSheet

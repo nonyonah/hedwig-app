@@ -168,6 +168,10 @@ function ThemedStack() {
             <Stack.Screen name="wallet/send" />
             <Stack.Screen name="wallet/send-address" />
             <Stack.Screen name="wallet/send-token" />
+            <Stack.Screen name="onramp/amount" />
+            <Stack.Screen name="onramp/bank" />
+            <Stack.Screen name="onramp/review" />
+            <Stack.Screen name="onramp/[id]" />
             <Stack.Screen
                 name="creation-box"
                 options={{
