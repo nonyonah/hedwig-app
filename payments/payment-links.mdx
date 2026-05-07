@@ -1,6 +1,6 @@
 ---
 title: "Share payment links for crypto payments"
-description: "Create shareable payment links your clients can use to pay you in USDC across Base, Solana, Celo, and Stacks — no invoice required."
+description: "Create shareable payment links your clients can use to pay you in USDC across Base, Solana, Celo, Polygon and Arbirtrum — no invoice required."
 ---
 
 Payment links are the fastest way to request a specific amount from a client. Unlike invoices, they do not require line items or a formal document structure — you set an amount, optionally add a description and a client, and share the link. Your client opens it in any browser and pays directly in USDC.
@@ -15,14 +15,13 @@ Your client can pay from any of the following networks. Hedwig detects which cha
   <Card title="Base" icon="circle-dollar-sign">
     Ethereum L2 by Coinbase. Low fees, fast confirmations. USDC is natively supported.
   </Card>
+
   <Card title="Solana" icon="bolt">
     High-throughput network with near-instant finality. USDC on Solana is widely held.
   </Card>
+
   <Card title="Celo" icon="leaf">
     Mobile-first EVM chain optimized for payments across Africa. Supports USDC.
-  </Card>
-  <Card title="Stacks (Bitcoin L2)" icon="bitcoin-sign">
-    A Bitcoin Layer 2 that brings programmability to BTC. Clients can pay using STX.
   </Card>
 </CardGroup>
 
@@ -30,31 +29,25 @@ Your client can pay from any of the following networks. Hedwig detects which cha
 
 <Steps>
   <Step title="Open the payment link form">
-    Go to **Payments** and tap **Create Payment Link**, or tap **+** from the payment links section on the home screen.
+    Go to **Payments** and tap **Create Payment Link**, or tap **\+** from the payment links section on the home screen.
   </Step>
-
   <Step title="Select or add a client (optional)">
     You can attach the link to a saved client by selecting them from the dropdown. This keeps your payment history organized by client.
 
     If this is a one-off request, you can skip client selection or type a name directly. Providing a client email lets Hedwig send them the link automatically.
   </Step>
-
   <Step title="Enter an amount">
     Type the payment amount. All amounts are in USDC. There is no minimum amount, but the payment page will display the exact USDC value your client needs to send.
   </Step>
-
   <Step title="Add a description (optional)">
-    Use the **Description** field to explain what the payment is for — *"50% deposit for brand identity project"* or *"Monthly retainer — June."* This appears on the payment page your client sees.
+    Use the **Description** field to explain what the payment is for — _"50% deposit for brand identity project"_ or _"Monthly retainer — June."_ This appears on the payment page your client sees.
   </Step>
-
   <Step title="Configure reminders">
     Leave **Payment reminders** on to have Hedwig notify your client by email as the due date approaches. Toggle it off if you prefer to follow up yourself.
   </Step>
-
   <Step title="Add notes (optional)">
     Any text you add to **Notes** will appear on the payment page. Use this for bank-equivalent details, a thank-you message, or any context your client needs.
   </Step>
-
   <Step title="Create the link">
     Tap **Create Payment Link**. Your link is generated at `hedwigbot.xyz/pay/...` and, if a client email was provided, sent to them immediately.
   </Step>
@@ -86,7 +79,7 @@ You receive a push notification and email as soon as payment is confirmed.
 ## Payment link statuses
 
 | Status | Meaning |
-|--------|---------|
+| --- | --- |
 | **Draft** | Created but not yet sent. Share the URL manually. |
 | **Sent** | Email delivered to your client. |
 | **Viewed** | Client has opened the payment page. |
