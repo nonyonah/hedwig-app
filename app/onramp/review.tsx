@@ -20,7 +20,8 @@ const NETWORK_META: Record<OnrampNetwork, { name: string; icon: any }> = {
     base: { name: 'Base', icon: require('../../assets/icons/networks/base.png') },
     polygon: { name: 'Polygon', icon: require('../../assets/icons/networks/polygon.png') },
     arbitrum: { name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
-    celo: { name: 'Celo', icon: require('../../assets/icons/networks/celo.png') },
+    // Celo temporarily disabled — keep mapping so legacy orders still render.
+    celo: { name: 'Celo', icon: require('../../assets/icons/networks/base.png') },
 };
 
 const COUNTRY_FLAG: Record<OnrampFiat, string> = {
@@ -30,6 +31,7 @@ const COUNTRY_FLAG: Record<OnrampFiat, string> = {
     MWK: '🇲🇼',
     UGX: '🇺🇬',
     BRL: '🇧🇷',
+    USD: '🇺🇸',
 };
 
 const USDC_ICON = require('../../assets/icons/tokens/usdc.png');
@@ -128,7 +130,7 @@ export default function OnrampReviewScreen() {
                     </View>
 
                     <Text style={[styles.disclaimer, { color: themeColors.textSecondary }]}>
-                        On confirm, Paycrest issues a virtual bank account. Send your {fiatCurrency} payment within the deposit window so we can deliver USDC to your wallet.
+                        On confirm, we will issue a virtual bank account. Send your {fiatCurrency} payment within the deposit window so we can deliver USDC to your wallet.
                     </Text>
 
                     <View style={{ height: 100 }} />

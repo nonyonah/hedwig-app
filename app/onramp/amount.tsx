@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -12,17 +14,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { ChevronLeft as CaretLeft, ChevronDown as CaretDown } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { SelectorSheet } from '../../components/SelectorSheet';
 import { useOnramp, OnrampFiat, OnrampNetwork, OnrampQuote } from '../../hooks/useOnramp';
+import { useCoinbasePay } from '../../hooks/useCoinbasePay';
 
 const NETWORKS: { id: OnrampNetwork; name: string; icon: any }[] = [
     { id: 'base', name: 'Base', icon: require('../../assets/icons/networks/base.png') },
     { id: 'arbitrum', name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
     { id: 'polygon', name: 'Polygon', icon: require('../../assets/icons/networks/polygon.png') },
-    { id: 'celo', name: 'Celo', icon: require('../../assets/icons/networks/celo.png') },
+    // Celo temporarily disabled.
 ];
 
 const TOKEN = {
@@ -44,6 +48,7 @@ export default function OnrampAmountScreen() {
     const router = useRouter();
     const themeColors = useThemeColors();
     const { quote } = useOnramp();
+    const { createSession: createCoinbaseSession } = useCoinbasePay();
 
     const [amount, setAmount] = useState('');
     const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS[0]);
@@ -53,14 +58,16 @@ export default function OnrampAmountScreen() {
     const [quoteData, setQuoteData] = useState<OnrampQuote | null>(null);
     const [quoteLoading, setQuoteLoading] = useState(false);
     const [quoteError, setQuoteError] = useState<string | null>(null);
+    const [coinbaseLoading, setCoinbaseLoading] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fiatAmount = useMemo(() => parseFloat(amount), [amount]);
     const isAmountValid = Number.isFinite(fiatAmount) && fiatAmount > 0;
+    const isCoinbaseCountry = selectedCountry.currency === 'USD';
 
     useEffect(() => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
-        if (!isAmountValid) {
+        if (!isAmountValid || isCoinbaseCountry) {
             setQuoteData(null);
             setQuoteError(null);
             setQuoteLoading(false);
@@ -87,10 +94,31 @@ export default function OnrampAmountScreen() {
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [fiatAmount, selectedCountry.currency, selectedNetwork.id, isAmountValid, quote]);
+    }, [fiatAmount, selectedCountry.currency, selectedNetwork.id, isAmountValid, isCoinbaseCountry, quote]);
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
         if (!isAmountValid) return;
+        if (isCoinbaseCountry) {
+            try {
+                setCoinbaseLoading(true);
+                const result = await createCoinbaseSession({
+                    direction: 'buy',
+                    amount: fiatAmount,
+                    asset: 'USDC',
+                    network: selectedNetwork.id,
+                    fiatCurrency: 'USD',
+                    country: 'US',
+                });
+                await WebBrowser.openBrowserAsync(result.url, {
+                    presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+                });
+            } catch (error: any) {
+                Alert.alert('Could not start Coinbase Pay', error?.message || 'Please try again.');
+            } finally {
+                setCoinbaseLoading(false);
+            }
+            return;
+        }
         router.push({
             pathname: '/onramp/bank' as any,
             params: {
@@ -176,6 +204,11 @@ export default function OnrampAmountScreen() {
                                         : ''}
                             </Text>
                         ) : null}
+                        {isCoinbaseCountry && isAmountValid ? (
+                            <Text style={[styles.fiatEquivalentText, { color: themeColors.textSecondary }]}>
+                                Coinbase will show the final USDC quote before you pay.
+                            </Text>
+                        ) : null}
                         {quoteError ? (
                             <Text style={[styles.fiatEquivalentText, { color: Colors.error }]}>{quoteError}</Text>
                         ) : null}
@@ -192,7 +225,9 @@ export default function OnrampAmountScreen() {
                         </TouchableOpacity>
 
                         <Text style={[styles.helperText, { color: themeColors.textSecondary }]}>
-                            Funds settle to your primary {selectedNetwork.name} wallet. Refund details collected next.
+                            {isCoinbaseCountry
+                                ? `Coinbase will send USDC to your primary ${selectedNetwork.name} wallet.`
+                                : `Funds settle to your primary ${selectedNetwork.name} wallet. Refund details collected next.`}
                         </Text>
 
                         <View style={{ height: 100 }} />
@@ -200,11 +235,20 @@ export default function OnrampAmountScreen() {
 
                     <View style={[styles.footer, { backgroundColor: themeColors.background }]}>
                         <TouchableOpacity
-                            style={[styles.continueButton, (!isAmountValid || !quoteData) && styles.continueButtonDisabled]}
+                            style={[
+                                styles.continueButton,
+                                (!isAmountValid || (!isCoinbaseCountry && !quoteData) || coinbaseLoading) && styles.continueButtonDisabled,
+                            ]}
                             onPress={handleContinue}
-                            disabled={!isAmountValid || !quoteData}
+                            disabled={!isAmountValid || (!isCoinbaseCountry && !quoteData) || coinbaseLoading}
                         >
-                            <Text style={styles.continueButtonText}>Continue</Text>
+                            {coinbaseLoading ? (
+                                <ActivityIndicator color="#FFFFFF" />
+                            ) : (
+                                <Text style={styles.continueButtonText}>
+                                    {isCoinbaseCountry ? 'Continue with Coinbase' : 'Continue'}
+                                </Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
@@ -239,6 +283,7 @@ export default function OnrampAmountScreen() {
                     const next = COUNTRIES.find((c) => c.id === id);
                     if (next) setSelectedCountry(next);
                 }}
+                detentFraction={0.7}
             />
         </View>
     );

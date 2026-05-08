@@ -28,7 +28,8 @@ const NETWORK_META: Record<string, { name: string; icon: any }> = {
     BASE: { name: 'Base', icon: require('../../assets/icons/networks/base.png') },
     POLYGON: { name: 'Polygon', icon: require('../../assets/icons/networks/polygon.png') },
     ARBITRUM: { name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
-    CELO: { name: 'Celo', icon: require('../../assets/icons/networks/celo.png') },
+    // Celo temporarily disabled — fall back to a neutral icon for legacy orders.
+    CELO: { name: 'Celo', icon: require('../../assets/icons/networks/base.png') },
 };
 
 const COUNTRY_FLAG: Record<string, string> = {

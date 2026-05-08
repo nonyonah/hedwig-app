@@ -50,6 +50,7 @@ import TokenDetailSheet, { SelectedToken } from '../../../components/TokenDetail
 import { createUsdKycLink, getUsdAccountDetails, getUsdAccountStatus, getUsdTransfers, updateUsdSettlement, UsdAccountDetails, UsdAccountStatus, UsdTransfer } from '../../wallet/usdAccountApi';
 import { joinApiUrl } from '../../../utils/apiBaseUrl';
 import type { OnrampOrder } from '../../../hooks/useOnramp';
+import type { CoinbasePayActivitySession } from '../../../hooks/useCoinbasePay';
 
 // ─── Settlement chains ───────────────────────────────────────────────────────
 const SETTLEMENT_CHAINS = [
@@ -125,7 +126,8 @@ interface Transaction {
 
 interface OfframpOrder {
     id: string;
-    paycrestOrderId: string;
+    providerOrderId?: string;
+    paycrestOrderId?: string;
     status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
     chain: string;
     token: string;
@@ -145,7 +147,8 @@ interface OfframpOrder {
 type ActivityItem =
     | { kind: 'tx';         data: Transaction  }
     | { kind: 'withdrawal'; data: OfframpOrder }
-    | { kind: 'onramp';     data: OnrampOrder  };
+    | { kind: 'onramp';     data: OnrampOrder  }
+    | { kind: 'coinbase';   data: CoinbasePayActivitySession };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const toNumber = (value: unknown): number => {
@@ -337,6 +340,7 @@ export default function WalletScreen() {
     const [transactions,    setTransactions]    = useState<Transaction[]>([]);
     const [offrampOrders,   setOfframpOrders]   = useState<OfframpOrder[]>([]);
     const [onrampOrders,    setOnrampOrders]    = useState<OnrampOrder[]>([]);
+    const [coinbaseSessions, setCoinbaseSessions] = useState<CoinbasePayActivitySession[]>([]);
     const [activityLoading, setActivityLoading] = useState(false);
     const [activityFilter,  setActivityFilter]  = useState<'all' | 'in' | 'out' | 'withdrawals' | 'onramps' | 'failed'>('all');
     const [selectedTx,       setSelectedTx]      = useState<Transaction | null>(null);
@@ -499,11 +503,26 @@ export default function WalletScreen() {
         } catch { /* non-fatal */ }
     }, [getAccessToken]);
 
+    const fetchCoinbaseSessions = useCallback(async () => {
+        try {
+            const token = await getAccessToken();
+            if (!token) return;
+            const res = await fetch(joinApiUrl('/api/coinbase-pay/sessions'), {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const raw: any[] = Array.isArray(data?.data?.sessions) ? data.data.sessions : [];
+                setCoinbaseSessions(raw);
+            }
+        } catch { /* non-fatal */ }
+    }, [getAccessToken]);
+
     const onRefresh = async () => {
         setRefreshing(true);
         await Promise.all([
             fetchUserData(), fetchBaseBalances(), fetchUsdData(),
-            fetchTokenPrices(), fetchTransactions(), fetchOfframpOrders(), fetchOnrampOrders(),
+            fetchTokenPrices(), fetchTransactions(), fetchOfframpOrders(), fetchOnrampOrders(), fetchCoinbaseSessions(),
         ]);
         setLastUpdatedAt(new Date());
         setRefreshing(false);
@@ -518,6 +537,7 @@ export default function WalletScreen() {
             fetchTransactions();
             fetchOfframpOrders();
             fetchOnrampOrders();
+            fetchCoinbaseSessions();
             setLastUpdatedAt(new Date());
 
             const balanceInterval = setInterval(() => {
@@ -532,6 +552,7 @@ export default function WalletScreen() {
             const ordersInterval = setInterval(() => {
                 fetchOfframpOrders();
                 fetchOnrampOrders();
+                fetchCoinbaseSessions();
             }, 10000);
 
             return () => {
@@ -539,7 +560,7 @@ export default function WalletScreen() {
                 clearInterval(priceInterval);
                 clearInterval(ordersInterval);
             };
-        }, [fetchBaseBalances, fetchUserData, fetchUsdData, fetchTokenPrices, fetchTransactions, fetchOfframpOrders, fetchOnrampOrders])
+        }, [fetchBaseBalances, fetchUserData, fetchUsdData, fetchTokenPrices, fetchTransactions, fetchOfframpOrders, fetchOnrampOrders, fetchCoinbaseSessions])
     );
 
     // Update selected order when orders refresh
@@ -592,7 +613,7 @@ export default function WalletScreen() {
         { chain: 'base',     name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('base','usdc'),    6), balanceUsd: toNumber(bal('base','usdc')?.display_values?.usd),    icon: require('../../../assets/icons/tokens/usdc.png') },
         { chain: 'arbitrum', name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('arbitrum','usdc'),6), balanceUsd: toNumber(bal('arbitrum','usdc')?.display_values?.usd), icon: require('../../../assets/icons/tokens/usdc.png') },
         { chain: 'polygon',  name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('polygon','usdc'), 6), balanceUsd: toNumber(bal('polygon','usdc')?.display_values?.usd),  icon: require('../../../assets/icons/tokens/usdc.png') },
-        { chain: 'celo',     name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('celo','usdc'),    6), balanceUsd: toNumber(bal('celo','usdc')?.display_values?.usd),     icon: require('../../../assets/icons/tokens/usdc.png') },
+        // Celo USDC row temporarily disabled.
         ...(solanaAddress ? [
             { chain: 'solana', name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('solana','usdc'),6), balanceUsd: toNumber(bal('solana','usdc')?.display_values?.usd), icon: require('../../../assets/icons/tokens/usdc.png') },
         ] : []),
@@ -613,23 +634,25 @@ export default function WalletScreen() {
             .map(tx => ({ kind: 'tx' as const, data: tx }));
         const wdItems = offrampOrders.map(o => ({ kind: 'withdrawal' as const, data: o }));
         const onrampItems = onrampOrders.map(o => ({ kind: 'onramp' as const, data: o }));
-        return [...txItems, ...wdItems, ...onrampItems].sort((a, b) => {
+        const coinbaseItems = coinbaseSessions.map(o => ({ kind: 'coinbase' as const, data: o }));
+        return [...txItems, ...wdItems, ...onrampItems, ...coinbaseItems].sort((a, b) => {
             const dateA = a.kind === 'tx' ? new Date(a.data.date).getTime() : new Date(a.data.createdAt).getTime();
             const dateB = b.kind === 'tx' ? new Date(b.data.date).getTime() : new Date(b.data.createdAt).getTime();
             return dateB - dateA;
         });
-    }, [transactions, offrampOrders, onrampOrders]);
+    }, [transactions, offrampOrders, onrampOrders, coinbaseSessions]);
 
     const filteredActivity = useMemo(() => allActivity.filter(item => {
         if (activityFilter === 'all')         return true;
-        if (activityFilter === 'in')          return (item.kind === 'tx' && item.data.type === 'IN') || item.kind === 'onramp';
+        if (activityFilter === 'in')          return (item.kind === 'tx' && item.data.type === 'IN') || item.kind === 'onramp' || (item.kind === 'coinbase' && item.data.direction === 'buy');
         if (activityFilter === 'out')         return item.kind === 'tx' && item.data.type === 'OUT';
-        if (activityFilter === 'withdrawals') return item.kind === 'withdrawal';
-        if (activityFilter === 'onramps')     return item.kind === 'onramp';
+        if (activityFilter === 'withdrawals') return item.kind === 'withdrawal' || (item.kind === 'coinbase' && item.data.direction === 'sell');
+        if (activityFilter === 'onramps')     return item.kind === 'onramp' || (item.kind === 'coinbase' && item.data.direction === 'buy');
         if (activityFilter === 'failed')      return (
             (item.kind === 'tx' && item.data.status === 'failed') ||
             (item.kind === 'withdrawal' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED')) ||
-            (item.kind === 'onramp' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED'))
+            (item.kind === 'onramp' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED')) ||
+            (item.kind === 'coinbase' && (item.data.status === 'FAILED' || item.data.status === 'CANCELLED'))
         );
         return true;
     }), [allActivity, activityFilter]);
@@ -740,6 +763,31 @@ export default function WalletScreen() {
         presentSheet(onrampDetailSheetRef);
     };
 
+    const openCoinbaseSession = async (session: CoinbasePayActivitySession) => {
+        Haptics.selectionAsync();
+        if (session.txHash) {
+            const chain = String(session.chain || '').toLowerCase();
+            const url = chain === 'solana'
+                ? `https://explorer.solana.com/tx/${session.txHash}`
+                : `https://basescan.org/tx/${session.txHash}`;
+            await WebBrowser.openBrowserAsync(url, {
+                presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+                controlsColor: Colors.primary,
+            });
+            return;
+        }
+        if (session.launchUrl && (session.status === 'PENDING' || session.status === 'PROCESSING')) {
+            await WebBrowser.openBrowserAsync(session.launchUrl, {
+                presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+            });
+            return;
+        }
+        Alert.alert(
+            session.direction === 'sell' ? 'Coinbase cash out' : 'Coinbase USDC purchase',
+            session.errorMessage || `${session.status.toLowerCase()} on Coinbase.`
+        );
+    };
+
     const openExplorer = async (tx: Transaction) => {
         if (!tx.hash) { Alert.alert('Error', 'Transaction hash not available'); return; }
         let url = tx.network === 'base'
@@ -833,6 +881,48 @@ export default function WalletScreen() {
                     <View style={styles.activityRight}>
                         <Text style={[styles.activityAmount, { color: Colors.success }]}>
                             +{Number(order.cryptoAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 4 })} {order.token}
+                        </Text>
+                        <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + '20' }]}>
+                            <StatusIcon size={11} color={statusCfg.color} strokeWidth={3} />
+                            <Text style={[styles.statusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            );
+        }
+
+        if (item.kind === 'coinbase') {
+            const session = item.data;
+            const statusCfg = WITHDRAWAL_STATUS_CONFIG[session.status] || WITHDRAWAL_STATUS_CONFIG.PENDING;
+            const chainInfo = ACTIVITY_CHAINS[session.chain] || ACTIVITY_CHAINS.base;
+            const StatusIcon = statusCfg.Icon;
+            const isBuy = session.direction === 'buy';
+            return (
+                <TouchableOpacity
+                    key={`coinbase-${session.id}`}
+                    style={[styles.activityItem, { borderBottomColor: themeColors.border }]}
+                    onPress={() => { void openCoinbaseSession(session); }}
+                    activeOpacity={0.7}
+                >
+                    <View style={styles.activityIconContainer}>
+                        <Image source={ACTIVITY_ICONS.usdc} style={styles.activityTokenIcon} />
+                        <View style={[styles.activityChainBadge, { backgroundColor: themeColors.background, borderColor: themeColors.background }]}>
+                            <Image source={chainInfo.icon} style={styles.activityChainBadgeIcon} />
+                        </View>
+                    </View>
+                    <View style={styles.activityContent}>
+                        <Text style={[styles.activityTitle, { color: themeColors.textPrimary }]}>
+                            {isBuy ? 'Buy USDC' : 'Coinbase cash out'}
+                        </Text>
+                        <Text style={[styles.activitySubtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                            Coinbase • {session.fiatCurrency || 'USD'}
+                        </Text>
+                    </View>
+                    <View style={styles.activityRight}>
+                        <Text style={[styles.activityAmount, { color: isBuy ? Colors.success : themeColors.textPrimary }]}>
+                            {isBuy
+                                ? `+${Number(session.cryptoAmount || 0).toLocaleString(undefined, { maximumFractionDigits: 4 })} ${session.token}`
+                                : `${session.fiatCurrency} ${Number(session.fiatAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         </Text>
                         <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + '20' }]}>
                             <StatusIcon size={11} color={statusCfg.color} strokeWidth={3} />
@@ -1036,7 +1126,7 @@ export default function WalletScreen() {
                                                 <ExpoButton label="Base"     onPress={() => setNetworkFilter('base')} />
                                                 <ExpoButton label="Arbitrum" onPress={() => setNetworkFilter('arbitrum')} />
                                                 <ExpoButton label="Polygon"  onPress={() => setNetworkFilter('polygon')} />
-                                                <ExpoButton label="Celo"     onPress={() => setNetworkFilter('celo')} />
+                                                {/* Celo temporarily disabled. */}
                                                 <ExpoButton label="Solana"   onPress={() => setNetworkFilter('solana')} />
                                             </Menu>
                                         </Host>
@@ -1047,7 +1137,7 @@ export default function WalletScreen() {
                                                 { label: 'Base',     onPress: () => setNetworkFilter('base') },
                                                 { label: 'Arbitrum', onPress: () => setNetworkFilter('arbitrum') },
                                                 { label: 'Polygon',  onPress: () => setNetworkFilter('polygon') },
-                                                { label: 'Celo',     onPress: () => setNetworkFilter('celo') },
+                                                // Celo temporarily disabled.
                                                 { label: 'Solana',   onPress: () => setNetworkFilter('solana') },
                                             ]}
                                             trigger={
@@ -1625,7 +1715,7 @@ export default function WalletScreen() {
 
                                 <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                                     {[
-                                        { label: 'Order ID', value: (selectedOrder.paycrestOrderId || selectedOrder.id).slice(0, 18) + '…', copy: selectedOrder.paycrestOrderId || selectedOrder.id },
+                                        { label: 'Order ID', value: (selectedOrder.providerOrderId || selectedOrder.paycrestOrderId || selectedOrder.id).slice(0, 18) + '…', copy: selectedOrder.providerOrderId || selectedOrder.paycrestOrderId || selectedOrder.id },
                                         { label: 'Bank',     value: selectedOrder.bankName,     sub: selectedOrder.accountNumber },
                                         { label: 'Chain',    value: ACTIVITY_CHAINS[selectedOrder.chain]?.name || 'Base', chainIcon: ACTIVITY_CHAINS[selectedOrder.chain]?.icon },
                                         { label: 'Rate',     value: `1 ${selectedOrder.token} = ${selectedOrder.fiatCurrency} ${Number(selectedOrder.exchangeRate || 0).toLocaleString()}` },
@@ -1711,7 +1801,7 @@ export default function WalletScreen() {
 
                                 <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
                                     {[
-                                        { label: 'Order ID', value: (selectedOnrampOrder.paycrestOrderId || selectedOnrampOrder.id).slice(0, 18) + '…', copy: selectedOnrampOrder.paycrestOrderId || selectedOnrampOrder.id },
+                                        { label: 'Order ID', value: (selectedOnrampOrder.providerOrderId || selectedOnrampOrder.paycrestOrderId || selectedOnrampOrder.id).slice(0, 18) + '…', copy: selectedOnrampOrder.providerOrderId || selectedOnrampOrder.paycrestOrderId || selectedOnrampOrder.id },
                                         { label: 'Deposit bank', value: selectedOnrampOrder.providerInstitution || 'Pending', sub: selectedOnrampOrder.providerAccountNumber || undefined },
                                         { label: 'Account name', value: selectedOnrampOrder.providerAccountName || 'Pending' },
                                         { label: 'Refund bank', value: selectedOnrampOrder.refundInstitution || 'Not set', sub: selectedOnrampOrder.refundAccountNumber || undefined },

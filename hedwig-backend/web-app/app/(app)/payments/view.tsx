@@ -79,7 +79,7 @@ const ALL_CHAINS = [
   { src: '/icons/networks/base.png',     alt: 'Base' },
   { src: '/icons/networks/arbitrum.png', alt: 'Arbitrum' },
   { src: '/icons/networks/polygon.png',  alt: 'Polygon' },
-  { src: '/icons/networks/celo.png',     alt: 'Celo' },
+  // Celo temporarily disabled.
   { src: '/icons/networks/solana.png',   alt: 'Solana' },
 ];
 

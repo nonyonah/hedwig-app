@@ -90,30 +90,23 @@ export function PublicCheckoutPanel({
   const availableChains = useMemo<AvailableChain[]>(() => {
     const chains: AvailableChain[] = [];
     if (evmMerchantAddress) {
-      if (isMiniPay) {
-        chains.push({ id: 'celo', label: 'Celo', icon: '/icons/networks/celo.png' });
-      } else {
-        chains.push({ id: 'base',     label: 'Base',     icon: '/icons/networks/base.png' });
-        chains.push({ id: 'arbitrum', label: 'Arbitrum', icon: '/icons/networks/arbitrum.png' });
-        chains.push({ id: 'polygon',  label: 'Polygon',  icon: '/icons/networks/polygon.png' });
-        chains.push({ id: 'celo',     label: 'Celo',     icon: '/icons/networks/celo.png' });
-      }
+      // Celo / MiniPay branch temporarily disabled.
+      chains.push({ id: 'base',     label: 'Base',     icon: '/icons/networks/base.png' });
+      chains.push({ id: 'arbitrum', label: 'Arbitrum', icon: '/icons/networks/arbitrum.png' });
+      chains.push({ id: 'polygon',  label: 'Polygon',  icon: '/icons/networks/polygon.png' });
     }
-    if (solanaMerchantAddress && !isMiniPay) {
+    if (solanaMerchantAddress) {
       chains.push({ id: 'solana', label: 'Solana', icon: '/icons/networks/solana.png' });
     }
     return chains;
-  }, [evmMerchantAddress, isMiniPay, solanaMerchantAddress]);
+  }, [evmMerchantAddress, solanaMerchantAddress]);
 
   const initialChain = useMemo<PublicSettlementChain | null>(() => {
-    if (isMiniPay && availableChains.some((chain) => chain.id === 'celo')) {
-      return 'celo';
-    }
     if (availableChains.some((chain) => chain.id === preferredChain)) {
       return preferredChain;
     }
     return availableChains[0]?.id || null;
-  }, [availableChains, isMiniPay, preferredChain]);
+  }, [availableChains, preferredChain]);
 
   const [internalSelectedChain, setInternalSelectedChain] = useState<PublicSettlementChain | null>(initialChain);
   const activeChain = selectedChain ?? internalSelectedChain;

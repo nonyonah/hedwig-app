@@ -40,7 +40,7 @@ const CHAINS = [
   { value: 'BASE',     label: 'Base',     logo: '/icons/networks/base.png' },
   { value: 'ARBITRUM', label: 'Arbitrum', logo: '/icons/networks/arbitrum.png' },
   { value: 'POLYGON',  label: 'Polygon',  logo: '/icons/networks/polygon.png' },
-  { value: 'CELO',     label: 'Celo',     logo: '/icons/networks/celo.png' },
+  // Celo temporarily disabled.
   { value: 'SOLANA',   label: 'Solana',   logo: '/icons/networks/solana.png' },
 ];
 

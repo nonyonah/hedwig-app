@@ -126,7 +126,7 @@ export default async function PublicPaymentLinkPage({
               <ol className="space-y-1.5 text-[12px] leading-relaxed text-[#717680]">
                 <li>1. Select your preferred network in the checkout panel.</li>
                 <li>2. Connect a wallet that holds {paymentCurrency} on {chainLabel}.</li>
-                {settlementChain === 'celo' ? <li>2a. MiniPay by Opera is supported for Celo checkout.</li> : null}
+                {/* Celo / MiniPay support temporarily disabled. */}
                 <li>3. Confirm the amount and approve the transaction.</li>
                 <li>4. Wait for the confirmation screen before closing this page.</li>
               </ol>

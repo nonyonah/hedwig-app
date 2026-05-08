@@ -18,7 +18,7 @@ const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).
 // Mock data for chains and tokens (replace with actual data/icons later)
 const CHAINS = [
     { id: 'base', name: 'Base', icon: require('../../assets/icons/networks/base.png') },
-    { id: 'celo', name: 'Celo', icon: require('../../assets/icons/networks/celo.png') },
+    // Celo temporarily disabled.
     { id: 'solana', name: 'Solana', icon: require('../../assets/icons/networks/solana.png') },
 ];
 
@@ -126,9 +126,9 @@ function PaymentLinkContent() {
 
             // Map chain IDs
             const CHAIN_IDS: Record<string, number> = {
-                'base': 8453,
-                'celo': 42220,
-                'arbitrum': 42161,
+                'base': process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet' ? 84532 : 8453,
+                'celo': process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet' ? 44787 : 42220,
+                'arbitrum': process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet' ? 421614 : 42161,
                 'optimism': 10
             };
 
@@ -258,7 +258,7 @@ function PaymentLinkContent() {
 
                     {/* Network Notice */}
                     <Text style={[styles.networkNotice, { color: themeColors.textSecondary }]}>
-                        Supports Base, Celo & Solana
+                        Supports Base & Solana
                     </Text>
                 </View>
 

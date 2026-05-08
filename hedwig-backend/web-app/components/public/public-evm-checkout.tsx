@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowSquareOut, CheckCircle } from '@/components/ui/lucide-icons';
 import { encodeFunctionData, parseUnits } from 'viem';
 import { backendConfig } from '@/lib/auth/config';
-import { EVM_TOKENS, getChainId, getExplorerUrl, resolvePaymentChain, type EvmPaymentChain, type PublicSettlementChain } from '@/lib/payments/public-constants';
+import { CELO_USDC_FEE_CURRENCIES, EVM_TOKENS, getChainId, getExplorerUrl, resolvePaymentChain, type EvmPaymentChain, type PublicSettlementChain } from '@/lib/payments/public-constants';
 
 const EVM_CHAIN_META: Record<string, { icon: string; label: string }> = {
   base:     { icon: '/icons/networks/base.png',     label: 'Base' },
@@ -331,7 +331,13 @@ export function PublicEvmCheckout({
         params: [{
           from: connection.account,
           to: tokenAddress,
-          data: transferData
+          data: transferData,
+          ...(evmChain === 'celo' || evmChain === 'celoAlfajores'
+            ? {
+                type: '0x7b',
+                feeCurrency: CELO_USDC_FEE_CURRENCIES[evmChain],
+              }
+            : {})
         }]
       });
       hash = String(response);
@@ -436,7 +442,8 @@ export function PublicEvmCheckout({
         </div>
       ) : null}
 
-      {selectedChain === 'celo' ? (
+      {/* Celo / MiniPay info card temporarily disabled. */}
+      {false && selectedChain === 'celo' ? (
         <div className="mt-4 rounded-2xl border border-[#e9eaeb] bg-[#fcfcfd] p-4">
           <p className="text-sm font-semibold text-[#181d27]">MiniPay on Celo</p>
           <p className="mt-1 text-xs text-[#717680]">

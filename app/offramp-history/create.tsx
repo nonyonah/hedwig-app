@@ -15,6 +15,7 @@ import {
     UIManager,
 } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { ChevronLeft as CaretLeft, CheckCircle, TriangleAlert as Warning, X, ChevronDown as CaretDown, Landmark as BankIcon, ArrowUpDown as ArrowsDownUp } from '../../components/ui/AppIcon';
 import { Colors, useThemeColors } from '../../theme/colors';
 import { useAuth } from '../../hooks/useAuth';
@@ -28,13 +29,14 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import Analytics from '../../services/analytics';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { SelectorSheet, SelectorSheetOption } from '../../components/SelectorSheet';
+import { useCoinbasePay } from '../../hooks/useCoinbasePay';
 
 // Network options
 const NETWORKS = [
     { id: 'base',     name: 'Base',     icon: require('../../assets/icons/networks/base.png') },
     { id: 'arbitrum', name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
     { id: 'polygon',  name: 'Polygon',  icon: require('../../assets/icons/networks/polygon.png') },
-    { id: 'celo',     name: 'Celo',     icon: require('../../assets/icons/networks/celo.png') },
+    // Celo temporarily disabled.
     { id: 'solana',   name: 'Solana',   icon: require('../../assets/icons/networks/solana.png') },
 ];
 
@@ -43,7 +45,7 @@ const TOKENS_BY_NETWORK: Record<string, Array<{ id: string; name: string; icon: 
     base:     [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
     arbitrum: [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
     polygon:  [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
-    celo:     [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
+    // Celo temporarily disabled.
     solana:   [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
 };
 
@@ -79,6 +81,7 @@ export default function CreateWithdrawalScreen() {
     const navigation = useNavigation();
     const themeColors = useThemeColors();
     const { getAccessToken } = useAuth();
+    const { createSession: createCoinbaseSession } = useCoinbasePay();
 
     // Form State
     const [amount, setAmount] = useState('');
@@ -97,6 +100,7 @@ export default function CreateWithdrawalScreen() {
     const [banks, setBanks] = useState<Bank[]>([]);
     const [banksLoading, setBanksLoading] = useState(false);
     const [bankPickerOpen, setBankPickerOpen] = useState(false);
+    const [coinbaseLoading, setCoinbaseLoading] = useState(false);
 
     // Bottom Sheet Refs
     // bankSheetRef removed
@@ -113,6 +117,7 @@ export default function CreateWithdrawalScreen() {
 
     const solanaWalletHook = useEmbeddedSolanaWallet();
     const solanaAddress = (solanaWalletHook as any)?.wallets?.[0]?.address || '';
+    const isCoinbaseCountry = selectedCountry.currency === 'USD';
 
     // Modal States
     const [isBridgeModalVisible, setIsBridgeModalVisible] = useState(false);
@@ -205,6 +210,10 @@ export default function CreateWithdrawalScreen() {
 
     const loadBanks = useCallback(async () => {
         try {
+            if (selectedCountry.currency === 'USD') {
+                setBanks([]);
+                return;
+            }
             setBanksLoading(true);
             const token = await getAccessToken();
             if (!token) {
@@ -253,7 +262,7 @@ export default function CreateWithdrawalScreen() {
 
     useEffect(() => {
         const parsedAmount = parseFloat(amount);
-        if (!amount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+        if (!amount || Number.isNaN(parsedAmount) || parsedAmount <= 0 || isCoinbaseCountry) {
             setFiatEquivalent('');
             setIsFetchingFiatEquivalent(false);
             return;
@@ -301,17 +310,17 @@ export default function CreateWithdrawalScreen() {
             isCancelled = true;
             clearTimeout(timeout);
         };
-    }, [amount, selectedCountry.currency, selectedNetwork.id, getAccessToken]);
+    }, [amount, selectedCountry.currency, selectedNetwork.id, getAccessToken, isCoinbaseCountry]);
 
     // Validate account when bank and number are present
     useEffect(() => {
-        if (selectedBank && accountNumber.length === 10) {
+        if (!isCoinbaseCountry && selectedBank && accountNumber.length === 10) {
             verifyAccount();
         } else {
             setAccountName('');
             setAccountError('');
         }
-    }, [selectedBank, accountNumber, selectedNetwork]);
+    }, [selectedBank, accountNumber, selectedNetwork, isCoinbaseCountry]);
 
 
 
@@ -486,6 +495,41 @@ export default function CreateWithdrawalScreen() {
             has_account_name: Boolean(accountName),
         });
 
+        const numAmount = parseFloat(amount);
+        if (isCoinbaseCountry) {
+            if (isNaN(numAmount) || numAmount <= 0) {
+                Alert.alert('Invalid Amount', 'Please enter a valid amount greater than 0.');
+                return;
+            }
+
+            const walletAddress = selectedNetwork.id === 'solana' ? solanaAddress : evmAddress;
+            if (!walletAddress) {
+                Alert.alert(
+                    selectedNetwork.id === 'solana' ? 'No Solana Wallet' : 'No EVM Wallet',
+                    'Please create a wallet before cashing out with Coinbase.'
+                );
+                return;
+            }
+
+            setCoinbaseLoading(true);
+            createCoinbaseSession({
+                direction: 'sell',
+                amount: numAmount,
+                asset: 'USDC',
+                network: selectedNetwork.id,
+                fiatCurrency: 'USD',
+                country: 'US',
+            })
+                .then((result) => WebBrowser.openBrowserAsync(result.url, {
+                    presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+                }))
+                .catch((error: any) => {
+                    Alert.alert('Could not start Coinbase Pay', error?.message || 'Please try again.');
+                })
+                .finally(() => setCoinbaseLoading(false));
+            return;
+        }
+
         if (!amount || !selectedBank || !accountNumber || !accountName) {
             Analytics.withdrawalFlowFailed('review', 'missing_fields', {
                 has_amount: Boolean(amount),
@@ -497,7 +541,6 @@ export default function CreateWithdrawalScreen() {
             return;
         }
 
-        const numAmount = parseFloat(amount);
         if (isNaN(numAmount) || numAmount <= 0) {
             Analytics.withdrawalFlowFailed('review', 'invalid_amount', {
                 amount,
@@ -670,9 +713,14 @@ export default function CreateWithdrawalScreen() {
                                     : `≈ ${selectedCountry.currency} ${fiatEquivalent}`}
                             </Text>
                         ) : null}
+                        {isCoinbaseCountry && amount ? (
+                            <Text style={[styles.fiatEquivalentText, { color: themeColors.textSecondary }]}>
+                                Coinbase will show the final USD quote before you cash out.
+                            </Text>
+                        ) : null}
 
                         {/* Solana Bridge Disclaimer */}
-                        {selectedNetwork.id === 'solana' && (
+                        {!isCoinbaseCountry && selectedNetwork.id === 'solana' && (
                             <View style={[styles.disclaimerBox, { backgroundColor: themeColors.surface, borderColor: Colors.primary }]}>
                                 <View style={styles.disclaimerIconContainer}>
                                     <ArrowsDownUp size={20} color={Colors.primary} strokeWidth={3} />
@@ -700,6 +748,8 @@ export default function CreateWithdrawalScreen() {
                             </View>
                         </TouchableOpacity>
 
+                        {!isCoinbaseCountry && (
+                            <>
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Beneficiaries</Text>
                         <TouchableOpacity
                             style={[styles.authInputContainer, styles.selectorContainer, { backgroundColor: themeColors.surface }]}
@@ -758,9 +808,11 @@ export default function CreateWithdrawalScreen() {
                                 <CheckCircle size={20} color={Colors.success} fill={Colors.success} />
                             )}
                         </View>
+                            </>
+                        )}
 
                         {/* Account Name (Auto-verified) */}
-                        {(isValidatingAccount || accountName || accountError) && (
+                        {!isCoinbaseCountry && (isValidatingAccount || accountName || accountError) && (
                             <>
                                 <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Account Name</Text>
                                 <View style={[styles.authInputContainer, { backgroundColor: themeColors.surface }]}>
@@ -788,7 +840,7 @@ export default function CreateWithdrawalScreen() {
                             </>
                         )}
 
-                        {!!accountName && !accountError && !!selectedBank && (
+                        {!isCoinbaseCountry && !!accountName && !accountError && !!selectedBank && (
                             <TouchableOpacity
                                 style={[styles.saveBeneficiaryButton, { backgroundColor: themeColors.surface }]}
                                 onPress={() => {
@@ -802,7 +854,9 @@ export default function CreateWithdrawalScreen() {
                         )}
 
                         <Text style={[styles.helperText, { color: themeColors.textSecondary }]}>
-                            Withdrawals are processed instantly.
+                            {isCoinbaseCountry
+                                ? 'Coinbase will handle bank selection, identity checks, and USD payout.'
+                                : 'Withdrawals are processed instantly.'}
                         </Text>
 
                         <View style={{ height: 100 }} />
@@ -813,12 +867,18 @@ export default function CreateWithdrawalScreen() {
                         <TouchableOpacity
                             style={[
                                 styles.continueButton,
-                                (!amount || !selectedBank || !accountName) && styles.continueButtonDisabled
+                                (!amount || (!isCoinbaseCountry && (!selectedBank || !accountName)) || coinbaseLoading) && styles.continueButtonDisabled
                             ]}
                             onPress={handleReview}
-                            disabled={!amount || !selectedBank || !accountName}
+                            disabled={!amount || (!isCoinbaseCountry && (!selectedBank || !accountName)) || coinbaseLoading}
                         >
-                            <Text style={styles.continueButtonText}>Review Withdrawal</Text>
+                            {coinbaseLoading ? (
+                                <ActivityIndicator color="#FFFFFF" />
+                            ) : (
+                                <Text style={styles.continueButtonText}>
+                                    {isCoinbaseCountry ? 'Continue with Coinbase' : 'Review Withdrawal'}
+                                </Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
@@ -932,6 +992,7 @@ export default function CreateWithdrawalScreen() {
                     const country = COUNTRIES.find((c) => c.id === id);
                     if (country) setSelectedCountry(country);
                 }}
+                detentFraction={0.7}
             />
             <SelectorSheet
                 visible={bankPickerOpen}
