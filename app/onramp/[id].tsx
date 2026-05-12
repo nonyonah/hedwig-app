@@ -191,7 +191,7 @@ export default function OnrampOrderScreen() {
                                 ) : null}
                             </View>
 
-                            {order.status === 'PENDING' && order.providerInstitution ? (
+                            {order.status === 'PENDING' ? (
                                 <View style={[styles.card, { backgroundColor: themeColors.surface }]}>
                                     <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>Send your deposit</Text>
                                     <DetailRow

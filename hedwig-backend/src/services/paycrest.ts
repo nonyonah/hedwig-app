@@ -583,35 +583,94 @@ export class PaycrestService {
 
         const apiData = response.data?.data || response.data;
         if (!apiData?.id) {
-            logger.error('No onramp order id in response');
+            logger.error('No onramp order id in response', { raw: response.data });
             throw new Error('Paycrest did not return a valid onramp order ID');
         }
 
-        const provider = apiData.providerAccount || apiData.provider_account || {};
+        // Paycrest v2 has bounced between several shapes for the virtual
+        // account block: top-level `providerAccount` / `provider_account`,
+        // nested under `receiveAddress` / `paymentDetails`, or sibling fields
+        // like `accountIdentifier` directly on the order. Coalesce across all
+        // observed shapes so the user always sees the deposit details.
+        const provider =
+            apiData.providerAccount ||
+            apiData.provider_account ||
+            apiData.receiveAddress ||
+            apiData.receive_address ||
+            apiData.paymentDetails ||
+            apiData.payment_details ||
+            {};
+
+        const institution =
+            provider.institution ||
+            provider.bankName ||
+            provider.bank_name ||
+            apiData.institution ||
+            apiData.bankName ||
+            apiData.bank_name ||
+            null;
+
+        const accountIdentifier =
+            provider.accountIdentifier ||
+            provider.account_identifier ||
+            provider.accountNumber ||
+            provider.account_number ||
+            apiData.accountIdentifier ||
+            apiData.account_identifier ||
+            apiData.accountNumber ||
+            apiData.account_number ||
+            null;
+
+        const accountName =
+            provider.accountName ||
+            provider.account_name ||
+            apiData.accountName ||
+            apiData.account_name ||
+            null;
+
         const amountToTransfer = this.firstFiniteNumber(
             provider.amountToTransfer,
             provider.amount_to_transfer,
-            apiData.amount
+            apiData.amountToTransfer,
+            apiData.amount_to_transfer,
+            apiData.amount,
         );
+
+        const validUntil =
+            provider.validUntil ||
+            provider.valid_until ||
+            apiData.validUntil ||
+            apiData.valid_until ||
+            apiData.expiresAt ||
+            apiData.expires_at ||
+            null;
+
+        if (!institution || !accountIdentifier) {
+            logger.warn('Paycrest onramp order missing virtual account fields', {
+                orderId: apiData.id,
+                rawKeys: Object.keys(apiData),
+                providerKeys: Object.keys(provider),
+            });
+        }
 
         return {
             id: apiData.id,
             status: String(apiData.status || 'initiated').toLowerCase(),
             reference: apiData.reference || reference,
             providerAccount: {
-                institution: provider.institution || null,
-                accountIdentifier: provider.accountIdentifier || provider.account_identifier || null,
-                accountName: provider.accountName || provider.account_name || null,
+                institution,
+                accountIdentifier,
+                accountName,
                 amountToTransfer: amountToTransfer ?? null,
                 currency: provider.currency || orderData.fiatCurrency.toUpperCase(),
-                validUntil: provider.validUntil || provider.valid_until || null,
+                validUntil,
             },
             exchangeRate: this.firstFiniteNumber(apiData.exchangeRate, apiData.exchange_rate, apiData.rate),
             estimatedCryptoAmount: this.firstFiniteNumber(
                 apiData.cryptoAmount,
                 apiData.crypto_amount,
                 apiData.destinationAmount,
-                apiData.destination_amount
+                apiData.destination_amount,
             ),
         };
     }

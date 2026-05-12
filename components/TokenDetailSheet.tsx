@@ -50,9 +50,14 @@ type ChartResponse = { prices: [number, number][] };
 
 const TOKEN_CG_MAP: Record<string, string> = {
     USDC: 'usd-coin',
+    ETH: 'ethereum',
+    SOL: 'solana',
+    POL: 'polygon-ecosystem-token',
+    MATIC: 'matic-network',
+    BTC: 'bitcoin',
 };
 
-const STABLECOIN_SYMBOLS = new Set(['USDC']);
+const STABLECOIN_SYMBOLS = new Set(['USDC', 'USDT', 'DAI']);
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
     { label: '1D', value: '1' },

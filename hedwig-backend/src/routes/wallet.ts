@@ -215,7 +215,39 @@ const ERC20_BALANCE_OF_ABI = [
     },
 ] as const;
 
-const fetchEvmAddressBalances = async (address: Address, testnet: boolean) => {
+interface PriceMap {
+    eth: number;
+    sol: number;
+    pol: number;
+    usdc: number;
+}
+
+let cachedPrices: { value: PriceMap; expiresAt: number } | null = null;
+
+const fetchNativePrices = async (): Promise<PriceMap> => {
+    const now = Date.now();
+    if (cachedPrices && cachedPrices.expiresAt > now) return cachedPrices.value;
+    try {
+        const res = await fetch(
+            'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,solana,polygon-ecosystem-token,usd-coin&vs_currencies=usd',
+            { signal: AbortSignal.timeout(4_000) }
+        );
+        const data: any = await res.json();
+        const map: PriceMap = {
+            eth: Number(data?.ethereum?.usd) || 0,
+            sol: Number(data?.solana?.usd) || 0,
+            pol: Number(data?.['polygon-ecosystem-token']?.usd) || 0,
+            usdc: Number(data?.['usd-coin']?.usd) || 1,
+        };
+        cachedPrices = { value: map, expiresAt: now + 60_000 };
+        return map;
+    } catch (err: any) {
+        logger.warn('CoinGecko price fetch failed', { error: err?.message });
+        return cachedPrices?.value ?? { eth: 0, sol: 0, pol: 0, usdc: 1 };
+    }
+};
+
+const fetchEvmAddressBalances = async (address: Address, testnet: boolean, prices: PriceMap) => {
     const configs = testnet ? EVM_READ_TESTNET : EVM_READ_MAINNET;
     const results = await Promise.all(configs.map(async (cfg) => {
         try {
@@ -229,14 +261,19 @@ const fetchEvmAddressBalances = async (address: Address, testnet: boolean) => {
                     args: [address],
                 }) as Promise<bigint>,
             ]);
+            const nativeTokenStr = formatUnits(nativeBalance, cfg.nativeDecimals);
+            const usdcTokenStr = formatUnits(usdcBalance, cfg.usdcDecimals);
+            const nativePrice = cfg.nativeAsset === 'pol' ? prices.pol : prices.eth;
+            const nativeUsd = (Number(nativeTokenStr) || 0) * nativePrice;
+            const usdcUsd = (Number(usdcTokenStr) || 0) * (prices.usdc || 1);
             return [
                 {
                     chain: cfg.chainKey,
                     asset: cfg.nativeAsset,
                     raw_value: nativeBalance.toString(),
                     display_values: {
-                        token: formatUnits(nativeBalance, cfg.nativeDecimals),
-                        usd: '0',
+                        token: nativeTokenStr,
+                        usd: nativeUsd.toFixed(2),
                     },
                 },
                 {
@@ -244,8 +281,8 @@ const fetchEvmAddressBalances = async (address: Address, testnet: boolean) => {
                     asset: 'usdc',
                     raw_value: usdcBalance.toString(),
                     display_values: {
-                        token: formatUnits(usdcBalance, cfg.usdcDecimals),
-                        usd: formatUnits(usdcBalance, cfg.usdcDecimals),
+                        token: usdcTokenStr,
+                        usd: usdcUsd.toFixed(2),
                     },
                 },
             ];
@@ -354,8 +391,10 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             (wallets.find(w => w.type === 'evm')?.address as Address | undefined) ||
             null;
 
+        const prices = await fetchNativePrices();
+
         const evmBalancesPromise: Promise<any[]> = evmAddressForBalance
-            ? fetchEvmAddressBalances(evmAddressForBalance, testnet)
+            ? fetchEvmAddressBalances(evmAddressForBalance, testnet, prices)
             : Promise.resolve([]);
 
         const solanaPrivyChain = testnet ? SOLANA_CHAIN_TESTNET : SOLANA_CHAIN_MAINNET;
@@ -371,15 +410,24 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
                             include_currency: 'usd',
                         });
                         if (response && response.balances) {
-                            return response.balances.map((bal: any) => ({
-                                chain: normalizeChain(bal.chain || solanaPrivyChain),
-                                asset: bal.asset,
-                                raw_value: bal.raw_value,
-                                display_values: {
-                                    token: bal.display_values?.token || '0',
-                                    usd: bal.display_values?.usd || '0',
-                                },
-                            }));
+                            return response.balances.map((bal: any) => {
+                                const tokenStr = bal.display_values?.token || '0';
+                                const tokenNum = Number(tokenStr) || 0;
+                                const privyUsd = Number(bal.display_values?.usd);
+                                let usdStr: string;
+                                if (Number.isFinite(privyUsd) && privyUsd > 0) {
+                                    usdStr = privyUsd.toFixed(2);
+                                } else {
+                                    const fallbackPrice = bal.asset === 'sol' ? prices.sol : (prices.usdc || 1);
+                                    usdStr = (tokenNum * fallbackPrice).toFixed(2);
+                                }
+                                return {
+                                    chain: normalizeChain(bal.chain || solanaPrivyChain),
+                                    asset: bal.asset,
+                                    raw_value: bal.raw_value,
+                                    display_values: { token: tokenStr, usd: usdStr },
+                                };
+                            });
                         }
                         return [];
                     } catch (apiError: any) {
