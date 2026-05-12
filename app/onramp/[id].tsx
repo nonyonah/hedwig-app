@@ -23,11 +23,14 @@ import {
 import { Colors, useThemeColors } from '../../theme/colors';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { useOnramp, OnrampOrder, OnrampStatus, OnrampNetwork, OnrampFiat } from '../../hooks/useOnramp';
+import { useOnrampAutoDeposit } from '../../hooks/useOnrampAutoDeposit';
+import { useSettings } from '../../context/SettingsContext';
 
 const NETWORK_META: Record<string, { name: string; icon: any }> = {
     BASE: { name: 'Base', icon: require('../../assets/icons/networks/base.png') },
     POLYGON: { name: 'Polygon', icon: require('../../assets/icons/networks/polygon.png') },
     ARBITRUM: { name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
+    OPTIMISM: { name: 'Optimism', icon: require('../../assets/icons/networks/optimism.png') },
     // Celo temporarily disabled — fall back to a neutral icon for legacy orders.
     CELO: { name: 'Celo', icon: require('../../assets/icons/networks/base.png') },
 };
@@ -86,11 +89,15 @@ export default function OnrampOrderScreen() {
     const params = useLocalSearchParams<{ id?: string }>();
     const id = params.id || '';
 
+    const settings = useSettings();
     const [order, setOrder] = useState<OnrampOrder | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [now, setNow] = useState(Date.now());
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const autoDeposit = useOnrampAutoDeposit(order, {
+        enabled: settings?.gatewayAutoDepositEnabled ?? false,
+    });
 
     const refresh = useCallback(async () => {
         if (!id) return;
@@ -253,6 +260,38 @@ export default function OnrampOrderScreen() {
                     <View style={{ height: 100 }} />
                 </ScrollView>
 
+                {order?.status === 'COMPLETED' ? (
+                    <View style={[styles.autoDepositBanner, {
+                        backgroundColor: themeColors.surface,
+                        borderColor: themeColors.border,
+                    }]}>
+                        <Text style={[styles.autoDepositTitle, { color: themeColors.textPrimary }]}>
+                            {autoDeposit.status === 'depositing' ? 'Adding to unified balance…' :
+                             autoDeposit.status === 'completed' ? 'Added to unified balance ✓' :
+                             autoDeposit.status === 'failed' ? 'Auto-deposit needs your attention' :
+                             'Routing to unified balance…'}
+                        </Text>
+                        {autoDeposit.statusLabel ? (
+                            <Text style={[styles.autoDepositSub, { color: themeColors.textSecondary }]}>
+                                {autoDeposit.statusLabel}
+                            </Text>
+                        ) : null}
+                        {autoDeposit.status === 'failed' && autoDeposit.error ? (
+                            <>
+                                <Text style={[styles.autoDepositSub, { color: Colors.error }]}>
+                                    {autoDeposit.error}
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.autoDepositRetry, { backgroundColor: Colors.primary }]}
+                                    onPress={() => { void autoDeposit.retry(); }}
+                                >
+                                    <Text style={[styles.autoDepositRetryText, { color: '#FFFFFF' }]}>Retry</Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : null}
+                    </View>
+                ) : null}
+
                 <View style={[styles.footer, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity
                         style={[styles.continueButton, { backgroundColor: themeColors.surface }]}
@@ -403,6 +442,36 @@ const styles = StyleSheet.create({
     },
     continueButtonText: {
         fontSize: 16,
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+    },
+    autoDepositBanner: {
+        marginHorizontal: 24,
+        marginBottom: 12,
+        padding: 14,
+        borderRadius: 14,
+        borderWidth: StyleSheet.hairlineWidth,
+        gap: 6,
+    },
+    autoDepositTitle: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 14,
+    },
+    autoDepositSub: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 12,
+        lineHeight: 16,
+    },
+    autoDepositRetry: {
+        marginTop: 6,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        alignSelf: 'flex-start',
+    },
+    autoDepositRetryText: {
+        fontSize: 13,
         fontFamily: 'GoogleSansFlex_600SemiBold',
     },
 });

@@ -1,7 +1,15 @@
 export const privyConfig = {
   appId: process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? '',
   clientId: process.env.NEXT_PUBLIC_PRIVY_CLIENT_ID ?? '',
-  loginMethods: ['email', 'google', 'apple'] as const
+  loginMethods: ['email', 'google', 'apple'] as const,
+  embeddedWallets: {
+    ethereum: {
+      createOnLogin: 'all-users' as const
+    },
+    solana: {
+      createOnLogin: 'all-users' as const
+    }
+  }
 };
 
 const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.hedwigbot.xyz';

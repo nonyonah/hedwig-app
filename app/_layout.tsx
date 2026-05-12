@@ -29,7 +29,8 @@ import Analytics from '../services/analytics';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../hooks/useAuth';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import { getApiBaseUrl, joinApiUrl, rewriteApiUrlForRuntime } from '../utils/apiBaseUrl';
+import { getApiBaseUrl, getProductionApiBaseUrl, joinApiUrl, rewriteApiUrlForRuntime } from '../utils/apiBaseUrl';
+import { privyConfig } from '../lib/privy';
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
@@ -53,16 +54,29 @@ const installApiFetchRewrite = () => {
     const originalFetch = globalThis.fetch.bind(globalThis);
 
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const shouldRewriteUrl = (url: string): boolean => {
+            if (!url || !/^https?:\/\//i.test(url)) return false;
+            try {
+                const parsed = new URL(url);
+                const configuredApi = new URL(getApiBaseUrl());
+                const productionApi = new URL(getProductionApiBaseUrl());
+                return parsed.origin === configuredApi.origin || parsed.origin === productionApi.origin;
+            } catch {
+                return false;
+            }
+        };
+
         if (typeof input === 'string') {
-            return originalFetch(rewriteApiUrlForRuntime(input), init);
+            return originalFetch(shouldRewriteUrl(input) ? rewriteApiUrlForRuntime(input) : input, init);
         }
 
         if (input instanceof URL) {
-            return originalFetch(new URL(rewriteApiUrlForRuntime(input.toString())), init);
+            const url = input.toString();
+            return originalFetch(shouldRewriteUrl(url) ? new URL(rewriteApiUrlForRuntime(url)) : input, init);
         }
 
         if (typeof Request !== 'undefined' && input instanceof Request) {
-            const rewrittenUrl = rewriteApiUrlForRuntime(input.url);
+            const rewrittenUrl = shouldRewriteUrl(input.url) ? rewriteApiUrlForRuntime(input.url) : input.url;
             if (rewrittenUrl !== input.url) {
                 return originalFetch(new Request(rewrittenUrl, input), init);
             }
@@ -586,6 +600,10 @@ function NativeLayout() {
             <PrivyProvider
                 appId={PRIVY_APP_ID}
                 clientId={PRIVY_CLIENT_ID}
+                config={{
+                    embedded: privyConfig.embedded,
+                }}
+                supportedChains={privyConfig.supportedChains as any}
             >
                 <UserProvider>
                     <AppLockGate>

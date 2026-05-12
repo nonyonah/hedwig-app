@@ -104,7 +104,8 @@ const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
 
 interface OfframpOrder {
     id: string;
-    paycrestOrderId: string;
+    providerOrderId?: string;
+    paycrestOrderId?: string;
     status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
     chain: string;
     token: string;
@@ -277,7 +278,7 @@ export default function OfframpHistoryScreen() {
     useEffect(() => {
         if (!isFocused) return;
 
-        // Keep withdrawal statuses in sync with Paycrest webhook updates.
+        // Keep withdrawal statuses in sync with provider webhook updates.
         const interval = setInterval(() => {
             fetchOrders(false);
         }, 6000);
@@ -557,7 +558,7 @@ export default function OfframpHistoryScreen() {
                                             <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Order ID</Text>
                                             <TouchableOpacity
                                                 style={styles.orderIdValueWrap}
-                                                onPress={() => copyToClipboard(selectedOrder.paycrestOrderId || selectedOrder.id)}
+                                                onPress={() => copyToClipboard(selectedOrder.providerOrderId || selectedOrder.paycrestOrderId || selectedOrder.id)}
                                                 activeOpacity={0.7}
                                             >
                                                 <Text
@@ -565,7 +566,7 @@ export default function OfframpHistoryScreen() {
                                                     numberOfLines={1}
                                                     ellipsizeMode="middle"
                                                 >
-                                                    {selectedOrder.paycrestOrderId || selectedOrder.id}
+                                                    {selectedOrder.providerOrderId || selectedOrder.paycrestOrderId || selectedOrder.id}
                                                 </Text>
                                                 <Copy size={14} color={themeColors.textSecondary} strokeWidth={2.5} />
                                             </TouchableOpacity>

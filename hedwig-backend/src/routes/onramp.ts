@@ -13,7 +13,7 @@ const ENABLE_PAYCREST_STATUS_POLLING = process.env.PAYCREST_STATUS_POLLING !== '
 // Keep this in sync with the mobile onramp country picker. Paycrest may still
 // return a provider-specific error when a currency has no active onramp rail.
 const SUPPORTED_FIATS = new Set(['NGN', 'KES', 'TZS', 'MWK', 'UGX', 'BRL']);
-const SUPPORTED_NETWORKS = new Set(['base', 'polygon', 'celo', 'arbitrum']);
+const SUPPORTED_NETWORKS = new Set(['base', 'polygon', 'celo', 'arbitrum', 'optimism']);
 const SUPPORTED_TOKENS = new Set(['USDC']);
 
 const mapPaycrestOnrampStatus = (
@@ -70,6 +70,7 @@ const lookupUser = async (authUserId: string) => {
 const formatOrder = (order: any) => ({
     id: order.id,
     userId: order.user_id,
+    providerOrderId: order.paycrest_order_id,
     paycrestOrderId: order.paycrest_order_id,
     reference: order.reference,
     status: normalizeStatusForClient(order.status, order.tx_hash, order.completed_at),
@@ -261,7 +262,7 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
             fiatAmount: fiatAmountNum,
             fiatCurrency: fiat as 'NGN' | 'KES' | 'TZS' | 'MWK' | 'UGX' | 'BRL',
             token: tokenUpper as 'USDC',
-            network: networkLower as 'base' | 'polygon' | 'celo' | 'arbitrum',
+            network: networkLower as 'base' | 'polygon' | 'celo' | 'arbitrum' | 'optimism',
             recipientAddress,
             refundAccount: {
                 institution: refundAccount.bankName,

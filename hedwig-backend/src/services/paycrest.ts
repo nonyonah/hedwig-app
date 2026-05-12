@@ -68,7 +68,7 @@ export interface BankDetails {
 export interface OfframpOrderRequest {
     amount: number;
     token: 'USDC' | 'USDT';
-    network: 'base' | 'solana' | 'arbitrum' | 'polygon' | 'celo' | 'lisk';
+    network: 'base' | 'solana' | 'arbitrum' | 'polygon' | 'celo' | 'lisk' | 'optimism';
     rate: string; // Rate fetched from getExchangeRate
     recipient: BankDetails;
     returnAddress: string; // User's wallet address for refunds
@@ -154,6 +154,7 @@ export class PaycrestService {
             arbitrum: ['arbitrum-one', 'arbitrum'],
             'arbitrum-one': ['arbitrum-one', 'arbitrum'],
             polygon:  ['polygon', 'matic'],
+            optimism: ['optimism'],
             celo:     ['celo'],
             lisk:     ['lisk'],
             solana:   ['solana'],
@@ -620,7 +621,7 @@ export interface OnrampOrderRequest {
     fiatAmount: number;
     fiatCurrency: 'NGN' | 'KES' | 'TZS' | 'MWK' | 'UGX' | 'BRL';
     token: 'USDC';
-    network: 'base' | 'polygon' | 'celo' | 'arbitrum';
+    network: 'base' | 'polygon' | 'celo' | 'arbitrum' | 'optimism';
     recipientAddress: string;
     refundAccount: {
         institution: string;

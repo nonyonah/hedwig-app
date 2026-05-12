@@ -94,6 +94,7 @@ export function PublicCheckoutPanel({
       chains.push({ id: 'base',     label: 'Base',     icon: '/icons/networks/base.png' });
       chains.push({ id: 'arbitrum', label: 'Arbitrum', icon: '/icons/networks/arbitrum.png' });
       chains.push({ id: 'polygon',  label: 'Polygon',  icon: '/icons/networks/polygon.png' });
+      chains.push({ id: 'optimism', label: 'Optimism', icon: '/icons/networks/optimism.png' });
     }
     if (solanaMerchantAddress) {
       chains.push({ id: 'solana', label: 'Solana', icon: '/icons/networks/solana.png' });

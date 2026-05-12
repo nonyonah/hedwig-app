@@ -4,12 +4,19 @@ import { Hex, isAddress, maxUint64, pad, parseUnits, zeroAddress } from 'viem';
 export type GatewayChainKey =
     | 'sepolia'
     | 'avalancheFuji'
+    | 'arbitrumSepolia'
     | 'baseSepolia'
+    | 'polygonAmoy'
+    | 'optimismSepolia'
     | 'sonicTestnet'
     | 'worldChainSepolia'
     | 'seiAtlantic'
     | 'hyperEvmTestnet'
-    | 'arcTestnet';
+    | 'arcTestnet'
+    | 'base'
+    | 'arbitrum'
+    | 'polygon'
+    | 'optimism';
 
 export interface GatewayChainConfig {
     key: GatewayChainKey;
@@ -64,6 +71,8 @@ export interface GatewayAttestationResponse {
 
 const GATEWAY_EVM_TESTNET_WALLET = '0x0077777d7EBA4688BDeF3E311b846F25870A19B9' as const;
 const GATEWAY_EVM_TESTNET_MINTER = '0x0022222ABE238Cc2C7Bb1f21003F0a260052475B' as const;
+const GATEWAY_EVM_MAINNET_WALLET = '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE' as const;
+const GATEWAY_EVM_MAINNET_MINTER = '0x2222222d7164433c4C09B0b0D809a9b52C04C205' as const;
 const DEFAULT_MAX_FEE_MICRO_USDC = '2010000';
 
 export const GATEWAY_EIP712_DOMAIN = {
@@ -139,6 +148,45 @@ const gatewayChains: Record<GatewayChainKey, GatewayChainConfig> = {
         gatewayMinterAddress: GATEWAY_EVM_TESTNET_MINTER,
         usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
     },
+    arbitrumSepolia: {
+        key: 'arbitrumSepolia',
+        label: 'Arbitrum Sepolia',
+        domain: 3,
+        chainId: 421614,
+        chainIdHex: '0x66eee',
+        rpcUrl: 'https://sepolia-rollup.arbitrum.io/rpc',
+        blockExplorerUrl: 'https://sepolia.arbiscan.io',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        gatewayWalletAddress: GATEWAY_EVM_TESTNET_WALLET,
+        gatewayMinterAddress: GATEWAY_EVM_TESTNET_MINTER,
+        usdcAddress: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
+    },
+    polygonAmoy: {
+        key: 'polygonAmoy',
+        label: 'Polygon Amoy',
+        domain: 7,
+        chainId: 80002,
+        chainIdHex: '0x13882',
+        rpcUrl: 'https://rpc-amoy.polygon.technology',
+        blockExplorerUrl: 'https://amoy.polygonscan.com',
+        nativeCurrency: { name: 'Polygon', symbol: 'POL', decimals: 18 },
+        gatewayWalletAddress: GATEWAY_EVM_TESTNET_WALLET,
+        gatewayMinterAddress: GATEWAY_EVM_TESTNET_MINTER,
+        usdcAddress: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582',
+    },
+    optimismSepolia: {
+        key: 'optimismSepolia',
+        label: 'OP Sepolia',
+        domain: 2,
+        chainId: 11155420,
+        chainIdHex: '0xaa37dc',
+        rpcUrl: 'https://sepolia.optimism.io',
+        blockExplorerUrl: 'https://sepolia-optimism.etherscan.io',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        gatewayWalletAddress: GATEWAY_EVM_TESTNET_WALLET,
+        gatewayMinterAddress: GATEWAY_EVM_TESTNET_MINTER,
+        usdcAddress: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7',
+    },
     sonicTestnet: {
         key: 'sonicTestnet',
         label: 'Sonic Testnet',
@@ -204,6 +252,58 @@ const gatewayChains: Record<GatewayChainKey, GatewayChainConfig> = {
         gatewayMinterAddress: GATEWAY_EVM_TESTNET_MINTER,
         usdcAddress: '0x3600000000000000000000000000000000000000',
     },
+    base: {
+        key: 'base',
+        label: 'Base',
+        domain: 6,
+        chainId: 8453,
+        chainIdHex: '0x2105',
+        rpcUrl: 'https://mainnet.base.org',
+        blockExplorerUrl: 'https://basescan.org',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        gatewayWalletAddress: GATEWAY_EVM_MAINNET_WALLET,
+        gatewayMinterAddress: GATEWAY_EVM_MAINNET_MINTER,
+        usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    },
+    arbitrum: {
+        key: 'arbitrum',
+        label: 'Arbitrum',
+        domain: 3,
+        chainId: 42161,
+        chainIdHex: '0xa4b1',
+        rpcUrl: 'https://arb1.arbitrum.io/rpc',
+        blockExplorerUrl: 'https://arbiscan.io',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        gatewayWalletAddress: GATEWAY_EVM_MAINNET_WALLET,
+        gatewayMinterAddress: GATEWAY_EVM_MAINNET_MINTER,
+        usdcAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+    },
+    polygon: {
+        key: 'polygon',
+        label: 'Polygon',
+        domain: 7,
+        chainId: 137,
+        chainIdHex: '0x89',
+        rpcUrl: 'https://polygon-rpc.com',
+        blockExplorerUrl: 'https://polygonscan.com',
+        nativeCurrency: { name: 'Polygon', symbol: 'POL', decimals: 18 },
+        gatewayWalletAddress: GATEWAY_EVM_MAINNET_WALLET,
+        gatewayMinterAddress: GATEWAY_EVM_MAINNET_MINTER,
+        usdcAddress: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
+    },
+    optimism: {
+        key: 'optimism',
+        label: 'Optimism',
+        domain: 2,
+        chainId: 10,
+        chainIdHex: '0xa',
+        rpcUrl: 'https://mainnet.optimism.io',
+        blockExplorerUrl: 'https://optimistic.etherscan.io',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        gatewayWalletAddress: GATEWAY_EVM_MAINNET_WALLET,
+        gatewayMinterAddress: GATEWAY_EVM_MAINNET_MINTER,
+        usdcAddress: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+    },
 };
 
 function isGatewayChainKey(value: string): value is GatewayChainKey {
@@ -243,12 +343,18 @@ export function getGatewayChainConfig(key: string): GatewayChainConfig | null {
 }
 
 export function createGatewayBalanceSources(depositorAddress: string, chainKeys?: string[]) {
+    const isSolanaDepositor = !depositorAddress.startsWith('0x');
+    if (isSolanaDepositor) {
+        return [{ domain: 5, depositor: depositorAddress }];
+    }
+
     if (!isAddress(depositorAddress)) {
         throw new Error('Invalid depositor address');
     }
 
     const normalizedDepositor = depositorAddress as Hex;
-    return listGatewayChains(chainKeys).map((chain) => ({
+    const filteredChainKeys = chainKeys?.filter((key) => key !== 'solana');
+    return listGatewayChains(filteredChainKeys).map((chain) => ({
         domain: chain.domain,
         depositor: normalizedDepositor,
     }));
@@ -273,6 +379,27 @@ export async function fetchGatewayBalances(
     }
 
     return response.json();
+}
+
+export function gatewayBalanceToMicros(balance: string | number | null | undefined): bigint {
+    const raw = String(balance ?? '0').trim();
+    if (!raw) return 0n;
+
+    const negative = raw.startsWith('-');
+    if (negative) return 0n;
+
+    const [wholeRaw, fractionalRaw = ''] = raw.split('.');
+    const whole = wholeRaw.replace(/\D/g, '') || '0';
+    const fractional = fractionalRaw.replace(/\D/g, '').padEnd(6, '0').slice(0, 6);
+    return BigInt(whole) * 1_000_000n + BigInt(fractional || '0');
+}
+
+export function normalizeGatewayBalanceEntry<T extends { balance?: string | number | null }>(entry: T) {
+    return {
+        ...entry,
+        rawBalance: entry.balance ?? '0',
+        balance: gatewayBalanceToMicros(entry.balance).toString(),
+    };
 }
 
 export function buildEvmBurnIntent(input: {

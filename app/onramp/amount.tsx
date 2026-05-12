@@ -26,7 +26,7 @@ const NETWORKS: { id: OnrampNetwork; name: string; icon: any }[] = [
     { id: 'base', name: 'Base', icon: require('../../assets/icons/networks/base.png') },
     { id: 'arbitrum', name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
     { id: 'polygon', name: 'Polygon', icon: require('../../assets/icons/networks/polygon.png') },
-    // Celo temporarily disabled.
+    // Optimism + Celo not currently supported by Paycrest.
 ];
 
 const TOKEN = {

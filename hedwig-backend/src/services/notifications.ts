@@ -501,9 +501,14 @@ class NotificationService {
                 return allTickets;
             }
 
-            logger.error('Error sending bulk notifications', { 
+            // ENOTFOUND / ECONNREFUSED on dev machines without internet to
+            // exp.host is non-fatal — push delivery just won't happen. Log at
+            // warn to avoid spamming error tails.
+            const transient = /ENOTFOUND|ECONNREFUSED|ETIMEDOUT|ENETUNREACH/i.test(error?.message || '');
+            const log = transient ? logger.warn.bind(logger) : logger.error.bind(logger);
+            log('Error sending bulk notifications', {
                 error: error.message,
-                response: responseData
+                response: responseData,
             });
             return [];
         }

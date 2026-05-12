@@ -31,6 +31,7 @@ const ACCOUNT_NUMBER_RULES: Record<OnrampFiat, { min: number; max: number; place
     MWK: { min: 5, max: 20, placeholder: 'Account number' },
     UGX: { min: 5, max: 20, placeholder: 'Account number' },
     BRL: { min: 5, max: 20, placeholder: 'Account number' },
+    USD: { min: 5, max: 20, placeholder: 'Account number' },
 };
 
 export default function OnrampBankScreen() {
@@ -162,7 +163,7 @@ export default function OnrampBankScreen() {
                         overScrollMode="never"
                     >
                         <Text style={[styles.helperTextTop, { color: themeColors.textSecondary }]}>
-                            Used only if Paycrest needs to refund your deposit. We never debit this account.
+                            Used only if your deposit needs to be refunded. We never debit this account.
                         </Text>
 
                         <Text style={[styles.inputLabel, { color: themeColors.textPrimary }]}>Bank Name</Text>

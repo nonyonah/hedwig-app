@@ -11,8 +11,7 @@ import { getUserGradient } from '../../utils/gradientUtils';
 import { Button } from '../../components/Button';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+import { joinApiUrl } from '../../utils/apiBaseUrl';
 
 // Profile color gradient options (10 options)
 const PROFILE_COLOR_OPTIONS: readonly [string, string, string][] = [
@@ -98,7 +97,7 @@ export default function ProfileScreen() {
     const checkExistingUser = async () => {
         try {
             const token = await getAccessToken();
-            const response = await fetch(`${API_URL}/api/auth/me`, {
+            const response = await fetch(joinApiUrl('/api/auth/me'), {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -184,7 +183,7 @@ export default function ProfileScreen() {
                 avatar: avatarPayload
             };
 
-            const response = await fetch(`${API_URL}/api/auth/register`, {
+            const response = await fetch(joinApiUrl('/api/auth/register'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

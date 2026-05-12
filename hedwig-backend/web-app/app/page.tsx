@@ -367,6 +367,7 @@ function LandingPage() {
             <Link href="/privacy" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Privacy</Link>
             <Link href="/terms" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Terms</Link>
             <Link href="/returns" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Returns</Link>
+            <a href="https://help.hedwigbot.xyz" target="_blank" rel="noreferrer" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Help</a>
             <Link href="/sign-in" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Sign in</Link>
             <a href="mailto:support@hedwigbot.xyz" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Support</a>
             <a href="https://x.com/hedwigagent" target="_blank" rel="noreferrer" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">X</a>

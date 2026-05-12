@@ -34,6 +34,7 @@ export function HedwigPrivyProvider({ children }: { children: ReactNode }) {
       appId={privyConfig.appId}
       config={{
         loginMethods: [...privyConfig.loginMethods],
+        embeddedWallets: privyConfig.embeddedWallets,
         appearance: {
           theme: 'dark',
           accentColor: '#14b8a6'

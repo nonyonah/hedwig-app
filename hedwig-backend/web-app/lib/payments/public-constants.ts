@@ -3,9 +3,10 @@ export type EvmPaymentChain =
   | 'base' | 'baseSepolia'
   | 'arbitrum' | 'arbitrumSepolia'
   | 'polygon' | 'polygonAmoy'
+  | 'optimism' | 'optimismSepolia'
   | 'celo' | 'celoAlfajores';
 export type SolanaCluster = 'mainnet' | 'devnet';
-export type PublicSettlementChain = 'base' | 'solana' | 'arbitrum' | 'polygon' | 'celo';
+export type PublicSettlementChain = 'base' | 'solana' | 'arbitrum' | 'polygon' | 'optimism' | 'celo';
 export type PublicPaymentToken = 'USDC';
 
 /** Read once at module load — flip NEXT_PUBLIC_NETWORK_MODE=testnet to use testnets */
@@ -39,6 +40,14 @@ export const EVM_TOKENS = {
   polygonAmoy: {
     USDC: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582',
   },
+  // OP Mainnet
+  optimism: {
+    USDC: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+  },
+  // OP Sepolia (Testnet)
+  optimismSepolia: {
+    USDC: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7',
+  },
   // Celo (Mainnet)
   celo: {
     USDC: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
@@ -47,6 +56,11 @@ export const EVM_TOKENS = {
   celoAlfajores: {
     USDC: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B',
   },
+} as const;
+
+export const CELO_USDC_FEE_CURRENCIES = {
+  celo: '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B',
+  celoAlfajores: '0x4822e58de6f5e485eF90df51C41CE01721331dC0',
 } as const;
 
 export const SOLANA_TOKENS = {
@@ -66,6 +80,8 @@ export const EVM_CHAIN_IDS: Record<EvmPaymentChain, number> = {
   arbitrumSepolia: 421614,
   polygon:         137,
   polygonAmoy:     80002,
+  optimism:        10,
+  optimismSepolia: 11155420,
   celo:            42220,
   celoAlfajores:   44787,
 };
@@ -74,6 +90,7 @@ const TESTNET_EVM_CHAIN_IDS = new Set<number>([
   84532,   // Base Sepolia
   421614,  // Arbitrum Sepolia
   80002,   // Polygon Amoy
+  11155420,// OP Sepolia
   44787,   // Celo Alfajores
   11155111, // Ethereum Sepolia
 ]);
@@ -83,6 +100,7 @@ const TESTNET_CHAIN_MAP: Partial<Record<EvmPaymentChain, EvmPaymentChain>> = {
   base:     'baseSepolia',
   arbitrum: 'arbitrumSepolia',
   polygon:  'polygonAmoy',
+  optimism: 'optimismSepolia',
   celo:     'celoAlfajores',
 };
 
@@ -123,6 +141,8 @@ export function getExplorerUrl(chain: EvmPaymentChain, hash: string) {
     arbitrumSepolia: `https://sepolia.arbiscan.io/tx/${hash}`,
     polygon:     `https://polygonscan.com/tx/${hash}`,
     polygonAmoy: `https://amoy.polygonscan.com/tx/${hash}`,
+    optimism:    `https://optimistic.etherscan.io/tx/${hash}`,
+    optimismSepolia: `https://sepolia-optimism.etherscan.io/tx/${hash}`,
     celo:        `https://celoscan.io/tx/${hash}`,
     celoAlfajores: `https://alfajores.celoscan.io/tx/${hash}`,
   };
@@ -140,6 +160,7 @@ export function resolvePublicSettlementChain(rawChain?: string | null, fallbackH
   if (combined.includes('solana') || combined.includes('sol')) return 'solana';
   if (combined.includes('arbitrum') || combined.includes('arb')) return 'arbitrum';
   if (combined.includes('polygon') || combined.includes('matic')) return 'polygon';
+  if (combined.includes('optimism') || combined.includes(' op ') || combined.startsWith('op ')) return 'optimism';
   if (combined.includes('celo')) return 'celo';
   return 'base';
 }

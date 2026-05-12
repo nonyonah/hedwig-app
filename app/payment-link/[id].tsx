@@ -18,6 +18,9 @@ const CheckCircle = (props: any) => <HugeiconsIcon icon={(HugeiconsCore as any).
 // Mock data for chains and tokens (replace with actual data/icons later)
 const CHAINS = [
     { id: 'base', name: 'Base', icon: require('../../assets/icons/networks/base.png') },
+    { id: 'arbitrum', name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
+    { id: 'polygon', name: 'Polygon', icon: require('../../assets/icons/networks/polygon.png') },
+    { id: 'optimism', name: 'Optimism', icon: require('../../assets/icons/networks/optimism.png') },
     // Celo temporarily disabled.
     { id: 'solana', name: 'Solana', icon: require('../../assets/icons/networks/solana.png') },
 ];
@@ -129,7 +132,8 @@ function PaymentLinkContent() {
                 'base': process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet' ? 84532 : 8453,
                 'celo': process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet' ? 44787 : 42220,
                 'arbitrum': process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet' ? 421614 : 42161,
-                'optimism': 10
+                'polygon':  process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet' ? 80002 : 137,
+                'optimism': process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet' ? 11155420 : 10,
             };
 
             const targetChainId = CHAIN_IDS[selectedChain.id];
@@ -258,7 +262,7 @@ function PaymentLinkContent() {
 
                     {/* Network Notice */}
                     <Text style={[styles.networkNotice, { color: themeColors.textSecondary }]}>
-                        Supports Base & Solana
+                        Supports Base, Arbitrum, Polygon, Optimism & Solana
                     </Text>
                 </View>
 

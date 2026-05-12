@@ -2,7 +2,7 @@
  * SolanaBridgeModal
  * 
  * A modal component that guides users through bridging tokens from Solana to Base
- * for offramping via Paycrest.
+ * before cashing out to a bank account.
  */
 
 import React, { useState, useEffect, useRef, forwardRef, useCallback } from 'react';
@@ -25,6 +25,7 @@ import { Colors, useThemeColors } from '../theme/colors';
 import { Button } from './Button';
 import { modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
+import { SOLANA_CLUSTER } from '../lib/usdcFeeNetworks';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
@@ -239,8 +240,7 @@ export const SolanaBridgeModal = forwardRef<TrueSheet, SolanaBridgeModalProps>((
             const txBuffer = Buffer.from(serializedTx, 'base64');
             const transaction = Transaction.from(txBuffer);
 
-            // Connect to Solana Mainnet
-            const connection = new Connection(clusterApiUrl('mainnet-beta'), 'confirmed');
+            const connection = new Connection(clusterApiUrl(SOLANA_CLUSTER), 'confirmed');
 
             // Get fresh blockhash (the backend one might be stale)
             const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
@@ -256,7 +256,6 @@ export const SolanaBridgeModal = forwardRef<TrueSheet, SolanaBridgeModalProps>((
                     transaction: transaction,
                     connection: connection,
                 },
-                // sponsor: true, // Enable gas sponsorship (temporarily disabled)
             });
 
             const signature = signResult.signature;

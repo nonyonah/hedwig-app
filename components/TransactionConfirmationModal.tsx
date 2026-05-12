@@ -4,7 +4,8 @@ import { useEmbeddedEthereumWallet, useEmbeddedSolanaWallet } from '@privy-io/ex
 import { ethers } from 'ethers';
 import { TrueSheet } from '@hedwig/true-sheet';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle } from './ui/AppIcon';
+import * as Clipboard from 'expo-clipboard';
+import { X, CheckCircle, TriangleAlert as Warning, Fingerprint, SquareArrowOutUpRight as ArrowSquareOut, CircleX as XCircle, Copy } from './ui/AppIcon';
 import { Colors, useThemeColors } from '../theme/colors';
 import { Typography } from '../styles/typography';
 import LottieView from 'lottie-react-native';
@@ -12,10 +13,41 @@ import * as WebBrowser from 'expo-web-browser';
 import { modalHaptic } from './ui/ModalStyles';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../hooks/useAuth';
+import { useWallet } from '../hooks/useWallet';
+import { useGatewayBalance, formatGatewayUsdc, GatewayPerDomainBalance } from '../hooks/useGatewayBalance';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
+import { TransactionSuccessActions } from './TransactionSuccessActions';
+import { getChainAddParams, getEvmUsdcChain, getNativeFeeSymbol, SOLANA_CLUSTER, SOLANA_USDC_MINT } from '../lib/usdcFeeNetworks';
+import {
+    GATEWAY_DOMAINS,
+    GATEWAY_EVM_CHAINS,
+    GATEWAY_MINTER_EVM,
+    type GatewayChainKey,
+    type GatewayEvmChainKey,
+} from '../lib/gateway/constants';
+import {
+    addressToBytes32,
+    buildBurnIntent,
+    getEvmWalletClient,
+    signEvmBurnIntent,
+} from '../lib/gateway/burn-intent-evm';
+import {
+    buildSolanaBurnIntent,
+    signSolanaBurnIntent,
+} from '../lib/gateway/burn-intent-solana';
+import { buildDestinationFields } from '../lib/gateway/recipients';
+import {
+    pollForwardedTransfer,
+    previewGatewayFees,
+    submitBurnIntents,
+} from '../services/gatewayApi';
+import { GATEWAY_SOLANA_GAS_FEE_USDC } from '../lib/gateway/constants';
+import bs58 from 'bs58';
 import {
     Connection,
     PublicKey,
+    SystemProgram,
+    LAMPORTS_PER_SOL,
     Transaction,
     TransactionInstruction,
     clusterApiUrl
@@ -36,6 +68,7 @@ const ICONS = {
     solana: require('../assets/icons/networks/solana.png'),
     arbitrum: require('../assets/icons/networks/arbitrum.png'),
     polygon: require('../assets/icons/networks/polygon.png'),
+    optimism: require('../assets/icons/networks/optimism.png'),
 };
 
 const CHAINS: Record<string, any> = {
@@ -43,6 +76,7 @@ const CHAINS: Record<string, any> = {
     'celo':     { name: 'Celo',     icon: ICONS.celo,     explorer: 'https://celoscan.io/tx/',           type: 'evm' },
     'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum, explorer: 'https://arbiscan.io/tx/',           type: 'evm' },
     'polygon':  { name: 'Polygon',  icon: ICONS.polygon,  explorer: 'https://polygonscan.com/tx/',       type: 'evm' },
+    'optimism': { name: 'Optimism', icon: ICONS.optimism, explorer: 'https://optimistic.etherscan.io/tx/', type: 'evm' },
     'solana':   { name: 'Solana',   icon: ICONS.solana,   explorer: 'https://explorer.solana.com/tx/',   type: 'solana' },
     'stacks':   { name: 'Stacks',   icon: require('../assets/icons/networks/stacks.png'), explorer: 'https://explorer.hiro.so/txid/', type: 'stacks' },
 };
@@ -53,36 +87,85 @@ const ERC20_ABI = [
     "function decimals() view returns (uint8)"
 ];
 
-// Token Addresses - MAINNET
-const TOKEN_ADDRESSES = {
-    base: {
-        USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'  // Base Mainnet USDC
-    },
-    celo: {
-        USDC: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'   // Celo Mainnet USDC
-    },
-    solana: {
-        USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'  // Solana Mainnet USDC
+const buildErc20TransferData = (recipient: string, amount: string, decimals = USDC_DECIMALS): string => {
+    const amountWei = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, decimals)));
+    const recipientPadded = recipient.slice(2).toLowerCase().padStart(64, '0');
+    const amountPadded = amountWei.toString(16).padStart(64, '0');
+    return '0xa9059cbb' + recipientPadded + amountPadded;
+};
+
+const formatFeeAmount = (amount: bigint, decimals: number, symbol: string): string => {
+    const formatted = ethers.formatUnits(amount, decimals);
+    const value = Number(formatted);
+    if (!Number.isFinite(value)) return `~${formatted} ${symbol}`;
+    if (value === 0) return `~0 ${symbol}`;
+    if (value < 0.000001) return `<0.000001 ${symbol}`;
+    const digits = value < 0.01 ? 6 : 4;
+    return `~${value.toFixed(digits)} ${symbol}`;
+};
+
+const ERC20_TRANSFER_GAS_FALLBACK = 120000n;
+
+const normaliseToGatewayChainKey = (network: string): GatewayChainKey | null => {
+    const n = network.toLowerCase().trim();
+    if (n.includes('solana')) return 'solana';
+    if (n.includes('base')) return 'base';
+    if (n.includes('arbitrum') || n === 'arb') return 'arbitrum';
+    if (n.includes('polygon') || n.includes('matic') || n.includes('amoy')) return 'polygon';
+    if (n.includes('optimism') || n === 'op' || n.includes('op sepolia')) return 'optimism';
+    return null;
+};
+
+const formatUsdcFee = (subunits: bigint): string => {
+    const whole = Number(subunits) / 1_000_000;
+    if (!Number.isFinite(whole)) return '—';
+    if (whole === 0) return '$0.00';
+    if (whole < 0.01) return `$${whole.toFixed(4)}`;
+    return `$${whole.toFixed(2)}`;
+};
+
+const parseUsdcAmount = (amount: string): bigint => {
+    const trimmed = amount.trim();
+    if (!/^\d+(\.\d+)?$/.test(trimmed)) return 0n;
+    const [intPart, fracPart = ''] = trimmed.split('.');
+    const padded = (fracPart + '000000').slice(0, 6);
+    return BigInt(intPart) * 1_000_000n + BigInt(padded);
+};
+
+interface FeeBreakdown {
+    gasFeeUsdc: bigint;
+    transferFeeUsdc: bigint;
+    forwarderFeeUsdc: bigint;
+    totalFeeUsdc: bigint;
+    chainLabel: string;
+}
+
+const estimateErc20GasWithFallback = async (
+    rpcProvider: ethers.JsonRpcProvider,
+    _chainConfig: ReturnType<typeof getEvmUsdcChain>,
+    payload: Record<string, string>,
+): Promise<bigint> => {
+    try {
+        return await rpcProvider.estimateGas(payload);
+    } catch (error: any) {
+        console.log('[TransactionConfirmationModal] Falling back to ERC20 gas limit:', error?.message || error);
+        return ERC20_TRANSFER_GAS_FALLBACK;
     }
 };
 
-// Chain IDs for mainnet
-const CHAIN_IDS: Record<string, string> = {
-    base: '0x2105',     // 8453 in hex (Base Mainnet)
-    celo: '0xa4ec'      // 42220 in hex (Celo Mainnet)
-};
-
-// RPC URLs - using Alchemy for EVM chains
-const RPC_URLS: Record<string, string> = {
-    base: 'https://base-mainnet.g.alchemy.com/v2/f69kp28_ExLI1yBQmngVL3g16oUzv2up',
-    celo: 'https://forno.celo.org'
+const TOKEN_ADDRESSES = {
+    solana: {
+        USDC: SOLANA_USDC_MINT
+    }
 };
 
 interface TransactionData {
     amount: string;
     token: string;
     recipient: string;
-    network: string; // 'base' | 'celo' | 'solana'
+    network: string; // 'base' | 'celo' | 'solana' | 'optimism' | ...
+    /** When true the user picked the unified USDC row — route via Gateway. */
+    unified?: boolean;
 }
 
 interface TransactionConfirmationModalProps {
@@ -155,6 +238,8 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
     const { getAccessToken } = useAuth();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const solanaWallet = useEmbeddedSolanaWallet();
+    const gatewayBalance = useGatewayBalance();
+    const { balances: walletBalances, fetchBalances: refreshWalletBalances } = useWallet();
 
     const evmWallets = (ethereumWallet as any)?.wallets || [];
     const solanaWallets = (solanaWallet as any)?.wallets || [];
@@ -164,6 +249,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
     const [statusMessage, setStatusMessage] = useState('');
     const [estimatedGas, setEstimatedGas] = useState<string | null>(null);
     const [gasError, setGasError] = useState<string | null>(null);
+    const [feeBreakdown, setFeeBreakdown] = useState<FeeBreakdown | null>(null);
 
     // Helper to normalize network name
     const normalizeNetwork = (network: string): string => {
@@ -189,53 +275,83 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
 
         const network = data.network.toLowerCase();
 
-        // Skip gas estimation for Solana
-        if (isSolanaNetwork(network)) {
-            setEstimatedGas('Network fee applies');
+        // USDC via Gateway: settlement is in USDC, deducted from unified
+        // balance. Show itemized breakdown (gas + service + cross-chain) so
+        // user sees exactly what Circle charges.
+        if (data.token.toUpperCase() === 'USDC' && data.unified === true) {
+            const destKey = normaliseToGatewayChainKey(network);
+            if (destKey) {
+                const value = parseUsdcAmount(data.amount);
+                const sourceGasFeeUsdc = destKey === 'solana'
+                    ? GATEWAY_SOLANA_GAS_FEE_USDC
+                    : GATEWAY_EVM_CHAINS[destKey as GatewayEvmChainKey].gasFeeUsdc;
+                const fees = previewGatewayFees({
+                    sourceChain: destKey,
+                    destChain: destKey,
+                    valueUsdc: value,
+                    sourceGasFeeUsdc,
+                    useForwarder: true,
+                });
+                setFeeBreakdown({
+                    gasFeeUsdc: fees.gasFeeUsdc,
+                    transferFeeUsdc: fees.transferFeeUsdc,
+                    forwarderFeeUsdc: fees.forwarderFeeUsdc,
+                    totalFeeUsdc: fees.totalFeeUsdc,
+                    chainLabel: destKey === 'solana' ? 'Solana' : GATEWAY_EVM_CHAINS[destKey as GatewayEvmChainKey].name,
+                });
+                setGasError(null);
+                setEstimatedGas(null);
+                return;
+            }
+            setFeeBreakdown(null);
+            setGasError(null);
+            setEstimatedGas('Calculated at confirmation');
             return;
         }
 
+        setFeeBreakdown(null);
+
+        if (isSolanaNetwork(network)) {
+            setEstimatedGas('~0.000005 SOL');
+            return;
+        }
+
+        const chainConfig = getEvmUsdcChain(network);
+        if (!chainConfig) return;
+
         try {
             setGasError(null);
-            const rpcUrl = RPC_URLS[network];
-            if (!rpcUrl) return;
+            setEstimatedGas(null);
 
-            const rpcProvider = new ethers.JsonRpcProvider(rpcUrl);
+            const rpcProvider = new ethers.JsonRpcProvider(chainConfig.rpcUrl);
             const tokenSymbol = data.token.toUpperCase();
 
-            // Get wallet address
             if (!evmWallets || evmWallets.length === 0) return;
             const provider = await evmWallets[0].getProvider();
             const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
             const fromAddress = accounts[0];
             if (!fromAddress) return;
 
-            const feeData = await rpcProvider.getFeeData();
-            const gasPrice = feeData.gasPrice || 1000000000n;
-
-            const chainTokens = TOKEN_ADDRESSES[network as keyof typeof TOKEN_ADDRESSES];
-            const tokenAddress = chainTokens ? (chainTokens as any)[tokenSymbol] : null;
+            const tokenAddress = tokenSymbol === 'USDC' ? chainConfig.usdcAddress : null;
             if (!tokenAddress) return;
 
-            const decimals = 6;
-            const amountWei = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, decimals)));
-            const recipientPadded = data.recipient.slice(2).toLowerCase().padStart(64, '0');
-            const amountPadded = amountWei.toString(16).padStart(64, '0');
-            const txData = '0xa9059cbb' + recipientPadded + amountPadded;
-
-            const gasEstimate = await rpcProvider.estimateGas({
+            const txData = buildErc20TransferData(data.recipient, data.amount);
+            const estimatePayload: Record<string, string> = {
                 from: fromAddress,
                 to: tokenAddress,
-                data: txData
-            });
+                data: txData,
+            };
 
+            const [feeData, gasEstimate] = await Promise.all([
+                rpcProvider.getFeeData(),
+                estimateErc20GasWithFallback(rpcProvider, chainConfig, estimatePayload),
+            ]);
+            const gasPrice = feeData.gasPrice || 1000000000n;
             const gasCost = gasEstimate * gasPrice;
-            const gasCostEth = ethers.formatEther(gasCost);
-            const gasCostFloat = parseFloat(gasCostEth);
-            setEstimatedGas(`~${gasCostFloat.toFixed(6)} gas`);
+            setEstimatedGas(formatFeeAmount(gasCost, 18, getNativeFeeSymbol(chainConfig)));
         } catch (error: any) {
             console.log('Gas estimation error:', error.message);
-            setGasError('Unable to estimate');
+            setGasError(`Estimate unavailable (paid in ${getNativeFeeSymbol(chainConfig)})`);
         }
     }, [data, modalState, evmWallets]);
 
@@ -243,8 +359,21 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
         modalHaptic('open', hapticsEnabled);
         setModalState('confirm');
         setTxHash(null);
+        // Refresh on-chain balances eagerly so the direct-ERC20 fallback
+        // path inside handleEvmTransaction sees the latest per-chain USDC
+        // figures instead of stale state from the previous screen.
+        void refreshWalletBalances();
+        void gatewayBalance.refresh();
+        // Pre-warm the Privy embedded wallet provider. The first call to
+        // wallets/authenticate often aborts on cold start; warming here while
+        // the user reads the confirm sheet hides that latency.
+        if (evmWallets && evmWallets.length > 0) {
+            void evmWallets[0].getProvider()
+                .then((p: any) => p?.request?.({ method: 'eth_accounts' }))
+                .catch(() => { /* ignore — actual call retries */ });
+        }
         estimateGasFee();
-    }, [hapticsEnabled, estimateGasFee]);
+    }, [hapticsEnabled, estimateGasFee, refreshWalletBalances, evmWallets, gatewayBalance]);
 
     const handleSheetDismissed = useCallback(() => {
         modalHaptic('close', hapticsEnabled);
@@ -278,10 +407,41 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
         console.log('To:', data.recipient);
         console.log('Amount:', data.amount, data.token);
 
-        // Connect to Solana Mainnet
-        const connection = new Connection(clusterApiUrl('mainnet-beta'), 'confirmed');
+        const connection = new Connection(clusterApiUrl(SOLANA_CLUSTER), 'confirmed');
 
         const tokenSymbol = data.token.toUpperCase();
+
+        // ========================================
+        // NATIVE SOL TRANSFER
+        // ========================================
+        if (tokenSymbol === 'SOL') {
+            console.log('[Solana] Processing native SOL transfer...');
+            const senderPubkey = new PublicKey(fromAddress);
+            const recipientPubkey = new PublicKey(data.recipient);
+            const lamports = BigInt(Math.round(parseFloat(data.amount) * LAMPORTS_PER_SOL));
+            if (lamports <= 0n) throw new Error('Invalid SOL amount');
+
+            const transaction = new Transaction().add(
+                SystemProgram.transfer({
+                    fromPubkey: senderPubkey,
+                    toPubkey: recipientPubkey,
+                    lamports: Number(lamports),
+                }),
+            );
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = senderPubkey;
+
+            const provider = await wallet.getProvider();
+            const result = await provider.request({
+                method: 'signAndSendTransaction',
+                params: { transaction, connection },
+            });
+            const signature = result.signature;
+            console.log('Solana SOL Transaction Signature:', signature);
+            return signature;
+        }
+
         // ========================================
         // SPL TOKEN (USDC) TRANSFER
         // ========================================
@@ -374,7 +534,6 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
                 transaction: transaction,
                 connection: connection,
             },
-            // sponsor: true, // Enable gas sponsorship (temporarily disabled)
         });
 
         const signature = result.signature;
@@ -410,117 +569,430 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
         return signature;
     };
 
-    // Handle EVM transaction (Base, Celo)
-    const handleEvmTransaction = async () => {
-        if (!data) throw new Error('No transaction data');
-
-        if (!evmWallets || evmWallets.length === 0) {
-            throw new Error('No wallet available. Please ensure you are logged in.');
+    /**
+     * Pick a Gateway source domain. EVM domains are preferred (cheaper gas),
+     * then Solana. Returns null if no single domain holds enough liquidity —
+     * Gateway lets us split across multiple intents but for the MVP we ask
+     * the user to consolidate via deposit if no single chain covers it.
+     */
+    const pickSourceChain = (
+        amountUsdcSubunits: bigint,
+        perDomainOverride?: GatewayPerDomainBalance[],
+    ): GatewayChainKey | null => {
+        const source = perDomainOverride ?? gatewayBalance.perDomain;
+        const liquidity = new Map<number, bigint>();
+        for (const entry of source) {
+            const existing = liquidity.get(entry.domain) ?? 0n;
+            liquidity.set(entry.domain, existing + BigInt(entry.balance ?? '0'));
         }
+        const preferenceOrder: GatewayChainKey[] = ['base', 'arbitrum', 'polygon', 'optimism', 'solana'];
+        for (const key of preferenceOrder) {
+            const domain = GATEWAY_DOMAINS[key];
+            const balance = liquidity.get(domain) ?? 0n;
+            if (balance >= amountUsdcSubunits) return key;
+        }
+        return null;
+    };
+
+    /**
+     * Read the latest /api/gateway/balance directly. The state-bound poll can
+     * lag the first confirmation tap by a few seconds — falling back to a
+     * fresh fetch prevents a spurious "No chain holds enough USDC" failure.
+     */
+    const fetchFreshGatewayPerDomain = async (): Promise<GatewayPerDomainBalance[]> => {
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const res = await fetch(`${apiUrl}/api/gateway/balance`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+            const json = await res.json();
+            const list = json?.data?.perDomain;
+            return Array.isArray(list) ? (list as GatewayPerDomainBalance[]) : [];
+        } catch {
+            return [];
+        }
+    };
+
+    /**
+     * Send USDC via Circle Gateway:
+     *   1. Pick a source domain that has enough unified balance (EVM-first,
+     *      Solana fallback).
+     *   2. Build + sign a burn intent — EIP-712 (viem) for EVM source,
+     *      custom binary + Ed25519 (Privy embedded Solana wallet) for
+     *      Solana source.
+     *   3. Submit to Circle with `enableForwarder=true` so Circle pays the
+     *      destination gas; the user only spends USDC + the $0.20 forwarder fee.
+     *   4. Poll the transfer record until terminal state, return the
+     *      destination tx hash for explorer linking.
+     */
+    /**
+     * Direct ERC-20 / native transfer from the Privy embedded EOA on
+     * `destChainKey`. Used when the user picks a per-chain USDC row (opted
+     * out of Gateway) or sends a native token like ETH/POL. Requires native
+     * gas on the source chain — Gateway's Forwarder is bypassed entirely.
+     */
+    const sendDirectErc20OnSource = async ({
+        destChainKey,
+        tokenSymbol,
+        amountSubunits,
+    }: {
+        destChainKey: GatewayEvmChainKey;
+        tokenSymbol: string;
+        amountSubunits: bigint;
+    }): Promise<string> => {
+        if (!data) throw new Error('No transaction data');
+        if (!evmWallets || evmWallets.length === 0) {
+            throw new Error('No EVM wallet available. Please ensure you are logged in.');
+        }
+
+        const sourceConfig = GATEWAY_EVM_CHAINS[destChainKey];
+        if (!sourceConfig) throw new Error(`Unsupported chain: ${destChainKey}`);
 
         const wallet = evmWallets[0];
         const provider = await wallet.getProvider();
-        if (!provider) {
-            throw new Error('Wallet provider not ready. Please try again.');
-        }
+        if (!provider) throw new Error('Wallet provider not ready. Please try again.');
 
-        const network = data.network.toLowerCase();
-        const tokenSymbol = data.token.toUpperCase();
+        setStatusMessage(`Sending ${tokenSymbol} on ${sourceConfig.name}…`);
 
-        // Switch to the correct testnet chain
-        const targetChainId = CHAIN_IDS[network];
-        if (targetChainId) {
+        try {
+            await provider.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: sourceConfig.chainIdHex }],
+            });
+        } catch (switchError: any) {
+            // Privy throws code 4902 OR a generic "Unsupported chainId" message
+            // when the chain is not in its allowlist. Both paths need
+            // wallet_addEthereumChain to register the chain, then a retry.
+            const code = switchError?.code;
+            const message: string = switchError?.message || '';
+            const isMissing = code === 4902 || /unsupported chain/i.test(message);
+            if (!isMissing) throw switchError;
             try {
                 await provider.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: targetChainId }],
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: sourceConfig.chainIdHex,
+                        chainName: sourceConfig.name,
+                        nativeCurrency: {
+                            name: sourceConfig.nativeSymbol,
+                            symbol: sourceConfig.nativeSymbol,
+                            decimals: sourceConfig.nativeDecimals,
+                        },
+                        rpcUrls: [sourceConfig.rpcUrl],
+                        blockExplorerUrls: [sourceConfig.explorerUrl.replace(/\/tx\/?$/, '')],
+                    }],
                 });
-            } catch (switchError: any) {
-                console.log('Chain switch error:', switchError);
-                throw new Error(`Please switch to ${network === 'base' ? 'Base' : 'Celo'} network manually.`);
+            } catch (addErr: any) {
+                if (!/already added|exists/i.test(addErr?.message || '')) throw addErr;
+            }
+            await provider.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: sourceConfig.chainIdHex }],
+            });
+        }
+
+        const fromAddress = (wallet?.address as `0x${string}` | undefined)
+            ?? (((await provider.request({ method: 'eth_accounts' })) as string[])[0] as `0x${string}`);
+        if (!fromAddress) throw new Error('No wallet address found');
+
+        // Native send (ETH / POL) — simple value transfer to recipient.
+        if (tokenSymbol === sourceConfig.nativeSymbol) {
+            const txHash = await provider.request({
+                method: 'eth_sendTransaction',
+                params: [{
+                    from: fromAddress,
+                    to: data.recipient as `0x${string}`,
+                    value: `0x${amountSubunits.toString(16)}`,
+                    chainId: sourceConfig.chainIdHex,
+                }],
+            }) as string;
+            return txHash;
+        }
+
+        // ERC-20 USDC transfer.
+        if (tokenSymbol !== 'USDC') {
+            throw new Error(`Token ${tokenSymbol} not supported on ${sourceConfig.name}`);
+        }
+        const transferData = buildErc20TransferData(data.recipient, data.amount);
+        const txHash = await provider.request({
+            method: 'eth_sendTransaction',
+            params: [{
+                from: fromAddress,
+                to: sourceConfig.usdc,
+                data: transferData,
+                value: '0x0',
+                chainId: sourceConfig.chainIdHex,
+            }],
+        }) as string;
+        return txHash;
+    };
+
+    const handleEvmTransaction = async () => {
+        if (!data) throw new Error('No transaction data');
+
+        const tokenSymbol = data.token.toUpperCase();
+
+        const destChainKey: GatewayChainKey = (() => {
+            const n = data.network.toLowerCase();
+            if (n === 'base' || n === 'arbitrum' || n === 'polygon' || n === 'optimism') return n as GatewayEvmChainKey;
+            if (n === 'solana' || n === 'solana_devnet' || n === 'solana mainnet') return 'solana';
+            throw new Error(`Unsupported destination chain: ${data.network}`);
+        })();
+
+        const value = BigInt(Math.floor(parseFloat(data.amount) * 1_000_000));
+
+        // Per-chain USDC + native tokens skip Gateway and go straight on-chain
+        // via the embedded EOA. Only the unified-USDC row routes through the
+        // Gateway burn-intent + Forwarder flow.
+        const useGateway = data.unified === true && tokenSymbol === 'USDC';
+
+        if (!useGateway) {
+            if (destChainKey === 'solana') {
+                // Native + USDC sends on Solana already go through the
+                // Solana-specific handler upstream — guard here as defense.
+                throw new Error('Solana sends must use the Solana flow.');
+            }
+            return await sendDirectErc20OnSource({
+                destChainKey,
+                tokenSymbol,
+                amountSubunits: value,
+            });
+        }
+
+        if (tokenSymbol !== 'USDC') {
+            throw new Error(`Gateway transfers only support USDC, got ${tokenSymbol}`);
+        }
+
+        let sourceChainKey = pickSourceChain(value);
+        let freshPerDomain: GatewayPerDomainBalance[] | undefined;
+        if (!sourceChainKey) {
+            // State-bound poll can be stale on the first tap; pull a fresh
+            // /api/gateway/balance before declaring insufficient liquidity.
+            freshPerDomain = await fetchFreshGatewayPerDomain();
+            if (freshPerDomain.length > 0) {
+                sourceChainKey = pickSourceChain(value, freshPerDomain);
             }
         }
-
-        // Get sender address
-        const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
-        const fromAddress = accounts[0];
-        if (!fromAddress) {
-            throw new Error('No wallet address found');
+        if (!sourceChainKey) {
+            // Gateway has no single chain with enough liquidity. Try to
+            // fall back to a direct ERC-20 transfer on whichever EVM chain
+            // the EOA actually holds the USDC on (recipient is an EVM
+            // address — same address works on every EVM chain).
+            if (destChainKey !== 'solana') {
+                const evmCandidates: GatewayEvmChainKey[] = ['base', 'arbitrum', 'polygon', 'optimism'];
+                // First confirmation tap can race the initial
+                // /api/wallet/balance fetch — fetch fresh balances inline so
+                // the user doesn't have to tap twice. We bypass the hook
+                // closure (which only updates on re-render) and read the
+                // response body directly here.
+                let scanBalances: any[] = walletBalances;
+                const haveAnyUsdc = walletBalances.some((b: any) => b.asset === 'usdc');
+                if (!haveAnyUsdc) {
+                    try {
+                        const token = await getAccessToken();
+                        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                        const res = await fetch(`${apiUrl}/api/wallet/balance`, {
+                            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                        });
+                        const json = await res.json();
+                        if (json?.success && Array.isArray(json?.data?.balances)) {
+                            scanBalances = json.data.balances;
+                        }
+                    } catch { /* fall through with whatever we have */ }
+                }
+                const usdcOnChain = (chain: GatewayEvmChainKey): bigint => {
+                    const entry = scanBalances.find(
+                        (b: any) => b.chain === chain && b.asset === 'usdc',
+                    );
+                    if (!entry) return 0n;
+                    const raw = entry.raw_value;
+                    if (typeof raw === 'string' && raw.length > 0) {
+                        try { return BigInt(raw); } catch { /* ignore */ }
+                    }
+                    const display = parseFloat(entry?.display_values?.token ?? '0');
+                    return Number.isFinite(display) ? BigInt(Math.floor(display * 1_000_000)) : 0n;
+                };
+                // Prefer the chain the user actually picked; otherwise pick
+                // the first chain holding enough USDC.
+                const preferred: GatewayEvmChainKey[] = [destChainKey as GatewayEvmChainKey, ...evmCandidates.filter((c) => c !== destChainKey)];
+                const fallbackChain = preferred.find((c) => usdcOnChain(c) >= value);
+                if (fallbackChain) {
+                    setStatusMessage(`Falling back to direct transfer on ${GATEWAY_EVM_CHAINS[fallbackChain].name}…`);
+                    return await sendDirectErc20OnSource({
+                        destChainKey: fallbackChain,
+                        tokenSymbol,
+                        amountSubunits: value,
+                    });
+                }
+            }
+            const liquiditySource = freshPerDomain && freshPerDomain.length > 0
+                ? freshPerDomain
+                : gatewayBalance.perDomain;
+            const totalGateway = liquiditySource.reduce(
+                (sum, d) => sum + BigInt(d.balance ?? '0'),
+                0n,
+            );
+            throw new Error(
+                `No chain holds enough USDC. Aggregated has ${formatGatewayUsdc(totalGateway)} USDC, need ${formatGatewayUsdc(value)}. Top up via Wallet → token detail → Add to balance.`
+            );
         }
 
-        console.log('=== EVM Transaction Debug ===');
-        console.log('From Address:', fromAddress);
-        console.log('Network:', network);
-        console.log('Token:', tokenSymbol);
+        const dest = buildDestinationFields(destChainKey, data.recipient);
+        const recipientSetupOptions = dest.recipientOwnerAddressBytes32
+            ? { includeRecipientSetup: true, recipientOwnerAddress: dest.recipientOwnerAddressBytes32 }
+            : undefined;
 
-        // Use RPC for proper gas estimation
-        const rpcUrl = RPC_URLS[network];
-        if (!rpcUrl) {
-            throw new Error(`No RPC URL configured for ${network}`);
+        let signed;
+        let sourceLabel: string;
+        let sourceGasFeeUsdc: bigint;
+
+        if (sourceChainKey === 'solana') {
+            // Solana-source path — Privy embedded Solana wallet signs the
+            // custom binary burn intent with Ed25519. The provider is shared
+            // by every domain (Solana has only one), so no chain switching.
+            if (!solanaWallets || solanaWallets.length === 0) {
+                throw new Error('No Solana wallet available. Please ensure you are logged in.');
+            }
+            const sWallet = solanaWallets[0];
+            const sProvider = await sWallet.getProvider();
+            if (!sProvider) throw new Error('Solana wallet provider not ready.');
+
+            const sourceDepositor = sWallet.address as string;
+            setStatusMessage(`Signing burn intent on Solana…`);
+
+            const connection = new Connection(clusterApiUrl(SOLANA_CLUSTER as any), 'confirmed');
+            const slot = BigInt(await connection.getSlot('confirmed'));
+
+            const burnIntent = buildSolanaBurnIntent({
+                destChainKey,
+                amountUsdc: data.amount,
+                sourceDepositor,
+                destinationRecipient: dest.destinationRecipient,
+                destinationToken: dest.destinationToken,
+                destinationContract: dest.destinationContract,
+                currentSlot: slot,
+                useForwarder: true,
+            });
+
+            signed = await signSolanaBurnIntent({
+                burnIntent,
+                signMessage: async (payload: Uint8Array) => {
+                    const messageB58 = bs58.encode(payload);
+                    const result = await sProvider.request({
+                        method: 'signMessage',
+                        params: { message: messageB58 },
+                    });
+                    return (result as any).signature as string;
+                },
+            });
+            sourceLabel = 'Solana';
+            sourceGasFeeUsdc = 150_000n;
+        } else {
+            // EVM source path.
+            if (!evmWallets || evmWallets.length === 0) {
+                throw new Error('No EVM wallet available. Please ensure you are logged in.');
+            }
+            const sourceConfig = GATEWAY_EVM_CHAINS[sourceChainKey];
+            sourceLabel = sourceConfig.name;
+            sourceGasFeeUsdc = sourceConfig.gasFeeUsdc;
+
+            setStatusMessage(`Signing burn intent on ${sourceConfig.name}…`);
+
+            const wallet = evmWallets[0];
+            const provider = await wallet.getProvider();
+            if (!provider) throw new Error('Wallet provider not ready. Please try again.');
+
+            const walletClient = await getEvmWalletClient(sourceChainKey, provider);
+
+            // viem's signTypedData + Privy's iframe RPC sign with the wallet's
+            // own (checksum-formatted) account. If sourceSigner is derived
+            // from a different cased string than what Privy signs with, the
+            // recovered signer on Circle's side will mismatch the spec field
+            // even though the address bytes are identical. We therefore pull
+            // the canonical address from the embedded wallet record itself
+            // and feed the SAME string into both buildBurnIntent and
+            // signTypedData so the comparison is byte-exact.
+            const canonicalAddress: `0x${string}` = (wallet?.address as `0x${string}` | undefined)
+                ?? (((await provider.request({ method: 'eth_accounts' })) as string[])[0] as `0x${string}`);
+            if (!canonicalAddress) throw new Error('No wallet address found');
+            const fromAddress = canonicalAddress;
+
+            const rpcProvider = new ethers.JsonRpcProvider(sourceConfig.rpcUrl);
+            const currentSourceBlock = BigInt(await rpcProvider.getBlockNumber());
+
+            const burnIntent = buildBurnIntent({
+                sourceChainKey,
+                destChainKey,
+                amountUsdc: data.amount,
+                sourceDepositor: fromAddress as `0x${string}`,
+                destinationRecipient: dest.destinationRecipient,
+                destinationToken: dest.destinationToken,
+                destinationContract: dest.destinationContract,
+                currentSourceBlock,
+                useForwarder: true,
+            });
+
+            signed = await signEvmBurnIntent({
+                burnIntent,
+                sourceChainKey,
+                provider,
+                account: fromAddress as `0x${string}`,
+            });
         }
-        const rpcProvider = new ethers.JsonRpcProvider(rpcUrl);
 
-        // Get the current nonce
-        const nonce = await rpcProvider.getTransactionCount(fromAddress, 'pending');
-        const nonceHex = '0x' + nonce.toString(16);
-
-        // Get current gas prices
-        const feeData = await rpcProvider.getFeeData();
-        const maxFeePerGas = feeData.maxFeePerGas || feeData.gasPrice || 1000000000n;
-        const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas || 1000000n;
-
-        let transactionHash: string;
-
-        // ERC20 Transfer (USDC only)
-        const chainTokens = TOKEN_ADDRESSES[network as keyof typeof TOKEN_ADDRESSES];
-        const tokenAddress = chainTokens ? (chainTokens as any)[tokenSymbol] : null;
-
-        if (!tokenAddress) {
-            throw new Error(`Token ${tokenSymbol} not supported on ${network}`);
-        }
-
-        const decimals = 6;
-        const amountWei = BigInt(Math.floor(parseFloat(data.amount) * Math.pow(10, decimals)));
-        const recipientPadded = data.recipient.slice(2).toLowerCase().padStart(64, '0');
-        const amountPadded = amountWei.toString(16).padStart(64, '0');
-        const txData = '0xa9059cbb' + recipientPadded + amountPadded;
-
-        const gasEstimate = await rpcProvider.estimateGas({
-            from: fromAddress,
-            to: tokenAddress,
-            data: txData
+        const fees = previewGatewayFees({
+            sourceChain: sourceChainKey,
+            destChain: destChainKey,
+            valueUsdc: value,
+            sourceGasFeeUsdc,
+            useForwarder: true,
+        });
+        console.log('[Gateway] Fee preview:', {
+            source: sourceLabel,
+            gas: formatGatewayUsdc(fees.gasFeeUsdc),
+            transfer: formatGatewayUsdc(fees.transferFeeUsdc),
+            forwarder: formatGatewayUsdc(fees.forwarderFeeUsdc),
+            total: formatGatewayUsdc(fees.totalFeeUsdc),
         });
 
-        const gasLimit = '0x' + (gasEstimate * 150n / 100n).toString(16);
+        setStatusMessage('Submitting to Circle Gateway…');
 
-        const txParams = {
-            from: fromAddress,
-            to: tokenAddress,
-            data: txData,
-            gasLimit: gasLimit,
-            nonce: nonceHex,
-            maxFeePerGas: '0x' + maxFeePerGas.toString(16),
-            maxPriorityFeePerGas: '0x' + maxPriorityFeePerGas.toString(16),
-            chainId: targetChainId
-        };
-
-        console.log('ERC20 TX Params:', JSON.stringify(txParams, null, 2));
-
-        transactionHash = await provider.request({
-            method: 'eth_sendTransaction',
-            params: [txParams],
-            // sponsor: true, // Enable gas sponsorship (temporarily disabled)
-        }) as string;
-
-        console.log('Transaction Hash:', transactionHash);
-
-        // Wait for confirmation
-        const receipt = await rpcProvider.waitForTransaction(transactionHash);
-        if (!receipt || receipt.status !== 1) {
-            throw new Error('Transaction failed on-chain');
+        const submitResponse = await submitBurnIntents(
+            [{ ...signed, ...(recipientSetupOptions ? { recipientSetupOptions } : {}) }],
+            { useForwarder: true }
+        );
+        // Forwarder responses bury the id under different keys depending on
+        // the variant — try the documented locations and fail loudly if none
+        // match so we don't silently lose the transfer.
+        const transferId =
+            submitResponse?.transfer?.id ||
+            submitResponse?.transferId ||
+            submitResponse?.id ||
+            submitResponse?.[0]?.transfer?.id ||
+            submitResponse?.[0]?.id;
+        if (!transferId) {
+            throw new Error('Gateway did not return a transfer id for the forwarded request');
         }
 
-        return transactionHash;
+        setStatusMessage('Waiting for destination chain confirmation…');
+        const record = await pollForwardedTransfer(String(transferId), {
+            onTick: (rec) => {
+                if (rec.status) setStatusMessage(`Gateway: ${rec.status}…`);
+            },
+        });
+
+        if (record.status?.toLowerCase() === 'failed' || record.status?.toLowerCase() === 'expired') {
+            throw new Error(`Gateway transfer ${transferId} failed: ${record.error?.message || 'unknown'}`);
+        }
+
+        const destTxHash =
+            record?.destination?.txHash ||
+            record?.destinationTxHash ||
+            record?.txHash ||
+            transferId;
+
+        return String(destTxHash);
     };
 
     const handleConfirm = async () => {
@@ -552,9 +1024,17 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
             setStatusMessage('Processing...');
 
             const network = data.network.toLowerCase();
+            const tokenSymbolUpper = data.token.toUpperCase();
             let transactionHash: string;
 
-            if (isSolanaNetwork(network)) {
+            // Unified USDC routes through Circle Gateway regardless of
+            // destination chain — handleEvmTransaction handles burn-intent
+            // construction + signing on whichever source chain holds the
+            // liquidity (EVM or Solana). Direct SPL transfer is only for the
+            // per-chain row when the user has opted out of unified balance.
+            const useGateway = data.unified === true && tokenSymbolUpper === 'USDC';
+
+            if (isSolanaNetwork(network) && !useGateway) {
                 transactionHash = await handleSolanaTransaction();
             } else if (network === 'stacks' || network === 'stacks_testnet' || network === 'stacks testnet') {
                 const { payInvoice } = require('../services/stacksWallet');
@@ -582,6 +1062,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
                 const authToken = await getAccessToken();
                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
                 const network = data.network.toLowerCase();
+                const loggedChainConfig = getEvmUsdcChain(network);
 
                 // Determine chain and get sender address
                 let fromAddress = '';
@@ -607,7 +1088,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
                         txHash: transactionHash,
                         amount: data.amount,
                         token: data.token,
-                        chain: network.toUpperCase() === 'SOLANA' ? 'SOLANA' : network.toUpperCase() === 'BASE' ? 'BASE' : 'CELO',
+                        chain: network.toUpperCase() === 'SOLANA' ? 'SOLANA' : loggedChainConfig?.key?.toUpperCase() || network.toUpperCase(),
                         fromAddress: fromAddress,
                         toAddress: data.recipient,
                         status: 'CONFIRMED',
@@ -631,7 +1112,10 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
     const openExplorer = async () => {
         if (!txHash || !data) return;
         const network = data.network.toLowerCase();
-        const chainInfo = CHAINS[network];
+        const evmChain = getEvmUsdcChain(network);
+        const chainInfo = evmChain
+            ? { ...CHAINS[evmChain.key], explorer: evmChain.explorerUrl, name: evmChain.name }
+            : CHAINS[network];
         if (chainInfo && chainInfo.explorer) {
             let url = chainInfo.explorer + txHash;
             // Add cluster param for Solana
@@ -644,7 +1128,8 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
 
     // Early return already handled at the top of the component
     const network = normalizeNetwork(data.network);
-    const chain = CHAINS[network] || CHAINS['solana'];
+    const evmDisplayChain = getEvmUsdcChain(network);
+    const chain = evmDisplayChain ? { ...CHAINS[evmDisplayChain.key], name: evmDisplayChain.name } : (CHAINS[network] || CHAINS['solana']);
     const modalDetents = (modalState === 'failed'
         ? [Platform.OS === 'ios' ? 0.66 : 0.76]
         : ['auto']) as any;
@@ -663,29 +1148,78 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
                         <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>We're doing the thing...</Text>
                     </View>
                 );
-            case 'success':
+            case 'success': {
+                const shortHash = txHash
+                    ? `${txHash.slice(0, 10)}…${txHash.slice(-8)}`
+                    : '';
+                const copyHash = async () => {
+                    if (!txHash) return;
+                    await Clipboard.setStringAsync(txHash);
+                    modalHaptic('open', hapticsEnabled);
+                };
                 return (
-                    <View style={styles.statusContainer}>
+                    <View style={styles.successContainer}>
                         <LottieView
                             source={require('../assets/animations/success.json')}
                             autoPlay
                             loop={false}
-                            style={[styles.lottie, { width: 200, height: 200 }]}
+                            style={styles.successLottie}
                         />
-                        <Text style={[styles.statusTitle, { color: themeColors.textPrimary }]}>Transaction has been completed successfully</Text>
+                        <Text style={[styles.successAmount, { color: themeColors.textPrimary }]}>
+                            {data.amount} {data.token}
+                        </Text>
+                        <Text style={[styles.successSubtitle, { color: themeColors.textSecondary }]}>
+                            sent successfully
+                        </Text>
 
-                        <View style={styles.actionButtonsContainer}>
-                            <TouchableOpacity style={[styles.explorerButton, { backgroundColor: themeColors.surface }]} onPress={openExplorer}>
-                                <Text style={styles.explorerButtonText}>View on Block Explorer</Text>
-                                <ArrowSquareOut size={20} color={Colors.primary} />
-                            </TouchableOpacity>
+                        <View style={[styles.successCard, { backgroundColor: themeColors.surface }]}>
+                            <View style={styles.detailRow}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>To</Text>
+                                <Text
+                                    style={[styles.detailValue, { color: themeColors.textPrimary }]}
+                                    numberOfLines={1}
+                                    ellipsizeMode="middle"
+                                >
+                                    {data.recipient
+                                        ? `${data.recipient.slice(0, 8)}…${data.recipient.slice(-6)}`
+                                        : ''}
+                                </Text>
+                            </View>
+                            <View style={styles.detailRow}>
+                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Network</Text>
+                                <View style={[styles.chainBadge, { backgroundColor: themeColors.background }]}>
+                                    {chain?.icon && <Image source={chain.icon} style={styles.chainIcon} />}
+                                    <Text style={[styles.chainName, { color: themeColors.textPrimary }]}>
+                                        {chain?.name || data.network}
+                                    </Text>
+                                </View>
+                            </View>
+                            {shortHash ? (
+                                <TouchableOpacity
+                                    style={styles.detailRow}
+                                    onPress={copyHash}
+                                    activeOpacity={0.6}
+                                >
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Tx hash</Text>
+                                    <View style={styles.hashRow}>
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                            {shortHash}
+                                        </Text>
+                                        <Copy size={14} color={themeColors.textSecondary} />
+                                    </View>
+                                </TouchableOpacity>
+                            ) : null}
+                        </View>
 
-                            <TouchableOpacity style={styles.closeButtonMain} onPress={handleDismiss}>
-                                <Text style={styles.closeButtonText}>Close Page</Text>
-                            </TouchableOpacity>
+                        <View style={styles.successActionsWrap}>
+                            <TransactionSuccessActions
+                                onExplorer={openExplorer}
+                                onDone={handleDismiss}
+                            />
                         </View>
                     </View>
                 );
+            }
             case 'failed':
                 return (
                     <View style={styles.statusContainer}>
@@ -734,12 +1268,43 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
                                     <Text style={[styles.chainName, { color: themeColors.textPrimary }]}>{chain?.name || data.network}</Text>
                                 </View>
                             </View>
-                            <View style={styles.detailRow}>
-                                <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Est. Fee</Text>
-                                <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
-                                    {gasError ? gasError : (estimatedGas || 'Calculating...')}
-                                </Text>
-                            </View>
+                            {feeBreakdown ? (
+                                <>
+                                    <View style={styles.detailRow}>
+                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Network fee</Text>
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                            {formatUsdcFee(feeBreakdown.gasFeeUsdc)} USDC
+                                        </Text>
+                                    </View>
+                                    {feeBreakdown.transferFeeUsdc > 0n && (
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Cross-chain fee</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                                {formatUsdcFee(feeBreakdown.transferFeeUsdc)} USDC
+                                            </Text>
+                                        </View>
+                                    )}
+                                    <View style={styles.detailRow}>
+                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Service fee</Text>
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                            {formatUsdcFee(feeBreakdown.forwarderFeeUsdc)} USDC
+                                        </Text>
+                                    </View>
+                                    <View style={styles.detailRow}>
+                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary, fontWeight: '600' }]}>Total fee</Text>
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary, fontWeight: '600' }]}>
+                                            {formatUsdcFee(feeBreakdown.totalFeeUsdc)} USDC
+                                        </Text>
+                                    </View>
+                                </>
+                            ) : (
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Est. Fee</Text>
+                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                        {gasError ? gasError : (estimatedGas || 'Calculating...')}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
 
                         {/* Biometric Warning */}
@@ -905,6 +1470,42 @@ const styles = StyleSheet.create({
     statusContainer: {
         alignItems: 'center',
         paddingVertical: 40,
+    },
+    successContainer: {
+        alignItems: 'center',
+        paddingTop: 8,
+        paddingBottom: 16,
+    },
+    successLottie: {
+        width: 140,
+        height: 140,
+    },
+    successAmount: {
+        fontFamily: 'GoogleSansFlex_600SemiBold',
+        fontSize: 28,
+        marginTop: 4,
+        letterSpacing: -0.5,
+    },
+    successSubtitle: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 14,
+        marginTop: 4,
+        marginBottom: 24,
+    },
+    successCard: {
+        width: '100%',
+        borderRadius: 18,
+        padding: 16,
+        gap: 6,
+    },
+    hashRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    successActionsWrap: {
+        width: '100%',
+        marginTop: 24,
     },
     processingContainer: {
         alignItems: 'center',

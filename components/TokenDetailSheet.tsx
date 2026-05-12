@@ -21,6 +21,7 @@ import {
     ChevronDown as CaretDown,
     Link as LinkIcon,
     ArrowUp,
+    ArrowDown,
     X,
 } from './ui/AppIcon';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
@@ -83,16 +84,23 @@ export type SelectedToken = {
     balance: number;
     balanceUsd: number;
     icon: ImageSourcePropType;
+    /** When true, the row represents the unified Gateway USDC balance. */
+    unified?: boolean;
+    /** USDC currently sitting at the EOA awaiting Gateway deposit. */
+    pendingDeposit?: number;
 };
 
 type Props = {
     selectedToken: SelectedToken | null;
     onDismiss: () => void;
     onSend: () => void;
+    /** Optional — when provided AND the token is unified USDC, an
+     *  "Add to balance" action button is rendered alongside Send. */
+    onDeposit?: () => void;
     initialPriceChange?: number;
 };
 
-const TokenDetailSheet = forwardRef<TrueSheet, Props>(({ selectedToken, onDismiss, onSend, initialPriceChange }, ref) => {
+const TokenDetailSheet = forwardRef<TrueSheet, Props>(({ selectedToken, onDismiss, onSend, onDeposit, initialPriceChange }, ref) => {
     const themeColors = useThemeColors();
 
     const symbol = selectedToken ? selectedToken.symbol.toUpperCase() : '';
@@ -401,15 +409,60 @@ const TokenDetailSheet = forwardRef<TrueSheet, Props>(({ selectedToken, onDismis
                         </View>
                     </View>
 
-                    {/* Send button */}
-                    <TouchableOpacity
-                        style={[styles.sendButton, { backgroundColor: Colors.primary }]}
-                        onPress={onSend}
-                        activeOpacity={0.85}
-                    >
-                        <ArrowUp size={20} color="#FFFFFF" />
-                        <Text style={styles.sendButtonText}>Send</Text>
-                    </TouchableOpacity>
+                    {/* Action buttons — Send always; "Add to balance"
+                        appears for the unified USDC row so the user can
+                        retry the EOA → Gateway deposit if auto-deposit
+                        failed (e.g. no native gas). */}
+                    <View style={styles.actionsRow}>
+                        <TouchableOpacity
+                            style={[
+                                styles.sendButton,
+                                {
+                                    backgroundColor: Colors.primary,
+                                    flex: 1,
+                                    flexBasis: 0,
+                                    // Mirror the hairline border the "Add balance" twin gets so
+                                    // both buttons have an identical box and render the same
+                                    // width in both light + dark mode.
+                                    borderWidth: StyleSheet.hairlineWidth,
+                                    borderColor: 'transparent',
+                                },
+                            ]}
+                            onPress={onSend}
+                            activeOpacity={0.85}
+                        >
+                            <ArrowUp size={20} color="#FFFFFF" />
+                            <Text style={styles.sendButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                                Send
+                            </Text>
+                        </TouchableOpacity>
+                        {selectedToken?.unified && onDeposit ? (
+                            <TouchableOpacity
+                                style={[
+                                    styles.sendButton,
+                                    {
+                                        backgroundColor: themeColors.surface,
+                                        borderColor: themeColors.border,
+                                        borderWidth: StyleSheet.hairlineWidth,
+                                        flex: 1,
+                                        flexBasis: 0,
+                                    },
+                                ]}
+                                onPress={onDeposit}
+                                activeOpacity={0.85}
+                            >
+                                <ArrowDown size={20} color={themeColors.textPrimary} />
+                                <Text
+                                    style={[styles.sendButtonText, { color: themeColors.textPrimary }]}
+                                    numberOfLines={1}
+                                    adjustsFontSizeToFit
+                                    minimumFontScale={0.85}
+                                >
+                                    Add balance
+                                </Text>
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
 
                     {/* Description */}
                     {!!description && (
@@ -514,12 +567,21 @@ const styles = StyleSheet.create({
     balanceCol: { gap: 4 },
     balanceLabel: { fontFamily: 'GoogleSansFlex_500Medium', fontSize: 13 },
     balanceValue: { fontFamily: 'GoogleSansFlex_700Bold', fontSize: 18 },
-    sendButton: {
-        borderRadius: 999, paddingVertical: 16,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: 8, marginBottom: 8,
+    actionsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 8,
     },
-    sendButtonText: { color: '#fff', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16 },
+    sendButton: {
+        height: 56,
+        minWidth: 0,
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 8,
+    },
+    sendButtonText: { color: '#fff', fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 16, lineHeight: 20, textAlign: 'center', flexShrink: 1 },
     section: { borderTopWidth: 1, paddingTop: 16, marginTop: 8 },
     sectionTitle: { fontFamily: 'GoogleSansFlex_600SemiBold', fontSize: 22, marginBottom: 10 },
     descriptionText: { fontFamily: 'GoogleSansFlex_400Regular', fontSize: 15, lineHeight: 22 },

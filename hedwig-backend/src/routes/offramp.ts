@@ -355,6 +355,7 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
         const formattedOrder = {
             id: dbOrder.id,
             userId: dbOrder.user_id,
+            providerOrderId: dbOrder.paycrest_order_id,
             paycrestOrderId: dbOrder.paycrest_order_id,
             status: dbOrder.status,
             chain: dbOrder.chain,
@@ -475,6 +476,7 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
         const formattedOrders = orders.map(order => ({
             id: order.id,
             userId: order.user_id,
+            providerOrderId: order.paycrest_order_id,
             paycrestOrderId: order.paycrest_order_id,
             status: normalizeStatusForClient(order.status, order.tx_hash, order.completed_at),
             chain: order.chain,
@@ -587,6 +589,7 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
         const formattedOrder = {
             id: order.id,
             userId: order.user_id,
+            providerOrderId: order.paycrest_order_id,
             paycrestOrderId: order.paycrest_order_id,
             status: normalizeStatusForClient(order.status, order.tx_hash, order.completed_at),
             chain: order.chain,

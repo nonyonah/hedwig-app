@@ -70,6 +70,7 @@ const ICONS = {
     solana: require('../../assets/icons/networks/solana.png'),
     arbitrum: require('../../assets/icons/networks/arbitrum.png'),
     polygon: require('../../assets/icons/networks/polygon.png'),
+    optimism: require('../../assets/icons/networks/optimism.png'),
     celo: require('../../assets/icons/networks/celo.png'),
     statusSuccess: require('../../assets/icons/status/success.png'),
     statusPending: require('../../assets/icons/status/pending.png'),
@@ -83,6 +84,7 @@ const CHAINS: Record<string, { name: string; icon: any }> = {
     'solana':   { name: 'Solana',   icon: ICONS.solana },
     'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum },
     'polygon':  { name: 'Polygon',  icon: ICONS.polygon },
+    'optimism': { name: 'Optimism', icon: ICONS.optimism },
     'celo':     { name: 'Celo',     icon: ICONS.celo },
 };
 
@@ -113,7 +115,7 @@ interface Transaction {
     token: string;
     date: string;
     hash: string;
-    network: 'base' | 'solana';
+    network: 'base' | 'solana' | 'optimism' | 'arbitrum' | 'polygon' | 'celo';
     status: 'completed' | 'pending' | 'failed';
     from: string;
     to: string;
@@ -248,12 +250,16 @@ export default function TransactionsScreen() {
             return;
         }
 
-        let url = '';
-        if (tx.network === 'base') {
-            url = `https://basescan.org/tx/${tx.hash}`;
-        } else if (tx.network === 'solana') {
-            url = `https://explorer.solana.com/tx/${tx.hash}`;
-        }
+        const EXPLORERS: Record<string, string> = {
+            base: 'https://basescan.org/tx/',
+            optimism: 'https://optimistic.etherscan.io/tx/',
+            arbitrum: 'https://arbiscan.io/tx/',
+            polygon: 'https://polygonscan.com/tx/',
+            celo: 'https://celoscan.io/tx/',
+            solana: 'https://explorer.solana.com/tx/',
+        };
+        const prefix = EXPLORERS[tx.network];
+        const url = prefix ? `${prefix}${tx.hash}` : '';
 
         console.log('[Transactions] Explorer URL:', url);
 

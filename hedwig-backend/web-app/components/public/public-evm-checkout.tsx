@@ -12,6 +12,7 @@ const EVM_CHAIN_META: Record<string, { icon: string; label: string }> = {
   base:     { icon: '/icons/networks/base.png',     label: 'Base' },
   arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
   polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
+  optimism: { icon: '/icons/networks/optimism.png', label: 'Optimism' },
   celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
 };
 
@@ -79,6 +80,8 @@ async function ensureWalletOnTargetChain(provider: Eip1193Provider, targetChainI
     42161: { chainId: '0xa4b1', chainName: 'Arbitrum One', nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://arb1.arbitrum.io/rpc'], blockExplorerUrls: ['https://arbiscan.io'] },
     137: { chainId: '0x89', chainName: 'Polygon', nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 }, rpcUrls: ['https://polygon-rpc.com'], blockExplorerUrls: ['https://polygonscan.com'] },
     42220: { chainId: '0xa4ec', chainName: 'Celo', nativeCurrency: { name: 'Celo', symbol: 'CELO', decimals: 18 }, rpcUrls: ['https://forno.celo.org'], blockExplorerUrls: ['https://celoscan.io'] },
+    11155420: { chainId: '0xaa37dc', chainName: 'OP Sepolia', nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://sepolia.optimism.io'], blockExplorerUrls: ['https://sepolia-optimism.etherscan.io'] },
+    10:    { chainId: '0xa',     chainName: 'OP Mainnet', nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.optimism.io'], blockExplorerUrls: ['https://optimistic.etherscan.io'] },
   };
 
   try {

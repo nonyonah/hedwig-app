@@ -17,8 +17,37 @@ import { useKYC } from '../hooks/useKYC';
 import KYCVerificationModal from './KYCVerificationModal';
 import Analytics from '../services/analytics';
 import IOSGlassIconButton from './ui/IOSGlassIconButton';
+import { getChainAddParams, getEvmUsdcChain, getNativeFeeSymbol } from '../lib/usdcFeeNetworks';
+import { useGatewayBalance, formatGatewayUsdc } from '../hooks/useGatewayBalance';
+import {
+    GATEWAY_DOMAINS,
+    GATEWAY_EVM_CHAINS,
+    GATEWAY_MINTER_EVM,
+    type GatewayChainKey,
+    type GatewayEvmChainKey,
+} from '../lib/gateway/constants';
+import {
+    addressToBytes32,
+    buildBurnIntent,
+    getEvmWalletClient,
+    signEvmBurnIntent,
+} from '../lib/gateway/burn-intent-evm';
+import { buildDestinationFields } from '../lib/gateway/recipients';
+import {
+    pollForwardedTransfer,
+    previewGatewayFees,
+    submitBurnIntents,
+} from '../services/gatewayApi';
 
 const { height } = Dimensions.get('window');
+
+const formatUsdcFee = (subunits: bigint): string => {
+    const whole = Number(subunits) / 1_000_000;
+    if (!Number.isFinite(whole)) return '—';
+    if (whole === 0) return '$0.00';
+    if (whole < 0.01) return `$${whole.toFixed(4)}`;
+    return `$${whole.toFixed(2)}`;
+};
 
 // Icons for tokens and chains
 const ICONS = {
@@ -28,6 +57,7 @@ const ICONS = {
     solana: require('../assets/icons/networks/solana.png'),
     arbitrum: require('../assets/icons/networks/arbitrum.png'),
     polygon: require('../assets/icons/networks/polygon.png'),
+    optimism: require('../assets/icons/networks/optimism.png'),
 };
 
 const CHAINS: Record<string, any> = {
@@ -35,29 +65,8 @@ const CHAINS: Record<string, any> = {
     'celo':     { name: 'Celo',     icon: ICONS.celo,     type: 'evm' },
     'arbitrum': { name: 'Arbitrum', icon: ICONS.arbitrum, type: 'evm' },
     'polygon':  { name: 'Polygon',  icon: ICONS.polygon,  type: 'evm' },
+    'optimism': { name: 'Optimism', icon: ICONS.optimism, type: 'evm' },
     'solana':   { name: 'Solana',   icon: ICONS.solana,   type: 'solana' },
-};
-
-// RPC URLs
-const RPC_URLS: Record<string, string> = {
-    base: 'https://base-mainnet.g.alchemy.com/v2/f69kp28_ExLI1yBQmngVL3g16oUzv2up',
-    celo: 'https://forno.celo.org'
-};
-
-// Token Addresses - MAINNET
-const TOKEN_ADDRESSES: Record<string, Record<string, string>> = {
-    base: {
-        USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'  // Base Mainnet USDC
-    },
-    celo: {
-        USDC: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'   // Celo Mainnet USDC
-    }
-};
-
-// Chain IDs for mainnet
-const CHAIN_IDS: Record<string, string> = {
-    base: '0x2105',     // 8453 in hex (Base Mainnet)
-    celo: '0xa4ec'      // 42220 in hex (Celo Mainnet)
 };
 
 interface OfframpData {
@@ -79,6 +88,39 @@ const toNumber = (value: string): number => {
 };
 const getPlatformFee = (grossAmount: number): number => grossAmount * PLATFORM_FEE_RATE;
 const getNetCryptoAmount = (grossAmount: number): number => Math.max(0, grossAmount - getPlatformFee(grossAmount));
+const USDC_DECIMALS = 6;
+
+const buildErc20TransferData = (recipient: string, amount: number, decimals = USDC_DECIMALS): string => {
+    const amountWei = BigInt(Math.floor(amount * Math.pow(10, decimals)));
+    const recipientPadded = recipient.slice(2).toLowerCase().padStart(64, '0');
+    const amountPadded = amountWei.toString(16).padStart(64, '0');
+    return '0xa9059cbb' + recipientPadded + amountPadded;
+};
+
+const formatFeeAmount = (amount: bigint, decimals: number, symbol: string): string => {
+    const formatted = ethers.formatUnits(amount, decimals);
+    const value = Number(formatted);
+    if (!Number.isFinite(value)) return `~${formatted} ${symbol}`;
+    if (value === 0) return `~0 ${symbol}`;
+    if (value < 0.000001) return `<0.000001 ${symbol}`;
+    const digits = value < 0.01 ? 6 : 4;
+    return `~${value.toFixed(digits)} ${symbol}`;
+};
+
+const ERC20_TRANSFER_GAS_FALLBACK = 120000n;
+
+const estimateErc20GasWithFallback = async (
+    rpcProvider: ethers.JsonRpcProvider,
+    _chainConfig: ReturnType<typeof getEvmUsdcChain>,
+    payload: Record<string, string>,
+): Promise<bigint> => {
+    try {
+        return await rpcProvider.estimateGas(payload);
+    } catch (error: any) {
+        console.log('[OfframpModal] Falling back to ERC20 gas limit:', error?.message || error);
+        return ERC20_TRANSFER_GAS_FALLBACK;
+    }
+};
 
 interface OfframpConfirmationModalProps {
     visible: boolean;
@@ -210,7 +252,8 @@ const parseOfframpError = (error: any, hasTokensBeenSent: boolean): ParsedOffram
 };
 
 export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmationModalProps>(({ onClose, data, onSuccess }, ref) => {
-    const { hapticsEnabled } = useSettings();
+    const { hapticsEnabled, gatewayAutoDepositEnabled } = useSettings();
+    const gatewayBalance = useGatewayBalance();
     const themeColors = useThemeColors();
     const ethereumWallet = useEmbeddedEthereumWallet();
     const { user, getAccessToken } = useAuth();
@@ -223,8 +266,16 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
     const [statusMessage, setStatusMessage] = useState('');
     const [currentRate, setCurrentRate] = useState<string>('');
     const [estimatedFiat, setEstimatedFiat] = useState<string>('');
+    const [estimatedNetworkFee, setEstimatedNetworkFee] = useState<string | null>(null);
+    const [networkFeeError, setNetworkFeeError] = useState<string | null>(null);
+    const [feeBreakdown, setFeeBreakdown] = useState<{
+        gasFeeUsdc: bigint;
+        transferFeeUsdc: bigint;
+        forwarderFeeUsdc: bigint;
+        totalFeeUsdc: bigint;
+    } | null>(null);
     const [isLoadingRate, setIsLoadingRate] = useState(false);
-    const [tokensSent, setTokensSent] = useState(false); // Track if tokens were sent to Paycrest
+    const [tokensSent, setTokensSent] = useState(false);
     const [parsedError, setParsedError] = useState<ParsedOfframpError | null>(null);
     const hasTriggeredSuccessNavigation = useRef(false);
     const modalDetents = (modalState === 'failed'
@@ -235,6 +286,90 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
 
     // KYC hook
     const { status: kycStatus, isApproved: isKYCApproved, fetchStatus: fetchKYCStatus } = useKYC();
+
+    const estimateNetworkFee = useCallback(async () => {
+        if (!data || modalState !== 'confirm') return;
+        const network = data.network.toLowerCase();
+        const chainConfig = getEvmUsdcChain(network);
+        if (!chainConfig) {
+            setEstimatedNetworkFee('Network fee applies');
+            return;
+        }
+
+        // Offramp transfers go through Circle Gateway. Show itemized fees
+        // (network gas + Circle service fee) so user sees exactly what's
+        // deducted from the USDC unified balance.
+        if (data.token.toUpperCase() === 'USDC') {
+            const sourceKey = (() => {
+                const n = network;
+                if (n.includes('base')) return 'base' as const;
+                if (n.includes('arbitrum') || n === 'arb') return 'arbitrum' as const;
+                if (n.includes('polygon') || n.includes('matic') || n.includes('amoy')) return 'polygon' as const;
+                if (n.includes('optimism') || n === 'op' || n.includes('op sepolia')) return 'optimism' as const;
+                return null;
+            })();
+            if (sourceKey) {
+                const valueStr = String(getNetCryptoAmount(toNumber(data.amount)) ?? data.amount);
+                const m = valueStr.trim().match(/^(\d+)(?:\.(\d+))?$/);
+                const valueSubunits = m
+                    ? BigInt(m[1]) * 1_000_000n + BigInt(((m[2] ?? '') + '000000').slice(0, 6))
+                    : 0n;
+                const fees = previewGatewayFees({
+                    sourceChain: sourceKey,
+                    destChain: sourceKey,
+                    valueUsdc: valueSubunits,
+                    sourceGasFeeUsdc: GATEWAY_EVM_CHAINS[sourceKey].gasFeeUsdc,
+                    useForwarder: true,
+                });
+                setFeeBreakdown({
+                    gasFeeUsdc: fees.gasFeeUsdc,
+                    transferFeeUsdc: fees.transferFeeUsdc,
+                    forwarderFeeUsdc: fees.forwarderFeeUsdc,
+                    totalFeeUsdc: fees.totalFeeUsdc,
+                });
+                setNetworkFeeError(null);
+                setEstimatedNetworkFee(null);
+                return;
+            }
+            setFeeBreakdown(null);
+            setNetworkFeeError(null);
+            setEstimatedNetworkFee('Calculated at confirmation');
+            return;
+        }
+
+        setFeeBreakdown(null);
+
+        try {
+            setNetworkFeeError(null);
+            setEstimatedNetworkFee(null);
+            if (!evmWallets || evmWallets.length === 0) return;
+
+            const wallet = evmWallets[0];
+            const provider = await wallet.getProvider();
+            const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
+            const walletAddress = accounts[0];
+            if (!walletAddress) return;
+
+            const tokenAddress = data.token.toUpperCase() === 'USDC' ? chainConfig.usdcAddress : null;
+            if (!tokenAddress) return;
+
+            const rpcProvider = new ethers.JsonRpcProvider(chainConfig.rpcUrl);
+            const transferData = buildErc20TransferData(walletAddress, getNetCryptoAmount(toNumber(data.amount)));
+            const estimatePayload: Record<string, string> = {
+                from: walletAddress,
+                to: tokenAddress,
+                data: transferData,
+            };
+
+            const gasEstimate = await estimateErc20GasWithFallback(rpcProvider, chainConfig, estimatePayload);
+            const feeData = await rpcProvider.getFeeData();
+            const gasPrice = feeData.gasPrice || feeData.maxFeePerGas || 1000000000n;
+            setEstimatedNetworkFee(formatFeeAmount(gasEstimate * gasPrice, 18, getNativeFeeSymbol(chainConfig)));
+        } catch (error: any) {
+            console.log('[OfframpModal] Network fee estimation error:', error?.message || error);
+            setNetworkFeeError(`Estimate unavailable (paid in ${getNativeFeeSymbol(chainConfig)})`);
+        }
+    }, [data, modalState, evmWallets]);
 
     // Fetch exchange rate when data changes
     useEffect(() => {
@@ -300,6 +435,10 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
 
         fetchRate();
     }, [data, modalState]);
+
+    useEffect(() => {
+        estimateNetworkFee();
+    }, [estimateNetworkFee]);
 
     const handleDismiss = useCallback(() => {
         setModalState('confirm');
@@ -394,8 +533,11 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
 
             const wallet = evmWallets[0];
             const provider = await wallet.getProvider();
-            const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
-            const walletAddress = accounts[0];
+            // Use the Privy wallet's canonical (checksum-formatted) address
+            // so the EIP-712 signer recovered on Circle's side matches the
+            // bytes we embed in spec.sourceSigner / spec.sourceDepositor.
+            const walletAddress = (wallet?.address as string | undefined)
+                ?? ((await provider.request({ method: 'eth_accounts' })) as string[])[0];
 
             if (!walletAddress) {
                 throw new Error('No wallet address found');
@@ -447,81 +589,192 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                 }
             }
 
-            // 3. Send tokens to Paycrest receive address automatically
-            setStatusMessage('Sending tokens to Paycrest...');
+            // 3. Send USDC to the Paycrest settlement address. Two paths:
+            //    a) Unified balance on → Circle Gateway burn intent + forwarder
+            //    b) Unified balance off → direct ERC-20 transfer from EOA
+            //       USDC on the picked chain.
+            const network = data.network.toLowerCase();
+            const tokenSymbol = data.token.toUpperCase();
+            if (tokenSymbol !== 'USDC') {
+                throw new Error(`Offramp only supports USDC, got ${tokenSymbol}`);
+            }
+
+            const destChainKey: GatewayChainKey = (() => {
+                const n = network;
+                if (n === 'base' || n === 'arbitrum' || n === 'polygon') return n as GatewayEvmChainKey;
+                if (n === 'solana' || n === 'solana_devnet') return 'solana';
+                throw new Error(`Unsupported destination chain: ${data.network}`);
+            })();
+
+            if (destChainKey === 'solana') {
+                throw new Error('Solana settlement is not yet supported in the offramp flow.');
+            }
+
+            const grossAmount = toNumber(data.amount);
+            const transferAmount = Number(order.cryptoAmount || getNetCryptoAmount(grossAmount));
+            const transferAmountStr = transferAmount.toFixed(6);
+            const transferAmountSubunits = BigInt(Math.floor(transferAmount * 1_000_000));
+
             Analytics.withdrawalFlowStep('token_transfer_started', {
                 order_id: order.id,
                 network: data.network,
                 token: data.token,
             });
 
-            const network = data.network.toLowerCase();
-            const tokenSymbol = data.token.toUpperCase();
-            const tokenAddress = TOKEN_ADDRESSES[network]?.[tokenSymbol];
+            if (!gatewayAutoDepositEnabled) {
+                // ---------- Direct ERC-20 path (unified off) ----------
+                const destConfig = GATEWAY_EVM_CHAINS[destChainKey];
+                setStatusMessage(`Sending USDC on ${destConfig.name}…`);
 
-            if (!tokenAddress) {
-                throw new Error(`Token ${data.token} not supported on ${network}`);
+                try {
+                    await provider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: destConfig.chainIdHex }],
+                    });
+                } catch (err: any) {
+                    const code = err?.code;
+                    const message: string = err?.message || '';
+                    if (code === 4902 || /unsupported chain/i.test(message)) {
+                        try {
+                            await provider.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [{
+                                    chainId: destConfig.chainIdHex,
+                                    chainName: destConfig.name,
+                                    nativeCurrency: {
+                                        name: destConfig.nativeSymbol,
+                                        symbol: destConfig.nativeSymbol,
+                                        decimals: destConfig.nativeDecimals,
+                                    },
+                                    rpcUrls: [destConfig.rpcUrl],
+                                    blockExplorerUrls: [destConfig.explorerUrl.replace(/\/tx\/?$/, '')],
+                                }],
+                            });
+                        } catch (addErr: any) {
+                            if (!/already added|exists/i.test(addErr?.message || '')) throw addErr;
+                        }
+                        await provider.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: destConfig.chainIdHex }],
+                        });
+                    } else {
+                        throw err;
+                    }
+                }
+
+                const erc20Data = buildErc20TransferData(order.receiveAddress, transferAmount);
+                const directTxHash = await provider.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: walletAddress,
+                        to: destConfig.usdc,
+                        data: erc20Data,
+                        chainId: destConfig.chainIdHex,
+                        gas: '0x30D40', // 200000
+                    }],
+                }) as string;
+
+                submittedTxHash = directTxHash;
+                console.log('[Offramp] Direct ERC-20 tx:', submittedTxHash);
+            } else {
+                // ---------- Gateway (unified) path ----------
+                setStatusMessage('Submitting USDC via Circle Gateway...');
+
+            // Pick a source domain that holds enough Gateway liquidity for
+            // the burn. Prefer Base for cheapest gas.
+            const liquidityByDomain = new Map<number, bigint>();
+            for (const entry of gatewayBalance.perDomain) {
+                liquidityByDomain.set(
+                    entry.domain,
+                    (liquidityByDomain.get(entry.domain) ?? 0n) + BigInt(entry.balance ?? '0')
+                );
+            }
+            const sourceCandidates: GatewayEvmChainKey[] = ['base', 'arbitrum', 'polygon', 'optimism'];
+            const sourceChainKey = sourceCandidates.find((key) =>
+                (liquidityByDomain.get(GATEWAY_DOMAINS[key]) ?? 0n) >= transferAmountSubunits
+            );
+            if (!sourceChainKey) {
+                throw new Error('Insufficient unified balance for this withdrawal. Top up via deposit.');
+            }
+            const sourceConfig = GATEWAY_EVM_CHAINS[sourceChainKey];
+            const destConfig = GATEWAY_EVM_CHAINS[destChainKey];
+
+            console.log('[Offramp] Burn from', sourceConfig.name, 'mint to', destConfig.name);
+            console.log('[Offramp] Receive address:', order.receiveAddress);
+            console.log('[Offramp] Amount:', transferAmountStr, tokenSymbol);
+
+            const walletClient = await getEvmWalletClient(sourceChainKey, provider);
+            const rpcProvider = new ethers.JsonRpcProvider(sourceConfig.rpcUrl);
+            const currentSourceBlock = BigInt(await rpcProvider.getBlockNumber());
+
+            const burnIntent = buildBurnIntent({
+                sourceChainKey,
+                destChainKey,
+                amountUsdc: transferAmountStr,
+                sourceDepositor: walletAddress as `0x${string}`,
+                destinationRecipient: addressToBytes32(order.receiveAddress as `0x${string}`),
+                destinationToken: addressToBytes32(destConfig.usdc),
+                destinationContract: addressToBytes32(GATEWAY_MINTER_EVM),
+                currentSourceBlock,
+                useForwarder: true,
+            });
+
+            const fees = previewGatewayFees({
+                sourceChain: sourceChainKey,
+                destChain: destChainKey,
+                valueUsdc: transferAmountSubunits,
+                sourceGasFeeUsdc: sourceConfig.gasFeeUsdc,
+                useForwarder: true,
+            });
+            console.log('[Offramp] Gateway fees:', {
+                gas: formatGatewayUsdc(fees.gasFeeUsdc),
+                transfer: formatGatewayUsdc(fees.transferFeeUsdc),
+                forwarder: formatGatewayUsdc(fees.forwarderFeeUsdc),
+                total: formatGatewayUsdc(fees.totalFeeUsdc),
+            });
+
+            const signed = await signEvmBurnIntent({
+                burnIntent,
+                sourceChainKey,
+                provider,
+                account: walletAddress as `0x${string}`,
+            });
+
+            const submitResponse = await submitBurnIntents([signed], { useForwarder: true });
+            const transferId =
+                submitResponse?.transfer?.id ||
+                submitResponse?.transferId ||
+                submitResponse?.id ||
+                submitResponse?.[0]?.transfer?.id ||
+                submitResponse?.[0]?.id;
+            if (!transferId) {
+                throw new Error('Gateway did not return a transfer id for the forwarded request');
             }
 
-            // Build ERC20 transfer transaction
-            const decimals = 6; // USDC has 6 decimals
-            const grossAmount = toNumber(data.amount);
-            const transferAmount = Number(order.cryptoAmount || getNetCryptoAmount(grossAmount));
-            const amountWei = BigInt(Math.floor(transferAmount * Math.pow(10, decimals)));
-            const recipientPadded = order.receiveAddress.slice(2).toLowerCase().padStart(64, '0');
-            const amountPadded = amountWei.toString(16).padStart(64, '0');
-            const transferData = '0xa9059cbb' + recipientPadded + amountPadded;
-
-            console.log('[Offramp] Sending tokens to:', order.receiveAddress);
-            console.log('[Offramp] Amount:', transferAmount, tokenSymbol);
-
-            // Use ethers to estimate gas and get proper fee data
-            const rpcUrl = RPC_URLS[network];
-            const rpcProvider = new ethers.JsonRpcProvider(rpcUrl);
-
-            // Get gas estimates
-            const gasEstimate = await rpcProvider.estimateGas({
-                from: walletAddress,
-                to: tokenAddress,
-                data: transferData
+            setStatusMessage('Waiting for destination chain confirmation...');
+            const record = await pollForwardedTransfer(String(transferId), {
+                onTick: (rec) => {
+                    if (rec.status) setStatusMessage(`Gateway: ${rec.status}…`);
+                },
             });
-            const gasLimit = '0x' + (gasEstimate * 150n / 100n).toString(16);
-
-            // Get fee data
-            const feeData = await rpcProvider.getFeeData();
-            const maxFeePerGas = feeData.maxFeePerGas || BigInt(30000000000);
-            const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas || BigInt(1500000000);
-
-            // Get nonce
-            const nonce = await rpcProvider.getTransactionCount(walletAddress, 'pending');
-            const nonceHex = '0x' + nonce.toString(16);
-
-            const txParams = {
-                from: walletAddress,
-                to: tokenAddress,
-                data: transferData,
-                gasLimit: gasLimit,
-                nonce: nonceHex,
-                maxFeePerGas: '0x' + maxFeePerGas.toString(16),
-                maxPriorityFeePerGas: '0x' + maxPriorityFeePerGas.toString(16),
-                chainId: CHAIN_IDS[network],
-            };
-
-            console.log('[Offramp] TX params:', JSON.stringify(txParams, null, 2));
-
-            // Send transaction using Privy wallet
-            const txHash = await provider.request({
-                method: 'eth_sendTransaction',
-                params: [txParams]
-            }) as string;
+            if (record.status?.toLowerCase() === 'failed' || record.status?.toLowerCase() === 'expired') {
+                throw new Error(`Gateway transfer ${transferId} failed: ${record.error?.message || 'unknown'}`);
+            }
+            const txHash = String(
+                record?.destination?.txHash ||
+                record?.destinationTxHash ||
+                record?.txHash ||
+                transferId
+            );
             submittedTxHash = txHash;
+            } // end Gateway-path else
 
             // Mark that tokens have been sent (for error message differentiation)
             setTokensSent(true);
             tokensSentInAttempt = true;
             Analytics.withdrawalFlowStep('token_transfer_submitted', {
                 order_id: order.id,
-                tx_hash: txHash,
+                tx_hash: submittedTxHash,
                 network: data.network,
                 token: data.token,
                 amount: transferAmount,
@@ -534,7 +787,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                 data.fiatCurrency
             );
 
-            console.log('[Offramp] Token transfer tx:', txHash);
+            console.log('[Offramp] Token transfer tx:', submittedTxHash);
             setStatusMessage('Waiting for confirmation...');
 
             // 4. Log transaction to backend for AI insights
@@ -547,7 +800,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                     },
                     body: JSON.stringify({
                         type: 'OFFRAMP',
-                        txHash: txHash,
+                        txHash: submittedTxHash,
                         amount: transferAmount.toString(),
                         token: data.token,
                         chain: network.toUpperCase(),
@@ -570,7 +823,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                         'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ txHash })
+                    body: JSON.stringify({ txHash: submittedTxHash })
                 });
             } catch (e) {
                 console.log('[Offramp] Failed to update order with txHash:', e);
@@ -595,11 +848,11 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
 
             // 6. Tokens sent — transition to success immediately.
             // Real-time status tracking happens in the Withdrawals history screen
-            // via Paycrest webhook updates and polling.
+            // via provider webhook updates and polling.
             setModalState('success');
             Analytics.withdrawalFlowStep('withdrawal_submitted', {
                 order_id: order.id,
-                tx_hash: txHash,
+                tx_hash: submittedTxHash,
                 network: data.network,
                 fiat_currency: data.fiatCurrency,
                 amount: transferAmount,
@@ -674,7 +927,8 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
     if (!data) return null;
 
     const network = data.network.toLowerCase();
-    const chain = CHAINS[network] || CHAINS['base'];
+    const evmDisplayChain = getEvmUsdcChain(network);
+    const chain = evmDisplayChain ? { ...CHAINS[evmDisplayChain.key], name: evmDisplayChain.name } : (CHAINS[network] || CHAINS['base']);
 
     const renderContent = () => {
         switch (modalState) {
@@ -841,6 +1095,37 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                                     {getPlatformFee(toNumber(data.amount)).toFixed(2)} {data.token}
                                 </Text>
                             </View>
+                            {feeBreakdown ? (
+                                <>
+                                    <View style={styles.detailRow}>
+                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Network fee</Text>
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                            {formatUsdcFee(feeBreakdown.gasFeeUsdc)} USDC
+                                        </Text>
+                                    </View>
+                                    {feeBreakdown.transferFeeUsdc > 0n && (
+                                        <View style={styles.detailRow}>
+                                            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Cross-chain fee</Text>
+                                            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                                {formatUsdcFee(feeBreakdown.transferFeeUsdc)} USDC
+                                            </Text>
+                                        </View>
+                                    )}
+                                    <View style={styles.detailRow}>
+                                        <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Service fee</Text>
+                                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                            {formatUsdcFee(feeBreakdown.forwarderFeeUsdc)} USDC
+                                        </Text>
+                                    </View>
+                                </>
+                            ) : (
+                                <View style={styles.detailRow}>
+                                    <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Est. Network Fee</Text>
+                                    <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+                                        {networkFeeError || estimatedNetworkFee || 'Calculating...'}
+                                    </Text>
+                                </View>
+                            )}
                             <View style={styles.detailRow}>
                                 <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>Net Converted</Text>
                                 <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>

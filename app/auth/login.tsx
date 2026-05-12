@@ -23,8 +23,8 @@ import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import { useLoginWithEmail, usePrivy, useLoginWithOAuth } from '@privy-io/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
+import { joinApiUrl } from '../../utils/apiBaseUrl';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 const DEMO_EMAIL = 'demo@hedwig.app';
 const DEMO_CODE = '123456';
 const PRIVACY_POLICY_URL = 'https://www.hedwigbot.xyz/privacy';
@@ -124,7 +124,7 @@ export default function LoginScreen() {
             }
 
             const token = await getAccessToken();
-            const response = await fetch(`${API_URL}/api/auth/me`, {
+            const response = await fetch(joinApiUrl('/api/auth/me'), {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -162,7 +162,7 @@ export default function LoginScreen() {
             // After OAuth, check if user exists in our backend
             const token = await getAccessToken();
             if (token) {
-                const response = await fetch(`${API_URL}/api/auth/me`, {
+                const response = await fetch(joinApiUrl('/api/auth/me'), {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 

@@ -20,6 +20,7 @@ const NETWORK_META: Record<OnrampNetwork, { name: string; icon: any }> = {
     base: { name: 'Base', icon: require('../../assets/icons/networks/base.png') },
     polygon: { name: 'Polygon', icon: require('../../assets/icons/networks/polygon.png') },
     arbitrum: { name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
+    optimism: { name: 'Optimism', icon: require('../../assets/icons/networks/optimism.png') },
     // Celo temporarily disabled — keep mapping so legacy orders still render.
     celo: { name: 'Celo', icon: require('../../assets/icons/networks/base.png') },
 };

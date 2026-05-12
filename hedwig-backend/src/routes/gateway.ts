@@ -8,10 +8,13 @@ import {
     GATEWAY_EIP712_TYPES,
     getGatewayApiBaseUrl,
     getGatewayNetwork,
+    gatewayBalanceToMicros,
     listGatewayChains,
+    normalizeGatewayBalanceEntry,
     requestGatewayAttestation,
     type GatewayTransferRequest,
 } from '../services/gateway';
+import { extractPrivyWalletAddresses } from '../services/privyWallets';
 import { createLogger } from '../utils/logger';
 
 const router = Router();
@@ -35,6 +38,16 @@ async function resolveUserEvmAddress(privyUserId: string): Promise<string> {
     }
 
     return address;
+}
+
+async function resolveUserWalletAddresses(privyUserId: string): Promise<{ evmAddress: string | null; solanaAddress: string | null }> {
+    const user = await getPrivyAuthClient().getUser(privyUserId);
+    const wallets = extractPrivyWalletAddresses(user);
+    const evmAddress = wallets.ethereum || null;
+    return {
+        evmAddress: evmAddress && isAddress(evmAddress) ? evmAddress : null,
+        solanaAddress: wallets.solana || null,
+    };
 }
 
 function asChainKeys(value: unknown): string[] | undefined {
@@ -77,10 +90,8 @@ router.post('/balances', authenticate, async (req: Request, res: Response, next:
         const chainKeys = asChainKeys(req.body?.chainKeys);
         const balances = await fetchGatewayBalances(depositorAddress, chainKeys);
 
-        const total = (balances.balances || []).reduce((sum, item) => {
-            const parsed = Number(item.balance || 0);
-            return sum + (Number.isFinite(parsed) ? parsed : 0);
-        }, 0);
+        const normalizedBalances = (balances.balances || []).map(normalizeGatewayBalanceEntry);
+        const total = normalizedBalances.reduce((sum, item) => sum + BigInt(item.balance || '0'), 0n);
 
         res.json({
             success: true,
@@ -88,8 +99,85 @@ router.post('/balances', authenticate, async (req: Request, res: Response, next:
                 depositorAddress,
                 chainKeys: chainKeys || listGatewayChains().map((chain) => chain.key),
                 token: balances.token,
-                balances: balances.balances || [],
-                unifiedBalance: total.toFixed(6),
+                balances: normalizedBalances,
+                unifiedBalance: total.toString(),
+            },
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * GET /api/gateway/balance
+ * Mobile-friendly unified balance endpoint. Checks both the authenticated
+ * user's EVM embedded wallet and Solana embedded wallet, then sums all
+ * finalized Gateway balances that Circle currently reports.
+ */
+router.get('/balance', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { evmAddress, solanaAddress } = await resolveUserWalletAddresses(req.user!.id);
+        const requestSources: Array<{ addressType: 'evm' | 'solana'; depositor: string; chainKeys: string[] }> = [];
+
+        if (evmAddress) {
+            const evmKeys = getGatewayNetwork() === 'mainnet'
+                ? ['base', 'arbitrum', 'polygon', 'optimism']
+                : ['baseSepolia', 'arbitrumSepolia', 'polygonAmoy', 'optimismSepolia', 'arcTestnet'];
+            requestSources.push({
+                addressType: 'evm',
+                depositor: evmAddress,
+                chainKeys: evmKeys,
+            });
+        }
+        if (solanaAddress) {
+            requestSources.push({
+                addressType: 'solana',
+                depositor: solanaAddress,
+                chainKeys: ['solana'],
+            });
+        }
+
+        const results = await Promise.all(
+            requestSources.map((source) => fetchGatewayBalances(source.depositor, source.chainKeys))
+        );
+        const perDomain = results
+            .flatMap((result) => result.balances || [])
+            .map(normalizeGatewayBalanceEntry);
+        const available = perDomain.reduce((sum, item) => sum + gatewayBalanceToMicros(item.rawBalance), 0n);
+
+        logger.info('Gateway balance fetched', {
+            userId: req.user!.id,
+            network: getGatewayNetwork(),
+            hasEvmAddress: Boolean(evmAddress),
+            hasSolanaAddress: Boolean(solanaAddress),
+            requestSources: requestSources.map((source) => ({
+                addressType: source.addressType,
+                chainKeys: source.chainKeys,
+                depositorPrefix: source.depositor.slice(0, 8),
+            })),
+            perDomain: perDomain.map((entry: any) => ({
+                domain: entry.domain,
+                depositorPrefix: String(entry.depositor || '').slice(0, 8),
+                rawBalance: entry.rawBalance,
+                balance: entry.balance,
+            })),
+            available: available.toString(),
+        });
+
+        res.json({
+            success: true,
+            data: {
+                available: available.toString(),
+                pending: '0',
+                perDomain,
+                queriedSources: requestSources.map((source) => ({
+                    addressType: source.addressType,
+                    depositor: source.depositor,
+                    chainKeys: source.chainKeys,
+                })),
+                evmAddress,
+                solanaAddress,
+                testnet: getGatewayNetwork() !== 'mainnet',
             },
         });
     } catch (error) {

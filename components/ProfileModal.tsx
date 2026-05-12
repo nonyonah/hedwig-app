@@ -20,7 +20,9 @@ import IOSGlassIconButton from './ui/IOSGlassIconButton';
 
 // RPC URLs
 const RPC_URLS = {
-    base: 'https://mainnet.base.org'
+    base: process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet'
+        ? 'https://sepolia.base.org'
+        : 'https://mainnet.base.org'
 };
 
 const { height } = Dimensions.get('window');
@@ -36,8 +38,8 @@ interface ChainInfo {
 
 const SUPPORTED_CHAINS: ChainInfo[] = [
     {
-        name: 'Base', // Base Mainnet
-        id: 8453,
+        name: process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet' ? 'Base Sepolia' : 'Base',
+        id: process.env.EXPO_PUBLIC_NETWORK_MODE === 'testnet' ? 84532 : 8453,
         icon: NetworkBase,
         color: '#0052FF',
         addressType: 'evm',
@@ -240,8 +242,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose, us
     }, [visible, user]);
 
     useEffect(() => {
-        // Use Blockradar address from the wallet hook (EVM)
-        if (blockradarAddress && !ethAddress) {
+        // Prefer the live embedded EOA returned by the wallet endpoint. This
+        // replaces stale smart-wallet addresses previously persisted/displayed.
+        if (blockradarAddress && blockradarAddress !== ethAddress) {
             setEthAddress(blockradarAddress);
         }
 

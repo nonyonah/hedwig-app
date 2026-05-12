@@ -6,14 +6,15 @@ import { TrueSheet } from '@hedwig/true-sheet';
 import { useThemeColors } from '../../theme/colors';
 import { TransactionConfirmationModal } from '../../components/TransactionConfirmationModal';
 import { useWallet } from '../../hooks/useWallet';
+import { useGatewayBalance, formatGatewayUsdc } from '../../hooks/useGatewayBalance';
 import Button from '../../components/Button';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import {
     detectRecipientChain,
     EVM_CHAINS,
-    getTokenOptionsForChain,
     isValidSendChain,
     parseNumeric,
+    SEND_TOKEN_OPTIONS,
     SendChain,
     shortenAddress,
 } from './sendFlow';
@@ -60,13 +61,20 @@ export default function SendCryptoScreen() {
     const themeColors = useThemeColors();
     const router = useRouter();
     const { address: evmAddress, solanaAddress, balances, fetchBalances } = useWallet();
+    const gatewayBalance = useGatewayBalance();
 
-    const params = useLocalSearchParams<{ recipient?: string; chain?: string; token?: string }>();
+    const params = useLocalSearchParams<{ recipient?: string; chain?: string; token?: string; unified?: string }>();
     const recipient = typeof params.recipient === 'string' ? params.recipient.trim() : '';
     const routeChain = typeof params.chain === 'string' && isValidSendChain(params.chain) ? params.chain : null;
     const detectedChain = detectRecipientChain(recipient);
-    const chain = (routeChain || detectedChain) as SendChain | null;
+    const initialChain = (routeChain || detectedChain) as SendChain | null;
     const tokenAsset = typeof params.token === 'string' ? params.token.toLowerCase() : '';
+    const isUnified = params.unified === '1' && tokenAsset === 'usdc';
+
+    // Destination chain is now fixed at navigation time. For unified USDC,
+    // the user already picked the destination via the chain bottom sheet on
+    // the previous (send-token) screen, so we just read it from the route.
+    const chain = initialChain;
 
     const [amount, setAmount] = useState('0');
     const [amountMode, setAmountMode] = useState<'crypto' | 'fiat'>('crypto');
@@ -80,11 +88,15 @@ export default function SendCryptoScreen() {
         }, [fetchBalances])
     );
 
-    const tokenOptions = useMemo(() => (chain ? getTokenOptionsForChain(chain) : []), [chain]);
-    const selectedOption = useMemo(
-        () => tokenOptions.find((option) => option.asset === tokenAsset) || tokenOptions[0],
-        [tokenAsset, tokenOptions]
-    );
+    const selectedOption = useMemo(() => {
+        if (!chain) return null;
+        // Match on (asset, chain) pair so native ETH on Arbitrum doesn't get
+        // confused with native ETH on Base.
+        const matched = SEND_TOKEN_OPTIONS.find(
+            (o) => o.asset === tokenAsset && o.chain === chain
+        );
+        return matched ?? SEND_TOKEN_OPTIONS.find((o) => o.chain === chain) ?? null;
+    }, [tokenAsset, chain]);
 
     const selectedBalanceEntry = useMemo(
         () =>
@@ -96,8 +108,30 @@ export default function SendCryptoScreen() {
         [balances, selectedOption]
     );
 
-    const selectedTokenBalance = selectedOption ? getTokenBalance(selectedBalanceEntry, selectedOption.decimals) : 0;
-    const selectedUsdBalance = parseNumeric(selectedBalanceEntry?.display_values?.usd);
+    // Unified USDC balance = Gateway available + USDC sitting at the EOA on
+    // every chain awaiting deposit. We override the per-chain value here so
+    // the user sees their full spendable USDC, not just whatever happens to
+    // be on the destination chain right now.
+    const gatewayUsdc = useMemo(
+        () => parseNumeric(gatewayBalance.available != null ? formatGatewayUsdc(gatewayBalance.available) : '0'),
+        [gatewayBalance.available]
+    );
+    const eoaUsdcSum = useMemo(() => (
+        getTokenBalance(balances.find((e) => e.chain === 'base' && e.asset === 'usdc'), 6) +
+        getTokenBalance(balances.find((e) => e.chain === 'arbitrum' && e.asset === 'usdc'), 6) +
+        getTokenBalance(balances.find((e) => e.chain === 'polygon' && e.asset === 'usdc'), 6) +
+        getTokenBalance(balances.find((e) => e.chain === 'optimism' && e.asset === 'usdc'), 6) +
+        getTokenBalance(balances.find((e) => e.chain === 'solana' && e.asset === 'usdc'), 6)
+    ), [balances]);
+
+    const selectedTokenBalance = !selectedOption
+        ? 0
+        : isUnified
+            ? gatewayUsdc + eoaUsdcSum
+            : getTokenBalance(selectedBalanceEntry, selectedOption.decimals);
+    const selectedUsdBalance = isUnified
+        ? gatewayUsdc + eoaUsdcSum
+        : parseNumeric(selectedBalanceEntry?.display_values?.usd);
 
     const unitUsd = useMemo(() => {
         if (!selectedOption) return 0;
@@ -195,6 +229,10 @@ export default function SendCryptoScreen() {
             token: selectedOption.token,
             recipient,
             network: selectedOption.chain,
+            // Surface the unified-vs-per-chain flag so the confirmation
+            // modal can pick between Gateway burn intents and a direct
+            // ERC-20 transfer from the EOA.
+            unified: isUnified,
         });
         setShowTxModal(true);
         setTimeout(() => txModalRef.current?.present(), 100);
@@ -216,7 +254,7 @@ export default function SendCryptoScreen() {
 
             <TouchableOpacity
                 style={[styles.toCard, { backgroundColor: themeColors.surface }]}
-                onPress={() => router.replace({ pathname: '/wallet/send-address', params: { recipient } })}
+                onPress={() => router.back()}
             >
                 <Text style={[styles.toLabel, { color: themeColors.textSecondary }]}>To</Text>
                 <View style={[styles.addressPill, { backgroundColor: themeColors.background }]}>
@@ -242,7 +280,7 @@ export default function SendCryptoScreen() {
 
             <TouchableOpacity
                 style={[styles.assetCard, { backgroundColor: themeColors.surface }]}
-                onPress={() => router.replace({ pathname: '/wallet/send-token', params: { recipient, chain } })}
+                onPress={() => router.back()}
                 activeOpacity={0.9}
             >
                 <View style={styles.assetLeft}>
@@ -294,14 +332,21 @@ export default function SendCryptoScreen() {
                 <TransactionConfirmationModal
                     ref={txModalRef}
                     visible={showTxModal}
-                    onClose={() => setShowTxModal(false)}
+                    onClose={() => {
+                        setShowTxModal(false);
+                        // Pop back to wallet once the user dismisses (works for
+                        // success, failure, or manual cancel from confirm).
+                        router.back();
+                    }}
                     data={txData}
                     onSuccess={() => {
-                        setShowTxModal(false);
-                        router.back();
+                        // Don't auto-close the modal — the success screen
+                        // shows the explorer link and confirmation copy. The
+                        // user dismisses via the Close button.
                     }}
                 />
             ) : null}
+
         </SafeAreaView>
     );
 }

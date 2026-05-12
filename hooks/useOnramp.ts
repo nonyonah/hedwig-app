@@ -2,8 +2,8 @@ import { useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { joinApiUrl } from '../utils/apiBaseUrl';
 
-export type OnrampFiat = 'NGN' | 'KES' | 'TZS' | 'MWK' | 'UGX' | 'BRL';
-export type OnrampNetwork = 'base' | 'polygon' | 'celo' | 'arbitrum';
+export type OnrampFiat = 'NGN' | 'KES' | 'TZS' | 'MWK' | 'UGX' | 'BRL' | 'USD';
+export type OnrampNetwork = 'base' | 'polygon' | 'celo' | 'arbitrum' | 'optimism';
 export type OnrampToken = 'USDC';
 
 export type OnrampStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
@@ -26,7 +26,8 @@ export interface OnrampInstitution {
 
 export interface OnrampOrder {
     id: string;
-    paycrestOrderId: string;
+    providerOrderId: string;
+    paycrestOrderId?: string;
     reference: string | null;
     status: OnrampStatus;
     chain: string;
@@ -72,6 +73,7 @@ const DEMO_QUOTE = (input: { fiatAmount: number; fiatCurrency: OnrampFiat; token
         MWK: 1740,
         UGX: 3731,
         BRL: 5,
+        USD: 1,
     };
     const rate = rateByCurrency[input.fiatCurrency] ?? rateByCurrency.NGN;
     const grossCrypto = input.fiatAmount / rate;
@@ -117,6 +119,7 @@ const DEMO_INSTITUTIONS_BY_CURRENCY: Record<OnrampFiat, OnrampInstitution[]> = {
         { code: 'BCOBBRSP', name: 'Banco do Brasil' },
         { code: 'ITAUBRSP', name: 'Itaú' },
     ],
+    USD: [],
 };
 
 const buildDemoOrder = (input: CreateOrderInput): OnrampOrder => {
@@ -124,7 +127,8 @@ const buildDemoOrder = (input: CreateOrderInput): OnrampOrder => {
     const validUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     return {
         id: `onramp_demo_${Date.now()}`,
-        paycrestOrderId: `paycrest_demo_${Date.now()}`,
+        providerOrderId: `provider_demo_${Date.now()}`,
+        paycrestOrderId: `provider_demo_${Date.now()}`,
         reference: `onramp-demo-${Date.now()}`,
         status: 'PENDING',
         chain: input.network.toUpperCase(),

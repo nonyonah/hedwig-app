@@ -14,10 +14,17 @@ export type ProFeature =
     | 'multi_bank_accounts'
     | 'revenue_history';
 
+/**
+ * Free-plan caps. The volume-based caps for invoices, payment links and
+ * contracts are now `Infinity` — they were lifted to make Hedwig usable for
+ * day-to-day invoicing without forcing an upgrade. Pro still differentiates
+ * via the assistant, automations, multi-bank payouts, and full revenue
+ * history below.
+ */
 export const FREE_PLAN_LIMITS = {
-    invoicesPerMonth: 10,
-    paymentLinksPerMonth: 10,
-    contractsPerMonth: 3,
+    invoicesPerMonth: Infinity,
+    paymentLinksPerMonth: Infinity,
+    contractsPerMonth: Infinity,
     bankAccounts: 1,
     revenueHistoryDays: 30,
 } as const;
@@ -166,6 +173,10 @@ export async function checkDocumentCreationLimit(params: {
     }
 
     const limit = getFreePlanLimit(params.type);
+    if (!Number.isFinite(limit)) {
+        // No volume cap on Free for this document type anymore.
+        return { allowed: true, plan, count: 0, limit: null, remaining: null };
+    }
     const monthStart = new Date();
     monthStart.setUTCDate(1);
     monthStart.setUTCHours(0, 0, 0, 0);

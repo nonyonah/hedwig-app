@@ -21,6 +21,8 @@ interface SettingsContextType {
     setLiveTrackingEnabled: (enabled: boolean) => Promise<void>;
     lockScreenEnabled: boolean;
     setLockScreenEnabled: (enabled: boolean) => Promise<void>;
+    gatewayAutoDepositEnabled: boolean;
+    setGatewayAutoDepositEnabled: (enabled: boolean) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -36,6 +38,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(true);
     const [liveTrackingEnabled, setLiveTrackingEnabledState] = useState<boolean>(true);
     const [lockScreenEnabled, setLockScreenEnabledState] = useState<boolean>(true);
+    // Gateway auto-deposit is opt-in. When OFF, the app leaves USDC on each
+    // chain at the EOA so users can manage liquidity manually. Existing
+    // Gateway balances stay regardless — only future deposits are gated.
+    const [gatewayAutoDepositEnabled, setGatewayAutoDepositEnabledState] = useState<boolean>(false);
 
     // Listen for system theme changes
     useEffect(() => {
@@ -58,12 +64,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const storedHaptics = await AsyncStorage.getItem('settings_haptics');
             const storedLiveTracking = await AsyncStorage.getItem('settings_live_tracking');
             const storedLockScreen = await AsyncStorage.getItem('settings_lock_screen');
+            const storedAutoDeposit = await AsyncStorage.getItem('settings_gateway_auto_deposit');
 
             if (storedCurrency) setCurrencyState(storedCurrency as Currency);
             if (storedTheme) setThemeState(storedTheme as Theme);
             if (storedHaptics !== null) setHapticsEnabledState(storedHaptics === 'true');
             if (storedLiveTracking !== null) setLiveTrackingEnabledState(storedLiveTracking === 'true');
             if (storedLockScreen !== null) setLockScreenEnabledState(storedLockScreen === 'true');
+            if (storedAutoDeposit !== null) setGatewayAutoDepositEnabledState(storedAutoDeposit === 'true');
         } catch (error) {
             console.error('Failed to load settings:', error);
         }
@@ -120,6 +128,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     };
 
+    const setGatewayAutoDepositEnabled = async (enabled: boolean) => {
+        try {
+            setGatewayAutoDepositEnabledState(enabled);
+            await AsyncStorage.setItem('settings_gateway_auto_deposit', enabled ? 'true' : 'false');
+        } catch (error) {
+            console.error('Failed to save gateway auto-deposit setting:', error);
+        }
+    };
+
     // Use deviceTheme (from listener) or systemColorScheme (from hook) - prioritize the reactive one
     const resolvedSystemTheme = resolveToAppTheme(deviceTheme || systemColorScheme);
     const currentTheme = theme === 'system' ? resolvedSystemTheme : theme;
@@ -153,7 +170,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             liveTrackingEnabled,
             setLiveTrackingEnabled,
             lockScreenEnabled,
-            setLockScreenEnabled
+            setLockScreenEnabled,
+            gatewayAutoDepositEnabled,
+            setGatewayAutoDepositEnabled,
         }}>
             {children}
         </SettingsContext.Provider>

@@ -36,7 +36,7 @@ const NETWORKS = [
     { id: 'base',     name: 'Base',     icon: require('../../assets/icons/networks/base.png') },
     { id: 'arbitrum', name: 'Arbitrum', icon: require('../../assets/icons/networks/arbitrum.png') },
     { id: 'polygon',  name: 'Polygon',  icon: require('../../assets/icons/networks/polygon.png') },
-    // Celo temporarily disabled.
+    // Optimism + Celo not currently supported by Paycrest.
     { id: 'solana',   name: 'Solana',   icon: require('../../assets/icons/networks/solana.png') },
 ];
 
@@ -45,7 +45,7 @@ const TOKENS_BY_NETWORK: Record<string, Array<{ id: string; name: string; icon: 
     base:     [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
     arbitrum: [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
     polygon:  [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
-    // Celo temporarily disabled.
+    // Optimism + Celo not currently supported by Paycrest.
     solana:   [{ id: 'USDC', name: 'USDC', icon: require('../../assets/icons/tokens/usdc.png') }],
 };
 

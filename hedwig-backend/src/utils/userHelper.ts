@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { createLogger } from './logger';
 import { getPrivyAuthClient } from '../middleware/auth';
+import AlchemyAddressService from '../services/alchemyAddress';
+import { ensurePrivyEmbeddedWallets } from '../services/privyWallets';
 
 const logger = createLogger('UserSync');
 
@@ -29,14 +31,51 @@ export async function getOrCreateUser(privyId: string) {
         }
 
         // 3. Extract email from Privy user
+        const linkedAccounts = Array.isArray(privyUser.linkedAccounts) ? privyUser.linkedAccounts : [];
         const email = privyUser.email?.address || 
             privyUser.google?.email || 
             privyUser.apple?.email ||
-            (privyUser.linkedAccounts.find((a: any) => a.type === 'email') as any)?.address;
+            (linkedAccounts.find((a: any) => a.type === 'email') as any)?.address;
 
         if (!email) {
             logger.warn('No email found for Privy user, cannot sync');
             throw new Error('No email found for Privy user');
+        }
+
+        let ethAddress: string | undefined = undefined;
+        let solAddress: string | undefined = undefined;
+
+        // Check linked accounts for wallets
+        linkedAccounts.forEach((account: any) => {
+            if (account.type === 'smart_wallet') return;
+            if (account.type === 'wallet' || account.type === 'ethereum' || account.type === 'solana') {
+                if ((account.chainType === 'ethereum' || account.type === 'ethereum') && !ethAddress) {
+                    ethAddress = account.address;
+                }
+                if ((account.chainType === 'solana' || account.type === 'solana') && !solAddress) {
+                    solAddress = account.address;
+                }
+            }
+        });
+
+        if (!ethAddress && /^0x[a-fA-F0-9]{40}$/.test(String(privyUser.wallet?.address || '').trim())) {
+            ethAddress = String(privyUser.wallet?.address).trim();
+        }
+
+        if (!ethAddress || !solAddress) {
+            try {
+                const ensuredWallets = await ensurePrivyEmbeddedWallets(privyId, {
+                    ethereum: !ethAddress,
+                    solana: !solAddress,
+                });
+                ethAddress = ethAddress || ensuredWallets.ethereum || undefined;
+                solAddress = solAddress || ensuredWallets.solana || undefined;
+            } catch (walletError: any) {
+                logger.warn('Could not ensure Privy embedded wallets while syncing user', {
+                    privyId,
+                    error: walletError?.message || 'Unknown error',
+                });
+            }
         }
 
         // 4. Check if user exists by email (handles privy_id changes)
@@ -54,13 +93,22 @@ export async function getOrCreateUser(privyId: string) {
                 oldPrivyId: existingUser.privy_id, 
                 newPrivyId: privyId 
             });
+
+            const updatePayload: Record<string, string> = {
+                privy_id: privyId,
+                last_login: new Date().toISOString(),
+                subscription_status: existingUser.subscription_status || 'inactive',
+            };
+            if (!existingUser.ethereum_wallet_address && ethAddress) {
+                updatePayload.ethereum_wallet_address = ethAddress;
+            }
+            if (!existingUser.solana_wallet_address && solAddress) {
+                updatePayload.solana_wallet_address = solAddress;
+            }
             
             const { data: updatedUser, error: updateError } = await supabase
                 .from('users')
-                .update({ 
-                    privy_id: privyId, 
-                    last_login: new Date().toISOString() 
-                })
+                .update(updatePayload)
                 .eq('id', existingUser.id)
                 .select()
                 .single();
@@ -71,27 +119,26 @@ export async function getOrCreateUser(privyId: string) {
             }
 
             logger.info('Successfully updated privy_id for existing user');
+            if (
+                process.env.ALCHEMY_WEBHOOK_REGISTRATION_ENABLED !== 'false' &&
+                (updatedUser.ethereum_wallet_address || updatedUser.solana_wallet_address)
+            ) {
+                void AlchemyAddressService.registerUserWallets({
+                    ethereum: updatedUser.ethereum_wallet_address,
+                    solana: updatedUser.solana_wallet_address,
+                }).catch((error: any) => {
+                    logger.warn('Failed to register synced wallets with Alchemy', {
+                        userId: updatedUser.id,
+                        error: error?.message || 'Unknown error',
+                    });
+                });
+            }
             return updatedUser;
         }
 
         // 5. User doesn't exist - create new user
         logger.debug('User not found by email, creating new user');
         
-        let ethAddress = privyUser.wallet?.address;
-        let solAddress: string | undefined = undefined;
-
-        // Check linked accounts for wallets
-        privyUser.linkedAccounts.forEach((account: any) => {
-            if (account.type === 'wallet') {
-                if (account.chainType === 'ethereum' && !ethAddress) {
-                    ethAddress = account.address;
-                }
-                if (account.chainType === 'solana' && !solAddress) {
-                    solAddress = account.address;
-                }
-            }
-        });
-
         const userData = {
             privy_id: privyId,
             email: email,
@@ -99,7 +146,8 @@ export async function getOrCreateUser(privyId: string) {
             last_name: '',
             ethereum_wallet_address: ethAddress,
             solana_wallet_address: solAddress,
-            last_login: new Date().toISOString()
+            last_login: new Date().toISOString(),
+            subscription_status: 'inactive',
         };
 
         const { data: newUser, error: createError } = await supabase
@@ -114,6 +162,20 @@ export async function getOrCreateUser(privyId: string) {
         }
 
         logger.info('Successfully created new user');
+        if (
+            process.env.ALCHEMY_WEBHOOK_REGISTRATION_ENABLED !== 'false' &&
+            (newUser.ethereum_wallet_address || newUser.solana_wallet_address)
+        ) {
+            void AlchemyAddressService.registerUserWallets({
+                ethereum: newUser.ethereum_wallet_address,
+                solana: newUser.solana_wallet_address,
+            }).catch((error: any) => {
+                logger.warn('Failed to register new user wallets with Alchemy', {
+                    userId: newUser.id,
+                    error: error?.message || 'Unknown error',
+                });
+            });
+        }
         return newUser;
 
     } catch (error) {

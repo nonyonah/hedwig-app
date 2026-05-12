@@ -75,7 +75,7 @@ export default function SendAddressScreen() {
             const recipient = input;
             await saveRecipient(getAccessToken, recipient, chain, null);
             await loadRecent();
-            router.replace({ pathname: '/wallet/send-token', params: { recipient, chain } });
+            router.push({ pathname: '/wallet/send-token', params: { recipient, chain } });
         } catch (error: any) {
             Alert.alert('Could not continue', error?.message || 'Use a valid EVM or Solana address.');
         }

@@ -21,6 +21,8 @@ import { useThemeColors, Colors } from '../../../theme/colors';
 import { useSettings } from '../../../context/SettingsContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { useWallet } from '../../../hooks/useWallet';
+import { useGatewayBalance, formatGatewayUsdc } from '../../../hooks/useGatewayBalance';
+import { useEoaUsdcAutoDeposit } from '../../../hooks/useEoaUsdcAutoDeposit';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
     Settings as Gear, Copy, QrCode,
@@ -64,6 +66,7 @@ const CHAIN_ICON_MAP: Record<string, any> = {
     solana:   require('../../../assets/icons/networks/solana.png'),
     arbitrum: require('../../../assets/icons/networks/arbitrum.png'),
     polygon:  require('../../../assets/icons/networks/polygon.png'),
+    optimism: require('../../../assets/icons/networks/optimism.png'),
     celo:     require('../../../assets/icons/networks/celo.png'),
 };
 
@@ -71,7 +74,7 @@ const getChainIcon = (chain: string) => CHAIN_ICON_MAP[chain?.toLowerCase()] ?? 
 
 const CHAIN_DISPLAY_NAMES: Record<string, string> = {
     base: 'Base', arbitrum: 'Arbitrum', polygon: 'Polygon',
-    celo: 'Celo', solana: 'Solana',
+    optimism: 'Optimism', celo: 'Celo', solana: 'Solana',
 };
 
 // ─── Activity icons ──────────────────────────────────────────────────────────
@@ -81,6 +84,7 @@ const ACTIVITY_ICONS = {
     solana:  require('../../../assets/icons/networks/solana.png'),
     arbitrum:require('../../../assets/icons/networks/arbitrum.png'),
     polygon: require('../../../assets/icons/networks/polygon.png'),
+    optimism:require('../../../assets/icons/networks/optimism.png'),
     celo:    require('../../../assets/icons/networks/celo.png'),
     send:    require('../../../assets/icons/status/send.png'),
     receive: require('../../../assets/icons/status/receive.png'),
@@ -91,12 +95,14 @@ const ACTIVITY_CHAINS: Record<string, { name: string; icon: any }> = {
     solana:   { name: 'Solana',   icon: ACTIVITY_ICONS.solana },
     arbitrum: { name: 'Arbitrum', icon: ACTIVITY_ICONS.arbitrum },
     polygon:  { name: 'Polygon',  icon: ACTIVITY_ICONS.polygon },
+    optimism: { name: 'Optimism', icon: ACTIVITY_ICONS.optimism },
     celo:     { name: 'Celo',     icon: ACTIVITY_ICONS.celo },
     // Offramp uses uppercase chain keys
     BASE:     { name: 'Base',     icon: ACTIVITY_ICONS.base },
     SOLANA:   { name: 'Solana',   icon: ACTIVITY_ICONS.solana },
     ARBITRUM: { name: 'Arbitrum', icon: ACTIVITY_ICONS.arbitrum },
     POLYGON:  { name: 'Polygon',  icon: ACTIVITY_ICONS.polygon },
+    OPTIMISM: { name: 'Optimism', icon: ACTIVITY_ICONS.optimism },
     CELO:     { name: 'Celo',     icon: ACTIVITY_ICONS.celo },
 };
 
@@ -293,6 +299,8 @@ export default function WalletScreen() {
     const settings = useSettings();
     const currency = settings?.currency || 'USD';
 
+    const gatewayBalance = useGatewayBalance();
+
     const {
         balances: walletBalances,
         address: baseAddress,
@@ -323,7 +331,7 @@ export default function WalletScreen() {
     const [selectedChain, setSelectedChain] = useState<'base' | 'solana'>('base');
 
     // Network Filter & Dropdown
-    const [networkFilter, setNetworkFilter] = useState<'all' | 'base' | 'solana' | 'arbitrum' | 'polygon' | 'celo'>('all');
+    const [networkFilter, setNetworkFilter] = useState<'all' | 'base' | 'solana' | 'arbitrum' | 'polygon' | 'optimism' | 'celo'>('all');
     const [usdStatus,    setUsdStatus]    = useState<UsdAccountStatus | null>(null);
     const [usdDetails,   setUsdDetails]   = useState<UsdAccountDetails | null>(null);
     const [usdTransfers, setUsdTransfers] = useState<UsdTransfer[]>([]);
@@ -601,7 +609,6 @@ export default function WalletScreen() {
         return sum + toNumber(t.netUsd);
     }, 0);
     const usdAccountBalance = explicitUsdBalance ?? unsettledCompletedUsd;
-    const totalBalance      = toNumber(getBaseTotalUsd()) + usdAccountBalance;
     const usdAccountName    = usdDetails?.ach?.accountName || usdDetails?.ach?.bankName || 'USD Account';
     const usdAccountNumber  = usdDetails?.ach?.accountNumberMasked || 'Tap to complete setup';
     const hasActiveUsdAccountDetails = Boolean(usdDetails?.ach?.accountNumberMasked);
@@ -609,21 +616,79 @@ export default function WalletScreen() {
 
     const bal = (chain: string, asset: string) => walletBalances.find(b => b.chain === chain && b.asset === asset);
 
+    // Unified USDC balance combines what already lives in Circle Gateway
+    // (instantly spendable across every domain) with USDC currently sitting
+    // at the embedded EOA — those EOA balances are auto-deposited into
+    // Gateway in the background, but we surface the combined number so the
+    // user sees their full spendable balance immediately.
+    const unifiedGatewayUsdc = parseFloat(formatGatewayUsdc(gatewayBalance.available)) || 0;
+    const eoaUsdcByChain = {
+        base: getTokenBalance(bal('base', 'usdc'), 6),
+        arbitrum: getTokenBalance(bal('arbitrum', 'usdc'), 6),
+        polygon: getTokenBalance(bal('polygon', 'usdc'), 6),
+        optimism: getTokenBalance(bal('optimism', 'usdc'), 6),
+        solana: getTokenBalance(bal('solana', 'usdc'), 6),
+    };
+    const eoaUsdcTotal = Object.values(eoaUsdcByChain).reduce((sum, n) => sum + n, 0);
+    const unifiedUsdcAmount = unifiedGatewayUsdc + eoaUsdcTotal;
+
+    // Silently drain EOA USDC into Gateway whenever we detect a balance.
+    useEoaUsdcAutoDeposit(eoaUsdcByChain, {
+        enabled: settings?.gatewayAutoDepositEnabled ?? false,
+        onComplete: () => {
+            // Refresh both balance sources after a successful deposit so the
+            // unified row updates without waiting for the next poll.
+            void fetchBaseBalances();
+            void gatewayBalance.refresh();
+        },
+    });
+
+    // When Gateway auto-deposit is OFF, show a per-chain USDC row for each
+    // network so users can manage liquidity per chain manually. The unified
+    // row remains, sourced solely from Gateway (no EOA-pending pre-sum) so
+    // the totals don't double-count.
+    const gatewayAutoDepositOn = settings?.gatewayAutoDepositEnabled ?? false;
+    const unifiedRowBalance = gatewayAutoDepositOn ? unifiedUsdcAmount : unifiedGatewayUsdc;
+
     const allTokens = [
-        { chain: 'base',     name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('base','usdc'),    6), balanceUsd: toNumber(bal('base','usdc')?.display_values?.usd),    icon: require('../../../assets/icons/tokens/usdc.png') },
-        { chain: 'arbitrum', name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('arbitrum','usdc'),6), balanceUsd: toNumber(bal('arbitrum','usdc')?.display_values?.usd), icon: require('../../../assets/icons/tokens/usdc.png') },
-        { chain: 'polygon',  name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('polygon','usdc'), 6), balanceUsd: toNumber(bal('polygon','usdc')?.display_values?.usd),  icon: require('../../../assets/icons/tokens/usdc.png') },
-        // Celo USDC row temporarily disabled.
-        ...(solanaAddress ? [
-            { chain: 'solana', name: 'USD Coin', symbol: 'USDC', balance: getTokenBalance(bal('solana','usdc'),6), balanceUsd: toNumber(bal('solana','usdc')?.display_values?.usd), icon: require('../../../assets/icons/tokens/usdc.png') },
-        ] : []),
+        // Unified USDC across every Gateway domain. When auto-deposit is on
+        // we add EOA-held USDC so the displayed total matches what will end
+        // up in Gateway. When off, only Gateway-side balance counts.
+        { chain: 'base', name: 'USD Coin', symbol: 'USDC', balance: unifiedRowBalance, balanceUsd: unifiedRowBalance, icon: require('../../../assets/icons/tokens/usdc.png'), unified: true, pendingDeposit: gatewayAutoDepositOn ? eoaUsdcTotal : 0 } satisfies SelectedToken & { pendingDeposit: number },
+        // Per-chain USDC rows — only shown when auto-deposit is OFF so users
+        // can see and manage USDC that lives at the EOA on each chain.
+        ...(gatewayAutoDepositOn ? [] : [
+            { chain: 'base',     name: 'USD Coin', symbol: 'USDC', balance: eoaUsdcByChain.base,     balanceUsd: eoaUsdcByChain.base,     icon: require('../../../assets/icons/tokens/usdc.png') },
+            { chain: 'arbitrum', name: 'USD Coin', symbol: 'USDC', balance: eoaUsdcByChain.arbitrum, balanceUsd: eoaUsdcByChain.arbitrum, icon: require('../../../assets/icons/tokens/usdc.png') },
+            { chain: 'polygon',  name: 'USD Coin', symbol: 'USDC', balance: eoaUsdcByChain.polygon,  balanceUsd: eoaUsdcByChain.polygon,  icon: require('../../../assets/icons/tokens/usdc.png') },
+            { chain: 'optimism', name: 'USD Coin', symbol: 'USDC', balance: eoaUsdcByChain.optimism, balanceUsd: eoaUsdcByChain.optimism, icon: require('../../../assets/icons/tokens/usdc.png') },
+            { chain: 'solana',   name: 'USD Coin', symbol: 'USDC', balance: eoaUsdcByChain.solana,   balanceUsd: eoaUsdcByChain.solana,   icon: require('../../../assets/icons/tokens/usdc.png') },
+        ]),
+        // Native gas tokens for every supported network — always rendered so
+        // the user can see them at a glance even at zero balance.
+        { chain: 'base',     name: 'Ethereum',  symbol: 'ETH',  balance: getTokenBalance(bal('base','eth'),     18), balanceUsd: toNumber(bal('base','eth')?.display_values?.usd),     icon: require('../../../assets/icons/tokens/eth.png'),         native: true },
+        { chain: 'arbitrum', name: 'Ethereum',  symbol: 'ETH',  balance: getTokenBalance(bal('arbitrum','eth'), 18), balanceUsd: toNumber(bal('arbitrum','eth')?.display_values?.usd), icon: require('../../../assets/icons/tokens/eth.png'),         native: true },
+        { chain: 'polygon',  name: 'Polygon',   symbol: 'POL',  balance: getTokenBalance(bal('polygon','pol'),  18), balanceUsd: toNumber(bal('polygon','pol')?.display_values?.usd),  icon: require('../../../assets/icons/networks/polygon.png'),   native: true },
+        { chain: 'optimism', name: 'Ethereum',  symbol: 'ETH',  balance: getTokenBalance(bal('optimism','eth'),18), balanceUsd: toNumber(bal('optimism','eth')?.display_values?.usd), icon: require('../../../assets/icons/tokens/eth.png'),         native: true },
+        { chain: 'solana',   name: 'Solana',    symbol: 'SOL',  balance: getTokenBalance(bal('solana','sol'),   9),  balanceUsd: toNumber(bal('solana','sol')?.display_values?.usd),   icon: require('../../../assets/icons/networks/solana.png'),    native: true },
     ];
 
+    // Unified USDC + native gas rows are always visible. Anything else
+    // (legacy per-chain entries, custom tokens) hides at zero to keep the
+    // list tight.
     const networkFiltered = allTokens.filter(t => networkFilter === 'all' || t.chain === networkFilter);
-    const nonZero = networkFiltered.filter(t => t.balance > 0);
-    const filteredTokens = nonZero.length > 0
-        ? nonZero
-        : networkFiltered.filter(t => t.chain === 'base').slice(0, 1);
+    const filteredTokens = networkFiltered.filter(t =>
+        (t as any).unified || (t as any).native || t.balance > 0
+    );
+
+    // Total balance = (unified USDC + EOA USDC across all chains) + every
+    // native gas token's USD value + USD account credits. The full USDC sum
+    // is independent of the auto-deposit toggle — funds count regardless of
+    // whether they're in Gateway or still at the EOA.
+    const nativeUsdSum = allTokens
+        .filter((t) => (t as any).native)
+        .reduce((sum, t) => sum + (toNumber(t.balanceUsd) || 0), 0);
+    const totalBalance = unifiedGatewayUsdc + eoaUsdcTotal + nativeUsdSum + usdAccountBalance;
 
     const getNetworkIcon = (filter: string) => CHAIN_ICON_MAP[filter] ?? null;
 
@@ -1126,6 +1191,7 @@ export default function WalletScreen() {
                                                 <ExpoButton label="Base"     onPress={() => setNetworkFilter('base')} />
                                                 <ExpoButton label="Arbitrum" onPress={() => setNetworkFilter('arbitrum')} />
                                                 <ExpoButton label="Polygon"  onPress={() => setNetworkFilter('polygon')} />
+                                                <ExpoButton label="Optimism" onPress={() => setNetworkFilter('optimism')} />
                                                 {/* Celo temporarily disabled. */}
                                                 <ExpoButton label="Solana"   onPress={() => setNetworkFilter('solana')} />
                                             </Menu>
@@ -1137,6 +1203,7 @@ export default function WalletScreen() {
                                                 { label: 'Base',     onPress: () => setNetworkFilter('base') },
                                                 { label: 'Arbitrum', onPress: () => setNetworkFilter('arbitrum') },
                                                 { label: 'Polygon',  onPress: () => setNetworkFilter('polygon') },
+                                                { label: 'Optimism', onPress: () => setNetworkFilter('optimism') },
                                                 // Celo temporarily disabled.
                                                 { label: 'Solana',   onPress: () => setNetworkFilter('solana') },
                                             ]}
@@ -1223,24 +1290,35 @@ export default function WalletScreen() {
                                         <View style={styles.tokenLeft}>
                                             <View style={styles.tokenIconContainer}>
                                                 <Image source={item.icon} style={styles.tokenIconImage} />
-                                                <View style={styles.chainBadgeOverlay}>
-                                                    <Image source={getChainIcon(item.chain)} style={styles.chainBadgeIcon} />
-                                                </View>
+                                                {!(item as any).unified ? (
+                                                    <View style={styles.chainBadgeOverlay}>
+                                                        <Image source={getChainIcon(item.chain)} style={styles.chainBadgeIcon} />
+                                                    </View>
+                                                ) : null}
                                             </View>
                                             <View>
                                                 <Text style={[styles.tokenName, { color: themeColors.textPrimary }]}>{item.name}</Text>
                                                 <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary }]}>
                                                     {item.balance === 0
                                                         ? `0 ${item.symbol}`
-                                                        : `${item.balance.toFixed(2).replace(/\.?0+$/, '')} ${item.symbol}`}
+                                                        : `${item.balance.toFixed(item.symbol === 'USDC' ? 2 : 6).replace(/\.?0+$/, '')} ${item.symbol}`}
                                                 </Text>
+                                                {(item as any).pendingDeposit > 0 ? (
+                                                    <Text style={[styles.tokenSymbol, { color: themeColors.textSecondary, fontSize: 11 }]}>
+                                                        {`Moving ${((item as any).pendingDeposit as number).toFixed(2)} USDC to unified balance…`}
+                                                    </Text>
+                                                ) : null}
                                             </View>
                                         </View>
                                         <View style={styles.tokenRight}>
                                             <Text style={[styles.tokenBalance, { color: themeColors.textPrimary }]}>
                                                 ${item.balanceUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </Text>
-                                            {tokenPriceChanges[item.symbol] !== undefined ? (
+                                            {(item as any).unified ? (
+                                                <Text style={[styles.chainLabel, { color: themeColors.textSecondary }]}>
+                                                    Unified
+                                                </Text>
+                                            ) : tokenPriceChanges[item.symbol] !== undefined ? (
                                                 <Text style={[styles.chainLabel, {
                                                     color: tokenPriceChanges[item.symbol] >= 0 ? '#22C55E' : '#EF4444',
                                                 }]}>
@@ -1562,7 +1640,35 @@ export default function WalletScreen() {
                     onDismiss={() => setSelectedToken(null)}
                     onSend={() => {
                         tokenDetailSheetRef.current?.dismiss();
-                        setTimeout(() => sendSheetRef.current?.present(), 320);
+                        // Jump straight into the standard recipient input
+                        // flow rather than opening the deprecated bottom
+                        // sheet — keeps a real back-stack so users can
+                        // navigate backwards naturally.
+                        setTimeout(() => router.push('/wallet/send-address' as any), 320);
+                    }}
+                    onDeposit={() => {
+                        tokenDetailSheetRef.current?.dismiss();
+                        // Pre-fill with the largest EOA-held USDC chain so the
+                        // deposit screen targets whichever leg is stuck.
+                        const candidates: Array<[string, number]> = [
+                            ['base', eoaUsdcByChain.base],
+                            ['arbitrum', eoaUsdcByChain.arbitrum],
+                            ['polygon', eoaUsdcByChain.polygon],
+                            ['optimism', eoaUsdcByChain.optimism],
+                        ];
+                        const [bestChain, bestAmount] = candidates.reduce(
+                            (best, cur) => (cur[1] > best[1] ? cur : best),
+                            ['base', 0]
+                        );
+                        setTimeout(() => {
+                            router.push({
+                                pathname: '/wallet/deposit' as any,
+                                params: {
+                                    network: bestChain,
+                                    amount: bestAmount > 0 ? bestAmount.toFixed(2) : '',
+                                },
+                            });
+                        }, 320);
                     }}
                 />
 

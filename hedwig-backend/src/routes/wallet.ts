@@ -5,6 +5,17 @@ import { supabase } from '../lib/supabase';
 import BlockradarService from '../services/blockradar';
 import { createLogger } from '../utils/logger';
 import { PrivyClient } from '@privy-io/node';
+import { createPublicClient, http, formatUnits, type Address } from 'viem';
+import {
+    base,
+    baseSepolia,
+    arbitrum,
+    arbitrumSepolia,
+    polygon,
+    polygonAmoy,
+    optimism,
+    optimismSepolia,
+} from 'viem/chains';
 
 const logger = createLogger('Wallet');
 
@@ -32,6 +43,224 @@ function getPrivyNodeClient(): PrivyClient {
     return privyNodeClient;
 }
 
+// Privy enum identifiers per (mainnet/testnet) network mode. EVM balance
+// lookups now use direct viem RPC reads against the smart wallet address, so
+// only the Solana entries from these tables are still consumed by the
+// handler. The EVM rows are kept for documentation / future Privy-based
+// fallbacks but tagged with eslint-friendly underscores would be churn — the
+// `_` prefix below tells TypeScript these are intentionally unused.
+type PrivyChain =
+    | 'base' | 'arbitrum' | 'polygon' | 'solana'
+    | 'base_sepolia' | 'arbitrum_sepolia' | 'polygon_amoy' | 'solana_devnet';
+type PrivyAsset = 'eth' | 'pol' | 'sol' | 'usdc';
+
+interface ChainSpec {
+    walletType: 'evm' | 'solana';
+    privyChain: PrivyChain;
+    assets: PrivyAsset[];
+}
+
+const SOLANA_CHAIN_MAINNET: PrivyChain = 'solana';
+const SOLANA_CHAIN_TESTNET: PrivyChain = 'solana_devnet';
+
+const _MAINNET_CHAINS: ChainSpec[] = [
+    { walletType: 'evm',    privyChain: 'base',     assets: ['eth', 'usdc'] },
+    { walletType: 'evm',    privyChain: 'arbitrum', assets: ['eth', 'usdc'] },
+    { walletType: 'evm',    privyChain: 'polygon',  assets: ['pol', 'usdc'] },
+    { walletType: 'solana', privyChain: SOLANA_CHAIN_MAINNET, assets: ['sol', 'usdc'] },
+];
+
+const _TESTNET_CHAINS: ChainSpec[] = [
+    { walletType: 'evm',    privyChain: 'base_sepolia',     assets: ['eth', 'usdc'] },
+    { walletType: 'evm',    privyChain: 'arbitrum_sepolia', assets: ['eth', 'usdc'] },
+    { walletType: 'evm',    privyChain: 'polygon_amoy',     assets: ['pol', 'usdc'] },
+    { walletType: 'solana', privyChain: SOLANA_CHAIN_TESTNET, assets: ['sol', 'usdc'] },
+];
+
+void _MAINNET_CHAINS;
+void _TESTNET_CHAINS;
+
+const CHAIN_TESTNET_TO_MAINNET: Record<string, string> = {
+    base_sepolia: 'base',
+    arbitrum_sepolia: 'arbitrum',
+    polygon_amoy: 'polygon',
+    solana_devnet: 'solana',
+    solana_testnet: 'solana',
+    sepolia: 'base',
+};
+
+const isTestnetMode = () => {
+    const raw = (process.env.NETWORK_MODE || process.env.EXPO_PUBLIC_NETWORK_MODE || 'mainnet').toLowerCase();
+    return raw === 'testnet';
+};
+
+const normalizeChain = (chain: string): string => {
+    const lower = String(chain || '').toLowerCase();
+    return CHAIN_TESTNET_TO_MAINNET[lower] ?? lower;
+};
+
+// EVM RPC + USDC config for direct on-chain balance reads. Used when the user
+// has a Privy smart wallet — the smart wallet is a contract account whose
+// address differs from the embedded EOA, so Privy's wallet_id-based balance
+// API cannot resolve it. We read balanceOf(usdc) and getBalance(native)
+// directly via viem.
+interface EvmReadConfig {
+    chainKey: string; // mainnet alias the mobile UI keys off
+    nativeAsset: 'eth' | 'pol';
+    nativeDecimals: number;
+    nativeSymbol: string;
+    usdcAddress: Address;
+    usdcDecimals: number;
+    chain: any;
+    rpcUrl: string;
+}
+
+const ALCHEMY_API_KEY = String(process.env.ALCHEMY_API_KEY || process.env.EXPO_PUBLIC_ALCHEMY_API_KEY || '').trim();
+const alchemyRpc = (network: string, fallback: string): string =>
+    ALCHEMY_API_KEY ? `https://${network}.g.alchemy.com/v2/${ALCHEMY_API_KEY}` : fallback;
+
+const EVM_READ_MAINNET: EvmReadConfig[] = [
+    {
+        chainKey: 'base',
+        nativeAsset: 'eth',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        usdcDecimals: 6,
+        chain: base,
+        rpcUrl: process.env.BASE_RPC_URL_MAINNET || alchemyRpc('base-mainnet', 'https://mainnet.base.org'),
+    },
+    {
+        chainKey: 'arbitrum',
+        nativeAsset: 'eth',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        usdcAddress: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+        usdcDecimals: 6,
+        chain: arbitrum,
+        rpcUrl: process.env.ARBITRUM_RPC_URL_MAINNET || alchemyRpc('arb-mainnet', 'https://arb1.arbitrum.io/rpc'),
+    },
+    {
+        chainKey: 'polygon',
+        nativeAsset: 'pol',
+        nativeDecimals: 18,
+        nativeSymbol: 'POL',
+        usdcAddress: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
+        usdcDecimals: 6,
+        chain: polygon,
+        rpcUrl: process.env.POLYGON_RPC_URL_MAINNET || alchemyRpc('polygon-mainnet', 'https://polygon-rpc.com'),
+    },
+    {
+        chainKey: 'optimism',
+        nativeAsset: 'eth',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        usdcAddress: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+        usdcDecimals: 6,
+        chain: optimism,
+        rpcUrl: process.env.OPTIMISM_RPC_URL_MAINNET || alchemyRpc('opt-mainnet', 'https://mainnet.optimism.io'),
+    },
+];
+
+const EVM_READ_TESTNET: EvmReadConfig[] = [
+    {
+        chainKey: 'base',
+        nativeAsset: 'eth',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+        usdcDecimals: 6,
+        chain: baseSepolia,
+        rpcUrl: process.env.BASE_RPC_URL || alchemyRpc('base-sepolia', 'https://sepolia.base.org'),
+    },
+    {
+        chainKey: 'arbitrum',
+        nativeAsset: 'eth',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        usdcAddress: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
+        usdcDecimals: 6,
+        chain: arbitrumSepolia,
+        rpcUrl: process.env.ARBITRUM_RPC_URL || alchemyRpc('arb-sepolia', 'https://sepolia-rollup.arbitrum.io/rpc'),
+    },
+    {
+        chainKey: 'polygon',
+        nativeAsset: 'pol',
+        nativeDecimals: 18,
+        nativeSymbol: 'POL',
+        usdcAddress: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582',
+        usdcDecimals: 6,
+        chain: polygonAmoy,
+        rpcUrl: process.env.POLYGON_RPC_URL || alchemyRpc('polygon-amoy', 'https://rpc-amoy.polygon.technology'),
+    },
+    {
+        chainKey: 'optimism',
+        nativeAsset: 'eth',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        usdcAddress: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7',
+        usdcDecimals: 6,
+        chain: optimismSepolia,
+        rpcUrl: process.env.OPTIMISM_RPC_URL || alchemyRpc('opt-sepolia', 'https://sepolia.optimism.io'),
+    },
+];
+
+const ERC20_BALANCE_OF_ABI = [
+    {
+        type: 'function',
+        name: 'balanceOf',
+        stateMutability: 'view',
+        inputs: [{ name: 'owner', type: 'address' }],
+        outputs: [{ name: '', type: 'uint256' }],
+    },
+] as const;
+
+const fetchEvmAddressBalances = async (address: Address, testnet: boolean) => {
+    const configs = testnet ? EVM_READ_TESTNET : EVM_READ_MAINNET;
+    const results = await Promise.all(configs.map(async (cfg) => {
+        try {
+            const client = createPublicClient({ chain: cfg.chain, transport: http(cfg.rpcUrl) });
+            const [nativeBalance, usdcBalance] = await Promise.all([
+                client.getBalance({ address }),
+                client.readContract({
+                    address: cfg.usdcAddress,
+                    abi: ERC20_BALANCE_OF_ABI,
+                    functionName: 'balanceOf',
+                    args: [address],
+                }) as Promise<bigint>,
+            ]);
+            return [
+                {
+                    chain: cfg.chainKey,
+                    asset: cfg.nativeAsset,
+                    raw_value: nativeBalance.toString(),
+                    display_values: {
+                        token: formatUnits(nativeBalance, cfg.nativeDecimals),
+                        usd: '0',
+                    },
+                },
+                {
+                    chain: cfg.chainKey,
+                    asset: 'usdc',
+                    raw_value: usdcBalance.toString(),
+                    display_values: {
+                        token: formatUnits(usdcBalance, cfg.usdcDecimals),
+                        usd: formatUnits(usdcBalance, cfg.usdcDecimals),
+                    },
+                },
+            ];
+        } catch (error: any) {
+            logger.warn('viem balance fetch failed', {
+                chain: cfg.chainKey,
+                rpcUrl: cfg.rpcUrl,
+                error: error?.message?.slice(0, 200),
+            });
+            return [];
+        }
+    }));
+    return results.flat();
+};
+
 /**
  * GET /api/wallet/balance
  * Fetch balances for the user from Privy (embedded wallet)
@@ -39,7 +268,8 @@ function getPrivyNodeClient(): PrivyClient {
 router.get('/balance', authenticate, async (req: Request, res: Response, next) => {
     try {
         const userId = req.user!.id;
-        logger.debug('Fetching balances', { userId });
+        const testnet = isTestnetMode();
+        logger.debug('Fetching balances', { userId, testnet });
 
         // 1. Get User from Privy to find wallet addresses and IDs
         const user = await getPrivyAuthClient().getUser(userId);
@@ -54,36 +284,40 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
         
         const wallets: WalletInfo[] = [];
 
+        // Smart wallets are no longer used. The app routes USDC payments
+        // through Circle Gateway directly from the embedded EOA via burn
+        // intents — see lib/gateway/* and routes/gateway.ts.
+
         // Check for EVM embedded wallet in linkedAccounts
-        const evmEmbeddedWallets = user.linkedAccounts.filter((a: any) => 
-            a.type === 'wallet' && 
-            a.walletClientType === 'privy' && 
+        const evmEmbeddedWallets = user.linkedAccounts.filter((a: any) =>
+            a.type === 'wallet' &&
+            a.walletClientType === 'privy' &&
             a.chainType === 'ethereum'
         );
-        
+
         evmEmbeddedWallets.forEach((w: any) => {
-            wallets.push({ 
-                id: w.id || null, 
-                address: w.address, 
-                type: 'evm' 
+            wallets.push({
+                id: w.id || null,
+                address: w.address,
+                type: 'evm'
             });
         });
 
         // Check for Solana embedded wallet in linkedAccounts
-        const solanaWallets = user.linkedAccounts.filter((a: any) => 
-            a.type === 'wallet' && 
-            a.walletClientType === 'privy' && 
+        const solanaWallets = user.linkedAccounts.filter((a: any) =>
+            a.type === 'wallet' &&
+            a.walletClientType === 'privy' &&
             a.chainType === 'solana'
         );
-        
+
         solanaWallets.forEach((w: any) => {
-            wallets.push({ 
-                id: w.id || null, 
-                address: w.address, 
-                type: 'solana' 
+            wallets.push({
+                id: w.id || null,
+                address: w.address,
+                type: 'solana'
             });
         });
-        
+
         // Fallback: if user.wallet exists and we didn't find EVM wallet above
         if (user.wallet && !wallets.find(w => w.type === 'evm')) {
             wallets.push({
@@ -93,7 +327,9 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             });
         }
 
-        logger.debug('Found wallets', { wallets: wallets.map(w => ({ type: w.type, hasId: !!w.id, address: w.address?.slice(0,10) })) });
+        logger.debug('Found wallets', {
+            wallets: wallets.map(w => ({ type: w.type, hasId: !!w.id, address: w.address?.slice(0,10) })),
+        });
 
         if (wallets.length === 0) {
             logger.debug('User has no embedded wallets', { userId });
@@ -112,74 +348,61 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             });
         }
 
-        // 2. Fetch balances from Privy API for each wallet (in parallel)
-        const balancePromises: Promise<any>[] = [];
-        
-        for (const wallet of wallets) {
-            // Skip if no wallet_id - balance API requires it
-            if (!wallet.id) {
-                logger.warn('Wallet missing id, skipping balance fetch', { address: wallet.address?.slice(0,10), type: wallet.type });
-                continue;
-            }
-            
-            // Determine chain and assets based on wallet type
-            let chainType: string;
-            let assets: string[];
+        // 2. Fetch balances. EVM reads use the embedded EOA; Solana stays via
+        //    Privy's wallet_id API.
+        const evmAddressForBalance: Address | null =
+            (wallets.find(w => w.type === 'evm')?.address as Address | undefined) ||
+            null;
 
-            if (wallet.type === 'evm') {
-                chainType = 'base';
-                assets = ['eth', 'usdc'];
-            } else if (wallet.type === 'solana') {
-                chainType = 'solana';
-                assets = ['sol', 'usdc'];
-            } else {
-                continue;
-            }
+        const evmBalancesPromise: Promise<any[]> = evmAddressForBalance
+            ? fetchEvmAddressBalances(evmAddressForBalance, testnet)
+            : Promise.resolve([]);
 
-            // Create a promise for each asset balance fetch
-            for (const asset of assets) {
-                balancePromises.push(
-                    (async () => {
-                        try {
-                            logger.debug('Fetching balance for wallet', { walletId: wallet.id, chain: chainType, asset });
-
-                            const response = await getPrivyNodeClient().wallets().balance.get(wallet.id!, {
-                                chain: chainType as any,
-                                asset: asset as any,
-                                include_currency: 'usd'
-                            });
-
-                            logger.debug('Balance response', { walletId: wallet.id, asset, response });
-
-                            if (response && response.balances) {
-                                return response.balances.map((bal: any) => ({
-                                    chain: bal.chain,
-                                    asset: bal.asset,
-                                    raw_value: bal.raw_value,
-                                    display_values: {
-                                        token: bal.display_values?.token || '0',
-                                        usd: bal.display_values?.usd || '0'
-                                    }
-                                }));
-                            }
-                            return [];
-                        } catch (apiError: any) {
-                            logger.error('Privy API balance fetch failed', { 
-                                walletId: wallet.id, 
-                                asset,
-                                error: apiError.message?.slice(0, 200)
-                            });
-                            return [];
+        const solanaPrivyChain = testnet ? SOLANA_CHAIN_TESTNET : SOLANA_CHAIN_MAINNET;
+        const solanaWallet = wallets.find(w => w.type === 'solana');
+        const solanaBalancePromises: Promise<any[]>[] = [];
+        if (solanaWallet?.id) {
+            for (const asset of ['sol', 'usdc'] as const) {
+                solanaBalancePromises.push((async () => {
+                    try {
+                        const response = await getPrivyNodeClient().wallets().balance.get(solanaWallet.id!, {
+                            chain: solanaPrivyChain as any,
+                            asset: asset as any,
+                            include_currency: 'usd',
+                        });
+                        if (response && response.balances) {
+                            return response.balances.map((bal: any) => ({
+                                chain: normalizeChain(bal.chain || solanaPrivyChain),
+                                asset: bal.asset,
+                                raw_value: bal.raw_value,
+                                display_values: {
+                                    token: bal.display_values?.token || '0',
+                                    usd: bal.display_values?.usd || '0',
+                                },
+                            }));
                         }
-                    })()
-                );
+                        return [];
+                    } catch (apiError: any) {
+                        logger.error('Privy Solana balance fetch failed', {
+                            walletId: solanaWallet.id,
+                            chain: solanaPrivyChain,
+                            asset,
+                            error: apiError.message?.slice(0, 200),
+                        });
+                        return [];
+                    }
+                })());
             }
         }
 
-        const balanceResults = await Promise.all(balancePromises);
-        const allBalances = balanceResults.flat();
+        const [evmBalances, ...solanaBalanceResults] = await Promise.all([
+            evmBalancesPromise,
+            ...solanaBalancePromises,
+        ]);
+        const allBalances = [...evmBalances, ...solanaBalanceResults.flat()];
 
-        const primaryAddress = wallets.find(w => w.type === 'evm')?.address || wallets[0]?.address;
+        const eoaAddress = wallets.find(w => w.type === 'evm')?.address;
+        const primaryAddress = eoaAddress || wallets[0]?.address;
         const solanaAddress = wallets.find(w => w.type === 'solana')?.address;
 
         return res.json({
@@ -187,7 +410,8 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
             data: {
                 balances: allBalances,
                 address: primaryAddress,
-                solanaAddress: solanaAddress
+                solanaAddress: solanaAddress,
+                eoaAddress,
             }
         });
 

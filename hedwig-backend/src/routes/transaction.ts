@@ -9,14 +9,41 @@ import { createLogger } from '../utils/logger';
 const logger = createLogger('Transactions');
 
 const router = Router();
+const IS_TESTNET = process.env.NETWORK_MODE === 'testnet' || process.env.SOLANA_NETWORK === 'testnet' || process.env.BASE_RPC_URL?.includes('sepolia');
 
-// Initialize Alchemy for Base Mainnet using RPC URL from env
+const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY || '';
+
 const baseConfig = {
-    apiKey: process.env.ALCHEMY_API_KEY || 'demo', // Fallback for SDK requirement
-    url: process.env.BASE_RPC_URL, // Use explicit RPC URL from env
-    network: Network.BASE_MAINNET,
+    apiKey: ALCHEMY_API_KEY || 'demo',
+    url: process.env.BASE_RPC_URL,
+    network: IS_TESTNET ? Network.BASE_SEPOLIA : Network.BASE_MAINNET,
 };
 const baseAlchemy = new Alchemy(baseConfig);
+
+const EVM_CHAINS = [
+    { key: 'base' as const, alchemy: baseAlchemy },
+    {
+        key: 'optimism' as const,
+        alchemy: new Alchemy({
+            apiKey: ALCHEMY_API_KEY || 'demo',
+            network: IS_TESTNET ? Network.OPT_SEPOLIA : Network.OPT_MAINNET,
+        }),
+    },
+    {
+        key: 'arbitrum' as const,
+        alchemy: new Alchemy({
+            apiKey: ALCHEMY_API_KEY || 'demo',
+            network: IS_TESTNET ? Network.ARB_SEPOLIA : Network.ARB_MAINNET,
+        }),
+    },
+    {
+        key: 'polygon' as const,
+        alchemy: new Alchemy({
+            apiKey: ALCHEMY_API_KEY || 'demo',
+            network: IS_TESTNET ? Network.MATIC_AMOY : Network.MATIC_MAINNET,
+        }),
+    },
+];
 
 // Initialize Solana Connection using RPC URL from env
 const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
@@ -31,7 +58,7 @@ interface TransactionItem {
     token: string;
     date: string; // ISO string
     hash: string;
-    network: 'base' | 'solana';
+    network: 'base' | 'solana' | 'optimism' | 'arbitrum' | 'polygon' | 'celo';
     status: 'completed' | 'pending' | 'failed';
     from: string;
     to: string;
@@ -83,73 +110,70 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
             });
         }
 
-        // 1. Fetch Base Transactions (Alchemy)
+        // 1. Fetch EVM transactions on every supported chain in parallel
         if (ethAddress) {
-            try {
-                // Incoming
-                const incoming = await baseAlchemy.core.getAssetTransfers({
-                    fromBlock: "0x0",
-                    toAddress: ethAddress,
-                    excludeZeroValue: true,
-                    category: [AssetTransfersCategory.EXTERNAL, AssetTransfersCategory.ERC20],
-                    order: SortingOrder.DESCENDING,
-                    maxCount: 20,
-                    withMetadata: true
-                });
+            await Promise.all(EVM_CHAINS.map(async ({ key, alchemy }) => {
+                try {
+                    const [incoming, outgoing] = await Promise.all([
+                        alchemy.core.getAssetTransfers({
+                            fromBlock: '0x0',
+                            toAddress: ethAddress,
+                            excludeZeroValue: true,
+                            category: [AssetTransfersCategory.EXTERNAL, AssetTransfersCategory.ERC20],
+                            order: SortingOrder.DESCENDING,
+                            maxCount: 20,
+                            withMetadata: true,
+                        }),
+                        alchemy.core.getAssetTransfers({
+                            fromBlock: '0x0',
+                            fromAddress: ethAddress,
+                            excludeZeroValue: true,
+                            category: [AssetTransfersCategory.EXTERNAL, AssetTransfersCategory.ERC20],
+                            order: SortingOrder.DESCENDING,
+                            maxCount: 20,
+                            withMetadata: true,
+                        }),
+                    ]);
 
-                // Outgoing
-                const outgoing = await baseAlchemy.core.getAssetTransfers({
-                    fromBlock: "0x0",
-                    fromAddress: ethAddress,
-                    excludeZeroValue: true,
-                    category: [AssetTransfersCategory.EXTERNAL, AssetTransfersCategory.ERC20],
-                    order: SortingOrder.DESCENDING,
-                    maxCount: 20,
-                    withMetadata: true
-                });
+                    incoming.transfers.forEach(tx => {
+                        if (!allTransactions.some(t => t.hash === tx.hash)) {
+                            allTransactions.push({
+                                id: `${key}-${tx.hash}`,
+                                type: 'IN',
+                                description: `Received from ${tx.from.slice(0, 6)}...${tx.from.slice(-4)}`,
+                                amount: tx.value?.toString() || '0',
+                                token: tx.asset || 'ETH',
+                                date: tx.metadata?.blockTimestamp || new Date().toISOString(),
+                                hash: tx.hash,
+                                network: key as any,
+                                status: 'completed',
+                                from: tx.from,
+                                to: tx.to || ethAddress,
+                            });
+                        }
+                    });
 
-                // Process Base Incoming
-                incoming.transfers.forEach(tx => {
-                    // Avoid duplicates if matching hash exists from DB
-                    if (!allTransactions.some(t => t.hash === tx.hash)) {
-                        allTransactions.push({
-                            id: `base-${tx.hash}`,
-                            type: 'IN',
-                            description: `Received from ${tx.from.slice(0, 6)}...${tx.from.slice(-4)}`,
-                            amount: tx.value?.toString() || '0',
-                            token: tx.asset || 'ETH',
-                            date: tx.metadata?.blockTimestamp || new Date().toISOString(),
-                            hash: tx.hash,
-                            network: 'base',
-                            status: 'completed',
-                            from: tx.from,
-                            to: tx.to || ethAddress
-                        });
-                    }
-                });
-
-                // Process Base Outgoing
-                outgoing.transfers.forEach(tx => {
-                    if (!allTransactions.some(t => t.hash === tx.hash)) {
-                        allTransactions.push({
-                            id: `base-${tx.hash}`,
-                            type: 'OUT',
-                            description: `Sent to ${tx.to?.slice(0, 6)}...${tx.to?.slice(-4)}`,
-                            amount: tx.value?.toString() || '0',
-                            token: tx.asset || 'ETH',
-                            date: tx.metadata?.blockTimestamp || new Date().toISOString(),
-                            hash: tx.hash,
-                            network: 'base',
-                            status: 'completed',
-                            from: tx.from,
-                            to: tx.to || ''
-                        });
-                    }
-                });
-
-            } catch (error) {
-                logger.error('Error fetching Base transactions');
-            }
+                    outgoing.transfers.forEach(tx => {
+                        if (!allTransactions.some(t => t.hash === tx.hash)) {
+                            allTransactions.push({
+                                id: `${key}-${tx.hash}`,
+                                type: 'OUT',
+                                description: `Sent to ${tx.to?.slice(0, 6)}...${tx.to?.slice(-4)}`,
+                                amount: tx.value?.toString() || '0',
+                                token: tx.asset || 'ETH',
+                                date: tx.metadata?.blockTimestamp || new Date().toISOString(),
+                                hash: tx.hash,
+                                network: key as any,
+                                status: 'completed',
+                                from: tx.from,
+                                to: tx.to || '',
+                            });
+                        }
+                    });
+                } catch (error: any) {
+                    logger.warn(`Error fetching ${key} transactions`, { error: error?.message });
+                }
+            }));
         }
 
         // 3. Fetch Solana Transactions

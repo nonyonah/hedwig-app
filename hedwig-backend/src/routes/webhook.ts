@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { PrivyClient } from '@privy-io/node';
 import { supabase } from '../lib/supabase';
 import AlchemyWebhooksService, { AlchemyActivity, AlchemySolanaAddressActivityEvent } from '../services/alchemyWebhooks';
 import NotificationService from '../services/notifications';
@@ -10,6 +11,83 @@ import { buildIncomingPaymentCopy, formatNetworkLabel } from '../utils/notificat
 const logger = createLogger('Webhook');
 
 const router = Router();
+
+const privyWebhookClient = new PrivyClient({
+    appId: process.env.PRIVY_APP_ID || '',
+    appSecret: process.env.PRIVY_APP_SECRET || '',
+    webhookSigningSecret: process.env.PRIVY_WEBHOOK_SIGNING_SECRET || undefined,
+});
+
+type PrivyFundsEvent = {
+    type: 'wallet.funds_deposited' | 'wallet.funds_withdrawn';
+    wallet_id: string;
+    idempotency_key?: string;
+    caip2: string;
+    asset: {
+        type?: string;
+        address?: string | null;
+    };
+    amount: string;
+    transaction_hash: string;
+    sender: string;
+    recipient: string;
+    block?: {
+        number?: number;
+    };
+};
+
+const USDC_ADDRESSES = new Set([
+    '0x833589fcD6eDb6E08f4c7C32D4f71b54bdA02913'.toLowerCase(), // Base
+    '0x036CbD53842c5426634e7929541eC2318f3dCF7e'.toLowerCase(), // Base Sepolia
+    '0xaf88d065e77c8cC2239327C5EDb3A432268e5831'.toLowerCase(), // Arbitrum
+    '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d'.toLowerCase(), // Arbitrum Sepolia
+    '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'.toLowerCase(), // Polygon
+    '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582'.toLowerCase(), // Polygon Amoy
+    '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'.toLowerCase(), // Celo
+    '0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B'.toLowerCase(), // Celo Alfajores USDC
+    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    '4zMMC9srt5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+    '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+]);
+
+function caip2ToChain(caip2: string): { chain: string; label: string; isSolana: boolean } {
+    const normalized = String(caip2 || '').toLowerCase();
+    if (normalized.includes('solana')) return { chain: 'SOLANA', label: 'Solana', isSolana: true };
+    if (normalized === 'eip155:8453' || normalized === 'eip155:84532') return { chain: 'BASE', label: normalized.endsWith('84532') ? 'Base Sepolia' : 'Base', isSolana: false };
+    if (normalized === 'eip155:42161' || normalized === 'eip155:421614') return { chain: 'ARBITRUM', label: normalized.endsWith('421614') ? 'Arbitrum Sepolia' : 'Arbitrum', isSolana: false };
+    if (normalized === 'eip155:137' || normalized === 'eip155:80002') return { chain: 'POLYGON', label: normalized.endsWith('80002') ? 'Polygon Amoy' : 'Polygon', isSolana: false };
+    if (normalized === 'eip155:42220' || normalized === 'eip155:44787') return { chain: 'CELO', label: normalized.endsWith('44787') ? 'Celo Alfajores' : 'Celo', isSolana: false };
+    if (normalized === 'eip155:10' || normalized === 'eip155:11155420') return { chain: 'OPTIMISM', label: normalized.endsWith('11155420') ? 'OP Sepolia' : 'Optimism', isSolana: false };
+    return { chain: normalized.replace(':', '_').toUpperCase() || 'UNKNOWN', label: normalized || 'Unknown', isSolana: false };
+}
+
+/**
+ * Map Alchemy's network identifier (e.g. `BASE_MAINNET`, `OPT_SEPOLIA`,
+ * `MATIC_MAINNET`) to the Postgres `chain` enum value.
+ */
+function alchemyNetworkToChain(network: string): string {
+    const n = String(network || '').toLowerCase();
+    if (n.includes('base')) return 'BASE';
+    if (n.includes('opt')) return 'OPTIMISM';
+    if (n.includes('arb')) return 'ARBITRUM';
+    if (n.includes('matic') || n.includes('polygon')) return 'POLYGON';
+    if (n.includes('celo')) return 'CELO';
+    if (n.includes('solana')) return 'SOLANA';
+    return 'BASE';
+}
+
+function resolvePrivyAsset(event: PrivyFundsEvent): { token: string; amount: number } {
+    const address = event.asset?.address || '';
+    const normalizedAddress = address.startsWith('0x') ? address.toLowerCase() : address;
+    const isUsdc = USDC_ADDRESSES.has(normalizedAddress);
+    const assetType = String(event.asset?.type || '').toLowerCase();
+    const decimals = isUsdc ? 6 : event.caip2.toLowerCase().includes('solana') ? 9 : 18;
+    const bigintAmount = BigInt(event.amount || '0');
+    const whole = Number(bigintAmount / (10n ** BigInt(decimals)));
+    const fractional = Number(bigintAmount % (10n ** BigInt(decimals))) / Math.pow(10, decimals);
+    const token = isUsdc ? 'USDC' : assetType.includes('spl') ? 'SPL' : assetType.includes('erc20') ? 'ERC20' : event.caip2.toLowerCase().includes('solana') ? 'SOL' : 'ETH';
+    return { token, amount: whole + fractional };
+}
 
 async function findUserByEvmAddress(address: string) {
     const normalized = address.toLowerCase();
@@ -62,7 +140,223 @@ async function findUserBySolanaAddress(address: string) {
     return null;
 }
 
+async function processPrivyTransactionStatus(payload: any) {
+    const txHash = payload?.transaction_hash || payload?.transactionHash;
+    if (!txHash) return;
+
+    const status =
+        payload?.type === 'transaction.confirmed' || payload?.type === 'user_operation.completed'
+            ? 'CONFIRMED'
+            : payload?.type === 'transaction.failed' || payload?.type === 'transaction.execution_reverted'
+                ? 'FAILED'
+                : 'PENDING';
+
+    const { error } = await supabase
+        .from('transactions')
+        .update({
+            status,
+            updated_at: new Date().toISOString(),
+        })
+        .eq('tx_hash', txHash);
+
+    if (error) {
+        logger.debug('Privy transaction status update skipped', { txHash, error: error.message });
+    }
+}
+
+async function processPrivyFundsEvent(event: PrivyFundsEvent) {
+    const { chain, label, isSolana } = caip2ToChain(event.caip2);
+    const { token, amount } = resolvePrivyAsset(event);
+    const txHash = event.transaction_hash;
+    const from = event.sender;
+    const to = event.recipient;
+    const isDeposit = event.type === 'wallet.funds_deposited';
+
+    logger.info('Processing Privy wallet funds event', {
+        type: event.type,
+        chain,
+        token,
+        amount,
+        txHash,
+        walletId: event.wallet_id,
+    });
+
+    const recipientUser = isDeposit
+        ? (isSolana ? await findUserBySolanaAddress(to) : await findUserByEvmAddress(to.toLowerCase()))
+        : null;
+    const senderUser = !isDeposit
+        ? (isSolana ? await findUserBySolanaAddress(from) : await findUserByEvmAddress(from.toLowerCase()))
+        : null;
+
+    let document: any = null;
+    const primaryUser = recipientUser || senderUser;
+
+    if (!primaryUser) {
+        logger.warn('No user found for Privy funds event', { from, to, txHash, walletId: event.wallet_id });
+        return;
+    }
+
+    if (recipientUser) {
+        const { data: foundDoc, error: docError } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('user_id', recipientUser.id)
+            .eq('status', 'PENDING')
+            .or(`type.eq.INVOICE,type.eq.PAYMENT_LINK,type.eq.invoice,type.eq.payment_link`)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (docError) {
+            logger.debug('Privy document lookup info', { error: docError.message });
+        }
+
+        document = foundDoc;
+        const shortAddress = `${from.slice(0, 6)}...${from.slice(-4)}`;
+        const content = document?.content as any;
+        const clientInfo = document
+            ? content?.client_name || content?.recipient_email || shortAddress
+            : shortAddress;
+        const amountText = `${amount.toFixed(token === 'USDC' ? 2 : 6)} ${token}`;
+        const copy = buildIncomingPaymentCopy({
+            kind: document ? (String(document.type).toLowerCase().includes('payment') ? 'payment_link' : 'invoice') : 'crypto',
+            clientOrSender: clientInfo,
+            reference: document ? (document.title || `INV-${document.id.slice(0, 8).toUpperCase()}`) : 'transfer',
+            amountText,
+            networkLabel: label,
+        });
+
+        if (document) {
+            const { error: updateError } = await supabase
+                .from('documents')
+                .update({ status: 'PAID', paid_at: new Date().toISOString(), tx_hash: txHash })
+                .eq('id', document.id);
+
+            if (updateError) {
+                logger.error('Failed to update document from Privy webhook', { error: updateError.message });
+            } else {
+                const normalizedType = String(document.type || '').toLowerCase();
+                await markCalendarEventCompleted(normalizedType.includes('payment') ? 'payment_link' : 'invoice', document.id);
+            }
+        }
+
+        await NotificationService.notifyUser(recipientUser.id, {
+            title: copy.title,
+            body: copy.body,
+            data: { type: document ? 'payment_received' : 'crypto_received', txHash, documentId: document?.id },
+        });
+
+        await supabase.from('notifications').insert({
+            user_id: recipientUser.id,
+            type: document ? 'payment_received' : 'crypto_received',
+            title: copy.title,
+            message: copy.body,
+            metadata: {
+                txHash,
+                amount: amount.toString(),
+                token,
+                network: label,
+                from,
+                documentId: document?.id,
+                clientName: clientInfo,
+                source: 'privy',
+                walletId: event.wallet_id,
+                idempotencyKey: event.idempotency_key,
+            },
+        });
+
+        BackendAnalytics.paymentReceived(recipientUser.id, amount, token, txHash, document?.id);
+    } else if (senderUser) {
+        await NotificationService.notifyTransaction(senderUser.id, {
+            type: 'sent',
+            amount: amount.toString(),
+            token,
+            network: label,
+            txHash,
+        });
+    }
+
+    const { error: txError } = await supabase
+        .from('transactions')
+        .upsert({
+            user_id: primaryUser.id,
+            document_id: document?.id || null,
+            tx_hash: txHash,
+            type: recipientUser ? 'PAYMENT_RECEIVED' : 'PAYMENT_SENT',
+            status: 'CONFIRMED',
+            chain,
+            amount,
+            token,
+            from_address: from,
+            to_address: to,
+            block_number: event.block?.number || null,
+            timestamp: new Date().toISOString(),
+            platform_fee: 0,
+        }, { onConflict: 'tx_hash' });
+
+    if (txError) {
+        logger.error('Failed to record Privy transaction', { error: txError.message, txHash });
+    }
+}
+
 // NOTE: Paycrest webhooks are handled in paycrestWebhook.ts (/api/webhooks/paycrest)
+
+/**
+ * POST /api/webhooks/privy
+ * Endpoint for Privy wallet balance/action webhooks.
+ */
+router.post('/privy', async (req: Request, res: Response) => {
+    try {
+        const payload = req.body;
+        const eventType = String(payload?.type || '');
+
+        if (eventType === 'privy.test') {
+            logger.info('Received Privy test webhook');
+            res.status(200).json({ received: true });
+            return;
+        }
+
+        const signingSecret = process.env.PRIVY_WEBHOOK_SIGNING_SECRET;
+        if (signingSecret) {
+            try {
+                await privyWebhookClient.webhooks().verify({
+                    payload,
+                    svix: {
+                        id: String(req.headers['svix-id'] || ''),
+                        timestamp: String(req.headers['svix-timestamp'] || ''),
+                        signature: String(req.headers['svix-signature'] || ''),
+                    },
+                    signing_secret: signingSecret,
+                });
+            } catch (error: any) {
+                logger.warn('Invalid Privy webhook signature', { error: error?.message || 'signature verification failed' });
+                res.status(401).json({ error: 'Invalid signature' });
+                return;
+            }
+        } else if (process.env.NODE_ENV === 'production') {
+            logger.error('PRIVY_WEBHOOK_SIGNING_SECRET is required in production');
+            res.status(500).json({ error: 'Webhook signing secret not configured' });
+            return;
+        } else {
+            logger.warn('Skipping Privy webhook signature verification in development; set PRIVY_WEBHOOK_SIGNING_SECRET before production');
+        }
+
+        logger.info('Received Privy webhook', { type: eventType });
+
+        if (eventType === 'wallet.funds_deposited' || eventType === 'wallet.funds_withdrawn') {
+            await processPrivyFundsEvent(payload as PrivyFundsEvent);
+        } else if (eventType.startsWith('transaction.') || eventType === 'user_operation.completed') {
+            await processPrivyTransactionStatus(payload);
+        } else {
+            logger.debug('Ignoring unsupported Privy webhook event', { type: eventType });
+        }
+
+        res.status(200).json({ received: true });
+    } catch (error) {
+        logger.error('Error processing Privy webhook', { error: error instanceof Error ? error.message : 'Unknown' });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 /**
  * POST /api/webhooks/chainhook
@@ -264,6 +558,12 @@ async function processPaymentEvent(data: {
  */
 router.post('/alchemy', async (req: Request, res: Response) => {
     try {
+        if (process.env.ALCHEMY_WEBHOOKS_ENABLED === 'false') {
+            logger.info('Alchemy webhook received but disabled; acknowledging without processing');
+            res.status(200).json({ received: true, disabled: true });
+            return;
+        }
+
         // CRITICAL: Use exact raw body for signature validation. Alchemy signs the raw request bytes.
         // JSON.stringify(req.body) would produce different output (key order, spacing) and break verification.
         const rawBody = (req as any).rawBody;
@@ -493,7 +793,7 @@ async function processAlchemyActivity(network: string, activities: AlchemyActivi
                         tx_hash: transfer.txHash,
                         type: recipientUser ? 'PAYMENT_RECEIVED' : 'PAYMENT_SENT',
                         status: 'CONFIRMED',
-                        chain: network.toUpperCase() === 'BASE' ? 'BASE' : 'BASE' as any,
+                        chain: alchemyNetworkToChain(network) as any,
                         amount: parseFloat(transfer.value.toString()),
                         token: transfer.asset,
                         from_address: transfer.from,

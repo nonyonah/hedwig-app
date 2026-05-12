@@ -10,6 +10,7 @@ const CHAIN_META: Record<string, { icon: string; label: string }> = {
   solana:   { icon: '/icons/networks/solana.png',   label: 'Solana' },
   arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
   polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
+  optimism: { icon: '/icons/networks/optimism.png', label: 'Optimism' },
   celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
 };
 function getChainMeta(chain: string) {

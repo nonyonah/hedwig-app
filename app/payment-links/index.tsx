@@ -184,6 +184,7 @@ export default function PaymentLinksScreen() {
         if (c.includes('solana')) return 'Solana';
         if (c.includes('celo')) return 'Celo';
         if (c.includes('arbitrum')) return 'Arbitrum';
+        if (c.includes('polygon')) return 'Polygon';
         if (c.includes('optimism')) return 'Optimism';
         return 'Base';
     };
@@ -702,10 +703,11 @@ export default function PaymentLinksScreen() {
                             <Image source={ICONS.base}     style={{ width: 16, height: 16, borderRadius: 8 }} />
                             <Image source={ICONS.arbitrum} style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                             <Image source={ICONS.polygon}  style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
+                            <Image source={ICONS.optimism} style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                             {/* Celo logo temporarily disabled. */}
                             <Image source={ICONS.solana}   style={{ width: 16, height: 16, borderRadius: 8, marginLeft: -5 }} />
                         </View>
-                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>4 networks</Text>
+                        <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>5 networks</Text>
                     </View>
                 </View>
             </View>

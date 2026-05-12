@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, getPrivyAuthClient } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { EmailService } from '../services/email';
 import { createLogger } from '../utils/logger';
+import { extractPrivyWalletAddresses } from '../services/privyWallets';
 
 const logger = createLogger('User');
 
@@ -31,9 +32,46 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
+        let profileUser = user;
+        try {
+            const privyUser = await getPrivyAuthClient().getUser(privyId);
+            const privyWallets = extractPrivyWalletAddresses(privyUser);
+            const updatePayload: Record<string, string> = {};
+
+            if (privyWallets.ethereum && privyWallets.ethereum !== user.ethereum_wallet_address) {
+                updatePayload.ethereum_wallet_address = privyWallets.ethereum;
+            }
+            if (privyWallets.solana && privyWallets.solana !== user.solana_wallet_address) {
+                updatePayload.solana_wallet_address = privyWallets.solana;
+            }
+
+            if (Object.keys(updatePayload).length > 0) {
+                const { data: updatedUser, error: updateError } = await supabase
+                    .from('users')
+                    .update(updatePayload)
+                    .eq('id', user.id)
+                    .select('*')
+                    .single();
+
+                if (!updateError && updatedUser) {
+                    profileUser = updatedUser;
+                } else if (updateError) {
+                    logger.warn('Could not repair profile wallet addresses', {
+                        userId: user.id,
+                        error: updateError.message,
+                    });
+                }
+            }
+        } catch (walletSyncError: any) {
+            logger.warn('Could not sync profile wallet addresses from Privy', {
+                privyId,
+                error: walletSyncError?.message || 'Unknown error',
+            });
+        }
+
         logger.debug('Fetched user profile', { 
-            hasWallets: !!(user.ethereum_wallet_address || user.solana_wallet_address),
-            hasAvatar: !!user.avatar
+            hasWallets: !!(profileUser.ethereum_wallet_address || profileUser.solana_wallet_address),
+            hasAvatar: !!profileUser.avatar
         });
 
         // Fetch counts (optional, but good to have if the frontend expects it)
@@ -43,27 +81,27 @@ router.get('/profile', authenticate, async (req: Request, res: Response, next) =
             { count: transactionsCount },
             { count: clientsCount }
         ] = await Promise.all([
-            supabase.from('documents').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-            supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-            supabase.from('clients').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
+            supabase.from('documents').select('*', { count: 'exact', head: true }).eq('user_id', profileUser.id),
+            supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', profileUser.id),
+            supabase.from('clients').select('*', { count: 'exact', head: true }).eq('user_id', profileUser.id)
         ]);
 
         // Map snake_case to camelCase
         const formattedUser = {
-            id: user.id,
-            privyId: user.privy_id,
-            email: user.email,
-            firstName: user.first_name,
-            lastName: user.last_name,
-            avatar: user.avatar,
-            ethereumWalletAddress: user.ethereum_wallet_address,
-            baseWalletAddress: user.ethereum_wallet_address, // For backwards compatibility
-            solanaWalletAddress: user.solana_wallet_address,
-            stacksWalletAddress: user.stacks_wallet_address,
-            monthlyTarget: user.monthly_target,
-            createdAt: user.created_at,
-            updatedAt: user.updated_at,
-            lastLogin: user.last_login,
+            id: profileUser.id,
+            privyId: profileUser.privy_id,
+            email: profileUser.email,
+            firstName: profileUser.first_name,
+            lastName: profileUser.last_name,
+            avatar: profileUser.avatar,
+            ethereumWalletAddress: profileUser.ethereum_wallet_address,
+            baseWalletAddress: profileUser.ethereum_wallet_address, // For backwards compatibility
+            solanaWalletAddress: profileUser.solana_wallet_address,
+            stacksWalletAddress: profileUser.stacks_wallet_address,
+            monthlyTarget: profileUser.monthly_target,
+            createdAt: profileUser.created_at,
+            updatedAt: profileUser.updated_at,
+            lastLogin: profileUser.last_login,
             _count: {
                 documents: documentsCount || 0,
                 transactions: transactionsCount || 0,

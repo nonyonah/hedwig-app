@@ -8,8 +8,9 @@
 
 ### Get paid faster
 - Create professional **invoices, proposals, and contracts** in seconds with AI assistance
-- Share **payment links** that clients pay via crypto (Base, Solana, Celo)
+- Share **payment links** that clients pay via crypto (Base, Arbitrum, Polygon, Optimism, Solana)
 - Receive payments in USDC across multiple chains — Hedwig handles the wallet, you handle the work
+- Optional **Aggregated USDC (BETA)** via Circle Gateway: one chain-agnostic USDC balance, instant cross-chain sends, fees paid in USDC
 - Set up **recurring invoices** that auto-send on your schedule (Pro)
 - Add an **external payout bank account** (NG, US, UK, GH) so clients can also pay by bank transfer
   - Auto-verified for Nigerian and Ghanaian accounts via Paystack `/bank/resolve`
@@ -51,7 +52,8 @@
 | File storage | Cloudflare R2 (documents, email attachments) |
 | Payments | Polar (web subscriptions), RevenueCat (mobile subscriptions) |
 | Notifications | OneSignal (push), Resend (email) |
-| Chains | Base, Solana, Celo |
+| Chains | Base, Arbitrum, Polygon, Optimism, Solana (+ Circle Gateway aggregated USDC, BETA) |
+| Address-activity webhooks | Alchemy (Base, Arbitrum, Polygon, Optimism, Solana) |
 
 ---
 
@@ -138,6 +140,10 @@ npm run dev          # starts on port 3001
 | `REVENUECAT_WEBHOOK_AUTH` | RevenueCat billing webhook auth |
 | `PAYSTACK_SECRET_KEY` | NG / GH bank list + auto-verify (`/bank` and `/bank/resolve`) |
 | `GOCARDLESS_TOKEN` | UK modulus check (optional; UK accounts save unverified without it) |
+| `ALCHEMY_API_KEY` | Alchemy SDK key for transaction history fetches |
+| `ALCHEMY_SIGNING_KEY_BASE` / `_ARBITRUM` / `_POLYGON` / `_OPTIMISM` / `_CELO` / `_SOLANA` | Per-chain HMAC signing keys for Alchemy address-activity webhooks |
+| `ALCHEMY_*_WEBHOOK_ID` | Webhook IDs for each chain (used to register and reconcile addresses) |
+| `CIRCLE_GATEWAY_WEBHOOK_SECRET` | HMAC secret for `gateway.deposit.finalized` / `gateway.mint.finalized` / `gateway.mint.forwarded` events |
 
 ### Web app (`hedwig-backend/web-app/.env.local`)
 

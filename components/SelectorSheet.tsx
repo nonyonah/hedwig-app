@@ -216,6 +216,6 @@ const styles = StyleSheet.create({
     fallbackSheet: {
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        maxHeight: '60%',
+        maxHeight: '90%',
     },
 });

@@ -20,6 +20,8 @@ import documentRoutes from './routes/document';
 import transactionRoutes from './routes/transaction';
 import offrampRoutes from './routes/offramp';
 import onrampRoutes from './routes/onramp';
+import gatewayRoutes from './routes/gateway';
+import coinbasePayRoutes from './routes/coinbasePay';
 import bridgeRoutes from './routes/bridge';
 import clientRoutes from './routes/client';
 import projectRoutes from './routes/project';
@@ -27,6 +29,8 @@ import milestoneRoutes from './routes/milestone';
 import conversationsRoutes from './routes/conversations';
 import webhookRoutes from './routes/webhook';
 import paycrestWebhookRoutes from './routes/paycrestWebhook';
+import coinbasePayWebhookRoutes from './routes/coinbasePayWebhook';
+import circleGatewayWebhookRoutes from './routes/circleGatewayWebhook';
 import pdfRoutes from './routes/pdf';
 import walletRoutes from './routes/wallet';
 import notificationRoutes from './routes/notifications';
@@ -322,6 +326,7 @@ const authSessionLimiter = createUserAwareLimiter('auth-session', 600, 'Too many
 const aiLimiter       = createUserAwareLimiter('ai',       40,  'Too many AI requests. Please slow down and try again.');
 const documentLimiter = createUserAwareLimiter('docs',    180,  'Too many document requests. Please try again later.');
 const financialLimiter = createUserAwareLimiter('finance', 120, 'Too many financial requests. Please try again later.');
+const gatewayLimiter = createUserAwareLimiter('gateway', 600, 'Too many Gateway requests. Please slow down.');
 const transactionsLimiter = createUserAwareLimiter('transactions', 240, 'Too many transaction requests. Please try again shortly.');
 const insightsLimiter = createUserAwareLimiter('insights', 120, 'Too many insights requests. Please try again shortly.');
 const solanaRpcLimiter = createUserAwareLimiter('solana-rpc', 90, 'Too many Solana RPC requests. Please slow down.');
@@ -435,6 +440,8 @@ app.use('/api/transactions', transactionsLimiter, transactionRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/offramp', financialLimiter, offrampRoutes);
 app.use('/api/onramp', financialLimiter, onrampRoutes);
+app.use('/api/gateway', gatewayLimiter, gatewayRoutes);
+app.use('/api/coinbase-pay', financialLimiter, coinbasePayRoutes);
 app.use('/api/bridge', bridgeRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
@@ -449,6 +456,17 @@ app.use('/api/webhooks/paycrest', (req, _res, next) => {
     next();
 });
 app.use('/api/webhooks/paycrest', paycrestWebhookRoutes);
+app.use('/api/webhooks/coinbase', coinbasePayWebhookRoutes);
+app.use('/api/webhooks/circle-gateway', (req, _res, next) => {
+    logger.info('Circle Gateway webhook route hit', {
+        method: req.method,
+        path: req.path,
+        hasSignature: Boolean(req.headers['x-circle-signature'] || req.headers['circle-signature']),
+        userAgent: req.headers['user-agent'] || null,
+    });
+    next();
+});
+app.use('/api/webhooks/circle-gateway', circleGatewayWebhookRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/webhooks/revenuecat', revenuecatWebhookRoutes);
 app.use('/api/webhooks/payments', paymentWebhooksRoutes);

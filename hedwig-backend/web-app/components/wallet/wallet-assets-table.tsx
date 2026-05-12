@@ -12,6 +12,7 @@ const chainIconByName: Record<string, string> = {
   Solana:   '/icons/networks/solana.png',
   Arbitrum: '/icons/networks/arbitrum.png',
   Polygon:  '/icons/networks/polygon.png',
+  Optimism: '/icons/networks/optimism.png',
   Celo:     '/icons/networks/celo.png',
 };
 
@@ -20,6 +21,7 @@ const tokenIconByKey: Record<string, string> = {
   'Solana:USDC':    '/icons/tokens/usdc.png',
   'Arbitrum:USDC':  '/icons/tokens/usdc.png',
   'Polygon:USDC':   '/icons/tokens/usdc.png',
+  'Optimism:USDC':  '/icons/tokens/usdc.png',
   'Celo:USDC':      '/icons/tokens/usdc.png',
 };
 

@@ -123,11 +123,13 @@ export function AccountMenu({
 
             <Link
               className="group flex w-full cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 transition duration-100 ease-linear hover:bg-[#f8f9fb]"
-              href="mailto:support@hedwigbot.xyz"
+              href="https://help.hedwigbot.xyz"
+              target="_blank"
+              rel="noreferrer"
               onClick={() => setOpen(false)}
             >
               <Lifebuoy className="h-5 w-5 text-[#a4a7ae]" weight="regular" />
-              <span className="text-[14px] font-semibold text-[#414651] group-hover:text-[#252b37]">Contact support</span>
+              <span className="text-[14px] font-semibold text-[#414651] group-hover:text-[#252b37]">Help Center</span>
             </Link>
 
             <div className="flex cursor-default items-center justify-between rounded-md px-2.5 py-2">

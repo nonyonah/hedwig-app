@@ -4,11 +4,110 @@ import { supabase } from '../lib/supabase';
 import { AppError } from '../middleware/errorHandler';
 import AlchemyAddressService from '../services/alchemyAddress';
 import { EmailService } from '../services/email';
+import { ensurePrivyEmbeddedWallets } from '../services/privyWallets';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('Auth');
 
 const router = Router();
+
+type WalletAddresses = {
+    ethereum?: string | null;
+    solana?: string | null;
+    stacks?: string | null;
+};
+
+function normalizeWalletAddresses(value: any): WalletAddresses {
+    if (!value || typeof value !== 'object') return {};
+    return {
+        ethereum: typeof value.ethereum === 'string' && value.ethereum.trim() ? value.ethereum.trim() : null,
+        solana: typeof value.solana === 'string' && value.solana.trim() ? value.solana.trim() : null,
+        stacks: typeof value.stacks === 'string' && value.stacks.trim() ? value.stacks.trim() : null,
+    };
+}
+
+function extractEmailFromPrivyUser(privyUser: any): string {
+    return String(
+        privyUser?.email?.address ||
+        privyUser?.google?.email ||
+        privyUser?.apple?.email ||
+        (Array.isArray(privyUser?.linkedAccounts)
+            ? privyUser.linkedAccounts.find((account: any) => account?.type === 'email')?.address
+            : '') ||
+        ''
+    ).trim().toLowerCase();
+}
+
+function extractNameFromPrivyUser(privyUser: any): { firstName: string; lastName: string } {
+    const googleName = typeof privyUser?.google?.name === 'string' ? privyUser.google.name.trim() : '';
+    const googleParts = googleName ? googleName.split(/\s+/) : [];
+    return {
+        firstName: String(privyUser?.apple?.firstName || privyUser?.firstName || googleParts[0] || '').trim(),
+        lastName: String(privyUser?.apple?.lastName || privyUser?.lastName || googleParts.slice(1).join(' ') || '').trim(),
+    };
+}
+
+function looksLikeEvmAddress(address: string): boolean {
+    return /^0x[a-fA-F0-9]{40}$/.test(address.trim());
+}
+
+function looksLikeSolanaAddress(address: string): boolean {
+    const normalized = address.trim();
+    return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(normalized) && !looksLikeEvmAddress(normalized);
+}
+
+function extractWalletsFromPrivyUser(privyUser: any): WalletAddresses {
+    const wallets: WalletAddresses = {};
+
+    const linkedAccounts = Array.isArray(privyUser?.linkedAccounts) ? privyUser.linkedAccounts : [];
+    for (const account of linkedAccounts) {
+        const address = typeof account?.address === 'string' ? account.address.trim() : '';
+        if (!address) continue;
+
+        const chainType = String(account?.chainType || account?.chain_type || '').toLowerCase();
+        const type = String(account?.type || '').toLowerCase();
+        const walletClientType = String(account?.walletClientType || account?.wallet_client_type || '').toLowerCase();
+        if (type === 'smart_wallet') continue;
+
+        if (!wallets.ethereum && type === 'wallet' && walletClientType === 'privy' && chainType === 'ethereum') {
+            wallets.ethereum = address;
+            continue;
+        }
+
+        if (!wallets.solana && type === 'wallet' && walletClientType === 'privy' && chainType === 'solana') {
+            wallets.solana = address;
+        }
+    }
+
+    const primaryWalletAddress = typeof privyUser?.wallet?.address === 'string'
+        ? privyUser.wallet.address.trim()
+        : '';
+    if (!wallets.ethereum && looksLikeEvmAddress(primaryWalletAddress)) {
+        wallets.ethereum = primaryWalletAddress;
+    } else if (!wallets.solana && looksLikeSolanaAddress(primaryWalletAddress)) {
+        wallets.solana = primaryWalletAddress;
+    }
+
+    for (const account of linkedAccounts) {
+        const address = typeof account?.address === 'string' ? account.address.trim() : '';
+        if (!address) continue;
+
+        const chainType = String(account?.chainType || account?.chain_type || '').toLowerCase();
+        const type = String(account?.type || '').toLowerCase();
+        if (type === 'smart_wallet') continue;
+
+        if (!wallets.ethereum && (chainType === 'ethereum' || chainType === 'evm' || type === 'ethereum' || looksLikeEvmAddress(address))) {
+            wallets.ethereum = address;
+            continue;
+        }
+
+        if (!wallets.solana && (chainType === 'solana' || type === 'solana' || looksLikeSolanaAddress(address))) {
+            wallets.solana = address;
+        }
+    }
+
+    return wallets;
+}
 
 /**
  * POST /api/auth/register
@@ -16,8 +115,53 @@ const router = Router();
  */
 router.post('/register', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { email, firstName, lastName, walletAddresses, avatar } = req.body;
+        const { avatar } = req.body;
         const privyId = req.user!.id;
+        const requestWallets = normalizeWalletAddresses(req.body.walletAddresses);
+
+        let privyUser: any = null;
+        if (!req.body.email || !requestWallets.ethereum || !requestWallets.solana) {
+            try {
+                privyUser = await getPrivyAuthClient().getUser(privyId);
+            } catch (privyError: any) {
+                logger.warn('Could not fetch Privy user during registration', {
+                    privyId,
+                    error: privyError?.message || 'Unknown error',
+                });
+            }
+        }
+
+        let privyWallets = extractWalletsFromPrivyUser(privyUser);
+        if (!requestWallets.ethereum || !requestWallets.solana) {
+            try {
+                const ensuredWallets = await ensurePrivyEmbeddedWallets(privyId, {
+                    ethereum: !requestWallets.ethereum,
+                    solana: !requestWallets.solana,
+                });
+                privyWallets = {
+                    ethereum: privyWallets.ethereum || ensuredWallets.ethereum || null,
+                    solana: privyWallets.solana || ensuredWallets.solana || null,
+                };
+            } catch (walletError: any) {
+                logger.warn('Could not ensure Privy embedded wallets during registration', {
+                    privyId,
+                    error: walletError?.message || 'Unknown error',
+                });
+            }
+        }
+        const privyName = extractNameFromPrivyUser(privyUser);
+        const email = String(req.body.email || extractEmailFromPrivyUser(privyUser) || '').trim().toLowerCase();
+        const firstName = String(req.body.firstName || privyName.firstName || '').trim();
+        const lastName = String(req.body.lastName !== undefined ? req.body.lastName : privyName.lastName || '').trim();
+        const walletAddresses: WalletAddresses = {
+            ethereum: requestWallets.ethereum || privyWallets.ethereum || null,
+            solana: requestWallets.solana || privyWallets.solana || null,
+            stacks: requestWallets.stacks || null,
+        };
+
+        if (!email) {
+            throw new AppError('Email is required to register a user', 400);
+        }
 
         logger.info('Registration request received', { 
             firstName, 
@@ -65,6 +209,9 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                     stacks_wallet_address: walletAddresses?.stacks,
                     last_login: new Date().toISOString(),
                     avatar,
+                    subscription_status: 'inactive',
+                    subscription_provider: null,
+                    subscription_expiry: null,
                 })
                 .select()
                 .single();
@@ -108,6 +255,7 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                     solana_wallet_address: walletAddresses?.solana || user.solana_wallet_address,
                     stacks_wallet_address: walletAddresses?.stacks || user.stacks_wallet_address,
                     avatar: avatar || user.avatar,
+                    subscription_status: user.subscription_status || 'inactive',
                 })
                 .eq('id', user.id)
                 .select()
@@ -127,7 +275,10 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
 
         // Register wallet addresses with Alchemy webhooks for real-time notifications.
         // Use persisted DB values so this also works when request payload omits walletAddresses.
-        if (user?.ethereum_wallet_address || user?.solana_wallet_address) {
+        if (
+            process.env.ALCHEMY_WEBHOOK_REGISTRATION_ENABLED !== 'false' &&
+            (user?.ethereum_wallet_address || user?.solana_wallet_address)
+        ) {
             try {
                 await AlchemyAddressService.registerUserWallets({
                     ethereum: user.ethereum_wallet_address,
@@ -138,6 +289,10 @@ router.post('/register', authenticate, async (req: Request, res: Response, next)
                 // Don't fail registration if webhook registration fails
                 logger.error('Failed to register wallets with Alchemy', { error: webhookError.message });
             }
+        } else {
+            logger.warn('Skipping Alchemy wallet registration because user has no saved wallet address', {
+                userId: user?.id,
+            });
         }
 
         res.json({
@@ -180,7 +335,10 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                 kyc_status,
                 created_at,
                 updated_at,
-                privy_id
+                privy_id,
+                subscription_status,
+                subscription_provider,
+                subscription_expiry
             `)
             .eq('privy_id', req.user!.id)
             .single();
@@ -211,7 +369,10 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
                             kyc_status,
                             created_at,
                             updated_at,
-                            privy_id
+                            privy_id,
+                            subscription_status,
+                            subscription_provider,
+                            subscription_expiry
                         `)
                         .eq('email', email)
                         .single();
@@ -240,6 +401,77 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
             throw new AppError('User not found', 404);
         }
 
+        if (!user.ethereum_wallet_address || !user.solana_wallet_address) {
+            try {
+                const privyWallets = await ensurePrivyEmbeddedWallets(req.user!.privyId || req.user!.id, {
+                    ethereum: !user.ethereum_wallet_address,
+                    solana: !user.solana_wallet_address,
+                });
+                const updatePayload: Record<string, string> = {};
+
+                if (!user.ethereum_wallet_address && privyWallets.ethereum) {
+                    updatePayload.ethereum_wallet_address = privyWallets.ethereum;
+                }
+                if (!user.solana_wallet_address && privyWallets.solana) {
+                    updatePayload.solana_wallet_address = privyWallets.solana;
+                }
+
+                if (Object.keys(updatePayload).length > 0) {
+                    const { data: syncedUser, error: syncError } = await supabase
+                        .from('users')
+                        .update(updatePayload)
+                        .eq('id', user.id)
+                        .select(`
+                            id,
+                            email,
+                            first_name,
+                            last_name,
+                            avatar,
+                            ethereum_wallet_address,
+                            solana_wallet_address,
+                            stacks_wallet_address,
+                            kyc_status,
+                            created_at,
+                            updated_at,
+                            privy_id,
+                            subscription_status,
+                            subscription_provider,
+                            subscription_expiry
+                        `)
+                        .single();
+
+                    if (syncError) {
+                        logger.warn('Failed to sync missing Privy wallets to user', {
+                            userId: user.id,
+                            error: syncError.message,
+                        });
+                    } else {
+                        user = syncedUser;
+
+                        if (process.env.ALCHEMY_WEBHOOK_REGISTRATION_ENABLED !== 'false') {
+                            try {
+                                await AlchemyAddressService.registerUserWallets({
+                                    ethereum: user.ethereum_wallet_address,
+                                    solana: user.solana_wallet_address,
+                                });
+                                logger.info('Registered synced wallets with Alchemy webhooks', { userId: user.id });
+                            } catch (webhookError: any) {
+                                logger.error('Failed to register synced wallets with Alchemy', {
+                                    userId: user.id,
+                                    error: webhookError?.message || 'Unknown error',
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (privyError: any) {
+                logger.warn('Could not fetch Privy user to sync missing wallets', {
+                    userId: user.id,
+                    error: privyError?.message || 'Unknown error',
+                });
+            }
+        }
+
         // Map snake_case to camelCase for API response
         const formattedUser = {
             id: user.id,
@@ -251,6 +483,9 @@ router.get('/me', authenticate, async (req: Request, res: Response, next) => {
             solanaWalletAddress: user.solana_wallet_address,
             stacksWalletAddress: user.stacks_wallet_address,
             kycStatus: user.kyc_status || 'not_started',
+            subscriptionStatus: user.subscription_status || 'inactive',
+            subscriptionProvider: user.subscription_provider || null,
+            subscriptionExpiry: user.subscription_expiry || null,
             createdAt: user.created_at,
             updatedAt: user.updated_at,
         };

@@ -98,7 +98,9 @@ export default function SettingsScreen() {
         liveTrackingEnabled,
         setLiveTrackingEnabled,
         lockScreenEnabled,
-        setLockScreenEnabled
+        setLockScreenEnabled,
+        gatewayAutoDepositEnabled,
+        setGatewayAutoDepositEnabled,
     } = useSettings();
     const themeColors = useThemeColors();
     const { user, logout, getAccessToken } = useAuth();
@@ -569,6 +571,44 @@ export default function SettingsScreen() {
                             ios_backgroundColor={themeColors.border}
                             value={hapticsEnabled}
                             onValueChange={setHapticsEnabled}
+                        />
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+                    <View style={styles.settingRow}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={[styles.settingLabel, { color: themeColors.textPrimary }]}>Aggregated USDC</Text>
+                            <View style={styles.betaBadge}>
+                                <Text style={styles.betaBadgeText}>BETA</Text>
+                            </View>
+                        </View>
+                        <Switch
+                            trackColor={{ false: themeColors.border, true: Colors.success }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor={themeColors.border}
+                            value={gatewayAutoDepositEnabled}
+                            onValueChange={(next) => {
+                                if (next) {
+                                    Alert.alert(
+                                        'Enable aggregated USDC?',
+                                        'Hedwig will move USDC sitting at your wallet into Circle Gateway in the background. From the aggregated balance you can spend or withdraw to any supported chain instantly.\n\nFunds already at your wallet on each chain stay there until you opt in. Switching this off later keeps your existing aggregated balance — only new deposits stay per-chain.',
+                                        [
+                                            { text: 'Cancel', style: 'cancel' },
+                                            { text: 'Enable', onPress: () => setGatewayAutoDepositEnabled(true) },
+                                        ],
+                                    );
+                                    return;
+                                }
+                                Alert.alert(
+                                    'Turn off auto-deposit?',
+                                    'New USDC sent to your wallet will stay on each chain. Your existing unified balance is unaffected — you can still spend or withdraw from it.',
+                                    [
+                                        { text: 'Cancel', style: 'cancel' },
+                                        { text: 'Turn off', style: 'destructive', onPress: () => setGatewayAutoDepositEnabled(false) },
+                                    ],
+                                );
+                            }}
                         />
                     </View>
 
@@ -1311,6 +1351,23 @@ const styles = StyleSheet.create({
         fontFamily: 'GoogleSansFlex_600SemiBold',
         fontSize: 16,
         color: Colors.textPrimary,
+    },
+    settingHint: {
+        fontFamily: 'GoogleSansFlex_400Regular',
+        fontSize: 12,
+        lineHeight: 16,
+    },
+    betaBadge: {
+        backgroundColor: Colors.primary,
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+    },
+    betaBadgeText: {
+        fontFamily: 'GoogleSansFlex_700Bold',
+        fontSize: 9,
+        letterSpacing: 0.6,
+        color: '#FFFFFF',
     },
     settingSubLabel: {
         fontFamily: 'GoogleSansFlex_400Regular',

@@ -11,7 +11,7 @@ import { PublicKey, Transaction } from '@solana/web3.js';
 import { createTransferCheckedInstruction, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import {
   getChainId,
-  getNetworkModeFromEvmChainId,
+  NETWORK_MODE,
   resolveEvmChainForPayment,
   EVM_TOKENS
 } from '@/lib/payments/public-constants';
@@ -47,6 +47,7 @@ const CHAIN_META: Record<string, { icon: string; label: string }> = {
   Solana:   { icon: '/icons/networks/solana.png',   label: 'Solana' },
   Arbitrum: { icon: '/icons/networks/arbitrum.png', label: 'Arbitrum' },
   Polygon:  { icon: '/icons/networks/polygon.png',  label: 'Polygon' },
+  Optimism: { icon: '/icons/networks/optimism.png', label: 'Optimism' },
   Celo:     { icon: '/icons/networks/celo.png',     label: 'Celo' },
 };
 
@@ -133,8 +134,7 @@ export function SendTokenDialog({
       ? parseInt(rawChainId, 16)
       : Number(rawChainId);
 
-    const mode        = getNetworkModeFromEvmChainId(currentChainId);
-    const evmChain    = resolveEvmChainForPayment(mode);
+    const evmChain    = resolveEvmChainForPayment(NETWORK_MODE);
     const targetChainId = getChainId(evmChain);
     const targetNet   = evmChain === 'baseSepolia' ? BASE_SEPOLIA : BASE_MAINNET;
 

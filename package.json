@@ -14,7 +14,7 @@
     "contract:celo:deploy:sepolia": "npx hardhat run --config hedwig-backend/hardhat.config.cjs --network celoSepolia hedwig-backend/scripts/deploy-proof-registry.js",
     "contract:celo:verify:sepolia": "npx hardhat run --config hedwig-backend/hardhat.config.cjs --network celoSepolia hedwig-backend/scripts/verify-proof-registry.js",
     "eas-build-pre-install": "bash scripts/eas-pre-install.sh",
-    "postinstall": "node scripts/patch-freeport-async.js"
+    "postinstall": "node scripts/patch-freeport-async.js && node scripts/patch-privy-wallet-api-gas.js"
   },
   "dependencies": {
     "@coinbase/cdp-core": "^0.0.65",
@@ -96,6 +96,7 @@
     "onesignal-expo-plugin": "^2.1.0",
     "os-browserify": "^0.3.0",
     "pbkdf2": "^3.1.5",
+    "permissionless": "^0.2.57",
     "posthog-react-native": "^4.17.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",

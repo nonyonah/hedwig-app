@@ -131,7 +131,24 @@ export function AppSidebar({
       </nav>
 
       {/* Footer */}
-      <div className={cn('shrink-0 border-t border-[#f3f4f6] py-2', collapsed ? 'px-2' : 'px-3')}>
+      <div className={cn('flex shrink-0 flex-col gap-0.5 border-t border-[#f3f4f6] py-2', collapsed ? 'px-2' : 'px-3')}>
+        <a
+          href="https://help.hedwigbot.xyz"
+          target="_blank"
+          rel="noreferrer"
+          title={collapsed ? 'Help Center' : undefined}
+          className={cn(
+            'group flex w-full select-none items-center rounded-md text-[#c1c5cd] transition duration-100 ease-linear hover:bg-[#f8f9fb] hover:text-[#717680]',
+            collapsed ? 'justify-center p-2' : 'px-2.5 py-1.5'
+          )}
+        >
+          <Question className={cn('h-4 w-4 shrink-0', !collapsed && 'mr-2.5')} weight="regular" />
+          {!collapsed && (
+            <span className="text-[13px] font-medium text-[#8d9096] group-hover:text-[#525866]">
+              Help Center
+            </span>
+          )}
+        </a>
         <button
           type="button"
           title="Give feedback"

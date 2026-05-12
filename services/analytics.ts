@@ -493,7 +493,7 @@ const Analytics = {
         }),
 
     // Fired when user creates an NGN virtual account
-    ngnAccountCreated: (userId: string, provider: string = 'paycrest') =>
+    ngnAccountCreated: (userId: string, provider: string = 'payment_partner') =>
         trackEvent('ngn_account_created', {
             user_id: userId,
             provider,
