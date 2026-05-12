@@ -155,7 +155,16 @@ export default function OnrampOrderScreen() {
             <SafeAreaView style={styles.safeArea}>
                 <View style={[styles.header, { backgroundColor: themeColors.background }]}>
                     <IOSGlassIconButton
-                        onPress={() => router.replace('/' as any)}
+                        onPress={() => {
+                            // Prefer pop over replace so the SafeAreaView on
+                            // the prior screen re-reads its insets cleanly.
+                            // replace() unmounts and remounts the parent
+                            // route, which on iOS sometimes leaves stale
+                            // zero-inset values and the new screen renders
+                            // under the status bar.
+                            if (router.canGoBack()) router.back();
+                            else router.replace('/' as any);
+                        }}
                         systemImage="chevron.left"
                         containerStyle={styles.backButton}
                         circleStyle={[styles.backButtonCircle, { backgroundColor: themeColors.surface }]}
@@ -294,10 +303,19 @@ export default function OnrampOrderScreen() {
 
                 <View style={[styles.footer, { backgroundColor: themeColors.background }]}>
                     <TouchableOpacity
-                        style={[styles.continueButton, { backgroundColor: themeColors.surface }]}
-                        onPress={() => router.replace('/' as any)}
+                        style={[styles.continueButton, { backgroundColor: Colors.primary }]}
+                        onPress={() => {
+                            // Prefer pop over replace so the SafeAreaView on
+                            // the prior screen re-reads its insets cleanly.
+                            // replace() unmounts and remounts the parent
+                            // route, which on iOS sometimes leaves stale
+                            // zero-inset values and the new screen renders
+                            // under the status bar.
+                            if (router.canGoBack()) router.back();
+                            else router.replace('/' as any);
+                        }}
                     >
-                        <Text style={[styles.continueButtonText, { color: themeColors.textPrimary }]}>Done</Text>
+                        <Text style={[styles.continueButtonText, { color: '#FFFFFF' }]}>Done</Text>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>

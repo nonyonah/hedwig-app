@@ -18,6 +18,7 @@ import { View, Platform, Image, ActivityIndicator, StyleSheet, AppState, Text, T
 import * as LocalAuthentication from 'expo-local-authentication';
 import { LockScreen } from '../components/LockScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
 import { TutorialProvider } from '../context/TutorialContext';
@@ -26,7 +27,7 @@ import * as Sentry from '@sentry/react-native';
 import { isRunningInExpoGo } from 'expo';
 import { initializeAnalytics, trackScreen } from '../services/analytics';
 import Analytics from '../services/analytics';
-import { StatusBar } from 'expo-status-bar';
+import { StatusBar, setStatusBarStyle } from 'expo-status-bar';
 import { useAuth } from '../hooks/useAuth';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { getApiBaseUrl, getProductionApiBaseUrl, joinApiUrl, rewriteApiUrlForRuntime } from '../utils/apiBaseUrl';
@@ -621,6 +622,24 @@ function ThemeAwareStatusBar() {
     const colors = useThemeColors();
     const isDark = currentTheme === 'dark';
 
+    // `<StatusBar />` from expo-status-bar tracks the latest *mounted* node,
+    // not re-renders of an existing node, so swapping `style` on a theme
+    // toggle didn't actually push a new appearance until the app was killed
+    // and relaunched. Drive `style` imperatively from a theme-bound effect so
+    // every toggle takes effect on the next render frame.
+    //
+    // We deliberately DON'T call setStatusBarBackgroundColor here: on Android
+    // edge-to-edge it toggles the translucent flag mid-session, which then
+    // collapses the SafeAreaView top inset on the next screen mount (the bug
+    // reproduced when popping back from the onramp order page). The status
+    // bar background is left to follow the system / app config defaults.
+    React.useEffect(() => {
+        // Pass `animated: false` — on iOS the animated style swap briefly
+        // forces the status bar into a transitional state which collapses
+        // SafeAreaView top insets on the next screen mount.
+        setStatusBarStyle(isDark ? 'light' : 'dark', false);
+    }, [isDark]);
+
     return (
         <StatusBar
             style={isDark ? 'light' : 'dark'}
@@ -735,18 +754,20 @@ function RootLayout() {
     const isWeb = Platform.OS === 'web';
 
     return (
-        <SettingsProvider>
-            <TutorialProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                    <ThemeAwareStatusBar />
-                    <BottomSheetModalProvider>
-                        <StartupGate isApiWarmed={appReady}>
-                            {isWeb ? <WebLayout /> : <NativeLayout />}
-                        </StartupGate>
-                    </BottomSheetModalProvider>
-                </GestureHandlerRootView>
-            </TutorialProvider>
-        </SettingsProvider>
+        <SafeAreaProvider>
+            <SettingsProvider>
+                <TutorialProvider>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                        <ThemeAwareStatusBar />
+                        <BottomSheetModalProvider>
+                            <StartupGate isApiWarmed={appReady}>
+                                {isWeb ? <WebLayout /> : <NativeLayout />}
+                            </StartupGate>
+                        </BottomSheetModalProvider>
+                    </GestureHandlerRootView>
+                </TutorialProvider>
+            </SettingsProvider>
+        </SafeAreaProvider>
     );
 }
 

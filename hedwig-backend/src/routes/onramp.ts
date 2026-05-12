@@ -279,7 +279,11 @@ router.post('/create', authenticate, async (req: Request, res: Response, next) =
                 user_id: userRecord.id,
                 paycrest_order_id: order.id,
                 reference: order.reference,
-                status: mapPaycrestOnrampStatus(order.status) ?? 'PENDING',
+                // Force PENDING at creation. Fiat has not arrived yet —
+                // ignore whatever string Paycrest puts in the create response
+                // (some envs return 'pending' immediately, which would
+                // otherwise map to PROCESSING and hide the virtual account).
+                status: 'PENDING',
                 chain: chainEnum,
                 token: tokenUpper,
                 crypto_amount: order.estimatedCryptoAmount,
@@ -345,11 +349,16 @@ router.get('/orders', authenticate, async (req: Request, res: Response, next) =>
                         remote?.data?.status ||
                         remote?.status;
                     const mapped = mapPaycrestOnrampStatus(remoteStatus);
-                    if (mapped && mapped !== order.status) {
-                        const updatePayload: Record<string, any> = { status: mapped };
-                        if (mapped === 'COMPLETED') {
-                            updatePayload.completed_at = new Date().toISOString();
-                        }
+                    // List poll only advances toward terminal states. Webhook
+                    // owns intermediate transitions to prevent stale Paycrest
+                    // responses dragging unpaid orders to PROCESSING.
+                    let updatePayload: Record<string, any> | null = null;
+                    if (mapped === 'COMPLETED' && order.status !== 'COMPLETED') {
+                        updatePayload = { status: 'COMPLETED', completed_at: new Date().toISOString() };
+                    } else if (mapped === 'FAILED' && order.status !== 'FAILED') {
+                        updatePayload = { status: 'FAILED' };
+                    }
+                    if (updatePayload) {
                         const { data: updated } = await supabase
                             .from('onramp_orders')
                             .update(updatePayload)
@@ -400,17 +409,99 @@ router.get('/orders/:id', authenticate, async (req: Request, res: Response, next
         if (ENABLE_PAYCREST_STATUS_POLLING && (order.status === 'PENDING' || order.status === 'PROCESSING')) {
             try {
                 const remote = await PaycrestService.getOrderStatus(order.paycrest_order_id);
-                const remoteStatus =
-                    remote?.data?.order?.status ||
-                    remote?.order?.status ||
-                    remote?.data?.status ||
-                    remote?.status;
+                const remoteOrder =
+                    remote?.data?.order ||
+                    remote?.order ||
+                    remote?.data ||
+                    remote ||
+                    {};
+                const remoteStatus = remoteOrder.status;
                 const mapped = mapPaycrestOnrampStatus(remoteStatus);
-                if (mapped && mapped !== order.status) {
-                    const updatePayload: Record<string, any> = { status: mapped };
-                    if (mapped === 'COMPLETED') {
-                        updatePayload.completed_at = new Date().toISOString();
-                    }
+
+                const updatePayload: Record<string, any> = {};
+
+                // Backfill provider/virtual-account fields when the original
+                // create-time parse missed them. Coalesce across every shape
+                // Paycrest v2 has shipped (providerAccount / receiveAddress /
+                // paymentDetails / flat fields).
+                const provider =
+                    remoteOrder.providerAccount ||
+                    remoteOrder.provider_account ||
+                    remoteOrder.receiveAddress ||
+                    remoteOrder.receive_address ||
+                    remoteOrder.paymentDetails ||
+                    remoteOrder.payment_details ||
+                    {};
+
+                const pickFirst = (...vals: Array<string | number | null | undefined>) =>
+                    vals.find((v) => v !== undefined && v !== null && v !== '') ?? null;
+
+                if (!order.provider_institution) {
+                    const inst = pickFirst(
+                        provider.institution,
+                        provider.bankName,
+                        provider.bank_name,
+                        remoteOrder.institution,
+                        remoteOrder.bankName,
+                        remoteOrder.bank_name,
+                    );
+                    if (inst) updatePayload.provider_institution = inst;
+                }
+                if (!order.provider_account_number) {
+                    const acct = pickFirst(
+                        provider.accountIdentifier,
+                        provider.account_identifier,
+                        provider.accountNumber,
+                        provider.account_number,
+                        remoteOrder.accountIdentifier,
+                        remoteOrder.account_identifier,
+                    );
+                    if (acct) updatePayload.provider_account_number = acct;
+                }
+                if (!order.provider_account_name) {
+                    const name = pickFirst(
+                        provider.accountName,
+                        provider.account_name,
+                        remoteOrder.accountName,
+                        remoteOrder.account_name,
+                    );
+                    if (name) updatePayload.provider_account_name = name;
+                }
+                if (!order.provider_amount_to_transfer) {
+                    const amt = pickFirst(
+                        provider.amountToTransfer,
+                        provider.amount_to_transfer,
+                        remoteOrder.amountToTransfer,
+                        remoteOrder.amount_to_transfer,
+                    );
+                    if (amt) updatePayload.provider_amount_to_transfer = Number(amt);
+                }
+                if (!order.valid_until) {
+                    const expiry = pickFirst(
+                        provider.validUntil,
+                        provider.valid_until,
+                        remoteOrder.validUntil,
+                        remoteOrder.valid_until,
+                        remoteOrder.expiresAt,
+                        remoteOrder.expires_at,
+                    );
+                    if (expiry) updatePayload.valid_until = String(expiry);
+                }
+
+                // Polling only transitions toward terminal states. Webhook is
+                // the source of truth for the intermediate PENDING ↔ PROCESSING
+                // hop, so a stale Paycrest status like 'pending' (which their
+                // API has been observed to return immediately on order
+                // creation) can't drag a user to "Settling on-chain" before
+                // they've actually sent fiat.
+                if (mapped === 'COMPLETED' && order.status !== 'COMPLETED') {
+                    updatePayload.status = 'COMPLETED';
+                    updatePayload.completed_at = new Date().toISOString();
+                } else if (mapped === 'FAILED' && order.status !== 'FAILED') {
+                    updatePayload.status = 'FAILED';
+                }
+
+                if (Object.keys(updatePayload).length > 0) {
                     const { data: updated } = await supabase
                         .from('onramp_orders')
                         .update(updatePayload)

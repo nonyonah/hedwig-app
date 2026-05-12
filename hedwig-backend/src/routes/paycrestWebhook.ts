@@ -87,19 +87,24 @@ const extractTxHash = (payload: any): string | null => {
  * Map Paycrest order status monitoring events to app status.
  * Supports both new (payment_order.*) and legacy (order.*) event names.
  */
-const mapPaycrestStatus = (event: string, data: any): 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' => {
+const mapPaycrestStatus = (event: string, data: any): 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null => {
     const normalizedEvent = normalizePaycrestEvent(event, data);
     const tail = normalizedEvent.includes('.') ? normalizedEvent.split('.').pop() : normalizedEvent;
 
     switch (tail) {
+        case 'created':
         case 'initiated':
+        case 'awaiting_payment':
+        case 'awaiting':
+        case 'scheduled':
             return 'PENDING';
         case 'pending':
         case 'processing':
+        case 'settling':
+        case 'paid':
+        case 'payment_received':
             return 'PROCESSING';
         case 'validated':
-            // Paycrest treats "validated" as the successful sender-side completion state.
-            return 'COMPLETED';
         case 'settled':
         case 'completed':
         case 'success':
@@ -110,7 +115,8 @@ const mapPaycrestStatus = (event: string, data: any): 'PENDING' | 'PROCESSING' |
         case 'cancelled':
             return 'FAILED';
         default:
-            return 'PROCESSING';
+            // Unknown event — don't speculate. Caller preserves prior status.
+            return null;
     }
 };
 
@@ -147,7 +153,7 @@ interface OnrampWebhookContext {
     onrampOrder: any;
     paycrestOrderId: string;
     event: string;
-    newStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+    newStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | null;
     txHash: string | null;
     payload: any;
 }
@@ -212,8 +218,34 @@ const processOnrampWebhook = async ({
     }
 
     const previousStatus = String(resolvedOrder.status || '');
+
+    // Unknown event tail → don't overwrite. Acknowledge and bail.
+    if (newStatus === null) {
+        logger.warn('Onramp webhook event has no known status mapping', {
+            event,
+            paycrestOrderId,
+        });
+        return { received: true, direction: 'onramp', orderId: resolvedOrder.id, status: previousStatus, ignored: true };
+    }
+
     const terminalStatuses = new Set(['COMPLETED', 'FAILED']);
     if (terminalStatuses.has(previousStatus) && previousStatus !== newStatus) {
+        return {
+            received: true,
+            direction: 'onramp',
+            orderId: resolvedOrder.id,
+            status: previousStatus,
+            ignored: true,
+        };
+    }
+
+    // Forward-only progression for non-terminal transitions so a stale
+    // /api/onramp poll or webhook retry can't drag the order back to PENDING
+    // once we've credited the fiat deposit.
+    const order = ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'];
+    const prevIdx = order.indexOf(previousStatus);
+    const nextIdx = order.indexOf(newStatus);
+    if (prevIdx >= 0 && nextIdx >= 0 && nextIdx < prevIdx && newStatus !== 'FAILED') {
         return {
             received: true,
             direction: 'onramp',
@@ -461,6 +493,16 @@ router.post('/', async (req: Request, res: Response) => {
             paycrestOrderId,
             orderId: resolvedOrder.id,
         });
+
+        // Unknown offramp event tail → bail without touching status.
+        if (newStatus === null) {
+            logger.warn('Offramp webhook event has no known status mapping', {
+                event,
+                paycrestOrderId,
+            });
+            res.status(200).json({ received: true, orderId: resolvedOrder.id, status: resolvedOrder.status, ignored: true });
+            return;
+        }
 
         const previousStatus = resolvedOrder.status as string;
         const analyticsDistinctId = String(
