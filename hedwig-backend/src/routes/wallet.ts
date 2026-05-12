@@ -263,9 +263,20 @@ const fetchEvmAddressBalances = async (address: Address, testnet: boolean, price
             ]);
             const nativeTokenStr = formatUnits(nativeBalance, cfg.nativeDecimals);
             const usdcTokenStr = formatUnits(usdcBalance, cfg.usdcDecimals);
+            const nativeTokenNum = Number(nativeTokenStr) || 0;
+            const usdcTokenNum = Number(usdcTokenStr) || 0;
             const nativePrice = cfg.nativeAsset === 'pol' ? prices.pol : prices.eth;
-            const nativeUsd = (Number(nativeTokenStr) || 0) * nativePrice;
-            const usdcUsd = (Number(usdcTokenStr) || 0) * (prices.usdc || 1);
+            const usdcPrice = prices.usdc || 1;
+            // Hard fallback: if price fetch returned 0 (rate-limit / network),
+            // assume mainnet rough defaults so the wallet UI never shows $0
+            // for non-zero token balances. These are last-resort numbers and
+            // only kick in when CoinGecko + cache are both unavailable.
+            const safeNativePrice = nativePrice > 0
+                ? nativePrice
+                : cfg.nativeAsset === 'pol' ? 0.4 : 3500;
+            const safeUsdcPrice = usdcPrice > 0 ? usdcPrice : 1;
+            const nativeUsd = nativeTokenNum * safeNativePrice;
+            const usdcUsd = usdcTokenNum * safeUsdcPrice;
             return [
                 {
                     chain: cfg.chainKey,
@@ -393,9 +404,79 @@ router.get('/balance', authenticate, async (req: Request, res: Response, next) =
 
         const prices = await fetchNativePrices();
 
-        const evmBalancesPromise: Promise<any[]> = evmAddressForBalance
+        // Privy returns display_values.usd directly. Prefer it for the EVM
+        // path; if Privy can't resolve a balance for a (chain, asset) pair,
+        // fall back to viem RPC reads + CoinGecko-derived USD.
+        const evmWallet = wallets.find(w => w.type === 'evm');
+        const evmPrivyChains = testnet
+            ? (['base_sepolia', 'arbitrum_sepolia', 'polygon_amoy', 'optimism_sepolia'] as const)
+            : (['base', 'arbitrum', 'polygon', 'optimism'] as const);
+        const privyEvmBalancesPromise: Promise<any[]> = (async () => {
+            if (!evmWallet?.id) return [];
+            const out: any[] = [];
+            await Promise.all(evmPrivyChains.map(async (privyChain) => {
+                const nativeAsset = privyChain.startsWith('polygon') ? 'pol' : 'eth';
+                for (const asset of [nativeAsset, 'usdc'] as const) {
+                    try {
+                        const response = await getPrivyNodeClient().wallets().balance.get(evmWallet.id!, {
+                            chain: privyChain as any,
+                            asset: asset as any,
+                            include_currency: 'usd',
+                        });
+                        if (!response?.balances) continue;
+                        for (const bal of response.balances) {
+                            const tokenStr = bal.display_values?.token || '0';
+                            const privyUsd = Number(bal.display_values?.usd);
+                            const tokenNum = Number(tokenStr) || 0;
+                            let usdStr: string;
+                            if (Number.isFinite(privyUsd) && privyUsd >= 0 && (privyUsd > 0 || tokenNum === 0)) {
+                                usdStr = privyUsd.toFixed(2);
+                            } else {
+                                const fallbackPrice = bal.asset === 'usdc'
+                                    ? (prices.usdc || 1)
+                                    : bal.asset === 'pol'
+                                        ? (prices.pol || 0.4)
+                                        : (prices.eth || 3500);
+                                usdStr = (tokenNum * fallbackPrice).toFixed(2);
+                            }
+                            out.push({
+                                chain: normalizeChain(bal.chain || privyChain),
+                                asset: bal.asset,
+                                raw_value: bal.raw_value,
+                                display_values: { token: tokenStr, usd: usdStr },
+                            });
+                        }
+                    } catch (err: any) {
+                        logger.debug('Privy EVM balance fetch failed', {
+                            walletId: evmWallet.id,
+                            chain: privyChain,
+                            asset,
+                            error: err?.message?.slice(0, 200),
+                        });
+                    }
+                }
+            }));
+            return out;
+        })();
+
+        const viemEvmBalancesPromise: Promise<any[]> = evmAddressForBalance
             ? fetchEvmAddressBalances(evmAddressForBalance, testnet, prices)
             : Promise.resolve([]);
+
+        // Merge: Privy wins when present (already has USD); viem fills any
+        // (chain, asset) combinations Privy didn't return so we never lose
+        // visibility for chains Privy hasn't indexed yet.
+        const evmBalancesPromise: Promise<any[]> = (async () => {
+            const [privyRows, viemRows] = await Promise.all([
+                privyEvmBalancesPromise,
+                viemEvmBalancesPromise,
+            ]);
+            const key = (b: any) => `${b.chain}:${b.asset}`;
+            const map = new Map<string, any>();
+            for (const row of viemRows) map.set(key(row), row);
+            for (const row of privyRows) map.set(key(row), row);
+            return Array.from(map.values());
+        })();
 
         const solanaPrivyChain = testnet ? SOLANA_CHAIN_TESTNET : SOLANA_CHAIN_MAINNET;
         const solanaWallet = wallets.find(w => w.type === 'solana');
