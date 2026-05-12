@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "almond",
+  "theme": "luma",
   "name": "Hedwig",
   "description": "Payments and business management platform for African freelancers. Invoicing, crypto payments, and AI tools in one place.",
   "colors": {
