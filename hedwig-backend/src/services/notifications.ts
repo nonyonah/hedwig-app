@@ -519,7 +519,8 @@ class NotificationService {
      */
     async notifyUser(userId: string, payload: PushNotificationPayload): Promise<ExpoPushTicket[]> {
         try {
-            if (this.isOneSignalConfigured()) {
+            const oneSignalConfigured = this.isOneSignalConfigured();
+            if (oneSignalConfigured) {
                 const privyId = await this.getUserPrivyId(userId);
                 if (privyId) {
                     const oneSignalTickets = await this.sendOneSignalToExternalUsers([privyId], payload);
@@ -550,8 +551,18 @@ class NotificationService {
                 .select('expo_push_token')
                 .eq('user_id', userId);
 
-            if (error || !tokens || tokens.length === 0) {
-                logger.debug('No device tokens found');
+            if (error) {
+                logger.warn('device_tokens query failed', { userId, error: error.message });
+                return [];
+            }
+            if (!tokens || tokens.length === 0) {
+                logger.warn('Push notification has no delivery target', {
+                    userId,
+                    oneSignalConfigured,
+                    reason: oneSignalConfigured
+                        ? 'OneSignal could not resolve user; no device_tokens fallback rows either'
+                        : 'OneSignal not configured and no device_tokens rows present — register from the mobile app',
+                });
                 return [];
             }
 

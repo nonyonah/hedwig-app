@@ -28,7 +28,7 @@ gcloud run deploy "$SERVICE_NAME" \
     --source . \
     --region "$REGION" \
     --allow-unauthenticated \
-    --set-env-vars="$ENV_VARS"
+    --update-env-vars="$ENV_VARS"
 
 if [ $? -eq 0 ]; then
     echo "✅ Deployment successful!"
