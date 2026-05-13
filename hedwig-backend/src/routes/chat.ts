@@ -68,7 +68,11 @@ router.post('/message', authenticate, upload.array('files', 5), async (req: Requ
             return;
         }
 
-        const userId = userData.email; // email is the primary key or unique identifier used for conversations
+        // Scope every conversation read/write by the user's stable PK
+        // (`users.id`). Previously this used `userData.email` — which is
+        // nullable and can collide across users — so threads leaked between
+        // accounts whenever two users had blank/duplicate emails.
+        const userId = userData.id;
 
         // Find or create conversation
         let conversation;
@@ -463,7 +467,7 @@ router.get('/conversations', authenticate, async (req: Request, res: Response, n
         // Look up user in database by privy_id to get their email (which is the user PK)
         const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('email')
+            .select('id, email')
             .eq('privy_id', privyUserId)
             .single();
 
@@ -479,7 +483,7 @@ router.get('/conversations', authenticate, async (req: Request, res: Response, n
             return;
         }
 
-        const userId = userData.email; // email is the primary key
+        const userId = userData.id;
         logger.debug('Found user for conversations');
 
         const { data: conversations, error } = await supabase
@@ -547,7 +551,7 @@ router.get('/conversations/:id', authenticate, async (req: Request, res: Respons
         // Look up user in database by privy_id to get their email (which is the user PK)
         const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('email')
+            .select('id, email')
             .eq('privy_id', privyUserId)
             .single();
 
@@ -559,7 +563,7 @@ router.get('/conversations/:id', authenticate, async (req: Request, res: Respons
             return;
         }
 
-        const userId = userData.email; // email is the primary key
+        const userId = userData.id;
 
         const { data: conversation, error: convError } = await supabase
             .from('conversations')
@@ -623,7 +627,7 @@ router.delete('/conversations/:id', authenticate, async (req: Request, res: Resp
         // Look up user in database by privy_id to get their email
         const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('email')
+            .select('id, email')
             .eq('privy_id', privyUserId)
             .single();
 
@@ -635,7 +639,7 @@ router.delete('/conversations/:id', authenticate, async (req: Request, res: Resp
             return;
         }
 
-        const userId = userData.email;
+        const userId = userData.id;
 
         // Verify ownership
         const { data: conversation, error: findError } = await supabase

@@ -460,19 +460,43 @@ export function createInvoiceDetailsTool(): AgentToolDefinition {
         return true;
       }).slice(0, limit);
 
+      // Look up milestones whose invoice_id matches any returned doc so the
+      // agent can tell milestone invoices apart from standalone ones.
+      const invoiceIds = filtered.map((d: any) => d.id);
+      const milestoneIndex = new Map<string, { id: string; name: string | null; projectId: string | null; status: string | null }>();
+      if (invoiceIds.length > 0) {
+        const { data: msRows } = await supabase
+          .from('milestones')
+          .select('id, name, project_id, status, invoice_id')
+          .in('invoice_id', invoiceIds);
+        for (const ms of msRows ?? []) {
+          milestoneIndex.set(String((ms as any).invoice_id), {
+            id: String((ms as any).id),
+            name: (ms as any).name ?? null,
+            projectId: (ms as any).project_id ?? null,
+            status: (ms as any).status ?? null,
+          });
+        }
+      }
+
       const invoices = filtered.map((doc: any) => {
         const dueDate = getDocumentDueDate(doc);
+        const docStatusUpper = normalizeStatus(doc.status);
+        const milestone = milestoneIndex.get(String(doc.id)) || null;
         return {
           id: doc.id,
           title: doc.title,
           status: doc.status,
+          isPaid: docStatusUpper === 'PAID',
           amountUsd: toNumber(doc.amount),
           currency: doc.currency || 'USD',
           clientName: doc.clients?.name || getContentString(doc.content, ['client_name', 'clientName']) || null,
           clientEmail: doc.clients?.email || getContentString(doc.content, ['client_email', 'clientEmail']) || null,
           projectName: doc.projects?.name || null,
           dueDate,
-          isOverdue: Boolean(dueDate && dueDate < nowIso && ['SENT', 'VIEWED'].includes(normalizeStatus(doc.status))),
+          isOverdue: Boolean(dueDate && dueDate < nowIso && ['SENT', 'VIEWED'].includes(docStatusUpper)),
+          isMilestoneInvoice: Boolean(milestone),
+          milestone,
           createdAt: doc.created_at,
           updatedAt: doc.updated_at,
         };
@@ -810,9 +834,369 @@ export function createCalendarContextTool(): AgentToolDefinition {
   };
 }
 
+export function createPaymentLinkDetailsTool(): AgentToolDefinition {
+  return {
+    name: 'workspace_get_payment_link_details',
+    description: 'Fetch payment links from Hedwig, optionally filtered by paid/unpaid/draft. Includes amount, client, network, token, and status.',
+    parameters: {
+      type: 'object',
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['paid', 'unpaid', 'draft', 'all'],
+          description: 'Filter by payment-link status. unpaid covers SENT/VIEWED links not yet paid.',
+        },
+        limit: { type: 'integer', description: 'Maximum links to return. Default 20, max 50.' },
+      },
+      required: [],
+    },
+    execute: async (args, context) => {
+      const status = String(args.status || 'all').toLowerCase();
+      const limit = Math.min(Math.max(Number(args.limit || 20), 1), 50);
+
+      let query = supabase
+        .from('documents')
+        .select(`
+          id, title, description, amount, currency, content, status, created_at, updated_at, client_id,
+          clients:client_id ( name, email, company )
+        `)
+        .eq('user_id', context.userId)
+        .eq('type', 'PAYMENT_LINK')
+        .order('updated_at', { ascending: false })
+        .limit(limit);
+
+      if (status === 'paid') query = query.eq('status', 'PAID');
+      if (status === 'draft') query = query.eq('status', 'DRAFT');
+      if (status === 'unpaid') query = query.in('status', ['SENT', 'VIEWED']);
+
+      const { data, error } = await query;
+      if (error) throw new Error(`Could not fetch payment links: ${error.message}`);
+
+      const links = (data ?? []).map((doc: any) => ({
+        id: doc.id,
+        title: doc.title,
+        description: doc.description,
+        status: doc.status,
+        amountUsd: toNumber(doc.amount),
+        currency: doc.currency || 'USD',
+        network: getContentString(doc.content, ['network']),
+        token: getContentString(doc.content, ['token']),
+        clientName: doc.clients?.name || getContentString(doc.content, ['client_name', 'clientName']) || null,
+        clientEmail: doc.clients?.email || getContentString(doc.content, ['client_email', 'clientEmail']) || null,
+        createdAt: doc.created_at,
+        updatedAt: doc.updated_at,
+      }));
+
+      return {
+        status,
+        count: links.length,
+        totalAmountUsd: links.reduce((sum, l) => sum + l.amountUsd, 0),
+        paymentLinks: links,
+      };
+    },
+  };
+}
+
+export function createContractDetailsTool(): AgentToolDefinition {
+  return {
+    name: 'workspace_get_contract_details',
+    description: 'Fetch contracts from Hedwig with status (DRAFT, SENT, SIGNED, PAID), parties, value, and linked project. Supports filtering by status.',
+    parameters: {
+      type: 'object',
+      properties: {
+        status: {
+          type: 'string',
+          description: 'Contract status filter, e.g. DRAFT, SENT, VIEWED, SIGNED, PAID, or all.',
+        },
+        limit: { type: 'integer', description: 'Maximum contracts to return. Default 20, max 50.' },
+      },
+      required: [],
+    },
+    execute: async (args, context) => {
+      const status = String(args.status || 'all').toUpperCase();
+      const limit = Math.min(Math.max(Number(args.limit || 20), 1), 50);
+
+      let query = supabase
+        .from('documents')
+        .select(`
+          id, title, description, amount, currency, content, status, created_at, updated_at, client_id, project_id,
+          clients:client_id ( name, email, company ),
+          projects:project_id ( name, status )
+        `)
+        .eq('user_id', context.userId)
+        .eq('type', 'CONTRACT')
+        .order('updated_at', { ascending: false })
+        .limit(limit);
+
+      if (status !== 'ALL') query = query.eq('status', status);
+
+      const { data, error } = await query;
+      if (error) throw new Error(`Could not fetch contracts: ${error.message}`);
+
+      const contracts = (data ?? []).map((doc: any) => ({
+        id: doc.id,
+        title: doc.title,
+        status: doc.status,
+        amountUsd: toNumber(doc.amount),
+        currency: doc.currency || 'USD',
+        clientName: doc.clients?.name || null,
+        clientEmail: doc.clients?.email || null,
+        projectName: doc.projects?.name || null,
+        createdAt: doc.created_at,
+        updatedAt: doc.updated_at,
+      }));
+
+      return {
+        status,
+        count: contracts.length,
+        totalValueUsd: contracts.reduce((sum, c) => sum + c.amountUsd, 0),
+        contracts,
+      };
+    },
+  };
+}
+
+export function createMilestoneDetailsTool(): AgentToolDefinition {
+  return {
+    name: 'workspace_get_milestone_details',
+    description: 'Fetch project milestones with status, due date, amount, project, and linked invoice (a milestone may be the basis of a milestone invoice). Use this for milestone-specific questions or to identify which invoices are milestone invoices.',
+    parameters: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', description: 'Milestone status filter (PENDING, IN_PROGRESS, COMPLETED, OVERDUE, or all).' },
+        projectId: { type: 'string', description: 'Optional project ID to scope to a single project.' },
+        limit: { type: 'integer', description: 'Maximum milestones to return. Default 30, max 100.' },
+      },
+      required: [],
+    },
+    execute: async (args, context) => {
+      const status = String(args.status || 'all').toUpperCase();
+      const limit = Math.min(Math.max(Number(args.limit || 30), 1), 100);
+      const projectId = args.projectId ? String(args.projectId) : null;
+      const nowIso = new Date().toISOString();
+
+      // Milestones link to projects; projects own user_id. Join through.
+      let query = supabase
+        .from('milestones')
+        .select(`
+          id, project_id, invoice_id, name, description, amount, status, due_date, completed_at, created_at, updated_at,
+          projects!inner ( id, name, status, user_id ),
+          documents:invoice_id ( id, title, amount, status, currency, content )
+        `)
+        .eq('projects.user_id', context.userId)
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .limit(limit);
+
+      if (status !== 'ALL') query = query.eq('status', status);
+      if (projectId) query = query.eq('project_id', projectId);
+
+      const { data, error } = await query;
+      if (error) throw new Error(`Could not fetch milestones: ${error.message}`);
+
+      const milestones = (data ?? []).map((m: any) => {
+        const invoice = m.documents || null;
+        const invoiceStatus = invoice?.status || null;
+        const overdue = Boolean(m.due_date && m.due_date < nowIso && m.status !== 'COMPLETED');
+        return {
+          id: m.id,
+          name: m.name,
+          description: m.description,
+          status: m.status,
+          amountUsd: toNumber(m.amount),
+          dueDate: m.due_date,
+          isOverdue: overdue,
+          completedAt: m.completed_at,
+          projectId: m.project_id,
+          projectName: m.projects?.name || null,
+          projectStatus: m.projects?.status || null,
+          invoice: invoice
+            ? {
+                id: invoice.id,
+                title: invoice.title,
+                amountUsd: toNumber(invoice.amount),
+                currency: invoice.currency || 'USD',
+                status: invoiceStatus,
+                isPaid: normalizeStatus(invoiceStatus) === 'PAID',
+              }
+            : null,
+        };
+      });
+
+      return {
+        status,
+        count: milestones.length,
+        totalAmountUsd: milestones.reduce((sum, m) => sum + m.amountUsd, 0),
+        completedAmountUsd: milestones
+          .filter((m) => m.status === 'COMPLETED')
+          .reduce((sum, m) => sum + m.amountUsd, 0),
+        overdueCount: milestones.filter((m) => m.isOverdue).length,
+        milestones,
+      };
+    },
+  };
+}
+
+export function createTransactionHistoryTool(): AgentToolDefinition {
+  return {
+    name: 'workspace_get_transaction_history',
+    description: 'Fetch the user\'s crypto transactions plus offramp (crypto→bank) and onramp (bank→crypto) orders for revenue, insights, or settlement questions. Combines all three sources into one chronological list.',
+    parameters: {
+      type: 'object',
+      properties: {
+        direction: {
+          type: 'string',
+          enum: ['all', 'incoming', 'outgoing', 'offramp', 'onramp'],
+          description: 'Filter by flow. incoming = PAYMENT_RECEIVED, outgoing = PAYMENT_SENT, offramp = crypto→bank, onramp = bank→crypto, all = everything.',
+        },
+        lookbackDays: { type: 'integer', description: 'Number of days to look back. Default 90, max 365.' },
+        limit: { type: 'integer', description: 'Maximum rows per source. Default 30, max 100.' },
+      },
+      required: [],
+    },
+    execute: async (args, context) => {
+      const direction = String(args.direction || 'all').toLowerCase();
+      const lookbackDays = Math.min(Math.max(Number(args.lookbackDays || 90), 1), 365);
+      const limit = Math.min(Math.max(Number(args.limit || 30), 1), 100);
+      const sinceIso = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
+
+      const wantTx = direction === 'all' || direction === 'incoming' || direction === 'outgoing';
+      const wantOff = direction === 'all' || direction === 'offramp';
+      const wantOn = direction === 'all' || direction === 'onramp';
+
+      const txPromise = wantTx
+        ? supabase
+            .from('transactions')
+            .select('id, type, status, chain, tx_hash, from_address, to_address, amount, amount_in_ngn, token, network_fee, platform_fee, timestamp, created_at')
+            .eq('user_id', context.userId)
+            .gte('created_at', sinceIso)
+            .order('created_at', { ascending: false })
+            .limit(limit)
+        : Promise.resolve({ data: [] as any[], error: null });
+
+      const offPromise = wantOff
+        ? supabase
+            .from('offramp_orders')
+            .select('id, status, chain, token, crypto_amount, fiat_amount, fiat_currency, tx_hash, exchange_rate, bank_name, account_number, account_name, created_at, completed_at')
+            .eq('user_id', context.userId)
+            .gte('created_at', sinceIso)
+            .order('created_at', { ascending: false })
+            .limit(limit)
+        : Promise.resolve({ data: [] as any[], error: null });
+
+      const onPromise = wantOn
+        ? supabase
+            .from('onramp_orders')
+            .select('id, status, chain, token, crypto_amount, fiat_amount, fiat_currency, tx_hash, exchange_rate, provider_institution, provider_account_number, recipient_address, created_at, completed_at')
+            .eq('user_id', context.userId)
+            .gte('created_at', sinceIso)
+            .order('created_at', { ascending: false })
+            .limit(limit)
+        : Promise.resolve({ data: [] as any[], error: null });
+
+      const [tx, off, on] = await Promise.all([txPromise, offPromise, onPromise]);
+      if (tx.error) throw new Error(`Could not fetch transactions: ${tx.error.message}`);
+      if (off.error) throw new Error(`Could not fetch offramp orders: ${off.error.message}`);
+      if (on.error) throw new Error(`Could not fetch onramp orders: ${on.error.message}`);
+
+      const txRows = (tx.data ?? [])
+        .filter((row: any) => {
+          if (direction === 'incoming') return row.type === 'PAYMENT_RECEIVED';
+          if (direction === 'outgoing') return row.type === 'PAYMENT_SENT';
+          return true;
+        })
+        .map((row: any) => ({
+          source: 'crypto_transaction',
+          id: row.id,
+          direction: row.type === 'PAYMENT_RECEIVED' ? 'IN' : 'OUT',
+          status: row.status,
+          chain: row.chain,
+          token: row.token,
+          amount: toNumber(row.amount),
+          amountInNgn: toNumber(row.amount_in_ngn),
+          txHash: row.tx_hash,
+          fromAddress: row.from_address,
+          toAddress: row.to_address,
+          networkFee: toNumber(row.network_fee),
+          platformFee: toNumber(row.platform_fee),
+          createdAt: row.created_at,
+          timestamp: row.timestamp,
+        }));
+
+      const offRows = (off.data ?? []).map((row: any) => ({
+        source: 'offramp_order',
+        id: row.id,
+        direction: 'OUT',
+        status: row.status,
+        chain: row.chain,
+        token: row.token,
+        cryptoAmount: toNumber(row.crypto_amount),
+        fiatAmount: toNumber(row.fiat_amount),
+        fiatCurrency: row.fiat_currency,
+        txHash: row.tx_hash,
+        exchangeRate: toNumber(row.exchange_rate),
+        bank: { name: row.bank_name, accountNumber: row.account_number, accountName: row.account_name },
+        createdAt: row.created_at,
+        completedAt: row.completed_at,
+      }));
+
+      const onRows = (on.data ?? []).map((row: any) => ({
+        source: 'onramp_order',
+        id: row.id,
+        direction: 'IN',
+        status: row.status,
+        chain: row.chain,
+        token: row.token,
+        cryptoAmount: toNumber(row.crypto_amount),
+        fiatAmount: toNumber(row.fiat_amount),
+        fiatCurrency: row.fiat_currency,
+        txHash: row.tx_hash,
+        exchangeRate: toNumber(row.exchange_rate),
+        providerBank: { institution: row.provider_institution, accountNumber: row.provider_account_number },
+        recipientAddress: row.recipient_address,
+        createdAt: row.created_at,
+        completedAt: row.completed_at,
+      }));
+
+      const combined = [...txRows, ...offRows, ...onRows].sort((a, b) => {
+        const aTs = String(a.createdAt || '');
+        const bTs = String(b.createdAt || '');
+        return bTs.localeCompare(aTs);
+      });
+
+      const totals = {
+        incomingCryptoCount: txRows.filter((r) => r.direction === 'IN').length,
+        outgoingCryptoCount: txRows.filter((r) => r.direction === 'OUT').length,
+        offrampCount: offRows.length,
+        onrampCount: onRows.length,
+        offrampFiatTotal: offRows
+          .filter((r) => r.status === 'COMPLETED')
+          .reduce((s, r) => s + r.fiatAmount, 0),
+        onrampFiatTotal: onRows
+          .filter((r) => r.status === 'COMPLETED')
+          .reduce((s, r) => s + r.fiatAmount, 0),
+        cryptoVolumeUsd: txRows
+          .filter((r) => r.status === 'CONFIRMED' || r.status === 'COMPLETED')
+          .reduce((s, r) => s + r.amount, 0),
+      };
+
+      return {
+        lookbackDays,
+        direction,
+        totals,
+        count: combined.length,
+        transactions: combined.slice(0, limit * 3),
+      };
+    },
+  };
+}
+
 export function createWorkspaceAnalysisTools(): AgentToolDefinition[] {
   return [
     createInvoiceDetailsTool(),
+    createPaymentLinkDetailsTool(),
+    createContractDetailsTool(),
+    createMilestoneDetailsTool(),
+    createTransactionHistoryTool(),
     createClientInsightsTool(),
     createProjectDetailsTool(),
     createExpenseBreakdownTool(),

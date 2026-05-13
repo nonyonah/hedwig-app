@@ -20,7 +20,7 @@ export default async function WalletPage() {
   };
 
   const [walletData, billing] = await Promise.all([
-    hedwigApi.wallet({ accessToken: session.accessToken, disableMockFallback: true }),
+    hedwigApi.wallet({ accessToken: session.accessToken }),
     USD_ACCOUNTS_ENABLED
       ? hedwigApi.billingStatus({ accessToken: session.accessToken }).catch(() => null)
       : Promise.resolve(null),
@@ -31,7 +31,7 @@ export default async function WalletPage() {
     : false;
   const accountsData = !USD_ACCOUNTS_ENABLED || isUsdAccountPaywalled
     ? fallbackAccountsData
-    : await hedwigApi.accounts({ accessToken: session.accessToken, disableMockFallback: true }).catch(() => ({
+    : await hedwigApi.accounts({ accessToken: session.accessToken }).catch(() => ({
       usdAccount: {
         id: 'usd-account-fallback',
         provider: 'Bridge' as const,

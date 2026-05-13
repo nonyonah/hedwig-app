@@ -33,6 +33,10 @@ export interface InsightsSummary {
     receivedAmount: number;
     withdrawalsPending: number;
     withdrawalsCompletedAmount: number;
+    onrampPending?: number;
+    onrampCompletedFiatAmount?: number;
+    onrampCompletedCryptoAmount?: number;
+    onrampCount?: number;
 }
 
 export interface InsightPoint {

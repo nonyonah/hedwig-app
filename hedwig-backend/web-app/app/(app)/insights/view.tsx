@@ -83,6 +83,10 @@ interface InsightsSummary {
   receivedAmount: number;
   withdrawalsPending: number;
   withdrawalsCompletedAmount: number;
+  onrampPending?: number;
+  onrampCompletedFiatAmount?: number;
+  onrampCompletedCryptoAmount?: number;
+  onrampCount?: number;
 }
 
 interface InsightsData {
@@ -430,7 +434,14 @@ export function InsightsClient({
                 id: 'pending-invoices',
                 title: 'Pending invoices',
                 value: loading ? '...' : String(summary?.pendingInvoicesCount ?? 0),
-                helper: summary ? `${formatAmount(summary.pendingInvoicesTotal, { compact: true })} outstanding` : '—',
+                helper: (() => {
+                    if (!summary) return '—';
+                    const settlementPending = (summary.withdrawalsPending ?? 0) + (summary.onrampPending ?? 0);
+                    const base = `${formatAmount(summary.pendingInvoicesTotal, { compact: true })} outstanding`;
+                    return settlementPending > 0
+                        ? `${base} · ${settlementPending} settlement${settlementPending === 1 ? '' : 's'} pending`
+                        : base;
+                })(),
                 icon: Warning,
                 href: '/payments',
                 loading,

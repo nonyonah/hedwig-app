@@ -129,6 +129,7 @@ const sendTransaction = async (
     tx: RpcTx,
     gas: bigint,
     feeParams: Record<string, string>,
+    nonce?: number,
 ): Promise<string> => {
     // Use standard EIP-1193 `eth_sendTransaction`; do not sign and broadcast
     // raw transactions from app code. Also omit `type` because Privy's
@@ -140,6 +141,7 @@ const sendTransaction = async (
             ...tx,
             ...feeParams,
             gasLimit: toHex(gas),
+            ...(typeof nonce === 'number' ? { nonce: toHex(BigInt(nonce)) } : {}),
         }],
     }) as string;
 };
@@ -157,6 +159,40 @@ const getErrorMessage = (err: unknown): string => {
 
 const isAlreadyKnownError = (err: unknown): boolean =>
     getErrorMessage(err).toLowerCase().includes('already known');
+
+const isNonceTooLowError = (err: unknown): boolean => {
+    const m = getErrorMessage(err).toLowerCase();
+    return m.includes('nonce too low') || m.includes('nonce_too_low');
+};
+
+const extractNextNonce = (err: unknown): number | null => {
+    const m = getErrorMessage(err);
+    const match = m.match(/next\s*nonce[:\s]+(\d+)/i);
+    return match ? Number(match[1]) : null;
+};
+
+const sendWithNonceRetry = async (
+    provider: any,
+    tx: RpcTx,
+    gas: bigint,
+    feeParams: Record<string, string>,
+    rpc: ethers.JsonRpcProvider,
+    account: string,
+): Promise<string> => {
+    let nonce = await rpc.getTransactionCount(account, 'pending');
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            return await sendTransaction(provider, tx, gas, feeParams, nonce);
+        } catch (err) {
+            if (isAlreadyKnownError(err)) throw new GatewayDepositPendingError();
+            if (!isNonceTooLowError(err)) throw err;
+            const hinted = extractNextNonce(err);
+            const fresh = await rpc.getTransactionCount(account, 'pending');
+            nonce = Math.max(hinted ?? 0, fresh, nonce + 1);
+        }
+    }
+    throw new Error('Gateway deposit: nonce retries exhausted');
+};
 
 class GatewayDepositPendingError extends Error {
     constructor() {
@@ -255,10 +291,7 @@ async function runGatewayDeposit({
     };
     const approveGas = await getGasLimit(rpc, eip1193Provider, approveTx, APPROVE_GAS_FALLBACK);
     const approveFeeParams = await getFeeParams(rpc, chainKey);
-    const approveTxHash = await sendTransaction(eip1193Provider, approveTx, approveGas, approveFeeParams).catch((err) => {
-        if (isAlreadyKnownError(err)) throw new GatewayDepositPendingError();
-        throw err;
-    });
+    const approveTxHash = await sendWithNonceRetry(eip1193Provider, approveTx, approveGas, approveFeeParams, rpc, account);
     await rpc.waitForTransaction(approveTxHash);
 
     onStatus?.('Depositing into Gateway...');
@@ -271,10 +304,7 @@ async function runGatewayDeposit({
     };
     const depositGas = await getGasLimit(rpc, eip1193Provider, depositTx, DEPOSIT_GAS_FALLBACK);
     const depositFeeParams = await getFeeParams(rpc, chainKey);
-    const depositTxHash = await sendTransaction(eip1193Provider, depositTx, depositGas, depositFeeParams).catch((err) => {
-        if (isAlreadyKnownError(err)) throw new GatewayDepositPendingError();
-        throw err;
-    });
+    const depositTxHash = await sendWithNonceRetry(eip1193Provider, depositTx, depositGas, depositFeeParams, rpc, account);
     await rpc.waitForTransaction(depositTxHash);
 
     return { approveTxHash, depositTxHash };

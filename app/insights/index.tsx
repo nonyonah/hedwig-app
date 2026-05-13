@@ -246,7 +246,13 @@ export default function InsightsScreen() {
             {
                 label: 'Pending Invoices',
                 value: String(summary.pendingInvoicesCount),
-                comparison: `$${summary.pendingInvoicesTotal.toLocaleString()} outstanding`,
+                comparison: (() => {
+                    const settlementPending = (summary.withdrawalsPending ?? 0) + (summary.onrampPending ?? 0);
+                    const base = `$${summary.pendingInvoicesTotal.toLocaleString()} outstanding`;
+                    return settlementPending > 0
+                        ? `${base} · ${settlementPending} settlement${settlementPending === 1 ? '' : 's'} pending`
+                        : base;
+                })(),
                 trend: summary.pendingInvoicesCount > 0 ? ('down' as const) : ('neutral' as const),
                 route: '/invoices',
             },

@@ -54,6 +54,15 @@ export interface RevenueSummary {
   range: string;
   previousPeriodRevenue: number;
   revenueDeltaPct: number;
+  /** Fiat received via onramp (bank → USDC). Tracked separately from
+   * revenue so it doesn't inflate earnings — it's a currency hop. */
+  depositsTotal?: number;
+  depositsCount?: number;
+  depositsPending?: number;
+  /** Fiat sent via offramp (USDC → bank). */
+  withdrawalsTotal?: number;
+  withdrawalsCount?: number;
+  withdrawalsPending?: number;
 }
 
 export interface ClientRevenueBreakdown {

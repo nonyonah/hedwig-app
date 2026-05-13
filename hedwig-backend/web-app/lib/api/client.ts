@@ -850,8 +850,14 @@ export const hedwigApi = {
   },
 
   async clients(options?: ApiOptions): Promise<Client[]> {
-    const data = await request<{ clients: any[] }>('/api/clients', options);
-    return (data.clients || []).map(mapBackendClient);
+    return withFallback(
+      async () => {
+        const data = await request<{ clients: any[] }>('/api/clients', options);
+        return (data.clients || []).map(mapBackendClient);
+      },
+      () => mockClients,
+      options
+    );
   },
 
   async createClient(input: CreateClientInput, options?: ApiOptions): Promise<Client> {
@@ -867,29 +873,44 @@ export const hedwigApi = {
   },
 
   async client(id: string, options?: ApiOptions) {
-    const [clientData, projectsData, documents] = await Promise.all([
-      request<{ client: any }>(`/api/clients/${id}`, options),
-      this.projects(options),
-      fetchDocuments(options)
-    ]);
-    const client = mapBackendClient(clientData.client);
-    const invoices = documents
-      .filter((document) => String(document.type || '').toUpperCase() === 'INVOICE' && documentMatchesClient(document, client))
-      .map(mapBackendInvoice);
-    const paymentLinks = documents
-      .filter((document) => String(document.type || '').toUpperCase() === 'PAYMENT_LINK' && documentMatchesClient(document, client))
-      .map(mapBackendPaymentLink);
-    const contracts = documents
-      .filter((document) => String(document.type || '').toUpperCase() === 'CONTRACT' && documentMatchesClient(document, client))
-      .map(mapBackendContract);
+    return withFallback(
+      async () => {
+        const [clientData, projectsData, documents] = await Promise.all([
+          request<{ client: any }>(`/api/clients/${id}`, options),
+          this.projects(options),
+          fetchDocuments(options)
+        ]);
+        const client = mapBackendClient(clientData.client);
+        const invoices = documents
+          .filter((document) => String(document.type || '').toUpperCase() === 'INVOICE' && documentMatchesClient(document, client))
+          .map(mapBackendInvoice);
+        const paymentLinks = documents
+          .filter((document) => String(document.type || '').toUpperCase() === 'PAYMENT_LINK' && documentMatchesClient(document, client))
+          .map(mapBackendPaymentLink);
+        const contracts = documents
+          .filter((document) => String(document.type || '').toUpperCase() === 'CONTRACT' && documentMatchesClient(document, client))
+          .map(mapBackendContract);
 
-    return {
-      client,
-      projects: projectsData.filter((project) => project.clientId === id),
-      invoices,
-      paymentLinks,
-      contracts
-    };
+        return {
+          client,
+          projects: projectsData.filter((project) => project.clientId === id),
+          invoices,
+          paymentLinks,
+          contracts
+        };
+      },
+      () => {
+        const client = mockClients.find((c) => c.id === id) ?? mockClients[0];
+        return {
+          client,
+          projects: mockProjects.filter((project) => project.clientId === client?.id),
+          invoices: mockInvoices.filter((inv) => inv.clientId === client?.id),
+          paymentLinks: mockPaymentLinks.filter((pl) => pl.clientId === client?.id),
+          contracts: mockContracts.filter((c) => c.clientId === client?.id),
+        };
+      },
+      options
+    );
   },
 
   async projects(options?: ApiOptions): Promise<Project[]> {

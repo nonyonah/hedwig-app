@@ -8,7 +8,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const session = await getCurrentSession();
   const data = await hedwigApi.client(id, {
     accessToken: session.accessToken,
-    disableMockFallback: true
   });
 
   if (!data.client) notFound();

@@ -96,7 +96,7 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
         const rangeMs = now.getTime() - start.getTime();
         const prevStart = new Date(start.getTime() - rangeMs);
 
-        const [invoices, expenses] = await Promise.all([
+        const [invoices, expenses, offramps, onramps] = await Promise.all([
             fetchPaged<any>('invoices_summary', (from, to) =>
                 supabase
                     .from('documents')
@@ -114,6 +114,24 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                     .eq('user_id', user.id)
                     .gte('date', start.toISOString())
                     .order('date', { ascending: false })
+                    .range(from, to)
+            ).catch(() => [] as any[]),
+            fetchPaged<any>('offramp_revenue', (from, to) =>
+                supabase
+                    .from('offramp_orders')
+                    .select('id,status,fiat_amount,fiat_currency,created_at')
+                    .eq('user_id', user.id)
+                    .gte('created_at', start.toISOString())
+                    .order('created_at', { ascending: false })
+                    .range(from, to)
+            ).catch(() => [] as any[]),
+            fetchPaged<any>('onramp_revenue', (from, to) =>
+                supabase
+                    .from('onramp_orders')
+                    .select('id,status,fiat_amount,fiat_currency,created_at')
+                    .eq('user_id', user.id)
+                    .gte('created_at', start.toISOString())
+                    .order('created_at', { ascending: false })
                     .range(from, to)
             ).catch(() => [] as any[]),
         ]);
@@ -156,6 +174,15 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             ? ((paidRevenue - prevRevenue) / prevRevenue) * 100
             : paidRevenue > 0 ? 100 : 0;
 
+        const isCompleted = (o: any) => normalizeStatus(o.status) === 'COMPLETED';
+        const isPendingOrder = (o: any) => ['PENDING', 'PROCESSING'].includes(normalizeStatus(o.status));
+        const withdrawalsTotal = offramps.filter(isCompleted).reduce((s: number, o: any) => s + toNumber(o.fiat_amount), 0);
+        const withdrawalsCount = offramps.length;
+        const withdrawalsPending = offramps.filter(isPendingOrder).length;
+        const depositsTotal = onramps.filter(isCompleted).reduce((s: number, o: any) => s + toNumber(o.fiat_amount), 0);
+        const depositsCount = onramps.length;
+        const depositsPending = onramps.filter(isPendingOrder).length;
+
         res.json({
             success: true,
             data: {
@@ -171,6 +198,12 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                 gatedToFreeHistory: revenueHistoryGated,
                 previousPeriodRevenue: Number(prevRevenue.toFixed(2)),
                 revenueDeltaPct: Number(revenueDeltaPct.toFixed(1)),
+                depositsTotal: Number(depositsTotal.toFixed(2)),
+                depositsCount,
+                depositsPending,
+                withdrawalsTotal: Number(withdrawalsTotal.toFixed(2)),
+                withdrawalsCount,
+                withdrawalsPending,
             },
         });
     } catch (error) {

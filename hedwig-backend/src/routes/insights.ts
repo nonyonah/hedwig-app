@@ -238,7 +238,7 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
-        const [docs, txs, offramps, clientsCountRes, activeProjectsRes, topClientRes] = await Promise.all([
+        const [docs, txs, offramps, onramps, clientsCountRes, activeProjectsRes, topClientRes] = await Promise.all([
             fetchPagedRows<any>('documents_summary', (from, to) =>
                 supabase
                     .from('documents')
@@ -261,6 +261,15 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                 supabase
                     .from('offramp_orders')
                     .select('id,status,fiat_amount,fiat_currency,created_at')
+                    .eq('user_id', user.id)
+                    .gte('created_at', prevStart.toISOString())
+                    .order('created_at', { ascending: false })
+                    .range(from, to)
+            ),
+            fetchPagedRows<any>('onramp_summary', (from, to) =>
+                supabase
+                    .from('onramp_orders')
+                    .select('id,status,fiat_amount,fiat_currency,crypto_amount,created_at')
                     .eq('user_id', user.id)
                     .gte('created_at', prevStart.toISOString())
                     .order('created_at', { ascending: false })
@@ -326,6 +335,15 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
         const withdrawalsCompletedAmount = offrampsInRange
             .filter((o: any) => normalizeStatus(o.status) === 'COMPLETED')
             .reduce((sum: number, o: any) => sum + toNumber(o.fiat_amount), 0);
+
+        const onrampsInRange = onramps.filter((o: any) => new Date(o.created_at) >= start);
+        const onrampPending = onrampsInRange.filter((o: any) => ['PENDING', 'PROCESSING'].includes(normalizeStatus(o.status))).length;
+        const onrampCompletedFiatAmount = onrampsInRange
+            .filter((o: any) => normalizeStatus(o.status) === 'COMPLETED')
+            .reduce((sum: number, o: any) => sum + toNumber(o.fiat_amount), 0);
+        const onrampCompletedCryptoAmount = onrampsInRange
+            .filter((o: any) => normalizeStatus(o.status) === 'COMPLETED')
+            .reduce((sum: number, o: any) => sum + toNumber(o.crypto_amount), 0);
 
         // Last 6 months sparkline data from paid docs.
         const monthBuckets: Record<string, number> = {};
@@ -410,6 +428,10 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                     receivedAmount,
                     withdrawalsPending,
                     withdrawalsCompletedAmount,
+                    onrampPending,
+                    onrampCompletedFiatAmount,
+                    onrampCompletedCryptoAmount,
+                    onrampCount: onrampsInRange.length,
                 },
                 series: {
                     earnings: earningsSeries,
