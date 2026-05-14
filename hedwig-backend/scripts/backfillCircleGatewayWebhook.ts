@@ -231,10 +231,27 @@ async function upsertSubscription(
 
     if (evm.length === 0 && solana.length === 0) abort('No wallet addresses to register.');
 
+    // Single-address probe mode: useful when Circle returns a generic
+    // "API parameter invalid" — surfaces per-address validation faster.
+    if (process.env.CIRCLE_SINGLE === '1') {
+        if (solana.length > 0) solana.splice(1);
+        if (evm.length > 0) evm.splice(1);
+        console.log(`[probe] Trimmed to ${evm.length} EVM + ${solana.length} Solana addresses.`);
+    }
+
     const network = (process.env.GATEWAY_NETWORK || 'mainnet').toLowerCase();
     const isMainnet = network !== 'testnet';
     const environment = isMainnet ? 'LIVE' : 'TEST';
     const existingSubscriptions = await listSubscriptions(environment);
+
+    // Debug helper: dump the schema of an existing subscription so we can
+    // pattern-match its field shape on POST.
+    if (process.env.CIRCLE_DUMP_EXISTING === '1' && existingSubscriptions.length > 0) {
+        console.log('— existing subscriptions —');
+        for (const s of existingSubscriptions) {
+            console.log(JSON.stringify(s, null, 2));
+        }
+    }
 
     // Circle filters use flat address and domain lists. Keep EVM and Solana
     // subscriptions separate so the API never validates Solana addresses

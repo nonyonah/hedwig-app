@@ -134,6 +134,7 @@ async function ensureSubscription(
         addresses: seedAddresses,
         domains,
         environment: gatewayEnvironment(),
+        restricted: false,
     });
     if (!ok) {
         if (body?.message && String(body.message).includes('associated with another subscription')) {

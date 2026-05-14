@@ -215,6 +215,16 @@ const handleWebhook = async (req: Request, res: Response, _next: NextFunction) =
     const rawBody = (req as any).rawBody ?? JSON.stringify(req.body ?? {});
     const signature = findSignatureHeader(req);
 
+    // Circle pings `webhooks.test` (no signature) when verifying a new
+    // subscription endpoint. Acknowledge it with 200 unconditionally,
+    // otherwise the permissionless subscription creation aborts with a
+    // generic "API parameter invalid".
+    const probeType = String((req.body as any)?.notificationType || '').toLowerCase();
+    if (probeType === 'webhooks.test') {
+        res.status(200).json({ received: true, status: 'preflight_ok' });
+        return;
+    }
+
     if (process.env.NODE_ENV === 'production' && !verifySignature(rawBody, signature)) {
         logger.warn('Invalid Circle Gateway webhook signature', { signaturePresent: Boolean(signature) });
         res.status(401).json({ error: 'invalid_signature' });
