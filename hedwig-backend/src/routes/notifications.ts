@@ -33,6 +33,11 @@ const buildFallbackHref = (type: string, metadata: Record<string, any>): string 
         return `/projects/${projectId}`;
     }
 
+    if (lowerType.includes('onramp')) {
+        const orderId = metadata.orderId || metadata.order_id || metadata.entityId;
+        return orderId ? `/onramp/${orderId}` : '/wallet';
+    }
+
     if (lowerType.includes('wallet') || lowerType.includes('crypto') || lowerType.includes('offramp')) {
         return '/wallet';
     }

@@ -12,10 +12,11 @@ import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 
 interface Notification {
     id: string;
-    type: 'payment_received' | 'crypto_received' | 'offramp_success' | 'offramp' | 'announcement';
+    type: 'payment_received' | 'crypto_received' | 'offramp_success' | 'offramp' | 'onramp_success' | 'onramp' | 'announcement';
     title: string;
     message: string;
     metadata: any;
+    href?: string | null;
     is_read: boolean;
     created_at: string;
 }
@@ -26,6 +27,7 @@ const NOTIFICATION_FILTERS = [
     { id: 'payment_links', label: 'Payment Links' },
     { id: 'invoices', label: 'Invoices' },
     { id: 'withdrawals', label: 'Withdrawals' },
+    { id: 'deposits', label: 'Deposits' },
 ];
 
 const ICONS = {
@@ -183,7 +185,7 @@ export default function NotificationsScreen() {
             );
         }
 
-        if (type === 'crypto_received' || type === 'offramp_success' || type === 'offramp') {
+        if (type === 'crypto_received' || type === 'offramp_success' || type === 'offramp' || type === 'onramp_success' || type === 'onramp') {
             // Use USDC icon as base for now, can be dynamic if metadata.token is available and mapped
             return (
                 <View style={[styles.iconContainer, { backgroundColor: 'transparent', overflow: 'visible' }]}>
@@ -247,10 +249,30 @@ export default function NotificationsScreen() {
                 return notifications.filter(n => n.type === 'payment_received' && n.title.toLowerCase().includes('invoice'));
             case 'withdrawals':
                 return notifications.filter(n => n.type === 'offramp_success' || n.type === 'offramp');
+            case 'deposits':
+                return notifications.filter(n => n.type === 'onramp_success' || n.type === 'onramp');
             default:
                 return notifications;
         }
     }, [notifications, activeFilter]);
+
+    const getNotificationRoute = (item: Notification): string | null => {
+        if (typeof item.href === 'string' && item.href.trim()) return item.href.trim();
+        if (typeof item.metadata?.href === 'string' && item.metadata.href.trim()) return item.metadata.href.trim();
+        if ((item.type === 'onramp' || item.type === 'onramp_success') && item.metadata?.orderId) {
+            return `/onramp/${encodeURIComponent(String(item.metadata.orderId))}`;
+        }
+        if (item.type === 'offramp' || item.type === 'offramp_success') {
+            return '/offramp-history';
+        }
+        return null;
+    };
+
+    const handleNotificationPress = async (item: Notification) => {
+        await markAsRead(item.id);
+        const route = getNotificationRoute(item);
+        if (route) router.push(route as any);
+    };
 
     const sections = useMemo(() => {
         const today: Notification[] = [];
@@ -296,7 +318,7 @@ export default function NotificationsScreen() {
             <Swipeable renderRightActions={(progress, dragX) => renderRightActions(progress, dragX, item.id)}>
                 <TouchableOpacity
                     style={[styles.notificationItem, { backgroundColor: themeColors.background }]}
-                    onPress={() => markAsRead(item.id)}
+                    onPress={() => handleNotificationPress(item)}
                     activeOpacity={0.7}
                 >
                     {getNotificationIcon(item.type, item.metadata)}
@@ -318,7 +340,9 @@ export default function NotificationsScreen() {
                                 ? `You received ${item.metadata.amount} ${item.metadata.token || 'USDC'} from ${formatAddress(item.metadata.from)}`
                                 : (item.type === 'offramp_success' || item.type === 'offramp') && item.metadata?.amount
                                     ? `You withdrew ${item.metadata.amount} ${item.metadata.token || 'USDC'} to ${item.metadata.destination || 'your bank'}`
-                                    : item.message}
+                                    : (item.type === 'onramp_success' || item.type === 'onramp') && item.metadata?.fiatAmount
+                                        ? `${item.metadata.fiatAmount} ${item.metadata.fiatCurrency || ''} deposit status: ${item.metadata.status || 'processing'}`
+                                        : item.message}
                         </Text>
                     </View>
                 </TouchableOpacity>

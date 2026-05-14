@@ -66,12 +66,12 @@ class NotificationService {
     }
 
     isOneSignalConfigured(): boolean {
-        // Hard kill switch: setting DISABLE_ONESIGNAL=true on Cloud Run forces
-        // the Expo push fallback even when OneSignal credentials are present.
-        if (String(process.env.DISABLE_ONESIGNAL || '').toLowerCase() === 'true') {
-            return false;
-        }
-        return this.getOneSignalConfig().enabled;
+        // Hedwig now delivers mobile push through Expo. Keep the legacy
+        // OneSignal helpers around for old admin tooling, but never let stale
+        // Cloud Run env vars divert transactional webhook pushes away from
+        // the Expo device_tokens table.
+        return String(process.env.ENABLE_LEGACY_ONESIGNAL || '').toLowerCase() === 'true' &&
+            this.getOneSignalConfig().enabled;
     }
 
     private getOneSignalHeaders(restApiKey: string) {

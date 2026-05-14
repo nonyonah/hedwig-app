@@ -63,12 +63,6 @@
       "bundleIdentifier": "com.hedwig.app"
     },
     "plugins": [
-      [
-        "onesignal-expo-plugin",
-        {
-          "mode": "production"
-        }
-      ],
       "expo-notifications",
       "expo-router",
       "expo-web-browser",
@@ -106,7 +100,6 @@
       },
       "privyAppId": "",
       "privyClientId": "",
-      "oneSignalAppId": "",
       "revenueCatAppleApiKey": "",
       "revenueCatGoogleApiKey": "",
       "eas": {

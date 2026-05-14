@@ -35,15 +35,6 @@ import { privyConfig } from '../lib/privy';
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
-const ONESIGNAL_DISABLED =
-    String(process.env.EXPO_PUBLIC_DISABLE_ONESIGNAL || '').toLowerCase() === 'true' ||
-    String(Constants.expoConfig?.extra?.disableOneSignal || '').toLowerCase() === 'true';
-const ONESIGNAL_APP_ID = ONESIGNAL_DISABLED
-    ? ''
-    : (Constants.expoConfig?.extra?.oneSignalAppId ||
-        process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID ||
-        process.env.ONESIGNAL_APP_ID ||
-        '');
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || '';
 
 declare global {
@@ -124,56 +115,6 @@ const installIOSSystemFontAliases = () => {
 };
 
 installIOSSystemFontAliases();
-
-const resolveOneSignalSdk = (oneSignalModule: any) =>
-    oneSignalModule?.OneSignal ||
-    oneSignalModule?.default?.OneSignal ||
-    oneSignalModule?.default ||
-    oneSignalModule;
-
-const getOneSignalPushSubscriptionId = async (OneSignal: any): Promise<string | null> => {
-    const pushSubscription = OneSignal?.User?.pushSubscription;
-    if (!pushSubscription) return null;
-
-    const id =
-        (typeof pushSubscription.getIdAsync === 'function'
-            ? await pushSubscription.getIdAsync()
-            : null) ||
-        (typeof pushSubscription.getPushSubscriptionId === 'function'
-            ? pushSubscription.getPushSubscriptionId()
-            : null) ||
-        pushSubscription.id ||
-        null;
-
-    return id ? String(id) : null;
-};
-
-const getOneSignalPushToken = async (OneSignal: any): Promise<string | null> => {
-    const pushSubscription = OneSignal?.User?.pushSubscription;
-    if (!pushSubscription) return null;
-
-    const token =
-        (typeof pushSubscription.getTokenAsync === 'function'
-            ? await pushSubscription.getTokenAsync()
-            : null) ||
-        (typeof pushSubscription.getPushSubscriptionToken === 'function'
-            ? pushSubscription.getPushSubscriptionToken()
-            : null) ||
-        pushSubscription.token ||
-        null;
-
-    return token ? String(token) : null;
-};
-
-const getOneSignalPermission = async (OneSignal: any): Promise<boolean> => {
-    if (typeof OneSignal?.Notifications?.getPermissionAsync === 'function') {
-        return Boolean(await OneSignal.Notifications.getPermissionAsync());
-    }
-    if (typeof OneSignal?.Notifications?.hasPermission === 'function') {
-        return Boolean(OneSignal.Notifications.hasPermission());
-    }
-    return Boolean(OneSignal?.Notifications?.permission);
-};
 
 const applyGlobalTypographyDefaults = () => {
     const defaultFontFamily = Platform.OS === 'android' ? 'GoogleSansFlex_400Regular' : 'System';
@@ -304,11 +245,7 @@ import { UserProvider } from '../context/UserContext';
 function PushNotificationBootstrap() {
     const { user, isReady, getAccessToken } = useAuth();
     const { isRegistered, registerForPushNotifications, registerWithBackend } = usePushNotifications();
-    const initializedOneSignalRef = React.useRef(false);
     const trackedAppOpenedRef = React.useRef(false);
-    const oneSignalRef = React.useRef<any>(null);
-    const oneSignalSubscriptionListenerRef = React.useRef<any>(null);
-    const lastSyncedSubscriptionIdRef = React.useRef<string | null>(null);
 
     const registerEngagementEvent = useCallback(async (event: string, properties: Record<string, any> = {}) => {
         try {
@@ -332,165 +269,9 @@ function PushNotificationBootstrap() {
         }
     }, [user?.id, getAccessToken]);
 
-    const registerOneSignalSubscriptionWithBackend = useCallback(async (payload: {
-        externalId: string;
-        subscriptionId: string;
-        token?: string | null;
-    }) => {
-        try {
-            const authToken = await getAccessToken();
-            if (!authToken) return;
-
-            await fetch(joinApiUrl('/api/notifications/register-onesignal'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`,
-                },
-                body: JSON.stringify({
-                    externalId: payload.externalId,
-                    subscriptionId: payload.subscriptionId,
-                    token: payload.token || null,
-                    platform: Platform.OS,
-                }),
-            });
-        } catch (error) {
-            console.error('[Push] Failed to register OneSignal subscription with backend:', error);
-        }
-    }, [getAccessToken]);
-
-    const syncOneSignalSubscription = useCallback(async (externalId: string) => {
-        const OneSignal = oneSignalRef.current;
-        if (!OneSignal) return;
-
-        try {
-            const subscriptionId = await getOneSignalPushSubscriptionId(OneSignal);
-            const subscriptionToken = await getOneSignalPushToken(OneSignal);
-
-            if (!subscriptionId) return;
-            const normalizedId = String(subscriptionId);
-            if (lastSyncedSubscriptionIdRef.current === normalizedId) return;
-
-            lastSyncedSubscriptionIdRef.current = normalizedId;
-            await registerOneSignalSubscriptionWithBackend({
-                externalId,
-                subscriptionId: normalizedId,
-                token: subscriptionToken ? String(subscriptionToken) : null,
-            });
-        } catch (error) {
-            console.error('[Push] Failed to sync OneSignal subscription:', error);
-        }
-    }, [registerOneSignalSubscriptionWithBackend]);
-
-    const ensureOneSignalPermission = useCallback(async () => {
-        const OneSignal = oneSignalRef.current;
-        if (!OneSignal) return;
-
-        try {
-            const hasPermission = await getOneSignalPermission(OneSignal);
-
-            // Ask on first run; if already denied, OneSignal will route user to app settings.
-            if (!hasPermission) {
-                await OneSignal.Notifications.requestPermission(true);
-            }
-
-            // Ensure device is opted in on OneSignal side.
-            if (OneSignal.User?.pushSubscription?.optIn) {
-                OneSignal.User.pushSubscription.optIn();
-            }
-        } catch (error) {
-            console.error('[Push] Failed to ensure OneSignal permission:', error);
-        }
-    }, []);
-
     useEffect(() => {
         const setupPushNotifications = async () => {
             if (!isReady) return;
-
-            // Prefer OneSignal when configured.
-            if (Platform.OS !== 'web' && ONESIGNAL_APP_ID) {
-                try {
-                    const oneSignalModule = require('react-native-onesignal');
-                    const OneSignal = resolveOneSignalSdk(oneSignalModule);
-                    if (!OneSignal || typeof OneSignal.initialize !== 'function') {
-                        throw new Error('OneSignal SDK is not available in this native build');
-                    }
-                    oneSignalRef.current = OneSignal;
-
-                    if (!initializedOneSignalRef.current) {
-                        if (OneSignal?.Debug?.setLogLevel && __DEV__) {
-                            OneSignal.Debug.setLogLevel(5);
-                        }
-                        OneSignal.initialize(ONESIGNAL_APP_ID);
-                        initializedOneSignalRef.current = true;
-                    }
-
-                    if (user?.id) {
-                        await OneSignal.login(user.id);
-                        if (OneSignal.User?.addAlias) {
-                            OneSignal.User.addAlias('privy_id', String(user.id));
-                        }
-                        const userEmail =
-                            (typeof (user as any)?.email === 'string' ? (user as any).email : undefined) ||
-                            (user as any)?.email?.address ||
-                            (user as any)?.google?.email ||
-                            (user as any)?.apple?.email ||
-                            (Array.isArray((user as any)?.linkedAccounts)
-                                ? (user as any).linkedAccounts.find((a: any) => a?.type === 'email')?.address
-                                : undefined);
-                        if (userEmail && OneSignal.User?.addEmail) {
-                            OneSignal.User.addEmail(String(userEmail));
-                        }
-
-                        // Tag user for segmentation and personalization per OneSignal docs
-                        if (OneSignal.User?.addTags) {
-                            OneSignal.User.addTags({
-                                platform: Platform.OS,
-                                has_email: userEmail ? 'true' : 'false',
-                                app_version: String(
-                                    Constants.expoConfig?.version ||
-                                    (Constants as any).manifest?.version ||
-                                    '1.0.0'
-                                ),
-                            });
-                        }
-
-                        await ensureOneSignalPermission();
-
-                        // Initial sync — subscription ID may not be available yet immediately
-                        // after login(), so we also schedule a retry after a short delay.
-                        await syncOneSignalSubscription(String(user.id));
-                        setTimeout(() => {
-                            void syncOneSignalSubscription(String(user.id));
-                        }, 4000);
-
-                        if (typeof OneSignal.User?.pushSubscription?.addEventListener === 'function') {
-                            if (
-                                oneSignalSubscriptionListenerRef.current &&
-                                typeof OneSignal.User?.pushSubscription?.removeEventListener === 'function'
-                            ) {
-                                OneSignal.User.pushSubscription.removeEventListener('change', oneSignalSubscriptionListenerRef.current);
-                            }
-
-                            const listener = (event: any) => {
-                                const current = event?.current || event || {};
-                                const nextId = current?.id;
-                                if (!nextId) return;
-                                lastSyncedSubscriptionIdRef.current = null;
-                                void syncOneSignalSubscription(String(user.id));
-                            };
-
-                            OneSignal.User.pushSubscription.addEventListener('change', listener);
-                            oneSignalSubscriptionListenerRef.current = listener;
-                        }
-                    } else if (initializedOneSignalRef.current) {
-                        OneSignal.logout();
-                        lastSyncedSubscriptionIdRef.current = null;
-                    }
-                } catch (error) {
-                    console.error('[Push] OneSignal initialization failed, continuing with Expo push fallback:', error);
-                }
-            }
 
             if (!user || isRegistered) return;
 
@@ -508,31 +289,7 @@ function PushNotificationBootstrap() {
         };
 
         setupPushNotifications();
-        return () => {
-            const OneSignal = oneSignalRef.current;
-            if (
-                OneSignal &&
-                oneSignalSubscriptionListenerRef.current &&
-                typeof OneSignal.User?.pushSubscription?.removeEventListener === 'function'
-            ) {
-                OneSignal.User.pushSubscription.removeEventListener('change', oneSignalSubscriptionListenerRef.current);
-                oneSignalSubscriptionListenerRef.current = null;
-            }
-        };
-    }, [isReady, user, isRegistered, getAccessToken, registerForPushNotifications, registerWithBackend, ensureOneSignalPermission, syncOneSignalSubscription]);
-
-    useEffect(() => {
-        if (Platform.OS === 'web' || !ONESIGNAL_APP_ID) return;
-        const appStateSubscription = AppState.addEventListener('change', (state) => {
-            if (state === 'active') {
-                void ensureOneSignalPermission();
-            }
-        });
-
-        return () => {
-            appStateSubscription.remove();
-        };
-    }, [ensureOneSignalPermission]);
+    }, [isReady, user, isRegistered, getAccessToken, registerForPushNotifications, registerWithBackend]);
 
     useEffect(() => {
         if (!isReady) return;

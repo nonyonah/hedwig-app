@@ -312,6 +312,7 @@ const processOnrampWebhook = async ({
                     paycrestOrderId,
                     event,
                     status: newStatus,
+                    href: `/onramp/${resolvedOrder.id}`,
                     fiatAmount,
                     fiatCurrency,
                     cryptoAmount,
@@ -627,13 +628,14 @@ router.post('/', async (req: Request, res: Response) => {
                     title: copy.title,
                     message: copy.body,
                     type: notificationType,
-                    metadata: {
-                        orderId: resolvedOrder.id,
-                        paycrestOrderId: paycrestOrderId,
-                        event,
-                        status: newStatus,
-                        amount: resolvedOrder.crypto_amount,
-                        token: resolvedOrder.token,
+                metadata: {
+                    orderId: resolvedOrder.id,
+                    paycrestOrderId: paycrestOrderId,
+                    event,
+                    status: newStatus,
+                    href: '/offramp-history',
+                    amount: resolvedOrder.crypto_amount,
+                    token: resolvedOrder.token,
                         destination,
                         fiatAmount: resolvedOrder.fiat_amount,
                         fiatCurrency: resolvedOrder.fiat_currency,
@@ -658,6 +660,7 @@ router.post('/', async (req: Request, res: Response) => {
                         event,
                         paycrestOrderId,
                         txHash,
+                        route: '/offramp-history',
                     }
                 });
                 logger.info('Push notification sent for order update');
