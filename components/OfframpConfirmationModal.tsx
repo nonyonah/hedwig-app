@@ -602,7 +602,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
 
             const destChainKey: GatewayChainKey = (() => {
                 const n = network;
-                if (n === 'base' || n === 'arbitrum' || n === 'polygon') return n as GatewayEvmChainKey;
+                if (n === 'base' || n === 'arbitrum' || n === 'polygon' || n === 'optimism') return n as GatewayEvmChainKey;
                 if (n === 'solana' || n === 'solana_devnet') return 'solana';
                 throw new Error(`Unsupported destination chain: ${data.network}`);
             })();
@@ -612,7 +612,8 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
             }
 
             const grossAmount = toNumber(data.amount);
-            const transferAmount = Number(order.cryptoAmount || getNetCryptoAmount(grossAmount));
+            const providerServiceFee = Number(order.serviceFee || 0);
+            const transferAmount = Number(order.cryptoAmount || getNetCryptoAmount(grossAmount)) + (Number.isFinite(providerServiceFee) ? providerServiceFee : 0);
             const transferAmountStr = transferAmount.toFixed(6);
             const transferAmountSubunits = BigInt(Math.floor(transferAmount * 1_000_000));
 
@@ -671,7 +672,6 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                         to: destConfig.usdc,
                         data: erc20Data,
                         chainId: destConfig.chainIdHex,
-                        gas: '0x30D40', // 200000
                     }],
                 }) as string;
 
@@ -695,7 +695,13 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
                 (liquidityByDomain.get(GATEWAY_DOMAINS[key]) ?? 0n) >= transferAmountSubunits
             );
             if (!sourceChainKey) {
-                throw new Error('Insufficient unified balance for this withdrawal. Top up via deposit.');
+                const totalGateway = sourceCandidates.reduce(
+                    (sum, key) => sum + (liquidityByDomain.get(GATEWAY_DOMAINS[key]) ?? 0n),
+                    0n,
+                );
+                throw new Error(
+                    `Unified balance has ${formatGatewayUsdc(totalGateway)} USDC, but no single Gateway chain has enough for this withdrawal yet. Add balance on one supported chain or withdraw a smaller amount.`
+                );
             }
             const sourceConfig = GATEWAY_EVM_CHAINS[sourceChainKey];
             const destConfig = GATEWAY_EVM_CHAINS[destChainKey];

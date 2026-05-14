@@ -239,7 +239,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
     const ethereumWallet = useEmbeddedEthereumWallet();
     const solanaWallet = useEmbeddedSolanaWallet();
     const gatewayBalance = useGatewayBalance();
-    const { balances: walletBalances, fetchBalances: refreshWalletBalances } = useWallet();
+    const { fetchBalances: refreshWalletBalances } = useWallet();
 
     const evmWallets = (ethereumWallet as any)?.wallets || [];
     const solanaWallets = (solanaWallet as any)?.wallets || [];
@@ -775,57 +775,6 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
             }
         }
         if (!sourceChainKey) {
-            // Gateway has no single chain with enough liquidity. Try to
-            // fall back to a direct ERC-20 transfer on whichever EVM chain
-            // the EOA actually holds the USDC on (recipient is an EVM
-            // address — same address works on every EVM chain).
-            if (destChainKey !== 'solana') {
-                const evmCandidates: GatewayEvmChainKey[] = ['base', 'arbitrum', 'polygon', 'optimism'];
-                // First confirmation tap can race the initial
-                // /api/wallet/balance fetch — fetch fresh balances inline so
-                // the user doesn't have to tap twice. We bypass the hook
-                // closure (which only updates on re-render) and read the
-                // response body directly here.
-                let scanBalances: any[] = walletBalances;
-                const haveAnyUsdc = walletBalances.some((b: any) => b.asset === 'usdc');
-                if (!haveAnyUsdc) {
-                    try {
-                        const token = await getAccessToken();
-                        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                        const res = await fetch(`${apiUrl}/api/wallet/balance`, {
-                            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                        });
-                        const json = await res.json();
-                        if (json?.success && Array.isArray(json?.data?.balances)) {
-                            scanBalances = json.data.balances;
-                        }
-                    } catch { /* fall through with whatever we have */ }
-                }
-                const usdcOnChain = (chain: GatewayEvmChainKey): bigint => {
-                    const entry = scanBalances.find(
-                        (b: any) => b.chain === chain && b.asset === 'usdc',
-                    );
-                    if (!entry) return 0n;
-                    const raw = entry.raw_value;
-                    if (typeof raw === 'string' && raw.length > 0) {
-                        try { return BigInt(raw); } catch { /* ignore */ }
-                    }
-                    const display = parseFloat(entry?.display_values?.token ?? '0');
-                    return Number.isFinite(display) ? BigInt(Math.floor(display * 1_000_000)) : 0n;
-                };
-                // Prefer the chain the user actually picked; otherwise pick
-                // the first chain holding enough USDC.
-                const preferred: GatewayEvmChainKey[] = [destChainKey as GatewayEvmChainKey, ...evmCandidates.filter((c) => c !== destChainKey)];
-                const fallbackChain = preferred.find((c) => usdcOnChain(c) >= value);
-                if (fallbackChain) {
-                    setStatusMessage(`Falling back to direct transfer on ${GATEWAY_EVM_CHAINS[fallbackChain].name}…`);
-                    return await sendDirectErc20OnSource({
-                        destChainKey: fallbackChain,
-                        tokenSymbol,
-                        amountSubunits: value,
-                    });
-                }
-            }
             const liquiditySource = freshPerDomain && freshPerDomain.length > 0
                 ? freshPerDomain
                 : gatewayBalance.perDomain;
@@ -834,7 +783,7 @@ export const TransactionConfirmationModal = forwardRef<TrueSheet, TransactionCon
                 0n,
             );
             throw new Error(
-                `No chain holds enough USDC. Aggregated has ${formatGatewayUsdc(totalGateway)} USDC, need ${formatGatewayUsdc(value)}. Top up via Wallet → token detail → Add to balance.`
+                `Unified balance has ${formatGatewayUsdc(totalGateway)} USDC, but no single Gateway chain has enough for this transfer yet. Add balance on one supported chain or send a smaller amount.`
             );
         }
 

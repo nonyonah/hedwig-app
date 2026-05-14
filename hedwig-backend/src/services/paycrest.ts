@@ -176,6 +176,33 @@ export class PaycrestService {
         }
         return null;
     }
+
+    private static extractProviderError(error: any): { status: number | null; body: any; message: string } {
+        const status = error?.response?.status ?? null;
+        const body = error?.response?.data;
+        const providerMessage =
+            body?.message ||
+            body?.error ||
+            (typeof body === 'string' && body.trim() ? body.trim() : null) ||
+            error?.message ||
+            (status ? `HTTP ${status} from Paycrest` : 'Unknown Paycrest error');
+
+        return { status, body, message: providerMessage };
+    }
+
+    private static normalizeOrderStatus(status: any): 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' {
+        const statusRaw = String(status || 'PENDING').toUpperCase();
+        if (statusRaw === 'COMPLETED' || statusRaw === 'SUCCESS' || statusRaw === 'SETTLED' || statusRaw === 'VALIDATED') {
+            return 'COMPLETED';
+        }
+        if (statusRaw === 'FAILED' || statusRaw === 'CANCELLED' || statusRaw === 'REFUNDED' || statusRaw === 'EXPIRED') {
+            return 'FAILED';
+        }
+        if (statusRaw === 'PROCESSING' || statusRaw === 'SETTLING' || statusRaw === 'DEPOSITED' || statusRaw === 'PENDING') {
+            return 'PROCESSING';
+        }
+        return 'PENDING';
+    }
     /**
      * Get supported institutions for a currency
      * GET /institutions/{currency}
@@ -376,7 +403,7 @@ export class PaycrestService {
 
             logger.debug('Verifying bank account');
 
-            const response = await paycrestClient.post('/verify-account', {
+            const response = await paycrestClientV2.post('/verify-account', {
                 institution: institutionCode,
                 accountIdentifier: accountNumber,
                 currency: currency.toUpperCase(),
@@ -426,30 +453,46 @@ export class PaycrestService {
             let lastError: any = null;
 
             for (const networkCandidate of this.getNetworkCandidates(orderData.network)) {
-                const payload = {
-                    amount: orderData.amount,
-                    token: orderData.token.toUpperCase(),
-                    network: networkCandidate,
-                    rate: orderData.rate,
-                    recipient: {
-                        institution: institutionCode,
-                        accountIdentifier: orderData.recipient.accountIdentifier,
-                        accountName: orderData.recipient.accountName,
-                        currency: orderData.recipient.currency || 'NGN',
-                        memo: orderData.recipient.memo || 'Payment',
+                // Paycrest v2 unified order shape — crypto -> fiat (offramp).
+                // Docs: POST /v2/sender/orders with source.type=crypto and
+                // destination.type=fiat. `amountIn` defaults to crypto, so we
+                // omit it to match the published offramp example.
+                const payload: Record<string, any> = {
+                    amount: String(orderData.amount),
+                    source: {
+                        type: 'crypto',
+                        currency: orderData.token.toUpperCase(),
+                        network: networkCandidate,
+                        refundAddress: orderData.returnAddress,
                     },
-                    returnAddress: orderData.returnAddress,
+                    destination: {
+                        type: 'fiat',
+                        currency: (orderData.recipient.currency || 'NGN').toUpperCase(),
+                        recipient: {
+                            institution: institutionCode,
+                            accountIdentifier: orderData.recipient.accountIdentifier,
+                            accountName: orderData.recipient.accountName,
+                            memo: orderData.recipient.memo || 'Payment',
+                        },
+                    },
                     reference: orderData.reference || `ref-${Date.now()}`,
                 };
 
+                if (orderData.rate) {
+                    payload.rate = orderData.rate;
+                }
+
                 try {
-                    response = await paycrestClient.post('/sender/orders', payload);
+                    response = await paycrestClientV2.post('/sender/orders', payload);
                     break;
                 } catch (error: any) {
                     lastError = error;
+                    const providerError = this.extractProviderError(error);
                     logger.warn('Paycrest order creation failed for network candidate', {
                         network: networkCandidate,
-                        error: error.response?.data?.message || error.message
+                        status: providerError.status,
+                        body: providerError.body,
+                        message: providerError.message,
                     });
                 }
             }
@@ -462,15 +505,44 @@ export class PaycrestService {
 
             // Paycrest API returns: { status: "success", message: "...", data: { id, receiveAddress, ... } }
             const apiData = response.data?.data || response.data;
+            const providerAccount =
+                apiData.providerAccount ||
+                apiData.provider_account ||
+                apiData.receiveAddress ||
+                apiData.receive_address ||
+                apiData.paymentDetails ||
+                apiData.payment_details ||
+                {};
 
             if (!apiData?.id) {
-                logger.error('No order ID in response');
+                logger.error('No order ID in response', { rawKeys: Object.keys(apiData || {}) });
                 throw new Error('Paycrest did not return a valid order ID');
+            }
+
+            const receiveAddress =
+                providerAccount.receiveAddress ||
+                providerAccount.receive_address ||
+                providerAccount.address ||
+                providerAccount.depositAddress ||
+                providerAccount.deposit_address ||
+                apiData.receiveAddress ||
+                apiData.receive_address ||
+                apiData.depositAddress ||
+                apiData.deposit_address ||
+                null;
+
+            if (!receiveAddress) {
+                logger.error('Paycrest offramp order missing receive address', {
+                    orderId: apiData.id,
+                    rawKeys: Object.keys(apiData || {}),
+                    providerKeys: Object.keys(providerAccount || {}),
+                });
+                throw new Error('Paycrest did not return a crypto receive address');
             }
 
             // Prefer provider-returned values when available to avoid UI/backend mismatch.
             const providerRate =
-                this.firstFiniteNumber(apiData.exchangeRate, apiData.exchange_rate, apiData.rate);
+                this.firstFiniteNumber(apiData.exchangeRate, apiData.exchange_rate, apiData.rate, apiData.quote?.rate);
             const rateVal = providerRate ?? parseFloat(orderData.rate);
 
             const providerFiatAmount =
@@ -487,26 +559,25 @@ export class PaycrestService {
                 );
             const fiatAmount = providerFiatAmount ?? (orderData.amount * rateVal);
 
-            const senderFee = this.firstFiniteNumber(apiData.senderFee, apiData.sender_fee) ?? 0;
-            const transactionFee = this.firstFiniteNumber(apiData.transactionFee, apiData.transaction_fee) ?? 0;
-            const statusRaw = String(apiData.status || 'PENDING').toUpperCase();
-            const normalizedStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' =
-                statusRaw === 'COMPLETED' || statusRaw === 'SUCCESS'
-                    ? 'COMPLETED'
-                    : statusRaw === 'FAILED' || statusRaw === 'CANCELLED' || statusRaw === 'REFUNDED' || statusRaw === 'EXPIRED'
-                        ? 'FAILED'
-                        : statusRaw === 'PROCESSING'
-                            ? 'PROCESSING'
-                            : 'PENDING';
+            const senderFee = this.firstFiniteNumber(apiData.senderFee, apiData.sender_fee, apiData.fees?.senderFee) ?? 0;
+            const transactionFee = this.firstFiniteNumber(apiData.transactionFee, apiData.transaction_fee, apiData.fees?.transactionFee) ?? 0;
+            const validUntil =
+                providerAccount.validUntil ||
+                providerAccount.valid_until ||
+                apiData.validUntil ||
+                apiData.valid_until ||
+                apiData.expiresAt ||
+                apiData.expires_at ||
+                '';
 
             return {
                 id: apiData.id,
                 orderId: apiData.id,
-                receiveAddress: apiData.receiveAddress,
-                validUntil: apiData.validUntil,
+                receiveAddress,
+                validUntil,
                 senderFee,
                 transactionFee,
-                status: normalizedStatus,
+                status: this.normalizeOrderStatus(apiData.status),
                 amount: orderData.amount,
                 token: orderData.token,
                 network: orderData.network,
@@ -516,8 +587,13 @@ export class PaycrestService {
                 createdAt: new Date().toISOString()
             };
         } catch (error: any) {
-            logger.error('Error creating order', { error: error.response?.data?.message || error.message });
-            throw new Error('Failed to create offramp order: ' + (JSON.stringify(error.response?.data) || error.message));
+            const providerError = this.extractProviderError(error);
+            logger.error('Error creating order', {
+                status: providerError.status,
+                body: providerError.body,
+                error: providerError.message,
+            });
+            throw new Error(`Failed to create offramp order: ${providerError.message}`);
         }
     }
 
@@ -527,11 +603,15 @@ export class PaycrestService {
      */
     static async getOrderStatus(orderId: string): Promise<any> {
         try {
-            const response = await paycrestClient.get(`/sender/orders/${orderId}`);
+            const response = await paycrestClientV2.get(`/sender/orders/${orderId}`);
             return response.data;
         } catch (error: any) {
-            logger.error('Error getting order status', { error: error.response?.data?.message || error.message });
-            // Return null or throw?
+            const providerError = this.extractProviderError(error);
+            logger.error('Error getting order status', {
+                status: providerError.status,
+                body: providerError.body,
+                error: providerError.message,
+            });
             throw new Error('Failed to get order status from Paycrest');
         }
     }

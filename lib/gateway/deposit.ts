@@ -268,6 +268,17 @@ export async function depositToGateway({
     return depositPromise;
 }
 
+// Minimum native balance (in wei) required for both approve + deposit.
+// Conservative — covers the highest-fee chain (Polygon ~$0.005) plus headroom.
+const MIN_NATIVE_FOR_DEPOSIT_WEI = 1_000_000_000_000_000n; // 0.001 ETH/POL
+
+class InsufficientNativeGasError extends Error {
+    constructor(chainName: string, nativeSymbol: string) {
+        super(`Not enough ${nativeSymbol} on ${chainName} to deposit USDC into the unified balance. Top up a small amount of ${nativeSymbol} on ${chainName} and try again.`);
+        this.name = 'InsufficientNativeGasError';
+    }
+}
+
 async function runGatewayDeposit({
     chainKey,
     eip1193Provider,
@@ -276,6 +287,21 @@ async function runGatewayDeposit({
     onStatus,
 }: DepositToGatewayArgs & { account: string }): Promise<DepositResult> {
     const config = GATEWAY_EVM_CHAINS[chainKey];
+
+    // Pre-flight: bail before broadcasting if the EOA can't even cover gas.
+    // This surfaces a clear error instead of letting Privy or the RPC return
+    // a generic "insufficient funds" mid-broadcast.
+    try {
+        const rpcCheck = new ethers.JsonRpcProvider(config.rpcUrl);
+        const nativeBalance = await rpcCheck.getBalance(account);
+        if (nativeBalance < MIN_NATIVE_FOR_DEPOSIT_WEI) {
+            throw new InsufficientNativeGasError(config.name, config.nativeSymbol);
+        }
+    } catch (err: any) {
+        if (err instanceof InsufficientNativeGasError) throw err;
+        // RPC failure shouldn't block deposit attempt — fall through and let
+        // the broadcast surface the real error.
+    }
 
     const rpc = new ethers.JsonRpcProvider(config.rpcUrl);
     const erc20 = new ethers.Interface(ERC20_APPROVE_ABI as any);
