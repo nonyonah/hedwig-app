@@ -378,7 +378,8 @@ export class PaycrestService {
 
             const response = await paycrestClient.post('/verify-account', {
                 institution: institutionCode,
-                accountIdentifier: accountNumber
+                accountIdentifier: accountNumber,
+                currency: currency.toUpperCase(),
             });
 
             logger.debug('Account verification response received');

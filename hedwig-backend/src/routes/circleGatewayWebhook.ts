@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { supabase } from '../lib/supabase';
 import NotificationService from '../services/notifications';
 import BackendAnalytics from '../services/analytics';
+import { EmailService } from '../services/email';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('CircleGatewayWebhook');
@@ -172,10 +173,10 @@ const buildCopy = (envelope: WebhookEnvelope): { title: string; body: string; ty
             const p = envelope.notification as DepositFinalizedPayload;
             const amount = formatUsdc(p.amount);
             return {
-                title: 'USDC added to aggregated balance',
+                title: 'Aggregated USDC topped up',
                 body: amount
-                    ? `${amount} USDC deposited from ${chain} is now spendable across every supported chain.`
-                    : `Your deposit on ${chain} is now spendable across every supported chain.`,
+                    ? `${amount} USDC deposited from ${chain} is now part of your Aggregated USDC balance.`
+                    : `Your deposit on ${chain} is now part of your Aggregated USDC balance.`,
                 type: 'gateway_deposit_finalized',
             };
         }
@@ -335,6 +336,53 @@ const handleWebhook = async (req: Request, res: Response, _next: NextFunction) =
     } catch (pushErr) {
         logger.warn('Failed to push gateway notification', {
             error: pushErr instanceof Error ? pushErr.message : 'Unknown',
+        });
+    }
+
+    // Email fallback so the user gets confirmation even when push delivery
+    // fails. Looks up the user's email + first name and routes through the
+    // shared aggregated USDC template (deep-links into the mobile app).
+    try {
+        const kindMap: Record<string, 'deposit_finalized' | 'mint_forwarded' | 'mint_finalized'> = {
+            gateway_deposit_finalized: 'deposit_finalized',
+            gateway_mint_forwarded: 'mint_forwarded',
+            gateway_mint_finalized: 'mint_finalized',
+        };
+        const kind = kindMap[copy.type];
+        if (kind) {
+            const { data: userRow } = await supabase
+                .from('users')
+                .select('email, first_name')
+                .eq('id', userId)
+                .maybeSingle();
+            const recipient = userRow?.email && typeof userRow.email === 'string' ? userRow.email : null;
+            if (recipient) {
+                const notification = envelope.notification as any || {};
+                const rawAmount =
+                    notification.amount ??
+                    (Array.isArray(notification.attestations)
+                        ? notification.attestations.reduce((sum: bigint, a: any) => {
+                              try {
+                                  return sum + BigInt(a?.amount ?? '0');
+                              } catch {
+                                  return sum;
+                              }
+                          }, 0n).toString()
+                        : null);
+                const amount = formatUsdc(rawAmount);
+                await EmailService.sendAggregatedUsdcEmail({
+                    to: recipient,
+                    firstName: userRow?.first_name ?? null,
+                    kind,
+                    amount: amount || null,
+                    chain: formatChainLabel(domain),
+                    txHash: txHash ?? null,
+                });
+            }
+        }
+    } catch (emailErr) {
+        logger.warn('Failed to send Aggregated USDC email fallback', {
+            error: emailErr instanceof Error ? emailErr.message : 'Unknown',
         });
     }
 

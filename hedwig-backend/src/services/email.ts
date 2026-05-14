@@ -1214,4 +1214,112 @@ export const EmailService = {
             return false;
         }
     },
+
+    /**
+     * Notify the user via email about a Circle Gateway event (deposit
+     * finalized, transfer in flight, transfer delivered). Acts as the push
+     * fallback so users still get confirmation when push delivery fails.
+     * CTA deep-links into the mobile app via `hedwig://` scheme.
+     */
+    async sendAggregatedUsdcEmail(data: {
+        to: string;
+        firstName?: string | null;
+        kind: 'deposit_finalized' | 'mint_forwarded' | 'mint_finalized';
+        amount?: string | null;
+        chain?: string | null;
+        txHash?: string | null;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping Aggregated USDC email.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const name = String(data.firstName || '').trim();
+        const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi there,';
+        const amountLabel = data.amount ? `${escapeHtml(data.amount)} USDC` : 'Your USDC';
+        const chainLabel = data.chain ? ` on ${escapeHtml(data.chain)}` : '';
+
+        const copy = (() => {
+            switch (data.kind) {
+                case 'deposit_finalized':
+                    return {
+                        subject: 'USDC added to your Aggregated USDC balance',
+                        eyebrow: 'Aggregated USDC',
+                        heading: 'Your deposit landed',
+                        body: `${amountLabel} deposited${chainLabel} is now part of your Aggregated USDC balance and spendable across every supported chain.`,
+                    };
+                case 'mint_forwarded':
+                    return {
+                        subject: 'Aggregated USDC transfer in flight',
+                        eyebrow: 'Aggregated USDC',
+                        heading: 'Transfer in flight',
+                        body: `${amountLabel} is being delivered${chainLabel}. We're tracking confirmation and will notify you the moment it lands.`,
+                    };
+                case 'mint_finalized':
+                    return {
+                        subject: 'Aggregated USDC delivered',
+                        eyebrow: 'Aggregated USDC',
+                        heading: 'Transfer delivered',
+                        body: `${amountLabel} arrived${chainLabel}.${data.txHash ? ` Tx ${escapeHtml(data.txHash.slice(0, 12))}…` : ''}`,
+                    };
+            }
+        })();
+
+        // Expo Router resolves bare `hedwig://` to the app's initial route.
+        // The mobile auth gate routes the user to the wallet tab once they
+        // are signed in, so this is the most reliable deep link.
+        const deepLink = 'hedwig://';
+        const fallbackUrl = `${APP_URL}/wallet`;
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${escapeHtml(copy.subject)}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">${escapeHtml(copy.eyebrow)}</p>
+                    <h1 class="heading">${escapeHtml(copy.heading)}</h1>
+                    <p class="description">${greeting}</p>
+                    <p class="description">${copy.body}</p>
+                    <div class="btn-container">
+                        <a href="${deepLink}" class="btn">Open in Hedwig app</a>
+                    </div>
+                    <p style="margin-top:14px;font-size:12px;color:#717680;text-align:center;">
+                        Don't have the app installed?
+                        <a href="${fallbackUrl}" style="color:#2563eb;">Open on web</a>
+                    </p>
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject: copy.subject,
+                html,
+            });
+            logger.info('Aggregated USDC email sent', { to: data.to, kind: data.kind });
+            return true;
+        } catch (error) {
+            logger.error('Aggregated USDC email failed', {
+                error: error instanceof Error ? error.message : 'Unknown',
+                to: data.to,
+                kind: data.kind,
+            });
+            return false;
+        }
+    },
 };
