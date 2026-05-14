@@ -3,6 +3,7 @@ import { createLogger } from './logger';
 import { getPrivyAuthClient } from '../middleware/auth';
 import AlchemyAddressService from '../services/alchemyAddress';
 import { ensurePrivyEmbeddedWallets } from '../services/privyWallets';
+import { registerGatewayWebhookAddresses } from '../services/circleGatewayWebhooks';
 
 const logger = createLogger('UserSync');
 
@@ -133,6 +134,15 @@ export async function getOrCreateUser(privyId: string) {
                     });
                 });
             }
+            void registerGatewayWebhookAddresses({
+                ethereum: updatedUser.ethereum_wallet_address,
+                solana: updatedUser.solana_wallet_address,
+            }).catch((error: any) => {
+                logger.warn('Failed to register synced wallets with Circle Gateway', {
+                    userId: updatedUser.id,
+                    error: error?.message || 'Unknown error',
+                });
+            });
             return updatedUser;
         }
 
@@ -176,6 +186,15 @@ export async function getOrCreateUser(privyId: string) {
                 });
             });
         }
+        void registerGatewayWebhookAddresses({
+            ethereum: newUser.ethereum_wallet_address,
+            solana: newUser.solana_wallet_address,
+        }).catch((error: any) => {
+            logger.warn('Failed to register new user wallets with Circle Gateway', {
+                userId: newUser.id,
+                error: error?.message || 'Unknown error',
+            });
+        });
         return newUser;
 
     } catch (error) {
