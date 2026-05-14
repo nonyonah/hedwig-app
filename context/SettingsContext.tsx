@@ -23,6 +23,7 @@ interface SettingsContextType {
     setLockScreenEnabled: (enabled: boolean) => Promise<void>;
     gatewayAutoDepositEnabled: boolean;
     setGatewayAutoDepositEnabled: (enabled: boolean) => Promise<void>;
+    settingsLoaded: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -42,6 +43,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // chain at the EOA so users can manage liquidity manually. Existing
     // Gateway balances stay regardless — only future deposits are gated.
     const [gatewayAutoDepositEnabled, setGatewayAutoDepositEnabledState] = useState<boolean>(false);
+    const [settingsLoaded, setSettingsLoaded] = useState<boolean>(false);
 
     // Listen for system theme changes
     useEffect(() => {
@@ -74,6 +76,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (storedAutoDeposit !== null) setGatewayAutoDepositEnabledState(storedAutoDeposit === 'true');
         } catch (error) {
             console.error('Failed to load settings:', error);
+        } finally {
+            setSettingsLoaded(true);
         }
     };
 
@@ -173,6 +177,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setLockScreenEnabled,
             gatewayAutoDepositEnabled,
             setGatewayAutoDepositEnabled,
+            settingsLoaded,
         }}>
             {children}
         </SettingsContext.Provider>

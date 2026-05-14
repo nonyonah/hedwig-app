@@ -23,7 +23,6 @@ export function LockScreen({ user, onUnlock }: Props) {
     const insets = useSafeAreaInsets();
     const [checking, setChecking] = useState(true);
     const [hasBiometrics, setHasBiometrics] = useState(false);
-    const [biometricType, setBiometricType] = useState('Face ID');
     const [authState, setAuthState] = useState<AuthState>('idle');
     const triggered = useRef(false);
     const isAuthing = useRef(false);
@@ -34,20 +33,12 @@ export function LockScreen({ user, onUnlock }: Props) {
 
     const initialize = async () => {
         try {
-            const [hasHw, isEnrolled, types] = await Promise.all([
+            const [hasHw, isEnrolled] = await Promise.all([
                 LocalAuthentication.hasHardwareAsync(),
                 LocalAuthentication.isEnrolledAsync(),
-                LocalAuthentication.supportedAuthenticationTypesAsync(),
             ]);
 
             const biometricsAvailable = hasHw && isEnrolled;
-
-            // Detect Face ID vs Touch ID
-            if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-                setBiometricType('Face ID');
-            } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-                setBiometricType('Touch ID');
-            }
 
             setHasBiometrics(biometricsAvailable);
             setChecking(false);
@@ -108,7 +99,7 @@ export function LockScreen({ user, onUnlock }: Props) {
                         <Text style={styles.title}>Welcome back</Text>
                         <Text style={styles.subtitle}>
                             {hasBiometrics
-                                ? `Use ${biometricType} to unlock`
+                                ? 'Tap unlock to continue'
                                 : 'Verify your identity to continue'}
                         </Text>
                         {authState === 'failed' && (
@@ -126,7 +117,7 @@ export function LockScreen({ user, onUnlock }: Props) {
                         onPress={triggerBiometrics}
                     >
                         <Text style={[styles.buttonText, { color: BRAND_BLUE }]}>
-                            {`Use ${biometricType}`}
+                            Unlock
                         </Text>
                     </Pressable>
                 </View>

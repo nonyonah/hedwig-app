@@ -266,15 +266,31 @@ export class PaycrestService {
 
         for (const networkCandidate of networkCandidates) {
             try {
-                const response = await paycrestClient.get(
-                    `/rates/${token.toUpperCase()}/${amount}/${fiatCurrency.toUpperCase()}`,
-                    {
-                        params: { network: networkCandidate },
-                    }
+                // Paycrest v2: GET /rates/{network}/{token}/{amount}/{fiat}
+                // returns { status, data: { buy: { rate }, sell: { rate } } }
+                // Offramp (crypto -> fiat) uses sell.rate.
+                const response = await paycrestClientV2.get(
+                    `/rates/${encodeURIComponent(networkCandidate)}/${encodeURIComponent(token.toUpperCase())}/${encodeURIComponent(String(amount))}/${encodeURIComponent(fiatCurrency.toUpperCase())}`
                 );
 
-                // API returns { status, message, data: "rate_string" }
-                return response.data.data;
+                const payload = response.data?.data ?? response.data;
+                const sellRateRaw =
+                    payload?.sell?.rate ??
+                    payload?.data?.sell?.rate ??
+                    payload?.sell_rate ??
+                    payload?.sellRate ??
+                    payload?.rate ??
+                    payload;
+
+                const rateString = typeof sellRateRaw === 'string' ? sellRateRaw : String(sellRateRaw ?? '');
+                if (rateString && Number.isFinite(parseFloat(rateString))) {
+                    return rateString;
+                }
+                lastError = new Error('Paycrest /v2/rates response missing sell rate');
+                logger.warn('Offramp rate response missing usable sell rate', {
+                    network: networkCandidate,
+                    payload,
+                });
             } catch (error: any) {
                 lastError = error;
                 logger.warn('Error fetching rate from Paycrest', {

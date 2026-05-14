@@ -13,6 +13,9 @@ module.exports = ({ config }) => {
     process.env.ONESIGNAL_APP_ID ||
     existingExtra.oneSignalAppId ||
     '';
+  const oneSignalMode =
+    process.env.ONESIGNAL_MODE ||
+    (process.env.EAS_BUILD_PROFILE === 'development' ? 'development' : 'production');
   const revenueCatAppleApiKey =
     process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY ||
     process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY ||
@@ -34,6 +37,18 @@ module.exports = ({ config }) => {
       revenueCatAppleApiKey,
       revenueCatGoogleApiKey,
     },
+    plugins: (baseConfig.plugins ?? []).map((plugin) => {
+      const name = Array.isArray(plugin) ? plugin[0] : plugin;
+      if (name !== 'onesignal-expo-plugin') return plugin;
+      const options = Array.isArray(plugin) ? (plugin[1] ?? {}) : {};
+      return [
+        'onesignal-expo-plugin',
+        {
+          ...options,
+          mode: oneSignalMode,
+        },
+      ];
+    }),
     android: {
       ...(baseConfig.android ?? {}),
       // Use EAS file secret at build time; fall back to local file for local builds.

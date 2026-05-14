@@ -35,11 +35,15 @@ import { privyConfig } from '../lib/privy';
 
 const PRIVY_APP_ID = Constants.expoConfig?.extra?.privyAppId || process.env.EXPO_PUBLIC_PRIVY_APP_ID || '';
 const PRIVY_CLIENT_ID = Constants.expoConfig?.extra?.privyClientId || process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID || '';
-const ONESIGNAL_APP_ID =
-    Constants.expoConfig?.extra?.oneSignalAppId ||
-    process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID ||
-    process.env.ONESIGNAL_APP_ID ||
-    '';
+const ONESIGNAL_DISABLED =
+    String(process.env.EXPO_PUBLIC_DISABLE_ONESIGNAL || '').toLowerCase() === 'true' ||
+    String(Constants.expoConfig?.extra?.disableOneSignal || '').toLowerCase() === 'true';
+const ONESIGNAL_APP_ID = ONESIGNAL_DISABLED
+    ? ''
+    : (Constants.expoConfig?.extra?.oneSignalAppId ||
+        process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID ||
+        process.env.ONESIGNAL_APP_ID ||
+        '');
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || '';
 
 declare global {
@@ -120,6 +124,56 @@ const installIOSSystemFontAliases = () => {
 };
 
 installIOSSystemFontAliases();
+
+const resolveOneSignalSdk = (oneSignalModule: any) =>
+    oneSignalModule?.OneSignal ||
+    oneSignalModule?.default?.OneSignal ||
+    oneSignalModule?.default ||
+    oneSignalModule;
+
+const getOneSignalPushSubscriptionId = async (OneSignal: any): Promise<string | null> => {
+    const pushSubscription = OneSignal?.User?.pushSubscription;
+    if (!pushSubscription) return null;
+
+    const id =
+        (typeof pushSubscription.getIdAsync === 'function'
+            ? await pushSubscription.getIdAsync()
+            : null) ||
+        (typeof pushSubscription.getPushSubscriptionId === 'function'
+            ? pushSubscription.getPushSubscriptionId()
+            : null) ||
+        pushSubscription.id ||
+        null;
+
+    return id ? String(id) : null;
+};
+
+const getOneSignalPushToken = async (OneSignal: any): Promise<string | null> => {
+    const pushSubscription = OneSignal?.User?.pushSubscription;
+    if (!pushSubscription) return null;
+
+    const token =
+        (typeof pushSubscription.getTokenAsync === 'function'
+            ? await pushSubscription.getTokenAsync()
+            : null) ||
+        (typeof pushSubscription.getPushSubscriptionToken === 'function'
+            ? pushSubscription.getPushSubscriptionToken()
+            : null) ||
+        pushSubscription.token ||
+        null;
+
+    return token ? String(token) : null;
+};
+
+const getOneSignalPermission = async (OneSignal: any): Promise<boolean> => {
+    if (typeof OneSignal?.Notifications?.getPermissionAsync === 'function') {
+        return Boolean(await OneSignal.Notifications.getPermissionAsync());
+    }
+    if (typeof OneSignal?.Notifications?.hasPermission === 'function') {
+        return Boolean(OneSignal.Notifications.hasPermission());
+    }
+    return Boolean(OneSignal?.Notifications?.permission);
+};
 
 const applyGlobalTypographyDefaults = () => {
     const defaultFontFamily = Platform.OS === 'android' ? 'GoogleSansFlex_400Regular' : 'System';
@@ -310,14 +364,8 @@ function PushNotificationBootstrap() {
         if (!OneSignal) return;
 
         try {
-            const subscriptionId =
-                (typeof OneSignal.User?.pushSubscription?.getId === 'function'
-                    ? await OneSignal.User.pushSubscription.getId()
-                    : OneSignal.User?.pushSubscription?.id) || null;
-            const subscriptionToken =
-                (typeof OneSignal.User?.pushSubscription?.getToken === 'function'
-                    ? await OneSignal.User.pushSubscription.getToken()
-                    : OneSignal.User?.pushSubscription?.token) || null;
+            const subscriptionId = await getOneSignalPushSubscriptionId(OneSignal);
+            const subscriptionToken = await getOneSignalPushToken(OneSignal);
 
             if (!subscriptionId) return;
             const normalizedId = String(subscriptionId);
@@ -339,7 +387,7 @@ function PushNotificationBootstrap() {
         if (!OneSignal) return;
 
         try {
-            const hasPermission = Boolean(OneSignal.Notifications?.permission);
+            const hasPermission = await getOneSignalPermission(OneSignal);
 
             // Ask on first run; if already denied, OneSignal will route user to app settings.
             if (!hasPermission) {
@@ -363,10 +411,16 @@ function PushNotificationBootstrap() {
             if (Platform.OS !== 'web' && ONESIGNAL_APP_ID) {
                 try {
                     const oneSignalModule = require('react-native-onesignal');
-                    const OneSignal = oneSignalModule?.default || oneSignalModule;
+                    const OneSignal = resolveOneSignalSdk(oneSignalModule);
+                    if (!OneSignal || typeof OneSignal.initialize !== 'function') {
+                        throw new Error('OneSignal SDK is not available in this native build');
+                    }
                     oneSignalRef.current = OneSignal;
 
                     if (!initializedOneSignalRef.current) {
+                        if (OneSignal?.Debug?.setLogLevel && __DEV__) {
+                            OneSignal.Debug.setLogLevel(5);
+                        }
                         OneSignal.initialize(ONESIGNAL_APP_ID);
                         initializedOneSignalRef.current = true;
                     }
@@ -503,10 +557,16 @@ function PushNotificationBootstrap() {
 // Handles app-lock on launch and when returning from background
 function AppLockGate({ children }: { children: React.ReactNode }) {
     const { user, isReady } = useAuth();
-    const { lockScreenEnabled } = useSettings();
+    const { lockScreenEnabled, settingsLoaded } = useSettings();
     const [isLocked, setIsLocked] = useState(false);
     const hasBeenToBackground = React.useRef(false);
+    const backgroundedAt = React.useRef<number | null>(null);
     const initialLockChecked = React.useRef(false);
+    // Don't relock if the OS only blanked the screen for a few seconds; iOS
+    // fires `background` for screen-off, biometric prompts, control center,
+    // notification panels, etc. A short threshold prevents those from
+    // re-prompting biometrics when the user immediately wakes the phone.
+    const RELOCK_THRESHOLD_MS = 30_000;
 
     useEffect(() => {
         if (!lockScreenEnabled) {
@@ -514,9 +574,12 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
         }
     }, [lockScreenEnabled]);
 
-    // Lock on fresh app open (killed + reopened)
+    // Lock on fresh app open (killed + reopened). Wait for AsyncStorage to
+    // hydrate so the setting toggle is authoritative — otherwise the
+    // default-true value briefly forces a lock even when the user disabled
+    // the feature.
     useEffect(() => {
-        if (!lockScreenEnabled) return;
+        if (!settingsLoaded || !lockScreenEnabled) return;
         if (!user || !isReady || initialLockChecked.current) return;
         initialLockChecked.current = true;
         (async () => {
@@ -532,17 +595,22 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
                 // Don't block on error
             }
         })();
-    }, [user, isReady, lockScreenEnabled]);
+    }, [user, isReady, lockScreenEnabled, settingsLoaded]);
 
     useEffect(() => {
         const subscription = AppState.addEventListener('change', async (nextState) => {
-            if (!lockScreenEnabled) return;
+            if (!settingsLoaded || !lockScreenEnabled) return;
             if (nextState === 'background') {
-                // Only true background (not inactive, which happens during biometric prompts)
-                if (user) hasBeenToBackground.current = true;
+                if (user) {
+                    hasBeenToBackground.current = true;
+                    backgroundedAt.current = Date.now();
+                }
             } else if (nextState === 'active' && hasBeenToBackground.current && user && isReady) {
+                const since = backgroundedAt.current ?? 0;
+                const elapsed = since ? Date.now() - since : Infinity;
                 hasBeenToBackground.current = false;
-                // Only show lock if a method is available
+                backgroundedAt.current = null;
+                if (elapsed < RELOCK_THRESHOLD_MS) return;
                 try {
                     const [hasHw, isEnrolled] = await Promise.all([
                         LocalAuthentication.hasHardwareAsync(),
@@ -557,7 +625,7 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
             }
         });
         return () => subscription.remove();
-    }, [user, isReady, lockScreenEnabled]);
+    }, [user, isReady, lockScreenEnabled, settingsLoaded]);
 
     return (
         <View style={{ flex: 1 }}>

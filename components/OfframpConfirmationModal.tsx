@@ -296,10 +296,11 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
             return;
         }
 
-        // Offramp transfers go through Circle Gateway. Show itemized fees
-        // (network gas + Circle service fee) so user sees exactly what's
-        // deducted from the USDC unified balance.
-        if (data.token.toUpperCase() === 'USDC') {
+        // Gateway fee breakdown only applies when the user is settling via
+        // the unified USDC path. When aggregated USDC is OFF we use a plain
+        // ERC-20 transfer from the EOA — no Forwarder / service fee — so
+        // fall through to the native gas estimate below.
+        if (data.token.toUpperCase() === 'USDC' && gatewayAutoDepositEnabled) {
             const sourceKey = (() => {
                 const n = network;
                 if (n.includes('base')) return 'base' as const;
@@ -369,7 +370,7 @@ export const OfframpConfirmationModal = forwardRef<TrueSheet, OfframpConfirmatio
             console.log('[OfframpModal] Network fee estimation error:', error?.message || error);
             setNetworkFeeError(`Estimate unavailable (paid in ${getNativeFeeSymbol(chainConfig)})`);
         }
-    }, [data, modalState, evmWallets]);
+    }, [data, modalState, evmWallets, gatewayAutoDepositEnabled]);
 
     // Fetch exchange rate when data changes
     useEffect(() => {

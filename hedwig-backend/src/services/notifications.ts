@@ -66,6 +66,11 @@ class NotificationService {
     }
 
     isOneSignalConfigured(): boolean {
+        // Hard kill switch: setting DISABLE_ONESIGNAL=true on Cloud Run forces
+        // the Expo push fallback even when OneSignal credentials are present.
+        if (String(process.env.DISABLE_ONESIGNAL || '').toLowerCase() === 'true') {
+            return false;
+        }
         return this.getOneSignalConfig().enabled;
     }
 

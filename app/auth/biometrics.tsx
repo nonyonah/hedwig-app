@@ -318,7 +318,7 @@ export default function BiometricsScreen() {
 
                 <View style={styles.footer}>
                     <Button
-                        title="Enable Face ID"
+                        title="Enable Biometrics"
                         onPress={handleEnable}
                         variant="primary"
                         size="large"
