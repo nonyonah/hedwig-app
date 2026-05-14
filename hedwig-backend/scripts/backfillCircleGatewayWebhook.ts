@@ -13,8 +13,10 @@
  *   CIRCLE_API_KEY                       — Circle developer console API key
  *   CIRCLE_GATEWAY_WEBHOOK_ENDPOINT      — public POST endpoint Circle will call
  *   CIRCLE_GATEWAY_SUBSCRIPTION_ID       — optional; when set, PATCH the
- *                                          existing subscription's address
- *                                          list instead of creating a new one
+ *                                          existing EVM subscription for
+ *                                          backwards compatibility
+ *   CIRCLE_GATEWAY_EVM_SUBSCRIPTION_ID   — optional; PATCH existing EVM subscription
+ *   CIRCLE_GATEWAY_SOLANA_SUBSCRIPTION_ID — optional; PATCH existing Solana subscription
  *   CIRCLE_API_BASE_URL                  — override (default https://api.circle.com)
  *   GATEWAY_NETWORK                      — mainnet | testnet (default mainnet)
  */
@@ -26,7 +28,8 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const CIRCLE_API_KEY = process.env.CIRCLE_API_KEY || '';
 const CIRCLE_API_BASE_URL = (process.env.CIRCLE_API_BASE_URL || 'https://api.circle.com').replace(/\/+$/, '');
 const ENDPOINT = process.env.CIRCLE_GATEWAY_WEBHOOK_ENDPOINT || '';
-const EXISTING_SUBSCRIPTION_ID = process.env.CIRCLE_GATEWAY_SUBSCRIPTION_ID || '';
+const EXISTING_EVM_SUBSCRIPTION_ID = process.env.CIRCLE_GATEWAY_EVM_SUBSCRIPTION_ID || process.env.CIRCLE_GATEWAY_SUBSCRIPTION_ID || '';
+const EXISTING_SOLANA_SUBSCRIPTION_ID = process.env.CIRCLE_GATEWAY_SOLANA_SUBSCRIPTION_ID || '';
 
 function abort(message: string): never {
     console.error(`✖ ${message}`);
@@ -84,8 +87,60 @@ function collectAddresses(users: UserRow[]): { evm: string[]; solana: string[] }
 
 interface SubscriptionPayload {
     endpoint: string;
+    name: string;
+    enabled: boolean;
     notificationTypes: string[];
     addresses: string[];
+    domains: string[];
+    environment: 'LIVE' | 'TEST';
+}
+
+interface CircleSubscription {
+    id?: string;
+    endpoint?: string;
+    environment?: string;
+    name?: string;
+}
+
+// Circle Gateway domain ids per chain (same on TEST + LIVE — environment distinguishes mainnet/testnet).
+const EVM_DOMAINS = ['2', '3', '6', '7']; // optimism, arbitrum, base, polygon
+const SOLANA_DOMAIN = '5';
+
+function endpointFor(label: string): string {
+    // Circle rejects duplicate subscriptions on the same endpoint URL, and its
+    // validator strips query strings. Use distinct path suffixes so EVM and
+    // Solana subscriptions can both register.
+    if (label === 'EVM') return ENDPOINT;
+    return `${ENDPOINT.replace(/\/+$/, '')}/${label.toLowerCase()}`;
+}
+
+async function listSubscriptions(environment: 'LIVE' | 'TEST'): Promise<CircleSubscription[]> {
+    const url = `${CIRCLE_API_BASE_URL}/v2/notifications/subscriptions/permissionless?environment=${environment}`;
+    const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+            Authorization: `Bearer ${CIRCLE_API_KEY}`,
+            Accept: 'application/json',
+        },
+    });
+    const text = await res.text();
+    let body: any;
+    try {
+        body = JSON.parse(text);
+    } catch {
+        body = text;
+    }
+    if (!res.ok) {
+        console.error(`Circle API GET ${url} -> ${res.status}`);
+        console.error(body);
+        abort('Could not list existing Circle Gateway subscriptions.');
+    }
+    return Array.isArray(body?.data) ? body.data : [];
+}
+
+function findSubscriptionId(subscriptions: CircleSubscription[], endpoint: string): string {
+    const match = subscriptions.find((item) => item.endpoint === endpoint);
+    return String(match?.id || '');
 }
 
 async function createOrUpdateSubscription(payload: SubscriptionPayload, subscriptionId?: string) {
@@ -117,6 +172,56 @@ async function createOrUpdateSubscription(payload: SubscriptionPayload, subscrip
     return body;
 }
 
+async function upsertSubscription(
+    label: string,
+    addresses: string[],
+    domains: string[],
+    subscriptionId: string,
+    environment: 'LIVE' | 'TEST',
+    existingSubscriptions: CircleSubscription[],
+) {
+    if (addresses.length === 0) {
+        console.log(`→ Skipping ${label}: no addresses found.`);
+        return null;
+    }
+    const endpoint = endpointFor(label);
+    const resolvedSubscriptionId = subscriptionId || findSubscriptionId(existingSubscriptions, endpoint);
+
+    const payload: SubscriptionPayload = {
+        endpoint,
+        name: `Gateway Webhooks ${label}`,
+        enabled: true,
+        notificationTypes: ['gateway.*'],
+        addresses,
+        domains,
+        environment,
+    };
+
+    if (resolvedSubscriptionId) {
+        console.log(`→ PATCH-ing existing ${label} subscription ${resolvedSubscriptionId} with ${addresses.length} addresses…`);
+    } else {
+        console.log(`→ POST-ing new ${label} permissionless subscription with ${addresses.length} addresses…`);
+    }
+    console.log('  Sample payload:', JSON.stringify({
+        endpoint: payload.endpoint,
+        environment: payload.environment,
+        notificationTypes: payload.notificationTypes,
+        domains: payload.domains,
+        addresses: payload.addresses.slice(0, 3),
+    }, null, 2));
+
+    const result = await createOrUpdateSubscription(payload, resolvedSubscriptionId || undefined);
+    const resultId = result?.data?.id || result?.id || result?.subscriptionId || null;
+    console.log(`✓ ${label} subscription done.`);
+    if (resultId) {
+        console.log(`  ${label} subscription ID: ${resultId}`);
+    } else {
+        console.log(`  ${label} response:`);
+        console.log(JSON.stringify(result, null, 2));
+    }
+    return resultId ? String(resultId) : null;
+}
+
 (async () => {
     console.log('→ Fetching user wallet addresses from Supabase…');
     const users = await fetchAllUsers();
@@ -124,32 +229,22 @@ async function createOrUpdateSubscription(payload: SubscriptionPayload, subscrip
     const { evm, solana } = collectAddresses(users);
     console.log(`  ${evm.length} unique EVM addresses, ${solana.length} unique Solana addresses.`);
 
-    const addresses = [...evm, ...solana];
-    if (addresses.length === 0) abort('No wallet addresses to register.');
+    if (evm.length === 0 && solana.length === 0) abort('No wallet addresses to register.');
 
-    const payload: SubscriptionPayload = {
-        endpoint: ENDPOINT,
-        notificationTypes: ['gateway.*'],
-        addresses,
-    };
+    const network = (process.env.GATEWAY_NETWORK || 'mainnet').toLowerCase();
+    const isMainnet = network !== 'testnet';
+    const environment = isMainnet ? 'LIVE' : 'TEST';
+    const existingSubscriptions = await listSubscriptions(environment);
 
-    if (EXISTING_SUBSCRIPTION_ID) {
-        console.log(`→ PATCH-ing existing subscription ${EXISTING_SUBSCRIPTION_ID} with ${addresses.length} addresses…`);
-    } else {
-        console.log(`→ POST-ing new permissionless subscription with ${addresses.length} addresses…`);
-    }
-
-    const result = await createOrUpdateSubscription(payload, EXISTING_SUBSCRIPTION_ID || undefined);
-    const subscriptionId = result?.data?.id || result?.id || result?.subscriptionId || null;
+    // Circle filters use flat address and domain lists. Keep EVM and Solana
+    // subscriptions separate so the API never validates Solana addresses
+    // against EVM domains, or EVM addresses against the Solana domain.
+    const evmId = await upsertSubscription('EVM', evm, [...EVM_DOMAINS], EXISTING_EVM_SUBSCRIPTION_ID, environment, existingSubscriptions);
+    const solanaId = await upsertSubscription('Solana', solana, [SOLANA_DOMAIN], EXISTING_SOLANA_SUBSCRIPTION_ID, environment, existingSubscriptions);
 
     console.log('✓ Done.');
-    if (subscriptionId) {
-        console.log(`  Subscription ID: ${subscriptionId}`);
-        console.log('  Save this as CIRCLE_GATEWAY_SUBSCRIPTION_ID to reuse for future PATCH updates.');
-    } else {
-        console.log('  Response:');
-        console.log(JSON.stringify(result, null, 2));
-    }
+    if (evmId) console.log(`  Save EVM as CIRCLE_GATEWAY_EVM_SUBSCRIPTION_ID=${evmId}`);
+    if (solanaId) console.log(`  Save Solana as CIRCLE_GATEWAY_SOLANA_SUBSCRIPTION_ID=${solanaId}`);
 })().catch((err) => {
     console.error('✖ Unexpected error:', err);
     process.exit(1);

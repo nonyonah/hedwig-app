@@ -211,7 +211,7 @@ const buildCopy = (envelope: WebhookEnvelope): { title: string; body: string; ty
     }
 };
 
-router.post('/', async (req: Request, res: Response, _next: NextFunction) => {
+const handleWebhook = async (req: Request, res: Response, _next: NextFunction) => {
     const rawBody = (req as any).rawBody ?? JSON.stringify(req.body ?? {});
     const signature = findSignatureHeader(req);
 
@@ -334,7 +334,14 @@ router.post('/', async (req: Request, res: Response, _next: NextFunction) => {
         .eq('id', inserted.id);
 
     res.status(200).json({ received: true });
-});
+};
+
+// Circle disallows two permissionless subscriptions on the exact same
+// endpoint URL, so we keep EVM and Solana on distinct paths and accept both
+// on the same handler.
+router.post('/', handleWebhook);
+router.post('/solana', handleWebhook);
+router.post('/evm', handleWebhook);
 
 router.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
