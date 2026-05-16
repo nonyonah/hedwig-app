@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 import {
   ArrowsClockwise,
   CheckCircle,
@@ -32,7 +33,8 @@ interface AssistantChatPanelProps {
 
 type ToolProvider = 'workspace' | 'gmail' | 'google_calendar' | 'google_drive' | 'google_docs';
 
-const STORAGE_KEY = 'hedwig-assistant-chat-history';
+const LEGACY_STORAGE_KEY = 'hedwig-assistant-chat-history';
+const STORAGE_KEY_PREFIX = 'hedwig-assistant-chat-history';
 
 const PROVIDER_ICON_PATH: Partial<Record<ToolProvider, string>> = {
   workspace: '/hedwig-icon.png',
@@ -64,10 +66,16 @@ function newId() {
   return `msg_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function loadHistory(): ChatMessage[] {
+function getUserStorageKey(userId?: string | null) {
+  if (!userId) return null;
+  return `${STORAGE_KEY_PREFIX}:${encodeURIComponent(userId)}`;
+}
+
+function loadHistory(storageKey: string | null): ChatMessage[] {
   if (typeof window === 'undefined') return [];
+  if (!storageKey) return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -79,17 +87,19 @@ function loadHistory(): ChatMessage[] {
   }
 }
 
-function persistHistory(messages: ChatMessage[]) {
+function persistHistory(storageKey: string | null, messages: ChatMessage[]) {
   if (typeof window === 'undefined') return;
+  if (!storageKey) return;
   try {
     const trimmed = messages
       .filter((m) => !m.pending)
       .slice(-30);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    window.localStorage.setItem(storageKey, JSON.stringify(trimmed));
   } catch { /* ignore quota */ }
 }
 
 export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
+  const { user } = usePrivy();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -100,10 +110,19 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const userStorageId = user?.id || user?.email?.address || user?.google?.email || user?.apple?.email || null;
+  const storageKey = getUserStorageKey(userStorageId);
 
   useEffect(() => {
-    if (open) setMessages(loadHistory());
-  }, [open]);
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    setMessages(loadHistory(storageKey));
+    setSuggestionsById({});
+  }, [open, storageKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -225,7 +244,7 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
 
       setMessages((current) => {
         const updated = current.map((m) => m.id === pendingMessage.id ? reply : m);
-        persistHistory(updated);
+        persistHistory(storageKey, updated);
         return updated;
       });
     } catch (error: any) {
@@ -263,9 +282,9 @@ export function AssistantChatPanel({ open, onClose }: AssistantChatPanelProps) {
   };
 
   const clearHistory = () => {
-      setMessages([]);
+    setMessages([]);
     setSuggestionsById({});
-    if (typeof window !== 'undefined') window.localStorage.removeItem(STORAGE_KEY);
+    if (typeof window !== 'undefined' && storageKey) window.localStorage.removeItem(storageKey);
   };
 
   const updateSuggestionStatus = async (
