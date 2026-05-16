@@ -3,6 +3,7 @@ import path from 'path';
 import { withSentryConfig } from '@sentry/nextjs';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://pay.hedwigbot.xyz';
+const uploadSentrySourceMaps = process.env.SENTRY_UPLOAD_SOURCE_MAPS === 'true';
 
 // ─── Content-Security-Policy ────────────────────────────────────────────────
 // We allow each provider only on the directives they need. If you add a new
@@ -210,6 +211,16 @@ export default withSentryConfig(nextConfig, {
 
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,
+
+  // Keep Sentry runtime monitoring enabled, but make source map uploads an
+  // explicit deploy-time opt-in. A stale SENTRY_AUTH_TOKEN should not block
+  // Vercel from shipping the app.
+  sourcemaps: {
+    disable: !uploadSentrySourceMaps,
+  },
+  errorHandler: (error) => {
+    console.warn('[Sentry] Source map upload skipped:', error.message);
+  },
 
   // For all available options, see:
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
