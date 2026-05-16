@@ -427,8 +427,14 @@ const Analytics = {
         }),
 
     // ==================== INVOICE & PAYMENT EVENTS ====================
-    invoiceCreated: (amount: number, currency: string, paymentType: 'crypto' | 'fiat') =>
-        trackEvent('invoice_created', { invoice_amount: amount, currency, payment_type: paymentType }),
+    invoiceCreated: (amount: number, currency: string, paymentType: 'crypto' | 'fiat', properties: Record<string, any> = {}) =>
+        trackEvent('invoice_created', {
+            invoice_amount: amount,
+            currency,
+            payment_type: paymentType,
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
 
     // Fired when invoice is sent to client
     invoiceSent: (userId: string, amount: number, currency: string, invoiceId?: string, clientId?: string) => 
@@ -441,12 +447,49 @@ const Analytics = {
             timestamp: new Date().toISOString(),
         }),
 
-    invoiceViewed: (invoiceId: string) => trackEvent('invoice_viewed', { invoice_id: invoiceId }),
+    invoiceViewed: (invoiceId: string, properties: Record<string, any> = {}) =>
+        trackEvent('invoice_viewed', {
+            invoice_id: invoiceId,
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
 
-    invoicePaid: (amount: number, currency: string, paymentType: 'crypto' | 'fiat') =>
-        trackEvent('invoice_paid', { invoice_amount: amount, currency, payment_type: paymentType }),
+    invoicePaid: (amount: number, currency: string, paymentType: 'crypto' | 'fiat', properties: Record<string, any> = {}) =>
+        trackEvent('invoice_paid', {
+            invoice_amount: amount,
+            currency,
+            payment_type: paymentType,
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
 
-    invoiceDeleted: () => trackEvent('invoice_deleted'),
+    invoiceShared: (properties: Record<string, any> = {}) =>
+        trackEvent('invoice_shared', {
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+    invoiceReminderSent: (properties: Record<string, any> = {}) =>
+        trackEvent('invoice_reminder_sent', {
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+    invoiceRemindersToggled: (enabled: boolean, properties: Record<string, any> = {}) =>
+        trackEvent('invoice_reminders_toggled', {
+            enabled,
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+    invoiceFiltered: (filter: string, count: number) =>
+        trackEvent('invoice_filtered', {
+            filter,
+            result_count: count,
+            timestamp: new Date().toISOString(),
+        }),
+    invoiceDeleted: (properties: Record<string, any> = {}) =>
+        trackEvent('invoice_deleted', {
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
     invoiceCreationFailed: (errorType?: string) => trackEvent('invoice_creation_failed', { error_type: errorType }),
 
     // Fired when a payment is received (via webhook or transaction detection)
@@ -463,11 +506,52 @@ const Analytics = {
         }),
 
     // ==================== PAYMENT LINK EVENTS ====================
-    paymentLinkCreated: (amount: number, currency: string) => 
-        trackEvent('payment_link_created', { amount, currency }),
-    paymentLinkOpened: () => trackEvent('payment_link_opened'),
-    paymentLinkPaid: (amount: number, currency: string) => 
-        trackEvent('payment_link_paid', { amount, currency }),
+    paymentLinkCreated: (amount: number, currency: string, properties: Record<string, any> = {}) =>
+        trackEvent('payment_link_created', {
+            amount,
+            currency,
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+    paymentLinkOpened: (properties: Record<string, any> = {}) =>
+        trackEvent('payment_link_opened', {
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+    paymentLinkShared: (properties: Record<string, any> = {}) =>
+        trackEvent('payment_link_shared', {
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+    paymentLinkReminderSent: (properties: Record<string, any> = {}) =>
+        trackEvent('payment_link_reminder_sent', {
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+    paymentLinkRemindersToggled: (enabled: boolean, properties: Record<string, any> = {}) =>
+        trackEvent('payment_link_reminders_toggled', {
+            enabled,
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+    paymentLinkDeleted: (properties: Record<string, any> = {}) =>
+        trackEvent('payment_link_deleted', {
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
+    paymentLinkFiltered: (filter: string, count: number) =>
+        trackEvent('payment_link_filtered', {
+            filter,
+            result_count: count,
+            timestamp: new Date().toISOString(),
+        }),
+    paymentLinkPaid: (amount: number, currency: string, properties: Record<string, any> = {}) =>
+        trackEvent('payment_link_paid', {
+            amount,
+            currency,
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
 
     // ==================== PROPOSAL & CONTRACT EVENTS ====================
     proposalCreated: () => trackEvent('proposal_created'),
@@ -614,7 +698,12 @@ const Analytics = {
     paymentFailed: (featureName: string, errorType?: string) =>
         trackEvent('payment_failed', { feature_name: featureName, error_type: errorType }),
 
-    featureUsed: (featureName: string) => trackEvent('feature_used', { feature_name: featureName }),
+    featureUsed: (featureName: string, properties: Record<string, any> = {}) =>
+        trackEvent('feature_used', {
+            feature_name: featureName,
+            timestamp: new Date().toISOString(),
+            ...properties,
+        }),
 
     settingsChanged: (setting: string, value: any) =>
         trackEvent('settings_changed', { setting_name: setting, new_value: value }),

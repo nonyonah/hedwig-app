@@ -26,7 +26,7 @@ import { usePrivy } from '@privy-io/expo';
 import { useThemeColors } from '../../theme/colors';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { getPostHogClient } from '../../services/analytics';
+import Analytics from '../../services/analytics';
 import { Button } from '../../components/Button';
 
 type Client = { id: string; name: string; email: string | null };
@@ -121,12 +121,13 @@ export default function CreatePaymentLinkScreen() {
             const d = await res.json().catch(() => null);
             if (!res.ok || !d?.success) throw new Error(d?.error?.message || 'Failed to create payment link');
 
-            const posthog = getPostHogClient();
-            await posthog.capture('payment_link_created', {
+            await Analytics.paymentLinkCreated(Number(d?.data?.document?.amount ?? amount), String(d?.data?.document?.currency ?? 'USDC'), {
                 payment_link_id: d?.data?.document?.id,
-                amount: d?.data?.document?.amount,
-                currency: d?.data?.document?.currency,
                 client_id: d?.data?.document?.clientId,
+                has_client: Boolean(selectedClient?.id || clientName.trim()),
+                has_recipient_email: Boolean(selectedClient?.email || recipientEmail.trim()),
+                reminders_enabled: reminders,
+                source: 'mobile_create_payment_link',
             });
 
             Alert.alert('Success', 'Payment link created successfully!', [

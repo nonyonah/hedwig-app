@@ -33,6 +33,7 @@ import { getUserGradient } from '../../utils/gradientUtils';
 import { useSettings } from '../../context/SettingsContext';
 import { formatCurrency } from '../../utils/currencyUtils';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
+import Analytics from '../../services/analytics';
 import AndroidDropdownMenu from '../../components/ui/AndroidDropdownMenu';
 import { getPublicWebBaseUrl, normalizePublicWebUrl } from '../../utils/publicWebUrl';
 import { openRootDrawer } from '../../utils/openRootDrawer';
@@ -328,6 +329,10 @@ export default function PaymentLinksScreen() {
 
                             if (data.success) {
                                 setLinks(prev => prev.filter(link => link.id !== linkId));
+                                await Analytics.paymentLinkDeleted({
+                                    payment_link_id: linkId,
+                                    source: 'mobile_payment_links',
+                                });
                                 Alert.alert('Success', 'Payment link deleted successfully');
                             } else {
                                 Alert.alert('Error', data.error?.message || 'Failed to delete payment link');
@@ -355,6 +360,11 @@ export default function PaymentLinksScreen() {
                 });
                 const data = await response.json();
                 if (data.success) {
+                    await Analytics.paymentLinkReminderSent({
+                        payment_link_id: selectedLink.id,
+                        has_recipient_email: Boolean(selectedLink.content?.recipient_email),
+                        source: 'mobile_payment_links',
+                    });
                     Alert.alert('Success', 'Reminder sent successfully!');
                 } else {
                     Alert.alert('Error', data.error?.message || 'Failed to send reminder');
@@ -432,6 +442,10 @@ export default function PaymentLinksScreen() {
             });
             const data = await response.json();
             if (data.success) {
+                await Analytics.paymentLinkRemindersToggled(newState, {
+                    payment_link_id: selectedLink.id,
+                    source: 'mobile_payment_links',
+                });
                 Alert.alert('Success', `Automatic reminders ${newState ? 'enabled' : 'disabled'}`);
                 setSelectedLink({
                     ...selectedLink,
@@ -495,6 +509,11 @@ export default function PaymentLinksScreen() {
                     manual_mark_paid: true,
                 }
             }) : prev);
+            await Analytics.paymentLinkPaid(Number(selectedLink.amount || 0), String(selectedLink.currency || 'USDC'), {
+                payment_link_id: selectedLink.id,
+                source: 'mobile_payment_links',
+                manual_mark_paid: true,
+            });
             Alert.alert('Success', 'Payment link marked as paid');
         } catch (error) {
             Alert.alert('Error', 'Failed to mark payment link as paid');
@@ -518,6 +537,11 @@ export default function PaymentLinksScreen() {
                 message: `Payment link ${selectedLink.title || `LINK-${selectedLink.id?.slice(0, 8).toUpperCase()}`}: ${url}`,
                 url,
             });
+            await Analytics.paymentLinkShared({
+                payment_link_id: selectedLink.id,
+                status: selectedLink.status,
+                source: 'mobile_payment_links',
+            });
         } catch (error) {
             console.error('Failed to share payment link:', error);
             Alert.alert('Error', 'Failed to share payment link');
@@ -527,6 +551,11 @@ export default function PaymentLinksScreen() {
     const openModal = (link: any) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedLink(link);
+        void Analytics.paymentLinkOpened({
+            payment_link_id: link.id,
+            status: link.status,
+            source: 'mobile_payment_links',
+        });
         bottomSheetRef.current?.present();
     };
 
@@ -839,7 +868,19 @@ export default function PaymentLinksScreen() {
                                 <TouchableOpacity
                                     key={filter}
                                     style={[styles.filterChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
-                                    onPress={() => setStatusFilter(filter)}
+                                    onPress={() => {
+                                        setStatusFilter(filter);
+                                        void Analytics.paymentLinkFiltered(
+                                            filter,
+                                            filter === 'all'
+                                                ? links.length
+                                                : filter === 'paid'
+                                                    ? links.filter(link => link.status === 'PAID').length
+                                                    : filter === 'due_soon'
+                                                        ? filteredLinks.length
+                                                        : links.filter(link => link.status !== 'PAID').length
+                                        );
+                                    }}
                                 >
                                     <Text style={[styles.filterText, { color: themeColors.textSecondary }, statusFilter === filter && styles.filterTextActive]}>
                                         {filter === 'due_soon' ? 'Due Soon' : filter.charAt(0).toUpperCase() + filter.slice(1)}

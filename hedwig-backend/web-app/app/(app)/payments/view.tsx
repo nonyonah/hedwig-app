@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { usePostHog } from 'posthog-js/react';
 import {
   ArrowSquareOut,
   BellSimple,
@@ -132,6 +133,7 @@ export function PaymentsClient({
   clients?: Client[];
   billing: BillingStatusSummary | null;
 }) {
+  const posthog = usePostHog();
   const { formatAmount } = useCurrency();
   const { toast } = useToast();
   const canUseRecurringAutomation = canUseFeature('recurring_invoice_automation', billing);
@@ -242,6 +244,12 @@ export function PaymentsClient({
 
   const publicInvoiceUrl = selectedInvoice ? `${backendConfig.publicPagesUrl}/invoice/${selectedInvoice.id}` : '';
   const publicLinkUrl = selectedPaymentLink ? `${backendConfig.publicPagesUrl}/pay/${selectedPaymentLink.id}` : '';
+  const capturePaymentEvent = (event: string, properties: Record<string, unknown> = {}) => {
+    posthog?.capture(event, {
+      source: 'web_payments',
+      ...properties,
+    });
+  };
 
   /* ── handlers ── */
   const handleDelete = async () => {
@@ -252,9 +260,15 @@ export function PaymentsClient({
       if (deleteTarget.kind === 'invoice') {
         setInvoiceItems((cur) => cur.filter((i) => i.id !== deleteTarget.id));
         if (selectedInvoice?.id === deleteTarget.id) setSelectedInvoice(null);
+        capturePaymentEvent('invoice_deleted', {
+          invoice_id: deleteTarget.id,
+        });
       } else {
         setPaymentLinkItems((cur) => cur.filter((l) => l.id !== deleteTarget.id));
         if (selectedPaymentLink?.id === deleteTarget.id) setSelectedPaymentLink(null);
+        capturePaymentEvent('payment_link_deleted', {
+          payment_link_id: deleteTarget.id,
+        });
       }
       toast({ type: 'success', title: `${deleteTarget.kind === 'invoice' ? 'Invoice' : 'Payment link'} deleted`, message: `${deleteTarget.label} was removed.` });
       setDeleteTarget(null);
@@ -275,6 +289,11 @@ export function PaymentsClient({
   };
 
   const markAsPaid = (doc: Invoice | PaymentLink, kind: 'invoice' | 'payment-link') => {
+    capturePaymentEvent(kind === 'payment-link' ? 'payment_link_mark_paid_started' : 'invoice_mark_paid_started', {
+      [kind === 'payment-link' ? 'payment_link_id' : 'invoice_id']: doc.id,
+      amount: doc.amountUsd,
+      status: doc.status,
+    });
     setMarkPaidTarget({ doc, kind });
     setMarkPaidVia('bank_transfer');
     setMarkPaidReference('');
@@ -294,9 +313,23 @@ export function PaymentsClient({
       if (kind === 'invoice') {
         setInvoiceItems((cur) => cur.map((i) => (i.id === doc.id ? { ...i, status: 'paid' } : i)));
         if (selectedInvoice?.id === doc.id) setSelectedInvoice((c) => (c ? { ...c, status: 'paid' } : c));
+        capturePaymentEvent('invoice_paid', {
+          invoice_id: doc.id,
+          amount: doc.amountUsd,
+          currency: 'USD',
+          manual_mark_paid: true,
+          paid_via: markPaidVia,
+        });
       } else {
         setPaymentLinkItems((cur) => cur.map((l) => (l.id === doc.id ? { ...l, status: 'paid' } : l)));
         if (selectedPaymentLink?.id === doc.id) setSelectedPaymentLink((c) => (c ? { ...c, status: 'paid' } : c));
+        capturePaymentEvent('payment_link_paid', {
+          payment_link_id: doc.id,
+          amount: doc.amountUsd,
+          currency: 'USDC',
+          manual_mark_paid: true,
+          paid_via: markPaidVia,
+        });
       }
       toast({ type: 'success', title: 'Marked as paid' });
       setMarkPaidTarget(null);
@@ -312,6 +345,19 @@ export function PaymentsClient({
     setIsActionLoading(true);
     try {
       await hedwigApi.remindDocument(doc.id, { accessToken, disableMockFallback: true });
+      if ('asset' in doc) {
+        capturePaymentEvent('payment_link_reminder_sent', {
+          payment_link_id: doc.id,
+          status: doc.status,
+          has_recipient_email: Boolean(doc.clientEmail),
+        });
+      } else {
+        capturePaymentEvent('invoice_reminder_sent', {
+          invoice_id: doc.id,
+          status: doc.status,
+          has_recipient_email: Boolean(doc.clientEmail),
+        });
+      }
       toast({ type: 'success', title: 'Reminder sent', message: 'The client reminder was sent.' });
     } catch (e: any) {
       toast({ type: 'error', title: 'Failed', message: e?.message });
@@ -328,9 +374,17 @@ export function PaymentsClient({
       if (kind === 'invoice') {
         setInvoiceItems((cur) => cur.map((i) => (i.id === doc.id ? { ...i, remindersEnabled: enabled } : i)));
         if (selectedInvoice?.id === doc.id) setSelectedInvoice((c) => (c ? { ...c, remindersEnabled: enabled } : c));
+        capturePaymentEvent('invoice_reminders_toggled', {
+          invoice_id: doc.id,
+          enabled,
+        });
       } else {
         setPaymentLinkItems((cur) => cur.map((l) => (l.id === doc.id ? { ...l, remindersEnabled: enabled } : l)));
         if (selectedPaymentLink?.id === doc.id) setSelectedPaymentLink((c) => (c ? { ...c, remindersEnabled: enabled } : c));
+        capturePaymentEvent('payment_link_reminders_toggled', {
+          payment_link_id: doc.id,
+          enabled,
+        });
       }
       toast({ type: 'success', title: enabled ? 'Reminders enabled' : 'Reminders disabled' });
     } catch (e: any) {
@@ -353,9 +407,17 @@ export function PaymentsClient({
       if (emailTarget.kind === 'invoice') {
         setInvoiceItems((cur) => cur.map((i) => i.id === emailTarget.id ? { ...i, clientEmail: emailInput.trim().toLowerCase() } : i));
         if (selectedInvoice?.id === emailTarget.id) setSelectedInvoice((c) => c ? { ...c, clientEmail: emailInput.trim().toLowerCase() } : c);
+        capturePaymentEvent('invoice_recipient_email_saved', {
+          invoice_id: emailTarget.id,
+          had_previous_email: Boolean(emailTarget.current),
+        });
       } else {
         setPaymentLinkItems((cur) => cur.map((l) => l.id === emailTarget.id ? { ...l, clientEmail: emailInput.trim().toLowerCase() } : l));
         if (selectedPaymentLink?.id === emailTarget.id) setSelectedPaymentLink((c) => c ? { ...c, clientEmail: emailInput.trim().toLowerCase() } : c);
+        capturePaymentEvent('payment_link_recipient_email_saved', {
+          payment_link_id: emailTarget.id,
+          had_previous_email: Boolean(emailTarget.current),
+        });
       }
       toast({ type: 'success', title: 'Email saved', message: 'Recipient email updated.' });
       setEmailTarget(null);
@@ -368,7 +430,17 @@ export function PaymentsClient({
 
   const invoiceActions = (inv: Invoice): RowActionItem[] => {
     const items: RowActionItem[] = [
-      { label: 'Copy link', onClick: () => copyText(`${backendConfig.publicPagesUrl}/invoice/${inv.id}`, 'Invoice link copied') },
+      {
+        label: 'Copy link',
+        onClick: () => {
+          capturePaymentEvent('invoice_shared', {
+            invoice_id: inv.id,
+            status: inv.status,
+            method: 'copy',
+          });
+          copyText(`${backendConfig.publicPagesUrl}/invoice/${inv.id}`, 'Invoice link copied');
+        },
+      },
       { label: inv.clientEmail ? 'Change recipient email' : 'Add recipient email', onClick: () => openEmailDialog(inv.id, 'invoice', inv.clientEmail) },
     ];
     if (inv.status !== 'paid') {
@@ -384,7 +456,17 @@ export function PaymentsClient({
 
   const linkActions = (link: PaymentLink): RowActionItem[] => {
     const items: RowActionItem[] = [
-      { label: 'Copy link', onClick: () => copyText(`${backendConfig.publicPagesUrl}/pay/${link.id}`, 'Payment link copied') },
+      {
+        label: 'Copy link',
+        onClick: () => {
+          capturePaymentEvent('payment_link_shared', {
+            payment_link_id: link.id,
+            status: link.status,
+            method: 'copy',
+          });
+          copyText(`${backendConfig.publicPagesUrl}/pay/${link.id}`, 'Payment link copied');
+        },
+      },
       { label: link.clientEmail ? 'Change recipient email' : 'Add recipient email', onClick: () => openEmailDialog(link.id, 'payment-link', link.clientEmail) },
     ];
     if (link.status !== 'paid') {
@@ -479,11 +561,28 @@ export function PaymentsClient({
 
         {/* Tab bar */}
         <div className="flex items-center border-b border-[#f2f4f7] px-5">
-          <TabBtn active={activeTab === 'invoices'} onClick={() => setActiveTab('invoices')}>
+          <TabBtn
+            active={activeTab === 'invoices'}
+            onClick={() => {
+              setActiveTab('invoices');
+              capturePaymentEvent('invoices_tab_opened', {
+                total_count: allInvoiceItems.length,
+              });
+            }}
+          >
             Invoices
             <CountBadge n={allInvoiceItems.length} />
           </TabBtn>
-          <TabBtn active={activeTab === 'payment-links'} onClick={() => setActiveTab('payment-links')}>
+          <TabBtn
+            active={activeTab === 'payment-links'}
+            onClick={() => {
+              setActiveTab('payment-links');
+              capturePaymentEvent('payment_links_tab_opened', {
+                active_count: stats.activeLinks,
+                total_count: paymentLinkItems.length,
+              });
+            }}
+          >
             Payment links
             <CountBadge n={paymentLinkItems.length} />
           </TabBtn>
@@ -503,13 +602,33 @@ export function PaymentsClient({
         <div className="flex items-center gap-1 border-b border-[#f2f4f7] px-5 py-2">
           {activeTab === 'invoices'
             ? (['all', 'draft', 'sent', 'viewed', 'paid', 'overdue'] as const).map((s) => (
-                <FilterChip key={s} active={invoiceFilter === s} onClick={() => setInvoiceFilter(s)}>
+                <FilterChip
+                  key={s}
+                  active={invoiceFilter === s}
+                  onClick={() => {
+                    setInvoiceFilter(s);
+                    capturePaymentEvent('invoice_filtered', {
+                      filter: s,
+                      result_count: s === 'all' ? allInvoiceItems.length : allInvoiceItems.filter((i) => i.status === s).length,
+                    });
+                  }}
+                >
                   {s === 'all' ? 'All' : INV_STATUS[s as keyof typeof INV_STATUS]?.label ?? s}
                 </FilterChip>
               ))
             : activeTab === 'payment-links'
             ? (['all', 'active', 'paid', 'expired'] as const).map((s) => (
-                <FilterChip key={s} active={linkFilter === s} onClick={() => setLinkFilter(s)}>
+                <FilterChip
+                  key={s}
+                  active={linkFilter === s}
+                  onClick={() => {
+                    setLinkFilter(s);
+                    capturePaymentEvent('payment_link_filtered', {
+                      filter: s,
+                      result_count: s === 'all' ? paymentLinkItems.length : paymentLinkItems.filter((l) => l.status === s).length,
+                    });
+                  }}
+                >
                   {s === 'all' ? 'All' : LINK_STATUS[s]?.label ?? s}
                 </FilterChip>
               ))
@@ -583,6 +702,11 @@ export function PaymentsClient({
                       setSelectedRecurring(null);
                       setSelectedPaymentLink(null);
                       setSelectedInvoice(null);
+                      capturePaymentEvent('invoice_viewed', {
+                        invoice_id: inv.id,
+                        status: inv.status,
+                        surface: 'invoices_table',
+                      });
                       openPaymentDetail('invoice', inv.id);
                     }}
                     className={`group grid cursor-pointer grid-cols-[1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa] ${selectedInvoice?.id === inv.id ? 'bg-[#f5f8ff]' : ''}`}
@@ -630,6 +754,11 @@ export function PaymentsClient({
                   onClick={() => {
                     setSelectedInvoice(null);
                     setSelectedPaymentLink(null);
+                    capturePaymentEvent('payment_link_opened', {
+                      payment_link_id: link.id,
+                      status: link.status,
+                      surface: 'payment_links_table',
+                    });
                     openPaymentDetail('payment-link', link.id);
                   }}
                   className={`group grid cursor-pointer grid-cols-[1fr_120px_110px_100px_44px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa] ${selectedPaymentLink?.id === link.id ? 'bg-[#f5f8ff]' : ''}`}

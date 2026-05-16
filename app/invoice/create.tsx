@@ -29,7 +29,7 @@ import { usePrivy } from '@privy-io/expo';
 import { useThemeColors } from '../../theme/colors';
 import { useAnalyticsScreen } from '../../hooks/useAnalyticsScreen';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
-import { getPostHogClient } from '../../services/analytics';
+import Analytics from '../../services/analytics';
 import { Button } from '../../components/Button';
 
 type Client   = { id: string; name: string; email: string | null };
@@ -205,12 +205,15 @@ export default function CreateInvoiceScreen() {
                 });
                 const d = await res.json().catch(() => null);
                 if (!res.ok || !d?.success) throw new Error(d?.error?.message || 'Failed');
-                const posthog = getPostHogClient();
-                await posthog.capture('invoice_created', {
+                await Analytics.invoiceCreated(Number(d?.data?.document?.amount ?? totalAmount), String(d?.data?.document?.currency ?? 'USDC'), 'crypto', {
                     invoice_id: d?.data?.document?.id,
-                    amount: d?.data?.document?.amount,
-                    currency: d?.data?.document?.currency,
                     client_id: d?.data?.document?.clientId,
+                    project_id: selectedProject?.id,
+                    has_client: Boolean(selectedClient?.id || clientName.trim()),
+                    has_recipient_email: Boolean(recipientEmail.trim()),
+                    reminders_enabled: reminders,
+                    line_item_count: parsedItems.length,
+                    source: 'mobile_create_invoice',
                 });
                 Alert.alert('Success', 'Invoice created successfully!', [{ text: 'OK', onPress: () => router.back() }]);
             }

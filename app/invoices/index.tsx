@@ -449,6 +449,10 @@ export default function InvoicesScreen() {
 
                             if (data.success) {
                                 setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+                                await Analytics.invoiceDeleted({
+                                    invoice_id: invoiceId,
+                                    source: 'mobile_invoices',
+                                });
                                 Alert.alert('Success', 'Invoice deleted successfully');
                             } else {
                                 Alert.alert('Error', data.error?.message || 'Failed to delete invoice');
@@ -476,6 +480,11 @@ export default function InvoicesScreen() {
                 });
                 const data = await response.json();
                 if (data.success) {
+                    await Analytics.invoiceReminderSent({
+                        invoice_id: selectedInvoice.id,
+                        has_recipient_email: Boolean(selectedInvoice.content?.recipient_email),
+                        source: 'mobile_invoices',
+                    });
                     Alert.alert('Success', 'Reminder sent successfully!');
                 } else {
                     Alert.alert('Error', data.error?.message || 'Failed to send reminder');
@@ -553,6 +562,10 @@ export default function InvoicesScreen() {
             });
             const data = await response.json();
             if (data.success) {
+                await Analytics.invoiceRemindersToggled(newState, {
+                    invoice_id: selectedInvoice.id,
+                    source: 'mobile_invoices',
+                });
                 Alert.alert('Success', `Automatic reminders ${newState ? 'enabled' : 'disabled'}`);
                 setSelectedInvoice({
                     ...selectedInvoice,
@@ -616,6 +629,11 @@ export default function InvoicesScreen() {
                     manual_mark_paid: true,
                 }
             }) : prev);
+            await Analytics.invoicePaid(Number(selectedInvoice.amount || selectedInvoice.content?.amount || 0), String(selectedInvoice.currency || 'USDC'), 'crypto', {
+                invoice_id: selectedInvoice.id,
+                source: 'mobile_invoices',
+                manual_mark_paid: true,
+            });
             Alert.alert('Success', 'Invoice marked as paid');
         } catch (error) {
             Alert.alert('Error', 'Failed to mark invoice as paid');
@@ -639,6 +657,11 @@ export default function InvoicesScreen() {
                 message: `Invoice ${selectedInvoice.title || `INV-${selectedInvoice.id?.slice(0, 8).toUpperCase()}`}: ${url}`,
                 url,
             });
+            await Analytics.invoiceShared({
+                invoice_id: selectedInvoice.id,
+                status: selectedInvoice.status,
+                source: 'mobile_invoices',
+            });
         } catch (error) {
             console.error('Failed to share invoice:', error);
             Alert.alert('Error', 'Failed to share invoice');
@@ -648,6 +671,10 @@ export default function InvoicesScreen() {
     const openModal = (invoice: any) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedInvoice(invoice);
+        void Analytics.invoiceViewed(invoice.id, {
+            status: invoice.status,
+            source: 'mobile_invoices',
+        });
         bottomSheetRef.current?.present();
     };
 
@@ -777,7 +804,21 @@ export default function InvoicesScreen() {
                                 <TouchableOpacity
                                     key={filter}
                                     style={[styles.filterChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, statusFilter === filter && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
-                                    onPress={() => setStatusFilter(filter)}
+                                    onPress={() => {
+                                        setStatusFilter(filter);
+                                        void Analytics.invoiceFiltered(
+                                            filter,
+                                            filter === 'recurring'
+                                                ? recurringItems.length
+                                                : filter === 'all'
+                                                    ? invoices.length
+                                                    : filter === 'paid'
+                                                        ? invoices.filter(inv => inv.status === 'PAID').length
+                                                        : filter === 'due_soon'
+                                                            ? filteredInvoices.length
+                                                            : invoices.filter(inv => inv.status !== 'PAID').length
+                                        );
+                                    }}
                                 >
                                     <Text style={[styles.filterText, { color: themeColors.textSecondary }, statusFilter === filter && styles.filterTextActive]}>
                                         {filter === 'due_soon' ? 'Due Soon' : filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -1253,7 +1294,7 @@ export default function InvoicesScreen() {
                                         </Text>
                                         <View style={styles.amountCardSub}>
                                             <Text style={[styles.amountCardSubText, { color: themeColors.textSecondary }]}>
-                                                {FREQ_DISPLAY[r.frequency] ?? `per ${r.frequency}` ?? 'per month'}
+                                                {FREQ_DISPLAY[r.frequency] ?? (r.frequency ? `per ${r.frequency}` : 'per month')}
                                             </Text>
                                         </View>
                                     </View>
