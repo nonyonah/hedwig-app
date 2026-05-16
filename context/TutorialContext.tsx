@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TUTORIAL_STEPS, TutorialStep, TOTAL_STEPS } from '../constants/tutorialSteps';
 
-const STORAGE_KEY = '@hedwig_tutorial_v2_completed';
+export const TUTORIAL_STORAGE_KEY = '@hedwig_tutorial_v2_completed';
 
 interface TutorialContextType {
     /** Index of the currently active step (0-based) */
@@ -44,8 +44,11 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     useEffect(() => {
         const load = async () => {
             try {
-                const val = await AsyncStorage.getItem(STORAGE_KEY);
-                setIsCompleted(val === 'true');
+                const [val, demoFlag] = await Promise.all([
+                    AsyncStorage.getItem(TUTORIAL_STORAGE_KEY),
+                    AsyncStorage.getItem('isDemo'),
+                ]);
+                setIsCompleted(val === 'true' || demoFlag === 'true');
             } catch {
                 // If storage fails, treat as not completed
             } finally {
@@ -57,7 +60,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const persist = useCallback(async (completed: boolean) => {
         try {
-            await AsyncStorage.setItem(STORAGE_KEY, completed ? 'true' : 'false');
+            await AsyncStorage.setItem(TUTORIAL_STORAGE_KEY, completed ? 'true' : 'false');
         } catch {
             // non-fatal
         }
@@ -103,7 +106,7 @@ export const TutorialProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const resetTutorial = useCallback(async () => {
         try {
-            await AsyncStorage.removeItem(STORAGE_KEY);
+            await AsyncStorage.removeItem(TUTORIAL_STORAGE_KEY);
         } catch {
             // non-fatal
         }

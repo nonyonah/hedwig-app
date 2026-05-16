@@ -24,6 +24,7 @@ import { useLoginWithEmail, usePrivy, useLoginWithOAuth } from '@privy-io/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import IOSGlassIconButton from '../../components/ui/IOSGlassIconButton';
 import { joinApiUrl } from '../../utils/apiBaseUrl';
+import { TUTORIAL_STORAGE_KEY } from '../../context/TutorialContext';
 
 const DEMO_EMAIL = 'demo@hedwig.app';
 const DEMO_CODE = '123456';
@@ -109,6 +110,7 @@ export default function LoginScreen() {
                 const demoToken = `demo_${Date.now()}_${Math.random().toString(36).substring(2)}`;
                 await AsyncStorage.setItem('isDemo', 'true');
                 await AsyncStorage.setItem('demoToken', demoToken);
+                await AsyncStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
                 router.replace('/');
                 return;
             }

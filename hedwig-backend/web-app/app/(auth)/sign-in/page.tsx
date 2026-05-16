@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CaretLeft, Minus, Plus, SpinnerGap } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
+import { BankAccountForm } from '@/components/payouts/bank-account-form';
 
-type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'goal' | 'error';
+type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'goal' | 'bank' | 'error';
 const RESEND_COOLDOWN_SECONDS = 30;
 
 const PRESETS = [
@@ -217,7 +218,7 @@ export default function SignInPage() {
         body: JSON.stringify({ monthlyTarget: target }),
       });
       if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not save your goal.'); }
-      await finalizeSession(token);
+      setStage('bank');
     } catch (err: any) {
       setErrorMessage(err?.message || 'Could not complete onboarding.');
       setStage('goal');
@@ -229,7 +230,7 @@ export default function SignInPage() {
   /* ── layout shell ── */
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6 py-16">
-      <div className="w-full max-w-[340px]">
+      <div className={`w-full ${stage === 'bank' ? 'max-w-[620px]' : 'max-w-[340px]'}`}>
 
         {/* Logo mark */}
         <div className="mb-8">
@@ -465,7 +466,7 @@ export default function SignInPage() {
                 {isSubmitting ? 'Saving…' : 'Continue'}
               </button>
 
-              <p className="text-center text-[12px] text-[#c1c5cd]">Step 1 of 2</p>
+              <p className="text-center text-[12px] text-[#c1c5cd]">Step 1 of 3</p>
             </div>
           </div>
         )}
@@ -531,7 +532,7 @@ export default function SignInPage() {
                 onClick={submitGoal}
                 className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSubmitting ? 'Saving…' : 'Get started'}
+                {isSubmitting ? 'Saving…' : 'Continue'}
               </button>
 
               <button
@@ -543,8 +544,61 @@ export default function SignInPage() {
                 Back
               </button>
 
-              <p className="text-center text-[12px] text-[#c1c5cd]">Step 2 of 2</p>
+              <p className="text-center text-[12px] text-[#c1c5cd]">Step 2 of 3</p>
             </div>
+          </div>
+        )}
+
+        {/* ── Bank account ── */}
+        {stage === 'bank' && (
+          <div>
+            <div className="mb-6 text-center">
+              <span className="inline-flex rounded-full bg-[#eff4ff] px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-[#2563eb]">
+                Final step
+              </span>
+              <h1 className="mt-3 text-[24px] font-bold tracking-[-0.03em] text-[#181d27]">
+                Add your payout bank
+              </h1>
+              <p className="mt-2 text-[13px] leading-5 text-[#717680]">
+                Clients can pay invoices and payment links by bank transfer when your payout details are ready.
+                You can add more accounts later in Settings.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#e9eaeb] bg-white p-5 shadow-xs">
+              <BankAccountForm
+                accessToken={token}
+                initial={null}
+                isFirstAccount
+                showHeader={false}
+                submitLabel="Save and continue"
+                onSaved={() => {
+                  if (token) void finalizeSession(token);
+                }}
+              />
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setStage('goal')}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-full border border-[#e9eaeb] px-4 text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
+              >
+                <CaretLeft className="h-3.5 w-3.5" weight="bold" />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (token) void finalizeSession(token);
+                }}
+                className="flex h-10 items-center justify-center rounded-full px-4 text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
+              >
+                Skip for now
+              </button>
+            </div>
+
+            <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 3 of 3</p>
           </div>
         )}
 

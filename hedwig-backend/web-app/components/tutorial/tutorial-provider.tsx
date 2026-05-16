@@ -36,14 +36,14 @@ export function TutorialProvider({
 
   useEffect(() => {
     if (isDemo) {
-      // Always show tutorial for demo sessions
-      const t = setTimeout(() => setIsVisible(true), 900);
-      return () => clearTimeout(t);
+      setIsVisible(false);
+      setActiveStepIndex(0);
+      return;
     }
     // Real users: only show if not yet completed
     const completed = typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEY) === 'true';
     if (!completed) {
-      const t = setTimeout(() => setIsVisible(true), 900);
+      const t = setTimeout(() => setIsVisible(true), 250);
       return () => clearTimeout(t);
     }
   }, [isDemo]);

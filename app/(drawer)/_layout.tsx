@@ -133,6 +133,7 @@ const SCREEN_ROUTES: Record<string, string> = {
 function GlobalTutorial() {
     const router = useRouter();
     const pathname = usePathname();
+    const { isDemo } = useAuth();
     const { isVisible, activeStep, activeStepIndex, totalSteps, nextStep, prevStep, skipTutorial } = useTutorial();
     const prevIndexRef = useRef(activeStepIndex);
 
@@ -149,7 +150,7 @@ function GlobalTutorial() {
         prevIndexRef.current = activeStepIndex;
     }, [activeStepIndex, isVisible, activeStep, pathname, router]);
 
-    if (!isVisible || !activeStep) return null;
+    if (isDemo || !isVisible || !activeStep) return null;
     if (pathname === '/settings') return null;
 
     return (
