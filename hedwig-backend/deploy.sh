@@ -14,8 +14,10 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-# Read environment variables from .env (excluding PORT and comments)
-ENV_VARS=$(grep -v '^#' .env | grep -v '^PORT=' | xargs | sed 's/ /,/g')
+# Read environment variables from .env (excluding local-only runtime values).
+# Cloud Run must always run with NODE_ENV=production; several webhook
+# verification paths intentionally enforce signatures only in production.
+ENV_VARS=$(grep -v '^#' .env | grep -v '^PORT=' | grep -v '^NODE_ENV=' | xargs | sed 's/ /,/g')
 
 if [ -z "$ENV_VARS" ]; then
     echo "❌ Error: No environment variables found in .env"
@@ -28,7 +30,7 @@ gcloud run deploy "$SERVICE_NAME" \
     --source . \
     --region "$REGION" \
     --allow-unauthenticated \
-    --update-env-vars="$ENV_VARS"
+    --update-env-vars="$ENV_VARS,NODE_ENV=production"
 
 if [ $? -eq 0 ]; then
     echo "✅ Deployment successful!"
