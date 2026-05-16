@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ArrowLeft, Buildings, ClockCountdown, Envelope, MapPin, NotePencil, Phone, Trash, Wallet } from '@/components/ui/lucide-icons';
+import { ArrowLeft, Buildings, ClockCountdown, Envelope, MapPin, NotePencil, PaperPlaneRight, Phone, Sparkle, Trash, Wallet } from '@/components/ui/lucide-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { DeleteDialog } from '@/components/data/delete-dialog';
 import {
   Dialog,
@@ -26,6 +27,12 @@ import { openPaymentDetail } from '@/lib/payments/open-detail';
 
 function initials(name: string) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+}
+
+function buildSmsHref(phone?: string) {
+  if (!phone) return null;
+  const normalized = phone.replace(/[^\d+]/g, '');
+  return normalized ? `sms:${normalized}` : null;
 }
 
 const CLIENT_STATUS = {
@@ -116,6 +123,12 @@ export function ClientDetailClient({
   const [isSaving, setIsSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [messageSubject, setMessageSubject] = useState('');
+  const [messageBody, setMessageBody] = useState('');
+  const [messagePurpose, setMessagePurpose] = useState('');
+  const [isDraftingMessage, setIsDraftingMessage] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [form, setForm] = useState({
     name: initialClient.name,
     email: initialClient.email,
@@ -130,6 +143,46 @@ export function ClientDetailClient({
   const openEdit = () => {
     setForm({ name: client.name, email: client.email, company: client.company || '', phone: client.phone || '', address: client.address || '' });
     setEditOpen(true);
+  };
+
+  const openMessage = () => {
+    setMessageSubject(`Quick follow-up from Hedwig`);
+    setMessageBody(`Hi ${client.name.split(' ')[0] || client.name},\n\n`);
+    setMessagePurpose('');
+    setMessageOpen(true);
+  };
+
+  const draftMessage = async () => {
+    if (!accessToken) { toast({ type: 'error', title: 'Session expired' }); return; }
+    setIsDraftingMessage(true);
+    try {
+      const draft = await hedwigApi.draftClientMessage(client.id, messagePurpose, { accessToken, disableMockFallback: true });
+      setMessageSubject(draft.subject || messageSubject);
+      setMessageBody(draft.body || messageBody);
+      toast({ type: 'success', title: 'Draft ready', message: 'Review it before sending.' });
+    } catch (err: any) {
+      toast({ type: 'error', title: 'Could not draft message', message: err?.message || 'Please try again.' });
+    } finally {
+      setIsDraftingMessage(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!accessToken) { toast({ type: 'error', title: 'Session expired' }); return; }
+    setIsSendingMessage(true);
+    try {
+      await hedwigApi.sendClientMessage(
+        client.id,
+        { subject: messageSubject.trim(), message: messageBody.trim() },
+        { accessToken, disableMockFallback: true }
+      );
+      setMessageOpen(false);
+      toast({ type: 'success', title: 'Message sent', message: `Email sent to ${client.email}.` });
+    } catch (err: any) {
+      toast({ type: 'error', title: 'Could not send message', message: err?.message || 'Please try again.' });
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
   const saveClient = async () => {
@@ -170,6 +223,7 @@ export function ClientDetailClient({
 
   const s = CLIENT_STATUS[client.status] ?? CLIENT_STATUS.inactive;
   const seg = SEGMENT_PILL[client.segment] ?? SEGMENT_PILL.new;
+  const smsHref = buildSmsHref(client.phone);
 
   return (
     <div className="space-y-4">
@@ -210,6 +264,20 @@ export function ClientDetailClient({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {client.email && (
+              <Button size="sm" onClick={openMessage}>
+                <PaperPlaneRight className="h-3.5 w-3.5" weight="bold" />
+                Message
+              </Button>
+            )}
+            {smsHref && (
+              <Button size="sm" variant="secondary" asChild>
+                <a href={smsHref}>
+                  <Phone className="h-3.5 w-3.5" weight="bold" />
+                  Text
+                </a>
+              </Button>
+            )}
             <Button
               size="sm"
               variant="secondary"
@@ -443,6 +511,60 @@ export function ClientDetailClient({
           if (!open && !isDeleting) setDeleteOpen(false);
         }}
       />
+
+      <Dialog open={messageOpen} onOpenChange={(v) => !isSendingMessage && setMessageOpen(v)}>
+        <DialogContent className="max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Message {client.name}</DialogTitle>
+            <DialogDescription>Send a branded Hedwig email through Resend. The client can reply directly to you.</DialogDescription>
+          </DialogHeader>
+          <DialogBody className="space-y-3.5">
+            <div>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">What should Hedwig draft?</label>
+              <div className="flex gap-2">
+                <Input
+                  value={messagePurpose}
+                  onChange={(e) => setMessagePurpose(e.target.value)}
+                  placeholder="Follow up about the invoice, ask for project feedback..."
+                  disabled={isDraftingMessage || isSendingMessage}
+                />
+                <Button type="button" variant="secondary" onClick={draftMessage} disabled={isDraftingMessage || isSendingMessage}>
+                  <Sparkle className="h-3.5 w-3.5" weight="fill" />
+                  {isDraftingMessage ? 'Drafting…' : 'Draft'}
+                </Button>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Subject</label>
+              <Input
+                value={messageSubject}
+                onChange={(e) => setMessageSubject(e.target.value)}
+                placeholder="Subject"
+                disabled={isSendingMessage}
+                maxLength={160}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[12px] font-semibold text-[#525866]">Message</label>
+              <Textarea
+                value={messageBody}
+                onChange={(e) => setMessageBody(e.target.value)}
+                placeholder={`Hi ${client.name.split(' ')[0] || client.name},`}
+                disabled={isSendingMessage}
+                className="min-h-[180px]"
+                maxLength={5000}
+              />
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="secondary" disabled={isSendingMessage}>Cancel</Button></DialogClose>
+            <Button onClick={sendMessage} disabled={isSendingMessage || !messageSubject.trim() || !messageBody.trim()}>
+              <PaperPlaneRight className="h-3.5 w-3.5" weight="bold" />
+              {isSendingMessage ? 'Sending…' : 'Send email'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

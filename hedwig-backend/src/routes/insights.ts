@@ -46,6 +46,27 @@ const toNumber = (value: unknown): number => {
 
 const normalizeStatus = (value: unknown): string => String(value || '').trim().toUpperCase();
 
+const getDocumentPaidAt = (doc: any): Date => {
+    const candidates = [
+        doc?.paid_at,
+        doc?.paidAt,
+        doc?.content?.paid_at,
+        doc?.content?.paidAt,
+        doc?.content?.payment_date,
+        doc?.content?.recorded_at,
+        doc?.updated_at,
+        doc?.created_at,
+    ];
+
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+        const date = new Date(candidate);
+        if (!Number.isNaN(date.getTime())) return date;
+    }
+
+    return new Date(0);
+};
+
 const getRangeStart = (range: RangeKey): Date => {
     const now = new Date();
     if (range === '7d') return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -229,7 +250,9 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
         const rangeMs = now.getTime() - start.getTime();
         const prevStart = new Date(start.getTime() - rangeMs);
         const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-        const docsSince = new Date(Math.min(prevStart.getTime(), sixMonthsAgo.getTime()));
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const docsSince = new Date(Math.min(prevStart.getTime(), sixMonthsAgo.getTime(), currentMonthStart.getTime()));
+        const docsSinceIso = docsSince.toISOString();
 
         const privyId = req.user!.id;
         const user = await getOrCreateUser(privyId);
@@ -238,14 +261,14 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             return;
         }
 
-        const [docs, txs, offramps, onramps, clientsCountRes, activeProjectsRes, topClientRes] = await Promise.all([
+        const [docs, txs, offramps, onramps, clientsCountRes, activeProjectsRes] = await Promise.all([
             fetchPagedRows<any>('documents_summary', (from, to) =>
                 supabase
                     .from('documents')
-                    .select('id,type,status,amount,created_at,title,content')
+                    .select('id,type,status,amount,created_at,updated_at,title,content,client_id')
                     .eq('user_id', user.id)
-                    .gte('created_at', docsSince.toISOString())
-                    .order('created_at', { ascending: false })
+                    .or(`created_at.gte.${docsSinceIso},updated_at.gte.${docsSinceIso}`)
+                    .order('updated_at', { ascending: false })
                     .range(from, to)
             ),
             fetchPagedRows<any>('transactions_summary', (from, to) =>
@@ -284,37 +307,52 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
                 .in('status', ['ONGOING', 'ACTIVE', 'ON_HOLD']),
-            supabase
-                .from('clients')
-                .select('name,total_earnings')
-                .eq('user_id', user.id)
-                .order('total_earnings', { ascending: false })
-                .limit(1),
         ]);
 
         const clientsCount = getCountOrThrow('clients', clientsCountRes);
         const activeProjects = getCountOrThrow('active_projects', activeProjectsRes);
-        if (topClientRes.error) {
-            throw new Error(`top_client query failed: ${topClientRes.error.message || 'unknown error'}`);
-        }
-        const topClientRow = (topClientRes.data || [])[0];
-        const topClient = topClientRow
-            ? { name: topClientRow.name, totalEarnings: toNumber(topClientRow.total_earnings) }
-            : null;
 
         const docsInRange = docs.filter((d: any) => new Date(d.created_at) >= start);
-        const docsInPrevRange = docs.filter((d: any) => {
-            const created = new Date(d.created_at);
-            return created >= prevStart && created < start;
-        });
 
         const isPaidDoc = (d: any) => normalizeStatus(d.status) === 'PAID';
-        const paidInRange = docsInRange.filter(isPaidDoc);
-        const paidInPrevRange = docsInPrevRange.filter(isPaidDoc);
+        const paidInRange = docs.filter((d: any) => isPaidDoc(d) && getDocumentPaidAt(d) >= start);
+        const paidInPrevRange = docs.filter((d: any) => {
+            if (!isPaidDoc(d)) return false;
+            const paidAt = getDocumentPaidAt(d);
+            return paidAt >= prevStart && paidAt < start;
+        });
+        const paidInCurrentMonth = docs.filter((d: any) => isPaidDoc(d) && getDocumentPaidAt(d) >= currentMonthStart);
 
         const monthlyEarnings = paidInRange.reduce((sum: number, d: any) => sum + toNumber(d.amount), 0);
+        const currentMonthEarnings = paidInCurrentMonth.reduce((sum: number, d: any) => sum + toNumber(d.amount), 0);
         const prevEarnings = paidInPrevRange.reduce((sum: number, d: any) => sum + toNumber(d.amount), 0);
         const earningsDeltaPct = prevEarnings > 0 ? ((monthlyEarnings - prevEarnings) / prevEarnings) * 100 : (monthlyEarnings > 0 ? 100 : 0);
+
+        const topClientById = new Map<string, number>();
+        for (const doc of paidInRange) {
+            const clientId = String(doc.client_id || '').trim();
+            if (!clientId) continue;
+            topClientById.set(clientId, (topClientById.get(clientId) || 0) + toNumber(doc.amount));
+        }
+
+        const topClientEntry = Array.from(topClientById.entries()).sort((a, b) => b[1] - a[1])[0] || null;
+        let topClient: { name: string; totalEarnings: number } | null = null;
+        if (topClientEntry) {
+            const { data: topClientRows, error: topClientError } = await supabase
+                .from('clients')
+                .select('id,name')
+                .eq('user_id', user.id)
+                .eq('id', topClientEntry[0])
+                .limit(1);
+            if (topClientError) {
+                throw new Error(`top_client query failed: ${summarizeSupabaseError(topClientError)}`);
+            }
+            const row = (topClientRows || [])[0];
+            topClient = {
+                name: row?.name || 'Client',
+                totalEarnings: Number(topClientEntry[1].toFixed(2)),
+            };
+        }
 
         const pendingStatuses = new Set(['SENT', 'VIEWED', 'PENDING', 'DRAFT']);
         const pendingInvoices = docsInRange.filter((d: any) => normalizeStatus(d.type) === 'INVOICE' && pendingStatuses.has(normalizeStatus(d.status)));
@@ -352,7 +390,7 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             monthBuckets[monthKey(d)] = 0;
         }
         for (const d of docs.filter((x: any) => isPaidDoc(x))) {
-            const key = monthKey(new Date(d.created_at));
+            const key = monthKey(getDocumentPaidAt(d));
             if (key in monthBuckets) monthBuckets[key] += toNumber(d.amount);
         }
         const earningsSeries = Object.entries(monthBuckets).map(([key, value]) => ({ key, value }));
@@ -413,6 +451,7 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
                 lastUpdatedAt: new Date().toISOString(),
                 summary: {
                     monthlyEarnings,
+                    currentMonthEarnings,
                     previousPeriodEarnings: prevEarnings,
                     earningsDeltaPct,
                     pendingInvoicesCount,
@@ -473,13 +512,12 @@ router.get('/tax-summary', authenticate, async (req: Request, res: Response, nex
             fetchPagedRows<any>('tax_paid_documents', (from, to) =>
                 supabase
                     .from('documents')
-                    .select('id,type,status,amount,created_at,client_id')
+                    .select('id,type,status,amount,created_at,updated_at,content,client_id')
                     .eq('user_id', user.id)
                     .in('type', ['INVOICE', 'PAYMENT_LINK'])
                     .eq('status', 'PAID')
-                    .gte('created_at', startIso)
-                    .lt('created_at', endIso)
-                    .order('created_at', { ascending: false })
+                    .or(`created_at.gte.${startIso},updated_at.gte.${startIso}`)
+                    .order('updated_at', { ascending: false })
                     .range(from, to)
             ),
             fetchPagedRows<any>('tax_offramp_withdrawals', (from, to) =>
@@ -543,8 +581,9 @@ router.get('/tax-summary', authenticate, async (req: Request, res: Response, nex
         const clientTotals = new Map<string, { name: string; incomeUsd: number; invoiceCount: number }>();
 
         for (const doc of paidDocuments) {
-            const createdAt = new Date(doc.created_at);
-            const key = monthLabel(createdAt);
+            const paidAt = getDocumentPaidAt(doc);
+            if (paidAt < start || paidAt >= end) continue;
+            const key = monthLabel(paidAt);
             const amount = toNumber(doc.amount);
             if (monthlyMap[key]) monthlyMap[key].incomeUsd += amount;
 

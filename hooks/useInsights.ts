@@ -18,6 +18,7 @@ export interface Insight {
 
 export interface InsightsSummary {
     monthlyEarnings: number;
+    currentMonthEarnings?: number;
     previousPeriodEarnings: number;
     earningsDeltaPct: number;
     pendingInvoicesCount: number;

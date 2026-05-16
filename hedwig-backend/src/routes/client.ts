@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 import { getOrCreateUser } from '../utils/userHelper';
+import { EmailService } from '../services/email';
+import { GeminiService } from '../services/gemini';
 
 const router = Router();
 
@@ -78,6 +80,21 @@ function formatClient(client: any, stats?: ClientStats) {
     };
 }
 
+const senderNameFromUser = (user: any): string =>
+    `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email || 'A Hedwig user';
+
+async function getOwnedClient(userId: string, clientId: string) {
+    const { data: client, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', clientId)
+        .eq('user_id', userId)
+        .single();
+
+    if (error || !client) return null;
+    return client;
+}
+
 /**
  * GET /api/clients
  * Get all clients for the authenticated user
@@ -121,7 +138,7 @@ router.get('/', authenticate, async (req: Request, res: Response, next) => {
  */
 router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
     try {
-        const { id } = req.params;
+        const id = String(req.params.id);
         const privyId = req.user!.id;
 
         // Get internal user ID
@@ -175,6 +192,98 @@ router.get('/:id', authenticate, async (req: Request, res: Response, next) => {
             success: true,
             data: { client: formattedClient, documents },
         });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/clients/:id/message/draft
+ * Draft a client email with Gemini.
+ */
+router.post('/:id/message/draft', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const id = String(req.params.id);
+        const { purpose } = req.body || {};
+        const privyId = req.user!.id;
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const client = await getOwnedClient(user.id, id);
+        if (!client) {
+            res.status(404).json({ success: false, error: { message: 'Client not found' } });
+            return;
+        }
+
+        const draft = await GeminiService.generateClientEmailDraft({
+            senderName: senderNameFromUser(user),
+            clientName: client.name || 'there',
+            clientCompany: client.company || null,
+            purpose: typeof purpose === 'string' ? purpose : null,
+        });
+
+        res.json({ success: true, data: { draft } });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/clients/:id/message
+ * Send a reviewed client email through Resend using the Hedwig template.
+ */
+router.post('/:id/message', authenticate, async (req: Request, res: Response, next) => {
+    try {
+        const id = String(req.params.id);
+        const { subject, message } = req.body || {};
+        const privyId = req.user!.id;
+
+        const cleanSubject = String(subject || '').trim();
+        const cleanMessage = String(message || '').trim();
+        if (!cleanSubject || !cleanMessage) {
+            res.status(400).json({ success: false, error: { message: 'Subject and message are required' } });
+            return;
+        }
+        if (cleanSubject.length > 160 || cleanMessage.length > 5000) {
+            res.status(400).json({ success: false, error: { message: 'Message is too long' } });
+            return;
+        }
+
+        const user = await getOrCreateUser(privyId);
+        if (!user) {
+            res.status(404).json({ success: false, error: { message: 'User not found' } });
+            return;
+        }
+
+        const client = await getOwnedClient(user.id, id);
+        if (!client) {
+            res.status(404).json({ success: false, error: { message: 'Client not found' } });
+            return;
+        }
+        if (!client.email) {
+            res.status(400).json({ success: false, error: { message: 'Client does not have an email address' } });
+            return;
+        }
+
+        const emailSent = await EmailService.sendClientMessageEmail({
+            to: client.email,
+            clientName: client.name || 'Client',
+            senderName: senderNameFromUser(user),
+            senderEmail: user.email || null,
+            subject: cleanSubject,
+            message: cleanMessage,
+        });
+
+        if (!emailSent) {
+            res.status(502).json({ success: false, error: { message: 'Email could not be sent' } });
+            return;
+        }
+
+        res.json({ success: true, data: { emailSent: true, clientEmail: client.email } });
     } catch (error) {
         next(error);
     }

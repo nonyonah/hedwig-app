@@ -25,6 +25,27 @@ const toNumber = (value: unknown): number => {
 
 const normalizeStatus = (value: unknown): string => String(value || '').trim().toUpperCase();
 
+const getDocumentPaidAt = (doc: any): Date => {
+    const candidates = [
+        doc?.paid_at,
+        doc?.paidAt,
+        doc?.content?.paid_at,
+        doc?.content?.paidAt,
+        doc?.content?.payment_date,
+        doc?.content?.recorded_at,
+        doc?.updated_at,
+        doc?.created_at,
+    ];
+
+    for (const candidate of candidates) {
+        if (!candidate) continue;
+        const date = new Date(candidate);
+        if (!Number.isNaN(date.getTime())) return date;
+    }
+
+    return new Date(0);
+};
+
 const summarizeError = (error: any): string => {
     if (!error) return 'unknown error';
     if (typeof error === 'string') return error;
@@ -95,16 +116,17 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
         const nowIso = now.toISOString();
         const rangeMs = now.getTime() - start.getTime();
         const prevStart = new Date(start.getTime() - rangeMs);
+        const prevStartIso = prevStart.toISOString();
 
         const [invoices, expenses, offramps, onramps] = await Promise.all([
             fetchPaged<any>('invoices_summary', (from, to) =>
                 supabase
                     .from('documents')
-                    .select('id,type,status,amount,created_at,content')
+                    .select('id,type,status,amount,created_at,updated_at,content')
                     .eq('user_id', user.id)
                     .in('type', ['INVOICE', 'PAYMENT_LINK'])
-                    .gte('created_at', prevStart.toISOString())
-                    .order('created_at', { ascending: false })
+                    .or(`created_at.gte.${prevStartIso},updated_at.gte.${prevStartIso}`)
+                    .order('updated_at', { ascending: false })
                     .range(from, to)
             ),
             fetchPaged<any>('expenses_summary', (from, to) =>
@@ -136,13 +158,12 @@ router.get('/summary', authenticate, async (req: Request, res: Response, next) =
             ).catch(() => [] as any[]),
         ]);
 
-        const inRange = invoices.filter((d: any) => new Date(d.created_at) >= start);
-        const inPrevRange = invoices.filter((d: any) => {
-            const c = new Date(d.created_at);
-            return c >= prevStart && c < start;
-        });
-
         const isPaid = (d: any) => normalizeStatus(d.status) === 'PAID';
+        const inRange = invoices.filter((d: any) => isPaid(d) ? getDocumentPaidAt(d) >= start : new Date(d.created_at) >= start);
+        const inPrevRange = invoices.filter((d: any) => {
+            const date = isPaid(d) ? getDocumentPaidAt(d) : new Date(d.created_at);
+            return date >= prevStart && date < start;
+        });
         const isOverdue = (d: any) => {
             // Only invoice-style docs go overdue. Payment links don't have due dates.
             if (normalizeStatus(d.type) !== 'INVOICE') return false;
@@ -233,12 +254,12 @@ router.get('/trend', authenticate, async (req: Request, res: Response, next) => 
             fetchPaged<any>('trend_invoices', (from, to) =>
                 supabase
                     .from('documents')
-                    .select('type,status,amount,created_at')
+                    .select('type,status,amount,created_at,updated_at,content')
                     .eq('user_id', user.id)
                     .in('type', ['INVOICE', 'PAYMENT_LINK'])
                     .eq('status', 'PAID')
-                    .gte('created_at', sixMonthsAgo.toISOString())
-                    .order('created_at', { ascending: false })
+                    .or(`created_at.gte.${sixMonthsAgo.toISOString()},updated_at.gte.${sixMonthsAgo.toISOString()}`)
+                    .order('updated_at', { ascending: false })
                     .range(from, to)
             ),
             fetchPaged<any>('trend_expenses', (from, to) =>
@@ -262,7 +283,9 @@ router.get('/trend', authenticate, async (req: Request, res: Response, next) => 
         const expMap: Record<string, number> = Object.fromEntries(months.map((m) => [m, 0]));
 
         for (const doc of invoices) {
-            const k = monthKey(new Date(doc.created_at));
+            const paidAt = getDocumentPaidAt(doc);
+            if (paidAt < sixMonthsAgo) continue;
+            const k = monthKey(paidAt);
             if (k in revMap) revMap[k] += toNumber(doc.amount);
         }
         for (const exp of expenses) {
@@ -299,24 +322,26 @@ router.get('/breakdown', authenticate, async (req: Request, res: Response, next)
 
         const { range } = await resolveRangeForUser(user, requestedRange);
         const start = getRangeStart(range);
+        const startIso = start.toISOString();
 
         const invoices = await fetchPaged<any>('breakdown_invoices', (from, to) =>
             supabase
                 .from('documents')
-                .select('type,status,amount,client_id,project_id')
+                .select('type,status,amount,client_id,project_id,created_at,updated_at,content')
                 .eq('user_id', user.id)
                 .in('type', ['INVOICE', 'PAYMENT_LINK'])
                 .eq('status', 'PAID')
-                .gte('created_at', start.toISOString())
-                .order('created_at', { ascending: false })
+                .or(`created_at.gte.${startIso},updated_at.gte.${startIso}`)
+                .order('updated_at', { ascending: false })
                 .range(from, to)
         );
+        const paidInvoices = invoices.filter((doc: any) => getDocumentPaidAt(doc) >= start);
 
         const clientIds = Array.from(
-            new Set(invoices.map((d: any) => d.client_id).filter((id: any): id is string => typeof id === 'string' && id.length > 0))
+            new Set(paidInvoices.map((d: any) => d.client_id).filter((id: any): id is string => typeof id === 'string' && id.length > 0))
         );
         const projectIds = Array.from(
-            new Set(invoices.map((d: any) => d.project_id).filter((id: any): id is string => typeof id === 'string' && id.length > 0))
+            new Set(paidInvoices.map((d: any) => d.project_id).filter((id: any): id is string => typeof id === 'string' && id.length > 0))
         );
 
         const [clientsRes, projectsRes] = await Promise.all([
@@ -336,7 +361,7 @@ router.get('/breakdown', authenticate, async (req: Request, res: Response, next)
 
         // Client breakdown
         const clientMap = new Map<string, { clientId: string; clientName: string; company: string; totalRevenue: number; invoiceCount: number }>();
-        for (const doc of invoices) {
+        for (const doc of paidInvoices) {
             const cId = String(doc.client_id || '');
             if (!cId) continue;
             const client = clientById.get(cId);
@@ -364,7 +389,7 @@ router.get('/breakdown', authenticate, async (req: Request, res: Response, next)
 
         // Project breakdown
         const projectMap = new Map<string, { projectId: string; projectName: string; clientName: string; totalRevenue: number; budgetUsd: number }>();
-        for (const doc of invoices) {
+        for (const doc of paidInvoices) {
             const pId = String(doc.project_id || '');
             if (!pId) continue;
             const project = projectById.get(pId);
@@ -406,17 +431,18 @@ router.get('/payment-sources', authenticate, async (req: Request, res: Response,
 
         const { range } = await resolveRangeForUser(user, requestedRange);
         const start = getRangeStart(range);
+        const startIso = start.toISOString();
 
         const [documents, transactions] = await Promise.all([
             fetchPaged<any>('payment_sources_documents', (from, to) =>
                 supabase
                     .from('documents')
-                    .select('id,type,status,amount,created_at')
+                    .select('id,type,status,amount,created_at,updated_at,content')
                     .eq('user_id', user.id)
                     .in('type', ['INVOICE', 'PAYMENT_LINK'])
                     .eq('status', 'PAID')
-                    .gte('created_at', start.toISOString())
-                    .order('created_at', { ascending: false })
+                    .or(`created_at.gte.${startIso},updated_at.gte.${startIso}`)
+                    .order('updated_at', { ascending: false })
                     .range(from, to)
             ),
             fetchPaged<any>('payment_sources_transactions', (from, to) =>
@@ -432,8 +458,9 @@ router.get('/payment-sources', authenticate, async (req: Request, res: Response,
             ),
         ]);
 
-        const invoiceDocs = documents.filter((doc: any) => normalizeStatus(doc.type) === 'INVOICE');
-        const paymentLinkDocs = documents.filter((doc: any) => normalizeStatus(doc.type) === 'PAYMENT_LINK');
+        const documentsInRange = documents.filter((doc: any) => getDocumentPaidAt(doc) >= start);
+        const invoiceDocs = documentsInRange.filter((doc: any) => normalizeStatus(doc.type) === 'INVOICE');
+        const paymentLinkDocs = documentsInRange.filter((doc: any) => normalizeStatus(doc.type) === 'PAYMENT_LINK');
         const directTransfers = transactions.filter((tx: any) => !tx.document_id);
 
         const invoiceAmount = invoiceDocs.reduce((sum: number, doc: any) => sum + toNumber(doc.amount), 0);
@@ -488,11 +515,11 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
         const [invoices, expensesRes] = await Promise.all([
             supabase
                 .from('documents')
-                .select('id,type,status,amount,title,created_at,content')
+                .select('id,type,status,amount,title,created_at,updated_at,content')
                 .eq('user_id', user.id)
                 .in('type', ['INVOICE', 'PAYMENT_LINK'])
-                .gte('created_at', thirtyDaysAgo)
-                .order('created_at', { ascending: false })
+                .or(`created_at.gte.${thirtyDaysAgo},updated_at.gte.${thirtyDaysAgo}`)
+                .order('updated_at', { ascending: false })
                 .limit(50),
             Promise.resolve(
                 supabase
@@ -520,13 +547,15 @@ router.get('/activity', authenticate, async (req: Request, res: Response, next) 
             const idPrefix = isPaymentLink ? 'link' : 'inv';
 
             if (s === 'PAID') {
+                const paidAt = getDocumentPaidAt(doc);
+                if (paidAt < new Date(thirtyDaysAgo)) continue;
                 events.push({
                     id: `${idPrefix}_paid_${doc.id}`,
                     type: isPaymentLink ? 'payment_link_paid' : 'invoice_paid',
                     title: `${title} paid`,
                     description: `Payment received for ${title}`,
                     amount,
-                    createdAt: doc.created_at,
+                    createdAt: paidAt.toISOString(),
                 });
             } else if (!isPaymentLink && ['SENT', 'VIEWED'].includes(s) && doc.content?.due_date && doc.content.due_date < nowIso) {
                 events.push({

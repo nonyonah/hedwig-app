@@ -19,11 +19,23 @@ export default async function WalletPage() {
     accountTransactions: [],
   };
 
-  const [walletData, billing] = await Promise.all([
+  const [walletData, billing, gatewayBalance, userPreferences] = await Promise.all([
     hedwigApi.wallet({ accessToken: session.accessToken }),
     USD_ACCOUNTS_ENABLED
       ? hedwigApi.billingStatus({ accessToken: session.accessToken }).catch(() => null)
       : Promise.resolve(null),
+    hedwigApi.gatewayBalance({ accessToken: session.accessToken, disableMockFallback: true }).catch(() => ({
+      available: '0',
+      pending: '0',
+      perDomain: [],
+      evmAddress: null,
+      solanaAddress: null,
+      testnet: false,
+    })),
+    hedwigApi.userPreferences({ accessToken: session.accessToken, disableMockFallback: true }).catch(() => ({
+      clientRemindersEnabled: true,
+      gatewayAutoDepositEnabled: false,
+    })),
   ]);
 
   const isUsdAccountPaywalled = USD_ACCOUNTS_ENABLED
@@ -48,6 +60,8 @@ export default async function WalletPage() {
     <WalletView
       initialWalletData={walletData}
       initialAccountsData={accountsData}
+      initialGatewayBalance={gatewayBalance}
+      gatewayAutoDepositEnabled={userPreferences.gatewayAutoDepositEnabled}
       accessToken={session.accessToken}
       usdAccountsEnabled={USD_ACCOUNTS_ENABLED}
       isUsdAccountPaywalled={isUsdAccountPaywalled}

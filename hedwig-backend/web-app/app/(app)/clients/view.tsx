@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowRight, Plus, Trash } from '@/components/ui/lucide-icons';
+import { ArrowRight, Envelope, Plus, Trash } from '@/components/ui/lucide-icons';
 import type { Client } from '@/lib/models/entities';
 import { hedwigApi } from '@/lib/api/client';
 import { DeleteDialog } from '@/components/data/delete-dialog';
@@ -224,6 +224,16 @@ export function ClientsClient({
                       >
                         <Trash className="h-3.5 w-3.5" weight="bold" />
                       </button>
+                      {client.email && (
+                        <Link
+                          href={`/clients/${client.id}`}
+                          className="flex h-7 w-7 items-center justify-center rounded-md text-[#d0d5dd] transition-all hover:bg-[#eff4ff] hover:text-[#2563eb]"
+                          aria-label={`Message ${client.name}`}
+                          title="Message client"
+                        >
+                          <Envelope className="h-3.5 w-3.5" weight="bold" />
+                        </Link>
+                      )}
                       <Link
                         href={`/clients/${client.id}`}
                         className="flex h-7 w-7 items-center justify-center rounded-md text-[#d0d5dd] transition-all hover:bg-[#f5f5f5] hover:text-[#717680]"

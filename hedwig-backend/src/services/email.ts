@@ -123,6 +123,75 @@ const FREQ_DESCRIPTIONS: Record<string, string> = {
 };
 
 export const EmailService = {
+    async sendClientMessageEmail(data: {
+        to: string;
+        clientName: string;
+        senderName: string;
+        senderEmail?: string | null;
+        subject: string;
+        message: string;
+    }): Promise<boolean> {
+        if (!process.env.RESEND_API_KEY) {
+            logger.warn('RESEND_API_KEY is not set. Skipping client message email.');
+            return false;
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const subject = String(data.subject || '').trim().slice(0, 160) || `Message from ${data.senderName}`;
+        const paragraphs = String(data.message || '')
+            .trim()
+            .split(/\n{2,}/)
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .slice(0, 12);
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${escapeHtml(subject)}</title>
+            ${EMAIL_FONT_HEAD}
+            <style>${SHARED_STYLES}</style>
+        </head>
+        <body style="font-family:${EMAIL_FONT_FAMILY};">
+            <div class="container">
+                <div class="header">${LOGO_HTML}</div>
+                <div class="content">
+                    <p class="eyebrow">Client message</p>
+                    <h1 class="heading" style="margin-bottom:12px;">${escapeHtml(subject)}</h1>
+                    <p class="description"><strong style="color:#181d27;">${escapeHtml(data.senderName)}</strong> sent you a message through Hedwig.</p>
+                    <div style="border:1px solid #e9eaeb;background:#ffffff;border-radius:14px;padding:18px 18px;margin:20px 0;">
+                        ${paragraphs.map((paragraph) => `<p style="margin:0 0 14px;color:#414651;font-size:15px;line-height:1.65;white-space:pre-line;">${escapeHtml(paragraph)}</p>`).join('')}
+                    </div>
+                    ${data.senderEmail ? `<p style="font-size:13px;color:#717680;line-height:1.6;">Reply directly to this email to reach ${escapeHtml(data.senderName)}.</p>` : ''}
+                </div>
+                <div class="footer"><p>${FOOTER_NOTE}</p></div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        try {
+            await resend.emails.send({
+                from: 'Hedwig <team@hedwigbot.xyz>',
+                to: [data.to],
+                subject,
+                html,
+                replyTo: data.senderEmail || undefined,
+            });
+            logger.info('Client message email sent', { to: data.to });
+            return true;
+        } catch (error) {
+            logger.error('Client message email failed', {
+                error: error instanceof Error ? error.message : 'Unknown',
+                to: data.to,
+            });
+            return false;
+        }
+    },
+
     async sendConversionResearchEmail(data: {
         to: string;
         firstName?: string | null;

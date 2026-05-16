@@ -51,6 +51,8 @@ import type {
   RecurringInvoice,
   Reminder,
   UsdAccount,
+  GatewayBalance,
+  UserPreferences,
   User,
   WalletAccount,
   WalletAsset,
@@ -198,6 +200,11 @@ export interface UpdateClientInput {
   notes?: string;
 }
 
+export interface ClientMessageDraft {
+  subject: string;
+  body: string;
+}
+
 export interface UpdateProjectInput {
   title?: string;
   description?: string;
@@ -263,17 +270,29 @@ const normalizeContractStatus = (value?: string | null): Contract['status'] => {
 
 const normalizeWalletTransactionKind = (value?: string | null): WalletTransaction['kind'] => {
   const kind = String(value || '').toLowerCase();
+  if (kind.includes('onramp')) return 'onramp';
+  if (kind.includes('offramp') || kind.includes('withdraw')) return 'offramp';
   if (kind.includes('receive') || kind === 'in' || kind.includes('received')) return 'receive';
   if (kind.includes('settlement')) return 'settlement';
   if (kind.includes('payment')) return 'payment';
   return 'send';
 };
 
+const normalizeWalletChain = (value?: string | null): string => {
+  const chain = String(value || '').toLowerCase();
+  if (chain === 'solana') return 'Solana';
+  if (chain === 'arbitrum' || chain === 'arbitrum-one') return 'Arbitrum';
+  if (chain === 'polygon' || chain === 'polygon-pos') return 'Polygon';
+  if (chain === 'optimism' || chain === 'op') return 'Optimism';
+  if (chain === 'celo') return 'Celo';
+  return 'Base';
+};
+
 const assetNameBySymbol: Record<string, string> = {
   USDC: 'USD Coin'
 };
 
-const supportedWalletAssets = new Set(['Base:USDC', 'Solana:USDC', 'Arbitrum:USDC', 'Polygon:USDC', 'Celo:USDC']);
+const supportedWalletAssets = new Set(['Base:USDC', 'Solana:USDC', 'Arbitrum:USDC', 'Polygon:USDC', 'Optimism:USDC', 'Celo:USDC']);
 const walletAssetDecimals: Record<string, number> = {
   USDC: 6
 };
@@ -604,9 +623,32 @@ const mapBackendTransaction = (transaction: any): WalletTransaction => ({
   kind: normalizeWalletTransactionKind(transaction.type ?? transaction.kind),
   asset: String(transaction.token || transaction.asset || 'USDC'),
   amount: Number(transaction.amount || 0),
-  chain: String(transaction.network || transaction.chain || 'base').toLowerCase() === 'solana' ? 'Solana' : 'Base',
+  chain: normalizeWalletChain(transaction.network || transaction.chain || 'base'),
   createdAt: String(transaction.date || transaction.created_at || transaction.createdAt || new Date().toISOString()),
-  counterparty: String(transaction.description || transaction.to || transaction.from || 'Counterparty')
+  counterparty: String(transaction.description || transaction.to || transaction.from || 'Counterparty'),
+  status: transaction.status ? String(transaction.status).toLowerCase() : undefined,
+});
+
+const mapOfframpOrderToWalletTransaction = (order: any): WalletTransaction => ({
+  id: `offramp-${String(order.id)}`,
+  kind: 'offramp',
+  asset: String(order.token || order.asset || 'USDC'),
+  amount: Number(order.cryptoAmount ?? order.crypto_amount ?? order.amount ?? 0),
+  chain: normalizeWalletChain(order.chain || order.network || 'base'),
+  createdAt: String(order.createdAt || order.created_at || new Date().toISOString()),
+  counterparty: `Withdraw to ${order.bankName || order.bank_name || 'bank'}${order.fiatAmount || order.fiat_amount ? ` · ${Number(order.fiatAmount || order.fiat_amount).toLocaleString()} ${order.fiatCurrency || order.fiat_currency || ''}` : ''}`.trim(),
+  status: String(order.status || 'pending').toLowerCase(),
+});
+
+const mapOnrampOrderToWalletTransaction = (order: any): WalletTransaction => ({
+  id: `onramp-${String(order.id)}`,
+  kind: 'onramp',
+  asset: String(order.token || order.asset || 'USDC'),
+  amount: Number(order.cryptoAmount ?? order.crypto_amount ?? 0),
+  chain: normalizeWalletChain(order.chain || order.network || 'base'),
+  createdAt: String(order.createdAt || order.created_at || new Date().toISOString()),
+  counterparty: `Buy USDC${order.fiatAmount || order.fiat_amount ? ` · ${Number(order.fiatAmount || order.fiat_amount).toLocaleString()} ${order.fiatCurrency || order.fiat_currency || ''}` : ''}`.trim(),
+  status: String(order.status || 'pending').toLowerCase(),
 });
 
 const mapBackendUsdAccount = (details: any, balanceUsd = 0): UsdAccount => ({
@@ -936,6 +978,26 @@ export const hedwigApi = {
     await request<{ message?: string }>(`/api/clients/${id}`, options, {
       method: 'DELETE'
     });
+  },
+
+  async draftClientMessage(id: string, purpose: string, options?: ApiOptions): Promise<ClientMessageDraft> {
+    const data = await request<{ draft?: ClientMessageDraft }>(`/api/clients/${id}/message/draft`, options, {
+      method: 'POST',
+      body: JSON.stringify({ purpose })
+    });
+    return data.draft || { subject: '', body: '' };
+  },
+
+  async sendClientMessage(
+    id: string,
+    input: { subject: string; message: string },
+    options?: ApiOptions
+  ): Promise<{ emailSent: boolean; clientEmail?: string }> {
+    const data = await request<{ emailSent?: boolean; clientEmail?: string }>(`/api/clients/${id}/message`, options, {
+      method: 'POST',
+      body: JSON.stringify(input)
+    });
+    return { emailSent: Boolean(data.emailSent), clientEmail: data.clientEmail };
   },
 
   async createProjectFlow(
@@ -1384,9 +1446,11 @@ export const hedwigApi = {
   async wallet(options?: ApiOptions): Promise<{ walletAccounts: WalletAccount[]; walletAssets: WalletAsset[]; walletTransactions: WalletTransaction[] }> {
     return withFallback(
       async () => {
-        const [transactionsResult, walletBalanceResult] = await Promise.allSettled([
+        const [transactionsResult, walletBalanceResult, offrampOrdersResult, onrampOrdersResult] = await Promise.allSettled([
           request<any[]>('/api/transactions', options),
-          request<{ balances: any[]; address: string | null; solanaAddress: string | null }>('/api/wallet/balance', options)
+          request<{ balances: any[]; address: string | null; solanaAddress: string | null }>('/api/wallet/balance', options),
+          request<{ orders: any[] }>('/api/offramp/orders', options),
+          request<{ orders: any[] }>('/api/onramp/orders', options)
         ]);
 
         const transactions = transactionsResult.status === 'fulfilled'
@@ -1396,6 +1460,13 @@ export const hedwigApi = {
         const walletBalance = walletBalanceResult.status === 'fulfilled'
           ? walletBalanceResult.value
           : { balances: [], address: null, solanaAddress: null };
+
+        const offrampOrders = offrampOrdersResult.status === 'fulfilled'
+          ? offrampOrdersResult.value.orders || []
+          : [];
+        const onrampOrders = onrampOrdersResult.status === 'fulfilled'
+          ? onrampOrdersResult.value.orders || []
+          : [];
 
         const walletAccounts: WalletAccount[] = [
           walletBalance.address
@@ -1418,8 +1489,7 @@ export const hedwigApi = {
 
         const walletAssets: WalletAsset[] = (walletBalance.balances || []).map((balance, index) => {
           const symbol = String(balance.asset || '').toUpperCase();
-          const chain: WalletAsset['chain'] =
-            String(balance.chain || '').toLowerCase() === 'solana' ? 'Solana' : 'Base';
+          const chain: WalletAsset['chain'] = normalizeWalletChain(balance.chain);
           const tokenBalance = getWalletTokenBalance(balance, symbol);
           const usdValue = getWalletUsdValue(balance);
 
@@ -1437,13 +1507,47 @@ export const hedwigApi = {
         return {
           walletAccounts,
           walletAssets,
-          walletTransactions: (transactions || []).map(mapBackendTransaction)
+          walletTransactions: [
+            ...(transactions || []).map(mapBackendTransaction),
+            ...offrampOrders.map(mapOfframpOrderToWalletTransaction),
+            ...onrampOrders.map(mapOnrampOrderToWalletTransaction),
+          ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         };
       },
       () => ({
         walletAccounts: mockWalletAccounts,
         walletAssets: mockWalletAssets,
         walletTransactions: mockWalletTransactions
+      }),
+      options
+    );
+  },
+
+  async gatewayBalance(options?: ApiOptions): Promise<GatewayBalance> {
+    return withFallback(
+      async () => {
+        return request<GatewayBalance>('/api/gateway/balance', options);
+      },
+      () => ({
+        available: '0',
+        pending: '0',
+        perDomain: [],
+        evmAddress: null,
+        solanaAddress: null,
+        testnet: false,
+      }),
+      options
+    );
+  },
+
+  async userPreferences(options?: ApiOptions): Promise<UserPreferences> {
+    return withFallback(
+      async () => {
+        return request<UserPreferences>('/api/users/preferences', options);
+      },
+      () => ({
+        clientRemindersEnabled: true,
+        gatewayAutoDepositEnabled: false,
       }),
       options
     );
@@ -1725,9 +1829,15 @@ export const hedwigApi = {
   async userProfile(options?: ApiOptions): Promise<{ monthlyTarget?: number }> {
     if (shouldUseMockFallback(options)) return { monthlyTarget: undefined };
     try {
-      const data = await request<{ user?: any }>('/api/auth/me', options);
+      const data = await request<{ user?: any }>('/api/users/profile', options);
       const user = data.user || data;
-      return { monthlyTarget: typeof user?.monthlyTarget === 'number' ? user.monthlyTarget : undefined };
+      return {
+        monthlyTarget: typeof user?.monthlyTarget === 'number'
+          ? user.monthlyTarget
+          : typeof user?.monthly_target === 'number'
+            ? user.monthly_target
+            : undefined
+      };
     } catch {
       return {};
     }

@@ -1,0 +1,106 @@
+{
+  "projectType": "saas",
+  "projectName": "Hedwig",
+  "projectDescription": "Hedwig is a payments and business management platform for African freelancers, combining AI-powered invoicing, multi-chain crypto payments (USDC on Base, Solana, Celo, Stacks), and email/calendar intelligence in one workspace.",
+  "theme": "almond",
+  "primaryColor": "#3e72fa",
+  "lightColor": "#9cbcf4",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "account-setup"
+            ]
+          },
+          {
+            "group": "Payments",
+            "pages": [
+              "payments/invoices",
+              "payments/payment-links",
+              "payments/recurring-invoices",
+              "payments/receiving-crypto",
+              "payments/offramp"
+            ]
+          },
+          {
+            "group": "Workspace",
+            "pages": [
+              "workspace/clients",
+              "workspace/projects",
+              "workspace/contracts",
+              "workspace/proposals"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/gmail",
+              "integrations/google-calendar",
+              "integrations/slack"
+            ]
+          },
+          {
+            "group": "AI Assistant",
+            "pages": [
+              "ai/overview",
+              "ai/email-intelligence"
+            ]
+          },
+          {
+            "group": "Account & Billing",
+            "pages": [
+              "account/wallet",
+              "account/earnings-dashboard",
+              "account/plans",
+              "account/settings"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "AI-powered invoice and proposal generation",
+    "Multi-chain crypto payments (USDC on Base, Solana, Celo, Stacks/Bitcoin L2)",
+    "Recurring invoice automation (Pro)",
+    "Client, project, and milestone management",
+    "Earnings dashboard with real-time revenue tracking",
+    "Tax summary reports (Pro)",
+    "Gmail sync with AI email summarization",
+    "Google Calendar and Slack integrations",
+    "Crypto-to-local-currency offramp (NGN, GHS)",
+    "Embedded multi-chain wallet (Ethereum, Solana, Stacks)"
+  ],
+  "publicApiSurface": [
+    "GET /api/users/profile",
+    "PATCH /api/users/profile",
+    "GET /api/wallet/balance",
+    "GET /api/transactions",
+    "POST /api/invoices",
+    "GET /api/invoices",
+    "POST /api/payment-links",
+    "GET /api/payment-links",
+    "POST /api/recurring",
+    "GET /api/recurring",
+    "POST /api/clients",
+    "GET /api/clients",
+    "POST /api/projects",
+    "GET /api/projects",
+    "POST /api/contracts",
+    "GET /api/offramp/orders",
+    "POST /api/offramp/initiate",
+    "GET /api/integrations",
+    "GET /api/integrations/oauth-url",
+    "POST /api/integrations/sync",
+    "GET /api/revenue",
+    "GET /api/insights",
+    "POST /api/assistant/chat"
+  ]
+}

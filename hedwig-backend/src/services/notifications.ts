@@ -366,9 +366,18 @@ class NotificationService {
                 const receipts = response.data?.data || {};
                 for (const [id, receipt] of Object.entries(receipts)) {
                     const typed = receipt as ExpoPushReceipt;
-                    if (typed?.status === 'error' && typed?.details?.error === 'DeviceNotRegistered') {
+                    if (typed?.status === 'error') {
                         const token = ticketToToken[id];
-                        if (token) tokensToDelete.push(token);
+                        logger.error('[Notifications] Expo push receipt returned an error', {
+                            receiptId: id,
+                            tokenSuffix: token ? token.slice(-12) : null,
+                            error: typed.details?.error || null,
+                            message: typed.message || null,
+                            details: typed.details || null,
+                        });
+                        if (typed?.details?.error === 'DeviceNotRegistered' && token) {
+                            tokensToDelete.push(token);
+                        }
                     }
                 }
             } catch (error: any) {
@@ -465,6 +474,19 @@ class NotificationService {
             );
 
             const tickets = (response.data.data || []) as ExpoPushTicket[];
+            const immediateErrors = tickets
+                .map((ticket, index) => ({ ticket, token: messages[index]?.to }))
+                .filter(({ ticket }) => ticket?.status === 'error');
+            if (immediateErrors.length > 0) {
+                logger.error('[Notifications] Expo push returned immediate ticket errors', {
+                    errorCount: immediateErrors.length,
+                    errors: immediateErrors.slice(0, 5).map(({ ticket, token }) => ({
+                        tokenSuffix: token ? token.slice(-12) : null,
+                        message: ticket.message,
+                        details: ticket.details,
+                    })),
+                });
+            }
             await this.pruneTokensFromTickets(messages, tickets);
 
             const ticketToToken: Record<string, string> = {};
@@ -572,7 +594,16 @@ class NotificationService {
             }
 
             const pushTokens = tokens.map(t => t.expo_push_token);
-            return await this.sendBulkNotifications(pushTokens, payload);
+            const tickets = await this.sendBulkNotifications(pushTokens, payload);
+            const okCount = tickets.filter((ticket) => ticket?.status === 'ok').length;
+            const errorCount = tickets.filter((ticket) => ticket?.status === 'error').length;
+            logger.info('Expo push send completed for user', {
+                userId,
+                tokenCount: pushTokens.length,
+                okCount,
+                errorCount,
+            });
+            return tickets;
         } catch (error: any) {
             logger.error('Error notifying user', { error: error.message });
             return [];

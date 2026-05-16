@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
-import { CaretRight } from '@/components/ui/lucide-icons';
+import { ArrowsLeftRight, CaretRight, Info } from '@/components/ui/lucide-icons';
 import { TokenDetailPanel } from '@/components/wallet/token-detail-panel';
 import type { WalletAsset } from '@/lib/models/entities';
 import { useCurrency } from '@/components/providers/currency-provider';
@@ -43,10 +43,16 @@ function TokenIcon({ chain, symbol, label, size = 32 }: { chain: WalletAsset['ch
 
 export function WalletAssetsTable({
   assetsByChain,
-  totalCrypto
+  totalCrypto,
+  aggregatedSources = [],
+  aggregationEnabled = false,
+  pendingAggregation = 0,
 }: {
   assetsByChain: Record<string, WalletAsset[]>;
   totalCrypto: number;
+  aggregatedSources?: Array<{ chain: string; balance: number; pending: number }>;
+  aggregationEnabled?: boolean;
+  pendingAggregation?: number;
 }) {
   const [selected, setSelected] = useState<WalletAsset | null>(null);
   const { formatAmount } = useCurrency();
@@ -57,12 +63,52 @@ export function WalletAssetsTable({
         <div className="flex items-center justify-between border-b border-[#e9eaeb] px-5 py-4">
           <div>
             <p className="text-[15px] font-semibold text-[#181d27]">USDC Balances</p>
-            <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Settled USDC across supported chains · click any row for details</p>
+            <p className="mt-0.5 text-[12px] text-[#a4a7ae]">Per-chain wallet balances and finalized aggregated sources.</p>
           </div>
           <p className="text-[14px] font-semibold text-[#181d27]">
             {formatAmount(totalCrypto, { compact: true })}{' '}
             <span className="text-[#a4a7ae] font-normal text-[12px]">total</span>
           </p>
+        </div>
+
+        <div className="border-b border-[#f2f4f7] bg-[#fcfcfd] px-5 py-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex max-w-2xl items-start gap-2.5">
+              <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${aggregationEnabled ? 'bg-[#ecfdf3] text-[#12b76a]' : 'bg-[#f2f4f7] text-[#717680]'}`}>
+                <ArrowsLeftRight className="h-3.5 w-3.5" weight="bold" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[13px] font-semibold text-[#181d27]">Aggregated sources</p>
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${aggregationEnabled ? 'bg-[#ecfdf3] text-[#067647]' : 'bg-[#f2f4f7] text-[#717680]'}`}>
+                    {aggregationEnabled ? 'Auto on' : 'Auto off'}
+                  </span>
+                </div>
+                <p className="mt-1 text-[12px] leading-5 text-[#717680]">
+                  Aggregation combines finalized USDC from supported chains into one spendable balance. When it is off, new USDC stays on its original chain until you add it from mobile.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              {aggregatedSources.length > 0 ? aggregatedSources.map((source) => (
+                <div key={source.chain} className="inline-flex items-center gap-2 rounded-full border border-[#e9eaeb] bg-white px-3 py-1.5">
+                  <ChainIcon chain={source.chain} size={16} />
+                  <span className="text-[12px] font-semibold text-[#181d27]">{source.chain}</span>
+                  <span className="text-[12px] tabular-nums text-[#717680]">{formatAmount(source.balance, { compact: true })}</span>
+                </div>
+              )) : (
+                <div className="inline-flex items-center gap-2 rounded-full border border-dashed border-[#d5d7da] bg-white px-3 py-1.5 text-[12px] text-[#a4a7ae]">
+                  <Info className="h-3.5 w-3.5" weight="bold" />
+                  No finalized aggregated sources yet
+                </div>
+              )}
+              {pendingAggregation > 0 ? (
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#fedf89] bg-[#fffaeb] px-3 py-1.5 text-[12px] font-semibold text-[#b54708]">
+                  Pending {formatAmount(pendingAggregation, { compact: true })}
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         {/* Column headers */}

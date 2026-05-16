@@ -9,6 +9,7 @@ import {
   House,
   Sparkle,
   UsersThree,
+  Wallet,
 } from '@/components/ui/lucide-icons';
 
 export const navigationGroups = [
@@ -33,6 +34,7 @@ export const navigationGroups = [
     items: [
       { title: 'Revenue', href: '/revenue', icon: ChartBar, count: null, muted: false },
       { title: 'Payments', href: '/payments', icon: Cards, count: null, muted: false },
+      { title: 'Wallet', href: '/wallet', icon: Wallet, count: null, muted: false },
     ]
   },
   {

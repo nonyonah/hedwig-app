@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
     View,
     Text,
@@ -196,37 +196,44 @@ export default function InsightsScreen() {
 
     useAnalyticsScreen('Insights');
 
-    useFocusEffect(
-        React.useCallback(() => {
-            refetch();
-        }, [refetch])
-    );
-
-    useEffect(() => {
-        const loadTarget = async () => {
-            try {
-                if (!user) return;
-                const token = await getAccessToken();
-                if (!token) return;
-                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                const response = await fetch(`${apiUrl}/api/users/profile`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                const result = await response.json();
-                if (response.ok && result?.success) {
-                    const userData = result?.data?.user || result?.data;
-                    if (typeof userData?.monthlyTarget === 'number' && userData.monthlyTarget > 0) {
-                        setMonthlyTarget(userData.monthlyTarget);
-                    }
-                }
-            } catch {
-                // Non-critical; fallback target remains.
+    const loadTarget = useCallback(async () => {
+        try {
+            if (!user) return;
+            const token = await getAccessToken();
+            if (!token) return;
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/users/profile`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const result = await response.json();
+            if (response.ok && result?.success) {
+                const userData = result?.data?.user || result?.data;
+                const target = typeof userData?.monthlyTarget === 'number'
+                    ? userData.monthlyTarget
+                    : typeof userData?.monthly_target === 'number'
+                        ? userData.monthly_target
+                        : null;
+                if (target && target > 0) setMonthlyTarget(target);
             }
-        };
-        loadTarget();
+        } catch {
+            // Non-critical; fallback target remains.
+        }
     }, [user, getAccessToken]);
 
-    const monthlyEarnings = summary?.monthlyEarnings || 0;
+    useFocusEffect(
+        useCallback(() => {
+            refetch();
+            loadTarget();
+        }, [refetch, loadTarget])
+    );
+
+    const refreshInsights = useCallback(() => {
+        refetch();
+        loadTarget();
+    }, [refetch, loadTarget]);
+
+    const periodEarnings = summary?.monthlyEarnings || 0;
+    const monthlyEarnings = summary?.currentMonthEarnings ?? periodEarnings;
     const remainingAmount = Math.max(0, monthlyTarget - monthlyEarnings);
     const hasExceededTarget = monthlyEarnings > monthlyTarget;
     const earningsDeltaPct = summary?.earningsDeltaPct || 0;
@@ -237,8 +244,8 @@ export default function InsightsScreen() {
         if (!summary) return [];
         return [
             {
-                label: 'Monthly Earnings',
-                value: `$${summary.monthlyEarnings.toLocaleString()}`,
+                label: 'Period Earnings',
+                value: `$${periodEarnings.toLocaleString()}`,
                 comparison: `${earningsDeltaPct >= 0 ? '+' : ''}${earningsDeltaPct.toFixed(0)}% vs previous`,
                 trend: earningsTrend,
                 route: '/transactions',
@@ -285,7 +292,7 @@ export default function InsightsScreen() {
                 route: '/projects',
             },
         ];
-    }, [summary, earningsDeltaPct, earningsTrend]);
+    }, [summary, periodEarnings, earningsDeltaPct, earningsTrend]);
 
     const isEmpty = !loading && !error && (!summary || (summary.totalDocuments === 0 && summary.transactionsCount === 0 && summary.clientsCount === 0));
 
@@ -310,7 +317,7 @@ export default function InsightsScreen() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={Colors.primary} />
+                    <RefreshControl refreshing={refreshing} onRefresh={refreshInsights} tintColor={Colors.primary} />
                 }
             >
                 <View style={styles.filtersRow}>

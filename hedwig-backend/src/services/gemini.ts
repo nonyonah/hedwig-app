@@ -9,6 +9,67 @@ if (!llmService.isAnyProviderConfigured()) {
 
 export class GeminiService {
   /**
+   * Draft a concise client email that the freelancer can review before sending.
+   */
+  static async generateClientEmailDraft(data: {
+    senderName: string;
+    clientName: string;
+    clientCompany?: string | null;
+    purpose?: string | null;
+  }): Promise<{ subject: string; body: string }> {
+    const purpose = String(data.purpose || '').trim();
+
+    try {
+      const prompt = `
+You are Hedwig, an AI assistant for freelancers. Draft a short client email.
+
+Context:
+- Sender: ${data.senderName}
+- Recipient/client: ${data.clientName}
+- Client company: ${data.clientCompany || 'Not provided'}
+- User intent or notes: ${purpose || 'General professional follow-up'}
+
+Instructions:
+- Write as the freelancer, not as Hedwig.
+- Keep it warm, clear, and professional.
+- Make it concise: 2 to 4 short paragraphs.
+- Do not invent invoice numbers, dates, amounts, or promises.
+- If the intent is vague, draft a useful check-in/follow-up.
+- Return ONLY valid JSON.
+
+JSON Format:
+{
+  "subject": "Email subject line",
+  "body": "Plain text email body, including greeting and sign-off"
+}
+`;
+
+      const text = await llmService.generateText(prompt, {
+        purpose: 'general',
+        useFallbacks: true,
+      });
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (typeof parsed.subject === 'string' && typeof parsed.body === 'string') {
+          return {
+            subject: parsed.subject.trim().slice(0, 160),
+            body: parsed.body.trim().slice(0, 5000),
+          };
+        }
+      }
+      throw new Error('Failed to parse AI response');
+    } catch (error) {
+      logger.error('Error generating client email draft', { error: error instanceof Error ? error.message : 'Unknown' });
+      const firstName = data.clientName.split(' ')[0] || data.clientName;
+      return {
+        subject: `Quick follow-up from ${data.senderName}`,
+        body: `Hi ${firstName},\n\nI hope you are doing well. I wanted to check in and see if there is anything you need from me right now.\n\nBest,\n${data.senderName}`,
+      };
+    }
+  }
+
+  /**
    * Generate a gentle payment reminder email
    */
   static async generatePaymentReminder(
@@ -74,7 +135,33 @@ JSON Format:
    * Get comprehensive Hedwig system instructions with function calling
    */
   static getSystemInstructions(): string {
-    return `You are Hedwig, an AI assistant for freelancers. You help with invoices, payment links, crypto transactions, AND crypto-to-fiat withdrawals (offramp).
+    return `You are Hedwig AI, the intelligent financial operating assistant for freelancers, creators, contractors, remote workers, and internet-native businesses.
+
+You are powered primarily by Google Gemini. Gemini owns conversation flow, reasoning, orchestration, workflow execution, writing, summarization, financial explanations, assistant personality, task coordination, contextual understanding, and structured outputs.
+
+Hedwig supports invoices, payment links, contracts, projects, clients, stablecoin payments, USDC balances, withdrawals, USD accounts, financial summaries, AI financial assistance, and multichain infrastructure abstraction.
+
+Tone:
+- calm
+- concise
+- practical
+- clear
+- intelligent
+- structured
+- trustworthy
+
+Avoid hype, crypto-bro language, robotic responses, excessive enthusiasm, and unnecessary jargon.
+
+Prefer product language like Available balance, Incoming payments, Withdrawable funds, and USD balance.
+Avoid excessive use of bridging, liquidity routing, settlement layers, chain abstraction, and gas discussions unless explicitly requested.
+
+Tax and compliance safety:
+- Never present legal or tax information as guaranteed advice.
+- Mention jurisdiction differences where relevant.
+- Recommend professional consultation for final decisions.
+- Never assist fraud, illegal tax evasion, fabricated financial information, or compliance guarantees.
+
+You help with invoices, payment links, crypto transactions, AND crypto-to-fiat withdrawals (offramp).
 
 SUPPORTED FEATURES:
 ✅ Create payment links and invoices

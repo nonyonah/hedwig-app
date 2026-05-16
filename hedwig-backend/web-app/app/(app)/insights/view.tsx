@@ -68,6 +68,7 @@ interface InsightItem {
 
 interface InsightsSummary {
   monthlyEarnings: number;
+  currentMonthEarnings?: number;
   previousPeriodEarnings: number;
   earningsDeltaPct: number;
   pendingInvoicesCount: number;
@@ -298,15 +299,17 @@ export function InsightsClient({
   const handleSaveTarget = async (newTarget: number) => {
     setIsSavingTarget(true);
     try {
-      await fetch(`${backendConfig.apiBaseUrl}/api/users/profile`, {
+      const res = await fetch(`${backendConfig.apiBaseUrl}/api/users/profile`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ monthlyTarget: newTarget }),
       });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.success === false) throw new Error(json?.error?.message || 'Failed to update target');
       setMonthlyTarget(newTarget);
       toast({ type: 'success', title: 'Target updated', message: `Monthly target set to ${formatAmount(newTarget)}` });
-    } catch {
-      setMonthlyTarget(newTarget);
+    } catch (err: any) {
+      toast({ type: 'error', title: 'Could not save target', message: err?.message || 'Please try again.' });
     } finally {
       setIsSavingTarget(false);
       setShowTargetDialog(false);
@@ -318,12 +321,13 @@ export function InsightsClient({
   const insights = data?.insights ?? [];
   const series = data?.series ?? { earnings: [] };
   const sparkValues = series.earnings.map((p) => p.value);
-  const monthlyEarnings = summary?.monthlyEarnings ?? 0;
+  const periodEarnings = summary?.monthlyEarnings ?? 0;
+  const currentMonthEarnings = summary?.currentMonthEarnings ?? periodEarnings;
   const earningsDeltaPct = summary?.earningsDeltaPct ?? 0;
   const earningsTrend: 'up' | 'down' | 'neutral' =
     earningsDeltaPct > 0 ? 'up' : earningsDeltaPct < 0 ? 'down' : 'neutral';
-  const remainingAmount = Math.max(0, monthlyTarget - monthlyEarnings);
-  const hasExceededTarget = monthlyEarnings > monthlyTarget;
+  const remainingAmount = Math.max(0, monthlyTarget - currentMonthEarnings);
+  const hasExceededTarget = currentMonthEarnings > monthlyTarget;
 
   const isEmpty = !loading && !error && (!summary ||
     (summary.totalDocuments === 0 && summary.transactionsCount === 0 && summary.clientsCount === 0));
@@ -408,8 +412,8 @@ export function InsightsClient({
             items={[
               {
                 id: 'monthly-earnings',
-                title: 'Monthly earnings',
-                value: loading ? '...' : formatAmount(monthlyEarnings, { compact: true }),
+                title: 'Period earnings',
+                value: loading ? '...' : formatAmount(periodEarnings, { compact: true }),
                 helper: (
                   <span className={`flex items-center gap-1 ${earningsTrend === 'up' ? 'text-[#12b76a]' : earningsTrend === 'down' ? 'text-[#f04438]' : 'text-[#a4a7ae]'}`}>
                     {earningsTrend === 'up' && <ArrowUpRight className="h-3 w-3 text-[#12b76a]" weight="bold" />}
@@ -581,10 +585,10 @@ export function InsightsClient({
 
               <div className="flex flex-1 flex-col items-center justify-center px-6 py-6 gap-4">
                 <div className="relative flex items-center justify-center">
-                  <RingChart value={monthlyEarnings} total={monthlyTarget} />
+                  <RingChart value={currentMonthEarnings} total={monthlyTarget} />
                   <div className="absolute flex flex-col items-center">
                     <p className="text-[20px] font-bold tracking-[-0.03em] text-[#181d27] leading-none">
-                      {formatAmount(monthlyEarnings, { compact: true })}
+                      {formatAmount(currentMonthEarnings, { compact: true })}
                     </p>
                     <p className="mt-1 text-[11px] text-[#a4a7ae]">Earned</p>
                   </div>
@@ -595,7 +599,7 @@ export function InsightsClient({
                     <p className="text-[11px] text-[#a4a7ae]">{hasExceededTarget ? 'Exceeded by' : 'Remaining'}</p>
                     <p className={`mt-0.5 text-[16px] font-bold tracking-[-0.03em] ${hasExceededTarget ? 'text-[#027a48]' : 'text-[#181d27]'}`}>
                       {hasExceededTarget
-                        ? `+${formatAmount(monthlyEarnings - monthlyTarget, { compact: true })}`
+                        ? `+${formatAmount(currentMonthEarnings - monthlyTarget, { compact: true })}`
                         : formatAmount(remainingAmount, { compact: true })}
                     </p>
                   </div>

@@ -222,12 +222,34 @@ export interface WalletAsset {
 
 export interface WalletTransaction {
   id: EntityId;
-  kind: 'receive' | 'send' | 'payment' | 'settlement';
+  kind: 'receive' | 'send' | 'payment' | 'settlement' | 'onramp' | 'offramp';
   asset: string;
   amount: number;
   chain: string;
   createdAt: string;
   counterparty: string;
+  status?: string;
+}
+
+export interface GatewayDomainBalance {
+  domain: number;
+  balance: string;
+  pending?: string;
+  depositor?: string;
+}
+
+export interface GatewayBalance {
+  available: string;
+  pending: string;
+  perDomain: GatewayDomainBalance[];
+  evmAddress: string | null;
+  solanaAddress: string | null;
+  testnet: boolean;
+}
+
+export interface UserPreferences {
+  clientRemindersEnabled: boolean;
+  gatewayAutoDepositEnabled: boolean;
 }
 
 export interface UsdAccount {

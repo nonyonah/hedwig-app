@@ -340,12 +340,30 @@ export default function SettingsScreen() {
         try {
             const token = await getAccessToken();
             if (!token) return;
+            const storedAutoDeposit = await AsyncStorage.getItem('settings_gateway_auto_deposit');
+            const localAutoDeposit = storedAutoDeposit === null ? null : storedAutoDeposit === 'true';
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
             const res = await fetch(`${apiUrl}/api/users/preferences`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
-            if (data.success) setClientRemindersEnabled(data.data.clientRemindersEnabled);
+            if (data.success) {
+                setClientRemindersEnabled(data.data.clientRemindersEnabled);
+                if (typeof data.data.gatewayAutoDepositEnabled === 'boolean') {
+                    if (localAutoDeposit !== null) {
+                        await setGatewayAutoDepositEnabled(localAutoDeposit);
+                        if (localAutoDeposit !== data.data.gatewayAutoDepositEnabled) {
+                            await fetch(`${apiUrl}/api/users/preferences`, {
+                                method: 'PATCH',
+                                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ gatewayAutoDepositEnabled: localAutoDeposit }),
+                            });
+                        }
+                    } else {
+                        await setGatewayAutoDepositEnabled(data.data.gatewayAutoDepositEnabled);
+                    }
+                }
+            }
         } catch {}
     };
 
@@ -362,6 +380,24 @@ export default function SettingsScreen() {
             });
         } catch {
             setClientRemindersEnabled(!value);
+        }
+    };
+
+    const toggleGatewayAutoDeposit = async (value: boolean) => {
+        await setGatewayAutoDepositEnabled(value);
+        try {
+            const token = await getAccessToken();
+            if (!token) return;
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const res = await fetch(`${apiUrl}/api/users/preferences`, {
+                method: 'PATCH',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gatewayAutoDepositEnabled: value }),
+            });
+            if (!res.ok) throw new Error('Could not save Aggregated USDC setting.');
+        } catch {
+            await setGatewayAutoDepositEnabled(!value);
+            Alert.alert('Setting not saved', 'Could not update Aggregated USDC. Please try again.');
         }
     };
 
@@ -404,12 +440,34 @@ export default function SettingsScreen() {
         }
 
         await closeCalendarSheet();
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
         try {
-            // Ask the Express backend to generate the Google OAuth URL directly.
-            // This skips the hedwigbot.xyz web app entirely — the browser opens
-            // accounts.google.com straight away.
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const composioResp = await fetch(`${apiUrl}/api/integrations/composio/connect/google_calendar`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            });
+            const composioJson = await composioResp.json().catch(() => null) as {
+                success?: boolean;
+                data?: { redirectUrl?: string };
+                error?: string | { message?: string };
+            } | null;
+
+            if (composioResp.status === 402) {
+                const message = typeof composioJson?.error === 'object'
+                    ? composioJson.error.message
+                    : composioJson?.error;
+                Alert.alert('Upgrade required', message || 'Upgrade to Pro to connect Google Calendar.');
+                return;
+            }
+
+            if (composioResp.ok && composioJson?.success && composioJson.data?.redirectUrl) {
+                await WebBrowser.openBrowserAsync(composioJson.data.redirectUrl, { showTitle: true });
+                void triggerCalendarSync();
+                return;
+            }
+
+            // Fallback for environments that have not enabled Composio yet.
             const resp = await fetch(
                 `${apiUrl}/api/integrations/oauth-url?provider=google_calendar`,
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -432,13 +490,17 @@ export default function SettingsScreen() {
             setIsSyncingCalendar(true);
             const token = await getAccessToken();
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            await fetch(`${apiUrl}/api/integrations/sync`, {
+            const resp = await fetch(`${apiUrl}/api/integrations/sync`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ provider: 'google_calendar' }),
             });
-        } catch {
-            // non-fatal
+            if (!resp.ok) {
+                const json = await resp.json().catch(() => null) as { error?: string } | null;
+                throw new Error(json?.error || 'Calendar sync could not be started.');
+            }
+        } catch (error: any) {
+            Alert.alert('Calendar sync failed', error?.message || 'Please reconnect Google Calendar and try again.');
         } finally {
             setIsSyncingCalendar(false);
         }
@@ -593,19 +655,19 @@ export default function SettingsScreen() {
                                     Alert.alert(
                                         'Enable aggregated USDC?',
                                         'Hedwig will move USDC sitting at your wallet into Circle Gateway in the background. From the aggregated balance you can spend or withdraw to any supported chain instantly.\n\nFunds already at your wallet on each chain stay there until you opt in. Switching this off later keeps your existing aggregated balance — only new deposits stay per-chain.',
-                                        [
-                                            { text: 'Cancel', style: 'cancel' },
-                                            { text: 'Enable', onPress: () => setGatewayAutoDepositEnabled(true) },
-                                        ],
-                                    );
-                                    return;
+                                            [
+                                                { text: 'Cancel', style: 'cancel' },
+                                                { text: 'Enable', onPress: () => { void toggleGatewayAutoDeposit(true); } },
+                                            ],
+                                        );
+                                        return;
                                 }
                                 Alert.alert(
                                     'Turn off auto-deposit?',
                                     'New USDC sent to your wallet will stay on each chain. Your existing unified balance is unaffected — you can still spend or withdraw from it.',
                                     [
                                         { text: 'Cancel', style: 'cancel' },
-                                        { text: 'Turn off', style: 'destructive', onPress: () => setGatewayAutoDepositEnabled(false) },
+                                        { text: 'Turn off', style: 'destructive', onPress: () => { void toggleGatewayAutoDeposit(false); } },
                                     ],
                                 );
                             }}
@@ -980,7 +1042,7 @@ export default function SettingsScreen() {
                                             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
                                             const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
                                             const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
-                                            const exportUrl = `${webClientUrl}/export-wallet`;
+                                            const exportUrl = `${webClientUrl}/export-wallet?auto=1`;
 
                                             // Close modal AFTER a small delay to let browser open
                                             setIsBiometricExporting(false);
@@ -1099,7 +1161,7 @@ export default function SettingsScreen() {
                                         const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
                                         const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
                                         const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
-                                        const exportUrl = `${webClientUrl}/export-wallet`;
+                                        const exportUrl = `${webClientUrl}/export-wallet?auto=1`;
 
                                         // Close modal AFTER a small delay to let browser open
                                         setIsBiometricExporting(false);
@@ -1226,7 +1288,7 @@ export default function SettingsScreen() {
                                         const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
                                         const apiBaseUrl = apiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
                                         const webClientUrl = getPublicWebBaseUrl(process.env.EXPO_PUBLIC_WEB_CLIENT_URL || apiBaseUrl);
-                                        const exportUrl = `${webClientUrl}/export-wallet`;
+                                        const exportUrl = `${webClientUrl}/export-wallet?auto=1`;
 
                                         // Close modal AFTER a small delay to let browser open
                                         setIsBiometricExporting(false);

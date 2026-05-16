@@ -20,7 +20,7 @@ import {
   syncGoogleCalendar,
   pushHedwigEventsToGoogleCalendar,
 } from '../services/emailSync';
-import { syncComposioGoogleCalendar } from '../services/composioCalendar';
+import { hasActiveComposioCalendar, syncComposioGoogleCalendar } from '../services/composioCalendar';
 import {
   isComposioConfigured,
   isValidProvider as isValidComposioProvider,
@@ -281,9 +281,14 @@ router.post('/sync', async (req: Request, res: Response) => {
       .eq('provider', provider)
       .maybeSingle();
 
-    const composioGmailActive = provider === 'gmail' ? await hasActiveComposioGmail(userId) : false;
+    if (provider === 'google_calendar' && isComposioConfigured()) {
+      await refreshComposioStatus(userId, 'google_calendar').catch(() => null);
+    }
 
-    if (!integration && !composioGmailActive) {
+    const composioGmailActive = provider === 'gmail' ? await hasActiveComposioGmail(userId) : false;
+    const composioCalendarActive = provider === 'google_calendar' ? await hasActiveComposioCalendar(userId) : false;
+
+    if (!integration && !composioGmailActive && !composioCalendarActive) {
       res.status(404).json({ success: false, error: 'Integration not found' });
       return;
     }
@@ -299,9 +304,12 @@ router.post('/sync', async (req: Request, res: Response) => {
       }
       await matchThreadsToWorkspace(userId);
     } else if (provider === 'google_calendar') {
-      if (!integration) return;
-      await syncGoogleCalendar(userId, integration.id);
-      await pushHedwigEventsToGoogleCalendar(userId);
+      if (composioCalendarActive) {
+        await syncComposioGoogleCalendar(userId);
+      } else if (integration) {
+        await syncGoogleCalendar(userId, integration.id);
+        await pushHedwigEventsToGoogleCalendar(userId);
+      }
     }
   } catch (err: any) {
     logger.error('manual sync', { userId, provider, err });
