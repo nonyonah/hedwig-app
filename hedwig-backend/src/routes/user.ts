@@ -320,17 +320,29 @@ router.patch('/preferences', authenticate, async (req, res, next) => {
             updated_at: new Date().toISOString(),
         };
         if ('clientRemindersEnabled' in req.body) {
-            updates.client_reminders_enabled = Boolean(req.body.clientRemindersEnabled);
+            if (typeof req.body.clientRemindersEnabled !== 'boolean') {
+                res.status(400).json({ success: false, error: 'clientRemindersEnabled must be a boolean' });
+                return;
+            }
+            updates.client_reminders_enabled = req.body.clientRemindersEnabled;
         }
         if ('gatewayAutoDepositEnabled' in req.body) {
-            updates.gateway_auto_deposit_enabled = Boolean(req.body.gatewayAutoDepositEnabled);
+            if (typeof req.body.gatewayAutoDepositEnabled !== 'boolean') {
+                res.status(400).json({ success: false, error: 'gatewayAutoDepositEnabled must be a boolean' });
+                return;
+            }
+            updates.gateway_auto_deposit_enabled = req.body.gatewayAutoDepositEnabled;
         }
-        await supabase.from('users').update(updates).eq('id', user.id);
+        const { error: updateError } = await supabase.from('users').update(updates).eq('id', user.id);
+        if (updateError) {
+            res.status(500).json({ success: false, error: 'Could not update preferences' });
+            return;
+        }
         res.json({
             success: true,
             data: {
-                clientRemindersEnabled: 'clientRemindersEnabled' in req.body ? Boolean(req.body.clientRemindersEnabled) : undefined,
-                gatewayAutoDepositEnabled: 'gatewayAutoDepositEnabled' in req.body ? Boolean(req.body.gatewayAutoDepositEnabled) : undefined,
+                clientRemindersEnabled: 'clientRemindersEnabled' in req.body ? req.body.clientRemindersEnabled : undefined,
+                gatewayAutoDepositEnabled: 'gatewayAutoDepositEnabled' in req.body ? req.body.gatewayAutoDepositEnabled : undefined,
             },
         });
     } catch (error) { next(error); }

@@ -627,6 +627,7 @@ const mapBackendTransaction = (transaction: any): WalletTransaction => ({
   createdAt: String(transaction.date || transaction.created_at || transaction.createdAt || new Date().toISOString()),
   counterparty: String(transaction.description || transaction.to || transaction.from || 'Counterparty'),
   status: transaction.status ? String(transaction.status).toLowerCase() : undefined,
+  txHash: transaction.txHash || transaction.tx_hash || undefined,
 });
 
 const mapOfframpOrderToWalletTransaction = (order: any): WalletTransaction => ({
@@ -638,6 +639,11 @@ const mapOfframpOrderToWalletTransaction = (order: any): WalletTransaction => ({
   createdAt: String(order.createdAt || order.created_at || new Date().toISOString()),
   counterparty: `Withdraw to ${order.bankName || order.bank_name || 'bank'}${order.fiatAmount || order.fiat_amount ? ` · ${Number(order.fiatAmount || order.fiat_amount).toLocaleString()} ${order.fiatCurrency || order.fiat_currency || ''}` : ''}`.trim(),
   status: String(order.status || 'pending').toLowerCase(),
+  txHash: order.txHash || order.tx_hash || undefined,
+  fiatAmount: Number(order.fiatAmount ?? order.fiat_amount ?? 0),
+  fiatCurrency: String(order.fiatCurrency || order.fiat_currency || ''),
+  exchangeRate: Number(order.exchangeRate ?? order.exchange_rate ?? 0),
+  destinationLabel: `${order.bankName || order.bank_name || 'Bank'}${order.accountNumber || order.account_number ? ` - ${String(order.accountNumber || order.account_number).slice(-4)}` : ''}`,
 });
 
 const mapOnrampOrderToWalletTransaction = (order: any): WalletTransaction => ({
@@ -649,6 +655,11 @@ const mapOnrampOrderToWalletTransaction = (order: any): WalletTransaction => ({
   createdAt: String(order.createdAt || order.created_at || new Date().toISOString()),
   counterparty: `Buy USDC${order.fiatAmount || order.fiat_amount ? ` · ${Number(order.fiatAmount || order.fiat_amount).toLocaleString()} ${order.fiatCurrency || order.fiat_currency || ''}` : ''}`.trim(),
   status: String(order.status || 'pending').toLowerCase(),
+  txHash: order.txHash || order.tx_hash || undefined,
+  fiatAmount: Number(order.fiatAmount ?? order.fiat_amount ?? 0),
+  fiatCurrency: String(order.fiatCurrency || order.fiat_currency || ''),
+  exchangeRate: Number(order.exchangeRate ?? order.exchange_rate ?? 0),
+  destinationLabel: order.providerInstitution || order.provider_institution || undefined,
 });
 
 const mapBackendUsdAccount = (details: any, balanceUsd = 0): UsdAccount => ({
@@ -703,7 +714,7 @@ const mapBackendOfframp = (order: any): OfframpTransaction => ({
       : String(order.status || '').toLowerCase() === 'failed'
         ? 'failed'
         : 'pending',
-  destinationLabel: `${order.bankName || 'Bank'}${order.accountNumber ? ` • ${String(order.accountNumber).slice(-4)}` : ''}`,
+  destinationLabel: `${order.bankName || 'Bank'}${order.accountNumber ? ` - ${String(order.accountNumber).slice(-4)}` : ''}`,
   createdAt: String(order.createdAt || new Date().toISOString()),
   txHash: order.txHash || order.tx_hash || undefined,
   errorMessage: order.errorMessage || order.error_message || undefined

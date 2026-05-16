@@ -8,7 +8,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, useThemeColors } from '../../theme/colors';
-import { useSettings, Theme } from '../../context/SettingsContext';
+import { GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY, useSettings, Theme } from '../../context/SettingsContext';
 import { useAuth } from '../../hooks/useAuth';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getUserGradient } from '../../utils/gradientUtils';
@@ -340,8 +340,6 @@ export default function SettingsScreen() {
         try {
             const token = await getAccessToken();
             if (!token) return;
-            const storedAutoDeposit = await AsyncStorage.getItem('settings_gateway_auto_deposit');
-            const localAutoDeposit = storedAutoDeposit === null ? null : storedAutoDeposit === 'true';
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
             const res = await fetch(`${apiUrl}/api/users/preferences`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -350,18 +348,7 @@ export default function SettingsScreen() {
             if (data.success) {
                 setClientRemindersEnabled(data.data.clientRemindersEnabled);
                 if (typeof data.data.gatewayAutoDepositEnabled === 'boolean') {
-                    if (localAutoDeposit !== null) {
-                        await setGatewayAutoDepositEnabled(localAutoDeposit);
-                        if (localAutoDeposit !== data.data.gatewayAutoDepositEnabled) {
-                            await fetch(`${apiUrl}/api/users/preferences`, {
-                                method: 'PATCH',
-                                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ gatewayAutoDepositEnabled: localAutoDeposit }),
-                            });
-                        }
-                    } else {
-                        await setGatewayAutoDepositEnabled(data.data.gatewayAutoDepositEnabled);
-                    }
+                    await setGatewayAutoDepositEnabled(data.data.gatewayAutoDepositEnabled);
                 }
             }
         } catch {}
@@ -395,6 +382,7 @@ export default function SettingsScreen() {
                 body: JSON.stringify({ gatewayAutoDepositEnabled: value }),
             });
             if (!res.ok) throw new Error('Could not save Aggregated USDC setting.');
+            await AsyncStorage.setItem(GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY, 'true');
         } catch {
             await setGatewayAutoDepositEnabled(!value);
             Alert.alert('Setting not saved', 'Could not update Aggregated USDC. Please try again.');

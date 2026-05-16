@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme, Appearance, ColorSchemeName } from 'react-native';
 let SystemUI: { setBackgroundColorAsync: (color: string) => Promise<void> } | null = null;
@@ -25,6 +25,9 @@ interface SettingsContextType {
     setGatewayAutoDepositEnabled: (enabled: boolean) => Promise<void>;
     settingsLoaded: boolean;
 }
+
+export const GATEWAY_AUTO_DEPOSIT_STORAGE_KEY = 'settings_gateway_auto_deposit';
+export const GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY = 'settings_gateway_auto_deposit_backend_synced';
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
@@ -66,7 +69,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const storedHaptics = await AsyncStorage.getItem('settings_haptics');
             const storedLiveTracking = await AsyncStorage.getItem('settings_live_tracking');
             const storedLockScreen = await AsyncStorage.getItem('settings_lock_screen');
-            const storedAutoDeposit = await AsyncStorage.getItem('settings_gateway_auto_deposit');
+            const storedAutoDeposit = await AsyncStorage.getItem(GATEWAY_AUTO_DEPOSIT_STORAGE_KEY);
 
             if (storedCurrency) setCurrencyState(storedCurrency as Currency);
             if (storedTheme) setThemeState(storedTheme as Theme);
@@ -132,14 +135,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     };
 
-    const setGatewayAutoDepositEnabled = async (enabled: boolean) => {
+    const setGatewayAutoDepositEnabled = useCallback(async (enabled: boolean) => {
         try {
             setGatewayAutoDepositEnabledState(enabled);
-            await AsyncStorage.setItem('settings_gateway_auto_deposit', enabled ? 'true' : 'false');
+            await AsyncStorage.setItem(GATEWAY_AUTO_DEPOSIT_STORAGE_KEY, enabled ? 'true' : 'false');
         } catch (error) {
             console.error('Failed to save gateway auto-deposit setting:', error);
         }
-    };
+    }, []);
 
     // Use deviceTheme (from listener) or systemColorScheme (from hook) - prioritize the reactive one
     const resolvedSystemTheme = resolveToAppTheme(deviceTheme || systemColorScheme);

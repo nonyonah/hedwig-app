@@ -15,12 +15,18 @@ import {
 } from '@expo-google-fonts/google-sans-flex';
 import { Merriweather_300Light, Merriweather_400Regular, Merriweather_700Bold, Merriweather_900Black } from '@expo-google-fonts/merriweather';
 import { View, Platform, Image, ActivityIndicator, StyleSheet, AppState, Text, TextInput } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { LockScreen } from '../components/LockScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { SettingsProvider, useSettings } from '../context/SettingsContext';
+import {
+    GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY,
+    GATEWAY_AUTO_DEPOSIT_STORAGE_KEY,
+    SettingsProvider,
+    useSettings,
+} from '../context/SettingsContext';
 import { TutorialProvider } from '../context/TutorialContext';
 import { useThemeColors } from '../theme/colors';
 import * as Sentry from '@sentry/react-native';
@@ -311,6 +317,60 @@ function PushNotificationBootstrap() {
     return null;
 }
 
+function GatewayPreferenceSync() {
+    const { user, isReady, getAccessToken } = useAuth();
+    const { setGatewayAutoDepositEnabled } = useSettings();
+
+    const syncGatewayPreference = useCallback(async () => {
+        if (!isReady || !user) return;
+
+        const token = await getAccessToken();
+        if (!token) return;
+
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+        const res = await fetch(`${apiUrl}/api/users/preferences`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success || typeof data.data?.gatewayAutoDepositEnabled !== 'boolean') return;
+
+        const localValue = await AsyncStorage.getItem(GATEWAY_AUTO_DEPOSIT_STORAGE_KEY);
+        const hasSyncedBackend = await AsyncStorage.getItem(GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY);
+        const localEnabled = localValue === 'true';
+
+        // One-time repair for users who enabled Aggregated USDC before this
+        // preference was backed by the server. After repair, backend wins.
+        if (!hasSyncedBackend && localValue !== null && localEnabled && !data.data.gatewayAutoDepositEnabled) {
+            const patch = await fetch(`${apiUrl}/api/users/preferences`, {
+                method: 'PATCH',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gatewayAutoDepositEnabled: localEnabled }),
+            });
+            if (patch.ok) {
+                await AsyncStorage.setItem(GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY, 'true');
+                await setGatewayAutoDepositEnabled(localEnabled);
+                return;
+            }
+        }
+
+        await AsyncStorage.setItem(GATEWAY_AUTO_DEPOSIT_BACKEND_SYNCED_KEY, 'true');
+        await setGatewayAutoDepositEnabled(data.data.gatewayAutoDepositEnabled);
+    }, [getAccessToken, isReady, setGatewayAutoDepositEnabled, user]);
+
+    useEffect(() => {
+        void syncGatewayPreference();
+    }, [syncGatewayPreference]);
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', (state) => {
+            if (state === 'active') void syncGatewayPreference();
+        });
+        return () => subscription.remove();
+    }, [syncGatewayPreference]);
+
+    return null;
+}
+
 // Handles app-lock on launch and when returning from background
 function AppLockGate({ children }: { children: React.ReactNode }) {
     const { user, isReady } = useAuth();
@@ -432,6 +492,7 @@ function NativeLayout() {
                 supportedChains={privyConfig.supportedChains as any}
             >
                 <UserProvider>
+                    <GatewayPreferenceSync />
                     <AppLockGate>
                         <PushNotificationBootstrap />
                         <ThemedStack />

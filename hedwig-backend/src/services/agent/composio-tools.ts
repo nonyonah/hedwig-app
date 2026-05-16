@@ -57,12 +57,24 @@ interface WriteToolSpec {
 
 type ToolSpec = ReadToolSpec | WriteToolSpec;
 
+const WORK_RELATED_GMAIL_SCOPE = '(hedwig OR work OR client OR project OR freelance OR invoice OR contract OR agreement OR retainer OR statement OR proposal OR payment OR paid OR payout)';
+
+function scopeGmailQueryToWork(value: unknown): string {
+  const query = String(value || '').trim();
+  if (!query) return `in:inbox ${WORK_RELATED_GMAIL_SCOPE}`;
+  const lower = query.toLowerCase();
+  if (/(hedwig|work|client|project|freelance|invoice|contract|agreement|retainer|statement|proposal|payment|paid|payout)/i.test(lower)) {
+    return query;
+  }
+  return `(${query}) ${WORK_RELATED_GMAIL_SCOPE}`;
+}
+
 const PROVIDER_TOOLS: Partial<Record<ComposioProvider, ToolSpec[]>> = {
   gmail: [
     {
       kind: 'read',
       name: 'gmail_search_emails',
-      description: 'Search the user\'s Gmail inbox using Gmail operators ("from:", "is:unread", "subject:"). Returns matching threads with subject, sender, snippet, and date.',
+      description: 'Search only work-related or Hedwig-relevant Gmail threads using Gmail operators ("from:", "is:unread", "subject:"). Use this for invoices, contracts, client/project work, payment conversations, and Hedwig-related mail. Avoid broad personal inbox searches.',
       slug: 'GMAIL_FETCH_EMAILS',
       parameters: {
         type: 'object',
@@ -72,7 +84,7 @@ const PROVIDER_TOOLS: Partial<Record<ComposioProvider, ToolSpec[]>> = {
         },
         required: ['query'],
       },
-      transform: (args) => ({ query: String(args.query || ''), max_results: Math.min(Number(args.maxResults || 10), 25) }),
+      transform: (args) => ({ query: scopeGmailQueryToWork(args.query), max_results: Math.min(Number(args.maxResults || 10), 25) }),
     },
   ],
   google_calendar: [

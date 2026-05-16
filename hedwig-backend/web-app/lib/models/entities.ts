@@ -229,6 +229,11 @@ export interface WalletTransaction {
   createdAt: string;
   counterparty: string;
   status?: string;
+  txHash?: string;
+  fiatAmount?: number;
+  fiatCurrency?: string;
+  exchangeRate?: number;
+  destinationLabel?: string;
 }
 
 export interface GatewayDomainBalance {

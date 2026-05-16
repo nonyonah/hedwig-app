@@ -255,7 +255,7 @@ export async function syncGmailThreads(userId: string, integrationId: string, ma
 
   // Fetch inbox threads with financial document attachments (invoices and contracts only).
   const financeAttachmentQuery =
-    'in:inbox has:attachment (invoice OR contract OR agreement OR retainer OR statement OR proposal) filename:(pdf OR doc OR docx OR png OR jpg OR jpeg OR webp)';
+    'in:inbox has:attachment (hedwig OR work OR client OR project OR freelance OR invoice OR contract OR agreement OR retainer OR statement OR proposal OR payment) filename:(pdf OR doc OR docx OR png OR jpg OR jpeg OR webp)';
   const listResp = await gmailGet(
     accessToken,
     `/threads?maxResults=${maxResults}&labelIds=INBOX&q=${encodeURIComponent(financeAttachmentQuery)}`
@@ -298,7 +298,7 @@ export async function syncComposioGmailThreads(userId: string, maxResults = 50):
 
   const sdk = getComposioSdk();
   const integrationId = await ensureComposioGmailIntegration(userId);
-  const query = 'in:inbox has:attachment (invoice OR contract OR agreement OR retainer OR statement OR proposal) filename:(pdf OR doc OR docx OR png OR jpg OR jpeg OR webp)';
+  const query = 'in:inbox has:attachment (hedwig OR work OR client OR project OR freelance OR invoice OR contract OR agreement OR retainer OR statement OR proposal OR payment) filename:(pdf OR doc OR docx OR png OR jpg OR jpeg OR webp)';
 
   const result: any = await sdk.tools.execute('GMAIL_FETCH_EMAILS', {
     userId: composioUserIdFor(userId),

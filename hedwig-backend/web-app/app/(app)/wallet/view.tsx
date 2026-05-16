@@ -2,10 +2,11 @@
 
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
-import { ArrowsLeftRight, ArrowDown, Bank, Info, Wallet } from '@/components/ui/lucide-icons';
+import { ArrowsLeftRight, ArrowDown, Bank, Info, Wallet, X } from '@/components/ui/lucide-icons';
 import { ShareWalletDialog } from '@/components/wallet/share-wallet-dialog';
 import { WalletAssetsTable } from '@/components/wallet/wallet-assets-table';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
+import { ClientPortal } from '@/components/ui/client-portal';
 import { useCurrency } from '@/components/providers/currency-provider';
 import type { AccountTransaction, GatewayBalance, UsdAccount, WalletAccount, WalletAsset, WalletTransaction } from '@/lib/models/entities';
 import { formatShortDate } from '@/lib/utils';
@@ -82,6 +83,7 @@ export function WalletView({
 }) {
   const { formatAmount } = useCurrency();
   const [showAllActivity, setShowAllActivity] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState<WalletTransaction | AccountTransaction | null>(null);
   const usdAccount = initialAccountsData.usdAccount;
   const accountTransactions = initialAccountsData.accountTransactions;
   const { walletAccounts, walletAssets, walletTransactions } = initialWalletData;
@@ -243,7 +245,12 @@ export function WalletView({
               {recentWalletTx.map((tx) => {
                 const kind = TX_KIND[tx.kind] ?? TX_KIND.payment;
                 return (
-                  <div key={tx.id} className="grid grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa]">
+                  <button
+                    key={tx.id}
+                    type="button"
+                    onClick={() => setSelectedActivity(tx)}
+                    className="grid w-full grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-[#fafafa]"
+                  >
                     <div className="flex min-w-0 items-center gap-3">
                       <TokenIcon chain={tx.chain} symbol={tx.asset} label={tx.asset} size={32} />
                       <div className="min-w-0">
@@ -259,14 +266,19 @@ export function WalletView({
                       {tx.amount} <span className="text-[11px] font-normal text-[#a4a7ae]">{tx.asset}</span>
                     </p>
                     <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(tx.createdAt)}</p>
-                  </div>
+                  </button>
                 );
               })}
 
               {usdAccountsEnabled ? recentUsdTx.map((tx) => {
                 const status = USD_TX_STATUS[tx.status] ?? USD_TX_STATUS.pending;
                 return (
-                  <div key={tx.id} className="grid grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-[#fafafa]">
+                  <button
+                    key={tx.id}
+                    type="button"
+                    onClick={() => setSelectedActivity(tx)}
+                    className="grid w-full grid-cols-[1fr_100px_100px_90px] items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-[#fafafa]"
+                  >
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ecfdf3] text-[#717680]">
                         <Bank className="h-4 w-4" weight="bold" />
@@ -282,13 +294,127 @@ export function WalletView({
                     </span>
                     <p className="text-right text-[13px] font-semibold tabular-nums text-[#181d27]">{formatAmount(tx.amountUsd)}</p>
                     <p className="text-right text-[12px] text-[#a4a7ae]">{formatShortDate(tx.createdAt)}</p>
-                  </div>
+                  </button>
                 );
               }) : null}
             </div>
           )}
         </div>
       </div>
+
+      {selectedActivity ? (
+        <ActivityDetailPanel
+          activity={selectedActivity}
+          formatAmount={formatAmount}
+          onClose={() => setSelectedActivity(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ActivityDetailPanel({
+  activity,
+  formatAmount,
+  onClose,
+}: {
+  activity: WalletTransaction | AccountTransaction;
+  formatAmount: (amount: number, options?: { compact?: boolean }) => string;
+  onClose: () => void;
+}) {
+  const isWalletActivity = 'kind' in activity;
+  const title = isWalletActivity ? formatTransactionTitle(activity) : activity.description;
+  const status = isWalletActivity ? activity.status : activity.status;
+  const amountLabel = isWalletActivity
+    ? `${activity.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${activity.asset}`
+    : formatAmount(activity.amountUsd);
+  const chain = isWalletActivity ? activity.chain : 'USD account';
+  const statusLabel = status ? String(status).replace(/_/g, ' ') : 'Unknown';
+  const iconNode = isWalletActivity ? (
+    <div className="relative shrink-0">
+      <TokenIcon chain={activity.chain} symbol={activity.asset} label={activity.asset} size={44} />
+      <div className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-0.5">
+        <ChainIcon chain={activity.chain} size={18} />
+      </div>
+    </div>
+  ) : (
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#ecfdf3] text-[#717680]">
+      <Bank className="h-5 w-5" weight="bold" />
+    </div>
+  );
+
+  return (
+    <ClientPortal>
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={onClose} />
+
+      <div
+        className="fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-full max-w-[480px] flex-col bg-white shadow-2xl animate-in slide-in-from-left-full duration-300 ease-out"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Activity details"
+      >
+        <div className="flex items-center gap-4 border-b border-[#e9eaeb] px-5 py-4">
+          {iconNode}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[16px] font-bold text-[#181d27]">{title}</p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <span className="text-[12px] text-[#a4a7ae]">{formatShortDate(activity.createdAt)}</span>
+              <span className="text-[#e9eaeb]">·</span>
+              <span className="truncate text-[12px] text-[#a4a7ae]">{chain}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] text-[#717680] transition hover:bg-[#f5f5f5]"
+            aria-label="Close activity details"
+          >
+            <X className="h-4 w-4" weight="bold" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="border-b border-[#f2f4f7] bg-[#fafafa] px-5 py-5">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Amount</p>
+            <p className="mt-1 text-[28px] font-bold leading-none tracking-[-0.04em] text-[#181d27]">{amountLabel}</p>
+            <p className="mt-2 text-[13px] font-medium capitalize text-[#717680]">{statusLabel}</p>
+          </div>
+
+          <div className="px-5 py-5">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[#a4a7ae]">Details</p>
+            <div className="overflow-hidden rounded-2xl border border-[#e9eaeb] bg-white">
+              <div className="divide-y divide-[#f2f4f7] px-4">
+                <ActivityDetailRow label="Type" value={isWalletActivity ? formatTransactionKind(activity.kind) : 'USD transfer'} />
+                <ActivityDetailRow label="Status" value={statusLabel} />
+                {isWalletActivity ? <ActivityDetailRow label="Chain" value={activity.chain} /> : null}
+                {isWalletActivity ? <ActivityDetailRow label="Counterparty" value={activity.counterparty || 'Unknown'} /> : null}
+                {isWalletActivity && activity.fiatAmount ? (
+                  <ActivityDetailRow label="Fiat amount" value={`${activity.fiatAmount.toLocaleString()} ${activity.fiatCurrency || ''}`.trim()} />
+                ) : null}
+                {isWalletActivity && activity.exchangeRate ? (
+                  <ActivityDetailRow label="Exchange rate" value={activity.exchangeRate.toLocaleString()} />
+                ) : null}
+                {isWalletActivity && activity.destinationLabel ? (
+                  <ActivityDetailRow label={activity.kind === 'onramp' ? 'Source' : 'Destination'} value={activity.destinationLabel} />
+                ) : null}
+                {isWalletActivity && activity.txHash ? (
+                  <ActivityDetailRow label="Transaction hash" value={activity.txHash} mono />
+                ) : null}
+                {!isWalletActivity ? <ActivityDetailRow label="Description" value={activity.description} /> : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ClientPortal>
+  );
+}
+
+function ActivityDetailRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-3">
+      <span className="shrink-0 text-[12px] text-[#717680]">{label}</span>
+      <span className={`text-right text-[13px] font-semibold capitalize text-[#181d27] ${mono ? 'break-all font-mono text-[11px] normal-case' : ''}`}>{value}</span>
     </div>
   );
 }
@@ -308,7 +434,7 @@ function ChainIcon({ chain, size = 24 }: { chain: string; size?: number }) {
   return <Image src={iconSrc} alt={chain} width={size} height={size} className="rounded-full shrink-0" />;
 }
 
-function TokenIcon({ chain, symbol, label, size = 32 }: { chain: WalletAsset['chain']; symbol: string; label: string; size?: number }) {
+function TokenIcon({ chain, symbol, label, size = 32 }: { chain: string; symbol: string; label: string; size?: number }) {
   const iconSrc = tokenIconByKey[`${chain}:${symbol}`];
   if (iconSrc) return <Image src={iconSrc} alt={label} width={size} height={size} className="rounded-full shrink-0" />;
   return (
