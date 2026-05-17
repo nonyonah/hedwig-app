@@ -25,6 +25,11 @@ const canonicalizePublicUrl = (input?: string | null): string => {
 };
 
 const APP_URL = canonicalizePublicUrl(RAW_APP_URL);
+const EMAIL_ASSET_BASE_URL = canonicalizePublicUrl(
+    process.env.EMAIL_ASSET_BASE_URL ||
+    process.env.API_PUBLIC_URL ||
+    'https://pay.hedwigbot.xyz'
+);
 
 const resolvePublicUrl = (candidate: string | undefined, fallbackPath: string): string => {
     const value = String(candidate || '').trim();
@@ -74,6 +79,8 @@ const SHARED_STYLES = `
 `;
 
 const EMAIL_LOGO_URL = resolvePublicUrl(process.env.EMAIL_LOGO_URL, '/hedwig-logo.png');
+const EMAIL_APPLE_LOGO_URL = `${EMAIL_ASSET_BASE_URL}/assets/email/apple-logo-white.png`;
+const EMAIL_GOOGLE_PLAY_BADGE_URL = `${EMAIL_ASSET_BASE_URL}/assets/email/google-play-badge.png`;
 
 const LOGO_HTML = `
 <a href="${APP_URL}" style="display:inline-block;text-decoration:none;">
@@ -1156,6 +1163,12 @@ export const EmailService = {
 
         const resend = new Resend(process.env.RESEND_API_KEY);
         const name = data.firstName || 'there';
+        const reminderLines = [
+            'Use the mobile app when you need to access your available balance or send money to your bank account.',
+            'The mobile app is the quickest way to manage funds after a client pays you.',
+            'Keep the mobile app close for withdrawals, payment alerts, invoices, and client activity.',
+        ];
+        const reminderLine = reminderLines[Math.floor(Math.random() * reminderLines.length)] || reminderLines[0];
 
         const html = `
         <!DOCTYPE html>
@@ -1170,12 +1183,14 @@ export const EmailService = {
                 .feature-list { margin:22px 0 0; padding:0; list-style:none; }
                 .feature-list li { margin:10px 0; color:#535862; font-size:14px; line-height:1.55; }
                 .store-row { text-align:center; margin-top:28px; }
-                .store-btn { display:inline-block; min-width:172px; background-color:#000000; color:#ffffff !important; border-radius:13px; text-decoration:none; padding:9px 14px; margin:0 5px 10px; }
+                .store-btn { display:inline-block; width:172px; background-color:#000000; color:#ffffff !important; border-radius:13px; text-decoration:none; padding:9px 14px; margin:0 5px 10px; }
                 .store-table { border-collapse:collapse; margin:0 auto; }
                 .store-icon { width:28px; padding-right:10px; vertical-align:middle; }
                 .store-text { text-align:left; vertical-align:middle; }
                 .store-label { font-size:10px; font-weight:600; letter-spacing:0.02em; line-height:1.1; opacity:0.78; display:block; }
                 .store-name { font-size:17px; font-weight:700; line-height:1.15; display:block; letter-spacing:-0.02em; }
+                .store-logo { display:block; border:0; outline:none; text-decoration:none; }
+                .play-store-badge { display:block; width:172px; height:auto; border:0; margin:0 auto; }
             </style>
         </head>
         <body style="font-family:${EMAIL_FONT_FAMILY};">
@@ -1185,6 +1200,7 @@ export const EmailService = {
                     <p class="eyebrow">Mobile App</p>
                     <h1 class="heading">Hedwig is better on mobile</h1>
                     <p class="description">Hi ${name}, get the full Hedwig experience on your phone. The mobile app is where you can access your funds, send money to your bank account, and manage payments on the go.</p>
+                    <p class="description">${reminderLine}</p>
                     <ul class="feature-list">
                         <li>• Access your available balance and withdraw to supported bank accounts.</li>
                         <li>• Send invoices and payment links from anywhere.</li>
@@ -1195,10 +1211,7 @@ export const EmailService = {
                             <table role="presentation" class="store-table">
                                 <tr>
                                     <td class="store-icon">
-                                        <svg width="25" height="30" viewBox="0 0 24 29" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                            <path d="M19.71 15.39c-.02-3.1 2.53-4.59 2.65-4.66-1.45-2.12-3.7-2.41-4.49-2.44-1.91-.19-3.72 1.12-4.69 1.12-.97 0-2.47-1.09-4.06-1.06-2.09.03-4.02 1.21-5.1 3.08-2.17 3.76-.56 9.33 1.56 12.39 1.03 1.49 2.27 3.17 3.89 3.11 1.56-.06 2.15-1.01 4.04-1.01 1.88 0 2.42 1.01 4.07.98 1.68-.03 2.75-1.52 3.77-3.02 1.19-1.73 1.68-3.41 1.71-3.5-.04-.02-3.32-1.27-3.35-4.99Z" fill="white"/>
-                                            <path d="M16.62 6.28c.85-1.03 1.43-2.46 1.27-3.89-1.23.05-2.72.82-3.61 1.85-.79.91-1.49 2.37-1.3 3.77 1.37.11 2.78-.7 3.64-1.73Z" fill="white"/>
-                                        </svg>
+                                        <img src="${EMAIL_APPLE_LOGO_URL}" width="24" height="24" alt="" class="store-logo" />
                                     </td>
                                     <td class="store-text">
                                         <span class="store-label">Join beta on</span>
@@ -1207,29 +1220,8 @@ export const EmailService = {
                                 </tr>
                             </table>
                         </a>
-                        <a href="https://play.google.com/store/apps/details?id=com.hedwig.app" class="store-btn" style="text-decoration:none;">
-                            <table role="presentation" class="store-table">
-                                <tr>
-                                    <td class="store-icon">
-                                        <svg width="27" height="30" viewBox="0 0 27 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                            <path d="M1.55.57c-.34.36-.55.92-.55 1.65v25.56c0 .73.21 1.29.55 1.65l.09.08L15.96 15.17v-.34L1.64.49l-.09.08Z" fill="url(#play_a)"/>
-                                            <path d="m20.73 19.95-4.77-4.78v-.34l4.78-4.78.11.06 5.66 3.22c1.62.92 1.62 2.43 0 3.36l-5.66 3.22-.12.04Z" fill="url(#play_b)"/>
-                                            <path d="m20.85 19.89-4.89-4.89L1.55 29.43c.54.57 1.41.64 2.4.08l16.9-9.62Z" fill="url(#play_c)"/>
-                                            <path d="M20.85 10.11 3.95.49C2.96-.07 2.09 0 1.55.57L15.96 15l4.89-4.89Z" fill="url(#play_d)"/>
-                                            <defs>
-                                                <linearGradient id="play_a" x1="14.69" y1="1.93" x2="-4.71" y2="21.33" gradientUnits="userSpaceOnUse"><stop stop-color="#00A0FF"/><stop offset="1" stop-color="#00D1FF"/></linearGradient>
-                                                <linearGradient id="play_b" x1="28.61" y1="15" x2=".62" y2="15" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE000"/><stop offset="1" stop-color="#FFBD00"/></linearGradient>
-                                                <linearGradient id="play_c" x1="18.2" y1="17.66" x2="-8.12" y2="43.98" gradientUnits="userSpaceOnUse"><stop stop-color="#FF3A44"/><stop offset="1" stop-color="#C31162"/></linearGradient>
-                                                <linearGradient id="play_d" x1="-2.64" y1="-7.96" x2="9.11" y2="3.79" gradientUnits="userSpaceOnUse"><stop stop-color="#32A071"/><stop offset="1" stop-color="#00F076"/></linearGradient>
-                                            </defs>
-                                        </svg>
-                                    </td>
-                                    <td class="store-text">
-                                        <span class="store-label">Get it on</span>
-                                        <span class="store-name">Google Play</span>
-                                    </td>
-                                </tr>
-                            </table>
+                        <a href="https://play.google.com/store/apps/details?id=com.hedwig.app" style="display:inline-block;margin:0 5px 10px;text-decoration:none;">
+                            <img src="${EMAIL_GOOGLE_PLAY_BADGE_URL}" width="172" alt="Get it on Google Play" class="play-store-badge" />
                         </a>
                     </div>
                     <hr class="divider" />
