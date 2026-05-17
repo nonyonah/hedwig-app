@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 type AppTopbarProps = {
   collapsed: boolean;
   onToggleSidebar: () => void;
+  onOpenMobileSidebar: () => void;
   unreadCount: number;
   accessToken?: string | null;
   user: {
@@ -28,7 +29,7 @@ type AppTopbarProps = {
   };
 };
 
-export function AppTopbar({ collapsed, onToggleSidebar, unreadCount, accessToken, user }: AppTopbarProps) {
+export function AppTopbar({ collapsed, onToggleSidebar, onOpenMobileSidebar, unreadCount, accessToken, user }: AppTopbarProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const createRef = useRef<HTMLDivElement | null>(null);
 
@@ -50,12 +51,20 @@ export function AppTopbar({ collapsed, onToggleSidebar, unreadCount, accessToken
     <div className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between border-b border-[#f3f4f6] bg-[#fcfcfd]/95 px-4 backdrop-blur-sm lg:px-5">
       {/* Left */}
       <div className="flex min-w-0 items-center gap-2.5">
+        <button
+          type="button"
+          onClick={onOpenMobileSidebar}
+          aria-label="Open sidebar"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#8d9096] transition hover:bg-[#f4f5f7] hover:text-[#414651] lg:hidden"
+        >
+          <SidebarSimple className="h-3.5 w-3.5" weight="bold" />
+        </button>
         {collapsed && (
           <button
             type="button"
             onClick={onToggleSidebar}
             aria-label="Expand sidebar"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#c1c5cd] transition hover:bg-[#f4f5f7] hover:text-[#717680]"
+            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#c1c5cd] transition hover:bg-[#f4f5f7] hover:text-[#717680] lg:flex"
           >
             <SidebarSimple className="h-3.5 w-3.5" weight="bold" />
           </button>

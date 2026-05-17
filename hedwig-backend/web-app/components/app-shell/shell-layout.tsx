@@ -28,6 +28,7 @@ type ShellLayoutProps = {
 
 export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, lockedRoutes = [] }: ShellLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -49,7 +50,7 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
           <div className="flex items-center justify-center gap-3 border-b border-[#bfdbfe] bg-[#eff6ff] px-4 py-2 text-center text-[13px] font-medium text-[#1d4ed8]">
             <span>Demo mode — sample data only.</span>
             <Link
-              href="/sign-in"
+              href="/api/auth/exit-demo"
               className="rounded-full bg-[#2563eb] px-3 py-0.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
             >
               Sign in
@@ -58,11 +59,18 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
         )}
         <TokenRefresher />
         <div className="flex min-h-screen">
-          <AppSidebar collapsed={collapsed} onToggle={toggleSidebar} lockedRoutes={lockedRoutes} />
+          <AppSidebar
+            collapsed={collapsed}
+            onToggle={toggleSidebar}
+            lockedRoutes={lockedRoutes}
+            mobileOpen={mobileSidebarOpen}
+            onCloseMobile={() => setMobileSidebarOpen(false)}
+          />
           <div className="flex min-w-0 flex-1 flex-col transition-[padding,width] duration-200 ease-out">
             <AppTopbar
               collapsed={collapsed}
               onToggleSidebar={toggleSidebar}
+              onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
               unreadCount={unreadCount}
               accessToken={accessToken}
               user={user}
