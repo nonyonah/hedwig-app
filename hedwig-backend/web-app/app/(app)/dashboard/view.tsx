@@ -13,7 +13,9 @@ import {
   IdentificationCard,
   Link as LinkIcon,
   Repeat,
-  Sparkle
+  ShareNetwork,
+  Sparkle,
+  X
 } from '@/components/ui/lucide-icons';
 import { useCurrency } from '@/components/providers/currency-provider';
 import { AttachedStatGrid } from '@/components/ui/attached-stat-cards';
@@ -59,6 +61,8 @@ type MetricCard = {
   icon: typeof FileText;
 };
 
+const CORE_INTRO_STORAGE_KEY = 'hedwig_core_features_intro_dismissed_v1';
+
 function getTimeOfDayGreeting(hour: number) {
   if (hour >= 5 && hour < 12) return 'Good morning';
   if (hour >= 12 && hour < 17) return 'Good afternoon';
@@ -79,6 +83,8 @@ export function DashboardClient({
 }) {
   const { currency, formatAmount } = useCurrency();
   const [hour, setHour] = useState(() => new Date().getHours());
+  const [showCoreIntro, setShowCoreIntro] = useState(false);
+  const [coreIntroStep, setCoreIntroStep] = useState(0);
   const canUseAssistantSummary = canUseFeature('assistant_summary_advanced', billing);
 
   useEffect(() => {
@@ -245,10 +251,39 @@ export function DashboardClient({
     window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow } }));
   }, []);
 
+  useEffect(() => {
+    if (isDemo || hasCreatedPaymentWorkflow || typeof window === 'undefined') {
+      setShowCoreIntro(false);
+      return;
+    }
+
+    setShowCoreIntro(window.localStorage.getItem(CORE_INTRO_STORAGE_KEY) !== 'true');
+  }, [hasCreatedPaymentWorkflow, isDemo]);
+
+  const dismissCoreIntro = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(CORE_INTRO_STORAGE_KEY, 'true');
+    }
+    setShowCoreIntro(false);
+  }, []);
+
+  const startFirstInvoiceFromIntro = useCallback(() => {
+    dismissCoreIntro();
+    openCreateFlow('invoice');
+  }, [dismissCoreIntro, openCreateFlow]);
+
   return (
     <div className="flex flex-col gap-6">
+      {!isDemo && showCoreIntro ? (
+        <CoreFeaturesIntro
+          activeStep={coreIntroStep}
+          onStepChange={setCoreIntroStep}
+          onDismiss={dismissCoreIntro}
+          onStart={startFirstInvoiceFromIntro}
+        />
+      ) : null}
       {!isDemo && !hasCreatedPaymentWorkflow ? (
-        <FirstPaymentRequestCard onStart={() => openCreateFlow('payment-link')} />
+        <FirstInvoiceCard onStart={() => openCreateFlow('invoice')} />
       ) : null}
       {!isDemo && hasCreatedPaymentWorkflow && !onboardingComplete ? (
         <OnboardingChecklist
@@ -409,30 +444,146 @@ export function DashboardClient({
   );
 }
 
-function FirstPaymentRequestCard({ onStart }: { onStart: () => void }) {
+const CORE_INTRO_STEPS = [
+  {
+    title: 'Create client-ready invoices',
+    description: 'Start with one client, amount, and due date. Hedwig keeps the invoice polished and easy to act on.',
+    label: 'Invoice',
+    Icon: FileText,
+    accent: 'bg-[#eff4ff] text-[#2563eb]',
+  },
+  {
+    title: 'Share a clean payment link',
+    description: 'Send the invoice or payment link from your workspace so clients have one clear place to pay.',
+    label: 'Share',
+    Icon: ShareNetwork,
+    accent: 'bg-[#ecfdf3] text-[#067647]',
+  },
+  {
+    title: 'Track payment until it lands',
+    description: 'See what is paid, pending, or overdue without checking every message thread manually.',
+    label: 'Track',
+    Icon: CurrencyDollar,
+    accent: 'bg-[#fffaeb] text-[#b54708]',
+  },
+];
+
+function CoreFeaturesIntro({
+  activeStep,
+  onStepChange,
+  onDismiss,
+  onStart,
+}: {
+  activeStep: number;
+  onStepChange: (step: number) => void;
+  onDismiss: () => void;
+  onStart: () => void;
+}) {
+  const step = CORE_INTRO_STEPS[activeStep] ?? CORE_INTRO_STEPS[0];
+  const isLast = activeStep >= CORE_INTRO_STEPS.length - 1;
+  const Icon = step.Icon;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#181d27]/30 px-4 backdrop-blur-[2px]">
+      <div className="relative w-full max-w-[440px] overflow-hidden rounded-[28px] bg-white shadow-[0_28px_100px_rgba(24,29,39,0.24)] ring-1 ring-black/5">
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Close intro"
+          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/75 text-[#a4a7ae] shadow-sm ring-1 ring-[#e9eaeb] transition hover:bg-white hover:text-[#414651]"
+        >
+          <X className="h-3.5 w-3.5" weight="bold" />
+        </button>
+
+        <div className="relative flex h-[244px] items-center justify-center overflow-hidden bg-[#f4f7fb]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_18%,rgba(37,99,235,0.16),transparent_34%),radial-gradient(circle_at_78%_12%,rgba(22,163,74,0.12),transparent_28%)]" />
+          <div className="absolute left-8 top-8 h-16 w-24 rounded-2xl border border-[#e9eaeb] bg-white/75 shadow-sm" />
+          <div className="absolute bottom-8 right-8 h-16 w-28 rounded-2xl border border-[#e9eaeb] bg-white/70 shadow-sm" />
+          <div className="relative w-[260px] rounded-[22px] bg-white p-5 shadow-[0_18px_50px_rgba(24,29,39,0.15)] ring-1 ring-[#e9eaeb]">
+            <div className="mb-4 flex items-center justify-between">
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${step.accent}`}>
+                <Icon className="h-3.5 w-3.5" weight="bold" />
+                {step.label}
+              </span>
+              <span className="h-2 w-2 rounded-full bg-[#17b26a]" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 w-36 rounded-full bg-[#181d27]" />
+              <div className="h-2 w-48 rounded-full bg-[#d5d7da]" />
+              <div className="h-2 w-40 rounded-full bg-[#e9eaeb]" />
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-[#f8f9fb] p-3">
+                <div className="h-2 w-12 rounded-full bg-[#a4a7ae]" />
+                <div className="mt-2 h-4 w-16 rounded-full bg-[#181d27]" />
+              </div>
+              <div className="rounded-xl bg-[#eff4ff] p-3">
+                <div className="h-2 w-10 rounded-full bg-[#93c5fd]" />
+                <div className="mt-2 h-4 w-14 rounded-full bg-[#2563eb]" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-7 pb-6 pt-7 text-center">
+          <h2 className="text-[22px] font-bold tracking-[-0.03em] text-[#181d27]">{step.title}</h2>
+          <p className="mx-auto mt-2 max-w-[330px] text-[15px] leading-6 text-[#8d9096]">{step.description}</p>
+
+          <div className="mt-6 flex items-center justify-center gap-2">
+            {CORE_INTRO_STEPS.map((item, index) => (
+              <button
+                key={item.title}
+                type="button"
+                aria-label={`Go to intro step ${index + 1}`}
+                onClick={() => onStepChange(index)}
+                className={`h-2.5 rounded-full transition-all ${index === activeStep ? 'w-6 bg-[#717680]' : 'w-2.5 bg-[#d5d7da]'}`}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (isLast) {
+                onStart();
+                return;
+              }
+              onStepChange(activeStep + 1);
+            }}
+            className="mt-7 flex h-11 w-full items-center justify-center rounded-xl bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+          >
+            {isLast ? 'Create first invoice' : 'Next'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FirstInvoiceCard({ onStart }: { onStart: () => void }) {
   return (
     <article className="overflow-hidden rounded-2xl bg-[#181d27] text-white shadow-[0_18px_60px_rgba(24,29,39,0.16)]">
       <div className="grid gap-px bg-white/10 lg:grid-cols-[1.35fr_0.65fr]">
         <div className="bg-[#181d27] p-6">
           <p className="text-[12px] font-semibold uppercase tracking-widest text-[#93c5fd]">First session goal</p>
           <h2 className="mt-2 max-w-2xl text-[24px] font-bold tracking-[-0.035em]">
-            Send your first payment request in 60 seconds.
+            Create your first invoice in 60 seconds.
           </h2>
           <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#cbd5e1]">
-            Start with a simple payment link. Add an amount, client details if you have them, and share it when you are ready.
+            Start with one client, an amount, and a due date. Hedwig will turn it into a client-ready invoice you can share.
           </p>
           <button
             type="button"
             onClick={onStart}
             className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-[14px] font-semibold text-[#181d27] transition hover:bg-[#f1f5ff]"
           >
-            Send your first payment request →
+            Create your first invoice →
           </button>
         </div>
         <div className="bg-[#202636] p-6">
           <p className="text-[13px] font-semibold text-white">What happens next</p>
           <div className="mt-4 space-y-3">
-            {['Create the request', 'Share it with a client', 'Track payment when it lands'].map((item, index) => (
+            {['Create the invoice', 'Share it with a client', 'Track payment when it lands'].map((item, index) => (
               <div key={item} className="flex items-center gap-3">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-[12px] font-semibold text-white">
                   {index + 1}

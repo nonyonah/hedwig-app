@@ -8,7 +8,7 @@ import { AnimateIn } from './animate-in';
 
 export default async function IndexPage() {
   const session = await getCurrentSession();
-  if (session.accessToken) {
+  if (session.accessToken && !session.isMockSession) {
     redirect('/dashboard');
   }
   return <LandingPage />;
@@ -42,17 +42,11 @@ function LandingPage() {
               Pricing
             </Link>
             <a
-              href="/sign-in"
-              className="inline-flex h-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white px-5 text-[13px] font-semibold text-[#344054] transition-all duration-200 hover:bg-[#f9fafb] hover:border-[#c0c3c9]"
+              href="/api/auth/exit-demo"
+              className="inline-flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white transition-all duration-200 hover:bg-[#1d4ed8]"
             >
               Try it yourself
             </a>
-            <Link
-              href="/sign-in"
-              className="inline-flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white transition-all duration-200 hover:bg-[#1d4ed8]"
-            >
-              Start free
-            </Link>
           </div>
         </div>
       </nav>
@@ -89,25 +83,19 @@ function LandingPage() {
               className="animate-fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
               style={{ animationDelay: '240ms' }}
             >
-              <Link
-                href="/sign-in"
+              <a
+                href="/api/auth/exit-demo"
                 className="inline-flex h-11 items-center gap-2 rounded-full bg-[#2563eb] px-8 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.22)] transition-all duration-200 hover:bg-[#1d4ed8] hover:shadow-[0_12px_32px_rgba(37,99,235,0.32)]"
               >
-                Start free
-                <ArrowRight className="h-4 w-4" weight="bold" />
-              </Link>
-              <a
-                href="/sign-in"
-                className="inline-flex h-11 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-8 text-[14px] font-semibold text-[#344054] transition-all duration-200 hover:bg-[#f9fafb] hover:border-[#c0c3c9]"
-              >
                 Try it yourself
+                <ArrowRight className="h-4 w-4" weight="bold" />
               </a>
             </div>
             <p
               className="animate-fade-up mt-3 text-[12px] font-medium text-[#a4a7ae]"
               style={{ animationDelay: '280ms' }}
             >
-              No card required. Create your first payment request in minutes.
+              No card required. Create your first invoice in minutes.
             </p>
 
             {/* Product Hunt badge */}
@@ -278,7 +266,7 @@ function LandingPage() {
           <div className="grid gap-px overflow-hidden rounded-[28px] border border-[#e9eaeb] bg-[#e9eaeb] md:grid-cols-3">
             {[
               { step: '01', label: 'Look ready before work starts', desc: 'Save the client, scope the project, and keep the commercial details in one place instead of scattered across chats.', accent: 'bg-[#eff4ff] text-[#717680]' },
-              { step: '02', label: 'Send a payable request', desc: 'Create an invoice or payment link with the details a client needs to pay you quickly and confidently.', accent: 'bg-[#ecfdf3] text-[#717680]' },
+              { step: '02', label: 'Send a payable invoice', desc: 'Create an invoice with the amount, due date, and details a client needs to pay you quickly and confidently.', accent: 'bg-[#ecfdf3] text-[#717680]' },
               { step: '03', label: 'Know what needs follow-up', desc: 'Track paid, pending, and overdue work so you are not guessing who owes what.', accent: 'bg-[#fffaeb] text-[#717680]' },
             ].map(({ step, label, desc, accent }, i) => (
               <AnimateIn key={step} delay={i * 80}>
@@ -341,20 +329,20 @@ function LandingPage() {
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.35),transparent_55%)]" />
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(37,99,235,0.20),transparent_55%)]" />
               <div className="relative">
-                <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.12em] text-[#717680]">Start now</p>
+                <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.12em] text-[#717680]">Try it now</p>
                 <h2 className="text-[32px] font-bold tracking-[-0.04em] text-white md:text-[48px]">
                   Make your next invoice<br className="hidden md:block" /> feel easy to pay.
                 </h2>
                 <p className="mx-auto mt-5 max-w-lg text-[15px] leading-7 text-[#94a3b8]">
-                  Start with one client, one payment request, and a clearer way to follow up until the money lands.
+                  Start with one client, one invoice, and a clearer way to follow up until the money lands.
                 </p>
-                <Link
-                  href="/sign-in"
+                <a
+                  href="/api/auth/exit-demo"
                   className="mt-9 inline-flex h-12 items-center gap-2 rounded-full bg-white px-8 text-[14px] font-semibold text-[#181d27] transition-all duration-200 hover:bg-[#f1f5ff] hover:shadow-lg"
                 >
-                  Start free
+                  Try it yourself
                   <ArrowRight className="h-4 w-4" weight="bold" />
-                </Link>
+                </a>
               </div>
             </div>
           </AnimateIn>
@@ -374,7 +362,7 @@ function LandingPage() {
             <Link href="/terms" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Terms</Link>
             <Link href="/returns" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Returns</Link>
             <a href="https://help.hedwigbot.xyz" target="_blank" rel="noreferrer" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Help</a>
-            <Link href="/sign-in" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Sign in</Link>
+            <a href="/api/auth/exit-demo" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Sign in</a>
             <a href="mailto:support@hedwigbot.xyz" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Support</a>
             <a href="https://x.com/hedwigagent" target="_blank" rel="noreferrer" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">X</a>
             <a href="https://t.me/hedwigofficial" target="_blank" rel="noreferrer" className="text-[13px] text-[#717680] transition-colors duration-200 hover:text-[#181d27]">Telegram</a>

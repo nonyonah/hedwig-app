@@ -205,9 +205,9 @@ export default function SignInPage() {
         {/* ── Landing ── */}
         {stage === 'landing' && (
           <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Start free</h1>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Try Hedwig yourself</h1>
             <p className="mt-2 text-[13px] text-[#717680]">
-              Create a professional invoice or payment link for your next client. No card required.
+              Create a professional invoice for your next client. No card required.
             </p>
 
             <div className="mt-8 space-y-3">
@@ -277,7 +277,7 @@ export default function SignInPage() {
                 onClick={handleSendCode}
                 className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSendingCode ? 'Sending…' : 'Continue free'}
+                {isSendingCode ? 'Sending…' : 'Continue'}
               </button>
             </div>
 
@@ -448,7 +448,7 @@ export default function SignInPage() {
               </h1>
               <p className="mt-2 text-[13px] leading-5 text-[#717680]">
                 This lets clients see exactly where to pay you by bank transfer. You can skip this for now,
-                but adding it now makes your first invoice or payment link ready to send.
+                but adding it now makes your first invoice ready to send.
               </p>
             </div>
 
