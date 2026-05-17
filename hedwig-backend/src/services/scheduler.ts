@@ -1078,12 +1078,13 @@ export const SchedulerService = {
     },
 
     /**
-     * Nudge users who signed up but haven't completed any key action yet:
-     * no clients created and no invoices/payment links sent.
+     * Nudge users who signed up but haven't completed the first value action:
+     * creating an invoice or payment link.
      *
      * Timing:
-     *  - First nudge: 24 h after registration
-     *  - Second nudge (if still inactive): 72 h after registration
+     *  - First nudge: shortly after registration
+     *  - Second nudge: after 24 h if still no invoice/payment link
+     *  - Third nudge: after 72 h if still no invoice/payment link
      *  - No further nudges after 7 days
      *
      * Requires DB column: users.last_onboarding_nudge_at (timestamptz, nullable)
@@ -1130,14 +1131,17 @@ export const SchedulerService = {
                 return;
             }
 
-            // For each candidate, check if they have any clients or documents
+            // For each candidate, check if they have created a real payment workflow.
+            // A client alone is useful, but it does not prove they reached first value.
             const inactive: any[] = [];
             await processInBatches(eligible, SCHEDULER_CONCURRENCY, async (user) => {
-                const [{ count: clientCount }, { count: docCount }] = await Promise.all([
-                    supabase.from('clients').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-                    supabase.from('documents').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-                ]);
-                if ((clientCount ?? 0) === 0 && (docCount ?? 0) === 0) {
+                const { count: paymentWorkflowCount } = await supabase
+                    .from('documents')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .in('type', ['INVOICE', 'PAYMENT_LINK', 'invoice', 'payment_link']);
+
+                if ((paymentWorkflowCount ?? 0) === 0) {
                     inactive.push(user);
                 }
             });
@@ -1153,14 +1157,21 @@ export const SchedulerService = {
                 try {
                     const firstName = String(user.first_name || '').trim();
                     const ageMs = now - (this.timestampMs(user.created_at) ?? now);
-                    const isSecondNudge = ageMs > THREE_DAYS_MS;
+                    const nudgeStage: 'day0' | 'day1' | 'day3' =
+                        ageMs > THREE_DAYS_MS ? 'day3' : ageMs > ONE_DAY_MS ? 'day1' : 'day0';
 
-                    const pushTitle = isSecondNudge
-                        ? 'Your workspace is waiting'
-                        : 'Get started with Hedwig';
-                    const pushBody = isSecondNudge
-                        ? (firstName ? `${firstName}, you're one step away from sending your first invoice.` : 'You\'re one step away from sending your first invoice.')
-                        : (firstName ? `${firstName}, add a client and send your first invoice in minutes.` : 'Add a client and send your first invoice in minutes.');
+                    const pushTitle =
+                        nudgeStage === 'day3'
+                            ? 'Want help setting up your first client?'
+                            : nudgeStage === 'day1'
+                                ? 'Create your first invoice in 60 seconds'
+                                : 'Send your first payment request';
+                    const pushBody =
+                        nudgeStage === 'day3'
+                            ? 'Hedwig can help you turn one real client into a payable invoice or payment link.'
+                            : nudgeStage === 'day1'
+                                ? 'Freelancers lose time chasing payment details. Hedwig helps prevent that.'
+                                : (firstName ? `${firstName}, start with one client and one payment request. No card required.` : 'Start with one client and one payment request. No card required.');
 
                     // Push notification
                     await NotificationService.notifyUser(user.id, {
@@ -1177,7 +1188,7 @@ export const SchedulerService = {
                         await EmailService.sendOnboardingIncompleteEmail({
                             to: user.email,
                             firstName,
-                            isSecondNudge,
+                            nudgeStage,
                         });
                     }
 
@@ -1187,7 +1198,7 @@ export const SchedulerService = {
                         type: 'announcement',
                         title: pushTitle,
                         message: pushBody,
-                        metadata: { nudge_type: 'onboarding_incomplete', nudge_number: isSecondNudge ? 2 : 1 },
+                        metadata: { nudge_type: 'onboarding_incomplete', nudge_stage: nudgeStage },
                         is_read: false,
                     });
 
@@ -1199,7 +1210,7 @@ export const SchedulerService = {
 
                     await BackendAnalytics.capture(String(user.privy_id || user.id), 'onboarding_nudge_sent', {
                         user_id: user.id,
-                        nudge_number: isSecondNudge ? 2 : 1,
+                        nudge_stage: nudgeStage,
                         channels: user.email ? ['push', 'email', 'in_app'] : ['push', 'in_app'],
                     });
                 } catch (err: any) {

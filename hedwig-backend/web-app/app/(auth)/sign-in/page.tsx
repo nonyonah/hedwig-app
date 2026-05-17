@@ -240,9 +240,9 @@ export default function SignInPage() {
         {/* ── Landing ── */}
         {stage === 'landing' && (
           <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Sign in to Hedwig</h1>
+            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Start free</h1>
             <p className="mt-2 text-[13px] text-[#717680]">
-              Manage projects, invoices, and payments in one workspace.
+              Create a professional invoice or payment link for your next client. No card required.
             </p>
 
             <div className="mt-8 space-y-3">
@@ -312,7 +312,7 @@ export default function SignInPage() {
                 onClick={handleSendCode}
                 className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSendingCode ? 'Sending…' : 'Continue'}
+                {isSendingCode ? 'Sending…' : 'Continue free'}
               </button>
             </div>
 
@@ -418,7 +418,7 @@ export default function SignInPage() {
         {stage === 'profile' && (
           <div>
             <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Tell us about yourself</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">This is how you'll appear in Hedwig.</p>
+            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">This helps Hedwig prepare client-ready documents with your name.</p>
 
             <div className="mt-8 space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -475,7 +475,7 @@ export default function SignInPage() {
         {stage === 'goal' && (
           <div>
             <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Set your monthly goal</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">How much do you want to earn each month?</p>
+            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">We use this to show whether your invoices and payment links are keeping you on track.</p>
 
             <div className="mt-8 space-y-6">
               {/* Preset pills */}
@@ -560,8 +560,8 @@ export default function SignInPage() {
                 Add your payout bank
               </h1>
               <p className="mt-2 text-[13px] leading-5 text-[#717680]">
-                Clients can pay invoices and payment links by bank transfer when your payout details are ready.
-                You can add more accounts later in Settings.
+                This lets clients see exactly where to pay you by bank transfer. You can skip this for now,
+                but adding it now makes your first invoice or payment link ready to send.
               </p>
             </div>
 

@@ -1218,6 +1218,7 @@ export const EmailService = {
         to: string;
         firstName: string;
         isSecondNudge?: boolean;
+        nudgeStage?: 'day0' | 'day1' | 'day3';
     }): Promise<boolean> {
         if (!process.env.RESEND_API_KEY) {
             logger.warn('RESEND_API_KEY is not set. Skipping onboarding nudge email.');
@@ -1227,18 +1228,28 @@ export const EmailService = {
         const resend = new Resend(process.env.RESEND_API_KEY);
         const name = data.firstName || 'there';
         const dashboardUrl = `${APP_URL}/dashboard`;
+        const nudgeStage = data.nudgeStage || (data.isSecondNudge ? 'day3' : 'day0');
 
-        const subject = data.isSecondNudge
-            ? 'Your Hedwig workspace is waiting'
-            : 'Get started with Hedwig';
+        const subject =
+            nudgeStage === 'day3'
+                ? 'Want help setting up your first client?'
+                : nudgeStage === 'day1'
+                    ? 'Create your first invoice in 60 seconds'
+                    : 'Send your first payment request';
 
-        const heading = data.isSecondNudge
-            ? 'Your workspace is waiting'
-            : 'Get started with Hedwig';
+        const heading =
+            nudgeStage === 'day3'
+                ? 'Want help setting up your first client?'
+                : nudgeStage === 'day1'
+                    ? 'Create your first invoice in 60 seconds'
+                    : 'Send your first payment request';
 
-        const body = data.isSecondNudge
-            ? `Hi ${name}, you set up your Hedwig account but haven't added any clients or sent an invoice yet. Your workspace is ready — it only takes a minute to send your first payment request.`
-            : `Hi ${name}, welcome to Hedwig! Your account is set up and ready to go. Add your first client and send an invoice to start getting paid faster.`;
+        const body =
+            nudgeStage === 'day3'
+                ? `Hi ${name}, if Hedwig felt useful but you weren't sure where to start, begin with one real client. Add their details, create a payable invoice or payment link, and you will have a cleaner way to follow up until the money lands.`
+                : nudgeStage === 'day1'
+                    ? `Hi ${name}, freelancers lose time when payment details are scattered across chats and email. Hedwig helps you send a clear invoice or payment link clients can act on quickly.`
+                    : `Hi ${name}, welcome to Hedwig. Start with one client and one payment request so your next invoice looks professional and is easy to pay. No card required.`;
 
         const html = `
         <!DOCTYPE html>
@@ -1276,7 +1287,7 @@ export const EmailService = {
                 subject,
                 html,
             });
-            logger.info('Onboarding nudge email sent', { to: data.to, isSecondNudge: data.isSecondNudge });
+            logger.info('Onboarding nudge email sent', { to: data.to, nudgeStage });
             return true;
         } catch (error) {
             logger.error('Onboarding nudge email failed', { error: error instanceof Error ? error.message : 'Unknown' });

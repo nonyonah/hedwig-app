@@ -5,33 +5,33 @@ import Image from 'next/image';
 
 const ITEMS = [
   {
-    title: 'Crypto-native payments',
+    title: 'Payment requests clients understand',
     description:
-      'Payment links and invoices clients can settle quickly, with clear status from sent to paid.',
+      'Send invoices and payment links with clear amount, due date, and payment instructions so clients know what to do next.',
     preview: <PaymentsPanel />,
   },
   {
-    title: 'Client management',
+    title: 'Every client detail in one place',
     description:
-      'Keep every client, their contact details, linked projects, and payment history in one place.',
+      'Keep contacts, projects, payment history, and outstanding balances together before follow-up gets messy.',
     preview: <ClientsPanel />,
   },
   {
-    title: 'Projects & milestones',
+    title: 'Projects that turn into invoices',
     description:
-      'Structure work into projects with milestones and budgets. Invoices generate automatically as milestones ship.',
+      'Structure work into milestones and budgets so billing is tied to delivery, not memory.',
     preview: <ProjectsPanel />,
   },
   {
-    title: 'Contracts → invoices → reminders',
+    title: 'Less chasing, clearer follow-up',
     description:
-      'Define project scope, generate a contract, attach milestones, and let Hedwig create invoices as work ships.',
+      'See what has been sent, what has been paid, and what needs a reminder without digging through old messages.',
     preview: <ContractPanel />,
   },
   {
-    title: 'Subscription and billing controls',
+    title: 'Your money, visible across devices',
     description:
-      'Keep web billing subscription-first while the mobile app handles wallet and USD account companion flows.',
+      'Use web for client work and mobile for alerts, wallet actions, and account tools when you are away from your desk.',
     preview: <SubscriptionPanel />,
   },
 ];
@@ -55,10 +55,10 @@ export function FeaturesShowcase() {
           {/* ── Left — timeline list ─────────────────────────── */}
           <div>
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">
-              What&apos;s inside
+              Why freelancers use it
             </p>
             <h2 className="mb-14 text-[32px] font-bold tracking-[-0.04em] text-[#181d27] md:text-[42px]">
-              Less tool switching.<br />More work getting paid.
+              Fewer awkward follow-ups.<br />More paid work.
             </h2>
 
             <div className="relative">

@@ -51,7 +51,7 @@ function LandingPage() {
               href="/sign-in"
               className="inline-flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white transition-all duration-200 hover:bg-[#1d4ed8]"
             >
-              Sign in
+              Start free
             </Link>
           </div>
         </div>
@@ -69,21 +69,21 @@ function LandingPage() {
               style={{ animationDelay: '0ms' }}
             >
               <span className="text-[12px] font-semibold text-[#475467]">
-                Your entire freelance workflow, in one place
+                Get paid without looking unprepared
               </span>
             </div>
             <h1
               className="animate-fade-up text-[52px] font-bold leading-[0.97] tracking-[-0.055em] text-[#181d27] md:text-[68px] lg:text-[80px]"
               style={{ animationDelay: '80ms' }}
             >
-              Your workflow<br className="hidden sm:block" /> has been made easier.
+              Send client-ready invoices<br className="hidden sm:block" /> and get paid faster.
             </h1>
             <p
               className="animate-fade-up mx-auto mt-6 max-w-xl text-[17px] leading-[1.75] text-[#667085]"
               style={{ animationDelay: '160ms' }}
             >
-              Hedwig ties clients, projects, contracts, invoices, and payment links into one
-              clean workflow built for independent professionals.
+              Hedwig helps freelancers look professional, collect payment details clearly, and stop losing time
+              chasing invoices, payment links, contracts, and client follow-ups.
             </p>
             <div
               className="animate-fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
@@ -93,7 +93,7 @@ function LandingPage() {
                 href="/sign-in"
                 className="inline-flex h-11 items-center gap-2 rounded-full bg-[#2563eb] px-8 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.22)] transition-all duration-200 hover:bg-[#1d4ed8] hover:shadow-[0_12px_32px_rgba(37,99,235,0.32)]"
               >
-                Get started
+                Start free
                 <ArrowRight className="h-4 w-4" weight="bold" />
               </Link>
               <a
@@ -103,6 +103,12 @@ function LandingPage() {
                 Try demo
               </a>
             </div>
+            <p
+              className="animate-fade-up mt-3 text-[12px] font-medium text-[#a4a7ae]"
+              style={{ animationDelay: '280ms' }}
+            >
+              No card required. Create your first payment request in minutes.
+            </p>
 
             {/* Product Hunt badge */}
             <div
@@ -187,10 +193,10 @@ function LandingPage() {
                   </div>
                   <div className="mb-4 grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb]">
                     {[
-                      { label: 'This month', value: '$12,480', sub: '+18% vs last month' },
-                      { label: 'Payment rate', value: '94%', sub: '17 of 18 paid' },
-                      { label: 'Pending invoices', value: '$3,200', sub: '2 outstanding' },
-                      { label: 'Active clients', value: '6', sub: '3 projects live' },
+                      { label: 'Collected', value: '$12,480', sub: 'Paid invoices and links' },
+                      { label: 'Payment rate', value: '94%', sub: '17 of 18 requests paid' },
+                      { label: 'Still owed', value: '$3,200', sub: '2 clients to follow up' },
+                      { label: 'Active clients', value: '6', sub: '3 projects in progress' },
                     ].map((s) => (
                       <div key={s.label} className="bg-white px-4 py-3.5">
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-[#a4a7ae]">{s.label}</p>
@@ -271,9 +277,9 @@ function LandingPage() {
           </AnimateIn>
           <div className="grid gap-px overflow-hidden rounded-[28px] border border-[#e9eaeb] bg-[#e9eaeb] md:grid-cols-3">
             {[
-              { step: '01', label: 'Capture the work', desc: 'Create a client, open a project, define milestones. Every commercial detail stays attached from the start.', accent: 'bg-[#eff4ff] text-[#717680]' },
-              { step: '02', label: 'Send the agreement', desc: 'Generate a contract and payment request in one flow. The client signs and pays without leaving the link.', accent: 'bg-[#ecfdf3] text-[#717680]' },
-              { step: '03', label: 'Track earnings', desc: 'See paid invoices and payment links in real time, with clear earnings snapshots in Insights.', accent: 'bg-[#fffaeb] text-[#717680]' },
+              { step: '01', label: 'Look ready before work starts', desc: 'Save the client, scope the project, and keep the commercial details in one place instead of scattered across chats.', accent: 'bg-[#eff4ff] text-[#717680]' },
+              { step: '02', label: 'Send a payable request', desc: 'Create an invoice or payment link with the details a client needs to pay you quickly and confidently.', accent: 'bg-[#ecfdf3] text-[#717680]' },
+              { step: '03', label: 'Know what needs follow-up', desc: 'Track paid, pending, and overdue work so you are not guessing who owes what.', accent: 'bg-[#fffaeb] text-[#717680]' },
             ].map(({ step, label, desc, accent }, i) => (
               <AnimateIn key={step} delay={i * 80}>
                 <div className="flex h-full flex-col bg-white px-8 py-10">
@@ -297,10 +303,10 @@ function LandingPage() {
                 <div className="flex flex-col justify-center px-10 py-14 md:px-14">
                   <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a4a7ae]">Mobile app</p>
                   <h2 className="text-[30px] font-bold tracking-[-0.04em] text-[#181d27] md:text-[38px]">
-                    Run your workflow on the move
+                    Know when money moves
                   </h2>
                   <p className="mt-4 max-w-sm text-[15px] leading-7 text-[#667085]">
-                    Open projects, monitor milestones, receive payments, and use wallet plus USD account tools from the iOS and Android companion app.
+                    Get payment alerts, monitor balances, and manage client money from the iOS and Android companion app.
                   </p>
                   <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                     <AppStoreButton />
@@ -337,16 +343,16 @@ function LandingPage() {
               <div className="relative">
                 <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.12em] text-[#717680]">Start now</p>
                 <h2 className="text-[32px] font-bold tracking-[-0.04em] text-white md:text-[48px]">
-                  Make your money workflow<br className="hidden md:block" /> feel as polished as your work.
+                  Make your next invoice<br className="hidden md:block" /> feel easy to pay.
                 </h2>
                 <p className="mx-auto mt-5 max-w-lg text-[15px] leading-7 text-[#94a3b8]">
-                  Contracts, invoices, payment links, and subscription workflows in one system built for the way independent work actually runs.
+                  Start with one client, one payment request, and a clearer way to follow up until the money lands.
                 </p>
                 <Link
                   href="/sign-in"
                   className="mt-9 inline-flex h-12 items-center gap-2 rounded-full bg-white px-8 text-[14px] font-semibold text-[#181d27] transition-all duration-200 hover:bg-[#f1f5ff] hover:shadow-lg"
                 >
-                  Create your account
+                  Start free
                   <ArrowRight className="h-4 w-4" weight="bold" />
                 </Link>
               </div>

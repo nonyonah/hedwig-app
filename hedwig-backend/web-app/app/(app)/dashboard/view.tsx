@@ -70,10 +70,12 @@ export function DashboardClient({
   greetingName,
   data,
   billing,
+  isDemo = false,
 }: {
   greetingName: string;
   data: DashboardData;
   billing: BillingStatusSummary | null;
+  isDemo?: boolean;
 }) {
   const { currency, formatAmount } = useCurrency();
   const [hour, setHour] = useState(() => new Date().getHours());
@@ -225,8 +227,13 @@ export function DashboardClient({
     };
   }, [currency, data]);
 
+  const hasCreatedPaymentWorkflow = data.invoices.length > 0 || data.paymentLinks.length > 0;
+
   return (
     <div className="flex flex-col gap-6">
+      {isDemo ? <DemoConversionCard /> : null}
+      {!isDemo && !hasCreatedPaymentWorkflow ? <FirstValueNudge /> : null}
+
       {/* Page header */}
       <div>
         <h1 className="text-[15px] font-semibold text-[#181d27]">
@@ -373,5 +380,69 @@ export function DashboardClient({
         </article>
       </div>
     </div>
+  );
+}
+
+function DemoConversionCard() {
+  return (
+    <article className="overflow-hidden rounded-2xl border border-[#bfdbfe] bg-[#eff6ff] shadow-xs">
+      <div className="flex flex-col gap-4 px-5 py-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-[12px] font-semibold uppercase tracking-widest text-[#2563eb]">Ready to try it with your clients?</p>
+          <h2 className="mt-1 text-[18px] font-bold tracking-[-0.02em] text-[#181d27]">
+            Turn one client request into a professional invoice or payment link in minutes.
+          </h2>
+          <p className="mt-1 text-[13px] leading-5 text-[#475467]">
+            Start free, add your real client details, and send a payable link without entering a card.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          <a
+            href="/api/auth/exit-demo"
+            className="inline-flex h-10 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white transition hover:bg-[#1d4ed8]"
+          >
+            Start free
+          </a>
+          <a
+            href="/api/auth/exit-demo"
+            className="inline-flex h-10 items-center justify-center rounded-full border border-[#93c5fd] bg-white px-5 text-[13px] font-semibold text-[#1d4ed8] transition hover:bg-[#f8fbff]"
+          >
+            Send your first invoice
+          </a>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function FirstValueNudge() {
+  return (
+    <article className="rounded-2xl bg-[#181d27] p-5 text-white shadow-[0_18px_60px_rgba(24,29,39,0.16)]">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-[12px] font-semibold uppercase tracking-widest text-[#93c5fd]">First payment workflow</p>
+          <h2 className="mt-1 text-[18px] font-bold tracking-[-0.02em]">
+            Create one invoice or payment link so clients know exactly how to pay you.
+          </h2>
+          <p className="mt-1 max-w-2xl text-[13px] leading-5 text-[#cbd5e1]">
+            A polished payment request helps you look prepared, reduces back-and-forth, and gives Hedwig something real to track.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          <Link
+            href="/payments"
+            className="inline-flex h-10 items-center justify-center rounded-full bg-white px-5 text-[13px] font-semibold text-[#181d27] transition hover:bg-[#f1f5ff]"
+          >
+            Create invoice
+          </Link>
+          <Link
+            href="/payments"
+            className="inline-flex h-10 items-center justify-center rounded-full border border-white/20 px-5 text-[13px] font-semibold text-white transition hover:bg-white/10"
+          >
+            Create payment link
+          </Link>
+        </div>
+      </div>
+    </article>
   );
 }
