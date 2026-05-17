@@ -167,7 +167,7 @@ export default function SignInPage() {
     }
   };
 
-  const handleOAuth = (provider: 'google' | 'apple') => {
+  const handleOAuth = (provider: 'google') => {
     setErrorMessage('');
     initOAuth({ provider });
   };
@@ -226,21 +226,6 @@ export default function SignInPage() {
                 Continue with Google
               </button>
 
-              {/* Apple */}
-              <button
-                type="button"
-                onClick={() => handleOAuth('apple')}
-                className="flex w-full items-center justify-center gap-2.5 rounded-full border border-[#e9eaeb] bg-white px-4 py-2.5 text-[14px] font-medium text-[#181d27] transition hover:bg-[#fafafa]"
-              >
-                <Image
-                  src="/icons/apple-logo.svg"
-                  alt=""
-                  width={15}
-                  height={18}
-                  aria-hidden
-                />
-                Continue with Apple
-              </button>
             </div>
 
             {/* Divider */}

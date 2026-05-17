@@ -28,17 +28,20 @@ function PostHogIdentify() {
 }
 
 export function HedwigPostHogProvider({ children }: { children: React.ReactNode }) {
+  const enabledInLocalDev = process.env.NEXT_PUBLIC_ENABLE_POSTHOG_LOCAL === 'true';
+  const enabled = Boolean(POSTHOG_KEY) && (process.env.NODE_ENV !== 'development' || enabledInLocalDev);
+
   useEffect(() => {
-    if (!POSTHOG_KEY) return;
+    if (!enabled) return;
     posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
       person_profiles: 'identified_only',
       capture_pageview: true,
       capture_pageleave: true,
     });
-  }, []);
+  }, [enabled]);
 
-  if (!POSTHOG_KEY) return <>{children}</>;
+  if (!enabled) return <>{children}</>;
 
   return (
     <PostHogProvider client={posthog}>

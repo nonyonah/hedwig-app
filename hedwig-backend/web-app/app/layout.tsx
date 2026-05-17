@@ -20,6 +20,8 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const loadRemoteFonts = process.env.NODE_ENV !== 'development' && process.env.NEXT_PUBLIC_DISABLE_REMOTE_FONTS !== 'true';
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -42,12 +44,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             `,
           }}
         />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,300..700&display=swap"
-        />
+        {loadRemoteFonts ? (
+          <>
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+            <link
+              rel="stylesheet"
+              href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,300..700&display=swap"
+            />
+          </>
+        ) : null}
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <HedwigPrivyProvider>

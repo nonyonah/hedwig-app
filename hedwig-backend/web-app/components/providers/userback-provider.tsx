@@ -46,6 +46,7 @@ function resolveIdentity(user: any): UserbackIdentity | null {
 }
 
 export function UserbackProvider() {
+  const enabledInLocalDev = process.env.NEXT_PUBLIC_ENABLE_USERBACK_LOCAL === 'true';
   const token = (process.env.NEXT_PUBLIC_USERBACK_TOKEN || '').trim();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -56,6 +57,7 @@ export function UserbackProvider() {
   const didInitRef = useRef(false);
 
   useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && !enabledInLocalDev) return;
     if (!token || didInitRef.current) return;
 
     let cancelled = false;
@@ -81,20 +83,22 @@ export function UserbackProvider() {
     return () => {
       cancelled = true;
     };
-  }, [token, identity]);
+  }, [enabledInLocalDev, token, identity]);
 
   useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && !enabledInLocalDev) return;
     if (!ready || !authenticated || !identity) return;
     const widget = widgetRef.current || getUserback();
     if (!widget) return;
     widget.identify(identity.id, identity.info);
-  }, [authenticated, identity, ready]);
+  }, [authenticated, enabledInLocalDev, identity, ready]);
 
   useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && !enabledInLocalDev) return;
     const widget = widgetRef.current || getUserback();
     if (!widget) return;
     widget.refresh();
-  }, [routeKey]);
+  }, [enabledInLocalDev, routeKey]);
 
   return null;
 }

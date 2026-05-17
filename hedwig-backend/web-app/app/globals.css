@@ -45,20 +45,20 @@
 }
 
 :root[data-theme='dark'] {
-  --background: 222 22% 8%;
+  --background: 0 0% 0%;
   --foreground: 0 0% 96%;
-  --card: 222 20% 11%;
+  --card: 0 0% 4%;
   --card-foreground: 0 0% 96%;
   --primary: 217 91% 60%;
-  --primary-foreground: 222 40% 10%;
-  --secondary: 222 16% 16%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 7%;
   --secondary-foreground: 0 0% 92%;
-  --muted: 222 14% 15%;
-  --muted-foreground: 218 6% 66%;  /* gray-400 #a4a7ae */
-  --accent: 221 35% 20%;
+  --muted: 0 0% 8%;
+  --muted-foreground: 220 9% 68%;
+  --accent: 217 45% 16%;
   --accent-foreground: 214 90% 88%;
-  --border: 225 8% 22%;
-  --input: 225 8% 22%;
+  --border: 0 0% 16%;
+  --input: 0 0% 16%;
   --ring: 217 91% 60%;
   --success: 151 57% 46%;
   --warning: 38 92% 56%;
@@ -86,42 +86,75 @@ body {
 }
 
 :root[data-theme='dark'] body {
-  background: hsl(var(--background));
+  background: #000;
 }
 
 /* Dark mode compatibility layer.
-   Much of the app predates semantic color tokens and still uses precise
-   Untitled UI hex utility classes. These targeted overrides let the existing
-   surfaces honor the saved theme without a risky app-wide redesign. */
+   The app still has many explicit Untitled UI hex utility classes. These
+   overrides map them into a deliberate black UI instead of visually inverting
+   light-mode colors. */
+:root[data-theme='dark'] {
+  --dark-canvas: #000;
+  --dark-surface: #050505;
+  --dark-surface-raised: #0a0a0a;
+  --dark-surface-soft: #101010;
+  --dark-border: #262626;
+  --dark-border-strong: #3f3f46;
+  --dark-text: #f5f5f5;
+  --dark-text-muted: #a1a1aa;
+  --dark-text-subtle: #71717a;
+  --dark-blue-soft: #06162f;
+  --dark-purple-soft: #17112a;
+  --dark-pink-soft: #230b18;
+  --dark-green-soft: #061a10;
+  --dark-yellow-soft: #211605;
+  --dark-red-soft: #240909;
+}
+
 :root[data-theme='dark'] [class*="bg-white"] {
-  background-color: #111827 !important;
+  background-color: var(--dark-surface) !important;
 }
 
 :root[data-theme='dark'] [class*="bg-[#fcfcfd]"],
 :root[data-theme='dark'] [class*="bg-[#fafafa]"],
 :root[data-theme='dark'] [class*="bg-[#f8f9fb]"],
 :root[data-theme='dark'] [class*="bg-[#f9fafb]"],
-:root[data-theme='dark'] [class*="bg-[#f8f9fb]"],
 :root[data-theme='dark'] [class*="bg-[#f4f5f7]"],
 :root[data-theme='dark'] [class*="bg-[#f4f7fb]"],
 :root[data-theme='dark'] [class*="bg-[#f5f5f5]"],
 :root[data-theme='dark'] [class*="bg-[#f2f4f7]"] {
-  background-color: #0f172a !important;
+  background-color: var(--dark-surface-raised) !important;
 }
 
 :root[data-theme='dark'] [class*="bg-[#181d27]"],
 :root[data-theme='dark'] [class*="bg-[#202636]"] {
-  background-color: #020617 !important;
+  background-color: var(--dark-text) !important;
+  color: #000 !important;
 }
 
 :root[data-theme='dark'] [class*="bg-[#eff4ff]"],
-:root[data-theme='dark'] [class*="bg-[#eff6ff]"],
-:root[data-theme='dark'] [class*="bg-[#f4f3ff]"],
-:root[data-theme='dark'] [class*="bg-[#fdf2fa]"],
-:root[data-theme='dark'] [class*="bg-[#ecfdf3]"],
-:root[data-theme='dark'] [class*="bg-[#fffaeb]"],
+:root[data-theme='dark'] [class*="bg-[#eff6ff]"] {
+  background-color: var(--dark-blue-soft) !important;
+}
+
+:root[data-theme='dark'] [class*="bg-[#f4f3ff]"] {
+  background-color: var(--dark-purple-soft) !important;
+}
+
+:root[data-theme='dark'] [class*="bg-[#fdf2fa]"] {
+  background-color: var(--dark-pink-soft) !important;
+}
+
+:root[data-theme='dark'] [class*="bg-[#ecfdf3]"] {
+  background-color: var(--dark-green-soft) !important;
+}
+
+:root[data-theme='dark'] [class*="bg-[#fffaeb]"] {
+  background-color: var(--dark-yellow-soft) !important;
+}
+
 :root[data-theme='dark'] [class*="bg-[#fef3f2]"] {
-  background-color: #172033 !important;
+  background-color: var(--dark-red-soft) !important;
 }
 
 :root[data-theme='dark'] [class*="text-[#181d27]"],
@@ -129,7 +162,7 @@ body {
 :root[data-theme='dark'] [class*="text-[#344054]"],
 :root[data-theme='dark'] [class*="text-[#414651]"],
 :root[data-theme='dark'] [class*="text-[#535862]"] {
-  color: #f8fafc !important;
+  color: var(--dark-text) !important;
 }
 
 :root[data-theme='dark'] [class*="text-[#667085]"],
@@ -137,7 +170,26 @@ body {
 :root[data-theme='dark'] [class*="text-[#8d9096]"],
 :root[data-theme='dark'] [class*="text-[#a4a7ae]"],
 :root[data-theme='dark'] [class*="text-[#c1c5cd]"] {
-  color: #94a3b8 !important;
+  color: var(--dark-text-muted) !important;
+}
+
+:root[data-theme='dark'] [class*="text-[#2563eb]"] {
+  color: #60a5fa !important;
+}
+
+:root[data-theme='dark'] [class*="text-[#079455]"],
+:root[data-theme='dark'] [class*="text-[#027a48]"] {
+  color: #4ade80 !important;
+}
+
+:root[data-theme='dark'] [class*="text-[#dc6803]"],
+:root[data-theme='dark'] [class*="text-[#b54708]"] {
+  color: #fbbf24 !important;
+}
+
+:root[data-theme='dark'] [class*="text-[#d92d20]"],
+:root[data-theme='dark'] [class*="text-[#b42318]"] {
+  color: #f87171 !important;
 }
 
 :root[data-theme='dark'] [class*="border-[#eef0f3]"],
@@ -147,31 +199,35 @@ body {
 :root[data-theme='dark'] [class*="border-[#e2e4e8]"],
 :root[data-theme='dark'] [class*="border-[#e9eaeb]"],
 :root[data-theme='dark'] [class*="border-[#d5d7da]"] {
-  border-color: #273244 !important;
+  border-color: var(--dark-border) !important;
 }
 
 :root[data-theme='dark'] [class*="divide-[#f5f5f5]"] > :not([hidden]) ~ :not([hidden]),
 :root[data-theme='dark'] [class*="divide-[#f9fafb]"] > :not([hidden]) ~ :not([hidden]) {
-  border-color: #273244 !important;
+  border-color: var(--dark-border) !important;
 }
 
 :root[data-theme='dark'] [class*="ring-[#eef0f3]"],
 :root[data-theme='dark'] [class*="ring-[#e9eaeb]"],
 :root[data-theme='dark'] [class*="ring-[#d5d7da]"] {
-  --tw-ring-color: #273244 !important;
+  --tw-ring-color: var(--dark-border) !important;
 }
 
 :root[data-theme='dark'] input,
 :root[data-theme='dark'] textarea,
 :root[data-theme='dark'] select {
-  background-color: #111827 !important;
-  color: #f8fafc !important;
-  border-color: #273244 !important;
+  background-color: var(--dark-surface-raised) !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-border) !important;
 }
 
 :root[data-theme='dark'] input::placeholder,
 :root[data-theme='dark'] textarea::placeholder {
-  color: #64748b !important;
+  color: var(--dark-text-subtle) !important;
+}
+
+:root[data-theme='dark'] [class*="shadow-"] {
+  --tw-shadow-color: rgb(0 0 0 / 0.7);
 }
 
 code,
