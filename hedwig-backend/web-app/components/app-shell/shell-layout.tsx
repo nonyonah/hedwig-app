@@ -1,7 +1,6 @@
 'use client';
 
 import { ReactNode, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { AppSidebar } from '@/components/app-shell/sidebar';
 import { AppTopbar } from '@/components/app-shell/topbar';
 import { TokenRefresher } from '@/components/app-shell/token-refresher';
@@ -48,13 +47,13 @@ export function ShellLayout({ children, unreadCount, user, isDemo, accessToken, 
       <div className="min-h-screen bg-[#fafafa] text-foreground">
         {isDemo && (
           <div className="flex flex-col items-center justify-center gap-2 border-b border-[#bfdbfe] bg-[#eff6ff] px-4 py-2 text-center text-[13px] font-medium text-[#1d4ed8] sm:flex-row">
-            <span>Demo mode — sample data only. Ready to use Hedwig with a real client?</span>
-            <Link
+            <span>Demo mode — sample data only. Explore freely, then start when you are ready.</span>
+            <a
               href="/api/auth/exit-demo"
               className="rounded-full bg-[#2563eb] px-3 py-1 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
             >
-              Start free
-            </Link>
+              Start free when ready
+            </a>
           </div>
         )}
         <TokenRefresher />

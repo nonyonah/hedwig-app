@@ -231,7 +231,6 @@ export function DashboardClient({
 
   return (
     <div className="flex flex-col gap-6">
-      {isDemo ? <DemoConversionCard /> : null}
       {!isDemo && !hasCreatedPaymentWorkflow ? <FirstValueNudge /> : null}
 
       {/* Page header */}
@@ -380,38 +379,6 @@ export function DashboardClient({
         </article>
       </div>
     </div>
-  );
-}
-
-function DemoConversionCard() {
-  return (
-    <article className="overflow-hidden rounded-2xl border border-[#bfdbfe] bg-[#eff6ff] shadow-xs">
-      <div className="flex flex-col gap-4 px-5 py-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-[12px] font-semibold uppercase tracking-widest text-[#2563eb]">Ready to try it with your clients?</p>
-          <h2 className="mt-1 text-[18px] font-bold tracking-[-0.02em] text-[#181d27]">
-            Turn one client request into a professional invoice or payment link in minutes.
-          </h2>
-          <p className="mt-1 text-[13px] leading-5 text-[#475467]">
-            Start free, add your real client details, and send a payable link without entering a card.
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-          <a
-            href="/api/auth/exit-demo"
-            className="inline-flex h-10 items-center justify-center rounded-full bg-[#2563eb] px-5 text-[13px] font-semibold text-white transition hover:bg-[#1d4ed8]"
-          >
-            Start free
-          </a>
-          <a
-            href="/api/auth/exit-demo"
-            className="inline-flex h-10 items-center justify-center rounded-full border border-[#93c5fd] bg-white px-5 text-[13px] font-semibold text-[#1d4ed8] transition hover:bg-[#f8fbff]"
-          >
-            Send your first invoice
-          </a>
-        </div>
-      </div>
-    </article>
   );
 }
 
