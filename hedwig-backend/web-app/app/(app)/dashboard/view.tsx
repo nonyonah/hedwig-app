@@ -447,24 +447,38 @@ export function DashboardClient({
 const CORE_INTRO_STEPS = [
   {
     title: 'Create client-ready invoices',
-    description: 'Start with one client, amount, and due date. Hedwig keeps the invoice polished and easy to act on.',
+    description: 'Start with one client, amount, and due date. If the client email is included, Hedwig sends the invoice automatically.',
     label: 'Invoice',
     Icon: FileText,
     accent: 'bg-[#eff4ff] text-[#2563eb]',
   },
   {
-    title: 'Share a clean payment link',
-    description: 'Send the invoice or payment link from your workspace so clients have one clear place to pay.',
-    label: 'Share',
-    Icon: ShareNetwork,
+    title: 'Track clients and projects',
+    description: 'Keep client details, project work, documents, and payment history tied together from the first invoice.',
+    label: 'Clients',
+    Icon: IdentificationCard,
     accent: 'bg-[#ecfdf3] text-[#067647]',
+  },
+  {
+    title: 'Automatic payment reminders',
+    description: 'Hedwig can remind clients before and after due dates so you spend less time chasing payments manually.',
+    label: 'Reminders',
+    Icon: Bell,
+    accent: 'bg-[#fffaeb] text-[#b54708]',
+  },
+  {
+    title: 'Hedwig assistant keeps watch',
+    description: 'The assistant summarizes payment activity, highlights next steps, and helps draft client follow-ups when needed.',
+    label: 'Assistant',
+    Icon: Sparkle,
+    accent: 'bg-[#f4f3ff] text-[#5925dc]',
   },
   {
     title: 'Track payment until it lands',
     description: 'See what is paid, pending, or overdue without checking every message thread manually.',
     label: 'Track',
     Icon: CurrencyDollar,
-    accent: 'bg-[#fffaeb] text-[#b54708]',
+    accent: 'bg-[#fdf2fa] text-[#c11574]',
   },
 ];
 
@@ -583,7 +597,7 @@ function FirstInvoiceCard({ onStart }: { onStart: () => void }) {
         <div className="bg-[#202636] p-6">
           <p className="text-[13px] font-semibold text-white">What happens next</p>
           <div className="mt-4 space-y-3">
-            {['Create the invoice', 'Share it with a client', 'Track payment when it lands'].map((item, index) => (
+            {['Create the invoice', 'Invoice is sent automatically to the client', 'Track payment when it lands'].map((item, index) => (
               <div key={item} className="flex items-center gap-3">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-[12px] font-semibold text-white">
                   {index + 1}
@@ -613,7 +627,7 @@ function OnboardingChecklist({
 }) {
   const steps = [
     { label: 'Create your first invoice or payment link', complete: hasCreated },
-    { label: 'Share it with a client', complete: hasShared },
+    { label: 'Invoice is sent automatically to the client', complete: hasShared },
     { label: 'Receive your first payment', complete: hasReceived },
   ];
 

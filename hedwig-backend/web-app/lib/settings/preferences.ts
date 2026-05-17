@@ -35,7 +35,9 @@ export function resolveThemePreference(theme: WebThemePreference): 'light' | 'da
 
 export function applyThemePreference(theme: WebThemePreference) {
   if (typeof window === 'undefined') return;
-  document.documentElement.dataset.theme = resolveThemePreference(theme);
+  const resolved = resolveThemePreference(theme);
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.style.colorScheme = resolved;
 }
 
 export function setStoredThemePreference(theme: WebThemePreference) {
