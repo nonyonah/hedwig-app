@@ -42,10 +42,10 @@ function LandingPage() {
               Pricing
             </Link>
             <a
-              href="/api/auth/demo"
+              href="/sign-in"
               className="inline-flex h-9 items-center justify-center rounded-full border border-[#d5d7da] bg-white px-5 text-[13px] font-semibold text-[#344054] transition-all duration-200 hover:bg-[#f9fafb] hover:border-[#c0c3c9]"
             >
-              Try demo
+              Try it yourself
             </a>
             <Link
               href="/sign-in"
@@ -97,10 +97,10 @@ function LandingPage() {
                 <ArrowRight className="h-4 w-4" weight="bold" />
               </Link>
               <a
-                href="/api/auth/demo"
+                href="/sign-in"
                 className="inline-flex h-11 items-center gap-2 rounded-full border border-[#d5d7da] bg-white px-8 text-[14px] font-semibold text-[#344054] transition-all duration-200 hover:bg-[#f9fafb] hover:border-[#c0c3c9]"
               >
-                Try demo
+                Try it yourself
               </a>
             </div>
             <p

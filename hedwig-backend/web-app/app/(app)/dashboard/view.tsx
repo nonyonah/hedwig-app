@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   Bell,
@@ -228,10 +228,37 @@ export function DashboardClient({
   }, [currency, data]);
 
   const hasCreatedPaymentWorkflow = data.invoices.length > 0 || data.paymentLinks.length > 0;
+  const hasSharedPaymentWorkflow = data.invoices.some((invoice) =>
+    invoice.status === 'sent' ||
+    invoice.status === 'viewed' ||
+    invoice.status === 'paid' ||
+    invoice.status === 'overdue' ||
+    Boolean(invoice.clientEmail)
+  ) || data.paymentLinks.some((link) => link.status === 'paid' || Boolean(link.clientEmail));
+  const hasReceivedPayment =
+    data.totals.inflowUsd > 0 ||
+    data.invoices.some((invoice) => invoice.status === 'paid') ||
+    data.paymentLinks.some((link) => link.status === 'paid');
+  const onboardingComplete = hasCreatedPaymentWorkflow && hasSharedPaymentWorkflow && hasReceivedPayment;
+
+  const openCreateFlow = useCallback((flow: 'invoice' | 'payment-link') => {
+    window.dispatchEvent(new CustomEvent('hedwig:open-create-menu', { detail: { flow } }));
+  }, []);
 
   return (
     <div className="flex flex-col gap-6">
-      {!isDemo && !hasCreatedPaymentWorkflow ? <FirstValueNudge /> : null}
+      {!isDemo && !hasCreatedPaymentWorkflow ? (
+        <FirstPaymentRequestCard onStart={() => openCreateFlow('payment-link')} />
+      ) : null}
+      {!isDemo && hasCreatedPaymentWorkflow && !onboardingComplete ? (
+        <OnboardingChecklist
+          hasCreated={hasCreatedPaymentWorkflow}
+          hasShared={hasSharedPaymentWorkflow}
+          hasReceived={hasReceivedPayment}
+          onCreateInvoice={() => openCreateFlow('invoice')}
+          onCreatePaymentLink={() => openCreateFlow('payment-link')}
+        />
+      ) : null}
 
       {/* Page header */}
       <div>
@@ -382,33 +409,105 @@ export function DashboardClient({
   );
 }
 
-function FirstValueNudge() {
+function FirstPaymentRequestCard({ onStart }: { onStart: () => void }) {
   return (
-    <article className="rounded-2xl bg-[#181d27] p-5 text-white shadow-[0_18px_60px_rgba(24,29,39,0.16)]">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-[12px] font-semibold uppercase tracking-widest text-[#93c5fd]">First payment workflow</p>
-          <h2 className="mt-1 text-[18px] font-bold tracking-[-0.02em]">
-            Create one invoice or payment link so clients know exactly how to pay you.
+    <article className="overflow-hidden rounded-2xl bg-[#181d27] text-white shadow-[0_18px_60px_rgba(24,29,39,0.16)]">
+      <div className="grid gap-px bg-white/10 lg:grid-cols-[1.35fr_0.65fr]">
+        <div className="bg-[#181d27] p-6">
+          <p className="text-[12px] font-semibold uppercase tracking-widest text-[#93c5fd]">First session goal</p>
+          <h2 className="mt-2 max-w-2xl text-[24px] font-bold tracking-[-0.035em]">
+            Send your first payment request in 60 seconds.
           </h2>
-          <p className="mt-1 max-w-2xl text-[13px] leading-5 text-[#cbd5e1]">
-            A polished payment request helps you look prepared, reduces back-and-forth, and gives Hedwig something real to track.
+          <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#cbd5e1]">
+            Start with a simple payment link. Add an amount, client details if you have them, and share it when you are ready.
+          </p>
+          <button
+            type="button"
+            onClick={onStart}
+            className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-[14px] font-semibold text-[#181d27] transition hover:bg-[#f1f5ff]"
+          >
+            Send your first payment request →
+          </button>
+        </div>
+        <div className="bg-[#202636] p-6">
+          <p className="text-[13px] font-semibold text-white">What happens next</p>
+          <div className="mt-4 space-y-3">
+            {['Create the request', 'Share it with a client', 'Track payment when it lands'].map((item, index) => (
+              <div key={item} className="flex items-center gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-[12px] font-semibold text-white">
+                  {index + 1}
+                </span>
+                <span className="text-[13px] text-[#dbeafe]">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function OnboardingChecklist({
+  hasCreated,
+  hasShared,
+  hasReceived,
+  onCreateInvoice,
+  onCreatePaymentLink,
+}: {
+  hasCreated: boolean;
+  hasShared: boolean;
+  hasReceived: boolean;
+  onCreateInvoice: () => void;
+  onCreatePaymentLink: () => void;
+}) {
+  const steps = [
+    { label: 'Create your first invoice or payment link', complete: hasCreated },
+    { label: 'Share it with a client', complete: hasShared },
+    { label: 'Receive your first payment', complete: hasReceived },
+  ];
+
+  return (
+    <article className="rounded-2xl bg-white p-5 shadow-xs ring-1 ring-[#e9eaeb]">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-[12px] font-semibold uppercase tracking-widest text-[#2563eb]">Getting paid checklist</p>
+          <h2 className="mt-1 text-[18px] font-bold tracking-[-0.02em] text-[#181d27]">
+            Keep going until the first payment lands.
+          </h2>
+          <p className="mt-1 text-[13px] leading-5 text-[#717680]">
+            Once your first request is sent, you can set a monthly earnings goal from Insights.
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-          <Link
-            href="/payments"
-            className="inline-flex h-10 items-center justify-center rounded-full bg-white px-5 text-[13px] font-semibold text-[#181d27] transition hover:bg-[#f1f5ff]"
+          <button
+            type="button"
+            onClick={onCreatePaymentLink}
+            className="inline-flex h-9 items-center justify-center rounded-full bg-[#2563eb] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1d4ed8]"
           >
-            Create invoice
-          </Link>
-          <Link
-            href="/payments"
-            className="inline-flex h-10 items-center justify-center rounded-full border border-white/20 px-5 text-[13px] font-semibold text-white transition hover:bg-white/10"
+            New payment link
+          </button>
+          <button
+            type="button"
+            onClick={onCreateInvoice}
+            className="inline-flex h-9 items-center justify-center rounded-full border border-[#d5d7da] px-4 text-[13px] font-semibold text-[#414651] transition hover:bg-[#fafafa]"
           >
-            Create payment link
-          </Link>
+            New invoice
+          </button>
         </div>
+      </div>
+      <div className="mt-4 grid gap-px overflow-hidden rounded-xl bg-[#e9eaeb] ring-1 ring-[#e9eaeb] md:grid-cols-3">
+        {steps.map((step) => (
+          <div key={step.label} className="flex items-center gap-3 bg-white px-4 py-3">
+            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+              step.complete ? 'border-[#17b26a] bg-[#ecfdf3] text-[#067647]' : 'border-[#d5d7da] text-transparent'
+            }`}>
+              <CheckCircle className="h-3.5 w-3.5" weight="fill" />
+            </span>
+            <span className={`text-[13px] font-medium ${step.complete ? 'text-[#717680] line-through' : 'text-[#181d27]'}`}>
+              {step.label}
+            </span>
+          </div>
+        ))}
       </div>
     </article>
   );

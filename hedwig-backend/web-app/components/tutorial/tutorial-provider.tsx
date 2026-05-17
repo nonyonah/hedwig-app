@@ -40,12 +40,14 @@ export function TutorialProvider({
       setActiveStepIndex(0);
       return;
     }
-    // Real users: only show if not yet completed
-    const completed = typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEY) === 'true';
-    if (!completed) {
-      const t = setTimeout(() => setIsVisible(true), 250);
-      return () => clearTimeout(t);
+
+    // The passive feature tour is intentionally disabled for new users.
+    // First-session onboarding now lives in the dashboard and drives one
+    // concrete action: create an invoice or payment link.
+    if (typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEY) !== 'true') {
+      localStorage.setItem(STORAGE_KEY, 'true');
     }
+    setIsVisible(false);
   }, [isDemo]);
 
   const markComplete = useCallback(() => {

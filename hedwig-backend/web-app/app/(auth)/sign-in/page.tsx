@@ -4,18 +4,12 @@ import Image from 'next/image';
 import { useLoginWithEmail, useLoginWithOAuth, usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CaretLeft, Minus, Plus, SpinnerGap } from '@/components/ui/lucide-icons';
+import { CaretLeft, SpinnerGap } from '@/components/ui/lucide-icons';
 import { backendConfig } from '@/lib/auth/config';
 import { BankAccountForm } from '@/components/payouts/bank-account-form';
 
-type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'goal' | 'bank' | 'error';
+type Stage = 'landing' | 'otp' | 'loading' | 'profile' | 'bank' | 'error';
 const RESEND_COOLDOWN_SECONDS = 30;
-
-const PRESETS = [
-  { label: 'Starter', value: 1000 },
-  { label: 'Growing', value: 5000 },
-  { label: 'Established', value: 10000 },
-] as const;
 
 function getIdentityDetails(user: any) {
   const email = user?.email?.address || user?.google?.email || user?.apple?.email || '';
@@ -65,10 +59,6 @@ export default function SignInPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Goal
-  const [target, setTarget] = useState(5000);
-  const [selectedPreset, setSelectedPreset] = useState<string | null>('Growing');
 
   const identity = useMemo(() => getIdentityDetails(user), [user]);
 
@@ -182,12 +172,6 @@ export default function SignInPage() {
     initOAuth({ provider });
   };
 
-  const setGoalFromValue = (value: number) => {
-    const next = Math.max(0, Math.round(value));
-    setTarget(next);
-    setSelectedPreset(PRESETS.find((p) => p.value === next)?.label ?? null);
-  };
-
   const submitProfile = async () => {
     if (!token) { setStage('error'); setErrorMessage('Session missing. Please sign in again.'); return; }
     if (!firstName.trim()) { setErrorMessage('First name is required.'); return; }
@@ -200,28 +184,9 @@ export default function SignInPage() {
         body: JSON.stringify({ email: email.trim().toLowerCase(), firstName: firstName.trim(), lastName: lastName.trim() }),
       });
       if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not save your profile.'); }
-      setStage('goal');
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Could not save your profile.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const submitGoal = async () => {
-    if (!token) { setStage('error'); setErrorMessage('Session missing. Please sign in again.'); return; }
-    setIsSubmitting(true); setErrorMessage('');
-    try {
-      const res = await fetch(`${backendConfig.apiBaseUrl}/api/users/profile`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ monthlyTarget: target }),
-      });
-      if (!res.ok) { const p = await res.json().catch(() => null); throw new Error(p?.error?.message || 'Could not save your goal.'); }
       setStage('bank');
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Could not complete onboarding.');
-      setStage('goal');
+      setErrorMessage(err?.message || 'Could not save your profile.');
     } finally {
       setIsSubmitting(false);
     }
@@ -466,85 +431,7 @@ export default function SignInPage() {
                 {isSubmitting ? 'Saving…' : 'Continue'}
               </button>
 
-              <p className="text-center text-[12px] text-[#c1c5cd]">Step 1 of 3</p>
-            </div>
-          </div>
-        )}
-
-        {/* ── Goal ── */}
-        {stage === 'goal' && (
-          <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[#181d27]">Set your monthly goal</h1>
-            <p className="mt-1.5 text-[14px] text-[#a4a7ae]">We use this to show whether your invoices and payment links are keeping you on track.</p>
-
-            <div className="mt-8 space-y-6">
-              {/* Preset pills */}
-              <div className="flex gap-2">
-                {PRESETS.map((preset) => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => setGoalFromValue(preset.value)}
-                    className={`flex-1 rounded-full py-1.5 text-[12px] font-semibold transition ${
-                      selectedPreset === preset.label
-                        ? 'bg-[#2563eb] text-white'
-                        : 'border border-[#e9eaeb] text-[#717680] hover:bg-[#fafafa]'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Stepper */}
-              <div className="flex items-center justify-between gap-4">
-                <button
-                  type="button"
-                  onClick={() => setGoalFromValue(target - 500)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] text-[#414651] transition hover:bg-[#fafafa]"
-                >
-                  <Minus className="h-4 w-4" weight="bold" />
-                </button>
-                <div className="text-center">
-                  <p className="text-[40px] font-bold leading-none tracking-[-0.03em] text-[#181d27]">
-                    ${target.toLocaleString('en-US')}
-                  </p>
-                  <p className="mt-1 text-[11px] font-medium uppercase tracking-widest text-[#c1c5cd]">per month</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setGoalFromValue(target + 500)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#e9eaeb] text-[#414651] transition hover:bg-[#fafafa]"
-                >
-                  <Plus className="h-4 w-4" weight="bold" />
-                </button>
-              </div>
-
-              {errorMessage && (
-                <p className="rounded-lg border border-[#fda29b] bg-[#fef3f2] px-3 py-2 text-[12px] text-[#b42318]">
-                  {errorMessage}
-                </p>
-              )}
-
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={submitGoal}
-                className="flex h-10 w-full items-center justify-center rounded-full bg-[#2563eb] text-[14px] font-semibold text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isSubmitting ? 'Saving…' : 'Continue'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStage('profile')}
-                className="flex h-10 w-full items-center justify-center gap-1.5 rounded-full border border-[#e9eaeb] text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
-              >
-                <CaretLeft className="h-3.5 w-3.5" weight="bold" />
-                Back
-              </button>
-
-              <p className="text-center text-[12px] text-[#c1c5cd]">Step 2 of 3</p>
+              <p className="text-center text-[12px] text-[#c1c5cd]">Step 1 of 2</p>
             </div>
           </div>
         )}
@@ -581,7 +468,7 @@ export default function SignInPage() {
             <div className="mt-4 flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => setStage('goal')}
+                onClick={() => setStage('profile')}
                 className="flex h-10 items-center justify-center gap-1.5 rounded-full border border-[#e9eaeb] px-4 text-[13px] font-medium text-[#717680] transition hover:bg-[#fafafa]"
               >
                 <CaretLeft className="h-3.5 w-3.5" weight="bold" />
@@ -598,7 +485,7 @@ export default function SignInPage() {
               </button>
             </div>
 
-            <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 3 of 3</p>
+            <p className="mt-4 text-center text-[12px] text-[#c1c5cd]">Step 2 of 2</p>
           </div>
         )}
 
