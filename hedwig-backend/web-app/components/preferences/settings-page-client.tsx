@@ -31,14 +31,6 @@ import { hedwigApi, type BillingStatusSummary } from '@/lib/api/client';
 import { backendConfig } from '@/lib/auth/config';
 import { isProPlan } from '@/lib/billing/feature-gates';
 import { billingSwitchErrorMessage, friendlyErrorMessage } from '@/lib/api/errors';
-import {
-  applyThemePreference,
-  getStoredThemePreference,
-  setStoredThemePreference,
-  subscribeToSystemTheme,
-  THEME_EVENT,
-  type WebThemePreference
-} from '@/lib/settings/preferences';
 
 type SettingsClientProps = {
   accessToken: string | null;
@@ -51,12 +43,6 @@ type SettingsClientProps = {
 };
 
 type SubscriptionProvider = 'polar' | 'revenue_cat';
-
-const THEME_OPTIONS: Array<{ value: WebThemePreference; label: string }> = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'system', label: 'System' }
-];
 
 const resolveSubscriptionProvider = (billing: BillingStatusSummary | null): SubscriptionProvider | null => {
   const provider = billing?.subscriptionProvider;
@@ -121,7 +107,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialUser.avatarUrl ?? null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  const [themePreference, setThemePreference] = useState<WebThemePreference>('system');
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'online' | 'offline'>('unknown');
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
 
@@ -148,27 +133,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
   const isProUser = isProPlan(billingStatus);
   const subscriptionProvider = useMemo(() => resolveSubscriptionProvider(billingStatus), [billingStatus]);
   const billingInterval = billingStatus?.entitlement.billingInterval ?? null;
-
-  useEffect(() => {
-    const storedTheme = getStoredThemePreference();
-    setThemePreference(storedTheme);
-    applyThemePreference(storedTheme);
-  }, []);
-
-  useEffect(() => {
-    const syncTheme = () => setThemePreference(getStoredThemePreference());
-    window.addEventListener(THEME_EVENT, syncTheme);
-    window.addEventListener('storage', syncTheme);
-    return () => {
-      window.removeEventListener(THEME_EVENT, syncTheme);
-      window.removeEventListener('storage', syncTheme);
-    };
-  }, []);
-
-  useEffect(() => {
-    applyThemePreference(themePreference);
-    return subscribeToSystemTheme(themePreference, () => applyThemePreference('system'));
-  }, [themePreference]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -300,13 +264,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
     } finally {
       setSwitchingBillingInterval(null);
     }
-  };
-
-  const handleThemeChange = (nextTheme: WebThemePreference) => {
-    setThemePreference(nextTheme);
-    applyThemePreference(nextTheme);
-    setStoredThemePreference(nextTheme);
-    toast({ type: 'success', title: `Theme set to ${nextTheme}` });
   };
 
   const handleSaveProfile = async () => {
@@ -496,25 +453,6 @@ export function SettingsClient({ accessToken, initialUser }: SettingsClientProps
         </section>
 
         <SettingsSection title="General Settings" description="Match web behavior with your app preferences.">
-          <SettingsRow label="Theme" description="Choose light, dark, or follow your system theme.">
-            <div className="flex items-center rounded-full border border-[#e9eaeb] bg-[#f5f5f5] p-1">
-              {THEME_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => handleThemeChange(option.value)}
-                  className={`rounded-full px-3 py-1 text-[12px] font-semibold transition ${
-                    themePreference === option.value
-                      ? 'bg-white text-[#181d27] shadow-xs'
-                      : 'text-[#717680] hover:text-[#414651]'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </SettingsRow>
-
           <SettingsRow
             label="Display currency"
             description="USD-stored amounts (revenue, balances, expenses) are converted to this currency at current rates."

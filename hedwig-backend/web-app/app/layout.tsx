@@ -25,25 +25,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function () {
-                try {
-                  var stored = localStorage.getItem('settings_theme') || localStorage.getItem('hedwig-web-theme') || 'system';
-                  var resolved = stored === 'dark' || stored === 'light'
-                    ? stored
-                    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-                  document.documentElement.dataset.theme = resolved;
-                  document.documentElement.style.colorScheme = resolved;
-                } catch (_) {
-                  document.documentElement.dataset.theme = 'light';
-                  document.documentElement.style.colorScheme = 'light';
-                }
-              })();
-            `,
-          }}
-        />
         {loadRemoteFonts ? (
           <>
             <link rel="preconnect" href="https://fonts.googleapis.com" />

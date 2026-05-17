@@ -2,23 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { CreditCard, Faders, Lifebuoy, Moon, SignOut, Sun } from '@/components/ui/lucide-icons';
+import { CreditCard, Lifebuoy, SignOut } from '@/components/ui/lucide-icons';
 import { Avatar } from '@/components/ui/avatar';
-import {
-  applyThemePreference,
-  getStoredThemePreference,
-  setStoredThemePreference,
-  THEME_EVENT,
-  type WebThemePreference
-} from '@/lib/settings/preferences';
-import { cn } from '@/lib/utils';
-
-const themeOptions: Array<{ value: ThemeOption; label: string; icon: typeof Sun }> = [
-  { value: 'light', label: 'Light mode', icon: Sun },
-  { value: 'dark', label: 'Dark mode', icon: Moon },
-  { value: 'system', label: 'System mode', icon: Faders }
-];
-type ThemeOption = WebThemePreference;
 
 export function AccountMenu({
   fullName,
@@ -30,35 +15,7 @@ export function AccountMenu({
   avatarUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState<ThemeOption>('light');
   const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const nextTheme = getStoredThemePreference();
-    applyThemePreference(nextTheme);
-    setTheme(nextTheme);
-
-    const syncTheme = () => {
-      const current = getStoredThemePreference();
-      applyThemePreference(current);
-      setTheme(current);
-    };
-
-    const syncThemeEvent = () => syncTheme();
-    const syncStorage = (event: StorageEvent) => {
-      if (event.key == null || event.key === 'settings_theme' || event.key === 'hedwig-web-theme') {
-        syncTheme();
-      }
-    };
-
-    window.addEventListener(THEME_EVENT, syncThemeEvent);
-    window.addEventListener('storage', syncStorage);
-
-    return () => {
-      window.removeEventListener(THEME_EVENT, syncThemeEvent);
-      window.removeEventListener('storage', syncStorage);
-    };
-  }, []);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -81,12 +38,6 @@ export function AccountMenu({
       window.removeEventListener('keydown', handleEscape);
     };
   }, []);
-
-  const applyTheme = (nextTheme: ThemeOption) => {
-    applyThemePreference(nextTheme);
-    setStoredThemePreference(nextTheme);
-    setTheme(nextTheme);
-  };
 
   return (
     <div className="relative" ref={menuRef}>
@@ -131,29 +82,6 @@ export function AccountMenu({
               <Lifebuoy className="h-5 w-5 text-[#a4a7ae]" weight="regular" />
               <span className="text-[14px] font-semibold text-[#414651] group-hover:text-[#252b37]">Help Center</span>
             </Link>
-
-            <div className="flex cursor-default items-center justify-between rounded-md px-2.5 py-2">
-              <span className="text-[14px] font-semibold text-[#414651]">Theme</span>
-              <div className="flex items-center gap-1">
-                {themeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    className={cn(
-                      'flex h-8 w-8 items-center justify-center rounded-md border transition duration-100',
-                      theme === option.value
-                        ? 'border-[#2563eb] bg-[#2563eb] text-white'
-                        : 'border-[#eef0f3] bg-white text-[#a4a7ae] hover:bg-[#f8f9fb] hover:text-[#717680]'
-                    )}
-                    aria-label={option.label}
-                    title={option.label}
-                    onClick={() => applyTheme(option.value)}
-                    type="button"
-                  >
-                    <option.icon className="h-4 w-4" weight="regular" />
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* Divider + sign out */}
