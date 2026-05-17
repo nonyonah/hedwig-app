@@ -16,5 +16,13 @@ export default async function DashboardPage() {
 
   const greetingName = shell.currentUser.firstName || shell.currentUser.email.split('@')[0] || 'there';
 
-  return <DashboardClient greetingName={greetingName} data={data} billing={billing} isDemo={session.isMockSession} />;
+  return (
+    <DashboardClient
+      greetingName={greetingName}
+      userKey={shell.currentUser.id || shell.currentUser.email}
+      data={data}
+      billing={billing}
+      isDemo={session.isMockSession}
+    />
+  );
 }

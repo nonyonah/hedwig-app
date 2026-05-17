@@ -13,7 +13,6 @@ import {
   IdentificationCard,
   Link as LinkIcon,
   Repeat,
-  ShareNetwork,
   Sparkle,
   X
 } from '@/components/ui/lucide-icons';
@@ -72,11 +71,13 @@ function getTimeOfDayGreeting(hour: number) {
 
 export function DashboardClient({
   greetingName,
+  userKey,
   data,
   billing,
   isDemo = false,
 }: {
   greetingName: string;
+  userKey: string;
   data: DashboardData;
   billing: BillingStatusSummary | null;
   isDemo?: boolean;
@@ -86,6 +87,10 @@ export function DashboardClient({
   const [showCoreIntro, setShowCoreIntro] = useState(false);
   const [coreIntroStep, setCoreIntroStep] = useState(0);
   const canUseAssistantSummary = canUseFeature('assistant_summary_advanced', billing);
+  const coreIntroStorageKey = useMemo(
+    () => `${CORE_INTRO_STORAGE_KEY}:${userKey || 'anonymous'}`,
+    [userKey]
+  );
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -257,15 +262,15 @@ export function DashboardClient({
       return;
     }
 
-    setShowCoreIntro(window.localStorage.getItem(CORE_INTRO_STORAGE_KEY) !== 'true');
-  }, [hasCreatedPaymentWorkflow, isDemo]);
+    setShowCoreIntro(window.localStorage.getItem(coreIntroStorageKey) !== 'true');
+  }, [coreIntroStorageKey, hasCreatedPaymentWorkflow, isDemo]);
 
   const dismissCoreIntro = useCallback(() => {
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(CORE_INTRO_STORAGE_KEY, 'true');
+      window.localStorage.setItem(coreIntroStorageKey, 'true');
     }
     setShowCoreIntro(false);
-  }, []);
+  }, [coreIntroStorageKey]);
 
   const startFirstInvoiceFromIntro = useCallback(() => {
     dismissCoreIntro();
