@@ -60,12 +60,12 @@ export function AppDownloadNudge() {
         </div>
         <p className="text-[13px] font-medium text-white">
           Hedwig is better on mobile —{' '}
-          <span className="text-[#93c5fd]">get the app for full access</span>
+          <span className="text-[#93c5fd]">access funds and withdraw to your bank</span>
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <a
-          href="https://testflight.apple.com/join/aKXnyjP4n"
+          href="https://testflight.apple.com/join/aKXnyjP4"
           target="_blank"
           rel="noopener noreferrer"
           className="transition-opacity hover:opacity-80"
