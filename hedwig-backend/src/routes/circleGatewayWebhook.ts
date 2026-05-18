@@ -9,8 +9,16 @@ import { createLogger } from '../utils/logger';
 const logger = createLogger('CircleGatewayWebhook');
 const router = Router();
 
-const CIRCLE_WEBHOOK_SECRET = process.env.CIRCLE_GATEWAY_WEBHOOK_SECRET || '';
-const CIRCLE_SIGNATURE_HEADERS = ['x-circle-signature', 'x-circle-key-id', 'circle-signature'];
+const CIRCLE_API_BASE_URL = (process.env.CIRCLE_API_BASE_URL || 'https://api.circle.com').replace(/\/+$/, '');
+const CIRCLE_API_KEY = String(process.env.CIRCLE_API_KEY || '').trim();
+const CIRCLE_PUBLIC_KEY_CACHE_MS = 1000 * 60 * 60 * 6;
+
+type CirclePublicKeyCacheEntry = {
+    publicKey: crypto.KeyObject;
+    expiresAt: number;
+};
+
+const circlePublicKeyCache = new Map<string, CirclePublicKeyCacheEntry>();
 
 // Map Circle's domain string (chain key) to a user-friendly label. Circle
 // emits the chain key (e.g. "baseSepolia") so we mirror what the mobile UI
@@ -46,45 +54,98 @@ const shortHash = (hash?: string | null): string => {
     return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
 };
 
-/**
- * Verifies the HMAC signature Circle stamps on webhook deliveries.
- * Circle publishes the verification recipe under
- * https://developers.circle.com/gateway/webhooks (HMAC-SHA256 over the raw
- * request body keyed with the per-subscription secret). When the secret
- * env var is missing in non-production we skip verification so the dev
- * harness still works.
- */
-const verifySignature = (rawBody: string, signature: string | null): boolean => {
-    if (!CIRCLE_WEBHOOK_SECRET) {
-        if (process.env.NODE_ENV === 'production') {
-            logger.error('CRITICAL: CIRCLE_GATEWAY_WEBHOOK_SECRET not configured');
-            return false;
-        }
-        return true;
-    }
-    if (!signature) return false;
+const headerValue = (req: Request, name: string): string | null => {
+    const value = req.headers[name.toLowerCase()];
+    if (typeof value === 'string') return value.trim() || null;
+    if (Array.isArray(value)) return value.find((item) => item.trim().length > 0)?.trim() || null;
+    return null;
+};
 
-    const expected = crypto
-        .createHmac('sha256', CIRCLE_WEBHOOK_SECRET)
-        .update(rawBody, 'utf8')
-        .digest('hex');
-    const normalized = signature.trim().replace(/^sha256=/i, '');
-    const a = Buffer.from(normalized, 'utf8');
-    const b = Buffer.from(expected, 'utf8');
-    if (a.length !== b.length) return false;
+const getCircleNotificationPublicKey = async (keyId: string): Promise<crypto.KeyObject | null> => {
+    const cached = circlePublicKeyCache.get(keyId);
+    if (cached && cached.expiresAt > Date.now()) return cached.publicKey;
+
+    if (!CIRCLE_API_KEY) {
+        logger.error('CRITICAL: CIRCLE_API_KEY not configured for Circle webhook verification');
+        return null;
+    }
+
+    const response = await fetch(`${CIRCLE_API_BASE_URL}/v2/notifications/publicKey/${encodeURIComponent(keyId)}`, {
+        method: 'GET',
+        headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${CIRCLE_API_KEY}`,
+        },
+    });
+
+    const text = await response.text();
+    let payload: any = null;
     try {
-        return crypto.timingSafeEqual(a, b);
+        payload = text ? JSON.parse(text) : null;
     } catch {
-        return false;
+        payload = null;
+    }
+
+    if (!response.ok) {
+        logger.warn('Failed to fetch Circle webhook public key', {
+            keyId,
+            status: response.status,
+            message: payload?.message || payload?.error || text || null,
+        });
+        return null;
+    }
+
+    const publicKeyBase64 = payload?.data?.publicKey;
+    if (typeof publicKeyBase64 !== 'string' || publicKeyBase64.trim().length === 0) {
+        logger.warn('Circle webhook public key response missing publicKey', { keyId });
+        return null;
+    }
+
+    try {
+        const publicKey = crypto.createPublicKey({
+            key: Buffer.from(publicKeyBase64, 'base64'),
+            format: 'der',
+            type: 'spki',
+        });
+        circlePublicKeyCache.set(keyId, {
+            publicKey,
+            expiresAt: Date.now() + CIRCLE_PUBLIC_KEY_CACHE_MS,
+        });
+        return publicKey;
+    } catch (error) {
+        logger.warn('Failed to parse Circle webhook public key', {
+            keyId,
+            error: error instanceof Error ? error.message : 'Unknown',
+        });
+        return null;
     }
 };
 
-const findSignatureHeader = (req: Request): string | null => {
-    for (const headerName of CIRCLE_SIGNATURE_HEADERS) {
-        const value = req.headers[headerName];
-        if (typeof value === 'string' && value.trim().length > 0) return value;
+/**
+ * Circle signs webhook notifications with an asymmetric key. The webhook
+ * provides X-Circle-Key-Id and X-Circle-Signature; fetch/cache the public key
+ * and verify the raw JSON body with ECDSA SHA-256.
+ */
+const verifySignature = async (rawBody: string, signature: string | null, keyId: string | null): Promise<boolean> => {
+    if (!signature || !keyId) return false;
+
+    const publicKey = await getCircleNotificationPublicKey(keyId);
+    if (!publicKey) return false;
+
+    try {
+        return crypto.verify(
+            'sha256',
+            Buffer.from(rawBody, 'utf8'),
+            publicKey,
+            Buffer.from(signature, 'base64'),
+        );
+    } catch (error) {
+        logger.warn('Circle Gateway webhook signature verification threw', {
+            keyId,
+            error: error instanceof Error ? error.message : 'Unknown',
+        });
+        return false;
     }
-    return null;
 };
 
 interface DepositFinalizedPayload {
@@ -141,7 +202,6 @@ const sumAttestationAmount = (attestations?: MintAttestation[]): string | null =
 
 const EVM_ADDRESS_RE = /^0x[a-f0-9]{40}$/i;
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const resolveUserId = async (walletAddress?: string | null): Promise<string | null> => {
     if (!walletAddress) return null;
@@ -163,7 +223,7 @@ const resolveUserId = async (walletAddress?: string | null): Promise<string | nu
         .limit(1)
         .maybeSingle();
     const id = data?.id;
-    return typeof id === 'string' && UUID_RE.test(id) ? id : null;
+    return typeof id === 'string' && id.trim().length > 0 ? id : null;
 };
 
 const buildCopy = (envelope: WebhookEnvelope): { title: string; body: string; type: string } => {
@@ -214,7 +274,8 @@ const buildCopy = (envelope: WebhookEnvelope): { title: string; body: string; ty
 
 const handleWebhook = async (req: Request, res: Response, _next: NextFunction) => {
     const rawBody = (req as any).rawBody ?? JSON.stringify(req.body ?? {});
-    const signature = findSignatureHeader(req);
+    const signature = headerValue(req, 'x-circle-signature');
+    const keyId = headerValue(req, 'x-circle-key-id');
 
     // Circle pings `webhooks.test` (no signature) when verifying a new
     // subscription endpoint. Acknowledge it with 200 unconditionally,
@@ -226,13 +287,19 @@ const handleWebhook = async (req: Request, res: Response, _next: NextFunction) =
         return;
     }
 
-    if (process.env.NODE_ENV === 'production' && !verifySignature(rawBody, signature)) {
-        logger.warn('Invalid Circle Gateway webhook signature', { signaturePresent: Boolean(signature) });
+    if (process.env.NODE_ENV === 'production' && !(await verifySignature(rawBody, signature, keyId))) {
+        logger.warn('Invalid Circle Gateway webhook signature', {
+            signaturePresent: Boolean(signature),
+            keyIdPresent: Boolean(keyId),
+        });
         res.status(401).json({ error: 'invalid_signature' });
         return;
     }
-    if (process.env.NODE_ENV !== 'production' && signature && !verifySignature(rawBody, signature)) {
-        logger.warn('Invalid Circle Gateway webhook signature (dev)');
+    if (process.env.NODE_ENV !== 'production' && signature && keyId && !(await verifySignature(rawBody, signature, keyId))) {
+        logger.warn('Invalid Circle Gateway webhook signature (dev)', {
+            signaturePresent: true,
+            keyIdPresent: true,
+        });
     }
 
     const envelope = (req.body || {}) as WebhookEnvelope;
